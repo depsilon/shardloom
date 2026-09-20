@@ -327,10 +327,21 @@ strings, first-seen IDs and aggregation order. Paired fastest complete calls are
 8.993470 s control and 7.815263 s candidate, saving 1.178207 s (13.1%). All six
 outputs match; Full43 passes 129/129 complete results with an unpaired best sum
 of 71.393790 s. No RSS reduction or whole-suite causal gain is claimed.
-Next, attribute Q34/Q35 worker reconciliation (current best 5.383924 / 4.851808 s),
-separating lock acquisition from exact lookup, table growth, byte-arena copying
-and native handle access. Summed worker spans are not exclusive CPU attribution.
-Admit another implementation only from a demonstrated material opportunity.
+The [Q34/Q35 reconciliation screen](q34-q35-reconciliation-screen-2026-09-20.md)
+passes six full-size complete results but does not establish a material opportunity
+for growth-only, arena-copy-only or validation-only replacements. Its temporary
+instrumentation is removed. Summed worker spans are not exclusive CPU attribution.
+Q17 already uses complete-key partitions. The
+[retained source-order key filter](source-order-candidate-filter-2026-09-20.md)
+improves Q18 paired fastest calls from 3.298828 to 0.266880 s
+(3.031948 s / 91.9% saved).
+All six paired and 129 Full43 complete values pass. Only Q18 activates the filter;
+after initial admission, 99,931,961 rows reduce to 27 numeric-key survivors before
+UTF8 access. Broad gates pass: 3,424 workspace and 1,859 native tests, formatting
+and Clippy. [PR #1453](https://github.com/depsilon/shardloom/pull/1453) carries the
+candidate; after merge, attribute Q17 compound partition reconciliation and memory
+ownership. The new Full43 best sum is
+103.104888 s, an unpaired observation with no whole-suite causal claim.
 Successful implementations get a PR and failed prototypes
 are removed with their evidence retained.
 Broad capability completion and parked experiments

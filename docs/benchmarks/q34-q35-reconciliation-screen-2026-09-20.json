@@ -1,0 +1,997 @@
+{
+  "schema": "q34.q35.reconciliation_screen.v1",
+  "source_documents": {
+    "q34-diagnostic-audit.json": {
+      "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q34-diagnostic-audit.json",
+      "sha256": "ae1c1dfcb9eee18f17149111e8798bbc31059b1c68893f29e9bab63cbd0aa124"
+    },
+    "q34-diagnostic-binary-identity.json": {
+      "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q34-diagnostic-binary-identity.json",
+      "sha256": "7f880b8ee0efd7d8cafe296a1f876ac4006058a540d25311690db5df20d6aeaf"
+    },
+    "q34-q35-stack-attribution.json": {
+      "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/q34-q35-stack-attribution.json",
+      "sha256": "e9c90242a6dc387ee0c22bad7a6136a6245e5cf9cfc9d5e10535728119d9ad10"
+    }
+  },
+  "scope": {
+    "diagnostic": "temporary instrumentation; elapsed runs excluded from ship gates; summed worker spans are neither CPU time nor additive wall time",
+    "comparison": "diagnostic scope is not a performance comparison; no speedup claimed",
+    "admission": "growth/probing candidate screened, not admitted"
+  },
+  "retained_runtime": {
+    "commit": "3e3b887f2e6ada7be88751931776fb03a1a55852",
+    "artifact": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/performance-pr-ingest-4f2c7b970078-r1.vortex",
+    "full43": "full43_20260920T093549118609Z"
+  },
+  "diagnostic_binary": {
+    "commit": "6a17dbb2f6e280a8cab7c137018b3c597f011508",
+    "path": "/Users/dylan/LocalData/shardloom/ship-drop-20260919/diagnostic-6a17dbb2",
+    "sha256": "e2a9a3fb76de934ce3219c696a686b4cf61c61dd5d2f8b4380e9482c6d45f1cf",
+    "build_command": "cargo build --release -p shardloom-cli --features release-user-surfaces"
+  },
+  "diagnostic_calls": [
+    {
+      "query": 34,
+      "run": 1,
+      "seconds": 6.998917917000654,
+      "native_peak_rss_bytes": 4107091968,
+      "user_cpu_seconds": 20.988137,
+      "system_cpu_seconds": 7.657705,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "totals": {
+        "arena_allocate_nanos": 4284505,
+        "arena_copy_nanos": 1997602871,
+        "arena_growths": 1274,
+        "arena_retire_nanos": 83846190,
+        "initialized_slots": 134216704,
+        "insert_calls": 18342019,
+        "insert_probes": 32985666,
+        "lookup_calls": 29203677,
+        "lookup_probes": 48617649,
+        "new_bytes": 3374058173,
+        "rehash_probes": 39152268,
+        "relocated_bytes": 4642813516,
+        "relocated_slots": 33553920,
+        "scanned_slots": 67107840,
+        "table_allocate_nanos": 3392598,
+        "table_growths": 1088,
+        "table_initialize_nanos": 805023338,
+        "table_rehash_nanos": 487296546,
+        "table_retire_nanos": 37622916
+      },
+      "partition_maxima": {
+        "arena_allocate_nanos": 694874,
+        "arena_copy_nanos": 154078125,
+        "arena_growths": 20,
+        "arena_retire_nanos": 18389459,
+        "initialized_slots": 2097136,
+        "insert_calls": 287632,
+        "insert_probes": 518664,
+        "lookup_calls": 461421,
+        "lookup_probes": 768585,
+        "new_bytes": 53204820,
+        "rehash_probes": 613046,
+        "relocated_bytes": 104855886,
+        "relocated_slots": 524280,
+        "scanned_slots": 1048560,
+        "table_allocate_nanos": 719416,
+        "table_growths": 17,
+        "table_initialize_nanos": 52350249,
+        "table_rehash_nanos": 16154791,
+        "table_retire_nanos": 3712080
+      },
+      "reconcile_nanos": 18299960027,
+      "lock_wait_nanos": 17097671438,
+      "worker_busy_nanos": 53496284425,
+      "partial_count_nanos": 11658569722,
+      "canonicalization_nanos": 5380713429
+    },
+    {
+      "query": 34,
+      "run": 2,
+      "seconds": 4.828149207998649,
+      "native_peak_rss_bytes": 4830560256,
+      "user_cpu_seconds": 23.165031,
+      "system_cpu_seconds": 4.843406,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "totals": {
+        "arena_allocate_nanos": 3196845,
+        "arena_copy_nanos": 1117318084,
+        "arena_growths": 1279,
+        "arena_retire_nanos": 26300026,
+        "initialized_slots": 134216704,
+        "insert_calls": 18342019,
+        "insert_probes": 32981874,
+        "lookup_calls": 29203677,
+        "lookup_probes": 48590860,
+        "new_bytes": 3374058173,
+        "rehash_probes": 39151852,
+        "relocated_bytes": 4332326629,
+        "relocated_slots": 33553920,
+        "scanned_slots": 67107840,
+        "table_allocate_nanos": 2978506,
+        "table_growths": 1088,
+        "table_initialize_nanos": 1025860205,
+        "table_rehash_nanos": 479565984,
+        "table_retire_nanos": 23996785
+      },
+      "partition_maxima": {
+        "arena_allocate_nanos": 313333,
+        "arena_copy_nanos": 42034167,
+        "arena_growths": 20,
+        "arena_retire_nanos": 3262332,
+        "initialized_slots": 2097136,
+        "insert_calls": 287632,
+        "insert_probes": 518786,
+        "lookup_calls": 461422,
+        "lookup_probes": 768308,
+        "new_bytes": 53204820,
+        "rehash_probes": 612945,
+        "relocated_bytes": 97515928,
+        "relocated_slots": 524280,
+        "scanned_slots": 1048560,
+        "table_allocate_nanos": 491916,
+        "table_growths": 17,
+        "table_initialize_nanos": 73838289,
+        "table_rehash_nanos": 18483334,
+        "table_retire_nanos": 2624332
+      },
+      "reconcile_nanos": 12549667159,
+      "lock_wait_nanos": 10380843225,
+      "worker_busy_nanos": 41340641761,
+      "partial_count_nanos": 13092834373,
+      "canonicalization_nanos": 4526342054
+    },
+    {
+      "query": 34,
+      "run": 3,
+      "seconds": 5.846900458003802,
+      "native_peak_rss_bytes": 5177425920,
+      "user_cpu_seconds": 26.536261,
+      "system_cpu_seconds": 6.287159,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "totals": {
+        "arena_allocate_nanos": 3671129,
+        "arena_copy_nanos": 1062355705,
+        "arena_growths": 1279,
+        "arena_retire_nanos": 33148355,
+        "initialized_slots": 134216704,
+        "insert_calls": 18342019,
+        "insert_probes": 32984153,
+        "lookup_calls": 29203702,
+        "lookup_probes": 48617110,
+        "new_bytes": 3374058173,
+        "rehash_probes": 39151540,
+        "relocated_bytes": 4332320959,
+        "relocated_slots": 33553920,
+        "scanned_slots": 67107840,
+        "table_allocate_nanos": 2479247,
+        "table_growths": 1088,
+        "table_initialize_nanos": 1198957569,
+        "table_rehash_nanos": 531721435,
+        "table_retire_nanos": 21015675
+      },
+      "partition_maxima": {
+        "arena_allocate_nanos": 910377,
+        "arena_copy_nanos": 53949291,
+        "arena_growths": 20,
+        "arena_retire_nanos": 3396289,
+        "initialized_slots": 2097136,
+        "insert_calls": 287632,
+        "insert_probes": 518604,
+        "lookup_calls": 461420,
+        "lookup_probes": 768553,
+        "new_bytes": 53204820,
+        "rehash_probes": 612941,
+        "relocated_bytes": 97515669,
+        "relocated_slots": 524280,
+        "scanned_slots": 1048560,
+        "table_allocate_nanos": 276627,
+        "table_growths": 17,
+        "table_initialize_nanos": 52554249,
+        "table_rehash_nanos": 14731456,
+        "table_retire_nanos": 1902915
+      },
+      "reconcile_nanos": 16431763194,
+      "lock_wait_nanos": 12034267588,
+      "worker_busy_nanos": 50173050006,
+      "partial_count_nanos": 16114202219,
+      "canonicalization_nanos": 4804710180
+    },
+    {
+      "query": 35,
+      "run": 1,
+      "seconds": 5.981039917001908,
+      "native_peak_rss_bytes": 5028528128,
+      "user_cpu_seconds": 23.009747,
+      "system_cpu_seconds": 7.715475,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "totals": {
+        "arena_allocate_nanos": 3972341,
+        "arena_copy_nanos": 1065867097,
+        "arena_growths": 1280,
+        "arena_retire_nanos": 31587337,
+        "initialized_slots": 134216704,
+        "insert_calls": 18342019,
+        "insert_probes": 32984898,
+        "lookup_calls": 29203682,
+        "lookup_probes": 48593772,
+        "new_bytes": 3374058173,
+        "rehash_probes": 39152100,
+        "relocated_bytes": 4370855364,
+        "relocated_slots": 33553920,
+        "scanned_slots": 67107840,
+        "table_allocate_nanos": 2363917,
+        "table_growths": 1088,
+        "table_initialize_nanos": 1017434394,
+        "table_rehash_nanos": 485851320,
+        "table_retire_nanos": 24234081
+      },
+      "partition_maxima": {
+        "arena_allocate_nanos": 1374624,
+        "arena_copy_nanos": 63178622,
+        "arena_growths": 20,
+        "arena_retire_nanos": 4199415,
+        "initialized_slots": 2097136,
+        "insert_calls": 287632,
+        "insert_probes": 518590,
+        "lookup_calls": 461422,
+        "lookup_probes": 767913,
+        "new_bytes": 53204820,
+        "rehash_probes": 612927,
+        "relocated_bytes": 96991676,
+        "relocated_slots": 524280,
+        "scanned_slots": 1048560,
+        "table_allocate_nanos": 81583,
+        "table_growths": 17,
+        "table_initialize_nanos": 67112416,
+        "table_rehash_nanos": 10713002,
+        "table_retire_nanos": 1822540
+      },
+      "reconcile_nanos": 17281268368,
+      "lock_wait_nanos": 14346064687,
+      "worker_busy_nanos": 50540580921,
+      "partial_count_nanos": 13104419200,
+      "canonicalization_nanos": 4809450462
+    },
+    {
+      "query": 35,
+      "run": 2,
+      "seconds": 5.042533458996331,
+      "native_peak_rss_bytes": 5238669312,
+      "user_cpu_seconds": 20.151541,
+      "system_cpu_seconds": 5.902602,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "totals": {
+        "arena_allocate_nanos": 7751369,
+        "arena_copy_nanos": 877207790,
+        "arena_growths": 1279,
+        "arena_retire_nanos": 25727481,
+        "initialized_slots": 134216704,
+        "insert_calls": 18342019,
+        "insert_probes": 32984918,
+        "lookup_calls": 29203711,
+        "lookup_probes": 48613834,
+        "new_bytes": 3374058173,
+        "rehash_probes": 39151083,
+        "relocated_bytes": 4332317318,
+        "relocated_slots": 33553920,
+        "scanned_slots": 67107840,
+        "table_allocate_nanos": 2922672,
+        "table_growths": 1088,
+        "table_initialize_nanos": 719472805,
+        "table_rehash_nanos": 475710918,
+        "table_retire_nanos": 30032214
+      },
+      "partition_maxima": {
+        "arena_allocate_nanos": 4856207,
+        "arena_copy_nanos": 35568835,
+        "arena_growths": 20,
+        "arena_retire_nanos": 3375290,
+        "initialized_slots": 2097136,
+        "insert_calls": 287632,
+        "insert_probes": 518543,
+        "lookup_calls": 461423,
+        "lookup_probes": 768451,
+        "new_bytes": 53204820,
+        "rehash_probes": 612915,
+        "relocated_bytes": 97515747,
+        "relocated_slots": 524280,
+        "scanned_slots": 1048560,
+        "table_allocate_nanos": 524917,
+        "table_growths": 17,
+        "table_initialize_nanos": 50774000,
+        "table_rehash_nanos": 11218751,
+        "table_retire_nanos": 7160500
+      },
+      "reconcile_nanos": 14702383281,
+      "lock_wait_nanos": 11412987802,
+      "worker_busy_nanos": 42401616571,
+      "partial_count_nanos": 10524719400,
+      "canonicalization_nanos": 5016980635
+    },
+    {
+      "query": 35,
+      "run": 3,
+      "seconds": 5.449868083000183,
+      "native_peak_rss_bytes": 5306941440,
+      "user_cpu_seconds": 22.525322,
+      "system_cpu_seconds": 6.266006,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "totals": {
+        "arena_allocate_nanos": 3173873,
+        "arena_copy_nanos": 1025610524,
+        "arena_growths": 1278,
+        "arena_retire_nanos": 19596957,
+        "initialized_slots": 134216704,
+        "insert_calls": 18342019,
+        "insert_probes": 32980892,
+        "lookup_calls": 29203679,
+        "lookup_probes": 48592465,
+        "new_bytes": 3374058173,
+        "rehash_probes": 39151492,
+        "relocated_bytes": 4369017630,
+        "relocated_slots": 33553920,
+        "scanned_slots": 67107840,
+        "table_allocate_nanos": 5102755,
+        "table_growths": 1088,
+        "table_initialize_nanos": 746223457,
+        "table_rehash_nanos": 566791478,
+        "table_retire_nanos": 37147313
+      },
+      "partition_maxima": {
+        "arena_allocate_nanos": 412039,
+        "arena_copy_nanos": 101480003,
+        "arena_growths": 20,
+        "arena_retire_nanos": 1905042,
+        "initialized_slots": 2097136,
+        "insert_calls": 287632,
+        "insert_probes": 518429,
+        "lookup_calls": 461421,
+        "lookup_probes": 767929,
+        "new_bytes": 53204820,
+        "rehash_probes": 613016,
+        "relocated_bytes": 98564543,
+        "relocated_slots": 524280,
+        "scanned_slots": 1048560,
+        "table_allocate_nanos": 2192333,
+        "table_growths": 17,
+        "table_initialize_nanos": 22716249,
+        "table_rehash_nanos": 14271499,
+        "table_retire_nanos": 4033207
+      },
+      "reconcile_nanos": 16366386820,
+      "lock_wait_nanos": 11344623456,
+      "worker_busy_nanos": 46282710303,
+      "partial_count_nanos": 12519336597,
+      "canonicalization_nanos": 5318770516
+    }
+  ],
+  "stack_attribution": {
+    "scope": "exclusive sampled stack weights across nine compute threads; blocking samples remain separate; not CPU time or additive wall time; inlined code unresolved",
+    "summary": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T094739754196Z/summary.json",
+    "summary_sha256": "1e3412b8c3fc379504a815e7dde584ccd72f185d1af3ad153939b94358ddb8d3",
+    "binary_sha256": "0deff1e7d58857aeb24cc32154ab81d0095defae843f6e152ea6a34c979a597e",
+    "complete_values_verified": 6,
+    "results": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T094739754196Z/q34_run1.sample.txt",
+        "sha256": "c6384fefc36c55377be777f4dfdb9ba1ec77a30d1415dad014ca93460ea5142d",
+        "compute_threads": 9,
+        "total_compute_stack_samples": 14013,
+        "categories": {
+          "reducer_blocking_wait": 3370,
+          "partition_inlined_or_self": 2375,
+          "partition_byte_equality": 996,
+          "partition_payload_or_table_copy": 725,
+          "partition_native_handle_leaf": 298,
+          "partition_allocation_or_release_leaf": 85,
+          "partition_other_leaf": 123,
+          "other_executable_or_unresolved_leaf": 514,
+          "chunk_count_other_leaf": 3758,
+          "chunk_utf8_validation": 1293,
+          "other_blocking_wait": 476
+        },
+        "top_leaf_samples": [
+          [
+            "__psynch_mutexwait",
+            3368
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6reduce",
+            2375
+          ],
+          [
+            "_RNvNtNtCslWxY2MhVcag_4core3str8converts9from_utf8",
+            1293
+          ],
+          [
+            "_platform_memcmp",
+            1232
+          ],
+          [
+            "ZSTD_decompressSequences",
+            1190
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial18count_string_chunk",
+            871
+          ],
+          [
+            "_platform_memmove",
+            745
+          ],
+          [
+            "__psynch_cvwait",
+            476
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes11shared_drop",
+            391
+          ],
+          [
+            "_RINvMs4_NtCs8Jclxa3Ekd7_13vortex_buffer6bufferINtB6_6BufferhE20slice_with_alignmentINtNtNtCslWxY2MhVcag_4core3ops5range5RangejEECskwvRqg8YZoK_16shardloom_vortex",
+            345
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes12shared_clone",
+            328
+          ],
+          [
+            "_RNvCsd8hACB44Z6P_10rustc_hash10hash_bytes",
+            251
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array10walk_views",
+            177
+          ],
+          [
+            "_RNvMs_NtNtNtCs5uM6hTuRzJl_12vortex_array6arrays10varbinview5arrayNtB4_14VarBinViewData8bytes_at",
+            136
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array14zstd_value_len",
+            131
+          ],
+          [
+            "<deduplicated_symbol>",
+            109
+          ],
+          [
+            "_kernelrpc_mach_vm_deallocate_trap",
+            94
+          ],
+          [
+            "ZSTD_buildFSETable",
+            84
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6select",
+            76
+          ],
+          [
+            "_RINvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partialNtB3_18StringCountPartial18arrange_partitionsKj40_EB7_",
+            59
+          ]
+        ]
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T094739754196Z/q34_run2.sample.txt",
+        "sha256": "25f8df03af84eba830e4730e974007050ab220ef08d40aa099967f2f5bdcf55c",
+        "compute_threads": 9,
+        "total_compute_stack_samples": 13635,
+        "categories": {
+          "partition_inlined_or_self": 2067,
+          "partition_payload_or_table_copy": 742,
+          "reducer_blocking_wait": 3219,
+          "partition_byte_equality": 1023,
+          "partition_native_handle_leaf": 307,
+          "partition_allocation_or_release_leaf": 75,
+          "partition_other_leaf": 122,
+          "other_executable_or_unresolved_leaf": 494,
+          "chunk_count_other_leaf": 3979,
+          "chunk_utf8_validation": 1348,
+          "other_blocking_wait": 259
+        },
+        "top_leaf_samples": [
+          [
+            "__psynch_mutexwait",
+            3219
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6reduce",
+            2067
+          ],
+          [
+            "_RNvNtNtCslWxY2MhVcag_4core3str8converts9from_utf8",
+            1348
+          ],
+          [
+            "_platform_memcmp",
+            1298
+          ],
+          [
+            "ZSTD_decompressSequences",
+            1236
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial18count_string_chunk",
+            882
+          ],
+          [
+            "_platform_memmove",
+            760
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes11shared_drop",
+            422
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes12shared_clone",
+            334
+          ],
+          [
+            "_RINvMs4_NtCs8Jclxa3Ekd7_13vortex_buffer6bufferINtB6_6BufferhE20slice_with_alignmentINtNtNtCslWxY2MhVcag_4core3ops5range5RangejEECskwvRqg8YZoK_16shardloom_vortex",
+            321
+          ],
+          [
+            "_RNvCsd8hACB44Z6P_10rustc_hash10hash_bytes",
+            296
+          ],
+          [
+            "__psynch_cvwait",
+            259
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array10walk_views",
+            189
+          ],
+          [
+            "_RNvMs_NtNtNtCs5uM6hTuRzJl_12vortex_array6arrays10varbinview5arrayNtB4_14VarBinViewData8bytes_at",
+            155
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array14zstd_value_len",
+            129
+          ],
+          [
+            "<deduplicated_symbol>",
+            116
+          ],
+          [
+            "ZSTD_buildFSETable",
+            91
+          ],
+          [
+            "_kernelrpc_mach_vm_deallocate_trap",
+            83
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial14allocate_slots",
+            74
+          ],
+          [
+            "_RINvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partialNtB3_18StringCountPartial18arrange_partitionsKj40_EB7_",
+            67
+          ]
+        ]
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T094739754196Z/q34_run3.sample.txt",
+        "sha256": "46d30a74756867421bd4e419911bedef920e28b0735d4980dec04c766d0fef44",
+        "compute_threads": 9,
+        "total_compute_stack_samples": 11529,
+        "categories": {
+          "reducer_blocking_wait": 2597,
+          "partition_inlined_or_self": 1675,
+          "partition_byte_equality": 736,
+          "partition_payload_or_table_copy": 544,
+          "partition_native_handle_leaf": 295,
+          "partition_other_leaf": 119,
+          "other_executable_or_unresolved_leaf": 470,
+          "partition_allocation_or_release_leaf": 55,
+          "chunk_count_other_leaf": 3544,
+          "chunk_utf8_validation": 1246,
+          "other_blocking_wait": 248
+        },
+        "top_leaf_samples": [
+          [
+            "__psynch_mutexwait",
+            2597
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6reduce",
+            1675
+          ],
+          [
+            "_RNvNtNtCslWxY2MhVcag_4core3str8converts9from_utf8",
+            1246
+          ],
+          [
+            "ZSTD_decompressSequences",
+            1071
+          ],
+          [
+            "_platform_memcmp",
+            932
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial18count_string_chunk",
+            833
+          ],
+          [
+            "_platform_memmove",
+            560
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes11shared_drop",
+            419
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes12shared_clone",
+            330
+          ],
+          [
+            "_RINvMs4_NtCs8Jclxa3Ekd7_13vortex_buffer6bufferINtB6_6BufferhE20slice_with_alignmentINtNtNtCslWxY2MhVcag_4core3ops5range5RangejEECskwvRqg8YZoK_16shardloom_vortex",
+            303
+          ],
+          [
+            "_RNvCsd8hACB44Z6P_10rustc_hash10hash_bytes",
+            248
+          ],
+          [
+            "__psynch_cvwait",
+            248
+          ],
+          [
+            "_RNvMs_NtNtNtCs5uM6hTuRzJl_12vortex_array6arrays10varbinview5arrayNtB4_14VarBinViewData8bytes_at",
+            153
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array10walk_views",
+            152
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array14zstd_value_len",
+            132
+          ],
+          [
+            "<deduplicated_symbol>",
+            93
+          ],
+          [
+            "_RINvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partialNtB3_18StringCountPartial18arrange_partitionsKj40_EB7_",
+            84
+          ],
+          [
+            "ZSTD_buildFSETable",
+            79
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial14allocate_slots",
+            64
+          ],
+          [
+            "_kernelrpc_mach_vm_deallocate_trap",
+            62
+          ]
+        ]
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T094739754196Z/q35_run1.sample.txt",
+        "sha256": "b8c6be975e7a92c982e357c5abb0055721b4c983bcca6308c8aca5a4eccabaf6",
+        "compute_threads": 9,
+        "total_compute_stack_samples": 12456,
+        "categories": {
+          "reducer_blocking_wait": 3003,
+          "partition_inlined_or_self": 1833,
+          "partition_byte_equality": 706,
+          "partition_payload_or_table_copy": 628,
+          "partition_native_handle_leaf": 262,
+          "partition_other_leaf": 144,
+          "partition_allocation_or_release_leaf": 71,
+          "other_executable_or_unresolved_leaf": 517,
+          "chunk_count_other_leaf": 3711,
+          "chunk_utf8_validation": 1317,
+          "other_blocking_wait": 264
+        },
+        "top_leaf_samples": [
+          [
+            "__psynch_mutexwait",
+            3004
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6reduce",
+            1833
+          ],
+          [
+            "_RNvNtNtCslWxY2MhVcag_4core3str8converts9from_utf8",
+            1317
+          ],
+          [
+            "ZSTD_decompressSequences",
+            1102
+          ],
+          [
+            "_platform_memcmp",
+            961
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial18count_string_chunk",
+            844
+          ],
+          [
+            "_platform_memmove",
+            644
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes11shared_drop",
+            404
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes12shared_clone",
+            350
+          ],
+          [
+            "_RINvMs4_NtCs8Jclxa3Ekd7_13vortex_buffer6bufferINtB6_6BufferhE20slice_with_alignmentINtNtNtCslWxY2MhVcag_4core3ops5range5RangejEECskwvRqg8YZoK_16shardloom_vortex",
+            294
+          ],
+          [
+            "_RNvCsd8hACB44Z6P_10rustc_hash10hash_bytes",
+            266
+          ],
+          [
+            "__psynch_cvwait",
+            263
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array10walk_views",
+            193
+          ],
+          [
+            "_RNvMs_NtNtNtCs5uM6hTuRzJl_12vortex_array6arrays10varbinview5arrayNtB4_14VarBinViewData8bytes_at",
+            131
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array14zstd_value_len",
+            122
+          ],
+          [
+            "<deduplicated_symbol>",
+            109
+          ],
+          [
+            "_RINvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partialNtB3_18StringCountPartial18arrange_partitionsKj40_EB7_",
+            98
+          ],
+          [
+            "ZSTD_buildFSETable",
+            84
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6select",
+            83
+          ],
+          [
+            "_kernelrpc_mach_vm_deallocate_trap",
+            79
+          ]
+        ]
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T094739754196Z/q35_run2.sample.txt",
+        "sha256": "df91ce02bdb5d105d366d481c3d14096bc7e960b2008241c0d7b79baa76ed2d4",
+        "compute_threads": 9,
+        "total_compute_stack_samples": 13455,
+        "categories": {
+          "reducer_blocking_wait": 3120,
+          "partition_inlined_or_self": 1915,
+          "partition_byte_equality": 900,
+          "partition_payload_or_table_copy": 571,
+          "partition_native_handle_leaf": 358,
+          "partition_other_leaf": 123,
+          "partition_allocation_or_release_leaf": 55,
+          "other_executable_or_unresolved_leaf": 644,
+          "chunk_count_other_leaf": 3967,
+          "chunk_utf8_validation": 1361,
+          "other_blocking_wait": 441
+        },
+        "top_leaf_samples": [
+          [
+            "__psynch_mutexwait",
+            3120
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6reduce",
+            1915
+          ],
+          [
+            "_RNvNtNtCslWxY2MhVcag_4core3str8converts9from_utf8",
+            1361
+          ],
+          [
+            "_platform_memcmp",
+            1169
+          ],
+          [
+            "ZSTD_decompressSequences",
+            1169
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial18count_string_chunk",
+            889
+          ],
+          [
+            "_platform_memmove",
+            593
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes11shared_drop",
+            539
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes12shared_clone",
+            457
+          ],
+          [
+            "__psynch_cvwait",
+            441
+          ],
+          [
+            "_RINvMs4_NtCs8Jclxa3Ekd7_13vortex_buffer6bufferINtB6_6BufferhE20slice_with_alignmentINtNtNtCslWxY2MhVcag_4core3ops5range5RangejEECskwvRqg8YZoK_16shardloom_vortex",
+            369
+          ],
+          [
+            "_RNvCsd8hACB44Z6P_10rustc_hash10hash_bytes",
+            300
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array10walk_views",
+            166
+          ],
+          [
+            "_RNvMs_NtNtNtCs5uM6hTuRzJl_12vortex_array6arrays10varbinview5arrayNtB4_14VarBinViewData8bytes_at",
+            156
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array14zstd_value_len",
+            131
+          ],
+          [
+            "<deduplicated_symbol>",
+            103
+          ],
+          [
+            "ZSTD_buildFSETable",
+            90
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6select",
+            90
+          ],
+          [
+            "_RINvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partialNtB3_18StringCountPartial18arrange_partitionsKj40_EB7_",
+            83
+          ],
+          [
+            "_kernelrpc_mach_vm_deallocate_trap",
+            64
+          ]
+        ]
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T094739754196Z/q35_run3.sample.txt",
+        "sha256": "e2334d2ee3dbc428cbe72dc43b2f30bb52cbc41df7a604843bf4ac61887c11e1",
+        "compute_threads": 9,
+        "total_compute_stack_samples": 11637,
+        "categories": {
+          "reducer_blocking_wait": 2488,
+          "partition_inlined_or_self": 1738,
+          "partition_byte_equality": 982,
+          "partition_payload_or_table_copy": 476,
+          "partition_native_handle_leaf": 266,
+          "partition_other_leaf": 121,
+          "other_executable_or_unresolved_leaf": 510,
+          "partition_allocation_or_release_leaf": 49,
+          "chunk_count_other_leaf": 3479,
+          "chunk_utf8_validation": 1245,
+          "other_blocking_wait": 283
+        },
+        "top_leaf_samples": [
+          [
+            "__psynch_mutexwait",
+            2489
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6reduce",
+            1738
+          ],
+          [
+            "_RNvNtNtCslWxY2MhVcag_4core3str8converts9from_utf8",
+            1245
+          ],
+          [
+            "_platform_memcmp",
+            1169
+          ],
+          [
+            "ZSTD_decompressSequences",
+            1094
+          ],
+          [
+            "_RNvNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partial18count_string_chunk",
+            764
+          ],
+          [
+            "_platform_memmove",
+            491
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes11shared_drop",
+            364
+          ],
+          [
+            "_RNvNtCsfDVVT6al6F2_5bytes5bytes12shared_clone",
+            323
+          ],
+          [
+            "_RINvMs4_NtCs8Jclxa3Ekd7_13vortex_buffer6bufferINtB6_6BufferhE20slice_with_alignmentINtNtNtCslWxY2MhVcag_4core3ops5range5RangejEECskwvRqg8YZoK_16shardloom_vortex",
+            319
+          ],
+          [
+            "__psynch_cvwait",
+            282
+          ],
+          [
+            "_RNvCsd8hACB44Z6P_10rustc_hash10hash_bytes",
+            252
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array10walk_views",
+            164
+          ],
+          [
+            "_RNvMs_NtNtNtCs5uM6hTuRzJl_12vortex_array6arrays10varbinview5arrayNtB4_14VarBinViewData8bytes_at",
+            150
+          ],
+          [
+            "<deduplicated_symbol>",
+            119
+          ],
+          [
+            "_RNvNtCsc3HtttrP1AT_11vortex_zstd5array14zstd_value_len",
+            116
+          ],
+          [
+            "ZSTD_buildFSETable",
+            90
+          ],
+          [
+            "_RNvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives23string_count_partitionsNtB2_21StringCountPartitions6select",
+            79
+          ],
+          [
+            "_RINvMNtNtCskwvRqg8YZoK_16shardloom_vortex16local_primitives20string_count_partialNtB3_18StringCountPartial18arrange_partitionsKj40_EB7_",
+            62
+          ],
+          [
+            "_kernelrpc_mach_vm_deallocate_trap",
+            59
+          ]
+        ]
+      }
+    ]
+  },
+  "assertions": {
+    "all_six_complete_value_checks": true,
+    "q34_complete_groups": 18342019,
+    "q35_complete_groups": 18342019,
+    "q34_q35_committed_rows": 99997497,
+    "native_handoffs": 0,
+    "retry_jobs": 0,
+    "no_speedup_claimed": true,
+    "candidate_admitted": false
+  }
+}
+
