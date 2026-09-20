@@ -75,6 +75,14 @@ mod native_numeric_owner;
     feature = "vortex-write",
     unix
 ))]
+#[path = "local_primitive_numeric_partition_native_tests.rs"]
+mod numeric_partition_native_tests;
+#[cfg(all(
+    test,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    unix
+))]
 #[path = "local_primitive_pair_partition_native_tests.rs"]
 mod pair_partition_native_tests;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
@@ -142,6 +150,9 @@ pub(crate) mod native_sink;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/numeric_count_partial.rs"]
 mod numeric_count_partial;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/numeric_count_partitions.rs"]
+mod numeric_count_partitions;
 #[cfg(feature = "vortex-local-primitives")]
 use native_numeric_accessor::{AggregateAccessorBatch, NativeNumericAccessorWork};
 #[cfg(feature = "vortex-local-primitives")]

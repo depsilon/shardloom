@@ -6,7 +6,8 @@ use super::{
     AggregateSingleNumericKey, AggregateValueTransform, GroupedAggregateStates,
     VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
     aggregate_chunk_jobs::{AggregateChunkJobs, ChunkWorkerContext},
-    numeric_count_partial::{self, OwnedNumericCounts},
+    numeric_count_partial::{self, NumericCountKey, OwnedNumericCounts},
+    numeric_count_partitions::{self, NumericPartition, NumericPartitions},
     string_count_partial::{self, StringCountMerge, StringCountPartial},
     string_count_partitions::{self, PartitionReceipt, PartitionSelection, StringCountPartitions},
 };
@@ -46,6 +47,7 @@ enum Partial {
     Partitioned(PartitionReceipt),
     RetryString(ArrayRef),
     Selected(PartitionSelection),
+    NumericSelected(numeric_count_partitions::Selection),
     Signed32(OwnedNumericCounts<i32>, NumericWork),
     Signed(OwnedNumericCounts<i64>, NumericWork),
     Unsigned(OwnedNumericCounts<u64>, NumericWork),
@@ -299,6 +301,8 @@ pub(super) struct SingleCountWorkers {
     dictionary_values: u64,
     constant_chunks: u64,
     numeric_dictionary_bypass: bool,
+    numeric_partitions: Option<NumericPartitions>,
+    numeric_partition_evidence: Option<numeric_count_partitions::Evidence>,
     peak_partial_bytes: u64,
     max_parallelism: usize,
 }
@@ -312,10 +316,14 @@ impl SingleCountWorkers {
     ) -> Option<vortex::error::VortexResult<ArrayRef>> {
         use vortex::array::memory::HostAllocator as _;
         if chunks == 0
-            || self
+            || (self
                 .partitions
                 .as_ref()
                 .is_none_or(|partitions| partitions.group_count() == 0)
+                && self
+                    .numeric_partitions
+                    .as_ref()
+                    .is_none_or(|p| p.evidence().rows == 0))
         {
             return None;
         }
@@ -436,6 +444,26 @@ impl SingleCountWorkers {
             retry_arrays = Vec::new();
             handoff_lease.resize(0)?;
         }
+        let numeric_partitions = if !matches!(kind, KeyKind::Utf8)
+            && states.request.spill.is_none()
+            && states.result_limit.is_some_and(|limit| {
+                limit > 0
+                    && states
+                        .request
+                        .offset
+                        .checked_add(limit)
+                        .is_some_and(|cap| cap <= 128)
+            }) {
+            let ptype = match kind {
+                KeyKind::I32 => PType::I32,
+                KeyKind::I64 => PType::I64,
+                KeyKind::U64 => PType::U64,
+                KeyKind::Utf8 => unreachable!("numeric admission"),
+            };
+            NumericPartitions::try_new(ptype, memory)?
+        } else {
+            None
+        };
         Ok(Some(Self {
             jobs: AggregateChunkJobs::new(
                 max_parallelism,
@@ -470,6 +498,8 @@ impl SingleCountWorkers {
             dictionary_values: 0,
             constant_chunks: 0,
             numeric_dictionary_bypass: false,
+            numeric_partitions,
+            numeric_partition_evidence: None,
             peak_partial_bytes: 0,
             max_parallelism,
         }))
@@ -510,6 +540,7 @@ impl SingleCountWorkers {
         let array = super::logical_field_from_native_array(chunk, &self.column)?;
         if !matches!(self.kind, KeyKind::Utf8) && array.as_opt::<Dict>().is_some() {
             self.drain(states)?;
+            self.handoff_numeric_partitions(states)?;
             self.numeric_dictionary_bypass = true;
             return Ok(false);
         }
@@ -651,6 +682,30 @@ impl SingleCountWorkers {
                     })?;
                     return Ok(());
                 }
+                Partial::NumericSelected(selection) => {
+                    merge_numeric(
+                        states,
+                        selection
+                            .retained
+                            .iter()
+                            .map(|candidate| (candidate.key, candidate.count)),
+                    )?;
+                    let evidence = self
+                        .numeric_partition_evidence
+                        .as_mut()
+                        .ok_or_else(|| failed("numeric selection lost its evidence owner"))?;
+                    evidence.groups = evidence
+                        .groups
+                        .checked_add(selection.groups)
+                        .ok_or_else(|| failed("complete numeric group count overflow"))?;
+                    evidence.reduced_rows = evidence
+                        .reduced_rows
+                        .checked_add(selection.rows)
+                        .ok_or_else(|| failed("complete numeric weight overflow"))?;
+                    evidence.sort_nanos += selection.sort_nanos;
+                    evidence.reduce_nanos += selection.reduce_nanos;
+                    return Ok(());
+                }
                 Partial::String(partial) => {
                     self.string_merge.merge(states, self.group_index, partial)?;
                     self.observe_string(&partial.work);
@@ -661,18 +716,14 @@ impl SingleCountWorkers {
                     )
                 }
                 Partial::Signed32(partial, work) => {
-                    merge_numeric(
-                        states,
-                        partial.pairs().iter().map(|&(key, count)| {
-                            (
-                                AggregateSingleNumericKey {
-                                    bits: u64::from_ne_bytes(i64::from(key).to_ne_bytes()),
-                                    signed: true,
-                                },
-                                count,
-                            )
-                        }),
-                    )?;
+                    let partitions = match self.numeric_partitions.as_mut() {
+                        Some(NumericPartitions::Signed32(p)) => Some(p),
+                        None => None,
+                        _ => return Err(failed("numeric partitions lost i32 dtype")),
+                    };
+                    merge_numeric_partial(states, partial, partitions, || {
+                        self.jobs.check_cancelled()
+                    })?;
                     self.observe_numeric(work);
                     (
                         partial.rows(),
@@ -681,18 +732,14 @@ impl SingleCountWorkers {
                     )
                 }
                 Partial::Signed(partial, work) => {
-                    merge_numeric(
-                        states,
-                        partial.pairs().iter().map(|&(key, count)| {
-                            (
-                                AggregateSingleNumericKey {
-                                    bits: u64::from_ne_bytes(key.to_ne_bytes()),
-                                    signed: true,
-                                },
-                                count,
-                            )
-                        }),
-                    )?;
+                    let partitions = match self.numeric_partitions.as_mut() {
+                        Some(NumericPartitions::Signed(p)) => Some(p),
+                        None => None,
+                        _ => return Err(failed("numeric partitions lost i64 dtype")),
+                    };
+                    merge_numeric_partial(states, partial, partitions, || {
+                        self.jobs.check_cancelled()
+                    })?;
                     self.observe_numeric(work);
                     (
                         partial.rows(),
@@ -701,18 +748,14 @@ impl SingleCountWorkers {
                     )
                 }
                 Partial::Unsigned(partial, work) => {
-                    merge_numeric(
-                        states,
-                        partial.pairs().iter().map(|&(key, count)| {
-                            (
-                                AggregateSingleNumericKey {
-                                    bits: key,
-                                    signed: false,
-                                },
-                                count,
-                            )
-                        }),
-                    )?;
+                    let partitions = match self.numeric_partitions.as_mut() {
+                        Some(NumericPartitions::Unsigned(p)) => Some(p),
+                        None => None,
+                        _ => return Err(failed("numeric partitions lost u64 dtype")),
+                    };
+                    merge_numeric_partial(states, partial, partitions, || {
+                        self.jobs.check_cancelled()
+                    })?;
                     self.observe_numeric(work);
                     (
                         partial.rows(),
@@ -828,6 +871,9 @@ impl SingleCountWorkers {
     /// drains: only EOF makes partition-local top-K safe.
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         self.drain(states)?;
+        if self.numeric_partitions.is_some() {
+            return self.finish_numeric_partitions(states);
+        }
         if self.numeric_dictionary_bypass && states.group_columns.len() > 1 {
             // Dictionary chunks deliberately retain their established native
             // path. Validate every observed physical key before result pruning,
@@ -882,6 +928,72 @@ impl SingleCountWorkers {
         partitions.release_storage()?;
         self.partitions = None;
         self.partition_evidence = Some(partitions.evidence()?);
+        Ok(())
+    }
+
+    fn handoff_numeric_partitions(
+        &mut self,
+        states: &mut GroupedAggregateStates<'_>,
+    ) -> Result<()> {
+        let Some(partitions) = self.numeric_partitions.take() else {
+            return Ok(());
+        };
+        let started = Instant::now();
+        let mut entries = 0_u64;
+        partitions.visit_batches(|pairs| {
+            self.jobs.check_cancelled()?;
+            entries += u64::try_from(pairs.len()).map_err(|_| failed("handoff length overflow"))?;
+            merge_numeric(states, pairs)?;
+            Ok(())
+        })?;
+        self.merge_nanos += started.elapsed().as_nanos();
+        let mut evidence = partitions.evidence();
+        if entries != evidence.entries {
+            return Err(failed("numeric handoff lost entries"));
+        }
+        evidence.dictionary_handoff = true;
+        self.numeric_partition_evidence = Some(evidence);
+        Ok(())
+    }
+
+    fn finish_numeric_partitions(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        let mut partitions = self
+            .numeric_partitions
+            .take()
+            .ok_or_else(|| failed("numeric finish lost its partitions"))?;
+        let started = Instant::now();
+        let evidence = partitions.evidence();
+        if evidence.rows != self.rows {
+            return Err(failed("numeric partition weight differs from source rows"));
+        }
+        self.numeric_partition_evidence = Some(evidence);
+        let cap = states
+            .result_limit
+            .and_then(|limit| states.request.offset.checked_add(limit))
+            .filter(|&cap| cap > 0 && cap <= 128)
+            .ok_or_else(|| failed("numeric selection lost its retained bound"))?;
+        while let Some(partition) = partitions.pop() {
+            self.jobs.check_cancelled()?;
+            if self.jobs.is_full() {
+                self.merge_next(states)?;
+            }
+            self.jobs.submit(
+                NumericPartition::output_bytes(cap)? + size_of::<Partial>() as u64,
+                move |worker, _| partition.reduce(cap, worker).map(Partial::NumericSelected),
+            )?;
+            self.selection_jobs += 1;
+        }
+        self.drain(states)?;
+        self.jobs.check_cancelled()?;
+        let evidence = self
+            .numeric_partition_evidence
+            .as_mut()
+            .ok_or_else(|| failed("numeric selection lost its evidence"))?;
+        if evidence.reduced_rows != evidence.rows {
+            return Err(failed("numeric reduction lost input weight"));
+        }
+        evidence.finish_nanos = started.elapsed().as_nanos();
+        states.complete_key_partition_group_count = Some(evidence.groups);
         Ok(())
     }
 
@@ -1055,6 +1167,54 @@ impl SingleCountWorkers {
         if self.partition_evidence.is_some() {
             object.insert("aggregate_workers_scope".into(), "all_key_chunk_counts_then_complete_key_partition_reconciliation_on_same_workers;partition_lock_wait_separate_from_work;final_partition_topk_only_after_source_drains;caller_bounded_candidate_union_or_explicit_native_pressure_handoff;sum_worker_elapsed_not_cpu_or_exclusive_wall;shared_capacity_covers_native_allocator_partials_partition_vectors_and_growth_overlap_not_legacy_handoff_or_output_maps_or_process_rss;source_generation_validated_after_drain_and_refinement".into());
         }
+        if let Some(evidence) = &self.numeric_partition_evidence {
+            object.insert(
+                "aggregate_workers_integer_partition_rows".into(),
+                evidence.rows.into(),
+            );
+            object.insert(
+                "aggregate_workers_integer_partition_entries".into(),
+                evidence.entries.into(),
+            );
+            object.insert(
+                "aggregate_workers_integer_partition_capacity_peak_bytes".into(),
+                evidence.capacity_peak.into(),
+            );
+            object.insert(
+                "aggregate_workers_integer_partition_growth_overlap_peak_bytes".into(),
+                evidence.growth_overlap_peak.into(),
+            );
+            object.insert(
+                "aggregate_workers_integer_dictionary_handoff".into(),
+                evidence.dictionary_handoff.into(),
+            );
+            if !evidence.dictionary_handoff {
+                object.insert("candidate_groups".into(), evidence.groups.into());
+                object.insert(
+                    "group_output_strategy".into(),
+                    "complete_weighted_integer_partition_topk".into(),
+                );
+                object.insert(
+                    "group_state_mode".into(),
+                    "complete_weighted_integer_partitions".into(),
+                );
+                object.insert(
+                    "aggregate_workers_integer_partition_selection_jobs".into(),
+                    self.selection_jobs.into(),
+                );
+                for (name, nanos) in [
+                    ("sort", evidence.sort_nanos),
+                    ("reduce", evidence.reduce_nanos),
+                    ("finish", evidence.finish_nanos),
+                ] {
+                    object.insert(
+                        format!("aggregate_workers_integer_partition_{name}_nanos"),
+                        u64::try_from(nanos).unwrap_or(u64::MAX).into(),
+                    );
+                }
+                object.insert("aggregate_workers_scope".into(), "native_all_key_chunk_counts_then_leased_complete_integer_partitions;caller_weighted_routing;parallel_complete_partition_sort_and_checked_reduction;bounded_candidate_union_after_EOF;worker_spans_overlap;source_chunk_counts_exclude_selection_jobs;capacity_covers_vectors_growth_overlap_and_task_results_not_legacy_output_maps_or_RSS;numeric_vector_failure_and_ordinary_source_pressure_cancel_join_fail_without_replay;native_Dict_transfers_all_entries_to_existing_state".into());
+            }
+        }
         *summary = payload.to_string();
         Ok(())
     }
@@ -1170,6 +1330,37 @@ fn validate_numeric_group_reconstruction(
         }
     }
     Ok(())
+}
+
+fn merge_numeric_partial<K: NumericCountKey>(
+    states: &mut GroupedAggregateStates<'_>,
+    partial: &OwnedNumericCounts<K>,
+    partitions: Option<&mut numeric_count_partitions::Partitions<K>>,
+    check: impl Fn() -> Result<()>,
+) -> Result<()> {
+    let Some(partitions) = partitions else {
+        return merge_numeric(
+            states,
+            partial
+                .pairs()
+                .iter()
+                .map(|&(key, weight)| (key.aggregate_key(), weight)),
+        );
+    };
+    if !numeric_state_admitted(states) {
+        return Err(failed("numeric partition lost its key proof"));
+    }
+    // OwnedNumericCounts is sorted and contains only observed keys. The admitted
+    // dependent expressions are constants or checked AddOffset of this identity
+    // key. Their domain is an interval, so both extrema prove every group, even
+    // losing groups. Validate minimum first with the existing diagnostic order.
+    if let Some(&(key, _)) = partial.pairs().first() {
+        validate_numeric_group_reconstruction(states, &key.aggregate_key().aggregate_group_key())?;
+    }
+    if let Some(&(key, _)) = partial.pairs().last() {
+        validate_numeric_group_reconstruction(states, &key.aggregate_key().aggregate_group_key())?;
+    }
+    partitions.append(partial.pairs(), check)
 }
 
 fn merge_numeric(
