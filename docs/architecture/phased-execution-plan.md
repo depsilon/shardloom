@@ -591,6 +591,11 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     ordinary aggregate retention to the existing native schema/expression
     families and source reuse for explicit COUNT/DISTINCT spill; validation and
     merge status is in `native-runtime-completion-2026-09-20.md`.
+    The native composition prerequisite retains typed empty schemas and converts
+    owned batches into bounded immutable Vortex segments for the same aggregate
+    lowering. Its construction, cancellation and validation boundaries are in
+    `native-result-composition-2026-09-20.md`; this does not close native joins or
+    the remaining prepared/public families.
     Native Python binding remains parked; migration of additional operator
     families and general native joins remains open.
   - Execution checklist:

@@ -20,11 +20,54 @@ After a cancelled prepared spill call returns, call
 and workspace/quotas and returns a policy whose `cancel()` controls the new scope.
 Old policy clones cannot cancel the renewed call. Exclusive mutable access
 prevents changing cancellation while a prepared execution still borrows the handle.
+For standalone recovery, both `VortexSortSpillPolicy::renew_cancellation()` and
+`VortexAggregateSpillPolicy::renew_cancellation()` return a freshly validated policy
+with the same workspace and quotas. Use that policy to retry interrupted cleanup;
+the original cancelled policy and its clones remain cancelled.
 
 `execute_owned()` has a separate, narrower contract for bounded
 [owned COUNT results](owned-count-results.md) with integer and nonnullable UTF8
 group keys. Its restrictions do not limit ordinary prepared aggregate reports.
 See the [current completion evidence](../architecture/native-runtime-completion-2026-09-20.md).
+
+`execute_cancellable(&CancellationToken)` adds cooperative cancellation to ordinary
+prepared aggregate calls without discarding their retained source or lowering.
+Scans check the token at chunk/stage boundaries and before publication. Explicit
+spill calls observe both the operation token and their policy token while waiting
+in the serving admission queue; inside the spill stage, cancellation still uses
+the policy token.
+The enclosing token is checked before and after that stage. Running provider work
+drains before return, and cancelled worker attempts do not cancel the parent.
+
+## Compose Owned Native Results
+
+`OwnedVortexResultBatch::dtype()` returns the authoritative native schema, including
+when an empty result has no arrays. Native and compatibility sinks retain that
+schema. With `vortex-local-primitives` and `vortex-write`,
+`memory_file_generation::MemoryFileGeneration::from_owned(result, bounds, &cancellation)`
+consumes a complete owned batch and creates immutable Vortex segments in memory.
+Its `MemoryFileCompositionBounds` defaults admit at most 1,048,576 rows, 1,024
+columns, 4,096 batches, 64 MiB of serialized data and 1 MiB of construction metadata.
+These composition bounds are separate from the typed external-intake defaults below.
+
+The source retains typed columns, chunk references and logical null validity.
+Serialization is an explicit copy boundary; lazy array expressions may require
+native completion. Construction evidence records that work separately from query
+execution. Serialized bounds include retained dictionary and backing-buffer
+amplification. This API neither reconstructs JSON rows nor imports an Arrow table.
+
+Use the generation's `source_uri()` in a `VortexQueryPrimitiveRequest`, then call
+`prepare_aggregate(&request, policy)` to bind the existing native aggregate kernels.
+The URI is a process-local evidence identity, not a filesystem path or a remotely
+resolvable source. Prepared calls retain the generation, compute fresh state and
+report zero source-file opens. Ordinary aggregate schema/expression and explicit
+spill admission rules still apply. Additional relational and owned-output families
+remain in the [completion plan](../architecture/native-runtime-completion-2026-09-20.md).
+
+Construction uses the result's session and one native operation context. Bounds,
+schema inconsistencies and cancellation fail before publication; input and output
+reservations cover their ownership overlap. Upstream metadata/serializer allocations
+outside the native allocator and process RSS remain outside the reservation claim.
 
 ## Concurrent Rust Sessions
 
@@ -200,9 +243,10 @@ not fabricate a row-execution report or independent correctness certificate.
 
 ### Shared-session serving scope
 
-File execution currently serializes admission within one session. A short
+The default exclusive batch session serializes admission. A short
 metadata count submitted while a scan holds admission waits for that scan to
-finish or return an error. The
+finish or return an error. Explicit serving sessions use the bounded policy
+described above. The earlier exclusive-session
 [file-backed serving tests](../../shardloom-vortex/src/resident_file_serving_tests.rs)
 cover contended arrivals at P1/P4, complete ordered scan values, complete counts,
 cooperative scan cancellation after a native read returns, and recovery under
@@ -211,7 +255,7 @@ retained-result memory pressure. The focused three-test run passed on September
 
 The deliberately gated fixture records arrival-to-native-callback queue residence
 and completion latency. Queue residence includes source-generation admission;
-these are fixture diagnostics, not production latency percentiles. The tests
+these are fixture diagnostics, not production latency percentiles. These earlier tests
 establish completion of the submitted callers, not FIFO fairness, cancellation
 while waiting on admission, or interruption of blocked I/O. They do not run
 small-query traffic during ingest or change the scheduler. Native buffer credits

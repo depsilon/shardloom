@@ -44,6 +44,18 @@ impl OwnedVortexResultBatch {
         columns: &[String],
         max_bytes: usize,
     ) -> Result<Budgeted<String>> {
+        self.validate_schema_and_rows()?;
+        let fields = self
+            .dtype()
+            .as_struct_fields_opt()
+            .ok_or_else(|| resident_error("result JSON requires a struct dtype"))?;
+        for column in columns {
+            if fields.field(column).is_none() {
+                return Err(resident_error(&format!(
+                    "result JSON field is absent from the result schema: {column}"
+                )));
+            }
+        }
         // Results retain the same execution gate after the original session
         // handle closes; concurrent result sinks must not bypass that grant.
         let _context = self

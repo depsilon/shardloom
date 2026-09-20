@@ -228,6 +228,7 @@ fn observed_prepare(
             worker_pool: false,
             temporary_provider_drivers: false,
             reuse: None,
+            memory_generation: None,
         },
         observer,
     )
@@ -467,6 +468,7 @@ fn footer_aggregate_native_generation_is_checked_before_and_after_metadata_compl
                         None,
                         &prepared.lowering,
                         Instant::now(),
+                        None,
                         None,
                     )?;
                     let work: Value = serde_json::from_str(&scan.result_summary).unwrap();

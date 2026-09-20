@@ -133,6 +133,7 @@ impl ResidentVortexSession {
             ));
         }
         Ok(OwnedVortexResultBatch {
+            dtype: array.dtype().clone(),
             arrays: Budgeted::new(vec![array], ownership),
             runtime: Arc::clone(&self.0),
             rows,
@@ -149,6 +150,37 @@ impl ResidentVortexSession {
             .0
             .enter(CallClass::General, CancellationToken::default())?;
         execute(&self.0.session, &self.0.runtime)
+    }
+
+    /// Admit construction work without recording a completed query. Nested
+    /// operators borrow the supplied context instead of reacquiring admission.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(crate) fn with_native_execution_context<T>(
+        &self,
+        cancellation: &CancellationToken,
+        execute: impl FnOnce(&NativeExecutionContext<'_>) -> Result<T>,
+    ) -> Result<T> {
+        let context = self.0.enter(CallClass::General, cancellation.clone())?;
+        let result = execute(&context);
+        context.drain_io();
+        let completion = context.check_cancelled();
+        let result = result?;
+        completion?;
+        Ok(result)
+    }
+
+    /// Reject a borrowed grant from another session before construction or I/O.
+    #[cfg(unix)]
+    pub(crate) fn validate_execution_context(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if !context.belongs_to(&self.0) {
+            return Err(resident_error(
+                "native execution context belongs to a different session",
+            ));
+        }
+        context.check_cancelled()
     }
 
     /// Only engine-constructed immutable segment sources may enter here.
@@ -190,6 +222,7 @@ impl ResidentVortexSession {
             return Err(resident_error("projection exceeds completed output bounds"));
         }
         let result = OwnedVortexResultBatch {
+            dtype: array.dtype().clone(),
             arrays: Budgeted::new(vec![array], ownership),
             runtime: Arc::clone(&self.0),
             rows,
@@ -373,6 +406,12 @@ impl PreparedSourceOwner {
 pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
 impl PreparedVortexSource {
+    /// Retain the source's existing owner without creating a second runtime.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn retained_session(&self) -> ResidentVortexSession {
+        ResidentVortexSession(Arc::clone(&self.0.runtime))
+    }
+
     /// Match prior file admission to the generation held by this native reader,
     /// then validate both its descriptor and current path. This performs no
     /// payload read, provider open, or query execution.
@@ -428,9 +467,22 @@ impl PreparedVortexSource {
         projected_columns: &[shardloom_core::ColumnRef],
     ) -> Result<Option<segment_reuse::SegmentReusePolicy>> {
         let source = &self.0;
-        let _context = source
+        let context = source
             .runtime
             .enter(CallClass::Metadata, CancellationToken::default())?;
+        self.segment_reuse_policy_in_context(&context, predicate, projected_columns)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn segment_reuse_policy_in_context(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        predicate: &shardloom_core::PredicateExpr,
+        projected_columns: &[shardloom_core::ColumnRef],
+    ) -> Result<Option<segment_reuse::SegmentReusePolicy>> {
+        self.retained_session()
+            .validate_execution_context(context)?;
+        let source = &self.0;
         source.validate()?;
         let policy = segment_reuse::SegmentReusePolicy::for_scan(
             predicate,
@@ -495,6 +547,7 @@ impl PreparedVortexSource {
         context: &NativeExecutionContext<'_>,
         execute: impl FnOnce(&VortexFile, &NativeExecutionContext<'_>) -> Result<T>,
     ) -> Result<T> {
+        context.check_general_execution()?;
         if !context.belongs_to(&self.0.runtime) {
             return Err(resident_error(
                 "native execution context belongs to a different session",
@@ -520,6 +573,24 @@ impl PreparedVortexSource {
         let context = source
             .runtime
             .enter(CallClass::General, CancellationToken::default())?;
+        let result = self.with_admitted_native_execution_temporary_drivers(&context, execute)?;
+        context.drain_io();
+        context.check_cancelled()?;
+        source.validate()?;
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_admitted_native_execution_temporary_drivers<T>(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<(T, usize)> {
+        context.check_general_execution()?;
+        self.retained_session()
+            .validate_execution_context(context)?;
+        let source = &self.0;
         source.validate()?;
         let additional = context
             .cpu_lanes()
@@ -530,9 +601,8 @@ impl PreparedVortexSource {
         let result = execute(&file, &source.runtime.session, &source.runtime.runtime)?;
         drop(file);
         drop(workers);
-        context.drain_io();
+        context.check_cancelled()?;
         source.validate()?;
-        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((
             result,
             additional + source.runtime.provider_background_workers,
@@ -581,13 +651,12 @@ impl PreparedVortexSource {
     /// Temporary provider drivers are permitted only when the caller has
     /// rejected its dedicated compute pool. All driver creation and teardown
     /// occurs inside the existing source/session execution gate.
-    #[allow(clippy::too_many_lines)] // One admitted source/retry lifecycle owns this boundary.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn with_native_execution_cached_retry_with_drivers<T>(
         &self,
         policy: segment_reuse::SegmentReusePolicy,
         restore_provider_drivers: bool,
-        mut execute: impl FnMut(
+        execute: impl FnMut(
             &VortexFile,
             &VortexSession,
             &CurrentThreadRuntime,
@@ -598,6 +667,41 @@ impl PreparedVortexSource {
         let context = source
             .runtime
             .enter(CallClass::General, CancellationToken::default())?;
+        let result = self.with_admitted_native_execution_cached_retry_with_drivers(
+            &context,
+            policy,
+            restore_provider_drivers,
+            execute,
+        )?;
+        context.drain_io();
+        context.check_cancelled()?;
+        if source.runtime.serving.is_some() {
+            source.validate()?;
+        }
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    /// Borrow the outer operation while owning only this stage's cache and
+    /// provider drivers. Closing a stage never closes the outer I/O scope.
+    #[allow(clippy::too_many_lines)]
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_admitted_native_execution_cached_retry_with_drivers<T>(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        policy: segment_reuse::SegmentReusePolicy,
+        restore_provider_drivers: bool,
+        mut execute: impl FnMut(
+            &VortexFile,
+            &VortexSession,
+            &CurrentThreadRuntime,
+            &mut SegmentReuseAttempt,
+        ) -> Result<T>,
+    ) -> Result<(T, segment_reuse::SegmentReuseSnapshot)> {
+        context.check_general_execution()?;
+        self.retained_session()
+            .validate_execution_context(context)?;
+        let source = &self.0;
         source.validate()?;
         let operation_file = context.file_view(&source.file, source.identity.as_ref());
         let additional = if restore_provider_drivers {
@@ -635,9 +739,8 @@ impl PreparedVortexSource {
             )?;
             drop(operation_file);
             drop(workers);
-            context.drain_io();
+            context.check_cancelled()?;
             source.validate()?;
-            source.runtime.executions.fetch_add(1, Ordering::Relaxed);
             let mut snapshot =
                 segment_reuse::SegmentReuseSnapshot::skipped(policy, &source.runtime.memory);
             snapshot.provider_background_workers = provider_workers;
@@ -667,6 +770,7 @@ impl PreparedVortexSource {
         source.validate()?;
         let result = if result.is_err() && attempt.retry_requested {
             drop(result);
+            context.check_cancelled()?;
             snapshot.uncached_replays = 1;
             snapshot.discarded_attempt_nanos =
                 u64::try_from(started.elapsed().as_nanos()).map_err(native_error)?;
@@ -691,11 +795,10 @@ impl PreparedVortexSource {
         };
         drop(operation_file);
         drop(workers);
-        context.drain_io();
+        context.check_cancelled()?;
         if source.runtime.serving.is_some() {
             source.validate()?;
         }
-        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((result, snapshot))
     }
     pub(crate) fn file(&self) -> &VortexFile {
@@ -808,6 +911,7 @@ pub struct PreparedVortexProjection {
 /// Executable native payload, separate from the report-only opaque descriptors.
 /// Buffer credits remain attached even when arrays/slices outlive the session.
 pub struct OwnedVortexResultBatch {
+    dtype: DType,
     arrays: Budgeted<Vec<ArrayRef>>,
     runtime: Arc<RuntimeOwner>,
     rows: u64,
@@ -815,6 +919,31 @@ pub struct OwnedVortexResultBatch {
 }
 
 impl OwnedVortexResultBatch {
+    /// Authoritative result schema, including results with no data arrays.
+    #[must_use]
+    pub const fn dtype(&self) -> &DType {
+        &self.dtype
+    }
+
+    /// Validate the complete batch sequence before native composition or export.
+    /// Empty results keep their schema and must still declare zero rows.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn validate_schema_and_rows(&self) -> Result<()> {
+        let rows = self.arrays().iter().try_fold(0_u64, |rows, array| {
+            if array.dtype() != &self.dtype {
+                return Err(resident_error("completed result arrays disagree on dtype"));
+            }
+            rows.checked_add(u64::try_from(array.len()).map_err(native_error)?)
+                .ok_or_else(|| resident_error("completed result row count overflow"))
+        })?;
+        if rows != self.rows {
+            return Err(resident_error(
+                "completed result arrays disagree on row count",
+            ));
+        }
+        Ok(())
+    }
+
     #[cfg(all(feature = "vortex-write", unix))]
     pub(crate) fn retained_session(&self) -> ResidentVortexSession {
         ResidentVortexSession(Arc::clone(&self.runtime))
@@ -962,6 +1091,7 @@ impl PreparedVortexProjection {
         runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((
             OwnedVortexResultBatch {
+                dtype: self.projection.dtype().clone(),
                 arrays: Budgeted::new(arrays, lease),
                 runtime: Arc::clone(runtime),
                 rows,
@@ -1158,3 +1288,7 @@ mod concurrent_serving_tests;
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_file_pruning_tests.rs"]
 mod file_pruning_tests;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "memory_file_composition_tests.rs"]
+mod composition_tests;

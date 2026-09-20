@@ -1,8 +1,9 @@
 # Concurrent native serving
 
-Implementation in progress under RFC 0044 and the maintainer's explicit native
-runtime completion priority. Native tests and bounded fixed-arrival load receipts
-pass. This does not close production serving or the broader operator/public-availability matrix.
+The bounded Rust admission and ownership implementation merged in PR #1455 under
+RFC 0044 and the maintainer's explicit native runtime completion priority. Native
+tests, bounded fixed-arrival load receipts and all remote checks pass. Production
+serving and the broader operator/public-availability matrix remain in progress.
 
 The default resident constructor keeps exclusive batch admission and its current
 CPU grant. An explicit typed serving policy bounds queued calls/ticket metadata, general

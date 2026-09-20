@@ -6,6 +6,7 @@ use super::super::{
 };
 use super::*;
 use crate::VortexStructuredProjectionRequest;
+use vortex::array::IntoArray as _;
 use vortex::{
     VortexSessionDefault as _,
     array::{
@@ -450,6 +451,44 @@ fn false_filter_sink_writes_typed_empty_output_without_data_arrays() {
         Some(DType::Utf8(Nullability::Nullable))
     );
     assert!(rows.is_empty());
+}
+
+#[test]
+fn empty_completed_result_writes_native_schema_after_source_owner_drops() {
+    let fixture = Fixture::new();
+    let source_path = fixture.source(37);
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let source = session.prepare_file(&source_path).unwrap();
+    let projection = source
+        .prepare_projection(&["destination", "priority"], 37, 4096)
+        .unwrap()
+        .with_filter(Some(vortex::expr::lit(false).bind(source.dtype()).unwrap()));
+    let result = projection.execute().unwrap();
+    assert_eq!(result.row_count(), 0);
+    assert!(result.arrays().is_empty());
+    let expected_dtype = result.dtype().clone();
+    drop(projection);
+    drop(source);
+    drop(session);
+    fs::remove_file(&source_path).unwrap();
+    let plan = NativeSinkPlan::completed(result).unwrap();
+    assert_eq!(plan.dtype, expected_dtype);
+    let output = fixture.0.join("completed-empty.vortex");
+    let report = plan
+        .write(
+            &Fixture::request(&source_path),
+            &output,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+    assert_eq!(report.rows_written, 0);
+    assert_eq!(report.arrays_read_count, 0);
+    let (dtype, rows) = read_complete(&output);
+    assert_eq!(dtype, expected_dtype);
+    assert!(rows.is_empty());
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

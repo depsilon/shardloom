@@ -18,7 +18,10 @@ use std::{
 fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() {
     // Single text COUNT uses the worker adapter; compound COUNT and integer
     // DISTINCT use temporary provider drivers in a serving session.
-    for family in ["text_count", "compound_count", "integer_distinct"] {
+    for (family, mode) in ["text_count", "compound_count", "integer_distinct"]
+        .into_iter()
+        .flat_map(|family| ["ordinary", "policy", "parent"].map(|mode| (family, mode)))
+    {
         let fixture = Fixture::new(64, 8, true, false);
         let mut request = match family {
             "compound_count" => fixture.query(&["cohort_renamed", "label_renamed"], 0, 7),
@@ -76,6 +79,7 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         let (entered, waiting) = mpsc::sync_channel(1);
         let (release, held) = mpsc::sync_channel(1);
         let (done, finished) = mpsc::sync_channel(1);
+        let parent = CancellationToken::default();
         thread::scope(|threads| {
             let source_ref = &source;
             let blocker = threads.spawn(move || {
@@ -90,7 +94,12 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
             });
             waiting.recv_timeout(Duration::from_secs(5)).unwrap();
             let queued = threads.spawn(|| {
-                done.send(prepared.execute().is_err()).unwrap();
+                let result = if mode == "ordinary" {
+                    prepared.execute()
+                } else {
+                    prepared.execute_cancellable(&parent)
+                };
+                done.send(result.is_err()).unwrap();
             });
             let deadline = Instant::now() + Duration::from_secs(5);
             while session.admission_snapshot().unwrap().queued_calls != 1
@@ -99,7 +108,11 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
                 thread::sleep(Duration::from_millis(1));
             }
             let observed_queue = session.admission_snapshot().unwrap().queued_calls == 1;
-            cancellation.cancel();
+            if mode == "parent" {
+                parent.cancel();
+            } else {
+                cancellation.cancel();
+            }
             let cancelled = finished.recv_timeout(Duration::from_secs(5));
             // Always release the blocker even when the regression returns no
             // cancellation response, so a failing scoped test cannot deadlock.
@@ -117,11 +130,23 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         });
         assert_eq!(session.admission_snapshot().unwrap().queued_calls, 0);
         assert_eq!(session.admission_snapshot().unwrap().active_cpu_lanes, 0);
+        assert_eq!(parent.is_cancelled(), mode == "parent");
+        assert_eq!(
+            cancellation
+                .cancellation
+                .load(std::sync::atomic::Ordering::Acquire),
+            mode != "parent"
+        );
         fixture.empty();
         let renewed = prepared.renew_spill_cancellation().unwrap();
         // A stale cancellation owner cannot poison the new execution scope.
         cancellation.cancel();
-        let actual = prepared.execute().unwrap();
+        let fresh = CancellationToken::default();
+        let actual = if mode == "ordinary" {
+            prepared.execute().unwrap()
+        } else {
+            prepared.execute_cancellable(&fresh).unwrap()
+        };
         assert_eq!(
             summary(&actual.report)["values"],
             summary(&expected)["values"]
@@ -130,6 +155,8 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         assert_eq!(actual.runtime.prepared_source_opens, 2);
         renewed.cancel();
         assert!(prepared.execute().is_err());
+        assert!(prepared.execute_cancellable(&fresh).is_err());
+        assert!(!fresh.is_cancelled());
         fixture.empty();
         let memory = session.memory().clone();
         drop(prepared);

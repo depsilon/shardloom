@@ -17,6 +17,22 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Native spill ownership, prepared aggregate expansion and bounded Rust serving.
+  - Date: 2026-09-20. [PR #1455](https://github.com/depsilon/shardloom/pull/1455)
+    merged at `a04366c3`, accepted head `f94272be`, all 40 remote checks passed.
+    Shared native run directories exclude live owners and competing recovery;
+    public renewable cancellation permits interrupted cleanup without reviving
+    old cancellation owners. Prepared calls reuse the existing native lowering
+    across supported schemas/expressions and retain sources for explicit spill.
+  - Workspace/native checks, 129 complete Full43 values, 760 held-out calls,
+    2,232 public calls and the bounded fixed-arrival fixture pass. The
+    [completion evidence](native-runtime-completion-2026-09-20.md) identifies
+    exact revisions, review fixes, test scopes and timing receipts.
+  - Final Full43 best sum is 70.563004 s on the final query code, an unpaired
+    observation. Later public recovery API changes have targeted cancellation/
+    cleanup tests and complete remote CI. No speedup, broad operator parity,
+    production serving completion or release is claimed.
+
 - [x] Retained dense payload storage for compound COUNT/DISTINCT directories.
   - Date: 2026-09-20. [PR #1454](https://github.com/depsilon/shardloom/pull/1454).
     Runtime `dc4ce81a` replaces empty full-record slots
