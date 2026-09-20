@@ -8,8 +8,10 @@ explicitly; no external query engine participates.
 
 `PreparedVortexAggregate::execute()` retains ordinary native aggregate lowering
 across text, numeric and nullable schemas, derived grouping keys, transformed
-measures and wide measure sets of at most 1,024 measures. Width is checked before
-request cloning or aggregate-state allocation; this schema ceiling is not a
+measures and wide measure sets of at most 1,024 measures. Grouping, expression
+arguments, ordering and HAVING share a separate 1,024-entry syntax limit.
+These limits are checked before projection building, request cloning or
+aggregate-state allocation; this schema ceiling is not a
 whole-process memory bound. Each call computes fresh state. With `vortex-write`,
 the admitted weighted UTF8 COUNT and exact integer DISTINCT spill families retain
 the source while rebuilding spill lowering and runs for every execution.

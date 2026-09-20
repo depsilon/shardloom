@@ -501,6 +501,52 @@ fn prepared_measure_width_boundary_returns_complete_values_and_rejects_before_op
 }
 
 #[test]
+fn prepared_grouping_shape_is_bounded_before_projection_or_source_open() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let column = ColumnRef::new("key").unwrap();
+    let expression =
+        super::super::VortexAggregateExpression::new("derived".into(), column.clone(), "identity");
+    for kind in ["keys", "expressions", "arguments", "combined"] {
+        let mut request = fixture.request(scalar());
+        request.source_uri = Some(DatasetUri::new("absent-shape-boundary.vortex").unwrap());
+        let aggregate = request.simple_aggregate.as_mut().unwrap();
+        let maximum = MAX_PREPARED_AGGREGATE_SHAPE_ENTRIES;
+        match kind {
+            "keys" => aggregate.group_by = vec![column.clone(); maximum],
+            "expressions" => aggregate.group_expressions = vec![expression.clone(); maximum],
+            "arguments" => {
+                aggregate.group_expressions = vec![
+                    expression
+                        .clone()
+                        .with_extra_columns(vec![column.clone(); maximum - 1]),
+                ];
+            }
+            "combined" => {
+                aggregate.group_by = vec![column.clone(); maximum / 2];
+                aggregate.group_expressions = vec![expression.clone(); maximum / 2];
+            }
+            _ => unreachable!(),
+        }
+        validate_aggregate_shape(aggregate).unwrap();
+        aggregate.group_by.push(column.clone());
+        let error = prepare_aggregate_in_session(&request, policy, &session)
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains("1024 combined"), "{kind}: {error}");
+        assert!(
+            prepare_aggregate_for_optional_reuse(&request, policy)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(session.snapshot().prepared_source_opens, 0);
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn prepared_aggregate_rejects_extra_payload_spill_and_wider_resource_grants() {
     let fixture = Fixture::new();
     let session = ResidentVortexSession::new(16 << 20, 1).unwrap();

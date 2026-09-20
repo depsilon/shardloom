@@ -18,6 +18,7 @@ use std::fmt::Write as _;
 // Bound width-dependent validation/template vectors before cloning the request
 // or allocating aggregate state. This is a schema ceiling, not an RSS limit.
 const MAX_PREPARED_AGGREGATE_MEASURES: usize = 1024;
+const MAX_PREPARED_AGGREGATE_SHAPE_ENTRIES: usize = 1024;
 
 #[cfg(feature = "vortex-write")]
 #[path = "local_primitive_prepared_aggregate_spill.rs"]
@@ -156,6 +157,7 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
     if aggregate.measures.len() > MAX_PREPARED_AGGREGATE_MEASURES {
         return Err(failed("prepared aggregates admit at most 1024 measures"));
     }
+    validate_aggregate_shape(aggregate)?;
     if aggregate.spill.is_some() {
         #[cfg(feature = "vortex-write")]
         spill::validate_request(request)?;
@@ -185,6 +187,26 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
         .map(|column| column.as_str().to_owned())
         .collect::<Vec<_>>();
     drop(SimpleAggregateStates::new(aggregate, &columns)?);
+    Ok(())
+}
+
+// Bound the combined flat syntax before cloning or projected_columns()'s
+// duplicate search. Check vector lengths before visiting nested argument lists.
+fn validate_aggregate_shape(aggregate: &super::VortexSimpleAggregateRequest) -> Result<()> {
+    let mut remaining = MAX_PREPARED_AGGREGATE_SHAPE_ENTRIES;
+    let mut admit = |count| -> Result<()> {
+        remaining = remaining.checked_sub(count).ok_or_else(|| {
+            failed("prepared aggregates admit at most 1024 combined grouping, expression argument, ordering and HAVING entries")
+        })?;
+        Ok(())
+    };
+    admit(aggregate.group_by.len())?;
+    admit(aggregate.group_expressions.len())?;
+    admit(aggregate.order_by.len())?;
+    admit(aggregate.having.len())?;
+    for expression in &aggregate.group_expressions {
+        admit(expression.extra_columns.len())?;
+    }
     Ok(())
 }
 

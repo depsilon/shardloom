@@ -217,6 +217,14 @@ The exact CI native-library command passed locally with normal test concurrency:
 assertion requires only the measured scope metadata to remain after drain,
 preserving a direct payload-release check before waiting for final metadata drop.
 
+Review also extended the preparation bound to the combined grouping keys,
+grouping expressions, expression arguments, ordering and HAVING lists: at most
+1,024 syntax entries, separately from measures. Vector lengths are checked before
+cloning or the projection builder's duplicate searches. Tests admit the exact
+combined boundary and reject excess keys, expressions, arguments and mixed lists
+before source opening or reservation. Existing derived/triple-key and 90-measure
+coverage is retained. All 166 focused prepared tests passed after this guard.
+
 ## Finite availability inventory
 
 The completion scope is the existing native unary families, the four relational
