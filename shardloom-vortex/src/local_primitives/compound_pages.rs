@@ -85,7 +85,7 @@ impl<T: Copy> DensePages<T> {
         Ok(true)
     }
 
-    /// Infallible after reserve_one under the caller's partition lock.
+    /// Infallible after `reserve_one` under the caller's partition lock.
     pub(super) fn push(&mut self, value: T) {
         let page = self.pages.last_mut().expect("dense capacity admitted");
         assert!(page.values.len() < page.values.capacity());

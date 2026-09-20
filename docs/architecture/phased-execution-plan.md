@@ -338,10 +338,19 @@ improves Q18 paired fastest calls from 3.298828 to 0.266880 s
 All six paired and 129 Full43 complete values pass. Only Q18 activates the filter;
 after initial admission, 99,931,961 rows reduce to 27 numeric-key survivors before
 UTF8 access. Broad gates pass: 3,424 workspace and 1,859 native tests, formatting
-and Clippy. [PR #1453](https://github.com/depsilon/shardloom/pull/1453) carries the
-candidate; after merge, attribute Q17 compound partition reconciliation and memory
-ownership. The new Full43 best sum is
-103.104888 s, an unpaired observation with no whole-suite causal claim.
+and Clippy. [PR #1453](https://github.com/depsilon/shardloom/pull/1453) merged.
+Its Full43 best sum is 103.104888 s, an unpaired observation.
+The subsequent [compound storage candidate](compound-group-storage-2026-09-20.md)
+separates sparse lookup directories from dense, reservation-owned group and
+string records. Q17 paired fastest complete calls improve 4.072863 to
+2.579536 s (1.493328 s / 36.7% saved), with 42.1% lower OS peak RSS.
+All 24 paired and 129 Full43 complete values pass; Q11/Q14/Q15/Q17 use the
+existing family. Broad gates pass: 3,424 workspace tests, 1,865 native tests,
+formatting and both Clippy surfaces. The observed Full43 best sum is
+64.551416 s, with no whole-suite causal claim. After this candidate merges,
+attribute Q10 mixed-measure exact DISTINCT updates and ownership. Its existing
+packed-pair preunion and chunk group partials remain shipped foundations;
+do not propose them again as new work. Apply the same material retain/drop gates.
 Successful implementations get a PR and failed prototypes
 are removed with their evidence retained.
 Broad capability completion and parked experiments

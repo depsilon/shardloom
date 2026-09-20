@@ -17,6 +17,24 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Retained dense payload storage for compound COUNT/DISTINCT directories.
+  - Date: 2026-09-20. Runtime `dc4ce81a` replaces empty full-record slots
+    with native-width index directories and dense reservation-owned pages.
+    Exact keys, counts, domains, partition routing and pressure contracts remain.
+  - Q17 paired fastest complete calls improve 4.072863 to 2.579536 s,
+    saving 1.493328 s (36.7%), with 42.1% lower peak RSS at those calls.
+    All 24 paired calls and 129 Full43 results pass; Q11/Q14/Q15/Q17 use
+    the existing family. The
+    [evidence](compound-group-storage-2026-09-20.md) preserves every sample,
+    temporary diagnostic, storage model and hash-backed verification.
+  - All 34 focused, 1,865 native and 3,424 workspace tests pass, with nine
+    existing native benchmark fixtures ignored. Formatting and both Clippy
+    surfaces pass. The post-measurement overlay contains only a rustdoc
+    correction and test-only lint fixes. Independent review found no issues.
+  - Full43 best sum 64.551416 s is unpaired and does not establish a causal
+    whole-suite speedup. No ingest, storage-format or wider PERF/CG closure
+    is claimed; next profiling selection remains owned by the phase plan.
+
 - [x] Retained source-order COUNT numeric-key selection before UTF8 access.
   - Date: 2026-09-20. [PR #1453](https://github.com/depsilon/shardloom/pull/1453).
     Runtime `b6b92497` reuses native FilterArray/Mask after

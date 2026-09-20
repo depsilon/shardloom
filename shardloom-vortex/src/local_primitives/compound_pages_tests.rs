@@ -17,8 +17,12 @@ fn dense_ordinals_survive_first_page_growth_and_multiple_pages() {
         values.iter().copied().collect::<Vec<_>>(),
         (7..(PAGE_ITEMS * 3 + 24) as u64).collect::<Vec<_>>()
     );
-    let charged =
-        values.metadata.bytes() + values.pages.iter().map(|p| p._lease.bytes()).sum::<u64>();
+    let charged = values.metadata.bytes()
+        + values
+            .pages
+            .iter()
+            .map(|p| (p.values.capacity() * size_of::<u64>()) as u64)
+            .sum::<u64>();
     assert_eq!(memory.snapshot().reserved_bytes, charged);
     assert!(charged < 40_000);
     values.release().unwrap();

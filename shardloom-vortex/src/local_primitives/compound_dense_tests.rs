@@ -74,10 +74,10 @@ fn dense_distinct_counts_pairs_once_across_domain_and_group_growth() {
     let mut keys = Vec::new();
     let mut rows = Vec::new();
     for (index, value) in text.iter().enumerate() {
-        for key in 0..(index % 5 + 1) {
+        for key in 0..=(index % 5) {
             // Three equal rows must still contribute only one distinct pair.
             for _ in 0..3 {
-                keys.push(key as i64);
+                keys.push(i64::try_from(key).unwrap());
                 rows.push(value.as_str());
             }
         }
