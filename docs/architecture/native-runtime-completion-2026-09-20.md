@@ -88,6 +88,17 @@ claimed yet.
 
 ### First-unit validation receipts
 
+The final CI pressure-injection correction is test-only: worker reservations
+could retire between a free-capacity snapshot and the injected allocation. Both
+worker test hooks now request the entire pool limit; allocator alignment overhead
+guarantees a typed denial before any backing allocation even if all reservations
+retire. The unchanged complete-value/replay assertions pass in the exact parallel
+CI command, `cargo test -p shardloom-vortex --lib --features release-user-surfaces`:
+1,886 passed, 10 ignored, zero failed. Receipt
+`admission-runtime-completion-ci-pressure-race-1.json` records 27.742211 seconds;
+log SHA-256 `0f302f34a7db4ffe3d921b4a6fbb29c56d894160bac91d5c67a339067234b538`.
+The production binary is unchanged from the final Full43 receipt below.
+
 All commands ran sequentially on the local Apple M5, 10 logical CPUs, macOS 27.
 Cargo output resolves to `/Users/dylan/.cache/shardloom/cargo-target`; bulk logs,
 fixtures and frozen binaries remain under `/Users/dylan/LocalData/shardloom/`.
