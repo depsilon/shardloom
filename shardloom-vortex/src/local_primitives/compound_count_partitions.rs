@@ -87,6 +87,25 @@ pub(super) struct CompoundPartitions {
 }
 
 impl CompoundPartitions {
+    pub(super) fn diagnostic_storage(&self) -> Result<serde_json::Value> {
+        let mut rows = Vec::new();
+        for partition in &self.partitions {
+            let p = partition
+                .lock()
+                .map_err(|_| failed("diagnostic lock poisoned"))?;
+            rows.push(serde_json::json!({
+                "groups": p.group_len, "group_slots": p.groups.capacity(),
+                "group_bytes": p.groups_lease.bytes(),
+                "strings": p.text_len, "text_slots": p.text.capacity(),
+                "text_bytes": p.text_lease.bytes(),
+                "arena_len": p.bytes.len(), "arena_capacity": p.bytes.capacity(),
+                "arena_bytes": p.bytes_lease.bytes()
+            }));
+        }
+        Ok(
+            serde_json::json!({"group_width": size_of::<Group>(), "text_width": size_of::<TextSlot>(), "partitions": rows}),
+        )
+    }
     pub(super) fn try_new(
         memory: &LiveMemoryPool,
         entries: usize,

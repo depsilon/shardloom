@@ -532,6 +532,10 @@ impl CompoundWorkers {
         if self.roles.utf8_distinct() {
             return self.finish_text_distinct(states, &partitions);
         }
+        eprintln!(
+            "compound-storage-diagnostic={}",
+            partitions.diagnostic_storage()?
+        );
         states.numeric_utf8_topk_group_roles = self.roles.pair();
         states.numeric_utf8_topk_heavy_hitter_enabled = true;
         states.numeric_utf8_topk_exact_counts = Some(rustc_hash::FxHashMap::default());
