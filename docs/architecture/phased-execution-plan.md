@@ -2423,8 +2423,13 @@ since merged in PRs #1447 and #1448 with complete Full43 acceptance. The
 close the bounded G/H/I proposals as scoped drops and merged in PR #1449. Q36
 persistent complete-integer partition reduction is retained with paired speed
 and memory gates, Full43 and broad checks. Preserve its per-chunk weighted counts
-and dependency proofs. Q29 now receives accessor-stage attribution, followed by
-Q34/Q35, under the material gate at the start of Planned.
+and dependency proofs. Q29 dictionary validation reuse and Q18 source-order
+candidate filtering have since merged in PRs #1452 and #1453. The Q34/Q35
+reconciliation screen is closed without a retained replacement. The
+compound dense-storage candidate passes paired gates, Full43 and broad checks;
+after merge, Q10 mixed-measure exact DISTINCT attribution is next under the
+material gate at the start of Planned. Preserve its existing packed-pair
+preunion and chunk group partials.
 Broader ingest, serving and delivery obligations remain open. The historical inventory
 in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
 already-shipped families.
