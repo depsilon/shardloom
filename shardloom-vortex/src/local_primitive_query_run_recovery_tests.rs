@@ -117,23 +117,71 @@ fn all_namespaces_reject_live_recovery_and_clean_after_process_exit() {
 
 #[test]
 fn cancelled_recovery_preserves_marker_and_can_be_retried() {
-    let workspace = Workspace::new();
-    let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let mut store = store(&workspace, &memory);
-    let directory = store.directory().to_path_buf();
-    store.abandon_for_recovery_test();
-    let policy = workspace.policy();
-    policy.cancellation.store(true, Ordering::Release);
-    assert!(
-        recover(&policy, &directory)
-            .unwrap_err()
-            .to_string()
-            .contains("cancelled")
-    );
-    assert!(directory.join(OWNERSHIP_MARKER).exists());
-    policy.cancellation.store(false, Ordering::Release);
-    recover(&policy, &directory).unwrap();
-    drop(store);
-    assert_eq!(memory.snapshot().reserved_bytes, 0);
-    workspace.assert_empty();
+    for namespace in ["sort", "distinct", "count"] {
+        let workspace = Workspace::new();
+        let memory = LiveMemoryPool::new(4 << 20).unwrap();
+        let mut store = QueryRunStore::new(
+            policy(&workspace.0, namespace),
+            memory.clone(),
+            memory.reserve(128 << 10).unwrap(),
+        )
+        .unwrap();
+        let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let work = Arc::new(memory.reserve(1 << 20).unwrap());
+        for values in [[1, 2], [3, 4]] {
+            store
+                .write_arrays(&spec(2), arrays(&values), &runtime, &session, &work)
+                .unwrap();
+        }
+        let directory = store.directory().to_path_buf();
+        store.abandon_for_recovery_test();
+        let marker = fs::read(directory.join(OWNERSHIP_MARKER)).unwrap();
+        let sort = crate::VortexSortSpillPolicy::new(&workspace.0, 32 << 20, 4 << 20).unwrap();
+        let aggregate =
+            crate::VortexAggregateSpillPolicy::new(&workspace.0, 32 << 20, 4 << 20).unwrap();
+        let stale_sort = sort.clone();
+        let stale_aggregate = aggregate.clone();
+        AFTER_RECOVERY_REMOVE.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move || {
+                stale_sort.cancel();
+                stale_aggregate.cancel();
+            }));
+        });
+        let cleanup = |sort: &crate::VortexSortSpillPolicy,
+                       aggregate: &crate::VortexAggregateSpillPolicy| {
+            match namespace {
+                "sort" => sort.cleanup_abandoned(&directory),
+                "distinct" => aggregate.cleanup_abandoned(&directory),
+                "count" => aggregate.cleanup_abandoned_weighted_count(&directory),
+                _ => unreachable!(),
+            }
+        };
+        assert!(
+            cleanup(&sort, &aggregate)
+                .unwrap_err()
+                .to_string()
+                .contains("cancelled")
+        );
+        assert!(AFTER_RECOVERY_REMOVE.with(|hook| hook.borrow().is_none()));
+        // One run was removed, while the marker and remaining run are retained.
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 2);
+        assert_eq!(fs::read(directory.join(OWNERSHIP_MARKER)).unwrap(), marker);
+        assert!(cleanup(&sort, &aggregate).is_err());
+        let renewed_sort = sort.renew_cancellation().unwrap();
+        let renewed_aggregate = aggregate.renew_cancellation().unwrap();
+        assert_eq!(renewed_sort.workspace, sort.workspace);
+        assert_eq!(renewed_sort.quota_bytes, sort.quota_bytes);
+        assert_eq!(renewed_sort.memory_bytes, sort.memory_bytes);
+        assert_eq!(renewed_aggregate.workspace, aggregate.workspace);
+        assert_eq!(renewed_aggregate.quota_bytes, aggregate.quota_bytes);
+        assert_eq!(renewed_aggregate.memory_bytes, aggregate.memory_bytes);
+        sort.cancel();
+        aggregate.cancel();
+        cleanup(&renewed_sort, &renewed_aggregate).unwrap();
+        drop(store);
+        drop(work);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        workspace.assert_empty();
+    }
 }

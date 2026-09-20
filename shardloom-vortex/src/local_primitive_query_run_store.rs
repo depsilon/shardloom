@@ -1054,6 +1054,12 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(io_error(error)),
         }
+        #[cfg(all(test, feature = "vortex-write", unix))]
+        AFTER_RECOVERY_REMOVE.with(|hook| {
+            if let Some(hook) = hook.borrow_mut().take() {
+                hook();
+            }
+        });
     }
     policy.check_cancelled()?;
     validate_directory_owner(&directory, &owner)?;
@@ -1062,6 +1068,12 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
     }
     fs::remove_file(marker).map_err(io_error)?;
     fs::remove_dir(directory).map_err(io_error)
+}
+
+#[cfg(all(test, feature = "vortex-write", unix))]
+thread_local! {
+    static AFTER_RECOVERY_REMOVE: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
 }
 
 #[cfg(all(test, feature = "vortex-write", unix))]

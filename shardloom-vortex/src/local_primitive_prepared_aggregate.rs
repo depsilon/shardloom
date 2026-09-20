@@ -419,11 +419,7 @@ impl PreparedVortexAggregate {
             .spill
             .as_ref()
             .ok_or_else(|| failed("cancellation renewal requires a prepared spill policy"))?;
-        let renewed = crate::VortexAggregateSpillPolicy::new(
-            previous.workspace.clone(),
-            previous.quota_bytes,
-            previous.memory_bytes,
-        )?;
+        let renewed = previous.renew_cancellation()?;
         self.request
             .simple_aggregate
             .as_mut()
