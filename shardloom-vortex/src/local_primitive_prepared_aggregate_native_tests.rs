@@ -16,6 +16,9 @@ use vortex::{
     session::VortexSession,
 };
 
+#[path = "local_primitive_prepared_aggregate_extended_tests.rs"]
+mod extended;
+
 #[test]
 #[allow(clippy::too_many_lines)] // Complete fixture, independent oracle and worker matrix.
 fn prepared_extrema_and_average_preserve_nullable_integer_values_and_fresh_state() {
@@ -304,7 +307,7 @@ fn true_empty_ordinary_aggregate_preserves_extrema_and_rejects_nonempty_missing_
 }
 
 #[test]
-fn optional_preparation_declines_schema_without_execution_or_duplicate_source_open() {
+fn optional_preparation_retains_text_and_float_schema_without_executing_or_reopening() {
     use vortex::array::arrays::VarBinViewArray;
     let fixture = Fixture::new();
     let runtime = SingleThreadRuntime::default();
@@ -344,31 +347,27 @@ fn optional_preparation_declines_schema_without_execution_or_duplicate_source_op
     )
     .unwrap()
     .unwrap();
-    let PreparedAggregateDisposition::Unretained(operation) = disposition else {
-        panic!("noninteger schema must not expand the retained API");
+    let PreparedAggregateDisposition::Reusable(operation) = disposition else {
+        panic!("native text/float lowering is reusable");
     };
-    let owner = operation.0.session.clone();
+    let owner = operation.session.clone();
     assert_eq!(owner.snapshot().prepared_source_opens, 1);
     assert_eq!(owner.snapshot().completed_executions, 0);
-    let executed = operation.execute().unwrap();
-    assert_eq!(
-        payload(&executed.report)["values"],
-        serde_json::json!([
-            {"text_key":"a", "rows_alias":2, "total_alias":5.0},
-            {"text_key":"b", "rows_alias":1, "total_alias":2.0},
-        ])
-    );
-    assert!(executed.native_io_certificate.is_certified());
-    assert_eq!(owner.snapshot().prepared_source_opens, 1);
-    assert_eq!(owner.snapshot().completed_executions, 1);
+    for execution in 1..=3 {
+        let executed = operation.execute().unwrap();
+        certified(&executed, execution);
+        assert_eq!(
+            payload(&executed.report)["values"],
+            serde_json::json!([
+                {"text_key":"a", "rows_alias":2, "total_alias":5.0},
+                {"text_key":"b", "rows_alias":1, "total_alias":2.0},
+            ])
+        );
+    }
+    fixture.replace();
+    assert!(operation.execute().is_err());
+    drop(operation);
     assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
-    assert!(
-        prepare_aggregate(
-            &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap()
-        )
-        .is_err()
-    );
 }
 
 #[derive(Clone, Copy)]

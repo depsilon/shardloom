@@ -17,7 +17,7 @@ use vortex::{
     array::{
         ArrayRef, IntoArray as _,
         arrays::{PrimitiveArray, StructArray},
-        dtype::Nullability,
+        dtype::{DType, Nullability, PType},
         iter::ArrayIteratorAdapter,
         validity::Validity,
     },

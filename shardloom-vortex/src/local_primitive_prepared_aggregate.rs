@@ -2,20 +2,22 @@
 //! The adapter retains no query-result arrays, aggregate partials or answers.
 
 use super::{
-    LocalVortexAggregateScan, Result, ShardLoomError, SimpleAggregateFunction,
-    SimpleAggregateStates, VortexLocalPrimitiveExecutionPolicy,
-    VortexLocalPrimitiveExecutionReport, VortexLocalPrimitivePhysicalPolicyReport,
-    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, aggregate_count_workers,
-    aggregate_lowering::AggregateLowering, local_primitive_native_io_certificate,
-    local_vortex_path, read_lowered_vortex_simple_aggregate_scan, required_simple_aggregate,
-    simple_aggregate_report,
+    LocalVortexAggregateScan, Result, ShardLoomError, SimpleAggregateStates,
+    VortexLocalPrimitiveExecutionPolicy, VortexLocalPrimitiveExecutionReport,
+    VortexLocalPrimitivePhysicalPolicyReport, VortexQueryPrimitiveKind,
+    VortexQueryPrimitiveRequest, aggregate_count_workers, aggregate_lowering::AggregateLowering,
+    local_primitive_native_io_certificate, local_vortex_path,
+    read_lowered_vortex_simple_aggregate_scan, required_simple_aggregate, simple_aggregate_report,
 };
 use crate::resident_session::{
     PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
     segment_reuse::SegmentReusePolicy,
 };
 use std::fmt::Write as _;
-use vortex::array::dtype::{DType, PType};
+
+#[cfg(feature = "vortex-write")]
+#[path = "local_primitive_prepared_aggregate_spill.rs"]
+mod spill;
 
 /// A complete aggregate report and its actual native I/O certificate.
 pub struct ExecutedVortexAggregate {
@@ -106,10 +108,9 @@ pub struct PreparedVortexAggregate {
     reuse: Option<SegmentReusePolicy>,
 }
 
-/// Preparation never executes a query. The retained case admits exactly the
-/// integer aggregate API or bounded nonnullable UTF8 COUNT(*); the other case
-/// transfers the opened source to one
-/// explicit ordinary execution without probing and reopening the same file.
+/// Preparation never executes a query. Native lowering and source generations
+/// are reusable independently of the aggregate's key and measure types.
+/// The unretained variant remains available for API compatibility.
 pub enum PreparedAggregateDisposition {
     Reusable(PreparedVortexAggregate),
     Unretained(UnretainedVortexAggregate),
@@ -149,36 +150,15 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
         .ok_or_else(|| failed("source URI is required"))?;
     let aggregate = required_simple_aggregate(request)?;
     if aggregate.spill.is_some() {
-        return Err(failed(
-            "explicit spill is not admitted by this retained API",
-        ));
+        #[cfg(feature = "vortex-write")]
+        spill::validate_request(request)?;
+        #[cfg(not(feature = "vortex-write"))]
+        return Err(failed("explicit spill requires the vortex-write feature"));
     }
-    if aggregate.measures.is_empty()
-        || aggregate.measures.len() > 64
-        || aggregate.group_by.len() > 2
-        || !aggregate.group_expressions.is_empty()
-        || request.source_order_limit == Some(0)
-    {
+    if aggregate.measures.is_empty() || request.source_order_limit == Some(0) {
         return Err(failed(
-            "requires 1..=64 identity measures, at most two identity keys and a positive optional limit",
+            "requires at least one measure and a positive optional limit",
         ));
-    }
-    for measure in &aggregate.measures {
-        if !matches!(
-            SimpleAggregateFunction::parse(&measure.function)?,
-            SimpleAggregateFunction::Count
-                | SimpleAggregateFunction::CountDistinct
-                | SimpleAggregateFunction::Sum
-                | SimpleAggregateFunction::Avg
-                | SimpleAggregateFunction::Min
-                | SimpleAggregateFunction::Max
-        ) || measure.value_transform.is_some()
-            || measure.argument_offset.is_some()
-        {
-            return Err(failed(
-                "only existing identity COUNT, COUNT DISTINCT, SUM, AVG, MIN and MAX measures are admitted",
-            ));
-        }
     }
     let mut expected =
         VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), aggregate.clone());
@@ -190,41 +170,14 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
             "unrelated operation payload or projection is not admitted",
         ));
     }
-    Ok(())
-}
-
-fn retained_fields(
-    request: &VortexQueryPrimitiveRequest,
-    source: &PreparedVortexSource,
-) -> Result<()> {
-    let aggregate = required_simple_aggregate(request)?;
-    if super::aggregate_owned::utf8_count_admitted(request, source.dtype()) {
-        return Ok(());
-    }
-    let fields = source
-        .dtype()
-        .as_struct_fields_opt()
-        .ok_or_else(|| failed("requires a struct source"))?;
-    for column in aggregate.projected_columns() {
-        if !matches!(
-            fields.field(column.as_str()),
-            Some(DType::Primitive(
-                PType::I8
-                    | PType::I16
-                    | PType::I32
-                    | PType::I64
-                    | PType::U8
-                    | PType::U16
-                    | PType::U32
-                    | PType::U64,
-                _
-            ))
-        ) {
-            return Err(failed(
-                "requires existing integer group/measure fields or bounded nonnullable UTF8 COUNT(*)",
-            ));
-        }
-    }
+    // Reuse the execution validator before opening a source. Preparation does
+    // not need a second, narrower definition of aggregate semantics.
+    let columns = aggregate
+        .projected_columns()
+        .iter()
+        .map(|column| column.as_str().to_owned())
+        .collect::<Vec<_>>();
+    drop(SimpleAggregateStates::new(aggregate, &columns)?);
     Ok(())
 }
 
@@ -243,7 +196,7 @@ fn validate_policy(policy: VortexLocalPrimitiveExecutionPolicy) -> Result<()> {
 /// Prepare with the same request-based CPU ownership used by ordinary aggregates.
 /// This creates exactly one session and opens the source once.
 /// # Errors
-/// Rejects malformed/extra payloads and spill before opening, then unsupported
+/// Rejects malformed/extra payloads and unsupported spill before opening, then unsupported
 /// source/schema/predicate or resource grants; no external executor is used.
 pub fn prepare_aggregate(
     request: &VortexQueryPrimitiveRequest,
@@ -256,8 +209,8 @@ pub fn prepare_aggregate(
 }
 
 /// Prepare an optional retained execution without evaluating any source rows.
-/// Unsupported request shapes return `None` before opening. A schema-only
-/// rejection hands the same source to an explicit one-shot ordinary execution.
+/// Unsupported request payloads return `None` before opening. Every schema and
+/// predicate accepted by native lowering retains the same prepared source.
 /// File, resource and lowering errors remain errors and never trigger a retry.
 /// # Errors
 /// Rejects invalid resource grants, unreadable/changed sources and invalid native lowering.
@@ -271,13 +224,7 @@ pub fn prepare_aggregate_for_optional_reuse(
     validate_policy(policy)?;
     let session = aggregate_session(request, policy)?;
     let operation = prepare_candidate_in_session(request, policy, &session)?;
-    let retained = retained_fields(request, &operation.source).is_ok()
-        && operation.lowering.residual.is_none();
-    Ok(Some(if retained {
-        PreparedAggregateDisposition::Reusable(operation)
-    } else {
-        PreparedAggregateDisposition::Unretained(UnretainedVortexAggregate(operation))
-    }))
+    Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
 }
 
 fn aggregate_session(
@@ -285,7 +232,7 @@ fn aggregate_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<ResidentVortexSession> {
     let (effective, _) = policy.with_physical_policy_for_request(request);
-    if aggregate_count_workers::request_may_be_admitted(request) {
+    if external_workers(request) {
         ResidentVortexSession::for_external_cpu_pool(
             effective.resource_envelope.memory_budget_bytes,
             effective.resource_envelope.max_parallelism,
@@ -298,6 +245,18 @@ fn aggregate_session(
     }
 }
 
+fn external_workers(request: &VortexQueryPrimitiveRequest) -> bool {
+    #[cfg(feature = "vortex-write")]
+    if request
+        .simple_aggregate
+        .as_ref()
+        .is_some_and(|aggregate| aggregate.spill.is_some())
+    {
+        return super::weighted_count_spill_query::worker_request_admitted(request);
+    }
+    aggregate_count_workers::request_may_be_admitted(request)
+}
+
 /// Prepare in an existing session without opening another runtime. If that
 /// session already owns provider drivers, aggregation uses those lanes and does
 /// not simultaneously create the dedicated chunk-worker pool.
@@ -308,14 +267,7 @@ pub fn prepare_aggregate_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexAggregate> {
-    let operation = prepare_candidate_in_session(request, policy, session)?;
-    retained_fields(request, &operation.source)?;
-    if operation.lowering.residual.is_some() {
-        return Err(failed(
-            "residual predicates are not admitted by this retained API",
-        ));
-    }
-    Ok(operation)
+    prepare_candidate_in_session(request, policy, session)
 }
 
 fn prepare_candidate_in_session(
@@ -344,6 +296,10 @@ fn prepare_candidate_in_session(
         return Err(failed("supplied session exceeds the requested CPU policy"));
     }
     let (policy, physical_policy) = cap_session_cpu(policy, physical_policy, parallelism);
+    #[cfg(feature = "vortex-write")]
+    if required_simple_aggregate(request)?.spill.is_some() {
+        spill::validate_schema(request, source.dtype())?;
+    }
     let lowering = AggregateLowering::new(request, source.dtype())?;
     // Validate measure aliases/functions without retaining any aggregate state.
     drop(SimpleAggregateStates::new(
@@ -351,7 +307,7 @@ fn prepare_candidate_in_session(
         &lowering.plan.projected_columns,
     )?);
     let worker_pool = snapshot.provider_background_workers == 0
-        && aggregate_count_workers::request_may_be_admitted(request)
+        && external_workers(request)
         && !aggregate_count_workers::restore_provider_drivers(request, source.dtype());
     let temporary_provider_drivers =
         snapshot.provider_background_workers == 0 && parallelism > 1 && !worker_pool;
@@ -432,6 +388,13 @@ impl PreparedVortexAggregate {
         &self,
         mut output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
     ) -> Result<LocalVortexAggregateScan> {
+        #[cfg(feature = "vortex-write")]
+        if required_simple_aggregate(&self.request)?.spill.is_some() {
+            if output.is_some() {
+                return Err(failed("owned spill output is not yet admitted"));
+            }
+            return self.read_spill();
+        }
         let uri = self
             .request
             .source_uri
@@ -525,9 +488,10 @@ impl PreparedVortexAggregate {
                 .native_io_certificate
                 .source_pushdown_report
                 .proof_basis,
-            ";resident_source_generation_validation=before_and_after_every_execution_including_pruned_result;resident_source_opens={};resident_completed_executions={};aggregate_lowering_reused=true;aggregate_state_reused=false;no_query_answer_cache=true;independent_oracle_not_run",
+            ";resident_source_generation_validation=before_and_after_every_execution_including_pruned_result;resident_source_opens={};resident_completed_executions={};aggregate_lowering_reused={};aggregate_state_reused=false;no_query_answer_cache=true;independent_oracle_not_run",
             executed.runtime.prepared_source_opens,
-            executed.runtime.completed_executions
+            executed.runtime.completed_executions,
+            required_simple_aggregate(&self.request)?.spill.is_none()
         );
         Ok(executed)
     }

@@ -1,12 +1,12 @@
-//! Ordinary-only public and held-source controls for the focused DISTINCT port.
-//! UTF8 prepared/owned admission and result projection stay outside this patch.
+//! Ordinary, retained prepared and held-source controls for UTF8 DISTINCT.
+//! Owned UTF8 DISTINCT payloads remain outside the current finalizer admission.
 use super::*;
 use crate::{
     VortexAggregateSpillPolicy, local_primitives as runtime,
     resident_session::ResidentVortexSession,
 };
 use runtime::prepared_aggregate::{
-    PreparedAggregateDisposition, UnretainedVortexAggregate, prepare_aggregate_for_optional_reuse,
+    PreparedAggregateDisposition, PreparedVortexAggregate, prepare_aggregate_for_optional_reuse,
     prepare_aggregate_in_session,
 };
 use std::{
@@ -82,17 +82,14 @@ fn payload(report: &runtime::VortexLocalPrimitiveExecutionReport) -> serde_json:
     )
     .unwrap()
 }
-fn unretained(
-    request: &VortexQueryPrimitiveRequest,
-    parallelism: usize,
-) -> UnretainedVortexAggregate {
+fn prepared(request: &VortexQueryPrimitiveRequest, parallelism: usize) -> PreparedVortexAggregate {
     match prepare_aggregate_for_optional_reuse(request, policy(parallelism)).unwrap() {
-        Some(PreparedAggregateDisposition::Unretained(operation)) => operation,
-        Some(PreparedAggregateDisposition::Reusable(_)) => {
-            panic!("focused port must not widen retained UTF8 admission")
+        Some(PreparedAggregateDisposition::Reusable(operation)) => operation,
+        Some(PreparedAggregateDisposition::Unretained(_)) => {
+            panic!("native UTF8 DISTINCT must retain its source and lowering")
         }
         None => {
-            panic!("ordinary UTF8 DISTINCT request must retain its one-shot source disposition")
+            panic!("native UTF8 DISTINCT must have a prepared disposition")
         }
     }
 }
@@ -106,7 +103,7 @@ fn assert_values(actual: &serde_json::Value, expected: &serde_json::Value) {
 }
 
 #[test]
-fn utf8_integer_distinct_native_ordinary_unretained_complete_values_and_worker_grants() {
+fn utf8_integer_distinct_native_ordinary_prepared_complete_values_and_worker_grants() {
     let fixture = Fixture::new();
     let (chunks, oracle, rows) = corpus();
     let path = fixture.write("source.vortex", chunks);
@@ -128,18 +125,19 @@ fn utf8_integer_distinct_native_ordinary_unretained_complete_values_and_worker_g
             );
             assert!(work["aggregate_workers_submitted_chunks"].as_u64().unwrap() > 0);
             assert_eq!(work["aggregate_workers_provider_background_workers"], 0);
-            // Each repetition creates a fresh ordinary source; this proves no
-            // new retained API or cached answer, not one-open prepared reuse.
-            for _ in 0..2 {
-                let executed = unretained(&request, parallelism).execute().unwrap();
+            let operation = prepared(&request, parallelism);
+            for completed in 1..=2 {
+                let executed = operation.execute().unwrap();
                 assert!(executed.native_io_certificate.is_certified());
                 assert!(
                     executed
                         .native_io_certificate
                         .source_pushdown_report
                         .proof_basis
-                        .contains("aggregate_preparation_disposition=unretained_source")
+                        .contains("aggregate_lowering_reused=true")
                 );
+                assert_eq!(executed.runtime.prepared_source_opens, 1);
+                assert_eq!(executed.runtime.completed_executions, completed);
                 assert_values(&payload(&executed.report)["values"], &reference);
             }
         }
@@ -167,18 +165,18 @@ fn utf8_integer_distinct_native_dictionary_domains_and_slices_keep_complete_valu
     let report = runtime::execute_vortex_local_primitive_with_policy(&request, policy(2)).unwrap();
     assert_values(&payload(&report)["values"], &reference);
     assert_eq!(payload(&report)["aggregate_workers_rows"], 6);
-    let executed = unretained(&request, 2).execute().unwrap();
+    let executed = prepared(&request, 2).execute().unwrap();
     assert!(executed.native_io_certificate.is_certified());
     assert_values(&payload(&executed.report)["values"], &reference);
 }
 
 #[test]
-fn utf8_integer_distinct_native_unretained_generation_rejected_before_publication() {
+fn utf8_integer_distinct_native_prepared_generation_rejected_before_publication() {
     let fixture = Fixture::new();
     let (chunks, _, _) = corpus();
     let path = fixture.write("source.vortex", chunks.clone());
     let replacement = fixture.write("replacement.vortex", chunks);
-    let operation = unretained(&query(&path, 0, 4), 2);
+    let operation = prepared(&query(&path, 0, 4), 2);
     fs::rename(replacement, &path).unwrap();
     assert!(operation.execute().is_err());
 }
@@ -195,8 +193,8 @@ fn utf8_integer_distinct_native_admission_pressure_and_late_generation_release_e
     let resident = ResidentVortexSession::for_external_cpu_pool(32 << 20, 4).unwrap();
     let source = resident.prepare_file(&path).unwrap();
     let baseline = resident.memory().snapshot().reserved_bytes;
-    // This uses the existing internal held-source execution seam; it does not
-    // admit PreparedVortexAggregate or an owned UTF8 result through public APIs.
+    // Exercise pressure and late mutation directly at the shared held-source
+    // boundary in addition to the public prepared controls above.
     for pressure in [false, true, false] {
         let denied_before = resident.memory().snapshot().denied_reservations;
         aggregate_count_workers::ADMISSION_TEST_PRESSURE.with(|current| current.set(pressure));
@@ -259,7 +257,7 @@ fn utf8_integer_distinct_native_admission_pressure_and_late_generation_release_e
 }
 
 #[test]
-fn utf8_integer_distinct_native_empty_ordinary_and_unretained_values() {
+fn utf8_integer_distinct_native_empty_ordinary_and_prepared_values() {
     let fixture = Fixture::new();
     let path = fixture.write("empty.vortex", vec![chunk(strings(&[]), integers(&[]))]);
     let request = query(&path, 0, 4);
@@ -267,20 +265,20 @@ fn utf8_integer_distinct_native_empty_ordinary_and_unretained_values() {
     assert_values(&payload(&report)["values"], &serde_json::json!([]));
     assert_eq!(payload(&report)["candidate_groups"], 0);
     assert_eq!(report.rows_selected, Some(0));
-    let executed = unretained(&request, 1).execute().unwrap();
+    let executed = prepared(&request, 1).execute().unwrap();
     assert!(executed.native_io_certificate.is_certified());
     assert_values(&payload(&executed.report)["values"], &serde_json::json!([]));
 }
 
 #[test]
-fn utf8_integer_distinct_native_nullable_schema_keeps_existing_ordinary_route() {
+fn utf8_integer_distinct_native_nullable_schema_reuses_existing_ordinary_route() {
     let fixture = Fixture::new();
     let text = VarBinViewArray::from_iter_nullable_str([Some("x"), None, Some("x")]).into_array();
     let values = PrimitiveArray::from_option_iter([Some(1_i64), Some(2), None]).into_array();
     let path = fixture.write("nullable.vortex", vec![chunk(text, values)]);
     let request = query(&path, 0, 4);
     let resident = ResidentVortexSession::for_external_cpu_pool(32 << 20, 2).unwrap();
-    assert!(prepare_aggregate_in_session(&request, policy(2), &resident).is_err());
+    let operation = prepare_aggregate_in_session(&request, policy(2), &resident).unwrap();
     let report = runtime::execute_vortex_local_primitive_with_policy(&request, policy(2)).unwrap();
     let work = payload(&report);
     assert!(
@@ -299,9 +297,14 @@ fn utf8_integer_distinct_native_nullable_schema_keeps_existing_ordinary_route() 
         })
         .collect::<BTreeMap<_, _>>();
     assert_eq!(actual, BTreeMap::from([(None, 1), (Some("x".into()), 1)]));
-    let executed = unretained(&request, 2).execute().unwrap();
-    assert!(executed.native_io_certificate.is_certified());
-    assert_eq!(payload(&executed.report)["values"], work["values"]);
+    for completed in 1..=2 {
+        let executed = operation.execute().unwrap();
+        assert!(executed.native_io_certificate.is_certified());
+        assert_eq!(payload(&executed.report)["values"], work["values"]);
+        assert_eq!(executed.runtime.prepared_source_opens, 1);
+        assert_eq!(executed.runtime.completed_executions, completed);
+    }
+    drop(operation);
     assert_eq!(resident.memory().snapshot().reserved_bytes, 0);
 }
 
@@ -330,11 +333,7 @@ fn utf8_integer_distinct_native_explicit_spill_remains_outside_integer_spill_adm
             source.dtype()
         )
     );
-    assert!(
-        prepare_aggregate_for_optional_reuse(&request, policy(1))
-            .unwrap()
-            .is_none()
-    );
+    assert!(prepare_aggregate_for_optional_reuse(&request, policy(1)).is_err());
     assert!(runtime::execute_vortex_local_primitive_with_policy(&request, policy(1)).is_err());
     assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
     drop(source);

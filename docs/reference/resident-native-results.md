@@ -6,9 +6,16 @@ Use a Unix build with `vortex-local-primitives` for the interfaces on this page.
 They execute through the pinned native Vortex provider. Unsupported requests fail
 explicitly; no external query engine participates.
 
-The prepared aggregate API also has bounded [owned COUNT results](owned-count-results.md)
-for integer and nonnullable UTF8 group keys. That reference separates the
-historically measured result paths from the assembled PR's pending validation.
+`PreparedVortexAggregate::execute()` retains ordinary native aggregate lowering
+across text, numeric and nullable schemas, derived grouping keys, transformed
+measures and wide measure sets. Each call computes fresh state. With `vortex-write`,
+the admitted weighted UTF8 COUNT and exact integer DISTINCT spill families retain
+the source while rebuilding spill lowering and runs for every execution.
+
+`execute_owned()` has a separate, narrower contract for bounded
+[owned COUNT results](owned-count-results.md) with integer and nonnullable UTF8
+group keys. Its restrictions do not limit ordinary prepared aggregate reports.
+See the [current completion evidence](../architecture/native-runtime-completion-2026-09-20.md).
 
 ## Typed Rust Memory Intake
 

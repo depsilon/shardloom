@@ -231,11 +231,10 @@ impl super::ResidentVortexSession {
             array::memory::MemorySessionExt as _, file::OpenOptionsSessionExt as _,
             io::runtime::BlockingRuntime as _,
         };
-        let _gate = self
-            .0
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+        let _context = self.0.enter(
+            super::CallClass::General,
+            shardloom_exec::compute_pool::CancellationToken::default(),
+        )?;
         let observer = ObservedFileReadAt::new(
             path,
             self.0.session.allocator(),

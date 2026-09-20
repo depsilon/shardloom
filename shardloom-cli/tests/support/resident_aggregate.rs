@@ -1,5 +1,8 @@
 use super::*;
 
+#[path = "resident_aggregate_extended.rs"]
+mod extended;
+
 impl Worker {
     fn aggregate(
         &mut self,
@@ -230,7 +233,7 @@ fn worker_aggregate_source_replacement_fails_once_before_explicit_reprepare() {
 }
 
 #[test]
-fn worker_broader_native_aggregate_keeps_ordinary_execution_and_invalidates_reuse() {
+fn worker_reuses_transformed_aggregate_and_rebinds_changed_requests() {
     let path = fixture();
     let mut worker = Worker::new();
     let aggregate = scalar();
@@ -242,16 +245,12 @@ fn worker_broader_native_aggregate_keeps_ordinary_execution_and_invalidates_reus
     );
     let avg =
         json!({"measures":[{"function":"avg","column":"metric","alias":"mean_alias","argument_offset":1}]}).to_string();
-    for _ in 0..2 {
-        let result = worker.aggregate(&path, &avg, None, None, "1", "2");
-        assert_eq!(result["status"], "success", "{result}");
-        assert_eq!(values(&result), json!({"mean_alias":31.0}));
-        assert!(
-            !result["fields"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|field| field["key"] == "resident_aggregate_handle_retained")
+    for execution in 1..=2 {
+        completed(
+            &worker.aggregate(&path, &avg, None, None, "1", "2"),
+            &json!({"mean_alias":31.0}),
+            &execution.to_string(),
+            execution == 1,
         );
     }
     completed(
@@ -335,7 +334,7 @@ fn write_empty_source(root: &Path, source: &Path) {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
-fn worker_noninteger_aggregate_executes_once_per_open_without_retaining_broader_handle() {
+fn worker_reuses_noninteger_aggregate_with_complete_fresh_results() {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -367,25 +366,16 @@ fn worker_noninteger_aggregate_executes_once_per_open_without_retaining_broader_
     let aggregate = json!({"group_by":["text_key"], "measures":[
         {"function":"count","alias":"rows_alias"},{"function":"sum","column":"amount","alias":"total_alias"}],
         "order_by":[{"column":"text_key","descending":false}]}).to_string();
-    for _ in 0..3 {
-        let result = worker.aggregate(&source, &aggregate, None, None, "1", "2");
-        assert_eq!(result["status"], "success", "{result}");
-        assert_eq!(
-            values(&result),
-            json!([
+    for execution in 1..=3 {
+        completed(
+            &worker.aggregate(&source, &aggregate, None, None, "1", "2"),
+            &json!([
                 {"text_key":"a","rows_alias":2,"total_alias":5.0},
                 {"text_key":"b","rows_alias":1,"total_alias":2.0},
-            ])
+            ]),
+            &execution.to_string(),
+            execution == 1,
         );
-        for (key, value) in [
-            ("resident_source_opens", "1"),
-            ("resident_completed_executions", "1"),
-            ("resident_aggregate_handle_retained", "false"),
-            ("resident_footer_open_performed_this_call", "true"),
-            ("local_primitive_native_io_certified", "true"),
-        ] {
-            assert_eq!(field(&result, key), value, "{key}: {result}");
-        }
     }
     drop(worker);
     std::fs::remove_dir_all(root).unwrap();

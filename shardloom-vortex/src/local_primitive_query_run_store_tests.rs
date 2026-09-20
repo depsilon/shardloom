@@ -446,6 +446,13 @@ fn closed_namespaces_and_foreign_store_runs_cannot_cross_cleanup_boundaries() {
             .is_err()
     );
     assert!(recover(&policy, first.directory()).is_err());
+    assert!(
+        recover(&policy, second.directory())
+            .unwrap_err()
+            .to_string()
+            .contains("workspace is active")
+    );
+    second.abandon_for_recovery_test();
     let unknown = second.directory().join("user.txt");
     fs::write(&unknown, b"preserve me").unwrap();
     assert!(
@@ -465,3 +472,6 @@ fn closed_namespaces_and_foreign_store_runs_cannot_cross_cleanup_boundaries() {
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     workspace.assert_empty();
 }
+
+#[path = "local_primitive_query_run_recovery_tests.rs"]
+mod recovery;

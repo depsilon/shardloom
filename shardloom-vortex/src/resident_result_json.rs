@@ -2,7 +2,9 @@
 //!
 //! A child of `resident_session`; no Python dependency belongs here.
 
+use super::CallClass;
 use super::{OwnedVortexResultBatch, Result, resident_error};
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::Budgeted;
 
 impl OwnedVortexResultBatch {
@@ -44,11 +46,9 @@ impl OwnedVortexResultBatch {
     ) -> Result<Budgeted<String>> {
         // Results retain the same execution gate after the original session
         // handle closes; concurrent result sinks must not bypass that grant.
-        let _admission = self
+        let _context = self
             .runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("result JSON session admission poisoned"))?;
+            .enter(CallClass::General, CancellationToken::default())?;
         crate::local_primitives::collect::render_owned_json(
             self,
             columns,

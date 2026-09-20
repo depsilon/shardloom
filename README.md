@@ -58,10 +58,11 @@ admitted local routes; their linked evidence defines the supported shapes and re
   See the [source/prepared-state scope](docs/architecture/v1-source-prepared-state-scope.md).
 - **Prepare once; execute each call with fresh state.** Resident sessions retain source handles,
   generation identity, and prepared lowering for supported operations. Python contexts can reuse
-  a local worker to avoid per-call process startup. Prepared integer MIN/MAX/AVG joins the retained
-  aggregate families; repeated calls compute their results again. Source-generation checks reject
-  detected replacement or mutation. See the
-  [prepared execution evidence](docs/benchmarks/native-completion-boundaries-2026-09-12.md).
+  a local worker to avoid per-call process startup. Ordinary native aggregates retain the same
+  lowering across text, numeric and nullable schemas, derived keys, transformed measures, and wide
+  measure sets. Explicit COUNT/DISTINCT spill reuses the source and creates fresh run state on each
+  call. Source-generation checks reject detected replacement or mutation. See the
+  [runtime completion scope and evidence](docs/architecture/native-runtime-completion-2026-09-20.md).
 - **Results remain executable native data.** Admitted source and computed aggregate results own
   Vortex arrays, validity, and memory credits. Supported owned COUNT and grouped DISTINCT results
   can reach native Vortex, Arrow IPC, or Parquet sinks without a row/JSON reconstruction roundtrip;

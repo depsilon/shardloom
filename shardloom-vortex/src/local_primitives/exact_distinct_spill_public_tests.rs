@@ -164,6 +164,42 @@ fn values(report: &super::super::super::VortexLocalPrimitiveExecutionReport) -> 
 }
 
 #[test]
+fn prepared_spill_exact_distinct_reexecutes_complete_values_without_reopening() {
+    use super::super::super::prepared_aggregate::prepare_aggregate_in_session;
+    let fixture = Fixture::new(131_072);
+    let request = fixture.query(123, 7);
+    let expected = fixture.expected(123, 7, i16::MIN);
+    for parallelism in [1, 2] {
+        let session = ResidentVortexSession::new(32 << 20, parallelism).unwrap();
+        let prepared = prepare_aggregate_in_session(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            &session,
+        )
+        .unwrap();
+        assert_eq!(session.snapshot().completed_executions, 0);
+        for execution in 1..=2 {
+            let result = prepared.execute().unwrap();
+            assert_eq!(values(&result.report), expected);
+            assert!(result.native_io_certificate.is_certified());
+            let evidence = result
+                .report
+                .state_budget
+                .native_aggregate_spill
+                .as_ref()
+                .unwrap();
+            assert!(evidence.runs_written >= 2);
+            assert!(evidence.owned_cleanup_completed);
+            assert_eq!(result.runtime.prepared_source_opens, 1);
+            assert_eq!(result.runtime.completed_executions, execution);
+            assert_eq!(std::fs::read_dir(fixture.workspace()).unwrap().count(), 0);
+        }
+        drop(prepared);
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn public_exact_distinct_spill_many_runs_filtered_reordered_values_and_scoped_certificate() {
     let fixture = Fixture::new(131_072);
     for filtered in [false, true] {

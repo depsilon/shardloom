@@ -223,6 +223,9 @@ pub(super) struct QueryRunStoreSnapshot {
 pub(super) struct QueryRunStore {
     policy: QueryRunStorePolicy,
     directory: PathBuf,
+    // Independent directory descriptor: never clone it, since clones share a lock.
+    // The lock survives cleanup and is released only after Drop has finished.
+    directory_owner: Option<File>,
     owned: Vec<PathBuf>,
     identities: std::collections::BTreeMap<PathBuf, OwnedRunIdentity>,
     marker_identity: Option<(u64, u64)>,
@@ -313,6 +316,7 @@ impl QueryRunStore {
         let mut store = Self {
             policy,
             directory,
+            directory_owner: None,
             owned: Vec::with_capacity(MAX_LIVE_RUNS + 1),
             identities: std::collections::BTreeMap::new(),
             marker_identity: None,
@@ -327,6 +331,7 @@ impl QueryRunStore {
             _workspace_metadata: workspace_metadata,
             failed: false,
         };
+        store.directory_owner = Some(lock_directory(&store.directory)?);
         store.write_marker()?;
         Ok(store)
     }
@@ -577,6 +582,7 @@ impl QueryRunStore {
     }
 
     pub(super) fn write_marker(&mut self) -> Result<()> {
+        self.validate_directory()?;
         let payload = serde_json::json!({
             "schema": self.policy.namespace.schema(),
             "files": self.owned.iter().map(|path| {
@@ -614,11 +620,25 @@ impl QueryRunStore {
         &self.directory
     }
 
+    #[cfg(all(test, feature = "vortex-write"))]
+    pub(super) fn abandon_for_recovery_test(&mut self) {
+        self.failed = true;
+        self.directory_owner.take();
+    }
+
+    fn validate_directory(&self) -> Result<()> {
+        if let Some(owner) = &self.directory_owner {
+            validate_directory_owner(&self.directory, owner)?;
+        }
+        Ok(())
+    }
+
     pub(super) fn cleanup(&mut self) -> Result<()> {
         self.cleanup_inner()
             .map_err(|error| self.policy.namespace.context(error))
     }
     fn cleanup_inner(&mut self) -> Result<()> {
+        self.validate_directory()?;
         let marker = self.directory.join(OWNERSHIP_MARKER);
         if let Some(identity) = self.marker_identity
             && file_identity(&marker)? != identity
@@ -855,6 +875,30 @@ fn file_identity(path: &Path) -> Result<(u64, u64)> {
     metadata_identity(&metadata)
 }
 
+fn lock_directory(path: &Path) -> Result<File> {
+    let owner = File::open(path).map_err(io_error)?;
+    owner.try_lock().map_err(|error| {
+        spill_error(&format!(
+            "native query workspace is active or cannot be exclusively locked: {error}"
+        ))
+    })?;
+    validate_directory_owner(path, &owner)?;
+    Ok(owner)
+}
+
+fn validate_directory_owner(path: &Path, owner: &File) -> Result<()> {
+    let metadata = fs::symlink_metadata(path).map_err(io_error)?;
+    if !metadata.is_dir()
+        || metadata.file_type().is_symlink()
+        || metadata_identity(&metadata)? != metadata_identity(&owner.metadata().map_err(io_error)?)?
+    {
+        return Err(spill_error(
+            "native query workspace directory ownership changed",
+        ));
+    }
+    Ok(())
+}
+
 #[allow(clippy::unnecessary_wraps)] // Non-Unix builds retain the explicit unsupported-identity error.
 fn metadata_identity(metadata: &fs::Metadata) -> Result<(u64, u64)> {
     #[cfg(unix)]
@@ -897,6 +941,7 @@ pub(super) fn recover(policy: &QueryRunStorePolicy, directory: &Path) -> Result<
 #[cfg(feature = "vortex-write")]
 #[allow(clippy::too_many_lines)] // Validate all owned entries before destructive recovery.
 fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
+    policy.check_cancelled()?;
     let root = fs::canonicalize(&policy.workspace).map_err(io_error)?;
     let metadata = fs::symlink_metadata(directory).map_err(io_error)?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
@@ -913,6 +958,9 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
             "sort recovery directory is outside its admitted workspace",
         ));
     }
+    // Never clean an active query or race another cooperating recovery. Keep
+    // this independent descriptor alive until every deletion has completed.
+    let owner = lock_directory(&directory)?;
     let marker = directory.join(OWNERSHIP_MARKER);
     let marker_identity = file_identity(&marker)?;
     let marker_metadata = fs::symlink_metadata(&marker).map_err(io_error)?;
@@ -946,7 +994,7 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
     if files.len() > MAX_LIVE_RUNS + 1 {
         return Err(spill_error("sort recovery marker exceeds file bound"));
     }
-    let mut owned = std::collections::BTreeSet::new();
+    let mut owned = std::collections::BTreeMap::new();
     for file in files {
         let name = file
             .get("name")
@@ -967,7 +1015,7 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
             .get("inode")
             .and_then(serde_json::Value::as_u64)
             .ok_or_else(|| spill_error("sort recovery inode is missing"))?;
-        if !owned.insert(path.clone()) {
+        if owned.insert(path.clone(), (device, inode)).is_some() {
             return Err(spill_error("sort recovery run is duplicated"));
         }
         let current_identity = match fs::symlink_metadata(&path) {
@@ -981,7 +1029,7 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
     }
     for entry in fs::read_dir(&directory).map_err(io_error)? {
         let entry = entry.map_err(io_error)?.path();
-        if entry != marker && !owned.contains(&entry) {
+        if entry != marker && !owned.contains_key(&entry) {
             return Err(spill_error(
                 "sort recovery found an unknown file; owned workspace left intact",
             ));
@@ -990,12 +1038,27 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
     if file_identity(&marker)? != marker_identity {
         return Err(spill_error("sort recovery ownership marker changed"));
     }
-    for path in owned {
-        match fs::remove_file(path) {
+    for (path, identity) in owned {
+        policy.check_cancelled()?;
+        validate_directory_owner(&directory, &owner)?;
+        match fs::symlink_metadata(&path) {
+            Ok(_) if file_identity(&path)? != identity => {
+                return Err(spill_error("sort recovery run ownership changed"));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(io_error(error)),
+        }
+        match fs::remove_file(&path) {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(io_error(error)),
         }
+    }
+    policy.check_cancelled()?;
+    validate_directory_owner(&directory, &owner)?;
+    if file_identity(&marker)? != marker_identity {
+        return Err(spill_error("sort recovery ownership marker changed"));
     }
     fs::remove_file(marker).map_err(io_error)?;
     fs::remove_dir(directory).map_err(io_error)

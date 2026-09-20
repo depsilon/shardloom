@@ -14,6 +14,7 @@ use std::{
 
 use futures::{FutureExt as _, future::BoxFuture};
 use shardloom_core::{Result, ShardLoomError};
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot};
 use vortex::{
     VortexSessionDefault as _,
@@ -39,6 +40,17 @@ use crate::owned_buffers::ReservedHostAllocator;
 use crate::resident_worker_group::ResidentWorkerGroup;
 use crate::source_identity::FileGeneration;
 pub(crate) use crate::source_identity::SourceIdentity;
+
+#[path = "resident_execution_context.rs"]
+mod execution_context;
+#[path = "resident_io_ownership.rs"]
+mod io_ownership;
+#[path = "resident_admission.rs"]
+mod serving_admission;
+pub use execution_context::{NativeExecutionContext, ResidentCallTiming};
+pub use io_ownership::ResidentIoSnapshot;
+use serving_admission::CallClass;
+pub use serving_admission::{ResidentAdmissionSnapshot, ResidentServingPolicy};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_result_json.rs"]
@@ -73,6 +85,8 @@ struct RuntimeOwner {
     runtime: CurrentThreadRuntime,
     _workers: ResidentWorkerGroup,
     admission: Mutex<()>,
+    serving: Option<Arc<serving_admission::Admission>>,
+    io_budget: Option<Arc<io_ownership::IoBudget>>,
     memory: LiveMemoryPool,
     parallelism: usize,
     provider_background_workers: usize,
@@ -81,7 +95,8 @@ struct RuntimeOwner {
 }
 
 /// A session shares provider registries and runtime workers across prepared calls.
-/// Concurrent callers queue at the session boundary; there is no hidden global.
+/// Ordinary sessions serialize calls. Explicit serving sessions admit concurrent
+/// work within shared CPU, queue and I/O limits; there is no hidden global.
 #[derive(Clone)]
 pub struct ResidentVortexSession(Arc<RuntimeOwner>);
 
@@ -130,11 +145,9 @@ impl ResidentVortexSession {
         &self,
         execute: impl FnOnce(&VortexSession, &CurrentThreadRuntime) -> Result<T>,
     ) -> Result<T> {
-        let _gate = self
+        let _context = self
             .0
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::General, CancellationToken::default())?;
         execute(&self.0.session, &self.0.runtime)
     }
 
@@ -163,11 +176,9 @@ impl ResidentVortexSession {
         max_output_bytes: u64,
         execute: impl FnOnce(&VortexSession) -> Result<ArrayRef>,
     ) -> Result<OwnedVortexResultBatch> {
-        let _gate = self
+        let _context = self
             .0
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::General, CancellationToken::default())?;
         let ownership = self
             .0
             .memory
@@ -193,6 +204,57 @@ impl ResidentVortexSession {
     /// require Unix device/inode/change-time identity; other hosts fail explicitly.
     pub fn new(memory_bytes: u64, max_parallelism: usize) -> Result<Self> {
         Self::with_cpu_driver_policy(memory_bytes, max_parallelism, false)
+    }
+
+    /// Create a concurrent session with bounded per-class FIFO admission.
+    /// General calls own `general_cpu_lanes` including the caller. When P >= 2,
+    /// one CPU lane can remain available to metadata calls during general work.
+    /// Drivers used by general operations are per-operation and join before the
+    /// CPU grant is returned; this constructor creates no persistent CPU drivers.
+    ///
+    /// # Errors
+    /// Rejects invalid CPU, memory, queue and I/O envelopes.
+    pub fn with_serving_policy(
+        memory_bytes: u64,
+        max_parallelism: usize,
+        policy: ResidentServingPolicy,
+    ) -> Result<Self> {
+        let mut session = Self::with_cpu_driver_policy(memory_bytes, max_parallelism, true)?;
+        let owner = Arc::get_mut(&mut session.0)
+            .ok_or_else(|| resident_error("new serving session is not uniquely owned"))?;
+        owner.serving = Some(serving_admission::Admission::new(
+            policy,
+            owner.parallelism,
+            &owner.memory,
+        )?);
+        owner.io_budget = Some(io_ownership::IoBudget::new(
+            policy.max_io_requests,
+            policy.max_io_bytes,
+        ));
+        owner.parallelism = policy.general_cpu_lanes;
+        Ok(session)
+    }
+
+    #[must_use]
+    pub fn admission_snapshot(&self) -> Option<ResidentAdmissionSnapshot> {
+        self.0
+            .serving
+            .as_ref()
+            .map(|admission| admission.snapshot())
+    }
+
+    #[must_use]
+    pub fn io_snapshot(&self) -> Option<ResidentIoSnapshot> {
+        self.0.io_budget.as_ref().map(|io| io.snapshot())
+    }
+
+    /// Stop accepting serving calls and release queued callers with cancellation
+    /// errors. Already active calls retain their owners until they finish/drain.
+    /// Ordinary exclusive sessions are unaffected.
+    pub fn close_admission(&self) {
+        if let Some(admission) = &self.0.serving {
+            admission.close();
+        }
     }
 
     /// The caller and its dedicated compute pool own the CPU budget. Provider
@@ -233,6 +295,8 @@ impl ResidentVortexSession {
             runtime,
             _workers: workers,
             admission: Mutex::new(()),
+            serving: None,
+            io_budget: None,
             memory,
             parallelism,
             provider_background_workers,
@@ -258,16 +322,15 @@ impl ResidentVortexSession {
     /// Rejects inaccessible/nonregular files, unsupported generation identity,
     /// concurrent mutation, invalid Vortex files, and memory admission failures.
     pub fn prepare_file(&self, path: impl AsRef<Path>) -> Result<PreparedVortexSource> {
-        let _gate = self
+        let context = self
             .0
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::General, CancellationToken::default())?;
         let identity = Arc::new(SourceIdentity::capture(path.as_ref())?);
-        let input = identity.reader(
+        let input = identity.reader_scoped(
             self.0.session.allocator(),
             self.0.runtime.handle(),
             self.0.parallelism,
+            context.io_scope(),
         );
         let file = self
             .0
@@ -280,6 +343,7 @@ impl ResidentVortexSession {
                     .open(input),
             )
             .map_err(native_error)?;
+        context.drain_io();
         identity.validate()?;
         self.0.opens.fetch_add(1, Ordering::Relaxed);
         Ok(PreparedVortexSource(Arc::new(PreparedSourceOwner {
@@ -317,12 +381,10 @@ impl PreparedVortexSource {
     /// Rejects nonregular or mismatched metadata, changed source generations,
     /// in-memory sources, and poisoned session admission.
     pub fn validate_file_metadata(&self, expected: &Metadata) -> Result<()> {
-        let _gate = self
+        let _context = self
             .0
             .runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::Metadata, CancellationToken::default())?;
         let identity = self.0.identity.as_ref().ok_or_else(|| {
             resident_error("file metadata admission is not available for an in-memory source")
         })?;
@@ -366,11 +428,9 @@ impl PreparedVortexSource {
         projected_columns: &[shardloom_core::ColumnRef],
     ) -> Result<Option<segment_reuse::SegmentReusePolicy>> {
         let source = &self.0;
-        let _gate = source
+        let _context = source
             .runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::Metadata, CancellationToken::default())?;
         source.validate()?;
         let policy = segment_reuse::SegmentReusePolicy::for_scan(
             predicate,
@@ -393,20 +453,59 @@ impl PreparedVortexSource {
         &self,
         execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
     ) -> Result<T> {
+        self.with_native_execution_controlled(&CancellationToken::default(), |file, context| {
+            execute(file, context.native_session(), context.runtime())
+        })
+    }
+
+    /// Admit once; composed operators borrow this context instead of reacquiring
+    /// the same session. CPU jobs must be joined inside the callback. The context
+    /// closes and drains its native I/O before returning its CPU grant.
+    #[cfg(all(
+        any(feature = "vortex-write", feature = "vortex-local-primitives"),
+        unix
+    ))]
+    pub(crate) fn with_native_execution_controlled<T>(
+        &self,
+        cancellation: &CancellationToken,
+        execute: impl FnOnce(&VortexFile, &NativeExecutionContext<'_>) -> Result<T>,
+    ) -> Result<T> {
         let source = &self.0;
-        let _gate = source
+        let context = source
             .runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
-        source.validate()?;
-        let result = execute(
-            &source.file,
-            &source.runtime.session,
-            &source.runtime.runtime,
-        )?;
-        source.validate()?;
+            .enter(CallClass::General, cancellation.clone())?;
+        let result = self.with_admitted_native_execution(&context, execute)?;
+        context.drain_io();
+        context.check_cancelled()?;
+        if source.runtime.serving.is_some() {
+            source.validate()?;
+        }
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    /// Compose another source/operator under the current operation grant.
+    /// This neither reacquires admission nor reports a second completed call.
+    #[cfg(all(
+        any(feature = "vortex-write", feature = "vortex-local-primitives"),
+        unix
+    ))]
+    pub(crate) fn with_admitted_native_execution<T>(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        execute: impl FnOnce(&VortexFile, &NativeExecutionContext<'_>) -> Result<T>,
+    ) -> Result<T> {
+        if !context.belongs_to(&self.0.runtime) {
+            return Err(resident_error(
+                "native execution context belongs to a different session",
+            ));
+        }
+        context.check_cancelled()?;
+        self.0.validate()?;
+        let file = context.file_view(&self.0.file, self.0.identity.as_ref());
+        let result = execute(&file, context)?;
+        context.check_cancelled()?;
+        self.0.validate()?;
         Ok(result)
     }
 
@@ -418,23 +517,20 @@ impl PreparedVortexSource {
         execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
     ) -> Result<(T, usize)> {
         let source = &self.0;
-        let _gate = source
+        let context = source
             .runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::General, CancellationToken::default())?;
         source.validate()?;
-        let additional = source
-            .runtime
-            .parallelism
+        let additional = context
+            .cpu_lanes()
             .saturating_sub(1 + source.runtime.provider_background_workers);
-        let _workers =
+        let workers =
             ResidentWorkerGroup::new(&source.runtime.runtime, additional).map_err(native_error)?;
-        let result = execute(
-            &source.file,
-            &source.runtime.session,
-            &source.runtime.runtime,
-        )?;
+        let file = context.file_view(&source.file, source.identity.as_ref());
+        let result = execute(&file, &source.runtime.session, &source.runtime.runtime)?;
+        drop(file);
+        drop(workers);
+        context.drain_io();
         source.validate()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((
@@ -485,6 +581,7 @@ impl PreparedVortexSource {
     /// Temporary provider drivers are permitted only when the caller has
     /// rejected its dedicated compute pool. All driver creation and teardown
     /// occurs inside the existing source/session execution gate.
+    #[allow(clippy::too_many_lines)] // One admitted source/retry lifecycle owns this boundary.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn with_native_execution_cached_retry_with_drivers<T>(
         &self,
@@ -498,27 +595,25 @@ impl PreparedVortexSource {
         ) -> Result<T>,
     ) -> Result<(T, segment_reuse::SegmentReuseSnapshot)> {
         let source = &self.0;
-        let _gate = source
+        let context = source
             .runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::General, CancellationToken::default())?;
         source.validate()?;
+        let operation_file = context.file_view(&source.file, source.identity.as_ref());
         let additional = if restore_provider_drivers {
-            source
-                .runtime
-                .parallelism
+            context
+                .cpu_lanes()
                 .saturating_sub(1 + source.runtime.provider_background_workers)
         } else {
             0
         };
-        let _workers =
+        let workers =
             ResidentWorkerGroup::new(&source.runtime.runtime, additional).map_err(native_error)?;
         let provider_workers = additional + source.runtime.provider_background_workers;
         let started = std::time::Instant::now();
         let generation = Arc::clone(source);
         let Some(cache) = segment_reuse::ScanSegmentReuse::try_new(
-            source.file.segment_source(),
+            operation_file.segment_source(),
             source.runtime.memory.clone(),
             policy,
             move || {
@@ -533,11 +628,14 @@ impl PreparedVortexSource {
                 retry_requested: false,
             };
             let result = execute(
-                &source.file,
+                &operation_file,
                 &source.runtime.session,
                 &source.runtime.runtime,
                 &mut attempt,
             )?;
+            drop(operation_file);
+            drop(workers);
+            context.drain_io();
             source.validate()?;
             source.runtime.executions.fetch_add(1, Ordering::Relaxed);
             let mut snapshot =
@@ -545,8 +643,8 @@ impl PreparedVortexSource {
             snapshot.provider_background_workers = provider_workers;
             return Ok((result, snapshot));
         };
-        let file = source
-            .file
+        let file = operation_file
+            .as_ref()
             .clone()
             .with_segment_source(Arc::new(cache.clone()));
         let mut attempt = SegmentReuseAttempt {
@@ -578,7 +676,7 @@ impl PreparedVortexSource {
                 retry_requested: false,
             };
             let result = execute(
-                &source.file,
+                &operation_file,
                 &source.runtime.session,
                 &source.runtime.runtime,
                 &mut attempt,
@@ -591,6 +689,12 @@ impl PreparedVortexSource {
         } else {
             result?
         };
+        drop(operation_file);
+        drop(workers);
+        context.drain_io();
+        if source.runtime.serving.is_some() {
+            source.validate()?;
+        }
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((result, snapshot))
     }
@@ -660,17 +764,35 @@ impl PreparedVortexCount {
     /// # Errors
     /// Rejects changed source generations and poisoned session admission.
     pub fn execute(&self) -> Result<u64> {
+        self.execute_with_cancellation(&CancellationToken::default())
+    }
+
+    /// Execute a generation-validated footer count. In a serving session,
+    /// cancellation while queued is observed without waiting for bulk work.
+    /// # Errors
+    /// Rejects cancellation, source changes, or closed/full serving admission.
+    pub fn execute_with_cancellation(&self, cancellation: &CancellationToken) -> Result<u64> {
+        self.execute_timed(cancellation).map(|(result, _)| result)
+    }
+
+    /// Return the count and this call's admission/service timings.
+    /// # Errors
+    /// Returns the same cancellation, generation and admission errors as execute.
+    pub fn execute_timed(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<(u64, ResidentCallTiming)> {
         let source = &self.0.0;
-        let _gate = source
+        let context = source
             .runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+            .enter(CallClass::Metadata, cancellation.clone())?;
         source.validate()?;
+        context.check_cancelled()?;
         let rows = source.file.row_count();
         source.validate()?;
+        context.check_cancelled()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
-        Ok(rows)
+        Ok((rows, context.timing()))
     }
 }
 
@@ -736,21 +858,48 @@ impl PreparedVortexProjection {
     /// # Errors
     /// Rejects source mutation, scan errors, or row/byte/memory bound violations.
     pub fn execute(&self) -> Result<OwnedVortexResultBatch> {
+        self.execute_with_cancellation(&CancellationToken::default())
+    }
+
+    /// Complete this projection with the supplied operation cancellation flag.
+    /// Queued serving calls cancel before provider work. Active calls check at
+    /// native array boundaries, then drain admitted I/O before releasing grants.
+    /// # Errors
+    /// Rejects cancellation, source changes, provider failures and resource bounds.
+    pub fn execute_with_cancellation(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<OwnedVortexResultBatch> {
+        self.execute_timed(cancellation).map(|(result, _)| result)
+    }
+
+    /// Return complete native arrays and this call's admission/service timings.
+    /// Rendering, caller-owned transport and returned-result drop are separate.
+    /// # Errors
+    /// Returns the same generation, cancellation, scan and ownership errors as execute.
+    pub fn execute_timed(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<(OwnedVortexResultBatch, ResidentCallTiming)> {
         let source = &self.source.0;
         let runtime = &source.runtime;
-        let _gate = runtime
-            .admission
-            .lock()
-            .map_err(|_| resident_error("session admission poisoned"))?;
+        let context = runtime.enter(CallClass::General, cancellation.clone())?;
+        let additional = if runtime.serving.is_some() {
+            context.cpu_lanes().saturating_sub(1)
+        } else {
+            0
+        };
+        let workers =
+            ResidentWorkerGroup::new(&runtime.runtime, additional).map_err(native_error)?;
         source.validate()?;
-        let scan = source
-            .file
+        let file = context.file_view(&source.file, source.identity.as_ref());
+        let scan = file
             .scan()
             .map_err(native_error)?
             .with_projection(self.projection.clone())
             .with_some_filter(self.filter.clone())
             .with_ordered(true)
-            .with_concurrency(runtime.parallelism);
+            .with_concurrency(context.cpu_lanes());
         let scan = if let Some(range) = &self.row_range {
             scan.with_row_range(range.clone())
         } else {
@@ -771,6 +920,7 @@ impl PreparedVortexProjection {
         let mut rows = 0_u64;
         let mut logical_bytes = 0_u64;
         for array in &mut scan {
+            context.check_cancelled()?;
             let array = array.map_err(native_error)?;
             let remaining = usize::try_from(self.max_rows - rows).unwrap_or(usize::MAX);
             let array = if array.len() > remaining {
@@ -803,14 +953,22 @@ impl PreparedVortexProjection {
                 break;
             }
         }
+        drop(scan);
+        drop(file);
+        drop(workers);
+        context.drain_io();
+        context.check_cancelled()?;
         source.validate()?;
         runtime.executions.fetch_add(1, Ordering::Relaxed);
-        Ok(OwnedVortexResultBatch {
-            arrays: Budgeted::new(arrays, lease),
-            runtime: Arc::clone(runtime),
-            rows,
-            logical_buffer_bytes: logical_bytes,
-        })
+        Ok((
+            OwnedVortexResultBatch {
+                arrays: Budgeted::new(arrays, lease),
+                runtime: Arc::clone(runtime),
+                rows,
+                logical_buffer_bytes: logical_bytes,
+            },
+            context.timing(),
+        ))
     }
 }
 
@@ -869,20 +1027,33 @@ impl SourceIdentity {
         handle: Handle,
         concurrency: usize,
     ) -> Arc<dyn VortexReadAt> {
+        self.reader_scoped(allocator, handle, concurrency, None)
+    }
+
+    fn reader_scoped(
+        self: &Arc<Self>,
+        allocator: HostAllocatorRef,
+        handle: Handle,
+        concurrency: usize,
+        scope: Option<Arc<io_ownership::IoScope>>,
+    ) -> Arc<dyn VortexReadAt> {
         Arc::new(ResidentFileReadAt {
             identity: Arc::clone(self),
             allocator,
             handle,
             concurrency,
+            scope,
         })
     }
 }
 
+#[derive(Clone)]
 struct ResidentFileReadAt {
     identity: Arc<SourceIdentity>,
     allocator: HostAllocatorRef,
     handle: Handle,
     concurrency: usize,
+    scope: Option<Arc<io_ownership::IoScope>>,
 }
 
 impl VortexReadAt for ResidentFileReadAt {
@@ -913,34 +1084,48 @@ impl VortexReadAt for ResidentFileReadAt {
         let identity = Arc::clone(&self.identity);
         let allocator = Arc::clone(&self.allocator);
         let handle = self.handle.clone();
+        let scope = self.scope.clone();
         async move {
-            handle
+            let job = scope
+                .as_ref()
+                .map(|scope| scope.admit(length))
+                .transpose()
+                .map_err(|error| vortex_err!("{error}"))?;
+            let completion = handle
                 .spawn_blocking(move || {
-                    identity
-                        .validate()
-                        .map_err(|error| vortex_err!("{error}"))?;
-                    if offset
-                        .checked_add(u64::try_from(length).unwrap_or(u64::MAX))
-                        .is_none_or(|end| end > identity.generation.len)
-                    {
-                        return Err(vortex_err!(
-                            "resident source read exceeds generation length"
-                        ));
-                    }
-                    let mut buffer = allocator.allocate(length, alignment)?;
-                    vortex::io::std_file::read_exact_at(
-                        &identity.file,
-                        buffer.as_mut_slice(),
-                        offset,
-                    )?;
-                    identity
-                        .validate()
-                        .map_err(|error| vortex_err!("{error}"))?;
-                    Ok(vortex::array::buffer::BufferHandle::new_host(
-                        buffer.freeze(),
-                    ))
+                    let result = (|| {
+                        if let Some(job) = &job {
+                            job.check_cancelled()
+                                .map_err(|error| vortex_err!("{error}"))?;
+                        }
+                        identity
+                            .validate()
+                            .map_err(|error| vortex_err!("{error}"))?;
+                        if offset
+                            .checked_add(u64::try_from(length).unwrap_or(u64::MAX))
+                            .is_none_or(|end| end > identity.generation.len)
+                        {
+                            return Err(vortex_err!(
+                                "resident source read exceeds generation length"
+                            ));
+                        }
+                        let mut buffer = allocator.allocate(length, alignment)?;
+                        vortex::io::std_file::read_exact_at(
+                            &identity.file,
+                            buffer.as_mut_slice(),
+                            offset,
+                        )?;
+                        identity
+                            .validate()
+                            .map_err(|error| vortex_err!("{error}"))?;
+                        Ok(vortex::array::buffer::BufferHandle::new_host(
+                            buffer.freeze(),
+                        ))
+                    })();
+                    io_ownership::ReadCompletion { result, _job: job }
                 })
-                .await
+                .await;
+            completion.result
         }
         .boxed()
     }
@@ -965,6 +1150,10 @@ mod tests;
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_file_serving_tests.rs"]
 mod file_serving_tests;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "resident_concurrent_serving_tests.rs"]
+mod concurrent_serving_tests;
 
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_file_pruning_tests.rs"]
