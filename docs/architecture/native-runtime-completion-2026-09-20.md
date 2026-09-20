@@ -1,6 +1,7 @@
 # Native runtime completion
 
-Status: implementation in progress after `d0c656d3` / PR #1454. The maintainer
+Status: implementation in progress; the first ownership/preparation unit merged
+in PR #1455 at `a04366c3`, with all 40 remote checks passing. The maintainer
 explicitly prioritizes spill/recovery, prepared/public availability and concurrent
 serving, including currently unsupported native operator families. Ingest CPU and
 persisted-storage experiments follow their implementation, validation and merges.
@@ -60,8 +61,9 @@ its operator, source, resource and failure envelope.
 
 Implemented at `739a311e05eaa9388486c3eb805ba3c89e86594b`. Local tests, native and
 workspace Clippy, formatting, full-size Full43, held-out/public-call UAT and bounded
-serving load checks pass. Targeted timing comparisons are recorded below; remote
-acceptance remains pending:
+serving load checks pass. Five review findings were corrected before PR #1455
+merged at `a04366c3`; its accepted head was `f94272be`. Targeted timing comparisons
+and the scope of each subsequent verification are recorded below:
 
 - Shared native run directories now exclude live-owner and competing recovery.
   Real child-process exit tests cover numeric sort, integer DISTINCT and weighted
@@ -83,8 +85,8 @@ acceptance remains pending:
 This unit does not complete the checklist above. General native joins, remaining
 prepared operator families, broader owned computed results, compound/DISTINCT
 spill transitions and production-scale serving acceptance remain subsequent work.
-Full UAT passes for this unit. No performance improvement, merge or release is
-claimed yet.
+Full UAT and remote acceptance pass for this merged unit. No performance
+improvement, release or broader checklist completion is claimed.
 
 ### First-unit validation receipts
 
@@ -304,12 +306,13 @@ native promotion.
 
 ### Composition prerequisite for joins
 
-Add a source-based aggregate preparation boundary sharing existing lowering and
-an owned-result-to-immutable-source boundary that borrows the current execution
-context. The existing `MemoryFileGeneration` is a bounded one-Struct prototype,
-not this general bridge. Preserve dtype for empty results, use typed chunked
-children, bound rows/bytes/metadata and report native serialization costs. Do not
+The [native composition candidate](native-result-composition-2026-09-20.md) adds
+source-based aggregate preparation sharing existing lowering and an owned-result
+intake that borrows the current execution context. It extends the existing
+`MemoryFileGeneration` with typed chunked children and authoritative empty schemas,
+bounds rows/bytes/metadata and reports native serialization costs. It does not
 claim zero-copy composition or reopen a file for every downstream operator.
+Its acceptance and PR status remain separate from the first merged unit above.
 
 Join output must retain duplicate row identity, unlike COUNT/DISTINCT reduction
 partitions. Scan selections contain sorted unique ordinals; use them for fetching

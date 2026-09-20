@@ -1,6 +1,7 @@
 # Native result composition
 
-Status: implementation in progress after the ownership/preparation unit in PR #1455.
+Status: implementation and full local acceptance complete; PR acceptance pending
+after the merged ownership/preparation unit in PR #1455.
 This prerequisite belongs to the existing native runtime completion plan and
 PERF-02/07/10/11. It does not complete general joins or public operator parity.
 
@@ -15,9 +16,9 @@ sources; it does not accept injection of an arbitrary owned array reader. Reuse
 ShardLoom's existing MemoryFileGeneration and segment builder so downstream
 operators keep the same Vortex scan and optimized aggregate lowering boundary.
 
-Add a bounded owned-batch intake alongside the existing typed memory intake.
-Retain typed native columns and chunk references, without row or Arrow conversion.
-Normalize nullable root-Struct validity into logical field validity when building
+The bounded owned-batch intake supplements the existing typed memory intake.
+It retains typed native columns and chunk references, without row or Arrow conversion,
+and normalizes nullable root-Struct validity into logical field validity when building
 the tabular nonnullable Struct root. Native column values and their nulls remain
 unchanged. Explicit bounds cover rows, fields, batch references, segments,
 serialized bytes and metadata. Existing typed-intake and JSON defaults remain.
@@ -71,8 +72,8 @@ source contract.
 
 ## Local acceptance
 
-The implementation at `ef957adf` passes the native value and ownership checks;
-release UAT and PR acceptance are still pending. Builds use the resolved local
+The implementation at `ef957adf`, with documentation at `534095f7`, passes the native
+value and ownership checks. Builds use the resolved local
 Cargo target `/Users/dylan/.cache/shardloom/cargo-target`. Command logs and hashed
 JSON receipts are retained under
 `/Users/dylan/LocalData/shardloom/ship-drop-20260919/`.
@@ -125,3 +126,63 @@ zero final reservations. Peak ownership was four CPU lanes, four queued calls
 mode completed 47 requests and rejected 49 at the bounded client queue, with no
 engine errors and zero final reservations. This debug fixture is lifecycle
 acceptance, not a production-scale latency comparison.
+
+## Release UAT
+
+The release binary built from clean `534095f78cc50c910e585c250979f432e2bad7f1`
+with `release-user-surfaces` is frozen as `candidate-534095f7` (85,234,544 bytes),
+SHA-256 `64a6d56579cbd56bc9acfc0c96c83ac3ac888ef32a783c8445d264d1bbafab4b`.
+The subsequent main merge changes history only; the remaining overlay is documentation.
+
+Full43 passes all 129/129 complete results on the retained 99,997,497-row,
+18,591,586,804-byte native source. Sum of per-query best-of-three times is
+63.459160 s; all raw calls total 197.966844 s. These fresh-process timings include
+complete CLI output and exit. The run uses the same 24 GiB/P12 request (effective
+ten CPUs), Apple M5/macOS 27 host, uncontrolled OS cache, query definitions and
+retained native references as the first-unit evidence. It is an unpaired
+observation and does not establish a causal performance gain or an independent oracle.
+
+Receipt: `clickbench-100m-uat/logs/full43_20260920T161041150303Z/summary.json`,
+SHA-256 `d01c007614e57b1c401fe15b3b73f6755f165c7f98d957c776d771b19516bb36`.
+`composition-full43-2.json` preserves the exact command and log hash. The initial
+`composition-full43-1` attempt stopped before executing a query because the system
+Python lacks `hashlib.file_digest`; the successful run uses installed Python 3.13.
+Storage limits and concurrency guards are unchanged.
+
+The first public-call attempt stopped at the unchanged log-storage guard after
+2,107 passing checks; it is retained as incomplete, not a passing full matrix.
+`archive_storage_stopped_composition_public.json` preserves its raw output and
+the earlier storage-stopped held-out run without changing either summary status.
+Completed Full43 logs were also packed into verified raw-member archives before
+the complete public-call retry. This cleanup changes storage representation only;
+no guard was disabled and no failed acceptance was reclassified as complete.
+
+The complete retry passes 2,232/2,232 checks: 12 deterministic 32-row cases,
+three public surfaces, baseline/candidate alternating pairs and 30 measured calls
+plus one warmup per case. Candidate p50 ranges across those cases are
+6.228–7.078 ms fresh CLI, 0.387–0.935 ms persistent worker and 0.706–1.381 ms Python.
+All complete values, retained-source counts and prepared-lowering reuse checks
+pass. The baseline is the first unit's final query binary, `candidate-049e33da`;
+this fixture does not measure large payloads, total RSS or production concurrency.
+
+Public receipt: `clickbench-100m-uat/logs/resident_call_paths_20260920T162914389048Z/summary.json`,
+SHA-256 `f6ad1a2569bcc4d208c0c00e369ec4232f782d52458819bd656e2024eff157da`.
+`composition-public-uat-2.json` records the command and 526.904107 s harness time;
+the timing ranges above use native/public call boundaries, not total harness time.
+Verified raw logs are indexed by `archive_completed_composition_public.json`.
+Four completed historical held-out fixtures were independently hash-checked
+against their unchanged summaries and packed losslessly before the next run;
+`composition-completed-heldout-fixtures-archive.json` preserves that custody.
+
+The held-out matrix passes 760/760 calls: 19 cases on 131,072 rows, P1/2/4/8/12,
+baseline/candidate pairs and three measured calls plus warmup. An independent
+Python oracle checks 720 complete values; 40 calls verify the expected signed
+overflow diagnostic and no-fallback evidence. Native DISTINCT worker execution is
+required and verified for both selected worker cases. Nullable fields are declared
+in the PyArrow 25.0.1 Parquet fixture, which is an explicit input boundary only.
+
+Held-out receipt: `clickbench-100m-uat/logs/heldout_operators_20260920T163918059577Z/summary.json`,
+SHA-256 `7c77bc401592c5b7433ebfa3bbab2a84e7feb4e147102595d1779f7f9a484c0e`.
+`composition-heldout-uat-1.json` records the exact command and 188.134442 s harness
+time. The runtime, Python and harness sources match the frozen binary's source
+revision; the following branch overlay contains documentation only.
