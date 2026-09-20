@@ -21,7 +21,7 @@ use std::{
 };
 use vortex::{
     array::{
-        IntoArray as _, VortexSessionExecute as _,
+        VortexSessionExecute as _,
         dtype::{DType, Nullability},
     },
     editions::{ComponentKind, EditionSessionExt as _},

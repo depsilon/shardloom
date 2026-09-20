@@ -496,8 +496,8 @@ fn injected_provider_error(ctx: &ExecutionCtx) -> vortex::error::VortexResult<()
         return Ok(());
     }
     let snapshot = fault.memory.snapshot();
-    let bytes = usize::try_from(snapshot.limit_bytes - snapshot.reserved_bytes)
-        .expect("bounded fixture memory fits usize");
+    // Do not let concurrently retired reservations satisfy the injected fault.
+    let bytes = usize::try_from(snapshot.limit_bytes).expect("bounded fixture memory fits usize");
     let error = crate::owned_buffers::ReservedHostAllocator::new(fault.memory.clone())
         .allocate(bytes, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
         .expect_err("alignment capacity must exceed remaining fixture budget");

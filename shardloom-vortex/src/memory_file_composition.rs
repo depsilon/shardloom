@@ -110,9 +110,11 @@ impl MemoryFileGeneration {
         cancellation: &CancellationToken,
     ) -> Result<Self> {
         let session = result.retained_session();
-        session.with_native_execution_context(cancellation, |context| {
+        let generation = session.with_native_execution_context(cancellation, |context| {
             Self::from_owned_in_context(&result, bounds, context)
-        })
+        });
+        drop(result);
+        generation
     }
 
     pub(crate) fn from_owned_in_context(

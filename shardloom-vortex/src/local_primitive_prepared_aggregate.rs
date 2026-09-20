@@ -591,13 +591,7 @@ impl PreparedVortexAggregate {
                     .with_admitted_native_execution_temporary_drivers(context, execute),
                 None => self.source.with_native_execution_temporary_drivers(execute),
             }?;
-            let mut summary: serde_json::Value = serde_json::from_str(&scan.result_summary)
-                .map_err(|error| failed(&error.to_string()))?;
-            summary["aggregate_provider_background_workers"] = drivers.into();
-            summary["aggregate_provider_cpu_scope"] = "same_prepared_source;worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
-            scan.result_summary = summary.to_string();
-            scan.restored_provider_background_workers =
-                scan.restored_provider_background_workers.max(drivers);
+            annotate_restored_provider_drivers(&mut scan, drivers)?;
             return Ok(scan);
         }
         let mut execute =
@@ -752,6 +746,20 @@ impl PreparedVortexAggregate {
             runtime,
         })
     }
+}
+
+fn annotate_restored_provider_drivers(
+    scan: &mut LocalVortexAggregateScan,
+    drivers: usize,
+) -> Result<()> {
+    let mut summary: serde_json::Value =
+        serde_json::from_str(&scan.result_summary).map_err(|error| failed(&error.to_string()))?;
+    summary["aggregate_provider_background_workers"] = drivers.into();
+    summary["aggregate_provider_cpu_scope"] = "same_prepared_source;worker_schema_not_admitted;temporary_provider_drivers;no_concurrent_aggregate_worker_pool".into();
+    scan.result_summary = summary.to_string();
+    scan.restored_provider_background_workers =
+        scan.restored_provider_background_workers.max(drivers);
+    Ok(())
 }
 
 fn failed(reason: &str) -> ShardLoomError {

@@ -195,6 +195,7 @@ impl GenerationBuildControl<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
 struct GenerationInputBounds {
     rows: usize,
     columns: usize,

@@ -6,6 +6,7 @@ use super::super::{
 };
 use super::*;
 use crate::VortexStructuredProjectionRequest;
+use vortex::array::IntoArray as _;
 use vortex::{
     VortexSessionDefault as _,
     array::{

@@ -153,7 +153,10 @@ fn assert_varbin_values(array: &vortex::array::ArrayRef, expected: &[Option<&[u8
                 .as_utf8()
                 .value()
                 .map(|value| value.as_str().as_bytes()),
-            DType::Binary(_) => scalar.as_binary().value().map(|value| value.as_slice()),
+            DType::Binary(_) => scalar
+                .as_binary()
+                .value()
+                .map(vortex::buffer::Buffer::as_slice),
             _ => panic!("test values require a VarBin logical dtype"),
         };
         assert_eq!(actual, *expected, "complete value at row {row}");

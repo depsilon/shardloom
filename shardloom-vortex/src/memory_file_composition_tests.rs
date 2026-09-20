@@ -46,7 +46,13 @@ fn owned_keys(
             .native_allocator()
             .allocate(rows * 8, Alignment::new(8))
             .unwrap();
-        for (row, bytes) in values.as_mut_slice().chunks_exact_mut(8).enumerate() {
+        for (row, bytes) in values
+            .as_mut_slice()
+            .as_chunks_mut::<8>()
+            .0
+            .iter_mut()
+            .enumerate()
+        {
             let key = u64::MAX - ((batch * rows + row) % 3) as u64;
             bytes.copy_from_slice(&key.to_ne_bytes());
         }
@@ -176,6 +182,67 @@ fn composition_multiple_owned_batches_feed_repeated_exact_native_aggregation() {
 }
 
 struct OutputDirectory(std::path::PathBuf);
+
+#[test]
+fn composition_prepared_distinct_spill_retains_memory_source_and_cleans_each_call() {
+    let workspace = OutputDirectory::new();
+    let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let generation = MemoryFileGeneration::from_owned(
+        owned_keys(&session, 2, 32_768),
+        MemoryFileCompositionBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let mut query = request(&generation, true);
+    let spill = crate::VortexAggregateSpillPolicy::new(&workspace.0, 16 << 20, 2 << 20).unwrap();
+    let aggregate = query.simple_aggregate.as_mut().unwrap();
+    aggregate.measures = vec![VortexSimpleAggregateMeasure::new(
+        "count_distinct",
+        Some(ColumnRef::new("key").unwrap()),
+        "n".into(),
+    )];
+    aggregate.spill = Some(spill.clone());
+    let uri = generation.source_uri().clone();
+    let mut prepared = generation
+        .prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+    drop(generation);
+    drop(session);
+    let retained = memory.snapshot().reserved_bytes;
+    for completed in 1..=2 {
+        let executed = prepared
+            .execute_cancellable(&CancellationToken::default())
+            .unwrap();
+        assert_memory_provenance(&executed, &uri);
+        assert_eq!(executed.runtime.completed_executions, completed);
+        assert_eq!(
+            values(&executed),
+            json!([
+                {"key": u64::MAX - 2, "n": 1},
+                {"key": u64::MAX - 1, "n": 1},
+                {"key": u64::MAX, "n": 1},
+            ])
+        );
+        let raw = executed.report.result_summary.as_deref().unwrap();
+        let summary: Value = serde_json::from_str(raw.rsplit_once(" values=").unwrap().1).unwrap();
+        assert!(summary["aggregate_spill_runs_written"].as_u64().unwrap() > 0);
+        assert_eq!(summary["aggregate_spill_owned_cleanup_completed"], true);
+        assert_eq!(std::fs::read_dir(&workspace.0).unwrap().count(), 0);
+        assert_eq!(memory.snapshot().reserved_bytes, retained);
+    }
+    spill.cancel();
+    assert!(prepared.execute().is_err());
+    prepared.renew_spill_cancellation().unwrap();
+    assert_memory_provenance(&prepared.execute().unwrap(), &uri);
+    assert_eq!(std::fs::read_dir(&workspace.0).unwrap().count(), 0);
+    drop(prepared);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 impl OutputDirectory {
     fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -425,7 +492,13 @@ fn owned_fixed_bytes<const N: usize>(
         .native_allocator()
         .allocate(values.len() * N, Alignment::new(N))
         .unwrap();
-    for (target, value) in buffer.as_mut_slice().chunks_exact_mut(N).zip(values) {
+    for (target, value) in buffer
+        .as_mut_slice()
+        .as_chunks_mut::<N>()
+        .0
+        .iter_mut()
+        .zip(values)
+    {
         target.copy_from_slice(value);
     }
     buffer.freeze()
@@ -521,7 +594,7 @@ fn composition_nullable_struct_batches_preserve_logical_fields_and_mixed_widths(
     let input = OwnedVortexResultBatch {
         dtype: batches[0].dtype().clone(),
         rows: 6,
-        logical_buffer_bytes: batches.iter().map(|batch| batch.nbytes()).sum(),
+        logical_buffer_bytes: batches.iter().map(vortex::array::ArrayRef::nbytes).sum(),
         arrays: Budgeted::new(batches, vectors),
         runtime: Arc::clone(&session.0),
     };
