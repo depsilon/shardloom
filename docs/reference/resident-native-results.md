@@ -17,6 +17,41 @@ the source while rebuilding spill lowering and runs for every execution.
 group keys. Its restrictions do not limit ordinary prepared aggregate reports.
 See the [current completion evidence](../architecture/native-runtime-completion-2026-09-20.md).
 
+## Concurrent Rust Sessions
+
+Ordinary sessions keep exclusive batch admission. Choose bounded concurrency
+explicitly when multiple callers share a session:
+
+```rust
+use shardloom_vortex::resident_session::{ResidentServingPolicy, ResidentVortexSession};
+
+fn main() -> shardloom_core::Result<()> {
+    let session = ResidentVortexSession::with_serving_policy(
+        512 * 1024 * 1024,
+        4,
+        ResidentServingPolicy::default(),
+    )?;
+    let source = session.prepare_file("events.vortex")?;
+    let count = source.prepare_count();
+    println!("{}", count.execute()?);
+    Ok(())
+}
+```
+
+The default serving policy gives general calls one CPU lane including the caller,
+reserves a metadata lane when at least two CPUs are available, and bounds the
+waiting queue and positional I/O across the session's sources. Queue bytes cover
+admission tickets, not payloads held by callers. `execute_timed(&cancellation)` on
+prepared count/projection returns separate queue and native service durations;
+complete delivery also includes the chosen result sink. I/O limits reject excess
+work explicitly. Cancellation is cooperative and drains already running reads.
+`admission_snapshot()` and `io_snapshot()` expose the corresponding counters.
+`close_admission()` rejects new/queued calls while active calls finish and drain.
+
+This policy is currently an explicit Rust surface; the broader public serving
+rollout and production-scale acceptance remain in the
+[runtime completion plan](../architecture/native-runtime-completion-2026-09-20.md).
+
 ## Typed Rust Memory Intake
 
 Keep a `ResidentVortexSession` and prepared operation across calls. Typed intake

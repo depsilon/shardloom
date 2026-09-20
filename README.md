@@ -70,7 +70,10 @@ admitted local routes; their linked evidence defines the supported shapes and re
   [result ownership contract](docs/reference/resident-native-results.md) and
   [local sink scope](docs/architecture/v1-local-output-sink-scope.md).
 - **Resource ownership follows the work.** Shared workers, bounded queues, reservations, and
-  cancellation cleanup govern admitted native operations. The non-null UTF8 COUNT worker path
+  cancellation cleanup govern admitted native operations. An explicit resident serving policy
+  bounds concurrent calls, CPU grants and positional I/O, with a reserved metadata lane when
+  enabled. See the [serving contract and bounded load evidence](docs/architecture/concurrent-native-serving-2026-09-20.md).
+  The non-null UTF8 COUNT worker path
   can transfer committed state into native temporary runs under memory pressure. Spill support
   remains operator-specific, and reservations do not cover every provider allocation or establish
   a process RSS ceiling. See the [resource contract](docs/rfcs/0044-resident-runtime-resource-ownership.md)
