@@ -74,6 +74,7 @@ enum WriterCase {
     Retained,
     PreserveRawDomain,
     PreserveZstdDomain,
+    PreserveFsst,
 }
 
 impl WriterCase {
@@ -82,6 +83,7 @@ impl WriterCase {
             Self::Retained => "retained_zstd",
             Self::PreserveRawDomain => "preserve_raw_domain",
             Self::PreserveZstdDomain => "preserve_zstd_domain",
+            Self::PreserveFsst => "preserve_fsst",
         }
     }
 
@@ -143,8 +145,8 @@ fn clickbench_source_dictionary_admission_screen() {
     let runtime = CurrentThreadRuntime::new();
     let mut memory = super::super::NativeIngestMemory::new(MEMORY_LIMIT_BYTES).unwrap();
     memory.session = memory.session.with_handle(runtime.handle());
-    let plain = prepare_reader(&source, InputRole::Plain);
-    let hinted = prepare_reader(&source, InputRole::DictionaryHint);
+    let plain = prepare_reader(&source, InputRole::Plain, &COLUMN_NAMES);
+    let hinted = prepare_reader(&source, InputRole::DictionaryHint, &COLUMN_NAMES);
 
     let roles = [plain, hinted];
     let mut samples = Vec::with_capacity(ROW_GROUPS.len());
@@ -228,13 +230,13 @@ fn clickbench_source_dictionary_admission_screen() {
                         .unwrap()
                         .values()
                         .all(|value| value.as_bool() == Some(true));
-                    let (artifact, writer_sample) = write_and_verify_column(
+                    let (artifact, writer_sample, _bytes) = write_and_verify_column(
                         column_name,
                         &writer_input,
                         &expected,
                         &memory,
                         &runtime,
-                        writer_case.preserve(),
+                        writer_case,
                     );
                     let preserve_calls = writer_sample["writer_evidence_fields"]
                         ["vortex_ingest_text_dictionary_preserve_calls"]
@@ -369,7 +371,7 @@ fn compress_dictionary_domain(
         .into_array()
 }
 
-fn prepare_reader(path: &Path, role: InputRole) -> PreparedReader {
+fn prepare_reader(path: &Path, role: InputRole, column_names: &[&str]) -> PreparedReader {
     let started = Instant::now();
     let options = ArrowReaderOptions::new().with_skip_arrow_metadata(true);
     let metadata_builder = ParquetRecordBatchReaderBuilder::try_new_with_options(
@@ -378,7 +380,7 @@ fn prepare_reader(path: &Path, role: InputRole) -> PreparedReader {
     )
     .unwrap_or_else(|error| panic!("failed to read Parquet metadata: {error}"));
     let source_schema = Arc::clone(metadata_builder.schema());
-    let mut selected = COLUMN_NAMES
+    let mut selected = column_names
         .iter()
         .map(|name| {
             (
@@ -466,7 +468,7 @@ fn read_and_convert(
         .unwrap_or_else(|| panic!("row group {row_group} returned no Arrow batch"))
         .unwrap_or_else(|error| panic!("failed to read row group {row_group}: {error}"));
     assert_eq!(batch.num_rows(), INPUT_BATCH_ROWS);
-    assert_eq!(batch.num_columns(), COLUMN_NAMES.len());
+    assert_eq!(batch.num_columns(), prepared.columns.len());
     for (index, name) in prepared.columns.iter().enumerate() {
         assert_eq!(batch.schema().field(index).name(), name);
         if prepared.role.dictionary_hint() {
@@ -568,8 +570,8 @@ fn write_and_verify_column(
     expected: &VarBinViewArray,
     memory: &super::super::NativeIngestMemory,
     runtime: &CurrentThreadRuntime,
-    preserve_source_dictionary: bool,
-) -> (Value, Value) {
+    writer_case: WriterCase,
+) -> (Value, Value, Vec<u8>) {
     let single_column = StructArray::try_new(
         FieldNames::from([column_name]),
         vec![input_column.clone()],
@@ -580,7 +582,25 @@ fn write_and_verify_column(
     .into_array();
     let dtype = single_column.dtype().clone();
     let writer_timing = super::super::VortexWriterStageTiming::default();
-    let strategy = if preserve_source_dictionary {
+    let strategy = if matches!(writer_case, WriterCase::PreserveFsst) {
+        use vortex::layout::layouts::{
+            chunked::writer::ChunkedLayoutStrategy, flat::writer::FlatLayoutStrategy,
+        };
+        Arc::new(
+            super::super::large_source_fast_load_table_strategy_with_dictionaries(
+                WRITER_ROW_BLOCK_SIZE,
+                WRITER_BLOCK_TARGET_BYTES,
+                1,
+                &writer_timing,
+                &memory.session,
+                true,
+            )
+            .with_field_writer(
+                FieldPath::from_name(column_name),
+                Arc::new(ChunkedLayoutStrategy::new(FlatLayoutStrategy::default())),
+            ),
+        ) as Arc<dyn vortex::layout::LayoutStrategy>
+    } else if writer_case.preserve() {
         let text = super::super::large_source_fast_zstd_text_leaf_strategy(
             WRITER_ROW_BLOCK_SIZE,
             1,
@@ -722,8 +742,11 @@ fn write_and_verify_column(
         "writer_evidence_fields": counters,
         "reserved_bytes_with_input_and_verification_owners_retained": memory.pool.snapshot().reserved_bytes,
     });
-    (artifact, writer_sample)
+    (artifact, writer_sample, bytes)
 }
+
+#[path = "vortex_ingest_source_fsst_bench.rs"]
+mod fsst_screen;
 
 fn hex_digest(bytes: &[u8]) -> String {
     use std::fmt::Write as _;

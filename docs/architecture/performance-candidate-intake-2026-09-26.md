@@ -12,7 +12,12 @@ bounded Q35 follow-up. R7's numeric-residual and conditional-dictionary variants
 are [dropped at the bounded analytical screen](cross-column-storage-screen-2026-09-26.md);
 no native format or runtime change is retained. R1.b's raw and compressed source
 dictionary variants are [dropped after exact native screens](source-dictionary-screen-2026-09-26.md);
-the retained source-text writer remains unchanged. R6.b is next. The
+the retained source-text writer remains unchanged. R6.b's FSST/predicate variant
+is [dropped after exact native screening](fsst-consumer-screen-2026-09-26.md)
+for larger samples and predominantly slower native predicates. R1.c's proposed
+transform sharing is [already present in the inspected active paths](shared-domain-expression-audit-2026-09-26.md);
+the duplicate proposal is dropped, with RunEnd-specific expansion still requiring
+a distinct measured target. R5.a is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

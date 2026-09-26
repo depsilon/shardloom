@@ -259,7 +259,10 @@ artifact bytes and complete correctness/UAT evidence; see
 complete Full43 and bounded regression follow-up; see
 `native-sort-block-screen-2026-09-26.md`. R7 is dropped at the bounded analytical
 screen; see `cross-column-storage-screen-2026-09-26.md`. R1.b is dropped after
-bounded native screens; see `source-dictionary-screen-2026-09-26.md`. R6.b is next. The release train remains
+bounded native screens; see `source-dictionary-screen-2026-09-26.md`. R6.b is
+dropped after the native FSST/predicate screen; see `fsst-consumer-screen-2026-09-26.md`.
+R1.c's shared-transform proposal is already implemented in the inspected paths;
+see `shared-domain-expression-audit-2026-09-26.md`. R5.a is next. The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
@@ -289,8 +292,8 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R6.a: retain native integer/UTF8 sort-block consumption under the query gate; see `native-sort-block-screen-2026-09-26.md`.
     - [x] R7: drop numeric residuals and conditional dictionaries at the bounded analytical screen; see `cross-column-storage-screen-2026-09-26.md`.
     - [x] R1.b: drop raw/compressed source-dictionary preservation after exact native screens; see `source-dictionary-screen-2026-09-26.md`.
-    - [ ] R6.b: record admission and ship/drop for FSST paired with its encoded predicate consumer.
-    - [ ] R1.c: record admission and ship/drop for Shared expression evaluation over dictionary/run-end values.
+    - [x] R6.b: drop sampled FSST source-text persistence/predicates after exact native screening; see `fsst-consumer-screen-2026-09-26.md`.
+    - [x] R1.c: drop duplicate shared-transform implementation after source/test audit; new RunEnd targets still require attribution. See `shared-domain-expression-audit-2026-09-26.md`.
     - [ ] R5.a: record admission and ship/drop for Direct owned-array handoff between operations.
     - [ ] R9.a: record admission and ship/drop for Prepare/seal native fragments once and reuse encoded payloads.
     - [ ] R9.b: record admission and ship/drop for Bounded writer-subtree overlap.
@@ -318,8 +321,8 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: R6.b FSST paired with its encoded predicate consumer; establish
-    actual encoded dispatch and charge preparation, persistence and other consumers.
+  - Next outcome: R5.a direct owned-array handoff between operations; attribute
+    remaining memory-file serialization and preserve downstream kernel/owner contracts.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

@@ -1,0 +1,2430 @@
+{
+  "schema_version": "shardloom.fsst_consumer_screen_decision.v1",
+  "date": "2026-09-26",
+  "candidate": "R6.b",
+  "decision": "drop_at_bounded_native_admission",
+  "production_behavior_changed": false,
+  "scope": "native raw-FSST Title/URL sample persistence and explicit encoded LIKE plus native filtered count; not all possible FSST layouts/workloads",
+  "source_identity": {
+    "dataset": "ClickBench hits.parquet",
+    "bytes": 14779976446,
+    "rows": 99997497,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "verification": "Full source SHA-256 recomputed after the screen on 2026-09-26 under the read-only UAT guard; source generation matches the screen before/after generation exactly. This is not a new predicate timing run.",
+    "verification_command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet"
+    ],
+    "verification_generation": {
+      "device": 16777233,
+      "inode": 84833233,
+      "size_bytes": 14779976446,
+      "mtime_ns": 1788461344802364826,
+      "ctime_ns": 1788612069108841600
+    },
+    "verification_unchanged": true,
+    "verification_returncode": 0,
+    "verification_guard_failures": [],
+    "verification_local_receipt": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/readonly-proof-r6b-source-sha256/receipt.json",
+    "reproduction_requirement": "Verify the complete source SHA-256 before selecting row groups 0, 113 and 225 and their first 131072 rows; the local pathname and inode are not portable dataset identities."
+  },
+  "build": {
+    "source_revision": "c23fe1eb1208f82c52e60f7bc01128d90e859802",
+    "binary_path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-screen-c23fe1eb1208",
+    "binary_sha256": "eacdfe9c7b7db64ee2af0bb0f31118ed662aead072071c93344ae19cc7739a37",
+    "fixture_sources": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c23fe1eb1208-vortex_ingest_source_fsst_bench.rs",
+        "sha256": "31b881d0b5fb7cc927e740173e4c7492196385788e10e608d50cc0fd46eb0f2c"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c23fe1eb1208-vortex_ingest_source_dictionary_bench.rs",
+        "sha256": "664702171c5f05db5ef5931c7a37b6ed42050a11ab2e625729e22681fed66e48"
+      }
+    ],
+    "features": "release-user-surfaces",
+    "profile": "ordinary portable release",
+    "source_tree_clean": true,
+    "source_env": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "test_name": "vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen"
+  },
+  "machine": {
+    "cpu": "Apple M5",
+    "memory_bytes": 17179869184,
+    "os": "macOS 27.0 26A428"
+  },
+  "guard": {
+    "command": [
+      "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-screen-c23fe1eb1208",
+      "--ignored",
+      "--exact",
+      "vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen",
+      "--nocapture"
+    ],
+    "binary_sha256": "eacdfe9c7b7db64ee2af0bb0f31118ed662aead072071c93344ae19cc7739a37",
+    "additional_input_sha256": {
+      "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-screen-c23fe1eb1208": "eacdfe9c7b7db64ee2af0bb0f31118ed662aead072071c93344ae19cc7739a37",
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_source_fsst_bench.rs": "31b881d0b5fb7cc927e740173e4c7492196385788e10e608d50cc0fd46eb0f2c",
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_source_dictionary_bench.rs": "664702171c5f05db5ef5931c7a37b6ed42050a11ab2e625729e22681fed66e48"
+    },
+    "inputs_before": {
+      "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet": {
+        "device": 16777233,
+        "inode": 84833233,
+        "size_bytes": 14779976446,
+        "mtime_ns": 1788461344802364826,
+        "ctime_ns": 1788612069108841600
+      },
+      "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-screen-c23fe1eb1208": {
+        "device": 16777233,
+        "inode": 92353089,
+        "size_bytes": 89371280,
+        "mtime_ns": 1790453486227133307,
+        "ctime_ns": 1790453532448902494
+      },
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_source_fsst_bench.rs": {
+        "device": 16777233,
+        "inode": 92352284,
+        "size_bytes": 10716,
+        "mtime_ns": 1790453349734697981,
+        "ctime_ns": 1790453354537291418
+      },
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_source_dictionary_bench.rs": {
+        "device": 16777233,
+        "inode": 92352279,
+        "size_bytes": 30676,
+        "mtime_ns": 1790453349725144617,
+        "ctime_ns": 1790453354540429428
+      }
+    },
+    "inputs_after": {
+      "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet": {
+        "device": 16777233,
+        "inode": 84833233,
+        "size_bytes": 14779976446,
+        "mtime_ns": 1788461344802364826,
+        "ctime_ns": 1788612069108841600
+      },
+      "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-screen-c23fe1eb1208": {
+        "device": 16777233,
+        "inode": 92353089,
+        "size_bytes": 89371280,
+        "mtime_ns": 1790453486227133307,
+        "ctime_ns": 1790453532448902494
+      },
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_source_fsst_bench.rs": {
+        "device": 16777233,
+        "inode": 92352284,
+        "size_bytes": 10716,
+        "mtime_ns": 1790453349734697981,
+        "ctime_ns": 1790453354537291418
+      },
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_source_dictionary_bench.rs": {
+        "device": 16777233,
+        "inode": 92352279,
+        "size_bytes": 30676,
+        "mtime_ns": 1790453349725144617,
+        "ctime_ns": 1790453354540429428
+      }
+    },
+    "unchanged": true,
+    "result": {
+      "returncode": 0,
+      "seconds": 3.765584666005452,
+      "guard_failures": [],
+      "supervised_wall_seconds": 3.7954522920044838,
+      "native_peak_rss_bytes": 465354752,
+      "user_cpu_seconds": 3.065438,
+      "system_cpu_seconds": 0.067856,
+      "minor_page_faults": 34420,
+      "major_page_faults": 0,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    }
+  },
+  "raw_report_path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-source-r1-screen.json",
+  "raw_report_sha256": "476b1e2a1d47dc6a838ab9fd72cdde8bfbbafea0de62737c17d3ec88d6a50e02",
+  "guard_receipt_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/readonly-proof-r6b-native-source-r1/receipt.json",
+  "guard_receipt_sha256": "dfd813491da278ea90e774ae176d089460477f04a9711f623c5d5107f065069d",
+  "totals": {
+    "retained_zstd": {
+      "artifact_bytes": 27354332,
+      "prepare_micros": 0,
+      "write_micros": 120149,
+      "training_micros_in_prepare": 0
+    },
+    "fsst": {
+      "artifact_bytes": 75949628,
+      "prepare_micros": 262665,
+      "write_micros": 35300,
+      "training_micros_in_prepare": 4466
+    }
+  },
+  "exact_artifacts": 12,
+  "complete_boolean_selection_checks": 90,
+  "native_scan_count_checks": 90,
+  "explicit_fsst_kernel_calls": 90,
+  "symmetrical_best_three_predicate_comparisons": [
+    {
+      "row_group": 0,
+      "column": "Title",
+      "needle": "Google",
+      "negated": false,
+      "retained_scan_best_micros": 6695,
+      "fsst_scan_best_micros": 19762,
+      "retained_kernel_best_micros": 6573,
+      "fsst_kernel_best_micros": 19963
+    },
+    {
+      "row_group": 0,
+      "column": "Title",
+      "needle": "Google",
+      "negated": true,
+      "retained_scan_best_micros": 6531,
+      "fsst_scan_best_micros": 19584,
+      "retained_kernel_best_micros": 6567,
+      "fsst_kernel_best_micros": 19537
+    },
+    {
+      "row_group": 0,
+      "column": "URL",
+      "needle": "google",
+      "negated": false,
+      "retained_scan_best_micros": 3306,
+      "fsst_scan_best_micros": 5883,
+      "retained_kernel_best_micros": 3350,
+      "fsst_kernel_best_micros": 5988
+    },
+    {
+      "row_group": 0,
+      "column": "URL",
+      "needle": "google",
+      "negated": true,
+      "retained_scan_best_micros": 3275,
+      "fsst_scan_best_micros": 6205,
+      "retained_kernel_best_micros": 3379,
+      "fsst_kernel_best_micros": 6065
+    },
+    {
+      "row_group": 0,
+      "column": "URL",
+      "needle": ".google.",
+      "negated": true,
+      "retained_scan_best_micros": 3270,
+      "fsst_scan_best_micros": 6098,
+      "retained_kernel_best_micros": 3389,
+      "fsst_kernel_best_micros": 6130
+    },
+    {
+      "row_group": 113,
+      "column": "Title",
+      "needle": "Google",
+      "negated": false,
+      "retained_scan_best_micros": 3586,
+      "fsst_scan_best_micros": 4788,
+      "retained_kernel_best_micros": 3731,
+      "fsst_kernel_best_micros": 4866
+    },
+    {
+      "row_group": 113,
+      "column": "Title",
+      "needle": "Google",
+      "negated": true,
+      "retained_scan_best_micros": 3620,
+      "fsst_scan_best_micros": 4752,
+      "retained_kernel_best_micros": 3773,
+      "fsst_kernel_best_micros": 4865
+    },
+    {
+      "row_group": 113,
+      "column": "URL",
+      "needle": "google",
+      "negated": false,
+      "retained_scan_best_micros": 12803,
+      "fsst_scan_best_micros": 36739,
+      "retained_kernel_best_micros": 12932,
+      "fsst_kernel_best_micros": 36685
+    },
+    {
+      "row_group": 113,
+      "column": "URL",
+      "needle": "google",
+      "negated": true,
+      "retained_scan_best_micros": 12908,
+      "fsst_scan_best_micros": 36820,
+      "retained_kernel_best_micros": 12870,
+      "fsst_kernel_best_micros": 36705
+    },
+    {
+      "row_group": 113,
+      "column": "URL",
+      "needle": ".google.",
+      "negated": true,
+      "retained_scan_best_micros": 12882,
+      "fsst_scan_best_micros": 37039,
+      "retained_kernel_best_micros": 12896,
+      "fsst_kernel_best_micros": 37078
+    },
+    {
+      "row_group": 225,
+      "column": "Title",
+      "needle": "Google",
+      "negated": false,
+      "retained_scan_best_micros": 2752,
+      "fsst_scan_best_micros": 2789,
+      "retained_kernel_best_micros": 2839,
+      "fsst_kernel_best_micros": 2903
+    },
+    {
+      "row_group": 225,
+      "column": "Title",
+      "needle": "Google",
+      "negated": true,
+      "retained_scan_best_micros": 2719,
+      "fsst_scan_best_micros": 2672,
+      "retained_kernel_best_micros": 2815,
+      "fsst_kernel_best_micros": 2810
+    },
+    {
+      "row_group": 225,
+      "column": "URL",
+      "needle": "google",
+      "negated": false,
+      "retained_scan_best_micros": 7178,
+      "fsst_scan_best_micros": 26712,
+      "retained_kernel_best_micros": 7311,
+      "fsst_kernel_best_micros": 26955
+    },
+    {
+      "row_group": 225,
+      "column": "URL",
+      "needle": "google",
+      "negated": true,
+      "retained_scan_best_micros": 7159,
+      "fsst_scan_best_micros": 26820,
+      "retained_kernel_best_micros": 7392,
+      "fsst_kernel_best_micros": 26803
+    },
+    {
+      "row_group": 225,
+      "column": "URL",
+      "needle": ".google.",
+      "negated": true,
+      "retained_scan_best_micros": 7218,
+      "fsst_scan_best_micros": 27161,
+      "retained_kernel_best_micros": 7347,
+      "fsst_kernel_best_micros": 26868
+    }
+  ],
+  "integer_child_scope_bound": {
+    "formula": "6 * ((131072+1)*8 + 131072*8 + 4096)",
+    "hypothetical_maximum_removed_bytes": 12607536,
+    "observed_extra_artifact_bytes": 48595296,
+    "scope": "deliberately inflated offset/length widths and symbol allowance; deleting them is not a real encoding, and no compressed-child timing or size is claimed",
+    "provider_source": "vortex-fsst-0.85.0/src/compress.rs:FsstSink; vortex-btrblocks-0.85.0/src/schemes/string/fsst.rs"
+  },
+  "validation": {
+    "native_tests": {
+      "passed": 1916,
+      "failed": 0,
+      "ignored": 12,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-tests.log"
+    },
+    "native_clippy": {
+      "exit_code": 0,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-clippy.log"
+    },
+    "independent_source_review": "no actionable findings",
+    "full_ingest_and_query_uat": "not run; bounded admission failed and no production behavior changed",
+    "independent_arithmetic_receipt": {
+      "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-verified-screen.json",
+      "sha256": "acaf3f97af9c28afc0c6a43839865bc02783d5fa6f645e4c83dc0a42937c2f9e",
+      "result": "all artifact, guard, timing, Boolean/count and source-scoped metadata-bound checks pass"
+    },
+    "format_check": "pass",
+    "public_status_validator": "pass",
+    "architecture_tracker": "pass_with_existing_open_gates_using_allow_blocked"
+  },
+  "claims": {
+    "complete_ingest_speedup": false,
+    "complete_query_speedup": false,
+    "public_query_dispatch_proven": false,
+    "controlled_cold_cache": false,
+    "on_disk_data_payload_created": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
+  "full_native_screen": {
+    "cache_and_order": "uncontrolled warm OS/provider state; codec order alternates by region; kernel witness precedes native filter scan; all three repetitions retained",
+    "columns": [
+      "Title",
+      "URL"
+    ],
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "limits": {
+      "artifact_bytes_each": 67108864,
+      "credited_memory_bytes": 536870912,
+      "stdout_bytes": 2097152
+    },
+    "memory_boundary": "provider compression, Arrow input, output, reopen and verification buffers may allocate outside native pool; not RSS limit",
+    "metadata_preparation_micros": 9072,
+    "provider": "Vortex 0.85.0 native FSST compression, Flat persistence, explicit LikeKernel and native scan",
+    "row_groups": [
+      0,
+      113,
+      225
+    ],
+    "rows_per_region": 131072,
+    "samples": [
+      {
+        "cases": [
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 3401736,
+              "dtype": "{Title=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "Title"
+                ],
+                "encoding_ids": [
+                  "vortex.zstd"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 3400044,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "d81281307bd776ad3e63984aa3f8e86fd631fefdd9b80d4c28084fce8af49d7d"
+            },
+            "codec": "retained_zstd",
+            "column": "Title",
+            "fsst_training_micros_in_prepare": 0,
+            "prepare_micros": 0,
+            "prepared_nbytes": 29962313,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 421,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  7163,
+                  6743,
+                  6573
+                ],
+                "native_scan_complete_count_micros": [
+                  6720,
+                  6724,
+                  6695
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130651,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  6744,
+                  6576,
+                  6567
+                ],
+                "native_scan_complete_count_micros": [
+                  6635,
+                  6621,
+                  6531
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 24773,
+              "reserved_bytes_with_input_and_verification_owners_retained": 40524710,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "19965375",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "1",
+                "vortex_ingest_text_canonicalize_input_bytes": "29962313",
+                "vortex_ingest_text_canonicalize_output_bytes": "31535173",
+                "vortex_ingest_text_canonicalize_rows": "131072",
+                "vortex_ingest_text_canonicalize_work_nanos": "326208",
+                "vortex_ingest_text_compact_calls": "1",
+                "vortex_ingest_text_compact_input_bytes": "31535173",
+                "vortex_ingest_text_compact_output_bytes": "31535173",
+                "vortex_ingest_text_compact_rows": "131072",
+                "vortex_ingest_text_compact_work_nanos": "22500",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "1",
+                "vortex_ingest_text_zstd_input_bytes": "31535173",
+                "vortex_ingest_text_zstd_output_bytes": "3399644",
+                "vortex_ingest_text_zstd_rows": "131072",
+                "vortex_ingest_text_zstd_work_nanos": "19608375"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 15888448,
+              "dtype": "{Title=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "Title"
+                ],
+                "encoding_ids": [
+                  "vortex.fsst",
+                  "vortex.primitive"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 15886756,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "1739bde9942de4adc8de72a8bc63f77528abb9ea9686a15a237ed3210097c2d6"
+            },
+            "codec": "fsst",
+            "column": "Title",
+            "fsst_training_micros_in_prepare": 804,
+            "prepare_micros": 57227,
+            "prepared_nbytes": 15886348,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 421,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  19997,
+                  19963,
+                  20207
+                ],
+                "native_scan_complete_count_micros": [
+                  19762,
+                  20026,
+                  20127
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130651,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  19911,
+                  19537,
+                  19675
+                ],
+                "native_scan_complete_count_micros": [
+                  19940,
+                  19584,
+                  19913
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 7067,
+              "reserved_bytes_with_input_and_verification_owners_retained": 40524710,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "0",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "0",
+                "vortex_ingest_text_canonicalize_input_bytes": "0",
+                "vortex_ingest_text_canonicalize_output_bytes": "0",
+                "vortex_ingest_text_canonicalize_rows": "0",
+                "vortex_ingest_text_canonicalize_work_nanos": "0",
+                "vortex_ingest_text_compact_calls": "0",
+                "vortex_ingest_text_compact_input_bytes": "0",
+                "vortex_ingest_text_compact_output_bytes": "0",
+                "vortex_ingest_text_compact_rows": "0",
+                "vortex_ingest_text_compact_work_nanos": "0",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "0",
+                "vortex_ingest_text_zstd_input_bytes": "0",
+                "vortex_ingest_text_zstd_output_bytes": "0",
+                "vortex_ingest_text_zstd_rows": "0",
+                "vortex_ingest_text_zstd_work_nanos": "0"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 1513356,
+              "dtype": "{URL=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "URL"
+                ],
+                "encoding_ids": [
+                  "vortex.zstd"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 1511684,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "a402436c0b172bc83d70b4685b8eec119ac2f67a79229d2a4db7f61a6a909ec2"
+            },
+            "codec": "retained_zstd",
+            "column": "URL",
+            "fsst_training_micros_in_prepare": 0,
+            "prepare_micros": 0,
+            "prepared_nbytes": 10561373,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 2,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  3656,
+                  3350,
+                  3410
+                ],
+                "native_scan_complete_count_micros": [
+                  3424,
+                  3306,
+                  3415
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131070,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  3465,
+                  3398,
+                  3379
+                ],
+                "native_scan_complete_count_micros": [
+                  3335,
+                  3424,
+                  3275
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131072,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  3465,
+                  3389,
+                  3412
+                ],
+                "native_scan_complete_count_micros": [
+                  3528,
+                  3270,
+                  3381
+                ],
+                "native_scan_counts_exact": true,
+                "needle": ".google.",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 8699,
+              "reserved_bytes_with_input_and_verification_owners_retained": 40524710,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "6806916",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "1",
+                "vortex_ingest_text_canonicalize_input_bytes": "10561373",
+                "vortex_ingest_text_canonicalize_output_bytes": "12134233",
+                "vortex_ingest_text_canonicalize_rows": "131072",
+                "vortex_ingest_text_canonicalize_work_nanos": "183791",
+                "vortex_ingest_text_compact_calls": "1",
+                "vortex_ingest_text_compact_input_bytes": "12134233",
+                "vortex_ingest_text_compact_output_bytes": "12134233",
+                "vortex_ingest_text_compact_rows": "131072",
+                "vortex_ingest_text_compact_work_nanos": "83",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "1",
+                "vortex_ingest_text_zstd_input_bytes": "12134233",
+                "vortex_ingest_text_zstd_output_bytes": "1511283",
+                "vortex_ingest_text_zstd_rows": "131072",
+                "vortex_ingest_text_zstd_work_nanos": "6619041"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 6221428,
+              "dtype": "{URL=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "URL"
+                ],
+                "encoding_ids": [
+                  "vortex.fsst",
+                  "vortex.primitive"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 6219756,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "86a5db437cd1350d26e2d4996b7bc69ac532a6d4ec4b47f226421ec777378882"
+            },
+            "codec": "fsst",
+            "column": "URL",
+            "fsst_training_micros_in_prepare": 721,
+            "prepare_micros": 19394,
+            "prepared_nbytes": 6219365,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 2,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  6254,
+                  6033,
+                  5988
+                ],
+                "native_scan_complete_count_micros": [
+                  5883,
+                  5976,
+                  6071
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131070,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  6065,
+                  6235,
+                  6333
+                ],
+                "native_scan_complete_count_micros": [
+                  6250,
+                  6205,
+                  6261
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131072,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  6513,
+                  6362,
+                  6130
+                ],
+                "native_scan_complete_count_micros": [
+                  6242,
+                  6098,
+                  6150
+                ],
+                "native_scan_counts_exact": true,
+                "needle": ".google.",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 3400,
+              "reserved_bytes_with_input_and_verification_owners_retained": 40524710,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "0",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "0",
+                "vortex_ingest_text_canonicalize_input_bytes": "0",
+                "vortex_ingest_text_canonicalize_output_bytes": "0",
+                "vortex_ingest_text_canonicalize_rows": "0",
+                "vortex_ingest_text_canonicalize_work_nanos": "0",
+                "vortex_ingest_text_compact_calls": "0",
+                "vortex_ingest_text_compact_input_bytes": "0",
+                "vortex_ingest_text_compact_output_bytes": "0",
+                "vortex_ingest_text_compact_rows": "0",
+                "vortex_ingest_text_compact_work_nanos": "0",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "0",
+                "vortex_ingest_text_zstd_input_bytes": "0",
+                "vortex_ingest_text_zstd_output_bytes": "0",
+                "vortex_ingest_text_zstd_rows": "0",
+                "vortex_ingest_text_zstd_work_nanos": "0"
+              }
+            }
+          }
+        ],
+        "reserved_bytes_after_region": 0,
+        "row_group": 0,
+        "rows": 131072,
+        "source_reader_conversion_micros": 57226
+      },
+      {
+        "cases": [
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 4772208,
+              "dtype": "{Title=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "Title"
+                ],
+                "encoding_ids": [
+                  "vortex.fsst",
+                  "vortex.primitive"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 4770516,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "3f4d67bfe0f2c8ec27c380c60ce26ced1c4dd420dede960bfc7f09de133d3328"
+            },
+            "codec": "fsst",
+            "column": "Title",
+            "fsst_training_micros_in_prepare": 731,
+            "prepare_micros": 18600,
+            "prepared_nbytes": 4770107,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 21,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  4906,
+                  4906,
+                  4866
+                ],
+                "native_scan_complete_count_micros": [
+                  4820,
+                  4788,
+                  4832
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131051,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  4902,
+                  4865,
+                  4903
+                ],
+                "native_scan_complete_count_micros": [
+                  4881,
+                  4752,
+                  4855
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 2924,
+              "reserved_bytes_with_input_and_verification_owners_retained": 46024959,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "0",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "0",
+                "vortex_ingest_text_canonicalize_input_bytes": "0",
+                "vortex_ingest_text_canonicalize_output_bytes": "0",
+                "vortex_ingest_text_canonicalize_rows": "0",
+                "vortex_ingest_text_canonicalize_work_nanos": "0",
+                "vortex_ingest_text_compact_calls": "0",
+                "vortex_ingest_text_compact_input_bytes": "0",
+                "vortex_ingest_text_compact_output_bytes": "0",
+                "vortex_ingest_text_compact_rows": "0",
+                "vortex_ingest_text_compact_work_nanos": "0",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "0",
+                "vortex_ingest_text_zstd_input_bytes": "0",
+                "vortex_ingest_text_zstd_output_bytes": "0",
+                "vortex_ingest_text_zstd_rows": "0",
+                "vortex_ingest_text_zstd_work_nanos": "0"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 1964840,
+              "dtype": "{Title=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "Title"
+                ],
+                "encoding_ids": [
+                  "vortex.zstd"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 1963148,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "161cb5bc2e523a2ea8a59c1fff7ec01d3275a530162e0eaf6629587e40c11994"
+            },
+            "codec": "retained_zstd",
+            "column": "Title",
+            "fsst_training_micros_in_prepare": 0,
+            "prepare_micros": 0,
+            "prepared_nbytes": 8074383,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 21,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  3771,
+                  3732,
+                  3731
+                ],
+                "native_scan_complete_count_micros": [
+                  3779,
+                  3641,
+                  3586
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131051,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  3773,
+                  3832,
+                  3784
+                ],
+                "native_scan_complete_count_micros": [
+                  3691,
+                  3682,
+                  3620
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 11069,
+              "reserved_bytes_with_input_and_verification_owners_retained": 46024959,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "9355958",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "1",
+                "vortex_ingest_text_canonicalize_input_bytes": "8074383",
+                "vortex_ingest_text_canonicalize_output_bytes": "9647243",
+                "vortex_ingest_text_canonicalize_rows": "131072",
+                "vortex_ingest_text_canonicalize_work_nanos": "201542",
+                "vortex_ingest_text_compact_calls": "1",
+                "vortex_ingest_text_compact_input_bytes": "9647243",
+                "vortex_ingest_text_compact_output_bytes": "9647243",
+                "vortex_ingest_text_compact_rows": "131072",
+                "vortex_ingest_text_compact_work_nanos": "209",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "1",
+                "vortex_ingest_text_zstd_input_bytes": "9647243",
+                "vortex_ingest_text_zstd_output_bytes": "1962752",
+                "vortex_ingest_text_zstd_rows": "131072",
+                "vortex_ingest_text_zstd_work_nanos": "9150666"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 25543524,
+              "dtype": "{URL=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "URL"
+                ],
+                "encoding_ids": [
+                  "vortex.fsst",
+                  "vortex.primitive"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 25541828,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "979a8124078cc71d3c8f69d5053a05295e2f00750c63e12c27acf6d042d272c1"
+            },
+            "codec": "fsst",
+            "column": "URL",
+            "fsst_training_micros_in_prepare": 748,
+            "prepare_micros": 91131,
+            "prepared_nbytes": 25541409,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 279,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  37933,
+                  36685,
+                  36779
+                ],
+                "native_scan_complete_count_micros": [
+                  36812,
+                  36739,
+                  36776
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130793,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  36705,
+                  38009,
+                  37266
+                ],
+                "native_scan_complete_count_micros": [
+                  37204,
+                  37851,
+                  36820
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131069,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  37078,
+                  37184,
+                  37090
+                ],
+                "native_scan_complete_count_micros": [
+                  37137,
+                  37039,
+                  37880
+                ],
+                "native_scan_counts_exact": true,
+                "needle": ".google.",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 11186,
+              "reserved_bytes_with_input_and_verification_owners_retained": 46024959,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "0",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "0",
+                "vortex_ingest_text_canonicalize_input_bytes": "0",
+                "vortex_ingest_text_canonicalize_output_bytes": "0",
+                "vortex_ingest_text_canonicalize_rows": "0",
+                "vortex_ingest_text_canonicalize_work_nanos": "0",
+                "vortex_ingest_text_compact_calls": "0",
+                "vortex_ingest_text_compact_input_bytes": "0",
+                "vortex_ingest_text_compact_output_bytes": "0",
+                "vortex_ingest_text_compact_rows": "0",
+                "vortex_ingest_text_compact_work_nanos": "0",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "0",
+                "vortex_ingest_text_zstd_input_bytes": "0",
+                "vortex_ingest_text_zstd_output_bytes": "0",
+                "vortex_ingest_text_zstd_rows": "0",
+                "vortex_ingest_text_zstd_work_nanos": "0"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 13874568,
+              "dtype": "{URL=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "URL"
+                ],
+                "encoding_ids": [
+                  "vortex.zstd"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 13872872,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "9b6dbabb136c746810dba846d1f6662489ee476c49afc34d82170fc7bae128d1"
+            },
+            "codec": "retained_zstd",
+            "column": "URL",
+            "fsst_training_micros_in_prepare": 0,
+            "prepare_micros": 0,
+            "prepared_nbytes": 37949552,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 279,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  13341,
+                  12936,
+                  12932
+                ],
+                "native_scan_complete_count_micros": [
+                  12874,
+                  12803,
+                  12856
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130793,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  13337,
+                  12870,
+                  12988
+                ],
+                "native_scan_complete_count_micros": [
+                  12921,
+                  12937,
+                  12908
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131069,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  13023,
+                  12896,
+                  13112
+                ],
+                "native_scan_complete_count_micros": [
+                  12955,
+                  13003,
+                  12882
+                ],
+                "native_scan_counts_exact": true,
+                "needle": ".google.",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 46214,
+              "reserved_bytes_with_input_and_verification_owners_retained": 46024959,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "42426167",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "1",
+                "vortex_ingest_text_canonicalize_input_bytes": "37949552",
+                "vortex_ingest_text_canonicalize_output_bytes": "39522412",
+                "vortex_ingest_text_canonicalize_rows": "131072",
+                "vortex_ingest_text_canonicalize_work_nanos": "681500",
+                "vortex_ingest_text_compact_calls": "1",
+                "vortex_ingest_text_compact_input_bytes": "39522412",
+                "vortex_ingest_text_compact_output_bytes": "39522412",
+                "vortex_ingest_text_compact_rows": "131072",
+                "vortex_ingest_text_compact_work_nanos": "33166",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "1",
+                "vortex_ingest_text_zstd_input_bytes": "39522412",
+                "vortex_ingest_text_zstd_output_bytes": "13872459",
+                "vortex_ingest_text_zstd_rows": "131072",
+                "vortex_ingest_text_zstd_work_nanos": "41704791"
+              }
+            }
+          }
+        ],
+        "reserved_bytes_after_region": 0,
+        "row_group": 113,
+        "rows": 131072,
+        "source_reader_conversion_micros": 51909
+      },
+      {
+        "cases": [
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 1012448,
+              "dtype": "{Title=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "Title"
+                ],
+                "encoding_ids": [
+                  "vortex.zstd"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 1010756,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "f7b09790bb74108ce7cc27df928d02d441853cfdf162b90c027eb247229d2b4b"
+            },
+            "codec": "retained_zstd",
+            "column": "Title",
+            "fsst_training_micros_in_prepare": 0,
+            "prepare_micros": 0,
+            "prepared_nbytes": 6367582,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 95,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  2904,
+                  2851,
+                  2839
+                ],
+                "native_scan_complete_count_micros": [
+                  2800,
+                  2752,
+                  2800
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130977,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  2879,
+                  2835,
+                  2815
+                ],
+                "native_scan_complete_count_micros": [
+                  2774,
+                  2938,
+                  2719
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 7576,
+              "reserved_bytes_with_input_and_verification_owners_retained": 35367720,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "5742250",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "1",
+                "vortex_ingest_text_canonicalize_input_bytes": "6367582",
+                "vortex_ingest_text_canonicalize_output_bytes": "7940442",
+                "vortex_ingest_text_canonicalize_rows": "131072",
+                "vortex_ingest_text_canonicalize_work_nanos": "176709",
+                "vortex_ingest_text_compact_calls": "1",
+                "vortex_ingest_text_compact_input_bytes": "7940442",
+                "vortex_ingest_text_compact_output_bytes": "7940442",
+                "vortex_ingest_text_compact_rows": "131072",
+                "vortex_ingest_text_compact_work_nanos": "84",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "1",
+                "vortex_ingest_text_zstd_input_bytes": "7940442",
+                "vortex_ingest_text_zstd_output_bytes": "1010355",
+                "vortex_ingest_text_zstd_rows": "131072",
+                "vortex_ingest_text_zstd_work_nanos": "5561500"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 3848488,
+              "dtype": "{Title=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "Title"
+                ],
+                "encoding_ids": [
+                  "vortex.fsst",
+                  "vortex.primitive"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 3846796,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "3672d39b071524e320e2abc1276b1215b8540899718860045726b4e4200e5223"
+            },
+            "codec": "fsst",
+            "column": "Title",
+            "fsst_training_micros_in_prepare": 725,
+            "prepare_micros": 12348,
+            "prepared_nbytes": 3846385,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 95,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  3038,
+                  2904,
+                  2903
+                ],
+                "native_scan_complete_count_micros": [
+                  2906,
+                  2789,
+                  2797
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130977,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  2842,
+                  2810,
+                  2984
+                ],
+                "native_scan_complete_count_micros": [
+                  2720,
+                  2785,
+                  2672
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "Google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 2489,
+              "reserved_bytes_with_input_and_verification_owners_retained": 35367720,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "0",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "0",
+                "vortex_ingest_text_canonicalize_input_bytes": "0",
+                "vortex_ingest_text_canonicalize_output_bytes": "0",
+                "vortex_ingest_text_canonicalize_rows": "0",
+                "vortex_ingest_text_canonicalize_work_nanos": "0",
+                "vortex_ingest_text_compact_calls": "0",
+                "vortex_ingest_text_compact_input_bytes": "0",
+                "vortex_ingest_text_compact_output_bytes": "0",
+                "vortex_ingest_text_compact_rows": "0",
+                "vortex_ingest_text_compact_work_nanos": "0",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "0",
+                "vortex_ingest_text_zstd_input_bytes": "0",
+                "vortex_ingest_text_zstd_output_bytes": "0",
+                "vortex_ingest_text_zstd_rows": "0",
+                "vortex_ingest_text_zstd_work_nanos": "0"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 5587384,
+              "dtype": "{URL=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "URL"
+                ],
+                "encoding_ids": [
+                  "vortex.zstd"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 5585696,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "b7f797690cf13dfb731ad79f1059d62e123658cc5e9def0566b3a2a8b6477cd0"
+            },
+            "codec": "retained_zstd",
+            "column": "URL",
+            "fsst_training_micros_in_prepare": 0,
+            "prepare_micros": 0,
+            "prepared_nbytes": 28999114,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 222,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  7639,
+                  7311,
+                  7724
+                ],
+                "native_scan_complete_count_micros": [
+                  7178,
+                  7214,
+                  7327
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130850,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  7558,
+                  7530,
+                  7392
+                ],
+                "native_scan_complete_count_micros": [
+                  7664,
+                  7159,
+                  7280
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131072,
+                "explicit_fsst_kernel_calls": [
+                  0,
+                  0,
+                  0
+                ],
+                "native_block_read_and_kernel_micros": [
+                  7452,
+                  7347,
+                  7549
+                ],
+                "native_scan_complete_count_micros": [
+                  7248,
+                  7218,
+                  7459
+                ],
+                "native_scan_counts_exact": true,
+                "needle": ".google.",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 21818,
+              "reserved_bytes_with_input_and_verification_owners_retained": 35367720,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "19029208",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "1",
+                "vortex_ingest_text_canonicalize_input_bytes": "28999114",
+                "vortex_ingest_text_canonicalize_output_bytes": "30571974",
+                "vortex_ingest_text_canonicalize_rows": "131072",
+                "vortex_ingest_text_canonicalize_work_nanos": "229125",
+                "vortex_ingest_text_compact_calls": "1",
+                "vortex_ingest_text_compact_input_bytes": "30571974",
+                "vortex_ingest_text_compact_output_bytes": "30571974",
+                "vortex_ingest_text_compact_rows": "131072",
+                "vortex_ingest_text_compact_work_nanos": "20500",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "1",
+                "vortex_ingest_text_zstd_input_bytes": "30571974",
+                "vortex_ingest_text_zstd_output_bytes": "5585291",
+                "vortex_ingest_text_zstd_rows": "131072",
+                "vortex_ingest_text_zstd_work_nanos": "18773583"
+              }
+            }
+          },
+          {
+            "artifact": {
+              "all_rows_exactly_equal_to_in_memory_native_input": true,
+              "compared_rows": 131072,
+              "comparison_contract": "decode each block once, compare every UTF8 byte slice and validity exactly",
+              "complete_artifact_bytes": 19675532,
+              "dtype": "{URL=utf8}",
+              "physical_column_inventory": {
+                "auxiliary_path": [],
+                "column_path": [
+                  "URL"
+                ],
+                "encoding_ids": [
+                  "vortex.fsst",
+                  "vortex.primitive"
+                ],
+                "flat_references": 1,
+                "referenced_segment_bytes_non_additive": 19673844,
+                "unique_referenced_segments": 1
+              },
+              "physical_dictionary_retained": false,
+              "rows": 131072,
+              "sha256": "a8c13277e47ea66a504fa870c3f2c3a82ba5e3fe90df98edfb1c0beb9e4d96ff"
+            },
+            "codec": "fsst",
+            "column": "URL",
+            "fsst_training_micros_in_prepare": 737,
+            "prepare_micros": 63965,
+            "prepared_nbytes": 19673435,
+            "queries": [
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 222,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  27848,
+                  27187,
+                  26955
+                ],
+                "native_scan_complete_count_micros": [
+                  27842,
+                  26712,
+                  26930
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": false,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 130850,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  26803,
+                  26815,
+                  26905
+                ],
+                "native_scan_complete_count_micros": [
+                  26866,
+                  26820,
+                  26911
+                ],
+                "native_scan_counts_exact": true,
+                "needle": "google",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              },
+              {
+                "all_boolean_selections_exact": true,
+                "expected_count": 131072,
+                "explicit_fsst_kernel_calls": [
+                  2,
+                  2,
+                  2
+                ],
+                "native_block_read_and_kernel_micros": [
+                  27911,
+                  28269,
+                  26868
+                ],
+                "native_scan_complete_count_micros": [
+                  27838,
+                  27308,
+                  27161
+                ],
+                "native_scan_counts_exact": true,
+                "needle": ".google.",
+                "negated": true,
+                "public_query_dispatch_proven": false
+              }
+            ],
+            "writer": {
+              "complete_native_artifact_write_elapsed_micros": 8234,
+              "reserved_bytes_with_input_and_verification_owners_retained": 35367720,
+              "writer_evidence_fields": {
+                "vortex_ingest_dictionary_probe_scope": "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection",
+                "vortex_ingest_identity_projection_batches": "0",
+                "vortex_ingest_legacy_encode_write_scope": "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io",
+                "vortex_ingest_legacy_encode_write_semantics": "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable",
+                "vortex_ingest_legacy_stream_conversion_scope": "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation",
+                "vortex_ingest_legacy_stream_decode_scope": "source_reader_pull_elapsed_minus_derived_build_includes_source_wait_not_decode_cpu",
+                "vortex_ingest_numeric_codec_scope": "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused",
+                "vortex_ingest_numeric_compress_calls": "0",
+                "vortex_ingest_numeric_compress_input_bytes": "0",
+                "vortex_ingest_numeric_compress_output_bytes": "0",
+                "vortex_ingest_numeric_compress_rows": "0",
+                "vortex_ingest_numeric_compress_work_nanos": "0",
+                "vortex_ingest_numeric_preserve_calls": "0",
+                "vortex_ingest_numeric_preserve_input_bytes": "0",
+                "vortex_ingest_numeric_preserve_output_bytes": "0",
+                "vortex_ingest_numeric_preserve_rows": "0",
+                "vortex_ingest_numeric_preserve_work_nanos": "0",
+                "vortex_ingest_numeric_probe_calls": "0",
+                "vortex_ingest_numeric_probe_input_bytes": "0",
+                "vortex_ingest_numeric_probe_output_bytes": "0",
+                "vortex_ingest_numeric_probe_rows": "0",
+                "vortex_ingest_numeric_probe_work_nanos": "0",
+                "vortex_ingest_stage_byte_scope": "provider_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured",
+                "vortex_ingest_stage_coverage": "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec",
+                "vortex_ingest_stage_time_scope": "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall",
+                "vortex_ingest_stream_arrow_conversion_calls": "0",
+                "vortex_ingest_stream_arrow_conversion_input_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_output_bytes": "0",
+                "vortex_ingest_stream_arrow_conversion_rows": "0",
+                "vortex_ingest_stream_arrow_conversion_work_nanos": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_calls": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_input_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_output_bytes": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_rows": "0",
+                "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "0",
+                "vortex_ingest_stream_projection_calls": "0",
+                "vortex_ingest_stream_projection_input_bytes": "0",
+                "vortex_ingest_stream_projection_output_bytes": "0",
+                "vortex_ingest_stream_projection_rows": "0",
+                "vortex_ingest_stream_projection_work_nanos": "0",
+                "vortex_ingest_stream_reader_lock_wait_calls": "0",
+                "vortex_ingest_stream_reader_lock_wait_input_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_output_bytes": "0",
+                "vortex_ingest_stream_reader_lock_wait_rows": "0",
+                "vortex_ingest_stream_reader_lock_wait_work_nanos": "0",
+                "vortex_ingest_stream_validation_calls": "0",
+                "vortex_ingest_stream_validation_input_bytes": "0",
+                "vortex_ingest_stream_validation_output_bytes": "0",
+                "vortex_ingest_stream_validation_rows": "0",
+                "vortex_ingest_stream_validation_work_nanos": "0",
+                "vortex_ingest_text_active_nanos": "0",
+                "vortex_ingest_text_active_scope": "union_of_selected_text_canonicalize_compact_zstd_scopes_not_cpu_time_not_all_writer_work",
+                "vortex_ingest_text_canonicalize_calls": "0",
+                "vortex_ingest_text_canonicalize_input_bytes": "0",
+                "vortex_ingest_text_canonicalize_output_bytes": "0",
+                "vortex_ingest_text_canonicalize_rows": "0",
+                "vortex_ingest_text_canonicalize_work_nanos": "0",
+                "vortex_ingest_text_compact_calls": "0",
+                "vortex_ingest_text_compact_input_bytes": "0",
+                "vortex_ingest_text_compact_output_bytes": "0",
+                "vortex_ingest_text_compact_rows": "0",
+                "vortex_ingest_text_compact_work_nanos": "0",
+                "vortex_ingest_text_dictionary_preserve_calls": "0",
+                "vortex_ingest_text_dictionary_preserve_input_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_output_bytes": "0",
+                "vortex_ingest_text_dictionary_preserve_rows": "0",
+                "vortex_ingest_text_dictionary_preserve_scope": "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization",
+                "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+                "vortex_ingest_text_zstd_calls": "0",
+                "vortex_ingest_text_zstd_input_bytes": "0",
+                "vortex_ingest_text_zstd_output_bytes": "0",
+                "vortex_ingest_text_zstd_rows": "0",
+                "vortex_ingest_text_zstd_work_nanos": "0"
+              }
+            }
+          }
+        ],
+        "reserved_bytes_after_region": 0,
+        "row_group": 225,
+        "rows": 131072,
+        "source_reader_conversion_micros": 29780
+      }
+    ],
+    "schema_version": "shardloom.r6b_fsst_admission.v1",
+    "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "timing_boundary": "source once per region; preparation/training and write separately; kernel span includes native block scan/struct execution, predicate construction/execution and mask materialization; exact verification excluded; native filter count span includes scan/result iteration, excludes reopen; no public complete query or ingest claim"
+  },
+  "next": "R1.c",
+  "release_or_package_publication": false
+}
