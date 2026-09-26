@@ -35,6 +35,14 @@ it duplicates the corresponding retained artifact. The first candidate bulk
 output is retained until its correctness and ship/drop decision are recorded.
 Receipts and hashes survive bulk retirement.
 
+R9.b's four full-ingest outputs each matched the complete SHA-256 of the retained
+15,682,956,116-byte native artifact before their exact owned targets were removed.
+This retired 62,731,824,464 cumulative bytes across the sequential runs, not that
+much simultaneous disk usage. Source, retained artifact and binary generations
+were checked. The dropped prototype and its experimental source fixtures were
+removed from the final source tree; exact reproduction patches and raw evidence
+remain in `docs/benchmarks/evidence/writer-subtree-occupancy-2026-09-26.json.gz`.
+
 Exact actions, generation checks and before/after free space are recorded in
 `/Users/dylan/LocalData/shardloom/performance-candidates-20260926/`:
 `debug-cache-cleanup.json`, `merged-branch-cleanup-inventory.json`,
