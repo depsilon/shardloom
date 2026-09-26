@@ -22,6 +22,10 @@ The source checkout remains at its current configured project path. Its local
 `.cargo/config.toml` sets `build.target-dir`; `.git/info/exclude` keeps that
 machine-specific setting out of commits. Explicit Cargo environment or command-line
 overrides take precedence, so agents must verify the resolved output path.
+The [September 26 cleanup](local-artifact-cleanup-2026-09-26.md) records retirement
+of obsolete local test/UAT artifacts. Local incremental compilation is disabled
+after its debug/test cache accumulated 146 GiB. Preserve frozen comparison
+binaries and receipts; retire redundant bulk outputs only after identity checks.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

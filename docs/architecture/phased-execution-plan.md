@@ -244,10 +244,101 @@ the ledger.
 
 ## Planned
 
-September 26 scope override: finish the authorized 0.3.0 publication train and
-its release-record validation/merge, then stop. Do not start new implementation
-or automatically resume the remaining operator, profiling, ingest or storage
-queue below. Those obligations remain pending, not completed by publication.
+September 26 suggestion-intake override: 0.3.0 publication is complete in
+PR #1459. The maintainer supplied five performance packets and requested a concise
+ship/drop ordering by expected gains, ahead of the previous optimization queue.
+The maintainer clarified that broad potential gains take priority over the
+confidence/ease of isolated query-lane savings. The intake now exposes 29 separate
+experiment decisions, with structural ingest/representation/execution work first
+and targeted query families last; R/C labels are stable families, not ordering.
+The [reviewed intake](performance-candidate-intake-2026-09-26.md) consolidates those
+packets against merged `6db17c9f`. The maintainer subsequently authorized proceeding
+through all ranked experiments. R1.a meets its storage gate with 15.64% fewer
+artifact bytes and complete correctness/UAT evidence; see
+`derived-dictionary-preservation-2026-09-26.md`. R6.a is next. The release train remains
+complete; this queue does not authorize a new package publication. Follow
+the ranked item below. Remaining native operator,
+spill/recovery, public-call and serving obligations stay open; any prerequisite
+needed for a candidate's correctness/resource acceptance must be completed first.
+
+- [ ] `PERF-INTAKE` evaluate the September 26 ranked performance candidates under existing PERF items.
+  - Queue identifier only: `PERF-INTAKE` groups the authorized experiments for
+    machine-readable routing; it adds no implementation phase or competitive gate.
+  - V1 scope classification: `v1_candidate_pending_feasibility`; runtime experiments
+    are authorized, and previously required runtime availability remains required.
+  - Source: five maintainer packets, reviewed in
+    `performance-candidate-intake-2026-09-26.md`; RFC 0044 and the existing
+    PERF-01 through PERF-13 contracts. Relevant competitive gates are CG-3 native
+    output, CG-5 correctness, CG-6 benchmarks and CG-20/21/23 shared user surfaces.
+    All CG-1 through CG-23 remain visible and open to their own acceptance.
+  - Intake review: accept bounded ownership/representation/aggregate experiments;
+    merge duplicate fusion, paging and preparation concepts; screen new research
+    mechanisms conditionally. Already shipped and rejected variants are listed in
+    the intake and must not be restarted unchanged.
+  - Current state: released native runtime includes optimized exact partitions,
+    dense compound pages, prepared calls and memory-file composition. Representation
+    expansion, repeated intermediates and source work motivate broad screens first.
+    Copied dictionaries and narrow mixed-DISTINCT admission remain later targeted
+    opportunities. Ranking expresses potential scope, not measured speedups.
+  - Execution checklist:
+    - [x] R1.a: retain bounded native dictionary persistence under the storage gate; full evidence in `derived-dictionary-preservation-2026-09-26.md`.
+    - [ ] R6.a: record admission and ship/drop for Fused encoded block execution.
+    - [ ] R7: record admission and ship/drop for Cross-column residuals and conditional dictionaries.
+    - [ ] R1.b: record admission and ship/drop for Selective preservation of economical source dictionaries.
+    - [ ] R6.b: record admission and ship/drop for FSST paired with its encoded predicate consumer.
+    - [ ] R1.c: record admission and ship/drop for Shared expression evaluation over dictionary/run-end values.
+    - [ ] R5.a: record admission and ship/drop for Direct owned-array handoff between operations.
+    - [ ] R9.a: record admission and ship/drop for Prepare/seal native fragments once and reuse encoded payloads.
+    - [ ] R9.b: record admission and ship/drop for Bounded writer-subtree overlap.
+    - [ ] R8: record admission and ship/drop for Shared scan/decode producer for concurrent queries.
+    - [ ] C2.a: record admission and ship/drop for Pre-bound executable block recipes.
+    - [ ] R5.b: record admission and ship/drop for Transfer reservation-owned pages/buffers across stages.
+    - [ ] R5.c: record admission and ship/drop for Bounded read/compute/output overlap in native workflows.
+    - [ ] C4: record admission and ship/drop for Compact immutable dictionary directories.
+    - [ ] C3: record admission and ship/drop for AMAC-style lookup interleaving.
+    - [ ] C6: record admission and ship/drop for Exact packed numeric predicates.
+    - [ ] C2.b: record admission and ship/drop for Finite cost-based selection among exact implementations.
+    - [ ] C1: record admission and ship/drop for Isolated Vortex provider upgrade.
+    - [ ] C5.a: record admission and ship/drop for Existing ThinLTO build.
+    - [ ] C5.b: record admission and ship/drop for Trained PGO.
+    - [ ] C5.c: record admission and ship/drop for Explicit CPU-targeted build.
+    - [ ] C7: record admission and ship/drop for Direct JSON/JSONL parse into typed builders.
+    - [ ] R2.a: record admission and ship/drop for Source-backed UTF8 dictionaries, Q29 first.
+    - [ ] R3.a: record admission and ship/drop for Winner-only exact DISTINCT, Q10 first.
+    - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
+    - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.
+    - [ ] R6.c: record admission and ship/drop for Progressive provider selection, Q23 first.
+    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first.
+    - [ ] R2.b: record admission and ship/drop for Bounded parallel dictionary preparation.
+    - [ ] For each retained cohesive change, complete semantic/resource gates, full
+      applicable UAT and independent review, then prepare its PR before the next set.
+    - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
+      the packet is exhausted, and move completed decisions to the completed ledger.
+  - Next outcome: R6.a attribution and bounded feasibility/ship-drop decision;
+    no replacement ingest is needed merely to inspect the current artifact.
+  - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
+    partitions, result/source boundaries and writer; shared planner/admission as needed.
+    SQL/Python/CLI aliases converge before these families, with
+    `fallback_attempted=false` and `external_engine_invoked=false` evidence.
+  - Acceptance/evidence: intake query-suite, individual-query, memory, ingest, storage, workflow, serving
+    and build gates; complete values and route activation, source/artifact/binary
+    identities, actual RSS plus reservations, copies/decodes and all timing samples.
+    Failed admission is a scoped candidate drop, not completion of a broad PERF gate.
+  - Verification: focused exact tests first; retained runtime changes require
+    `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+    `cargo test --workspace --all-targets`, applicable native-feature checks and
+    complete UAT at the cohesive boundary. Docs intake uses existing claim/status/
+    architecture validators; no runtime/UAT result is claimed by this edit.
+  - ShardLoom technique review: metadata-first execution and retained encoded owners
+    eliminate work; capillary work units and dynamic admission/work shaping bound
+    partitions, shared consumers and writer fragments. PulseWeave applies only where
+    observed resource scarcity is controlled, not as a new scheduler. Keep native,
+    public-call, ingest, composition and serving timing surfaces separate; evidence
+    tiers distinguish proposal, attribution, paired decision and full acceptance.
+  - Non-goals/claim boundary: no new execution engine, query-number dispatch,
+    answer sidecars, lossy arithmetic, unbounded buffer retention or generic codec/
+    topology rewrite. No package publication or competitive claim follows. Completed
+    details move to `phased-execution-completed-ledger.md`; this remains the sole queue.
 
 September 20 maintainer override after PR #1454: complete native spill/recovery,
 prepared/public-call availability, and concurrent serving before the next ingest
@@ -2441,99 +2532,42 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-The September 26 release-only scope override at the start of Planned takes
-precedence. Complete 0.3.0 and stop; the following September 20 implementation
-order remains queued for a later continuation:
-finish spill/recovery, prepared/public availability and concurrent serving with
-implementation, full validation and merges, then screen ingest CPU and persisted
-storage for material improvements. The Q10 selection below is retained history
-and is deferred by that priority change.
+The September 26 intake at the start of Planned supersedes the earlier
+release-only stop for **planning** and the earlier Q10-first optimization order.
+The 0.3.0 train is complete. The maintainer has authorized the full experiment queue.
 
-The approved September 19 [hardening/cleanup batch](runtime-hardening-cleanup-2026-09-19.md)
-is complete and merged in PR #1446. Preserve its publication
-collision safety and bounded codec-cancellation/native-writer serving evidence.
-The subsequent [ship/drop implementation](performance-ship-drop-2026-09-19.md)
-retains Q36 proof-preserving worker admission and Q13 filtered exact partitions;
-Q29 owned weighted partials and Q23 dictionary reconstruction did not earn
-retention. Q19 complete-key partitions and Q33 exact numeric-pair reduction have
-since merged in PRs #1447 and #1448 with complete Full43 acceptance. The
-[remaining admission screens](remaining-performance-admission-2026-09-19.md)
-close the bounded G/H/I proposals as scoped drops and merged in PR #1449. Q36
-persistent complete-integer partition reduction is retained with paired speed
-and memory gates, Full43 and broad checks. Preserve its per-chunk weighted counts
-and dependency proofs. Q29 dictionary validation reuse and Q18 source-order
-candidate filtering have since merged in PRs #1452 and #1453. The Q34/Q35
-reconciliation screen is closed without a retained replacement. The
-compound dense-storage candidate merged in PR #1454 after paired gates, Full43
-and broad checks. Q10 mixed-measure exact DISTINCT attribution remains the next
-query profiling target, deferred behind the maintainer's native runtime completion
-priority at the start of Planned. Preserve its existing packed-pair preunion and
-chunk group partials.
-Broader ingest, serving and delivery obligations remain open. The historical inventory
-in `performance-plan-exhaustion-2026-09-12.md` is not an instruction to reimplement
-already-shipped families.
-
-The selected performance/publication train is complete. The latest maintainer
-priority at the start of Planned governs the remaining constraints and deferred
-work below; only its selected capability families resume. This list does not
-restart completed release checks or authorize parked experiments.
-
-1. Preserve completed PR #1437, matched-owner ingest, September 12 attribution,
-   fresh-artifact Full43 and the dropped allocation screen. Use the
-   [control ledger](performance-control-progression-2026-09-12.md): previous
-   accepted ingest is 95.447305 seconds; retained numeric observations are
-   90.303309/93.945037 seconds. Subsequent combined `4f2c7b97` UAT is complete:
-   ingest 95.923669 seconds and Full43 per-query best-of-three sum 91.825940 seconds.
-   These scoped observations do not replace the historical query timing control.
-   Advance applicable ingest/query controls as faster versions complete
-   validation, preserve all historical samples and avoid needless unchanged-control
-   reruns. Keep artifact profiles and channel-specific version proof separate. Under PERF-03/08/09/12,
-   writer overlap requires measured recoverable subtree-tail work; repeated
-   representation removal requires demonstrated duplication and compatible
-   ownership. Neither condition is established by the rejected allocation.
-   Preserve retained lifecycle tests and the remaining skew, source-race,
-   codec-blocked cancellation and serving-fairness matrix in
-   `ingest-performance-implementation-2026-09-12.md`. Stop marginal experiments,
-   keep owner/memory/codec/build settings comparable and preserve storage guards.
-2. Park topology stage 1 under PERF-03/07/10/12. Both `a3c62434` grouping and
-   `9152a92b` actual coalesced jobs regress without material selected-query wins.
-   Preserve the frozen code and evidence; do not promote the experimental option
-   or repeat count sweeps and long held-out runs for this rejected revision.
-3. Keep the unwired local-scalar candidate and sort-source ownership prerequisite
-   staged outside the active source. No local-reduction, local-Top-K or writer
-   change earns acceptance from the scheduling packet. Resume this direction only
-   with a concrete reason to expect material work reduction and an explicitly
-   bounded acceptance experiment, rather than architectural appeal alone.
-4. If resumed, retain the separate correctness/resource/performance gates,
-   including fresh independent held-out matrices for the actual candidate.
-   Floating reassociation and local grouped truncation still require explicit
-   semantic proof; source ownership and truthful native evidence remain required.
-5. Execution-aware preparation remains deferred until topology-runtime retention.
-   Keep native Python binding parked and excluded from shipping; defer helper
-   representation changes because deleting the observed 7.441 seconds from
-   187.600824-second serial ingest offers
-   only an optimistic 3.97% saving, below the >=10% retention gate. Helper and
-   broader ingest phases remain open. Preserve numeric compression, the retained
-   bounded compatibility-export decision, and pending worker-to-spill acceptance.
-6. Defer further narrow compact-state, codec and PERF-13 PGO experiments until
-   profiling demonstrates a dominant public cost and plausible material benefit
-   over the complete lifecycle. The frozen `release-experiments-48182c5a/analysis-48182c5a.json`
-   packet's 18.1% high-cardinality compact improvement saves only about 1.35 ms
-   in the reducer comparison (7.485 to 6.132 ms); repeated input is 27.3% slower
-   with 14.44x admitted state. Codec gains are limited to tiny high-reuse fixtures
-   with larger artifacts. PGO has a toolchain smoke only, with no workspace build
-   or measured performance gain. Preserve these scoped results and defer their
-   earlier suggested followups. Universal compact/owner/zoning replacements stay
-   rejected; historical 271s/360s writer records are not fresh controls, and their
-   rejected patches must not be restarted as default work.
-7. At each cohesive implementation boundary, freeze source/binaries, complete the
-   required gates and review, update evidence/remaining work, and prepare the next
-   PR. Large builds and UAT remain serial under storage/process guards. No package
-   publication or release is authorized by this execution order.
-8. Keep all work on shared ShardLoom/Vortex-native surfaces, with one logical
-   artifact, no answer cache, no alternate scheduler/engine, and external engines
-   restricted to baseline/oracle evidence. All CG-1 through CG-23 remain visible
-   in the competitive track; scoped PERF results do not imply gate completion.
+1. Follow the 29-row priority order in the
+   [reviewed intake](performance-candidate-intake-2026-09-26.md): structural
+   opportunities, broader CPU/provider/input work, then targeted query families.
+   R/C labels do not determine priority. Finish each admission/ship/drop decision before moving on;
+   a failed screen does not justify an unbounded prototype. Check remaining cost
+   after each retained change, since the candidates overlap.
+2. Resolve concrete correctness, source ownership, cancellation, memory or
+   provider prerequisites before the dependent candidate. Keep existing native
+   joins/operator availability, broader spill/recovery, public-call coverage and
+   production-serving acceptance pending under their current PERF owners.
+   R5/R8 may satisfy scoped parts of those obligations; they do not close them all.
+3. Freeze the workload and retention gate before measurement. Use the symmetric
+   fastest-valid-run rule for query comparisons, retain all samples and full
+   outputs, and use throughput/tail distributions for serving. Native CLI timing,
+   public transport overhead, ingest, storage and composition remain separate.
+4. Retained implementations receive cohesive PRs after complete applicable UAT,
+   broad checks and review; failed prototypes are removed with evidence preserved.
+   Reprofile when this finite packet is exhausted before proposing more ideas.
+   The previous optimization backlog follows this packet, with historical
+   accept/reject decisions preserved.
+5. The intake selectively reopens derived-text representation, writer-overlap
+   admission and optimized-build screening. It does not revive rejected weighted
+   partials, conversion-owner allocation, topology/coalescing sweeps, universal
+   state/bitmap replacements, broad codec sweeps or native Python binding.
+   Consult the [control ledger](performance-control-progression-2026-09-12.md)
+   and linked experiment records instead of restarting completed work.
+6. Keep large builds and UAT serial under
+   [local storage/process guards](local-development-storage.md). Preserve one
+   valid native artifact, all required fields/statistics, exact arithmetic,
+   no-fallback certificates and shared runtime families. CG-1 through CG-23 stay
+   visible; scoped gains do not certify whole gates, production fairness or
+   superiority. No new package publication is authorized by this intake.
 
 Validator ownership note: `GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1` remains named here as the active
 global-review runtime-gap owner required by `scripts/check_runtime_gap_family_burn_down.py`. It is a

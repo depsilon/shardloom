@@ -38,6 +38,7 @@ dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier
 
 | Phase item | Classification | Support gate posture | Feasibility status | Unsupported boundary | Technique review |
 | --- | --- | --- | --- | --- | --- |
+| `PERF-INTAKE` | `v1_candidate_pending_feasibility` | `feasibility_required` | `ranked_experiments_pending_per_candidate_gates`; queue identifier under existing `PERF-01`–`PERF-13`, with no new implementation phase or deferral of required native families; R1.a retained under its storage gate; `docs/architecture/performance-candidate-intake-2026-09-26.md`; `docs/architecture/derived-dictionary-preservation-2026-09-26.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `RELEASE-0-2-3` | `required_for_v1` | `publication_gate_pending` | `authorized_selected_channel_train_pending_fresh_proofs`; `docs/architecture/phased-execution-plan.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PERF-01` | `required_for_v1` | `implementation_required` | `baseline_and_timing_reconciliation_in_progress`; `docs/architecture/phased-execution-plan.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PERF-02` | `required_for_v1` | `implementation_required` | `resident_foundation_present_public_family_migration_required`; `docs/architecture/phased-execution-plan.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |

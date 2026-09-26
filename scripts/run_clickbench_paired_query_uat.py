@@ -38,6 +38,43 @@ def generation(path):
             "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
 
 
+def resolve_role_sources(control_input, candidate_input=None, *, home=None, platform=None):
+    home = Path.home() if home is None else home
+    platform = sys.platform if platform is None else platform
+    candidate_input = control_input if candidate_input is None else candidate_input
+    return {
+        "control": require_local_path(Path(control_input), home, platform),
+        "candidate": require_local_path(Path(candidate_input), home, platform),
+    }
+
+
+def source_generations(sources):
+    return {role: generation(path) for role, path in sources.items()}
+
+
+def source_receipt(sources, frozen_generations=None):
+    frozen_generations = source_generations(sources) if frozen_generations is None else frozen_generations
+    return {role: {"path": str(path), "generation": frozen_generations[role]}
+            for role, path in sources.items()}
+
+
+def verify_source_generations(sources, expected):
+    current = source_generations(sources)
+    changed = [role for role in sources if current[role] != expected[role]]
+    if changed:
+        raise ValueError("source generation changed for role(s): " + ", ".join(changed))
+
+
+def positive_finite(value):
+    try:
+        number = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a positive finite number") from error
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("expected a positive finite number")
+    return number
+
+
 def host_snapshot():
     """Outside native timing; VM deltas are host-wide, not query attribution."""
     result = {"utc": dt.datetime.now(dt.timezone.utc).isoformat(), "load_average": os.getloadavg()}
@@ -118,11 +155,14 @@ def main():
         parser.add_argument(f"--{role}-commit", required=True)
     for name in ("input", "uat-root", "reference-dir"):
         parser.add_argument(f"--{name}", type=Path, required=True)
+    parser.add_argument("--candidate-input", type=Path,
+                        help="candidate Vortex input (defaults to --input)")
     parser.add_argument("--queries", type=Path, default=Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
     parser.add_argument("--query-ids")
     parser.add_argument("--memory-gb", type=int, default=24)
     parser.add_argument("--max-parallelism", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=120)
+    parser.add_argument("--max-workspace-gib", type=positive_finite, default=100)
     parser.add_argument("--reverse-order", action="store_true")
     args = parser.parse_args()
     if args.memory_gb <= 0 or args.max_parallelism <= 0 or not math.isfinite(args.timeout) or args.timeout <= 0:
@@ -133,12 +173,14 @@ def main():
     except ValueError as error:
         parser.error(str(error))
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
-    source = require_local_path(args.input, Path.home(), sys.platform)
+    sources = resolve_role_sources(args.input, args.candidate_input)
+    source = sources["control"]
     logs = root / "logs" / ("paired43_" + dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
 
     def guard(reserve=0):
         return check_budgets(root, source, logs, min_free_bytes=12*GIB, reserve_bytes=reserve,
-                             max_workspace_bytes=100*GIB, max_log_bytes=256*MIB-reserve)
+                             max_workspace_bytes=math.floor(args.max_workspace_gib * GIB),
+                             max_log_bytes=256*MIB-reserve)
 
     guard()
     root.mkdir(parents=True, exist_ok=True)
@@ -169,15 +211,18 @@ def main():
                       for role, path in binaries.items()}
         harness = {str(Path(__file__).with_name(name).resolve()): file_sha256(Path(__file__).with_name(name))
                    for name in (Path(__file__).name, "run_clickbench_query_uat.py", "timed_native_command.py", "local_uat_storage.py")}
-        original = generation(source)
+        original_generations = source_generations(sources)
+        frozen_sources = source_receipt(sources, original_generations)
         records = []
         summary = {"schema_version": "shardloom.clickbench.counterbalanced_pairs.v1", "binaries": identities,
                    "harness_sha256": harness,
-                   "source": str(source), "source_generation": original, "queries_sha256": file_sha256(args.queries),
+                   "source": str(source), "source_generation": original_generations["control"],
+                   "sources": frozen_sources, "queries_sha256": file_sha256(args.queries),
                    "memory_gb": args.memory_gb, "max_parallelism": args.max_parallelism,
+                   "max_workspace_gib": args.max_workspace_gib,
                    "platform": platform.platform(), "cpu_count": os.cpu_count(), "selected_query_ids": selected,
                    "queries": {str(q): queries[q-1] for q in selected},
-                   "command_template": ["{binary}", "run", "sql", "--input", str(source), "--input-format", "vortex", "--sql", "{sql}",
+                   "command_template": ["{binary}", "run", "sql", "--input", "{role_source}", "--input-format", "vortex", "--sql", "{sql}",
                                         "--request", "collect", "--bounded", "true", "--memory-gb", str(args.memory_gb), "--max-parallelism", str(args.max_parallelism), "--format", "json"],
                    "reference_values_sha256": {str(q): hashlib.sha256(json.dumps(v, sort_keys=True, allow_nan=False).encode()).hexdigest() for q, v in references.items()},
                    "timing_boundary": "native process creation through complete public CLI output and exit; host snapshots and archival excluded",
@@ -192,11 +237,15 @@ def main():
             for run in range(1, 4):
                 for position, role in enumerate(role_order(query, run, args.reverse_order), 1):
                     prefix = logs / f"q{query:02d}_run{run}_{role}"
-                    command = [str(binaries[role]), "run", "sql", "--input", str(source), "--input-format", "vortex",
+                    verify_source_generations(sources, original_generations)
+                    command = [str(binaries[role]), "run", "sql", "--input", str(sources[role]), "--input-format", "vortex",
                                "--sql", queries[query-1], "--request", "collect", "--bounded", "true",
                                "--memory-gb", str(args.memory_gb), "--max-parallelism", str(args.max_parallelism), "--format", "json"]
                     before = host_snapshot()
-                    record = run_profiled_command(command, prefix, args.timeout, guard)
+                    try:
+                        record = run_profiled_command(command, prefix, args.timeout, guard)
+                    finally:
+                        verify_source_generations(sources, original_generations)
                     record.update(query=query, run=run, role=role, pair_position=position,
                                   host_before=before, host_after=host_snapshot(), passed=False)
                     try:
@@ -205,8 +254,6 @@ def main():
                         actual = extract_result(read_json_log(prefix.with_suffix(".stdout.json")))
                         if not equivalent(actual, references[query]):
                             raise ValueError("complete result differs from retained reference")
-                        if generation(source) != original:
-                            raise ValueError("source generation changed")
                         record.update(passed=True, validation="complete_values",
                                       result_sha256=hashlib.sha256(json.dumps(actual, sort_keys=True, allow_nan=False).encode()).hexdigest())
                     except (ValueError, OSError) as error:
@@ -224,6 +271,7 @@ def main():
                 or file_sha256(args.queries) != summary["queries_sha256"]
                 or any(file_sha256(Path(path)) != digest for path, digest in harness.items())):
             raise ValueError("binary, query file or harness changed")
+        verify_source_generations(sources, original_generations)
         summary["complete_result_validation"] = all(r.get("validation") == "complete_values" and r["passed"] for r in records)
         summary["completed_identity_check"] = True
         save()

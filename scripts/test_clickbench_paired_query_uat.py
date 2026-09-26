@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
+import argparse
 import hashlib
 from pathlib import Path
 import tarfile
@@ -6,10 +7,53 @@ import tempfile
 import unittest
 
 from local_uat_storage import StorageGuardError
-from run_clickbench_paired_query_uat import archive_completed_logs, paired_scores, role_order
+from run_clickbench_paired_query_uat import (
+    archive_completed_logs,
+    paired_scores,
+    positive_finite,
+    resolve_role_sources,
+    role_order,
+    source_generations,
+    source_receipt,
+    verify_source_generations,
+)
 
 
 class PairedQueryUatTests(unittest.TestCase):
+    def test_role_sources_default_to_control_and_receipt_freezes_both_roles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            control = root / "control.vortex"
+            candidate = root / "candidate.vortex"
+            control.write_bytes(b"control generation")
+            candidate.write_bytes(b"candidate generation")
+
+            same_source = resolve_role_sources(control, home=root, platform="linux")
+            self.assertEqual(same_source["control"], control.resolve())
+            self.assertEqual(same_source["candidate"], control.resolve())
+            same_receipt = source_receipt(same_source)
+            self.assertEqual(same_receipt["control"]["path"], str(control.resolve()))
+            self.assertEqual(same_receipt["candidate"], same_receipt["control"])
+
+            role_sources = resolve_role_sources(control, candidate, home=root, platform="linux")
+            frozen = source_generations(role_sources)
+            receipt = source_receipt(role_sources, frozen)
+            self.assertEqual(receipt["control"]["path"], str(control.resolve()))
+            self.assertEqual(receipt["candidate"]["path"], str(candidate.resolve()))
+            self.assertEqual(receipt["control"]["generation"], frozen["control"])
+            self.assertEqual(receipt["candidate"]["generation"], frozen["candidate"])
+            verify_source_generations(role_sources, frozen)
+
+            candidate.write_bytes(b"changed candidate generation")
+            with self.assertRaisesRegex(ValueError, "candidate"):
+                verify_source_generations(role_sources, frozen)
+
+    def test_max_workspace_limit_must_be_positive_and_finite(self):
+        self.assertEqual(positive_finite("110"), 110)
+        for value in ("0", "-1", "nan", "inf", "-inf", "not-a-number"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                positive_finite(value)
+
     def test_each_query_has_both_orders_and_adjacent_queries_balance(self):
         first_roles = []
         for query in (1, 2):
