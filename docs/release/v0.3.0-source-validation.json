@@ -1,0 +1,259 @@
+{
+  "schema_version": "shardloom.source_version_validation.v1",
+  "status": "passed",
+  "scope": "versioned_source_checks;pre_bump_runtime_UAT;not_package_channel_proof",
+  "recorded_at_utc": "2026-09-20T17:12:32.309636+00:00",
+  "candidate_version": "0.3.0",
+  "tested_commit": "89e57fe34e6ea80ff1b4233cbac0c2606763d532",
+  "tested_tree": "60ccca22ef5f5da833772b0247037a8a3be6832c",
+  "current_source_commit": "bf3b8b1ba450e606a1b29f9740295552a614e995",
+  "subsequent_changes": "documentation and history-only composition merge",
+  "published_channel_version": "0.2.4",
+  "runtime_rust_source_changes_in_version_bump": false,
+  "external_dependency_or_schema_changes_in_version_bump": false,
+  "internal_cargo_path_requirements_advanced_to_new_minor": true,
+  "rust_checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 337.83672945800936,
+      "log": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/workspace-tests-1.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "2de4cfba9248e897529193d3d7e577db88381e89dce1ad4ddcbbee27d0d3d2bd",
+      "test_totals": {
+        "passed": 3425,
+        "failed": 0,
+        "ignored": 0
+      },
+      "test_targets": 102,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/workspace-tests-1.json",
+        "sha256": "f115335fbd4969517a93003f1ada5cda7b35307129f36861129338f276f84f8c",
+        "bytes": 516
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 383.6871343340026,
+      "log": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/native-tests-1.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "a44a1b5003dabdaec22b2cffea6c137b5f8ba986fa65ff1a21d6c245e8495033",
+      "test_totals": {
+        "passed": 3435,
+        "failed": 0,
+        "ignored": 10
+      },
+      "test_targets": 86,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/native-tests-1.json",
+        "sha256": "1db9a54fe7602147924730469d84576d45ba64a885f4049c7d71ed4c4a0ac9c6",
+        "bytes": 605
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 42.18491820899362,
+      "log": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/workspace-clippy-1.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "1cc33a2d86795943e45158e9725321ad5586151c6563ed2c25cda789192bbab8",
+      "test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "test_targets": 0,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/workspace-clippy-1.json",
+        "sha256": "16d2e5b30e9cd7b16383d2b8863eb23bba190e0076f12ce4668fb8ee88880f22",
+        "bytes": 520
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "-p",
+        "shardloom-cli",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 43.32898937500431,
+      "log": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/native-clippy-1.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "fd80d669a3a26c40c979ce0c5a8567a8a6d0a2677ca264529e5c58b54eb92883",
+      "test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "test_targets": 0,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/native-clippy-1.json",
+        "sha256": "3cd9f16f238ce9698e4624b10fa65a79e3266c4f31ebbe617cafb9bf10d57105",
+        "bytes": 610
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 3.024227707996033,
+      "log": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/format-1.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "test_targets": 0,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/format-1.json",
+        "sha256": "85a8feab912768af16286f9922c33a3146b1ad0fc5a7722644dba1ad6a605bb3",
+        "bytes": 453
+      }
+    }
+  ],
+  "test_counts_overlap_between_feature_configurations": true,
+  "changed_package_version_sources": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/Cargo.toml",
+      "sha256": "2b294879ca40b0c8e39a69f2b81a05d04ee5431dcd354cbdd212810bfd9c6dda",
+      "bytes": 1610
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/Cargo.lock",
+      "sha256": "3cff68bfe028e3e7e0d2cd61781fae1e5a9722a9e9408643cab6ccdfc8878895",
+      "bytes": 99477
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/python/src/shardloom/_version.py",
+      "sha256": "d1be07fc697baa8f1b5d2ef0af9353f19816c9aa4a87921e086be48f06c157a1",
+      "bytes": 169
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/website-src/package.json",
+      "sha256": "9ed82328b972a319df07ee1ae42b5c1afa03e5f5caedea2d16178deb49439058",
+      "bytes": 1096
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/website-src/package-lock.json",
+      "sha256": "9a6ad3ee5d4579ed48ef20398e5f7249f1be2953fa6df43063d6841783d33577",
+      "bytes": 301017
+    }
+  ],
+  "static_reports": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/workspace-version-source-report.json",
+      "sha256": "160454882f28b4a450f269b02d1d54253a5eecab7d332efc9d33dc241e3ae87c",
+      "bytes": 3912
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/public-docs-final.json",
+      "sha256": "ec3872c62de8b5485d88eca2703a6a82da7115af85e80adf526bf83b5aebd7a8",
+      "bytes": 210965
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/contribution.json",
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae",
+      "bytes": 2433
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/package-channel-static.json",
+      "sha256": "ad073313b882d41cf7022ddb74c116da46cd7c679ea484dcf0bf2720518a0d91",
+      "bytes": 17135
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.3.0-20260920/architecture-final.json",
+      "sha256": "ff17f29eb0ef46d30721e55cb74b5bc83dfd9b0160adf3bb3b01e9b20c7bfe45",
+      "bytes": 22841
+    }
+  ],
+  "architecture_report_mode": "allow_blocked_audit;not_production_readiness",
+  "implementation_uat": {
+    "tested_commit": "534095f78cc50c910e585c250979f432e2bad7f1",
+    "binary_sha256": "64a6d56579cbd56bc9acfc0c96c83ac3ac888ef32a783c8445d264d1bbafab4b",
+    "scope": "pre_bump_frozen_runtime;not_0.3.0_distribution",
+    "receipts": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/full43_20260920T161041150303Z/summary.json",
+        "sha256": "d01c007614e57b1c401fe15b3b73f6755f165c7f98d957c776d771b19516bb36",
+        "bytes": 263565
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/resident_call_paths_20260920T162914389048Z/summary.json",
+        "sha256": "f6ad1a2569bcc4d208c0c00e369ec4232f782d52458819bd656e2024eff157da",
+        "bytes": 3242535
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/heldout_operators_20260920T163918059577Z/summary.json",
+        "sha256": "7c77bc401592c5b7433ebfa3bbab2a84e7feb4e147102595d1779f7f9a484c0e",
+        "bytes": 5449344
+      }
+    ]
+  },
+  "full_size_benchmark_repeated_for_version_only_change": false,
+  "package_publication_attempted": false,
+  "tag_created": false,
+  "remaining_release_proofs": [
+    "version_PR_CI_and_merge",
+    "versioned_artifact_install_smoke_uninstall",
+    "checksum_SBOM_provenance",
+    "GitHub_TestPyPI_PyPI_Homebrew_channel_proofs"
+  ]
+}

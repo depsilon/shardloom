@@ -17,6 +17,19 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Owned native result composition through retained Vortex sources.
+  - Date: 2026-09-20. [PR #1456](https://github.com/depsilon/shardloom/pull/1456)
+    merged at `1e356f3c`, accepted head `e3d09186`; all 40 remote checks passed.
+    Typed empty schemas, bounded owned-batch intake, one borrowed admission,
+    retained aggregate lowering and independent cancellation preserve the
+    existing query execution paths.
+  - Workspace/native gates, 129 Full43 results, 760 held-out calls, 2,232 public
+    calls and bounded serving acceptance pass. The unpaired Full43 best sum is
+    63.459160 s. A test-message CodeQL correction has seven focused passing
+    tests and a clean final scan. See [composition evidence](native-result-composition-2026-09-20.md).
+  - This prerequisite does not complete general relational/public operator
+    parity, broader spill transitions or production serving acceptance.
+
 - [x] Native spill ownership, prepared aggregate expansion and bounded Rust serving.
   - Date: 2026-09-20. [PR #1455](https://github.com/depsilon/shardloom/pull/1455)
     merged at `a04366c3`, accepted head `f94272be`, all 40 remote checks passed.

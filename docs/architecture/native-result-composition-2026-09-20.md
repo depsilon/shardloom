@@ -1,7 +1,9 @@
 # Native result composition
 
-Status: implementation and full local acceptance complete; PR acceptance pending
-after the merged ownership/preparation unit in PR #1455.
+Status: implementation and full local acceptance complete; PR #1456 merged at
+`1e356f3c862ab6844ea81da6b2da9c6bd4a8572d`, accepted head
+`e3d09186dfe8ab1bb2346e8ebb793451054d9514`, with all 40 remote checks passing.
+This follows the merged ownership/preparation unit in PR #1455.
 This prerequisite belongs to the existing native runtime completion plan and
 PERF-02/07/10/11. It does not complete general joins or public operator parity.
 
@@ -132,7 +134,8 @@ acceptance, not a production-scale latency comparison.
 The release binary built from clean `534095f78cc50c910e585c250979f432e2bad7f1`
 with `release-user-surfaces` is frozen as `candidate-534095f7` (85,234,544 bytes),
 SHA-256 `64a6d56579cbd56bc9acfc0c96c83ac3ac888ef32a783c8445d264d1bbafab4b`.
-The subsequent main merge changes history only; the remaining overlay is documentation.
+The subsequent main merge changes history only; the remaining overlay is
+documentation and the test-only assertion diagnostic correction recorded below.
 
 Full43 passes all 129/129 complete results on the retained 99,997,497-row,
 18,591,586,804-byte native source. Sum of per-query best-of-three times is
@@ -184,5 +187,19 @@ in the PyArrow 25.0.1 Parquet fixture, which is an explicit input boundary only.
 Held-out receipt: `clickbench-100m-uat/logs/heldout_operators_20260920T163918059577Z/summary.json`,
 SHA-256 `7c77bc401592c5b7433ebfa3bbab2a84e7feb4e147102595d1779f7f9a484c0e`.
 `composition-heldout-uat-1.json` records the exact command and 188.134442 s harness
-time. The runtime, Python and harness sources match the frozen binary's source
-revision; the following branch overlay contains documentation only.
+time. Production runtime, Python and harness sources match the frozen binary's
+source revision; the following overlay changes documentation and one test message.
+
+## PR acceptance
+
+[PR #1456](https://github.com/depsilon/shardloom/pull/1456) merged after all 40
+remote checks passed. CodeQL initially flagged a test assertion that printed the
+entire native execution proof. This is controlled test metadata, not a credential
+certificate or a production log. The correction retains the assertion and prints
+only the missing invariant name. Seven focused composition tests, formatting and
+the final CodeQL scan pass with no new alerts. No scanner check was disabled or
+alert dismissed. Receipt `composition-codeql-certificate-test-2.json` records
+the focused command; log SHA-256
+`ccabfca5f75a30e933ea5b755253f88b05a16c470befafe4ce809620b2d6e453`.
+The first test-filter attempt matched zero tests and is not counted as validation.
+`ship-drop-20260919/pr1456-merged-acceptance.json` preserves the final PR snapshot.

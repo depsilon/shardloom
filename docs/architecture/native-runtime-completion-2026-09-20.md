@@ -7,6 +7,13 @@ serving, including currently unsupported native operator families. Ingest CPU an
 persisted-storage experiments follow their implementation, validation and merges.
 Q10 optimization is deferred. Availability fixes do not need a speedup to ship.
 
+The maintainer subsequently authorized an interim version bump train on
+September 20. The 0.3.0 preparation includes ownership/prepared and
+result-composition units after PR acceptance; [release notes](../release/v0.3.0-release-notes.md)
+preserve their tested scope. Publication does not close the remaining operator,
+spill or production-serving items below. Native family completion resumes after
+the release train, followed by the requested ingest/storage work.
+
 ## Contract and reuse
 
 Every advertised execution route must perform the requested work through
