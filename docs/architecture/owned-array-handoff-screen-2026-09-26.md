@@ -12,7 +12,8 @@ workload does not invoke it, so removing that boundary is not an automatic
 ClickBench Full43 speedup.
 
 First attribute a complete bounded workflow over the retained native artifact.
-Freeze three 131,072-row ranges beginning at rows 0, 50,000,000 and 99,800,000.
+The initial screen freezes three 131,072-row ranges beginning at rows 0,
+50,000,000 and 99,800,000.
 Project AdvEngineID, UserID and URL into an owned native result, construct the
 current memory generation with its default 64 MiB serialized limit, and execute
 the existing exact grouped COUNT by AdvEngineID ordered by that key. The wide
@@ -64,3 +65,15 @@ than a real candidate and cannot establish a speedup or exact RSS bound: allocat
 reuse, code residency and provider allocations can interact. It tests whether
 even removing both stages reveals a credible 30% memory opportunity in the
 frozen workload. Preserve all OS RSS measurements separately from pool credits.
+
+The three alternating pairs record complete-process RSS of 147,783,680,
+147,800,064 and 147,783,680 bytes, versus producer-only RSS of 107,364,352,
+107,315,200 and 107,380,736 bytes. Even omitting both stages exposes only about
+27.4% less observed memory in these samples. This is below the retention gate,
+but does not decide whether a larger intermediate can qualify. Before that
+decision, extend both attribution arms with one explicitly frozen 524,288-row
+range beginning at zero. Preserve the original three cases, projection, P1,
+512 MiB session and default 64 MiB serialization limit. A rejected larger case
+must remain an admission failure; it cannot authorize raising the cap or claiming
+a successful workflow. This extension tests half the default maximum row count
+without changing the admitted composition policy.

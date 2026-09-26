@@ -19,8 +19,12 @@ use vortex::array::{
 };
 
 const SOURCE_ROWS: u64 = 99_997_497;
-const RANGE_STARTS: [u64; 3] = [0, 50_000_000, 99_800_000];
-const RANGE_ROWS: u64 = 131_072;
+const CASES: [(u64, u64); 4] = [
+    (0, 131_072),
+    (50_000_000, 131_072),
+    (99_800_000, 131_072),
+    (0, 524_288),
+];
 const COLUMNS: [&str; 3] = ["AdvEngineID", "UserID", "URL"];
 const SESSION_BYTES: u64 = 512 * 1024 * 1024;
 const REPETITIONS: usize = 3;
@@ -98,6 +102,7 @@ impl BaselineSample {
 
 struct RangeBaseline {
     row_start: u64,
+    row_count: u64,
     oracle: Oracle,
     samples: Vec<SampleOutcome>,
 }
@@ -154,11 +159,11 @@ impl RangeBaseline {
     fn json(&self) -> Value {
         json!({
             "row_start": self.row_start,
-            "row_end_exclusive": self.row_start + RANGE_ROWS,
-            "rows": RANGE_ROWS,
+            "row_end_exclusive": self.row_start + self.row_count,
+            "rows": self.row_count,
             "oracle": {
                 "method": "native_projected_key_scalars_independent_btree_map",
-                "rows_checked": RANGE_ROWS,
+                "rows_checked": self.row_count,
                 "groups": self.oracle.values.as_array().unwrap().len(),
                 "logical_input_bytes": self.oracle.logical_input_bytes,
                 "ordered_values_sha256": self.oracle.values_sha256,
@@ -202,16 +207,20 @@ fn sha256(bytes: &[u8]) -> String {
     output
 }
 
-fn projection(source: &PreparedVortexSource, start: u64) -> PreparedVortexProjection {
+fn projection(
+    source: &PreparedVortexSource,
+    start: u64,
+    row_count: u64,
+) -> PreparedVortexProjection {
     assert_eq!(
         source.file().row_count(),
         SOURCE_ROWS,
         "unexpected source scale"
     );
     source
-        .prepare_projection(&COLUMNS, RANGE_ROWS, SESSION_BYTES)
+        .prepare_projection(&COLUMNS, row_count, SESSION_BYTES)
         .unwrap()
-        .with_row_range(start..start + RANGE_ROWS)
+        .with_row_range(start..start + row_count)
         .unwrap()
 }
 
@@ -232,13 +241,13 @@ fn integer_key(scalar: &Scalar) -> u64 {
     }
 }
 
-fn oracle(path: &Path, start: u64) -> Oracle {
+fn oracle(path: &Path, start: u64, row_count: u64) -> Oracle {
     let session = ResidentVortexSession::new(SESSION_BYTES, 1).unwrap();
     let memory = session.memory().clone();
     let source = session.prepare_file(path).unwrap();
-    let prepared = projection(&source, start);
+    let prepared = projection(&source, start, row_count);
     let result = prepared.execute().unwrap();
-    assert_eq!(result.row_count(), RANGE_ROWS);
+    assert_eq!(result.row_count(), row_count);
     let logical_input_bytes = result.logical_buffer_bytes();
     let mut counts = BTreeMap::<u64, u64>::new();
     let mut context = result.create_execution_ctx();
@@ -269,8 +278,8 @@ fn oracle(path: &Path, start: u64) -> Oracle {
             "source exceeds small-result fixture bound"
         );
     }
-    assert_eq!(rows, RANGE_ROWS);
-    assert_eq!(counts.values().sum::<u64>(), RANGE_ROWS);
+    assert_eq!(rows, row_count);
+    assert_eq!(counts.values().sum::<u64>(), row_count);
     let values = Value::Array(
         counts
             .into_iter()
@@ -319,12 +328,18 @@ fn report_values(output: &str) -> Value {
 }
 
 #[allow(clippy::too_many_lines)] // Keep contiguous timing and final-owner release visible together.
-fn run(path: &Path, start: u64, repetition: usize, expected: &Oracle) -> SampleOutcome {
+fn run(
+    path: &Path,
+    start: u64,
+    row_count: u64,
+    repetition: usize,
+    expected: &Oracle,
+) -> SampleOutcome {
     let started = Instant::now();
     let session = ResidentVortexSession::new(SESSION_BYTES, 1).unwrap();
     let memory = session.memory().clone();
     let source = session.prepare_file(path).unwrap();
-    let projected = projection(&source, start);
+    let projected = projection(&source, start, row_count);
     let input = projected.execute().unwrap();
     let input_rows = input.row_count();
     let logical_input_bytes = input.logical_buffer_bytes();
@@ -399,8 +414,8 @@ fn run(path: &Path, start: u64, repetition: usize, expected: &Oracle) -> SampleO
         released_memory.reserved_bytes, 0,
         "workflow retained native owners"
     );
-    assert_eq!(input_rows, RANGE_ROWS);
-    assert_eq!(generation_rows, RANGE_ROWS);
+    assert_eq!(input_rows, row_count);
+    assert_eq!(generation_rows, row_count);
     assert_eq!(evidence.input_logical_bytes, logical_input_bytes);
     assert_eq!(evidence.source_file_opens, 0);
     assert_eq!(session_snapshot.prepared_source_opens, 1);
@@ -461,18 +476,25 @@ fn native_memory_file_composition_baseline() {
     let source_bytes = path.metadata().unwrap().len();
     let bounds = MemoryFileCompositionBounds::default();
     assert_eq!(bounds.storage.max_serialized_bytes, 64 * 1024 * 1024);
-    // Compute all three independent references before any timed repetition.
-    let mut ranges = RANGE_STARTS
+    // Compute all four independent references before any timed repetition.
+    let mut ranges = CASES
         .into_iter()
-        .map(|row_start| RangeBaseline {
+        .map(|(row_start, row_count)| RangeBaseline {
             row_start,
-            oracle: oracle(&path, row_start),
+            row_count,
+            oracle: oracle(&path, row_start, row_count),
             samples: Vec::with_capacity(REPETITIONS),
         })
         .collect::<Vec<_>>();
     for range in &mut ranges {
         for repetition in 1..=REPETITIONS {
-            let sample = run(&path, range.row_start, repetition, &range.oracle);
+            let sample = run(
+                &path,
+                range.row_start,
+                range.row_count,
+                repetition,
+                &range.oracle,
+            );
             let rejected = matches!(sample, SampleOutcome::AdmissionFailure(_));
             range.samples.push(sample);
             if rejected {
@@ -533,17 +555,17 @@ fn native_composition_producer_memory_attribution() {
     .canonicalize()
     .unwrap();
     assert!(path.is_file());
-    let references = RANGE_STARTS
+    let references = CASES
         .into_iter()
-        .map(|start| oracle(&path, start))
+        .map(|(start, row_count)| oracle(&path, start, row_count))
         .collect::<Vec<_>>();
     let mut observations = Vec::new();
-    for (start, reference) in RANGE_STARTS.into_iter().zip(&references) {
+    for ((start, row_count), reference) in CASES.into_iter().zip(&references) {
         for repetition in 1..=REPETITIONS {
             let session = ResidentVortexSession::new(SESSION_BYTES, 1).unwrap();
             let memory = session.memory().clone();
             let source = session.prepare_file(&path).unwrap();
-            let prepared = projection(&source, start);
+            let prepared = projection(&source, start, row_count);
             let result = prepared.execute().unwrap();
             let rows = result.row_count();
             let logical_bytes = result.logical_buffer_bytes();
@@ -553,10 +575,11 @@ fn native_composition_producer_memory_attribution() {
             drop(session);
             let released = memory.snapshot();
             assert_eq!(released.reserved_bytes, 0);
-            assert_eq!(rows, RANGE_ROWS);
+            assert_eq!(rows, row_count);
             assert_eq!(logical_bytes, reference.logical_input_bytes);
             observations.push(json!({
                 "row_start": start, "repetition": repetition,
+                "row_end_exclusive": start + row_count,
                 "rows": rows, "logical_input_bytes": logical_bytes,
                 "peak_reserved_bytes": released.peak_reserved_bytes,
                 "final_reserved_bytes": released.reserved_bytes,
