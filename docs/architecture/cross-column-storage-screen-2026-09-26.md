@@ -130,11 +130,44 @@ Full block evidence and watchdog receipts are in:
 - `/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-r7-numeric`.
 - `/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-r7-conditional`.
 
-The original scripts are retained under
+The original frozen scripts are retained under
 `/Users/dylan/LocalData/shardloom/performance-candidates-20260926/` as
 `r7_numeric_residual_screen.py` and `r7_conditional_dictionary_screen.py`.
-Each supports `--self-test` without opening the dataset. Run with the existing
-`fixture-pyarrow-25.0.1/bin/python` through `run_guarded_proof.py`, listing the source
-and scripts as guarded inputs; the conditional script imports the numeric helper.
-The receipt records exact hashes, generation metadata, models and limits. No new
-dependency or dataset copy was installed or created.
+The tracked reproductions are
+[`scripts/r7_numeric_residual_screen.py`](../../scripts/r7_numeric_residual_screen.py),
+[`scripts/r7_conditional_dictionary_screen.py`](../../scripts/r7_conditional_dictionary_screen.py)
+and [`scripts/run_local_readonly_proof.py`](../../scripts/run_local_readonly_proof.py).
+Their analytical functions match the frozen versions; only input-path handling
+changes. Both analysis scripts accept an explicit `--source` and support
+`--self-test` without opening the dataset. The conditional script finds its
+numeric helper beside itself. The portable runner reuses the existing watchdog,
+lock, timeout and storage limits, validates local source/log destinations, and
+fingerprints the executable and additional script inputs. It preserves existing
+logs and never deletes source data.
+
+From the repository root, with an existing Python 3.11+ environment containing
+PyArrow 25.0.1, resident official `hits.parquet`, and an unsynced UAT directory:
+
+```sh
+SCREEN_PYTHON=/absolute/path/to/python
+SCREEN_SOURCE=/absolute/local/path/to/hits.parquet
+SCREEN_ROOT=/absolute/local/path/to/uat
+"$SCREEN_PYTHON" -B scripts/r7_numeric_residual_screen.py --self-test
+"$SCREEN_PYTHON" -B scripts/r7_conditional_dictionary_screen.py --self-test
+"$SCREEN_PYTHON" -B scripts/run_local_readonly_proof.py \
+  --uat-root "$SCREEN_ROOT" --source "$SCREEN_SOURCE" --name r7-numeric-new \
+  --input scripts/r7_numeric_residual_screen.py -- \
+  "$SCREEN_PYTHON" -B scripts/r7_numeric_residual_screen.py --source "$SCREEN_SOURCE"
+"$SCREEN_PYTHON" -B scripts/run_local_readonly_proof.py \
+  --uat-root "$SCREEN_ROOT" --source "$SCREEN_SOURCE" --name r7-conditional-new \
+  --input scripts/r7_numeric_residual_screen.py \
+  --input scripts/r7_conditional_dictionary_screen.py -- \
+  "$SCREEN_PYTHON" -B scripts/r7_conditional_dictionary_screen.py --source "$SCREEN_SOURCE"
+```
+
+Use unique names for reruns. The full historical block reports are also retained
+in the compressed [evidence bundle](../benchmarks/evidence/cross-column-storage-2026-09-26.json.gz);
+`python3 -m gzip -d` can decode a copy for inspection. This portability change
+does not replace the original measured script identities or rerun the dataset.
+The receipt records original hashes, generation metadata, models and limits.
+No new dependency or dataset copy was installed or created.

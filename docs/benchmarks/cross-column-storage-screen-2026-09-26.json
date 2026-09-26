@@ -730,5 +730,18 @@
     },
     "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet"
   },
-  "status": "independently_checked_saved_outputs"
+  "status": "independently_checked_saved_outputs",
+  "portable_reproduction": {
+    "scripts_sha256": {
+      "scripts/r7_numeric_residual_screen.py": "f5b872f1f2a67bc2a0555c0b87c2d4de57ddbf0d7e0f751e0c25e59c30a5ffa0",
+      "scripts/r7_conditional_dictionary_screen.py": "316d223f9aaba4a64bd6869e4cf97fa1cd4672198cde795fb3b5d48e39305f59"
+    },
+    "runner": "scripts/run_local_readonly_proof.py",
+    "runner_tests": "scripts/test_run_local_readonly_proof.py",
+    "model_ast_verification": "all analytical functions unchanged; only main differs; path constants deliberately changed",
+    "self_tests": "both passed with PyArrow25.0.1; no source opened",
+    "full_block_evidence_bundle": "docs/benchmarks/evidence/cross-column-storage-2026-09-26.json.gz",
+    "bundle_sha256": "546ffe77922c6f2a0920367ec3a9b810afec53430b8a97e8af399014d251180c",
+    "historical_measurements_replaced": false
+  }
 }
