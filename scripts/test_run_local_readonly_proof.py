@@ -50,6 +50,23 @@ class ReadonlyProofTests(unittest.TestCase):
         self.assertEqual(self.run_main(lambda *_: {'returncode': 1, 'guard_failures': ['failed']}), 1)
         self.assertFalse((self.root / '.ingest-uat.lock').exists())
 
+    def test_retargeted_input_alias_fails_identity_fence(self):
+        original = self.root / 'old.py'
+        replacement = self.root / 'new.py'
+        original.write_text('old')
+        replacement.write_text('new different content')
+        alias = self.root / 'probe.py'
+        alias.symlink_to(original)
+        self.args[1:1] = ['--input', str(alias)]
+        def retarget(*args):
+            alias.unlink()
+            alias.symlink_to(replacement)
+            return self.result(*args)
+        self.assertEqual(self.run_main(retarget), 1)
+        receipt = json.loads((self.root / 'logs/readonly-proof-test/receipt.json').read_text())
+        self.assertNotEqual(receipt['inputs_before'][str(alias)], receipt['inputs_after'][str(alias)])
+        self.assertFalse((self.root / '.ingest-uat.lock').exists())
+
     def test_exception_releases_owned_lock(self):
         def fail(*_):
             raise RuntimeError('watchdog failure')

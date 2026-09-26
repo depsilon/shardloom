@@ -43,7 +43,12 @@ def main() -> int:
     logs = require_local_path(root / 'logs' / ('readonly-proof-' + args.name), Path.home(), sys.platform)
     if not logs.is_relative_to(root):
         parser.error('log destination must remain inside --uat-root')
-    inputs = list(dict.fromkeys([source, Path(command[0]).resolve(strict=True), *(p.resolve(strict=True) for p in args.input)]))
+    # Fence the aliases the child actually receives as well as their resolved
+    # targets. Otherwise retargeting a symlink can evade a target-only snapshot.
+    aliases = [args.source.expanduser().absolute(), Path(command[0]),
+               *(p.expanduser().absolute() for p in args.input)]
+    inputs = list(dict.fromkeys([source, *aliases,
+                                *(p.resolve(strict=True) for p in aliases)]))
     if any(not p.is_file() for p in inputs):
         parser.error('all --input values must be existing regular files')
     def guard():
@@ -62,7 +67,10 @@ def main() -> int:
             binary_hash = hashlib.file_digest(stream, 'sha256').hexdigest()
         # Tracked scripts are small; do not rehash the potentially large source.
         input_hashes = {}
-        for p in inputs[1:]:
+        source_aliases = {source, aliases[0]}
+        for p in inputs:
+            if p in source_aliases:
+                continue
             with p.open('rb') as stream:
                 input_hashes[str(p)] = hashlib.file_digest(stream, 'sha256').hexdigest()
         result = run_profiled_command(command, logs / 'proof', args.timeout_seconds, guard)
