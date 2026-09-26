@@ -3,7 +3,9 @@
 Status: execution authorized by the maintainer on September 26;
 `claim_gate_status=not_claim_grade`. Reviewed against merged `main` at
 `6db17c9f`, after 0.3.0 publication. The initial intake contained no runtime
-change or new performance measurement. R1.a admission is now in progress. The
+change or new performance measurement. R1.a is now retained under its
+[storage gate](derived-dictionary-preservation-2026-09-26.md): 15.64% fewer bytes,
+complete values and query results, and bounded regression follow-up. R6.a is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

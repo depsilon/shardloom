@@ -1,8 +1,10 @@
 # Derived dictionary persistence — R1.a
 
-Status: admission and prototype in progress; `claim_gate_status=not_claim_grade`.
+Status: retained under the storage gate; `claim_gate_status=not_claim_grade` for
+broader competitive claims.
 This is the first experiment in the [September 26 intake](performance-candidate-intake-2026-09-26.md).
-The maintainer authorized the complete queue. No retained speedup is claimed yet.
+The maintainer authorized the complete queue. This is a measured storage win;
+no query-suite or ingest speedup gate is claimed.
 
 ## Frozen workload and acceptance
 
@@ -73,3 +75,90 @@ this experiment adds no cross-batch queue.
 - Evidence root: `/Users/dylan/LocalData/shardloom/performance-candidates-20260926`.
   Individual receipts will record binary hashes, source identity, full command,
   physical encoding counts and complete process timing.
+- The first full control run is invalid: its 18 decimal GB watchdog ceiling was
+  below the known 18.592 GB retained artifact. The stopped output's full hash
+  equals the retained file, so only that owned duplicate was removed. Valid
+  reruns use 19 decimal GB (conservatively reserved as 19 GiB), the same 12 GiB
+  free-space floor, and a 110 GiB UAT workspace ceiling.
+- Maintainer-requested cleanup removed the inspected rebuildable debug/test
+  cache, reclaiming 156,599,050,240 bytes of measured free space, and 18 local
+  branch references whose exact tips are reachable from `origin/main`. Local
+  incremental builds are disabled to limit regrowth. Release binaries, sources,
+  retained baselines, receipts and unfinished work remain. The app refused
+  archival of two finished worktrees because the pinned task protects them;
+  that protection was preserved. Exact cleanup receipts are in the evidence root.
+- Valid first ingest pair: control 90.605667 s / 18,591,586,804 bytes;
+  candidate 88.416283 s / 15,682,956,116 bytes (15.64% fewer bytes). These are
+  complete native process clocks, not the watchdog's rounded elapsed time.
+  Peak RSS was 2,970,468,352 / 3,006,267,392 bytes respectively. Candidate
+  reservations returned to zero; its preservation stage admitted 1,604 chunks
+  and 196,603,506 values. No ingest speedup gate is claimed from this pair.
+- Full native comparison passed all 11,199,719,664 values across 112 columns and
+  99,997,497 rows, exact schema/row order, and all 413 present semantic footer
+  statistics. The comparator does not compare physical zone statistics or user
+  metadata; those remain separate from its proof. Candidate SHA-256 is
+  `31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35`.
+- Complete physical inspection changed only the two derived-domain data entries:
+  Referer is 324,626,284 bytes and URL is 319,289,332 bytes, down from their
+  combined 3,552,545,936 bytes. Both retain 817 data segments and native zone
+  inventories; dictionary/code encodings are visible in the persisted artifact.
+  Full paired result validation passed all 258 calls (129 per role), including
+  final binary/harness/source-generation checks. The initial best-sums were
+  104.016458 / 104.299174 s; this is not a suite speedup. Unrelated IEC Git
+  repacking consumed multiple cores during the suite. Q17, Q23 and Q34 crossed
+  the 10% and 150 ms regression-screen thresholds and require focused paired
+  follow-up before retention. All samples and complete outputs are retained in
+  `paired43_20260926T164906767815Z`.
+- All six focused native tests passed, including renamed/null/Unicode/duplicate
+  dictionary values, epoch changes, unsigned-code consumer activation,
+  byte-identical non-admitted paths, all-null codes with unused dictionary values,
+  and late source failure after an admitted chunk with final reservations at zero.
+
+## Acceptance
+
+On the Apple M5 / 10-CPU / 16-GiB Mac, the ordinary portable release binaries
+produced these complete process times. No cache flush was performed; background
+system activity and earlier IEC Git repacking were outside the runner's control.
+All samples remain available. Per the frozen rule, compare fastest valid calls
+symmetrically; do not treat these as latency distributions or cold-cache results.
+
+| Role | Three valid ingest calls (s) | Best (s) | Artifact bytes |
+| --- | --- | --- | --- |
+| Control | 90.605667, 93.733527, 124.916838 | 90.605667 | 18,591,586,804 |
+| Candidate | 88.416283, 104.059129, 132.527161 | 88.416283 | 15,682,956,116 |
+
+Every repeat's full artifact hash matched its role's retained artifact. Only the
+verified duplicate was removed, retaining the timing and cleanup receipt. The
+candidate saves **2,908,630,688 bytes (15.644876%)**. The 10% ingest improvement
+gate is not met; the storage gate is met with no slower fastest valid ingest.
+
+The reversed-order query follow-up passed all 18 calls. Control/candidate bests
+were Q17 **2.693855 / 2.837964 s**, Q23 **5.791652 / 4.923060 s**, and Q34
+**6.408723 / 6.304487 s**. None reproduced the material regression screen.
+Q17's pooled historical minima still favor the original control (2.482663 versus
+2.837964 s); that sample is retained. A predeclared two-file check then ran both
+binaries three times against each identical file. Control/candidate bests were
+**2.996843 / 3.174864 s** on the control file and **3.091442 / 2.902519 s** on
+the candidate file. The direction changed, and neither crossed the combined
+10%/150-ms threshold. Q17's data columns were unchanged in the physical inventory.
+The original Q17 flag is classified as not reproduced by these bounded checks,
+not deleted or converted into a speedup claim. These checks do not establish
+production tail latency or eliminate host variation.
+
+Retention rests on the storage reduction, complete value/schema/statistics proof,
+all 258 Full43 calls plus 30 focused calls, independent fixtures, and the absence
+of a reproducible material query regression in the follow-up. The initial Full43
+104.016458 / 104.299174 s best-sums remain separate from targeted follow-ups;
+do not splice them into a new suite score or replace older measurements silently.
+
+Validation passed: workspace fmt, Clippy and 3,425 tests; native-feature library
+tests (1,909 passed, 10 intentionally ignored), six focused dictionary tests,
+1,146 CLI/SQL/public-workflow/resident-worker tests, and native CLI/Vortex
+all-target Clippy. The all-null test was added after the full native-library run
+and passed in the six-test focused run. Subsequent source changes are tests and
+documentation only; the runtime matches frozen candidate `c79aa89a`.
+
+The [machine-readable receipt](../benchmarks/derived-dictionary-preservation-2026-09-26.json)
+records commands, identities, all samples, proof limits and validation logs.
+The next ranked experiment is R6.a; remeasure its actual remaining intermediates
+against this retained representation before implementing a consumer change.

@@ -253,8 +253,10 @@ experiment decisions, with structural ingest/representation/execution work first
 and targeted query families last; R/C labels are stable families, not ordering.
 The [reviewed intake](performance-candidate-intake-2026-09-26.md) consolidates those
 packets against merged `6db17c9f`. The maintainer subsequently authorized proceeding
-through all ranked experiments. R1.a admission is active; the release train remains
-complete and no new performance result is claimed by this authorization. Follow
+through all ranked experiments. R1.a meets its storage gate with 15.64% fewer
+artifact bytes and complete correctness/UAT evidence; see
+`derived-dictionary-preservation-2026-09-26.md`. R6.a is next. The release train remains
+complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
 needed for a candidate's correctness/resource acceptance must be completed first.
@@ -277,7 +279,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     Copied dictionaries and narrow mixed-DISTINCT admission remain later targeted
     opportunities. Ranking expresses potential scope, not measured speedups.
   - Execution checklist:
-    - [ ] R1.a: record admission and ship/drop for Encoded derived generation → persistence → consumption.
+    - [x] R1.a: retain bounded native dictionary persistence under the storage gate; full evidence in `derived-dictionary-preservation-2026-09-26.md`.
     - [ ] R6.a: record admission and ship/drop for Fused encoded block execution.
     - [ ] R7: record admission and ship/drop for Cross-column residuals and conditional dictionaries.
     - [ ] R1.b: record admission and ship/drop for Selective preservation of economical source dictionaries.
@@ -310,7 +312,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: exact retained-file inventory and R1.a feasibility/ship-drop decision;
+  - Next outcome: R6.a attribution and bounded feasibility/ship-drop decision;
     no replacement ingest is needed merely to inspect the current artifact.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.

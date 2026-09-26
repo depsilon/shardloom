@@ -367,3 +367,144 @@ fn dictionary_preservation_lazy_values_use_retained_canonicalization() {
     }
     assert_eq!(outputs[0], outputs[1]);
 }
+
+#[test]
+fn dictionary_preservation_all_null_codes_ignore_unused_dictionary_values() {
+    use vortex::array::{
+        arrays::{ConstantArray, StructArray},
+        dtype::{FieldNames, Nullability},
+        expr::stats::Stat,
+        scalar::Scalar,
+        validity::Validity,
+    };
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let (input, _) = input(4096, false);
+    let values = input
+        .as_::<Struct>()
+        .unmasked_field(0)
+        .as_::<Dict>()
+        .values()
+        .clone();
+    let codes = ConstantArray::new(
+        Scalar::null(DType::Primitive(PType::I32, Nullability::Nullable)),
+        4096,
+    )
+    .into_array();
+    let dictionary = DictArray::try_new(codes, values).unwrap().into_array();
+    let array = StructArray::try_new(
+        FieldNames::from([COLUMN]),
+        vec![dictionary],
+        4096,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    for preserve in [false, true] {
+        let timing = super::super::VortexWriterStageTiming::default();
+        let strategy = super::super::large_source_fast_load_table_strategy_with_dictionaries(
+            4096,
+            1 << 20,
+            1,
+            &timing,
+            &session,
+            preserve,
+        );
+        let mut bytes = Vec::new();
+        session
+            .write_options()
+            .with_strategy(Arc::new(strategy))
+            .blocking(&runtime)
+            .write(&mut bytes, array.to_array_iterator())
+            .unwrap();
+        let fields = timing
+            .stages
+            .snapshot()
+            .evidence_fields()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            fields["vortex_ingest_text_dictionary_preserve_calls"],
+            if preserve { "1" } else { "0" }
+        );
+        let file = session.open_options().open_buffer(bytes).unwrap();
+        assert_eq!(file.dtype(), array.dtype());
+        assert_eq!(file.row_count(), 4096);
+        assert_eq!(
+            file.footer()
+                .statistics()
+                .unwrap()
+                .get(0)
+                .0
+                .get(Stat::NullCount)
+                .as_exact(),
+            Scalar::from(4096_u64).into_value()
+        );
+        let mut ctx = session.create_execution_ctx();
+        let mut seen = 0;
+        for chunk in file.scan().unwrap().into_array_iter(&runtime).unwrap() {
+            let chunk = chunk.unwrap();
+            for row in 0..chunk.len() {
+                let scalar = chunk.execute_scalar(row, &mut ctx).unwrap();
+                assert!(scalar.as_struct().field(COLUMN).unwrap().is_null());
+                seen += 1;
+            }
+        }
+        assert_eq!(seen, 4096);
+    }
+}
+
+#[test]
+fn dictionary_preservation_late_source_failure_releases_owned_credits() {
+    let runtime = CurrentThreadRuntime::new();
+    let mut memory = super::super::NativeIngestMemory::new(64 << 20).unwrap();
+    memory.session = memory.session.with_handle(runtime.handle());
+    let timing = super::super::VortexWriterStageTiming::default();
+    let strategy = super::super::large_source_fast_load_table_strategy_with_dictionaries(
+        4096,
+        1 << 20,
+        1,
+        &timing,
+        &memory.session,
+        true,
+    );
+    let bounded = super::super::bounded_ingest_layout::BoundedIngestLayout::new(
+        Arc::new(strategy),
+        0,
+        memory.pool.reserve(0).unwrap(),
+    );
+    let (array, _) = input(4096, false);
+    let dtype = array.dtype().clone();
+    let input = ArrayIteratorAdapter::new(
+        dtype,
+        [
+            Ok(array),
+            Err(vortex_err!("injected late dictionary source failure")),
+        ]
+        .into_iter(),
+    );
+    let mut bytes = Vec::new();
+    let result = memory
+        .session
+        .write_options()
+        .with_strategy(Arc::new(bounded))
+        .blocking(&runtime)
+        .write(&mut bytes, input);
+    assert!(
+        result
+            .err()
+            .expect("late source failure must propagate")
+            .to_string()
+            .contains("injected late dictionary source failure")
+    );
+    let fields = timing
+        .stages
+        .snapshot()
+        .evidence_fields()
+        .into_iter()
+        .collect::<BTreeMap<_, _>>();
+    assert_eq!(fields["vortex_ingest_text_dictionary_preserve_calls"], "1");
+    assert!(memory.pool.snapshot().peak_reserved_bytes > 0);
+    assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
+    assert!(memory.session.open_options().open_buffer(bytes).is_err());
+}
