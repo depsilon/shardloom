@@ -66,7 +66,9 @@ admitted local routes; their linked evidence defines the supported shapes and re
 - **Results remain executable native data.** Admitted source and computed aggregate results own
   Vortex arrays, validity, and memory credits. Supported owned COUNT and grouped DISTINCT results
   can reach native Vortex, Arrow IPC, or Parquet sinks without a row/JSON reconstruction roundtrip;
-  owned payloads can outlive the input source. See the
+  owned payloads can outlive the input source. Bounded Rust workflows can pass owned arrays
+  directly into the existing prepared aggregate family without serializing an intermediate file.
+  See the
   [result ownership contract](docs/reference/resident-native-results.md) and
   [local sink scope](docs/architecture/v1-local-output-sink-scope.md).
 - **Resource ownership follows the work.** Shared workers, bounded queues, reservations, and

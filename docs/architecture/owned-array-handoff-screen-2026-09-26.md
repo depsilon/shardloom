@@ -1,7 +1,7 @@
 # Direct owned-array handoff — R5.a
 
-Status: owned-array prototype admitted under PERF-INTAKE / RFC 0044.
-No runtime change or new performance result is accepted by this note.
+Status: retain under the complete-workflow memory gate, PERF-INTAKE / RFC 0044.
+Full43, workspace, native-feature and independent review acceptance are complete.
 
 The existing native result composition contract preserves owned Vortex arrays,
 typed empty schemas, validity, session admission, cancellation and reservations.
@@ -111,3 +111,63 @@ composition borrow the existing native operation grant; completion is counted
 once per outer call. The actual candidate must pass the complete four-case
 paired experiment, ownership/cancellation/semantic tests and applicable regression
 coverage before retention.
+
+## Complete candidate comparison
+
+The prototype is `4ed042b742cb50f0896961431cd1130ea8f4046f`. Three
+counterbalanced fresh-process pairs run all four frozen cases three times per
+process. All **72 complete workflows** match their complete ordered scalar
+oracles, retain the source generation, and release all pool reservations.
+Each workflow records one file open and two completed native executions.
+The [machine-readable evidence](../benchmarks/owned-array-handoff-2026-09-26.json)
+links a compressed receipt preserving every sample and native guard record.
+
+| Projected range | Control best of nine | Owned-array best of nine |
+| --- | ---: | ---: |
+| 0–131,072 | 17.920750 ms | 15.098333 ms |
+| 50,000,000–50,131,072 | 20.196292 ms | 14.608458 ms |
+| 99,800,000–99,931,072 | 27.028000 ms | 15.397334 ms |
+| 0–524,288 | 34.804417 ms | 24.125208 ms |
+
+Process peak RSS is **210,419,712 / 210,157,568 / 230,424,576 bytes**
+for the control and **132,349,952 / 130,498,560 / 130,482,176 bytes** for
+the candidate. Paired reductions are 37.10%, 37.90% and 43.37%; even the
+largest candidate measurement versus the smallest control is 37.02% lower.
+Each case's best and median complete elapsed time improves. This passes the
+30% RSS gate with no elapsed regression. The absolute latency improvement does
+not pass the separate 100 ms workflow gate, and no ClickBench speedup is claimed.
+RSS includes the process's four untimed oracles and all cases; it cannot be
+attributed to an individual range. OS caching is uncontrolled.
+
+The candidate holds existing native arrays through `OwnedArraySource` and
+prepares the ordinary `PreparedVortexAggregate`. Its 64 MiB logical-input limit
+and the control's 64 MiB serialized-output limit measure different things;
+both admit every frozen case without changing their defaults. The source has
+explicit row/field/batch/metadata bounds and retains producer credits. It neither
+serializes a file nor asserts persisted footer statistics. Exact scalar footer
+completion remains file-only. Empty owned-source scans have a distinct proof.
+Explicit spill still uses memory-file composition; this adapter rejects it.
+
+Native release validation passes: 1,939 tests across all targets (1,922 library
+tests), 15 explicitly ignored performance fixtures, no failures; native all-target
+Clippy with warnings denied; complete
+owned-source, nullable root/field, mixed-width, dictionary, multiple-batch,
+cross-split DISTINCT, typed-empty, cancellation and owner-release checks.
+The paired Full43 regression run completed all 258 exact comparisons over the
+retained 99,997,497-row artifact. Control/candidate best-of-three query sums are
+64.806309 / 64.120800 seconds and geometric means are 0.627881 / 0.622257 seconds.
+No query crosses the frozen regression flag (both 10% and 150 ms slower).
+All samples and identities are retained in the linked compressed Full43 evidence.
+These CLI queries exercise the shared file-backed boundary, not the new direct
+owned-array route; this is regression acceptance, not a claimed query speedup.
+Workspace format, Clippy and all 3,425 tests pass. The lean
+`--no-default-features --features vortex-local-primitives` release check passes
+with the existing unused `complete_for_serialization` warning in the unchanged
+Flat-layout module. The owned-source adapter adds no lean-build warning.
+Independent source review found no actionable issues. No replacement ingest is
+required: this change adds no writer or persisted-format behavior.
+
+Retain the bounded Rust adapter under its measured memory gate. Ordinary
+prepared aggregate semantics and the shared file path remain covered. Broad
+relational composition, direct-array spill and automatic Python/CLI pipeline
+selection remain outside this implementation. Continue with R9.a and R9.b.

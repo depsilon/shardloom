@@ -246,7 +246,25 @@ fn owned_array_source_reuses_exact_native_aggregate_and_retains_owner() {
         assert_owned_provenance(&executed, &uri);
         assert_eq!(executed.runtime.completed_executions, completed);
     }
+    let completed = prepared.execute_owned().unwrap();
     drop(prepared);
+    assert!(
+        memory.snapshot().reserved_bytes < 16 * 1024,
+        "small completed output must not pin the 98,304-row source"
+    );
+    let rendered = completed
+        .result
+        .to_bounded_json(&["key".into(), "n".into()], 4096)
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(rendered.value()).unwrap(),
+        json!([
+            {"key": u64::MAX - 2, "n": 32_768},
+            {"key": u64::MAX - 1, "n": 32_768},
+            {"key": u64::MAX, "n": 32_768},
+        ])
+    );
+    drop((rendered, completed));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
@@ -292,6 +310,45 @@ fn owned_array_source_typed_empty_aggregate_keeps_schema_and_payload_owner() {
     assert!(memory.snapshot().reserved_bytes > 0);
     drop(completed);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn owned_array_source_intake_bounds_release_consumed_inputs() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let defaults = OwnedArraySourceBounds::default();
+    for bounds in [
+        OwnedArraySourceBounds {
+            max_rows: 15,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_columns: 0,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_batches: 0,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_logical_bytes: 1,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_metadata_bytes: 1,
+            ..defaults
+        },
+    ] {
+        assert!(
+            OwnedArraySource::from_owned(
+                owned_keys(&session, 1, 16),
+                bounds,
+                &CancellationToken::default()
+            )
+            .is_err()
+        );
+        assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+        assert_eq!(session.snapshot().completed_executions, 0);
+    }
 }
 
 #[test]
