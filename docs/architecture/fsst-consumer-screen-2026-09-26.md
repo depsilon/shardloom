@@ -1,6 +1,6 @@
 # FSST with encoded predicate execution — R6.b
 
-Status: bounded native admission screen, no retained runtime change.
+Status: **drop at bounded native admission**, no retained runtime change.
 This follows the R7 and R1.b drops under PERF-INTAKE / RFC 0044.
 
 Pinned Vortex 0.85.0 supplies FSST training/compression, Flat/Chunked persistence,
@@ -38,3 +38,55 @@ Include effects on nonpredicate consumers and charge training/persistence;
 demonstrate reuse break-even if preparation grows. Otherwise preserve the evidence,
 drop the tested variant and advance to R1.c. No new codec, dependency, fallback
 engine, package release or public feature is introduced by the screen.
+
+## Observed result and disposition
+
+The frozen `c23fe1eb1208f82c52e60f7bc01128d90e859802` release fixture passed
+the guarded run with unchanged inputs. All twelve native artifacts retained exact
+dtype, row count, UTF8 values and validity. Ninety full Boolean-selection checks
+and ninety native filtered counts passed; the FSST half explicitly invoked the
+encoded LIKE kernel on persisted blocks. All region reservations released.
+This proves the direct kernel witness, not public-query dispatch or Full43.
+
+| Region | Column | Retained Zstd bytes | FSST bytes |
+| --- | --- | ---: | ---: |
+| 0 | Title | 3,401,736 | 15,888,448 |
+| 0 | URL | 1,513,356 | 6,221,428 |
+| 113 | Title | 1,964,840 | 4,772,208 |
+| 113 | URL | 13,874,568 | 25,543,524 |
+| 225 | Title | 1,012,448 | 3,848,488 |
+| 225 | URL | 5,587,384 | 19,675,532 |
+| Total | | **27,354,332** | **75,949,628** |
+
+FSST preparation summed to 262.665 ms and writing to 35.300 ms; retained writing
+summed to 120.149 ms. Source reading is common and recorded separately. These
+single sample spans are not complete-ingest timings. Comparing each predicate's
+best of three native count scans symmetrically, FSST is slower for fourteen of
+fifteen region/pattern combinations. The only lower result is Title negation in
+region 225: 2.672 ms versus 2.719 ms. Every URL pattern is substantially slower.
+The receipt keeps all samples and both explicit-kernel and native-scan clocks.
+
+This fixture preserves the FSST provider's raw offsets and lengths. The pinned
+BtrBlocks FSST scheme additionally compresses those integer children. That is an
+existing provider refinement, not a missing novel codec: even deleting two
+eight-byte-per-row integer buffers plus a generous 4 KiB symbol allowance per
+sample would remove only 12,607,536 bytes, far below the 48,595,296-byte gap.
+This is a conservative scope bound on that refinement, not measured compressed
+output or a prediction of CPU behavior. It does not justify another full ingest
+for this tested representation and consumer.
+
+Drop the sampled raw-FSST source-text variant. No default codec, source field
+policy or runtime consumer changes are retained; the bounded ignored fixture
+remains reproducible. Public-route tracing, full replacement ingest and Full43
+are not run because native admission fails. Reopening needs a different measured
+representation/consumer or workload; the earlier small synthetic portfolio is
+not being repackaged as a new win. Next is R1.c shared expression evaluation over
+dictionary/run-end domains.
+
+The [machine receipt](../benchmarks/fsst-consumer-screen-2026-09-26.json) records
+the executable, source generation, checks, all observations and limitations.
+Full local output is under `logs/readonly-proof-r6b-native-source-r1` in the
+local ClickBench UAT workspace. Reproduce with the explicitly ignored
+`clickbench_fsst_predicate_admission_screen` test and `SHARDLOOM_R1B_SOURCE`, using
+`scripts/run_local_readonly_proof.py` around the frozen native test executable.
+No on-disk data artifact or new package publication was produced.
