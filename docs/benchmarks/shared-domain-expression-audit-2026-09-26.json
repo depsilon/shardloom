@@ -1,0 +1,137 @@
+{
+  "schema_version": "shardloom.shared_domain_expression_audit.v1",
+  "candidate": "R1.c",
+  "date": "2026-09-26",
+  "decision": "drop_duplicate_transform_implementation_no_new_admitted_target",
+  "production_behavior_changed": false,
+  "source_revision": "231175c94c0cf9969c16813877b9817189c670f4",
+  "source_sha256": {
+    "shardloom-vortex/src/universal_format_io.rs": "f9aa5713f0513ec434687a790cad1f9d1bd762509ed5119eaafc7bd6de29a96d",
+    "shardloom-vortex/src/local_primitives.rs": "1c3d3d758fbc465782a0aa00b5fde4c89f8979f856731c991503006f8c6d95e5",
+    "shardloom-vortex/src/vortex_ingest_dictionary_preservation.rs": "1ec5d4212d85579279c3ff972b4165433a5bb5398c63573530321dca3454c946"
+  },
+  "native_validation": {
+    "compiled_revision": "c23fe1eb1208f82c52e60f7bc01128d90e859802",
+    "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-tests.log",
+    "log_sha256": "7418842f497903eed3d29778fd18c856ca72d316a1a1046c606214b407c63099",
+    "relevant_existing_tests_passed": [
+      "universal_format_io::tests::source_native_dictionary_stream_embeds_url_metadata_without_row_string_synthesis",
+      "universal_format_io::tests::source_native_dictionary_stream_preserves_non_i32_dictionary_key_metadata",
+      "local_primitives::tests::grouped_compact_measures_transformed_dictionary_applies_count_having_after_merge",
+      "local_primitives::tests::grouped_compact_measures_transformed_dictionary_reuses_group_and_measure_dictionaries",
+      "local_primitives::tests::grouped_count_star_masked_transformed_dictionary_reuses_selected_values",
+      "local_primitives::tests::grouped_count_star_transformed_dictionary_applies_count_having_after_merge",
+      "local_primitives::tests::grouped_count_star_transformed_dictionary_reuses_group_transform_per_dictionary_value",
+      "local_primitives::tests::grouped_dense_general_measures_transformed_dictionary_uses_chunk_partials",
+      "local_primitives::tests::grouped_dense_general_measures_transformed_dictionary_uses_compact_domain_state",
+      "local_primitives::tests::grouped_general_measures_transformed_dictionary_reuses_selected_dictionary_counts"
+    ],
+    "additional_tests_or_benchmark_run_for_audit": false
+  },
+  "saved_physical_inventory": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-physical-inventory/proof.stdout.json",
+    "sha256": "e470f6cc9de3b1fe4a3c34a553cf4c484c81e92d7f8030a45fb4ec84b5ce8c9b",
+    "complete": true,
+    "original_text_fields": [
+      {
+        "auxiliary_path": [],
+        "column_path": [
+          "OriginalURL"
+        ],
+        "encoding_ids": [
+          "vortex.zstd"
+        ],
+        "flat_references": 817,
+        "referenced_segment_bytes_non_additive": 1055748124,
+        "unique_referenced_segments": 817
+      },
+      {
+        "auxiliary_path": [],
+        "column_path": [
+          "Referer"
+        ],
+        "encoding_ids": [
+          "vortex.zstd"
+        ],
+        "flat_references": 817,
+        "referenced_segment_bytes_non_additive": 2014057440,
+        "unique_referenced_segments": 817
+      },
+      {
+        "auxiliary_path": [],
+        "column_path": [
+          "SearchPhrase"
+        ],
+        "encoding_ids": [
+          "vortex.zstd"
+        ],
+        "flat_references": 817,
+        "referenced_segment_bytes_non_additive": 320220956,
+        "unique_referenced_segments": 817
+      },
+      {
+        "auxiliary_path": [],
+        "column_path": [
+          "Title"
+        ],
+        "encoding_ids": [
+          "vortex.zstd"
+        ],
+        "flat_references": 817,
+        "referenced_segment_bytes_non_additive": 1729776008,
+        "unique_referenced_segments": 817
+      },
+      {
+        "auxiliary_path": [],
+        "column_path": [
+          "URL"
+        ],
+        "encoding_ids": [
+          "vortex.zstd"
+        ],
+        "flat_references": 817,
+        "referenced_segment_bytes_non_additive": 2213234152,
+        "unique_referenced_segments": 817
+      }
+    ],
+    "boundary": "derived-domain flattened child inventories also contain RunEnd; no universal absence of RunEnd is claimed"
+  },
+  "saved_ingest": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T172832Z/stdout.json",
+    "sha256": "3743bc09a2b1d976b22d6b1ab7526400f9cf2fb2a7fed4e5c4cf12e7dac2185e",
+    "selected_stage_fields": {
+      "public_workflow_preparation_universal_ingest_derived_metadata_build_millis": "13033",
+      "public_workflow_preparation_universal_ingest_prepare_nested_source_batch_production_millis": "24365",
+      "public_workflow_preparation_universal_ingest_prepare_known_component_millis": "125263",
+      "public_workflow_preparation_universal_ingest_prepare_unattributed_millis": "229"
+    },
+    "boundary": "overlapping broad stage spans; not exclusive CPU, per-expression attribution, or a new timing result"
+  },
+  "existing_reuse": {
+    "ingest": [
+      "paired same-source UTF8 byte-length and URL-domain for plain values",
+      "paired same-source dictionary value transforms with exact key remapping/null handling",
+      "paired admitted minute and minute-bucket extraction"
+    ],
+    "queries": [
+      "active dictionary values transformed once per chunk with exact selected multiplicities",
+      "multiple admitted length/identity-stat consumers share weighted transforms",
+      "hidden-derived rewrite except deliberate preserved transformed-source lane"
+    ]
+  },
+  "still_unproven": [
+    "general same-domain multi-predicate memoization",
+    "distinct material RunEnd expression workload",
+    "global reuse across unrelated dictionary epochs"
+  ],
+  "remaining_candidate_ownership": {
+    "R2.a_R2.b": "source owners, row-code/count preparation",
+    "C2.a": "invariant physical binding and dispatch"
+  },
+  "performance_gain_claimed": false,
+  "full_uat_run": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "next": "R5.a",
+  "independent_source_review": "scoped disposition verified; predicate/RunEnd and per-chunk limits retained"
+}
