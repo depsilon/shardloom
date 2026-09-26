@@ -1,6 +1,6 @@
 # Incoming source dictionary screen — R1.b
 
-Status: bounded native admission experiment, not retained runtime behavior.
+Status: **drop at bounded native admission**; no production policy change.
 This follows the R7 drop under PERF-INTAKE / RFC 0044. R1.a's derived dictionaries
 and R6.a's native sort consumer are already retained. No new release is authorized.
 
@@ -71,6 +71,58 @@ admission on the transformed input; do not relax the bound. Keep the raw-domain
 arm and all first-screen observations. This is test-only provider composition,
 not a codec sweep or production policy. Exact reopened comparison against the
 original source remains mandatory for every arm.
+
+## Recorded disposition
+
+Both frozen runs passed the local watchdog with unchanged source/executable/fixture
+generations. The initial three-arm screen verified 45 native artifacts; the
+four-arm refinement verified 60. Every output's dtype, row count, UTF8 bytes and
+validity matched the original native input, both reader roles matched exactly,
+and all native reservations released after each region. These are sampled native
+artifacts held in memory, not replacement full-size data files.
+
+The refinement at `b6a46fd8044937249024840a4badc6f3e0b790fa` produced:
+
+| Input / writer | Sample bytes | Domain preparation | Native write spans |
+| --- | ---: | ---: | ---: |
+| Plain / retained Zstd | 44,434,676 | 0 ms | 226.167 ms |
+| Dictionary / retained Zstd | 44,434,676 | 0 ms | 206.087 ms |
+| Dictionary / raw-domain preservation | 46,595,352 | 0 ms | 196.762 ms |
+| Dictionary / Zstd-domain preservation | 42,982,272 | 136.543 ms | 409.889 ms |
+
+Each row sums fifteen column/region artifacts. Dictionary reader/conversion time
+was 220.053 ms versus 194.748 ms for plain input; metadata preparation was
+4.274/5.281 ms respectively. Reader time is shared across that role's writer arms
+and must be charged once, not once per column or arm. These single observations
+have uncontrolled host load and cache state; they establish no complete-ingest
+speedup or regression. The first screen's raw-domain artifact sizes agree exactly
+with the refinement; its timings remain separately recorded, not spliced.
+
+Raw-domain preservation grows bytes by 4.86%. Compressing the values reduces the
+sample by only 3.27%; preparation plus writing totals 546.432 ms, versus
+226.167 ms for the retained plain writer. Rejected transformed dictionaries pay
+domain compression and then whole-column decode/compression, explaining substantial
+extra work. The existing bound admits some growing outputs too: SearchPhrase grows
+in all three regions, and OriginalURL grows in region 0. A native-buffer admission
+bound is not a prediction of persisted Zstd bytes.
+
+Neither variant supplies a credible material storage/ingest case to justify a
+full replacement ingest and Full43. Drop these two tested preservation compositions
+and the reader-hint-only variant; retain the large-source reader guard and source
+text writer. No failed production prototype exists to remove. Keep the explicitly
+ignored bounded harness for reproducibility. This does not establish that every
+possible source-dictionary policy is unprofitable: the sample covers five columns
+and three prefixes. Reopening needs new whole-lifecycle evidence, not removal of
+the same guard unchanged. Shared expression work remains the separate R1.c item.
+
+The [receipt](../benchmarks/source-dictionary-screen-2026-09-26.json) records all
+column outcomes, guard and build identities, hardware, checks and limitations.
+Frozen binaries, fixture sources, full reports and guard receipts are retained
+under `/Users/dylan/LocalData/shardloom/performance-candidates-20260926`; no bulk
+data artifact was added. Next is R6.b, FSST paired with its encoded predicate
+consumer. No complete UAT or runtime speedup is claimed by this dropped screen.
+
+## Gate for a materially different future candidate
 
 Only advance a materially promising result to a production candidate. Reusing
 incoming codes must include reader construction, dictionary values/code ownership,
