@@ -1,0 +1,1530 @@
+{
+  "schema_version": "shardloom.owned_array_handoff_screen.v1",
+  "status": "retained_bounded_workflow_memory_gate",
+  "claim_scope": "Rust owned-result composition; not a ClickBench acceleration or overall engine memory claim",
+  "artifact": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+    "rows": 99997497,
+    "columns": 112,
+    "bytes": 15682956116,
+    "recorded_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+    "hash_provenance": "dictionary-proof-20260926-physical-inventory/proof.stdout.json; generation revalidated by each paired runner"
+  },
+  "source_generation": {
+    "device": 16777233,
+    "inode": 92249574,
+    "size_bytes": 15682956116,
+    "mtime_ns": 1790441075431248571,
+    "ctime_ns": 1790441075431697695
+  },
+  "vortex_version": "0.85.0",
+  "native_build": {
+    "commit": "4ed042b742cb50f0896961431cd1130ea8f4046f",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-owned-4ed042b742cb",
+    "binary_sha256": "6b4d13eef4e53016e24ead7f5f820e82fa4ba50b69f56c5c72ab6248b39dbf5e",
+    "fixture_sha256": "7d89df355b4f5832bfaf44531a28002d5acce2452eda8f885aab61a92f2ad7ff",
+    "baseline_commit": "f352ec71258d85db316078d61157b47fcc9aedb7",
+    "build_command": "cargo test --offline --release -p shardloom-vortex --features release-user-surfaces --lib --no-run --message-format=json",
+    "build_jsonl": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-owned-frozen-build-r2.jsonl",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+    "prototype_patch_sha256": "dc98e0cd389e86888253108314c9ccd5afe91e22aea96ec91d46a24ff203c0fb"
+  },
+  "cli_build": {
+    "commit": "4ed042b742cb50f0896961431cd1130ea8f4046f",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-owned-cli-4ed042b742cb",
+    "binary_sha256": "721e40ade25c513e046c76ce2ee3cecdbf0386982be8b77a2f02681c9b5c13c9",
+    "control_commit": "870a9b8b2a6771004244b46545a770c4d3651dc4",
+    "control_binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-r6a-870a9b8b2a67",
+    "control_binary_sha256": "9dc4633dde151a596a0c20b9eea1536a7be4bf9af4ab9b4a0e813dc9d117f3d4",
+    "build_command": "cargo build --offline --release -p shardloom-cli --features release-user-surfaces --message-format=json",
+    "flags": {
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "CARGO_BUILD_TARGET": null,
+      "CARGO_PROFILE_RELEASE_LTO": null,
+      "CARGO_INCREMENTAL": null
+    },
+    "control_provenance": "Frozen R6.a CLI; subsequent pre-R5 Rust changes are test-only hooks and fixtures, with unchanged Cargo graph and CLI production source."
+  },
+  "gate": {
+    "threshold_rss_reduction_percent": 30,
+    "elapsed_comparison": "per_case_best_of_nine_complete_workflow_samples_candidate_le_control",
+    "every_paired_rss_reduction_meets_threshold": true,
+    "every_case_best_elapsed_not_regressed": true,
+    "gate_conditions_met": true,
+    "supplementary_every_case_median_elapsed_not_regressed": true,
+    "supplementary_every_native_process_elapsed_not_regressed": true,
+    "supplementary_every_process_workflow_sum_not_regressed": true,
+    "retention_or_approval_decision": "retain after complete semantics, Full43 regression, workspace/native validation and independent source review"
+  },
+  "verification": {
+    "processes": 6,
+    "control_processes": 3,
+    "candidate_processes": 3,
+    "cases_per_process": 4,
+    "workflow_repetitions_per_case": 3,
+    "complete_workflows_per_role": 36,
+    "total_complete_workflows": 72,
+    "all_returncodes_zero": true,
+    "all_input_generations_unchanged": true,
+    "source_identity_same_across_roles_and_processes": true,
+    "binary_hashes_match_expected_per_role": true,
+    "frozen_fixture_hashes_match_expected_per_role": true,
+    "case_oracle_records_equal_across_all_processes": true,
+    "all_complete_values_hashes_equal_across_roles": true,
+    "all_final_reserved_bytes_zero": true,
+    "all_session_counts_one_open_two_completions": true,
+    "all_stage_sums_exact": true,
+    "all_four_cases_admitted_for_both_roles": true
+  },
+  "per_case_complete_timing": [
+    {
+      "row_start": 0,
+      "rows": 131072,
+      "oracle": {
+        "groups": 4,
+        "logical_input_bytes": 3238678,
+        "method": "native_projected_key_scalars_independent_btree_map",
+        "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71",
+        "rows_checked": 131072
+      },
+      "roles": {
+        "control": {
+          "sample_count": 9,
+          "complete_best_ms": 17.92075,
+          "complete_median_ms": 18.246459,
+          "complete_max_ms": 19.924125,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 18.119084
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 18.217709
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 17.92075
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 19924125,
+                "composition_nanos": 3712292,
+                "consumer_nanos": 3926083,
+                "drop_nanos": 47709,
+                "producer_nanos": 12238041
+              },
+              "complete_ms": 19.924125,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 18328291,
+                "composition_nanos": 3215917,
+                "consumer_nanos": 2669458,
+                "drop_nanos": 47583,
+                "producer_nanos": 12395333
+              },
+              "complete_ms": 18.328291,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 18119084,
+                "composition_nanos": 3141334,
+                "consumer_nanos": 2677958,
+                "drop_nanos": 48917,
+                "producer_nanos": 12250875
+              },
+              "complete_ms": 18.119084,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 18776958,
+                "composition_nanos": 3634167,
+                "consumer_nanos": 2885542,
+                "drop_nanos": 57416,
+                "producer_nanos": 12199833
+              },
+              "complete_ms": 18.776958,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 18246459,
+                "composition_nanos": 3241542,
+                "consumer_nanos": 2554000,
+                "drop_nanos": 51875,
+                "producer_nanos": 12399042
+              },
+              "complete_ms": 18.246459,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 18217709,
+                "composition_nanos": 3139250,
+                "consumer_nanos": 2566083,
+                "drop_nanos": 48084,
+                "producer_nanos": 12464292
+              },
+              "complete_ms": 18.217709,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 18934500,
+                "composition_nanos": 3604375,
+                "consumer_nanos": 2723875,
+                "drop_nanos": 51167,
+                "producer_nanos": 12555083
+              },
+              "complete_ms": 18.9345,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 17996666,
+                "composition_nanos": 3078334,
+                "consumer_nanos": 2606750,
+                "drop_nanos": 43291,
+                "producer_nanos": 12268291
+              },
+              "complete_ms": 17.996666,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 17920750,
+                "composition_nanos": 2951666,
+                "consumer_nanos": 2576375,
+                "drop_nanos": 47792,
+                "producer_nanos": 12344917
+              },
+              "complete_ms": 17.92075,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            }
+          ]
+        },
+        "candidate": {
+          "sample_count": 9,
+          "complete_best_ms": 15.098333,
+          "complete_median_ms": 15.387917,
+          "complete_max_ms": 15.773375,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 15.387917
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 15.098333
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 15.204292
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15434167,
+                "composition_nanos": 19000,
+                "consumer_nanos": 3186875,
+                "drop_nanos": 55917,
+                "producer_nanos": 12172375
+              },
+              "complete_ms": 15.434167,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 15773375,
+                "composition_nanos": 5375,
+                "consumer_nanos": 2862417,
+                "drop_nanos": 49458,
+                "producer_nanos": 12856125
+              },
+              "complete_ms": 15.773375,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 15387917,
+                "composition_nanos": 6959,
+                "consumer_nanos": 2957916,
+                "drop_nanos": 52459,
+                "producer_nanos": 12370583
+              },
+              "complete_ms": 15.387917,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15298917,
+                "composition_nanos": 17459,
+                "consumer_nanos": 3083041,
+                "drop_nanos": 55542,
+                "producer_nanos": 12142875
+              },
+              "complete_ms": 15.298917,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 15098333,
+                "composition_nanos": 6209,
+                "consumer_nanos": 2829166,
+                "drop_nanos": 44792,
+                "producer_nanos": 12218166
+              },
+              "complete_ms": 15.098333,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 15448709,
+                "composition_nanos": 4625,
+                "consumer_nanos": 2964667,
+                "drop_nanos": 39792,
+                "producer_nanos": 12439625
+              },
+              "complete_ms": 15.448709,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15768958,
+                "composition_nanos": 19167,
+                "consumer_nanos": 2985250,
+                "drop_nanos": 51083,
+                "producer_nanos": 12713458
+              },
+              "complete_ms": 15.768958,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 15266125,
+                "composition_nanos": 5542,
+                "consumer_nanos": 2937958,
+                "drop_nanos": 43792,
+                "producer_nanos": 12278833
+              },
+              "complete_ms": 15.266125,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 15204292,
+                "composition_nanos": 4417,
+                "consumer_nanos": 2840250,
+                "drop_nanos": 40625,
+                "producer_nanos": 12319000
+              },
+              "complete_ms": 15.204292,
+              "ordered_values_sha256": "1d6097177ff439dc1c17b5e228aa440046641668f2bc22723f29850ca1471f71"
+            }
+          ]
+        }
+      },
+      "best_elapsed_difference_ms": 2.8224170000000015,
+      "best_elapsed_reduction_percent": 15.749435710000983,
+      "best_elapsed_not_regressed": true,
+      "median_elapsed_not_regressed": true
+    },
+    {
+      "row_start": 50000000,
+      "rows": 131072,
+      "oracle": {
+        "groups": 1,
+        "logical_input_bytes": 5331595,
+        "method": "native_projected_key_scalars_independent_btree_map",
+        "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a",
+        "rows_checked": 131072
+      },
+      "roles": {
+        "control": {
+          "sample_count": 9,
+          "complete_best_ms": 20.196292,
+          "complete_median_ms": 20.331291,
+          "complete_max_ms": 20.553042,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 20.196292
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 20.337333
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 20.297083
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 20391667,
+                "composition_nanos": 5351667,
+                "consumer_nanos": 2588417,
+                "drop_nanos": 59125,
+                "producer_nanos": 12392458
+              },
+              "complete_ms": 20.391667,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 20215292,
+                "composition_nanos": 5143750,
+                "consumer_nanos": 2506417,
+                "drop_nanos": 58208,
+                "producer_nanos": 12506917
+              },
+              "complete_ms": 20.215292,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 20196292,
+                "composition_nanos": 5103834,
+                "consumer_nanos": 2580875,
+                "drop_nanos": 54500,
+                "producer_nanos": 12457083
+              },
+              "complete_ms": 20.196292,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 20553042,
+                "composition_nanos": 5342917,
+                "consumer_nanos": 2677250,
+                "drop_nanos": 62750,
+                "producer_nanos": 12470125
+              },
+              "complete_ms": 20.553042,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 20337333,
+                "composition_nanos": 5265542,
+                "consumer_nanos": 2469167,
+                "drop_nanos": 54916,
+                "producer_nanos": 12547708
+              },
+              "complete_ms": 20.337333,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 20424166,
+                "composition_nanos": 5125417,
+                "consumer_nanos": 2639125,
+                "drop_nanos": 59583,
+                "producer_nanos": 12600041
+              },
+              "complete_ms": 20.424166,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 20297083,
+                "composition_nanos": 5260958,
+                "consumer_nanos": 2479667,
+                "drop_nanos": 50541,
+                "producer_nanos": 12505917
+              },
+              "complete_ms": 20.297083,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 20297667,
+                "composition_nanos": 5277375,
+                "consumer_nanos": 2589666,
+                "drop_nanos": 57084,
+                "producer_nanos": 12373542
+              },
+              "complete_ms": 20.297667,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 20331291,
+                "composition_nanos": 5174291,
+                "consumer_nanos": 2534750,
+                "drop_nanos": 55750,
+                "producer_nanos": 12566500
+              },
+              "complete_ms": 20.331291,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            }
+          ]
+        },
+        "candidate": {
+          "sample_count": 9,
+          "complete_best_ms": 14.608458,
+          "complete_median_ms": 14.988458,
+          "complete_max_ms": 15.274333,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 14.608458
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 14.928458
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 15.164291
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 14608458,
+                "composition_nanos": 5500,
+                "consumer_nanos": 2511000,
+                "drop_nanos": 48958,
+                "producer_nanos": 12043000
+              },
+              "complete_ms": 14.608458,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 14617208,
+                "composition_nanos": 4500,
+                "consumer_nanos": 2507792,
+                "drop_nanos": 42375,
+                "producer_nanos": 12062541
+              },
+              "complete_ms": 14.617208,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 14878667,
+                "composition_nanos": 5542,
+                "consumer_nanos": 2540541,
+                "drop_nanos": 51334,
+                "producer_nanos": 12281250
+              },
+              "complete_ms": 14.878667,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15075750,
+                "composition_nanos": 4708,
+                "consumer_nanos": 2550000,
+                "drop_nanos": 43250,
+                "producer_nanos": 12477792
+              },
+              "complete_ms": 15.07575,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 14928458,
+                "composition_nanos": 5625,
+                "consumer_nanos": 2585708,
+                "drop_nanos": 50625,
+                "producer_nanos": 12286500
+              },
+              "complete_ms": 14.928458,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 14988458,
+                "composition_nanos": 5125,
+                "consumer_nanos": 2562750,
+                "drop_nanos": 50083,
+                "producer_nanos": 12370500
+              },
+              "complete_ms": 14.988458,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15244667,
+                "composition_nanos": 5791,
+                "consumer_nanos": 2583167,
+                "drop_nanos": 52625,
+                "producer_nanos": 12603084
+              },
+              "complete_ms": 15.244667,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 15274333,
+                "composition_nanos": 4875,
+                "consumer_nanos": 2557792,
+                "drop_nanos": 45458,
+                "producer_nanos": 12666208
+              },
+              "complete_ms": 15.274333,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 15164291,
+                "composition_nanos": 4750,
+                "consumer_nanos": 2541458,
+                "drop_nanos": 42875,
+                "producer_nanos": 12575208
+              },
+              "complete_ms": 15.164291,
+              "ordered_values_sha256": "0788fc231929e5a813a3b630e12731614a6b3df252637b814d5bb0d2ad971a9a"
+            }
+          ]
+        }
+      },
+      "best_elapsed_difference_ms": 5.587833999999999,
+      "best_elapsed_reduction_percent": 27.667623343928675,
+      "best_elapsed_not_regressed": true,
+      "median_elapsed_not_regressed": true
+    },
+    {
+      "row_start": 99800000,
+      "rows": 131072,
+      "oracle": {
+        "groups": 3,
+        "logical_input_bytes": 9366233,
+        "method": "native_projected_key_scalars_independent_btree_map",
+        "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c",
+        "rows_checked": 131072
+      },
+      "roles": {
+        "control": {
+          "sample_count": 9,
+          "complete_best_ms": 27.028,
+          "complete_median_ms": 27.699958,
+          "complete_max_ms": 52.690375,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 27.040541
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 27.796584
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 27.028
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 27472625,
+                "composition_nanos": 12016625,
+                "consumer_nanos": 2704625,
+                "drop_nanos": 56083,
+                "producer_nanos": 12695292
+              },
+              "complete_ms": 27.472625,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 27040541,
+                "composition_nanos": 11623666,
+                "consumer_nanos": 2659584,
+                "drop_nanos": 61166,
+                "producer_nanos": 12696125
+              },
+              "complete_ms": 27.040541,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 27272375,
+                "composition_nanos": 11528292,
+                "consumer_nanos": 2521083,
+                "drop_nanos": 62458,
+                "producer_nanos": 13160542
+              },
+              "complete_ms": 27.272375,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 27886875,
+                "composition_nanos": 12484708,
+                "consumer_nanos": 2614000,
+                "drop_nanos": 63792,
+                "producer_nanos": 12724375
+              },
+              "complete_ms": 27.886875,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 28087833,
+                "composition_nanos": 12023166,
+                "consumer_nanos": 2570917,
+                "drop_nanos": 66458,
+                "producer_nanos": 13427292
+              },
+              "complete_ms": 28.087833,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 27796584,
+                "composition_nanos": 11625917,
+                "consumer_nanos": 2613333,
+                "drop_nanos": 79542,
+                "producer_nanos": 13477792
+              },
+              "complete_ms": 27.796584,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 27699958,
+                "composition_nanos": 12433875,
+                "consumer_nanos": 2574291,
+                "drop_nanos": 62375,
+                "producer_nanos": 12629417
+              },
+              "complete_ms": 27.699958,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 27028000,
+                "composition_nanos": 11496500,
+                "consumer_nanos": 2562541,
+                "drop_nanos": 63417,
+                "producer_nanos": 12905542
+              },
+              "complete_ms": 27.028,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 52690375,
+                "composition_nanos": 28741209,
+                "consumer_nanos": 7348458,
+                "drop_nanos": 155000,
+                "producer_nanos": 16445708
+              },
+              "complete_ms": 52.690375,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            }
+          ]
+        },
+        "candidate": {
+          "sample_count": 9,
+          "complete_best_ms": 15.397334,
+          "complete_median_ms": 15.644209,
+          "complete_max_ms": 16.231584,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 15.397334
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 15.428042
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 15.915917
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15397334,
+                "composition_nanos": 5459,
+                "consumer_nanos": 2649166,
+                "drop_nanos": 49459,
+                "producer_nanos": 12693250
+              },
+              "complete_ms": 15.397334,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 15644209,
+                "composition_nanos": 6542,
+                "consumer_nanos": 2776375,
+                "drop_nanos": 53125,
+                "producer_nanos": 12808167
+              },
+              "complete_ms": 15.644209,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 15985708,
+                "composition_nanos": 5334,
+                "consumer_nanos": 2699375,
+                "drop_nanos": 46291,
+                "producer_nanos": 13234708
+              },
+              "complete_ms": 15.985708,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15428042,
+                "composition_nanos": 7416,
+                "consumer_nanos": 2729375,
+                "drop_nanos": 57584,
+                "producer_nanos": 12633667
+              },
+              "complete_ms": 15.428042,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 15584375,
+                "composition_nanos": 5542,
+                "consumer_nanos": 2651292,
+                "drop_nanos": 48458,
+                "producer_nanos": 12879083
+              },
+              "complete_ms": 15.584375,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 15614250,
+                "composition_nanos": 5792,
+                "consumer_nanos": 2663208,
+                "drop_nanos": 54875,
+                "producer_nanos": 12890375
+              },
+              "complete_ms": 15.61425,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 15915917,
+                "composition_nanos": 6000,
+                "consumer_nanos": 2733875,
+                "drop_nanos": 56375,
+                "producer_nanos": 13119667
+              },
+              "complete_ms": 15.915917,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 16231584,
+                "composition_nanos": 5667,
+                "consumer_nanos": 2735083,
+                "drop_nanos": 55459,
+                "producer_nanos": 13435375
+              },
+              "complete_ms": 16.231584,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 15982875,
+                "composition_nanos": 5583,
+                "consumer_nanos": 2847834,
+                "drop_nanos": 55125,
+                "producer_nanos": 13074333
+              },
+              "complete_ms": 15.982875,
+              "ordered_values_sha256": "74e8647390ac576f43f280dafcf6ec4d7f9b01f122412a24054ce6df9448a87c"
+            }
+          ]
+        }
+      },
+      "best_elapsed_difference_ms": 11.630665999999998,
+      "best_elapsed_reduction_percent": 43.03191505105816,
+      "best_elapsed_not_regressed": true,
+      "median_elapsed_not_regressed": true
+    },
+    {
+      "row_start": 0,
+      "rows": 524288,
+      "oracle": {
+        "groups": 5,
+        "logical_input_bytes": 13479434,
+        "method": "native_projected_key_scalars_independent_btree_map",
+        "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076",
+        "rows_checked": 524288
+      },
+      "roles": {
+        "control": {
+          "sample_count": 9,
+          "complete_best_ms": 34.804417,
+          "complete_median_ms": 37.264916,
+          "complete_max_ms": 85.527375,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 34.937
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 34.804417
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 40.808917
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 37690750,
+                "composition_nanos": 14240084,
+                "consumer_nanos": 9992708,
+                "drop_nanos": 98125,
+                "producer_nanos": 13359833
+              },
+              "complete_ms": 37.69075,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 36069709,
+                "composition_nanos": 12405000,
+                "consumer_nanos": 10443458,
+                "drop_nanos": 93084,
+                "producer_nanos": 13128167
+              },
+              "complete_ms": 36.069709,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 34937000,
+                "composition_nanos": 12136500,
+                "consumer_nanos": 9918083,
+                "drop_nanos": 89417,
+                "producer_nanos": 12793000
+              },
+              "complete_ms": 34.937,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 37264916,
+                "composition_nanos": 14291209,
+                "consumer_nanos": 9925916,
+                "drop_nanos": 110125,
+                "producer_nanos": 12937666
+              },
+              "complete_ms": 37.264916,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 35514417,
+                "composition_nanos": 12412250,
+                "consumer_nanos": 9909500,
+                "drop_nanos": 97000,
+                "producer_nanos": 13095667
+              },
+              "complete_ms": 35.514417,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 34804417,
+                "composition_nanos": 12169500,
+                "consumer_nanos": 9902792,
+                "drop_nanos": 96750,
+                "producer_nanos": 12635375
+              },
+              "complete_ms": 34.804417,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 85527375,
+                "composition_nanos": 23675417,
+                "consumer_nanos": 12622291,
+                "drop_nanos": 128042,
+                "producer_nanos": 49101625
+              },
+              "complete_ms": 85.527375,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 42962292,
+                "composition_nanos": 14817708,
+                "consumer_nanos": 10879875,
+                "drop_nanos": 147292,
+                "producer_nanos": 17117417
+              },
+              "complete_ms": 42.962292,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 40808917,
+                "composition_nanos": 14333625,
+                "consumer_nanos": 11402583,
+                "drop_nanos": 116292,
+                "producer_nanos": 14956417
+              },
+              "complete_ms": 40.808917,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            }
+          ]
+        },
+        "candidate": {
+          "sample_count": 9,
+          "complete_best_ms": 24.125208,
+          "complete_median_ms": 24.6065,
+          "complete_max_ms": 26.714916,
+          "per_process_best_ms": [
+            {
+              "process_repetition": 1,
+              "complete_best_ms": 24.125208
+            },
+            {
+              "process_repetition": 2,
+              "complete_best_ms": 24.448292
+            },
+            {
+              "process_repetition": 3,
+              "complete_best_ms": 24.6065
+            }
+          ],
+          "all_samples": [
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 24125208,
+                "composition_nanos": 7959,
+                "consumer_nanos": 11481625,
+                "drop_nanos": 71958,
+                "producer_nanos": 12563666
+              },
+              "complete_ms": 24.125208,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 24602292,
+                "composition_nanos": 6292,
+                "consumer_nanos": 11575292,
+                "drop_nanos": 75750,
+                "producer_nanos": 12944958
+              },
+              "complete_ms": 24.602292,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 1,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 24877541,
+                "composition_nanos": 6250,
+                "consumer_nanos": 11797167,
+                "drop_nanos": 69541,
+                "producer_nanos": 13004583
+              },
+              "complete_ms": 24.877541,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 24448292,
+                "composition_nanos": 6167,
+                "consumer_nanos": 11431750,
+                "drop_nanos": 72083,
+                "producer_nanos": 12938292
+              },
+              "complete_ms": 24.448292,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 24469625,
+                "composition_nanos": 6791,
+                "consumer_nanos": 11613584,
+                "drop_nanos": 78333,
+                "producer_nanos": 12770917
+              },
+              "complete_ms": 24.469625,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 2,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 24770625,
+                "composition_nanos": 6375,
+                "consumer_nanos": 11712583,
+                "drop_nanos": 71125,
+                "producer_nanos": 12980542
+              },
+              "complete_ms": 24.770625,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 1,
+              "timings_nanos": {
+                "complete_nanos": 24606500,
+                "composition_nanos": 7042,
+                "consumer_nanos": 11556250,
+                "drop_nanos": 75166,
+                "producer_nanos": 12968042
+              },
+              "complete_ms": 24.6065,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 2,
+              "timings_nanos": {
+                "complete_nanos": 25105291,
+                "composition_nanos": 7917,
+                "consumer_nanos": 11723083,
+                "drop_nanos": 81333,
+                "producer_nanos": 13292958
+              },
+              "complete_ms": 25.105291,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            },
+            {
+              "process_repetition": 3,
+              "workflow_repetition": 3,
+              "timings_nanos": {
+                "complete_nanos": 26714916,
+                "composition_nanos": 6958,
+                "consumer_nanos": 13188417,
+                "drop_nanos": 116041,
+                "producer_nanos": 13403500
+              },
+              "complete_ms": 26.714916,
+              "ordered_values_sha256": "df7e27031ba7cc06c2af7a01856b41885c66d184e33cf72592c9adfbbb1da076"
+            }
+          ]
+        }
+      },
+      "best_elapsed_difference_ms": 10.679209,
+      "best_elapsed_reduction_percent": 30.683487673418004,
+      "best_elapsed_not_regressed": true,
+      "median_elapsed_not_regressed": true
+    }
+  ],
+  "os_peak_rss": {
+    "scope": "native_process_high_water_mark_including_all_four_cases_and_untimed_oracles_not_per_case_rss",
+    "role_statistics": {
+      "control": {
+        "samples": [
+          {
+            "process_repetition": 1,
+            "peak_rss_bytes": 210419712,
+            "native_process_wall_seconds": 0.3964945420011645,
+            "workflow_complete_sum_nanos": 307657751
+          },
+          {
+            "process_repetition": 2,
+            "peak_rss_bytes": 210157568,
+            "native_process_wall_seconds": 0.3865433750033844,
+            "workflow_complete_sum_nanos": 307910709
+          },
+          {
+            "process_repetition": 3,
+            "peak_rss_bytes": 230424576,
+            "native_process_wall_seconds": 0.47113158300635405,
+            "workflow_complete_sum_nanos": 392494874
+          }
+        ],
+        "minimum_peak_rss_bytes": 210157568,
+        "median_peak_rss_bytes": 210419712,
+        "maximum_peak_rss_bytes": 230424576
+      },
+      "candidate": {
+        "samples": [
+          {
+            "process_repetition": 1,
+            "peak_rss_bytes": 132349952,
+            "native_process_wall_seconds": 0.28882141700887587,
+            "workflow_complete_sum_nanos": 211332084
+          },
+          {
+            "process_repetition": 2,
+            "peak_rss_bytes": 130498560,
+            "native_process_wall_seconds": 0.2885087499889778,
+            "workflow_complete_sum_nanos": 211153834
+          },
+          {
+            "process_repetition": 3,
+            "peak_rss_bytes": 130482176,
+            "native_process_wall_seconds": 0.2984064999909606,
+            "workflow_complete_sum_nanos": 216479749
+          }
+        ],
+        "minimum_peak_rss_bytes": 130482176,
+        "median_peak_rss_bytes": 130498560,
+        "maximum_peak_rss_bytes": 132349952
+      }
+    },
+    "paired_reductions": [
+      {
+        "process_repetition": 1,
+        "control_peak_rss_bytes": 210419712,
+        "candidate_peak_rss_bytes": 132349952,
+        "rss_reduction_bytes": 78069760,
+        "rss_reduction_percent": 37.10192322666044,
+        "rss_reduction_at_least_30_percent": true,
+        "native_process_elapsed_not_regressed": true,
+        "workflow_complete_sum_not_regressed": true
+      },
+      {
+        "process_repetition": 2,
+        "control_peak_rss_bytes": 210157568,
+        "candidate_peak_rss_bytes": 130498560,
+        "rss_reduction_bytes": 79659008,
+        "rss_reduction_percent": 37.904420363296175,
+        "rss_reduction_at_least_30_percent": true,
+        "native_process_elapsed_not_regressed": true,
+        "workflow_complete_sum_not_regressed": true
+      },
+      {
+        "process_repetition": 3,
+        "control_peak_rss_bytes": 230424576,
+        "candidate_peak_rss_bytes": 130482176,
+        "rss_reduction_bytes": 99942400,
+        "rss_reduction_percent": 43.37315130830489,
+        "rss_reduction_at_least_30_percent": true,
+        "native_process_elapsed_not_regressed": true,
+        "workflow_complete_sum_not_regressed": true
+      }
+    ],
+    "conservative_max_candidate_vs_min_control_reduction_percent": 37.02346612614017
+  },
+  "limitations": [
+    "OS cache is uncontrolled; every process ran the same four untimed oracle cases before the timed workflow samples.",
+    "OS peak RSS is process-wide and includes oracles; it cannot be assigned to an individual case.",
+    "Control caps serialized composition bytes at 64 MiB; candidate caps retained logical input bytes at 64 MiB. These byte definitions are explicit and all frozen cases were admitted.",
+    "Binary/fixture hashes were verified against saved receipts and expected frozen identities; this extraction did not rehash executables or read the large source.",
+    "Native report text checksums differ with adapter-specific evidence; complete ordered aggregate values are compared by the matching case oracle hashes."
+  ],
+  "full_forensic_receipt": {
+    "path": "docs/benchmarks/evidence/owned-array-handoff-2026-09-26.json.gz",
+    "compressed_sha256": "95a9b6279dfdddfcb492ce32c18ce697268e3bbd954cdd9c7de6640f6581aa60",
+    "uncompressed_sha256": "7e6dbf83a94627f738a5dbbab5f1b702c539f6a20db609eec43814e4747b9d75"
+  },
+  "validation": {
+    "native_tests": {
+      "passed": 1921,
+      "failed": 0,
+      "ignored": 15,
+      "receipt": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-owned-native-all-tests.log"
+    },
+    "native_release_clippy": {
+      "passed": true,
+      "command": "cargo clippy --offline --release -p shardloom-vortex --features release-user-surfaces --lib --tests -- -D warnings",
+      "receipt": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-owned-clippy-r2.log"
+    },
+    "full43": {
+      "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T212544171312Z/summary.json",
+      "evidence": "evidence/owned-array-handoff-full43-2026-09-26.json.gz",
+      "compressed_sha256": "a6de3ffa2d54bfb3b6234c7712a2a6a58101870981a2f1566465bc1ac09c27fe",
+      "uncompressed_sha256": "6b1c3012ad938c3226c25c8fbc4e99e13754e7bc87685a5c6f4046383a2b5c69",
+      "records": 258,
+      "complete_result_validation": true,
+      "completed_identity_check": true,
+      "regression_threshold": "candidate best-of-three > control by both 10 percent and 0.150 seconds",
+      "regression_query_ids": [],
+      "scores": {
+        "control": {
+          "complete": true,
+          "queries_passed": 43,
+          "runs_completed": 129,
+          "runs_passed": 129,
+          "query_total_seconds": 64.80630887602456,
+          "hot_total_seconds": 65.16485679103062,
+          "all_raw_run_seconds": 199.99794879506226,
+          "geomean_seconds": 0.6278811804150587,
+          "hot_geomean_seconds": 0.6299732640200232
+        },
+        "candidate": {
+          "complete": true,
+          "queries_passed": 43,
+          "runs_completed": 129,
+          "runs_passed": 129,
+          "query_total_seconds": 64.12079979405098,
+          "hot_total_seconds": 65.39525966906513,
+          "all_raw_run_seconds": 198.41543067117163,
+          "geomean_seconds": 0.6222572022186887,
+          "hot_geomean_seconds": 0.6296390252426001
+        }
+      },
+      "claim": "regression acceptance only; direct owned-array source is not invoked by these CLI queries"
+    },
+    "final_checks": [
+      {
+        "name": "fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "returncode": 0,
+        "seconds": 2.442573070526123,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-final-fmt.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "workspace-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "returncode": 0,
+        "seconds": 7.3904359340667725,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-final-workspace-clippy.log",
+        "log_sha256": "8e62e5c1c792c915f4b704b65d7bcac4ccd603d401dc1ccdc2dc9bd2098be80d"
+      },
+      {
+        "name": "workspace-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--workspace",
+          "--all-targets"
+        ],
+        "returncode": 0,
+        "seconds": 24.621740102767944,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-final-workspace-tests.log",
+        "log_sha256": "f612a5264028e6e3a7a199639d5ad35d2abab1d2f7fdb0867109399dcc276858",
+        "test_counts": {
+          "passed": 3425,
+          "failed": 0,
+          "ignored": 0
+        }
+      },
+      {
+        "name": "native-alltargets",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "--features",
+          "release-user-surfaces",
+          "--all-targets"
+        ],
+        "returncode": 0,
+        "seconds": 83.02278995513916,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-final-native-alltargets.log",
+        "log_sha256": "6a4cebc6792bd0385dac123ad6aa2036bfe63e6416175c597bdaefc71cf4c459",
+        "test_counts": {
+          "passed": 1939,
+          "failed": 0,
+          "ignored": 15
+        }
+      },
+      {
+        "name": "native-clippy-final",
+        "command": [
+          "cargo",
+          "clippy",
+          "--offline",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "--features",
+          "release-user-surfaces",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "returncode": 0,
+        "seconds": 11.178731918334961,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-final-native-clippy-final.log",
+        "log_sha256": "b10772cdf02298665e51078f296c7f0aaa1fa0355d2811b0d8f73f493ba7025b"
+      },
+      {
+        "name": "lean-native-check",
+        "command": [
+          "cargo",
+          "check",
+          "--offline",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "--no-default-features",
+          "--features",
+          "vortex-local-primitives"
+        ],
+        "returncode": 0,
+        "seconds": 13.494230031967163,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-final-lean-native-check.log",
+        "log_sha256": "d65f7d30c1de8ad94fddb6f006d86c291f34f856005ac849bcb61c7f6dd78ef7"
+      }
+    ],
+    "independent_review": {
+      "scope": "source ownership, native provider contracts, filtering/validity, session grants and cancellation, certificates, file/spill isolation, tests",
+      "actionable_findings": 0,
+      "coverage": "source only; execution evidence is recorded separately"
+    },
+    "final_source_delta": "Production and benchmark runtime match frozen4ed042b7; subsequent changes add boundary/owner-release tests and evidence/docs only.",
+    "lean_warning": "Existing unused complete_for_serialization in unchanged local_primitive_native_flat_layout.rs; not a -D warnings check."
+  }
+}

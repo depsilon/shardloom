@@ -262,7 +262,9 @@ screen; see `cross-column-storage-screen-2026-09-26.md`. R1.b is dropped after
 bounded native screens; see `source-dictionary-screen-2026-09-26.md`. R6.b is
 dropped after the native FSST/predicate screen; see `fsst-consumer-screen-2026-09-26.md`.
 R1.c's shared-transform proposal is already implemented in the inspected paths;
-see `shared-domain-expression-audit-2026-09-26.md`. R5.a is next. The release train remains
+see `shared-domain-expression-audit-2026-09-26.md`. R5.a meets its bounded workflow
+memory gate with complete regression acceptance; see `owned-array-handoff-screen-2026-09-26.md`.
+R9.a is next. The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
@@ -294,7 +296,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R1.b: drop raw/compressed source-dictionary preservation after exact native screens; see `source-dictionary-screen-2026-09-26.md`.
     - [x] R6.b: drop sampled FSST source-text persistence/predicates after exact native screening; see `fsst-consumer-screen-2026-09-26.md`.
     - [x] R1.c: drop duplicate shared-transform implementation after source/test audit; new RunEnd targets still require attribution. See `shared-domain-expression-audit-2026-09-26.md`.
-    - [ ] R5.a: record admission and ship/drop for Direct owned-array handoff between operations.
+    - [x] R5.a: retain direct owned-array handoff through the shared prepared aggregate family; 37–43% lower workflow peak RSS, exact complete results and Full43 regression acceptance. See `owned-array-handoff-screen-2026-09-26.md`.
     - [ ] R9.a: record admission and ship/drop for Prepare/seal native fragments once and reuse encoded payloads.
     - [ ] R9.b: record admission and ship/drop for Bounded writer-subtree overlap.
     - [ ] R8: record admission and ship/drop for Shared scan/decode producer for concurrent queries.
@@ -321,8 +323,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: R5.a direct owned-array handoff between operations; attribute
-    remaining memory-file serialization and preserve downstream kernel/owner contracts.
+  - Next outcome: merge the accepted R5.a candidate, then advance to R9.a fragment
+    reuse and R9.b bounded writer-subtree overlap. R5.a preserves shared aggregate
+    kernels and passes its complete-workflow memory gate, Full43, workspace/native
+    validation and independent review. Attribute actual repeated serialization or
+    recoverable writer idle time before adding another representation or queue.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

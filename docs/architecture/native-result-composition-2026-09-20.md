@@ -18,6 +18,12 @@ sources; it does not accept injection of an arbitrary owned array reader. Reuse
 ShardLoom's existing MemoryFileGeneration and segment builder so downstream
 operators keep the same Vortex scan and optimized aggregate lowering boundary.
 
+The later [R5.a screen](owned-array-handoff-screen-2026-09-26.md) tests direct
+owned-array aggregation through Vortex's public LayoutReader/ScanBuilder provider
+interfaces. The memory-file contract below remains the explicit serialized
+source for persistence and admitted spill; the R5.a note owns its separate
+performance, capability and acceptance decision.
+
 The bounded owned-batch intake supplements the existing typed memory intake.
 It retains typed native columns and chunk references, without row or Arrow conversion,
 and normalizes nullable root-Struct validity into logical field validity when building

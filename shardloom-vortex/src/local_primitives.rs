@@ -20,6 +20,9 @@ mod aggregate_resource_tests;
 #[path = "local_primitives/aggregate_scan_runtime.rs"]
 mod aggregate_scan_runtime;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_aggregate_scan_source.rs"]
+mod aggregate_scan_source;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
@@ -3042,7 +3045,7 @@ fn local_primitive_native_io_safe(
             && report.filter_pushdown_applied
             && report.upstream_filter_expression_used;
     }
-    // Footer row count zero and a completed native scan prove that fresh
+    // An authoritative source row count and a completed native scan prove that fresh
     // aggregate state received no input. Scalar finalization may emit one row
     // (or none after HAVING/offset); grouped finalization must emit none.
     if local_primitive_empty_aggregate_source_scan(report)
@@ -3087,8 +3090,10 @@ fn local_primitive_empty_aggregate_source_scan(
 ) -> bool {
     report.primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate
         && report.mode == VortexLocalPrimitiveExecutionMode::VortexScanPushdown
-        && report.embedded_layout.metadata_persisted_in_artifact
-        && report.embedded_layout.footer_row_count == 0
+        && ((report.embedded_layout.metadata_persisted_in_artifact
+            && report.embedded_layout.footer_row_count == 0)
+            || (report.embedded_layout.status == "owned_array_source_no_file_layout"
+                && !report.embedded_layout.metadata_persisted_in_artifact))
         && report.rows_scanned == 0
         && report.rows_selected == Some(0)
         && report.upstream_scan_called
@@ -3402,6 +3407,9 @@ fn local_primitive_pushdown_proof_basis(
         return "ShardLoom completed all admitted identity integer extrema/count measures from the held Vortex file's exact footer statistics, row count and nonnullable Struct schema before constructing a scan; fresh scalar state reused ordinary HAVING and output aliases; source rows covered differ from zero source rows visited; file preparation reads are outside this query-work claim";
     }
     if local_primitive_empty_aggregate_source_scan(report) {
+        if report.embedded_layout.status == "owned_array_source_no_file_layout" {
+            return "Validated immutable owned Vortex arrays declare zero source rows and the completed native scan yielded no arrays; fresh empty aggregate state was finalized without file metadata or source value work";
+        }
         return "Vortex footer declares zero source rows and the completed native scan yielded no arrays; ShardLoom finalized fresh empty aggregate state without reading, decoding or materializing source values";
     }
     if report.embedded_layout.metadata_pruned_entire_input {
@@ -20188,7 +20196,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         source_uri,
         request,
         policy,
-        file,
+        aggregate_scan_source::AggregateScanSource::File(file),
         session,
         runtime,
         worker_memory,
@@ -20206,7 +20214,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     source_uri: &DatasetUri,
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
-    file: &vortex::file::VortexFile,
+    file: aggregate_scan_source::AggregateScanSource<'_>,
     session: &vortex::session::VortexSession,
     runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
@@ -20236,14 +20244,14 @@ fn read_lowered_vortex_simple_aggregate_scan(
     };
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
-    let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
-        file,
+    let mut embedded_layout = file.embedded_layout(
         request.kind,
         filter_pushdown_applied,
         projection_pushdown_applied,
     );
-    if let Some(filter) = plan.filter.as_ref() {
-        let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+    if let Some(filter) = plan.filter.as_ref()
+        && let Some(metadata_pruned) = file.can_prune(filter).map_err(vortex_error)?
+    {
         embedded_layout.mark_pruning_consulted(metadata_pruned);
     }
     let aggregate_has_grouping =
@@ -20310,7 +20318,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         && residual_predicate.is_none()
         && let Some(states) = scalar_states.as_mut()
     {
-        footer_aggregate::complete(file, request, states)?
+        file.complete(request, states)?
     } else {
         None
     };
@@ -20390,12 +20398,12 @@ fn read_lowered_vortex_simple_aggregate_scan(
     if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
-        let mut scan = file.scan().map_err(vortex_error)?;
+        let mut scan = file.scan(session).map_err(vortex_error)?;
         if let Some(filter) = plan.filter.as_ref() {
-            scan = scan.with_filter(bind_vortex_scan_expr(file, filter)?);
+            scan = scan.with_filter(file.bind(filter)?);
         }
         if let Some(projection) = plan.projection.as_ref() {
-            scan = scan.with_projection(bind_vortex_scan_expr(file, projection)?);
+            scan = scan.with_projection(file.bind(projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;
@@ -20764,13 +20772,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     .to_string(),
             ));
         }
-        let mut second_scan = file.scan().map_err(vortex_error)?;
+        let mut second_scan = file.scan(session).map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
+            second_scan = second_scan.with_filter(file.bind(&filter_expr)?);
         }
         if let Some(projection) = second_plan.projection.take() {
-            second_scan = second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+            second_scan = second_scan.with_projection(file.bind(&projection)?);
         }
         second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -20812,14 +20820,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         .to_string(),
                 ));
             }
-            let mut second_scan = file.scan().map_err(vortex_error)?;
+            let mut second_scan = file.scan(session).map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
                 let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-                second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
+                second_scan = second_scan.with_filter(file.bind(&filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
-                second_scan =
-                    second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+                second_scan = second_scan.with_projection(file.bind(&projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -20878,13 +20885,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     .to_string(),
             ));
         }
-        let mut exact_scan = file.scan().map_err(vortex_error)?;
+        let mut exact_scan = file.scan(session).map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
+            exact_scan = exact_scan.with_filter(file.bind(&filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+            exact_scan = exact_scan.with_projection(file.bind(&projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -20934,14 +20941,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     .to_string(),
             ));
             }
-            let mut second_scan = file.scan().map_err(vortex_error)?;
+            let mut second_scan = file.scan(session).map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
                 let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-                second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
+                second_scan = second_scan.with_filter(file.bind(&filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
-                second_scan =
-                    second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+                second_scan = second_scan.with_projection(file.bind(&projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -21017,13 +21023,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     .to_string(),
             ));
         }
-        let mut exact_scan = file.scan().map_err(vortex_error)?;
+        let mut exact_scan = file.scan(session).map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
+            exact_scan = exact_scan.with_filter(file.bind(&filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+            exact_scan = exact_scan.with_projection(file.bind(&projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -21074,14 +21080,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         .to_string(),
                 ));
             }
-            let mut second_scan = file.scan().map_err(vortex_error)?;
+            let mut second_scan = file.scan(session).map_err(vortex_error)?;
             if let Some(filter) = pushdown_predicate.as_ref() {
                 let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-                second_scan = second_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
+                second_scan = second_scan.with_filter(file.bind(&filter_expr)?);
             }
             if let Some(projection) = second_plan.projection.take() {
-                second_scan =
-                    second_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+                second_scan = second_scan.with_projection(file.bind(&projection)?);
             }
             second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -21142,13 +21147,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     .to_string(),
             ));
         }
-        let mut exact_scan = file.scan().map_err(vortex_error)?;
+        let mut exact_scan = file.scan(session).map_err(vortex_error)?;
         if let Some(filter) = pushdown_predicate.as_ref() {
             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            exact_scan = exact_scan.with_filter(bind_vortex_scan_expr(file, &filter_expr)?);
+            exact_scan = exact_scan.with_filter(file.bind(&filter_expr)?);
         }
         if let Some(projection) = exact_plan.projection.take() {
-            exact_scan = exact_scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
+            exact_scan = exact_scan.with_projection(file.bind(&projection)?);
         }
         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {

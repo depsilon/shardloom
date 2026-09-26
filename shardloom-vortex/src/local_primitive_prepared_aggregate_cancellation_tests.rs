@@ -120,7 +120,7 @@ fn prepared_parent_cancellation_during_memory_scan_releases_attempt_and_allows_f
     assert!(prepared.reuse.is_none());
     let parent = CancellationToken::default();
     let wrapped = Arc::new(CancelFirstSegment {
-        inner: prepared.source.file().segment_source(),
+        inner: prepared.source.file().unwrap().file().segment_source(),
         cancellation: parent.clone(),
         fired: AtomicBool::new(false),
         requests: AtomicUsize::new(0),
@@ -128,9 +128,11 @@ fn prepared_parent_cancellation_during_memory_scan_releases_attempt_and_allows_f
     let file = prepared
         .source
         .file()
+        .unwrap()
+        .file()
         .clone()
         .with_segment_source(wrapped.clone());
-    prepared.source = session.prepare_immutable_file(file);
+    prepared.source = PreparedAggregateSource::File(session.prepare_immutable_file(file));
     let retained = memory.snapshot().reserved_bytes;
     let error = prepared
         .execute_cancellable(&parent)

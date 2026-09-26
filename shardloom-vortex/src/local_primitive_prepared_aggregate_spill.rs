@@ -104,11 +104,10 @@ impl PreparedVortexAggregate {
             cancellation.check()?;
             Ok((result, drivers))
         };
+        let source = self.source.file()?;
         let ((mut scan, owner), drivers) = match context {
-            Some(context) => self.source.with_admitted_native_execution(context, run),
-            None => self
-                .source
-                .with_native_execution_controlled(&cancellation, run),
+            Some(context) => source.with_admitted_native_execution(context, run),
+            None => source.with_native_execution_controlled(&cancellation, run),
         }?;
         // The returned owner keeps operator/result reservations until the source
         // boundary has validated the entire generation and joined its drivers.

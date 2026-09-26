@@ -44,6 +44,24 @@ drains before return, and cancelled worker attempts do not cancel the parent.
 `OwnedVortexResultBatch::dtype()` returns the authoritative native schema, including
 when an empty result has no arrays. Native and compatibility sinks retain that
 schema. With `vortex-local-primitives` and `vortex-write`,
+`owned_array_source::OwnedArraySource::from_owned(result, bounds, &cancellation)`
+consumes completed arrays without an intermediate serialization step. Use its
+`source_uri()` in the aggregate request and call `prepare_aggregate(&request, policy)`.
+The returned `PreparedVortexAggregate` reuses ordinary lowering, workers, exact
+reducers and finalizers. Each execution has fresh state; a prepared handle retains
+the source buffers and their reservations after the producer and source handles drop.
+
+`OwnedArraySourceBounds` defaults to 1,048,576 rows, 1,024 columns, 4,096 batches,
+64 MiB of logical array bytes and 1 MiB of adapter reference metadata. These are
+not process-RSS limits. Typed empty schemas and nullable root/field validity are
+preserved. Certificates identify `owned_vortex_arrays`, zero source-specific file
+opens and no construction serialization; they do not claim a persisted footer.
+This direct adapter admits ordinary aggregation; explicit spill requires the
+existing file-backed composition below. It adds no new aggregate or owned-output
+families. The [R5.a evidence](../architecture/owned-array-handoff-screen-2026-09-26.md)
+records its scoped complete-workflow memory result and acceptance status.
+
+For an immutable serialized source with the existing persistence/spill contract,
 `memory_file_generation::MemoryFileGeneration::from_owned(result, bounds, &cancellation)`
 consumes a complete owned batch and creates immutable Vortex segments in memory.
 Its `MemoryFileCompositionBounds` defaults admit at most 1,048,576 rows, 1,024

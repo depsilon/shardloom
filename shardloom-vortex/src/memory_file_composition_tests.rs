@@ -7,6 +7,7 @@ use crate::{
     VortexSimpleAggregateRequest,
     local_primitives::prepared_aggregate::{ExecutedVortexAggregate, prepare_memory_aggregate},
     memory_file_generation::{MemoryFileCompositionBounds, MemoryFileGeneration},
+    owned_array_source::{OwnedArraySource, OwnedArraySourceBounds},
 };
 use serde_json::{Value, json};
 use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
@@ -136,6 +137,314 @@ fn assert_memory_provenance(executed: &ExecutedVortexAggregate, uri: &DatasetUri
         assert!(proof.contains(marker), "missing {marker}");
     }
     assert!(proof.contains(&format!("memory_generation_uri={}", uri.as_str())));
+}
+
+fn owned_request(uri: &DatasetUri, grouped: bool) -> VortexQueryPrimitiveRequest {
+    let measures = vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())];
+    let aggregate = if grouped {
+        VortexSimpleAggregateRequest::grouped(vec![ColumnRef::new("key").unwrap()], measures)
+            .with_order_by(vec![
+                VortexAggregateOrderExpr::new("n", true),
+                VortexAggregateOrderExpr::new("key", false),
+            ])
+    } else {
+        VortexSimpleAggregateRequest::new(measures)
+    };
+    let request = VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), aggregate);
+    if grouped {
+        request.with_source_order_limit(8)
+    } else {
+        request
+    }
+}
+
+fn assert_owned_provenance(executed: &ExecutedVortexAggregate, uri: &DatasetUri) {
+    let certificate = &executed.native_io_certificate;
+    assert!(certificate.is_certified());
+    assert!(!certificate.fallback_attempted && !executed.report.has_errors());
+    assert_eq!(executed.runtime.prepared_source_opens, 0);
+    assert_eq!(
+        certificate.source_capability_report.source_kind,
+        "owned_vortex_arrays"
+    );
+    assert_eq!(
+        certificate.source_capability_report.adapter_id,
+        "shardloom.resident_vortex.owned_array.v1"
+    );
+    assert_eq!(
+        certificate.source_capability_report.schema_discovery_status,
+        "validated_owned_native_arrays"
+    );
+    assert_eq!(
+        certificate.source_capability_report.statistics_availability,
+        "exact_owned_row_count;file_statistics_absent"
+    );
+    assert_eq!(
+        executed.report.embedded_layout.status,
+        "owned_array_source_no_file_layout"
+    );
+    assert_eq!(executed.report.embedded_layout.footer_row_count, 0);
+    assert!(!executed.report.embedded_layout.footer_statistics_available);
+    assert!(
+        !executed
+            .report
+            .embedded_layout
+            .metadata_first_pruning_available
+    );
+    assert!(
+        !executed
+            .report
+            .embedded_layout
+            .metadata_persisted_in_artifact
+    );
+    let proof = &certificate.source_pushdown_report.proof_basis;
+    for marker in [
+        "immutable_array_owner_retained=true",
+        "source_specific_file_opens=0",
+        "construction_array_serializer_calls=0",
+        "construction_segment_assembly_bytes_copied=0",
+        "construction_footer_serializer_calls=0",
+        "no_query_answer_cache=true",
+    ] {
+        assert!(proof.contains(marker), "missing {marker}");
+    }
+    assert!(proof.contains(&format!("owned_array_source_uri={}", uri.as_str())));
+}
+
+#[test]
+fn owned_array_source_reuses_exact_native_aggregate_and_retains_owner() {
+    let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let source = OwnedArraySource::from_owned(
+        owned_keys(&session, 3, 32_768),
+        OwnedArraySourceBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(source.row_count(), 98_304);
+    assert_eq!(source.dtype(), &schema());
+    let uri = source.source_uri().clone();
+    let prepared = source
+        .prepare_aggregate(
+            &owned_request(&uri, true),
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+    drop(source);
+    drop(session);
+
+    for completed in 1..=3 {
+        let executed = prepared.execute().unwrap();
+        assert_eq!(
+            values(&executed),
+            json!([
+                {"key": u64::MAX - 2, "n": 32_768},
+                {"key": u64::MAX - 1, "n": 32_768},
+                {"key": u64::MAX, "n": 32_768},
+            ])
+        );
+        assert_owned_provenance(&executed, &uri);
+        assert_eq!(executed.runtime.completed_executions, completed);
+    }
+    let completed = prepared.execute_owned().unwrap();
+    drop(prepared);
+    assert!(
+        memory.snapshot().reserved_bytes < 16 * 1024,
+        "small completed output must not pin the 98,304-row source"
+    );
+    let rendered = completed
+        .result
+        .to_bounded_json(&["key".into(), "n".into()], 4096)
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(rendered.value()).unwrap(),
+        json!([
+            {"key": u64::MAX - 2, "n": 32_768},
+            {"key": u64::MAX - 1, "n": 32_768},
+            {"key": u64::MAX, "n": 32_768},
+        ])
+    );
+    drop((rendered, completed));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn owned_array_source_typed_empty_aggregate_keeps_schema_and_payload_owner() {
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let source = OwnedArraySource::from_owned(
+        owned_keys(&session, 0, 0),
+        OwnedArraySourceBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(source.dtype(), &schema());
+    let uri = source.source_uri().clone();
+    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let scalar = source
+        .prepare_aggregate(&owned_request(&uri, false), policy)
+        .unwrap();
+    let grouped = source
+        .prepare_aggregate(&owned_request(&uri, true), policy)
+        .unwrap();
+    let scalar_result = scalar.execute().unwrap();
+    assert_eq!(values(&scalar_result), json!({"n": 0}));
+    assert_owned_provenance(&scalar_result, &uri);
+    let completed = grouped.execute_owned().unwrap();
+    assert_eq!(completed.result.row_count(), 0);
+    assert_eq!(
+        completed
+            .result
+            .dtype()
+            .as_struct_fields_opt()
+            .unwrap()
+            .field("key"),
+        Some(DType::Primitive(PType::U64, Nullability::NonNullable))
+    );
+
+    drop(source);
+    drop(session);
+    drop(grouped);
+    drop(scalar_result);
+    drop(scalar);
+    assert!(memory.snapshot().reserved_bytes > 0);
+    drop(completed);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn owned_array_source_intake_bounds_release_consumed_inputs() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let defaults = OwnedArraySourceBounds::default();
+    for bounds in [
+        OwnedArraySourceBounds {
+            max_rows: 15,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_columns: 0,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_batches: 0,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_logical_bytes: 1,
+            ..defaults
+        },
+        OwnedArraySourceBounds {
+            max_metadata_bytes: 1,
+            ..defaults
+        },
+    ] {
+        assert!(
+            OwnedArraySource::from_owned(
+                owned_keys(&session, 1, 16),
+                bounds,
+                &CancellationToken::default()
+            )
+            .is_err()
+        );
+        assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+        assert_eq!(session.snapshot().completed_executions, 0);
+    }
+}
+
+#[test]
+fn owned_array_source_rejections_cancellation_and_borrowed_context_release_credits() {
+    let cancelled_session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let cancelled_memory = cancelled_session.memory().clone();
+    let input = owned_keys(&cancelled_session, 1, 16);
+    let cancellation = CancellationToken::default();
+    cancellation.cancel();
+    rejected(
+        OwnedArraySource::from_owned(input, OwnedArraySourceBounds::default(), &cancellation),
+        "cancel",
+    );
+    assert_eq!(cancelled_memory.snapshot().reserved_bytes, 0);
+
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let source = OwnedArraySource::from_owned(
+        owned_keys(&session, 1, 16),
+        OwnedArraySourceBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let uri = source.source_uri().clone();
+    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut mismatched = owned_request(&uri, true);
+    mismatched.source_uri = Some(DatasetUri::new("memory://wrong/owned-array.vortex").unwrap());
+    rejected(
+        source.prepare_aggregate(&mismatched, policy),
+        "does not identify",
+    );
+    let prepared = source
+        .prepare_aggregate(&owned_request(&uri, true), policy)
+        .unwrap();
+    let cancelled_execute = CancellationToken::default();
+    cancelled_execute.cancel();
+    rejected(prepared.execute_cancellable(&cancelled_execute), "cancel");
+    drop(prepared);
+    drop(source);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let owner = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let owner_memory = owner.memory().clone();
+    let foreign = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let foreign_context =
+        foreign.with_native_execution_context(&CancellationToken::default(), |context| {
+            rejected(
+                OwnedArraySource::from_owned_in_context(
+                    owned_keys(&owner, 1, 16),
+                    OwnedArraySourceBounds::default(),
+                    context,
+                ),
+                "different session",
+            );
+            Ok(())
+        });
+    foreign_context.unwrap();
+    assert_eq!(owner_memory.snapshot().reserved_bytes, 0);
+
+    let source = OwnedArraySource::from_owned(
+        owned_keys(&owner, 1, 16),
+        OwnedArraySourceBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let uri = source.source_uri().clone();
+    let prepared = source
+        .prepare_aggregate(
+            &owned_request(&uri, true),
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+    assert_eq!(owner.snapshot().completed_executions, 0);
+    owner
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let executed = prepared.execute_in_context(context)?;
+            assert_eq!(
+                values(&executed),
+                json!([
+                    {"key": u64::MAX, "n": 6},
+                    {"key": u64::MAX - 2, "n": 5},
+                    {"key": u64::MAX - 1, "n": 5},
+                ])
+            );
+            assert_owned_provenance(&executed, &uri);
+            assert_eq!(executed.runtime.completed_executions, 0);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(owner.snapshot().completed_executions, 0);
+    drop(prepared);
+    drop(source);
+    drop(foreign);
+    drop(owner);
+    assert_eq!(owner_memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]
@@ -591,6 +900,65 @@ fn composition_nullable_struct_batches_preserve_logical_fields_and_mixed_widths(
         );
     }
     let producer_owners = [batches[0].clone(), batches[1].clone()];
+    // Reuse the adversarial fixture before persistence: nullable root validity
+    // must also reach the ordinary aggregate kernels through owned-array scans.
+    let owned_input = OwnedVortexResultBatch {
+        dtype: batches[0].dtype().clone(),
+        rows: 6,
+        logical_buffer_bytes: batches.iter().map(vortex::array::ArrayRef::nbytes).sum(),
+        arrays: Budgeted::new(
+            batches.clone(),
+            session
+                .memory()
+                .reserve((2 * std::mem::size_of::<ArrayRef>()) as u64)
+                .unwrap(),
+        ),
+        runtime: Arc::clone(&session.0),
+    };
+    let owned = OwnedArraySource::from_owned(
+        owned_input,
+        OwnedArraySourceBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let query = VortexQueryPrimitiveRequest::simple_aggregate(
+        owned.source_uri().clone(),
+        VortexSimpleAggregateRequest::new(vec![
+            VortexSimpleAggregateMeasure::new(
+                "count",
+                Some(ColumnRef::new("small").unwrap()),
+                "present".into(),
+            ),
+            VortexSimpleAggregateMeasure::new(
+                "count",
+                Some(ColumnRef::new("text").unwrap()),
+                "text_present".into(),
+            ),
+            VortexSimpleAggregateMeasure::new(
+                "sum",
+                Some(ColumnRef::new("small").unwrap()),
+                "total".into(),
+            ),
+            VortexSimpleAggregateMeasure::new(
+                "max",
+                Some(ColumnRef::new("wide").unwrap()),
+                "max_wide".into(),
+            ),
+        ]),
+    );
+    let prepared = owned
+        .prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+    assert_eq!(
+        values(&prepared.execute().unwrap()),
+        json!({
+            "present":4, "text_present":3, "total":-2.0, "max_wide":23,
+        })
+    );
+    drop((prepared, owned));
     let input = OwnedVortexResultBatch {
         dtype: batches[0].dtype().clone(),
         rows: 6,
@@ -666,6 +1034,7 @@ fn contains_dictionary(array: &ArrayRef) -> bool {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Compare both adapters against one retained-domain fixture.
 fn composition_dictionary_domain_obeys_serialized_cap_and_retains_native_values() {
     use crate::resident_memory_source::OwnedMemoryColumn;
     use vortex::array::arrays::DictArray;
@@ -724,6 +1093,34 @@ fn composition_dictionary_domain_obeys_serialized_cap_and_retains_native_values(
     .unwrap();
     assert!(generation.evidence().segment_assembly_bytes_copied >= 128 * 1024);
     assert_eq!(generation.evidence().dictionary_build_calls, 0);
+    let owned = OwnedArraySource::from_owned(
+        make_input(),
+        OwnedArraySourceBounds::default(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let query = VortexQueryPrimitiveRequest::simple_aggregate(
+        owned.source_uri().clone(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("text").unwrap()],
+            vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("text", false)]),
+    );
+    let prepared = owned
+        .prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+    assert_eq!(
+        values(&prepared.execute().unwrap()),
+        json!([
+            {"text": format!("0007:{}", "x".repeat(123)), "n":1},
+            {"text": format!("0063:{}", "x".repeat(123)), "n":1},
+        ])
+    );
+    drop((prepared, owned));
     drop(array);
     drop(domain);
     drop(session);

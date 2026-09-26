@@ -1289,3 +1289,4 @@ mod tests;
 #[path = "memory_file_composition.rs"]
 mod composition;
 pub use composition::MemoryFileCompositionBounds;
+pub(crate) use composition::composition_array;
