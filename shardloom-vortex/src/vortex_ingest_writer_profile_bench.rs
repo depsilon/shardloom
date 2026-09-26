@@ -56,6 +56,20 @@ impl Drop for Output {
     }
 }
 
+fn complete_artifact_hash(path: &Path) -> String {
+    let mut persisted = fs::File::open(path).unwrap();
+    let mut digest = Sha256::new();
+    let mut scratch = [0_u8; 65_536];
+    loop {
+        let read = persisted.read(&mut scratch).unwrap();
+        if read == 0 {
+            break;
+        }
+        digest.update(&scratch[..read]);
+    }
+    sha256_digest_string(digest.finalize())
+}
+
 fn verify_complete(
     path: &Path,
     arrays: &[ArrayRef],
@@ -129,6 +143,7 @@ fn run(
     root: &Path,
     label: &str,
     profiled: bool,
+    prefetch_input: bool,
 ) -> Value {
     LOCAL_VORTEX_WRITE_CONTEXT.with(|cell| {
         let context = cell.borrow();
@@ -154,7 +169,7 @@ fn run(
             Arc::new(ObservedChild { child, observation: Arc::clone(&observation) })
         } else { child };
         let strategy = bounded_ingest_layout::BoundedIngestLayout::new(
-            child, 0, memory.pool.reserve(0).unwrap());
+            child, 0, memory.pool.reserve(0).unwrap()).with_input_prefetch(prefetch_input);
         let strategy: Arc<dyn LayoutStrategy> = Arc::new(strategy);
         let strategy = if profiled {
             Arc::new(ObservedInput { child: strategy, observation: Arc::clone(&observation) }) as Arc<dyn LayoutStrategy>
@@ -176,9 +191,13 @@ fn run(
         let occupancy = profiled.then(|| observation.snapshot());
         let peak = memory.pool.snapshot().peak_reserved_bytes;
         let complete_rows = verify_complete(&output.path, &region.arrays, memory, &context.runtime);
+        // The complete native bytes also cover statistics/footer/encodings. Hash
+        // outside the writer clock, streaming through a bounded scratch buffer.
+        let artifact_sha256 = complete_artifact_hash(&output.path);
         assert_eq!(memory.pool.snapshot().reserved_bytes, before);
         assert_eq!(memory.pool.snapshot().denied_reservations, 0);
-        json!({"profiled":profiled,"complete_writer_nanos":elapsed,
+        json!({"profiled":profiled,"prefetch_input":prefetch_input,"complete_writer_nanos":elapsed,
+            "complete_artifact_sha256":artifact_sha256,
             "file_bytes":output.bytes,"complete_verified_rows":complete_rows,
             "retained_input_reserved_bytes":before,"cumulative_region_pool_peak_reserved_bytes":peak,
             "peak_scope":"region_lifetime_including_preparation_and_prior_writer_verification;not_per_sample_writer_peak",
@@ -218,6 +237,7 @@ fn retained_writer_subtree_occupancy_screen() {
                     &root,
                     &format!("rg{row_group}-p{pair}-{profiled}"),
                     profiled,
+                    false,
                 );
                 sample["preparation"] = region.report;
                 drop(region.arrays);
@@ -231,5 +251,60 @@ fn retained_writer_subtree_occupancy_screen() {
         "SHARDLOOM_R9B_SCREEN={}",
         json!({"regions":reports,
         "scope":"retained_writer_attribution_only;fresh_prepared_native_arrays_per_sample;OS_cache_uncontrolled;all_samples_retained"})
+    );
+}
+
+#[test]
+#[ignore = "manual R9.b paired input-lookahead screen; exclusive guarded runner only"]
+fn retained_writer_input_lookahead_screen() {
+    assert!(!std::hint::black_box(cfg!(debug_assertions)));
+    let source = PathBuf::from(std::env::var_os("SHARDLOOM_R9B_SOURCE").unwrap());
+    let root = PathBuf::from(std::env::var_os("SHARDLOOM_R9B_SCRATCH").unwrap())
+        .canonicalize()
+        .unwrap();
+    assert!(
+        root.starts_with(
+            PathBuf::from(std::env::var_os("HOME").unwrap()).join("LocalData/shardloom")
+        )
+    );
+    let mut reports = Vec::new();
+    for row_group in [0, 113, 225] {
+        let mut samples = Vec::new();
+        let mut expected_artifact = None;
+        for pair in 0..3 {
+            for prefetch in if pair % 2 == 0 {
+                [false, true]
+            } else {
+                [true, false]
+            } {
+                let mut region = writer_profile_input::prepare_region(&source, row_group);
+                let mut sample = run(
+                    &mut region,
+                    &root,
+                    &format!("rg{row_group}-p{pair}-lookahead{prefetch}"),
+                    false,
+                    prefetch,
+                );
+                let artifact = sample["complete_artifact_sha256"].as_str().unwrap();
+                if let Some(expected) = expected_artifact.as_ref() {
+                    assert_eq!(
+                        artifact, expected,
+                        "complete artifact/statistics/footer changed"
+                    );
+                } else {
+                    expected_artifact = Some(artifact.to_owned());
+                }
+                sample["preparation"] = region.report;
+                drop(region.arrays);
+                assert_eq!(region.memory.pool.snapshot().reserved_bytes, 0);
+                samples.push(sample);
+            }
+        }
+        reports.push(json!({"row_group":row_group,"samples":samples}));
+    }
+    println!(
+        "SHARDLOOM_R9B_LOOKAHEAD={}",
+        json!({"regions":reports,
+        "scope":"paired_bounded_writer_only;fresh_native_inputs_per_sample;complete_values_and_artifact_bytes_equal;not_full_ingest;OS_cache_uncontrolled"})
     );
 }

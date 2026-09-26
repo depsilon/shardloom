@@ -1,0 +1,2010 @@
+{
+  "schema_version": 1,
+  "candidate": "R9.b",
+  "decision": "admit_test_only_single_input_lookahead_prototype",
+  "production_runtime_changed": false,
+  "scope": "complete_bounded_writer_occupancy_screen;not_full_ingest_or_achievable_speedup",
+  "source_commit": "1872e55f484b233ecfa8858083664a36ce4ef48f",
+  "build": {
+    "commit": "1872e55f484b233ecfa8858083664a36ce4ef48f",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-observer-1872e55f484b",
+    "sha256": "188121cf63e60f9afafbfffa93b5b286df8d7d2b989a8487dcf866ef1869655c",
+    "inputs": {
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_writer_occupancy.rs": "92063564a9d3274f8c3a255c722aa93dd363b922ed4dfd58d397a4e280904c29",
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_writer_profile_input.rs": "d6027c82c273291963893e9eebff6410d9ec96277e18d95b0bbc1cb640aa198b",
+      "/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex/src/vortex_ingest_writer_profile_bench.rs": "82b42e79ed0aba33005fc62fb97e145677fb5c625fa22dd5a2e9bf1d5800222a"
+    },
+    "build_command": "cargo test --offline --release -p shardloom-vortex --features release-user-surfaces --lib --no-run --message-format=json"
+  },
+  "source_sha256_carried_from_unchanged_prior_generation": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+  "provider": "Vortex 0.85.0 native retained writer",
+  "host": {
+    "platform": "Darwin 27.0.0 arm64",
+    "cpu": "Apple M5",
+    "logical_cpus": "10",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)"
+  },
+  "raw_evidence": {
+    "path": "docs/benchmarks/evidence/writer-subtree-occupancy-2026-09-26.json.gz",
+    "sha256": "571578ce851ee20b7e8e4c11d4da5dd1889b24fdd3203f4a4222e100f9a4ff18",
+    "uncompressed_sha256": "31efed4f2d16b7524b5b0462deca3a7c649f6b1229b9cdecaaf646fdd8794dbd",
+    "all_samples_retained": true
+  },
+  "formula": "capacity_percent = 100 * sum(2 * zero_occupied_wall_ns + one_occupied_wall_ns) / (2 * complete_writer_ns);ready subset excludes final child",
+  "limitations": [
+    "occupied poll/CPU task wall regions include blocking work and preemption;not CPU time",
+    "async runnable queue is unobserved;CPU queue empty is not proof of no runnable work",
+    "unused-capacity fraction is neither achievable savings nor a strict full-ingest bound",
+    "all sampled native inputs prepared before writer clock;production source/convert readiness not established",
+    "pool peaks cover preparation and writer native allocations;not OS RSS or per-stage memory",
+    "OS cache and other host activity uncontrolled",
+    "initial reused-input diagnostic has warmed array statistics and is excluded from admission",
+    "fresh child-only screen omits nonchild writer intervals;no drop decision from this screen"
+  ],
+  "fresh_screen_process": {
+    "returncode": 0,
+    "seconds": 11.02696262500831,
+    "guard_failures": [],
+    "supervised_wall_seconds": 11.054976458020974,
+    "native_peak_rss_bytes": 1839169536,
+    "user_cpu_seconds": 12.670336,
+    "system_cpu_seconds": 0.666141,
+    "minor_page_faults": 283356,
+    "major_page_faults": 0,
+    "input_block_operations": 0,
+    "output_block_operations": 0,
+    "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+  },
+  "scratch_files_remaining": 0,
+  "child_only_regions": [
+    {
+      "row_group": 0,
+      "row_group_total_rows": 450560,
+      "sampled_rows": 393216,
+      "prefix_truncated": true,
+      "batch_rows": [
+        131072,
+        131072,
+        131072
+      ],
+      "batch_native_nbytes": [
+        107856877,
+        107398464,
+        107309504
+      ],
+      "plain_writer_ms": [
+        258.252917,
+        244.52125,
+        249.1575
+      ],
+      "profiled_writer_ms": [
+        243.881792,
+        246.664,
+        245.504667
+      ],
+      "observer_best_elapsed_change_percent": -0.26151428556823175,
+      "observer_median_elapsed_change_percent": -1.4660738689383224,
+      "region_pool_peak_bytes": [
+        537372038,
+        537372038,
+        537372038,
+        537372038,
+        537372038,
+        537372038
+      ],
+      "file_bytes": 45448964,
+      "profiled_samples": [
+        {
+          "sample_index": 1,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107398464,
+              "cpu_queue_empty_histogram_nanos": [
+                463586,
+                4824093,
+                1019821
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5751265,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                463878,
+                4964965,
+                56576782
+              ],
+              "terminal_underoccupied_nanos": 20958,
+              "unoccupied_driver_nanos": 5892721,
+              "wall_nanos": 62005625
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107309504,
+              "cpu_queue_empty_histogram_nanos": [
+                492842,
+                4116159,
+                511458
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5101843,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                493051,
+                4266166,
+                55097200
+              ],
+              "terminal_underoccupied_nanos": 20834,
+              "unoccupied_driver_nanos": 5252268,
+              "wall_nanos": 59856417
+            },
+            {
+              "child_index": 2,
+              "has_prepared_successor": false,
+              "batch_rows": 131072,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                437590,
+                4391624,
+                697952
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5266804,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                437798,
+                4546708,
+                57058452
+              ],
+              "terminal_underoccupied_nanos": 11208,
+              "unoccupied_driver_nanos": 5422304,
+              "wall_nanos": 62042958
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 3.3965825952271174,
+          "ready_successor_unoccupied_capacity_percent": 2.2849161695515177,
+          "ready_successor_cpu_queue_empty_capacity_percent": 2.225075498871191,
+          "final_child_unoccupied_driver_nanos": 5422304
+        },
+        {
+          "sample_index": 2,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107398464,
+              "cpu_queue_empty_histogram_nanos": [
+                507214,
+                3569361,
+                674883
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 4583789,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                507214,
+                3725051,
+                58050443
+              ],
+              "terminal_underoccupied_nanos": 37708,
+              "unoccupied_driver_nanos": 4739479,
+              "wall_nanos": 62282708
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107309504,
+              "cpu_queue_empty_histogram_nanos": [
+                466143,
+                5383404,
+                707412
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 6315690,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                466476,
+                5538783,
+                56510658
+              ],
+              "terminal_underoccupied_nanos": 17375,
+              "unoccupied_driver_nanos": 6471735,
+              "wall_nanos": 62515917
+            },
+            {
+              "child_index": 2,
+              "has_prepared_successor": false,
+              "batch_rows": 131072,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                504921,
+                4293622,
+                363416
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5303464,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                507421,
+                4449949,
+                55545505
+              ],
+              "terminal_underoccupied_nanos": 4833,
+              "unoccupied_driver_nanos": 5464791,
+              "wall_nanos": 60502875
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 3.380307827652191,
+          "ready_successor_unoccupied_capacity_percent": 2.2725679466805047,
+          "ready_successor_cpu_queue_empty_capacity_percent": 2.2093777365160703,
+          "final_child_unoccupied_driver_nanos": 5464791
+        },
+        {
+          "sample_index": 5,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107398464,
+              "cpu_queue_empty_histogram_nanos": [
+                447676,
+                6885938,
+                856636
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 7781290,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                450759,
+                7021443,
+                54622173
+              ],
+              "terminal_underoccupied_nanos": 5750,
+              "unoccupied_driver_nanos": 7922961,
+              "wall_nanos": 62094375
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107309504,
+              "cpu_queue_empty_histogram_nanos": [
+                476478,
+                3725239,
+                753491
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 4678195,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                483062,
+                3881773,
+                55246957
+              ],
+              "terminal_underoccupied_nanos": 12875,
+              "unoccupied_driver_nanos": 4847897,
+              "wall_nanos": 59611792
+            },
+            {
+              "child_index": 2,
+              "has_prepared_successor": false,
+              "batch_rows": 131072,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                518071,
+                4450635,
+                756710
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5486777,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                518071,
+                4616358,
+                57658196
+              ],
+              "terminal_underoccupied_nanos": 7833,
+              "unoccupied_driver_nanos": 5652500,
+              "wall_nanos": 62792625
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 3.752140076424698,
+          "ready_successor_unoccupied_capacity_percent": 2.6009399650231497,
+          "ready_successor_cpu_queue_empty_capacity_percent": 2.5375250809386856,
+          "final_child_unoccupied_driver_nanos": 5652500
+        }
+      ]
+    },
+    {
+      "row_group": 113,
+      "row_group_total_rows": 224831,
+      "sampled_rows": 224831,
+      "prefix_truncated": false,
+      "batch_rows": [
+        131072,
+        93759
+      ],
+      "batch_native_nbytes": [
+        147250840,
+        107066027
+      ],
+      "plain_writer_ms": [
+        210.992709,
+        220.18575,
+        213.887875
+      ],
+      "profiled_writer_ms": [
+        214.501667,
+        222.0535,
+        208.764709
+      ],
+      "observer_best_elapsed_change_percent": -1.0559606588111947,
+      "observer_median_elapsed_change_percent": 0.286969048619512,
+      "region_pool_peak_bytes": [
+        468599501,
+        468599501,
+        468599501,
+        468599501,
+        468599501,
+        468599501
+      ],
+      "file_bytes": 55351484,
+      "profiled_samples": [
+        {
+          "sample_index": 1,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107066027,
+              "cpu_queue_empty_histogram_nanos": [
+                445965,
+                24227410,
+                889918
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 25119340,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                448550,
+                24373020,
+                79957389
+              ],
+              "terminal_underoccupied_nanos": 8500,
+              "unoccupied_driver_nanos": 25270120,
+              "wall_nanos": 104778959
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": false,
+              "batch_rows": 93759,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                438430,
+                8862951,
+                431953
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 9739811,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                448097,
+                9021194,
+                61631251
+              ],
+              "terminal_underoccupied_nanos": 7500,
+              "unoccupied_driver_nanos": 9917388,
+              "wall_nanos": 71100542
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 8.202152573480932,
+          "ready_successor_unoccupied_capacity_percent": 5.890425084668456,
+          "ready_successor_cpu_queue_empty_capacity_percent": 5.855278504665421,
+          "final_child_unoccupied_driver_nanos": 9917388
+        },
+        {
+          "sample_index": 2,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107066027,
+              "cpu_queue_empty_histogram_nanos": [
+                416346,
+                30421576,
+                949870
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 31254268,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                420305,
+                30575394,
+                78079218
+              ],
+              "terminal_underoccupied_nanos": 792,
+              "unoccupied_driver_nanos": 31416004,
+              "wall_nanos": 109074917
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": false,
+              "batch_rows": 93759,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                472337,
+                6704038,
+                684333
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 7648712,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                472713,
+                6850657,
+                65349671
+              ],
+              "terminal_underoccupied_nanos": 67958,
+              "unoccupied_driver_nanos": 7796083,
+              "wall_nanos": 72673041
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 8.829423314651649,
+          "ready_successor_unoccupied_capacity_percent": 7.073971813099096,
+          "ready_successor_cpu_queue_empty_capacity_percent": 7.03755356254236,
+          "final_child_unoccupied_driver_nanos": 7796083
+        },
+        {
+          "sample_index": 5,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 107066027,
+              "cpu_queue_empty_histogram_nanos": [
+                488509,
+                7457326,
+                1063415
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 8434344,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                489092,
+                7617741,
+                91213042
+              ],
+              "terminal_underoccupied_nanos": 5792,
+              "unoccupied_driver_nanos": 8595925,
+              "wall_nanos": 99319875
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": false,
+              "batch_rows": 93759,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                479748,
+                5009289,
+                1122964
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5968785,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                479748,
+                5150247,
+                64672172
+              ],
+              "terminal_underoccupied_nanos": 10792,
+              "unoccupied_driver_nanos": 6109743,
+              "wall_nanos": 70302167
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 3.522067515731311,
+          "ready_successor_unoccupied_capacity_percent": 2.0587591267640932,
+          "ready_successor_cpu_queue_empty_capacity_percent": 2.020059817677326,
+          "final_child_unoccupied_driver_nanos": 6109743
+        }
+      ]
+    },
+    {
+      "row_group": 225,
+      "row_group_total_rows": 263704,
+      "sampled_rows": 263704,
+      "prefix_truncated": false,
+      "batch_rows": [
+        131072,
+        131072,
+        1560
+      ],
+      "batch_native_nbytes": [
+        135175166,
+        105646050,
+        1043438
+      ],
+      "plain_writer_ms": [
+        217.428708,
+        217.101875,
+        218.266625
+      ],
+      "profiled_writer_ms": [
+        215.884541,
+        217.598208,
+        219.39625
+      ],
+      "observer_best_elapsed_change_percent": -0.5607201688147545,
+      "observer_median_elapsed_change_percent": 0.07795658703908526,
+      "region_pool_peak_bytes": [
+        452263866,
+        452263866,
+        452263866,
+        452263866,
+        452263866,
+        452263866
+      ],
+      "file_bytes": 47827396,
+      "profiled_samples": [
+        {
+          "sample_index": 1,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 105646050,
+              "cpu_queue_empty_histogram_nanos": [
+                429140,
+                2881063,
+                2078673
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 3739343,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                429514,
+                3036820,
+                78689874
+              ],
+              "terminal_underoccupied_nanos": 11958,
+              "unoccupied_driver_nanos": 3895848,
+              "wall_nanos": 82156208
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 1043438,
+              "cpu_queue_empty_histogram_nanos": [
+                493000,
+                6466962,
+                809579
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 7452962,
+              "maximum_cpu_queue": 110,
+              "occupied_driver_wall_histogram_nanos": [
+                493000,
+                6614971,
+                73056154
+              ],
+              "terminal_underoccupied_nanos": 14792,
+              "unoccupied_driver_nanos": 7600971,
+              "wall_nanos": 80164125
+            },
+            {
+              "child_index": 2,
+              "has_prepared_successor": false,
+              "batch_rows": 1560,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                385466,
+                963195,
+                374505
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 1734127,
+              "maximum_cpu_queue": 110,
+              "occupied_driver_wall_histogram_nanos": [
+                391633,
+                1095983,
+                5007342
+              ],
+              "terminal_underoccupied_nanos": 1458,
+              "unoccupied_driver_nanos": 1879249,
+              "wall_nanos": 6494958
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 3.0979680013308597,
+          "ready_successor_unoccupied_capacity_percent": 2.662724006718017,
+          "ready_successor_cpu_queue_empty_capacity_percent": 2.592196955871889,
+          "final_child_unoccupied_driver_nanos": 1879249
+        },
+        {
+          "sample_index": 2,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 105646050,
+              "cpu_queue_empty_histogram_nanos": [
+                427648,
+                6844777,
+                3704949
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 7700073,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                427940,
+                7008242,
+                75272943
+              ],
+              "terminal_underoccupied_nanos": 16375,
+              "unoccupied_driver_nanos": 7864122,
+              "wall_nanos": 82709125
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 1043438,
+              "cpu_queue_empty_histogram_nanos": [
+                473344,
+                7038827,
+                1165371
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 7985515,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                473510,
+                7194233,
+                72701757
+              ],
+              "terminal_underoccupied_nanos": 12292,
+              "unoccupied_driver_nanos": 8141253,
+              "wall_nanos": 80369500
+            },
+            {
+              "child_index": 2,
+              "has_prepared_successor": false,
+              "batch_rows": 1560,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                383299,
+                2357959,
+                331783
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 3124557,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                391758,
+                2488605,
+                5032137
+              ],
+              "terminal_underoccupied_nanos": 25167,
+              "unoccupied_driver_nanos": 3272121,
+              "wall_nanos": 7912500
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 4.429608170302579,
+          "ready_successor_unoccupied_capacity_percent": 3.6777359398106806,
+          "ready_successor_cpu_queue_empty_capacity_percent": 3.6042548659224254,
+          "final_child_unoccupied_driver_nanos": 3272121
+        },
+        {
+          "sample_index": 5,
+          "children": [
+            {
+              "child_index": 0,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 105646050,
+              "cpu_queue_empty_histogram_nanos": [
+                457620,
+                4493129,
+                1122333
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5408369,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                458078,
+                4654805,
+                78709575
+              ],
+              "terminal_underoccupied_nanos": 9791,
+              "unoccupied_driver_nanos": 5570961,
+              "wall_nanos": 83822458
+            },
+            {
+              "child_index": 1,
+              "has_prepared_successor": true,
+              "batch_rows": 131072,
+              "successor_native_nbytes": 1043438,
+              "cpu_queue_empty_histogram_nanos": [
+                486887,
+                5919992,
+                1001871
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 6893766,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                486887,
+                6116035,
+                76297911
+              ],
+              "terminal_underoccupied_nanos": 4625,
+              "unoccupied_driver_nanos": 7089809,
+              "wall_nanos": 82900833
+            },
+            {
+              "child_index": 2,
+              "has_prepared_successor": false,
+              "batch_rows": 1560,
+              "successor_native_nbytes": null,
+              "cpu_queue_empty_histogram_nanos": [
+                347768,
+                1058318,
+                314040
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 1753854,
+              "maximum_cpu_queue": 107,
+              "occupied_driver_wall_histogram_nanos": [
+                354100,
+                1235027,
+                5149582
+              ],
+              "terminal_underoccupied_nanos": 11792,
+              "unoccupied_driver_nanos": 1943227,
+              "wall_nanos": 6738709
+            }
+          ],
+          "all_child_unoccupied_capacity_percent": 3.3282239327244656,
+          "ready_successor_unoccupied_capacity_percent": 2.885366089894426,
+          "ready_successor_cpu_queue_empty_capacity_percent": 2.8036338360386743,
+          "final_child_unoccupied_driver_nanos": 1943227
+        }
+      ]
+    }
+  ],
+  "complete_screen_process": {
+    "returncode": 0,
+    "seconds": 11.073509915993782,
+    "guard_failures": [],
+    "supervised_wall_seconds": 11.103196833020775,
+    "native_peak_rss_bytes": 1827192832,
+    "user_cpu_seconds": 13.243878,
+    "system_cpu_seconds": 0.714213,
+    "minor_page_faults": 278103,
+    "major_page_faults": 0,
+    "input_block_operations": 0,
+    "output_block_operations": 0,
+    "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+  },
+  "complete_regions": [
+    {
+      "row_group": 0,
+      "plain_writer_ms": [
+        254.069792,
+        249.064583,
+        250.983917
+      ],
+      "profiled_samples": [
+        {
+          "sample_index": 1,
+          "complete_writer_nanos": 248788375,
+          "total_unoccupied_capacity_percent": 15.965365745083547,
+          "outside_child_wall_nanos": 61964418,
+          "outside_child_occupied_histogram_nanos": [
+            115250,
+            61849002,
+            166
+          ],
+          "input_poll_wall_nanos": 61104125,
+          "input_poll_unoccupied_capacity_percent": 12.280341675932407,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                20439750,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 20439750,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                20439750,
+                0
+              ],
+              "terminal_underoccupied_nanos": 20439750,
+              "unoccupied_driver_nanos": 20439750,
+              "wall_nanos": 20439750
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                20642583,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 20642583,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                20642583,
+                0
+              ],
+              "terminal_underoccupied_nanos": 20642583,
+              "unoccupied_driver_nanos": 20642583,
+              "wall_nanos": 20642583
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                20020667,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 20020667,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                20020667,
+                0
+              ],
+              "terminal_underoccupied_nanos": 20020667,
+              "unoccupied_driver_nanos": 20020667,
+              "wall_nanos": 20020667
+            },
+            {
+              "completed_children_before_poll": 3,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                1125,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 1125,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                1125,
+                0
+              ],
+              "terminal_underoccupied_nanos": 1125,
+              "unoccupied_driver_nanos": 1125,
+              "wall_nanos": 1125
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                428981,
+                2459400,
+                957244
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 3317362,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                430939,
+                2620662,
+                59971774
+              ],
+              "terminal_underoccupied_nanos": 5250,
+              "unoccupied_driver_nanos": 3482540,
+              "wall_nanos": 63023375
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                508627,
+                4153862,
+                987260
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5171116,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                509418,
+                4315515,
+                56543025
+              ],
+              "terminal_underoccupied_nanos": 7000,
+              "unoccupied_driver_nanos": 5334351,
+              "wall_nanos": 61367958
+            },
+            {
+              "index": 2,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                471181,
+                7462695,
+                693832
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 8405057,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                471181,
+                7601193,
+                54358417
+              ],
+              "terminal_underoccupied_nanos": 32375,
+              "unoccupied_driver_nanos": 8543555,
+              "wall_nanos": 62430791
+            }
+          ]
+        },
+        {
+          "sample_index": 2,
+          "complete_writer_nanos": 248835875,
+          "total_unoccupied_capacity_percent": 15.859507396190361,
+          "outside_child_wall_nanos": 60375084,
+          "outside_child_occupied_histogram_nanos": [
+            99668,
+            60275249,
+            167
+          ],
+          "input_poll_wall_nanos": 59553333,
+          "input_poll_unoccupied_capacity_percent": 11.966354529868331,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                20094042,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 20094042,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                20094042,
+                0
+              ],
+              "terminal_underoccupied_nanos": 20094042,
+              "unoccupied_driver_nanos": 20094042,
+              "wall_nanos": 20094042
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                19305416,
+                167
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 19305416,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                19305416,
+                167
+              ],
+              "terminal_underoccupied_nanos": 19305000,
+              "unoccupied_driver_nanos": 19305416,
+              "wall_nanos": 19305583
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                20152833,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 20152833,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                20152833,
+                0
+              ],
+              "terminal_underoccupied_nanos": 20152833,
+              "unoccupied_driver_nanos": 20152833,
+              "wall_nanos": 20152833
+            },
+            {
+              "completed_children_before_poll": 3,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                875,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 875,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                875,
+                0
+              ],
+              "terminal_underoccupied_nanos": 875,
+              "unoccupied_driver_nanos": 875,
+              "wall_nanos": 875
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                497902,
+                5367516,
+                818499
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 6363320,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                498819,
+                5513961,
+                56150470
+              ],
+              "terminal_underoccupied_nanos": 8667,
+              "unoccupied_driver_nanos": 6511599,
+              "wall_nanos": 62163250
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                504694,
+                5742396,
+                1075993
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 6751784,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                504694,
+                5888995,
+                57614478
+              ],
+              "terminal_underoccupied_nanos": 8417,
+              "unoccupied_driver_nanos": 6898383,
+              "wall_nanos": 64008167
+            },
+            {
+              "index": 2,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                521810,
+                3833683,
+                610882
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 4877303,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                524226,
+                3995269,
+                57768171
+              ],
+              "terminal_underoccupied_nanos": 16083,
+              "unoccupied_driver_nanos": 5043721,
+              "wall_nanos": 62287666
+            }
+          ]
+        },
+        {
+          "sample_index": 5,
+          "complete_writer_nanos": 256686792,
+          "total_unoccupied_capacity_percent": 14.916598825232894,
+          "outside_child_wall_nanos": 61409125,
+          "outside_child_occupied_histogram_nanos": [
+            96083,
+            61313042,
+            0
+          ],
+          "input_poll_wall_nanos": 60546334,
+          "input_poll_unoccupied_capacity_percent": 11.793815631931697,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                19911667,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 19911667,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                19911667,
+                0
+              ],
+              "terminal_underoccupied_nanos": 19911667,
+              "unoccupied_driver_nanos": 19911667,
+              "wall_nanos": 19911667
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                20046625,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 20046625,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                20046625,
+                0
+              ],
+              "terminal_underoccupied_nanos": 20046625,
+              "unoccupied_driver_nanos": 20046625,
+              "wall_nanos": 20046625
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                20587125,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 20587125,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                20587125,
+                0
+              ],
+              "terminal_underoccupied_nanos": 20587125,
+              "unoccupied_driver_nanos": 20587125,
+              "wall_nanos": 20587125
+            },
+            {
+              "completed_children_before_poll": 3,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                917,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 917,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                917,
+                0
+              ],
+              "terminal_underoccupied_nanos": 917,
+              "unoccupied_driver_nanos": 917,
+              "wall_nanos": 917
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                471953,
+                4860866,
+                445181
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5804772,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                475828,
+                5037414,
+                59539466
+              ],
+              "terminal_underoccupied_nanos": 11166,
+              "unoccupied_driver_nanos": 5989070,
+              "wall_nanos": 65052708
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                482583,
+                3687238,
+                764763
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 4652404,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                482750,
+                3880020,
+                66045689
+              ],
+              "terminal_underoccupied_nanos": 20709,
+              "unoccupied_driver_nanos": 4845520,
+              "wall_nanos": 70408459
+            },
+            {
+              "index": 2,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                505584,
+                3069958,
+                792833
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 4081126,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                505584,
+                3226912,
+                56082587
+              ],
+              "terminal_underoccupied_nanos": 9083,
+              "unoccupied_driver_nanos": 4238080,
+              "wall_nanos": 59815083
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "row_group": 113,
+      "plain_writer_ms": [
+        219.143458,
+        226.958666,
+        220.713125
+      ],
+      "profiled_samples": [
+        {
+          "sample_index": 1,
+          "complete_writer_nanos": 234735042,
+          "total_unoccupied_capacity_percent": 15.82458979430945,
+          "outside_child_wall_nanos": 39925751,
+          "outside_child_occupied_histogram_nanos": [
+            77375,
+            39848376,
+            0
+          ],
+          "input_poll_wall_nanos": 39175541,
+          "input_poll_unoccupied_capacity_percent": 8.344629899782921,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                22267375,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 22267375,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                22267375,
+                0
+              ],
+              "terminal_underoccupied_nanos": 22267375,
+              "unoccupied_driver_nanos": 22267375,
+              "wall_nanos": 22267375
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                16907375,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 16907375,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                16907375,
+                0
+              ],
+              "terminal_underoccupied_nanos": 16907375,
+              "unoccupied_driver_nanos": 16907375,
+              "wall_nanos": 16907375
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                791,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 791,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                791,
+                0
+              ],
+              "terminal_underoccupied_nanos": 791,
+              "unoccupied_driver_nanos": 791,
+              "wall_nanos": 791
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                556087,
+                27565107,
+                934848
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 28677281,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                556087,
+                27765009,
+                94287154
+              ],
+              "terminal_underoccupied_nanos": 9917,
+              "unoccupied_driver_nanos": 28877183,
+              "wall_nanos": 122608250
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                470230,
+                4286643,
+                669418
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 5227103,
+              "maximum_cpu_queue": 110,
+              "occupied_driver_wall_histogram_nanos": [
+                474813,
+                4461780,
+                67263365
+              ],
+              "terminal_underoccupied_nanos": 5416,
+              "unoccupied_driver_nanos": 5411406,
+              "wall_nanos": 72199958
+            }
+          ]
+        },
+        {
+          "sample_index": 2,
+          "complete_writer_nanos": 216610166,
+          "total_unoccupied_capacity_percent": 16.23498732741842,
+          "outside_child_wall_nanos": 39404083,
+          "outside_child_occupied_histogram_nanos": [
+            85751,
+            39318332,
+            0
+          ],
+          "input_poll_wall_nanos": 38648041,
+          "input_poll_unoccupied_capacity_percent": 8.921105069463822,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                22647000,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 22647000,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                22647000,
+                0
+              ],
+              "terminal_underoccupied_nanos": 22647000,
+              "unoccupied_driver_nanos": 22647000,
+              "wall_nanos": 22647000
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                16000375,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 16000375,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                16000375,
+                0
+              ],
+              "terminal_underoccupied_nanos": 16000375,
+              "unoccupied_driver_nanos": 16000375,
+              "wall_nanos": 16000375
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                666,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 666,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                666,
+                0
+              ],
+              "terminal_underoccupied_nanos": 666,
+              "unoccupied_driver_nanos": 666,
+              "wall_nanos": 666
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                537914,
+                24844523,
+                1003480
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 25920351,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                537914,
+                25004929,
+                82573074
+              ],
+              "terminal_underoccupied_nanos": 11084,
+              "unoccupied_driver_nanos": 26080757,
+              "wall_nanos": 108115917
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                411060,
+                3798469,
+                731929
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 4620589,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                411060,
+                3940555,
+                64737218
+              ],
+              "terminal_underoccupied_nanos": 20916,
+              "unoccupied_driver_nanos": 4762675,
+              "wall_nanos": 69088833
+            }
+          ]
+        },
+        {
+          "sample_index": 5,
+          "complete_writer_nanos": 224174458,
+          "total_unoccupied_capacity_percent": 15.998281570507912,
+          "outside_child_wall_nanos": 39280416,
+          "outside_child_occupied_histogram_nanos": [
+            73832,
+            39206584,
+            0
+          ],
+          "input_poll_wall_nanos": 38495584,
+          "input_poll_unoccupied_capacity_percent": 8.586077188151382,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                21962709,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 21962709,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                21962709,
+                0
+              ],
+              "terminal_underoccupied_nanos": 21962709,
+              "unoccupied_driver_nanos": 21962709,
+              "wall_nanos": 21962709
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                16531417,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 16531417,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                16531417,
+                0
+              ],
+              "terminal_underoccupied_nanos": 16531417,
+              "unoccupied_driver_nanos": 16531417,
+              "wall_nanos": 16531417
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                1458,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 1458,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                1458,
+                0
+              ],
+              "terminal_underoccupied_nanos": 1458,
+              "unoccupied_driver_nanos": 1458,
+              "wall_nanos": 1458
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                494118,
+                24401500,
+                979507
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 25389736,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                494118,
+                24560718,
+                82187872
+              ],
+              "terminal_underoccupied_nanos": 13333,
+              "unoccupied_driver_nanos": 25548954,
+              "wall_nanos": 107242708
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                452664,
+                5745294,
+                759959
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 6650622,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                456831,
+                5911258,
+                71281703
+              ],
+              "terminal_underoccupied_nanos": 12417,
+              "unoccupied_driver_nanos": 6824920,
+              "wall_nanos": 77649792
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "row_group": 225,
+      "plain_writer_ms": [
+        222.612542,
+        275.759333,
+        228.647958
+      ],
+      "profiled_samples": [
+        {
+          "sample_index": 1,
+          "complete_writer_nanos": 221727584,
+          "total_unoccupied_capacity_percent": 14.113577091066848,
+          "outside_child_wall_nanos": 45741584,
+          "outside_child_occupied_histogram_nanos": [
+            103125,
+            45636834,
+            1625
+          ],
+          "input_poll_wall_nanos": 44863583,
+          "input_poll_unoccupied_capacity_percent": 10.11682493234581,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                22563791,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 22563791,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                22563791,
+                0
+              ],
+              "terminal_underoccupied_nanos": 22563791,
+              "unoccupied_driver_nanos": 22563791,
+              "wall_nanos": 22563791
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                21798208,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 21798208,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                21798208,
+                0
+              ],
+              "terminal_underoccupied_nanos": 21798208,
+              "unoccupied_driver_nanos": 21798208,
+              "wall_nanos": 21798208
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                501167,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 501167,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                501167,
+                0
+              ],
+              "terminal_underoccupied_nanos": 501167,
+              "unoccupied_driver_nanos": 501167,
+              "wall_nanos": 501167
+            },
+            {
+              "completed_children_before_poll": 3,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                417,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 417,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                417,
+                0
+              ],
+              "terminal_underoccupied_nanos": 417,
+              "unoccupied_driver_nanos": 417,
+              "wall_nanos": 417
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                468968,
+                3594402,
+                981631
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 4532338,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                469135,
+                3762938,
+                78890136
+              ],
+              "terminal_underoccupied_nanos": 15375,
+              "unoccupied_driver_nanos": 4701208,
+              "wall_nanos": 83122209
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                542707,
+                8741674,
+                1152660
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 9827088,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                544665,
+                8906542,
+                76308084
+              ],
+              "terminal_underoccupied_nanos": 6291,
+              "unoccupied_driver_nanos": 9995872,
+              "wall_nanos": 85759291
+            },
+            {
+              "index": 2,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                411244,
+                1046411,
+                306219
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 1868899,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                419869,
+                1207485,
+                5475562
+              ],
+              "terminal_underoccupied_nanos": 10916,
+              "unoccupied_driver_nanos": 2047223,
+              "wall_nanos": 7102916
+            }
+          ]
+        },
+        {
+          "sample_index": 2,
+          "complete_writer_nanos": 367927709,
+          "total_unoccupied_capacity_percent": 9.96503296793012,
+          "outside_child_wall_nanos": 52369123,
+          "outside_child_occupied_histogram_nanos": [
+            496333,
+            51872790,
+            0
+          ],
+          "input_poll_wall_nanos": 50165167,
+          "input_poll_unoccupied_capacity_percent": 6.817258631640597,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                23742625,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 23742625,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                23742625,
+                0
+              ],
+              "terminal_underoccupied_nanos": 23742625,
+              "unoccupied_driver_nanos": 23742625,
+              "wall_nanos": 23742625
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                25721875,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 25721875,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                25721875,
+                0
+              ],
+              "terminal_underoccupied_nanos": 25721875,
+              "unoccupied_driver_nanos": 25721875,
+              "wall_nanos": 25721875
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                699083,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 699083,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                699083,
+                0
+              ],
+              "terminal_underoccupied_nanos": 699083,
+              "unoccupied_driver_nanos": 699083,
+              "wall_nanos": 699083
+            },
+            {
+              "completed_children_before_poll": 3,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                1584,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 1584,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                1584,
+                0
+              ],
+              "terminal_underoccupied_nanos": 1584,
+              "unoccupied_driver_nanos": 1584,
+              "wall_nanos": 1584
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                690796,
+                6874206,
+                1058957
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 8255798,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                695379,
+                7173012,
+                98466776
+              ],
+              "terminal_underoccupied_nanos": 163209,
+              "unoccupied_driver_nanos": 8563770,
+              "wall_nanos": 106335167
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                574580,
+                6007806,
+                3603281
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 7156966,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                575288,
+                6524672,
+                189365499
+              ],
+              "terminal_underoccupied_nanos": 1317792,
+              "unoccupied_driver_nanos": 7675248,
+              "wall_nanos": 196465459
+            },
+            {
+              "index": 2,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                338152,
+                2679595,
+                286920
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 3355899,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                368603,
+                3486555,
+                8900176
+              ],
+              "terminal_underoccupied_nanos": 23334,
+              "unoccupied_driver_nanos": 4223761,
+              "wall_nanos": 12755334
+            }
+          ]
+        },
+        {
+          "sample_index": 5,
+          "complete_writer_nanos": 238657834,
+          "total_unoccupied_capacity_percent": 13.967197489942862,
+          "outside_child_wall_nanos": 51159000,
+          "outside_child_occupied_histogram_nanos": [
+            105834,
+            51053166,
+            0
+          ],
+          "input_poll_wall_nanos": 50267625,
+          "input_poll_unoccupied_capacity_percent": 10.531316772111492,
+          "input_polls": [
+            {
+              "completed_children_before_poll": 0,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                24820417,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 24820417,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                24820417,
+                0
+              ],
+              "terminal_underoccupied_nanos": 24820417,
+              "unoccupied_driver_nanos": 24820417,
+              "wall_nanos": 24820417
+            },
+            {
+              "completed_children_before_poll": 1,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                24919666,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 24919666,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                24919666,
+                0
+              ],
+              "terminal_underoccupied_nanos": 24919666,
+              "unoccupied_driver_nanos": 24919666,
+              "wall_nanos": 24919666
+            },
+            {
+              "completed_children_before_poll": 2,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                526834,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 526834,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                526834,
+                0
+              ],
+              "terminal_underoccupied_nanos": 526834,
+              "unoccupied_driver_nanos": 526834,
+              "wall_nanos": 526834
+            },
+            {
+              "completed_children_before_poll": 3,
+              "cpu_queue_empty_histogram_nanos": [
+                0,
+                708,
+                0
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 708,
+              "maximum_cpu_queue": 0,
+              "occupied_driver_wall_histogram_nanos": [
+                0,
+                708,
+                0
+              ],
+              "terminal_underoccupied_nanos": 708,
+              "unoccupied_driver_nanos": 708,
+              "wall_nanos": 708
+            }
+          ],
+          "children": [
+            {
+              "index": 0,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                521069,
+                5702503,
+                434636
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 6744641,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                521236,
+                5925133,
+                86773839
+              ],
+              "terminal_underoccupied_nanos": 28833,
+              "unoccupied_driver_nanos": 6967605,
+              "wall_nanos": 93220208
+            },
+            {
+              "index": 1,
+              "has_prepared_successor": true,
+              "cpu_queue_empty_histogram_nanos": [
+                490514,
+                5047731,
+                1009380
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 6028759,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                490764,
+                5240778,
+                81138958
+              ],
+              "terminal_underoccupied_nanos": 11917,
+              "unoccupied_driver_nanos": 6222306,
+              "wall_nanos": 86870500
+            },
+            {
+              "index": 2,
+              "has_prepared_successor": false,
+              "cpu_queue_empty_histogram_nanos": [
+                409675,
+                1201443,
+                300757
+              ],
+              "cpu_queue_empty_unoccupied_driver_nanos": 2020793,
+              "maximum_cpu_queue": 109,
+              "occupied_driver_wall_histogram_nanos": [
+                419342,
+                1374193,
+                5612924
+              ],
+              "terminal_underoccupied_nanos": 14750,
+              "unoccupied_driver_nanos": 2212877,
+              "wall_nanos": 7406459
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
