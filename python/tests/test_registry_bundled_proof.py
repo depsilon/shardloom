@@ -13,6 +13,27 @@ from release_channel_contract import PUBLISHED_REGISTRY_BUILD_IDENTITIES, SELECT
 
 
 class RegistryBundledProofTests(unittest.TestCase):
+    def test_030_source_field_requires_matching_release_commit(self):
+        original = self.proof("testpypi")
+        smoke_stdout = (ROOT / "docs/release/channel-proofs" /
+                        f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json").read_bytes()
+        expected = "a" * 40
+        for release_source_commit, should_block in ((expected, False), ("b" * 40, True), (None, True)):
+            with self.subTest(release_source_commit=release_source_commit):
+                proof = copy.deepcopy(original)
+                supplement = proof["bundled_cli_supplemental_proof"]
+                supplement["source_commit"] = expected if should_block else "c" * 40
+                if release_source_commit is None:
+                    supplement.pop("release_source_commit", None)
+                else:
+                    supplement["release_source_commit"] = release_source_commit
+                blockers = bundled_registry_proof_blockers(
+                    proof, channel_id="testpypi", package_version="0.3.0",
+                    runtime_source_commit=expected, smoke_stdout=smoke_stdout,
+                )
+                has_source_blocker = any("must match the approved runtime source" in blocker for blocker in blockers)
+                self.assertEqual(has_source_blocker, should_block, blockers)
+
     def proof(self, channel):
         return json.loads((ROOT / "docs/release/channel-proofs" /
                            f"{channel}-v{SELECTED_PACKAGE_RELEASE_VERSION}-transcript.json").read_text())
@@ -30,14 +51,26 @@ class RegistryBundledProofTests(unittest.TestCase):
             with self.subTest(channel=channel):
                 self.assertEqual(self.validate(self.proof(channel), channel), [])
 
+    def test_preserves_historical_024_installation_proofs(self):
+        for channel in ("testpypi", "pypi"):
+            with self.subTest(channel=channel):
+                base = ROOT / "docs/release/channel-proofs"
+                proof = json.loads((base / f"{channel}-v0.2.4-transcript.json").read_text())
+                self.assertEqual(bundled_registry_proof_blockers(
+                    proof, channel_id=channel, package_version="0.2.4",
+                    runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES["0.2.4"]["testpypi"]["source_commit"],
+                    smoke_stdout=(base / f"{channel}-v0.2.4-bundled-smoke.stdout.json").read_bytes(),
+                ), [])
+
     def test_rejects_failed_missing_or_unbound_bundled_evidence(self):
+        source_field = "release_source_commit" if SELECTED_PACKAGE_RELEASE_VERSION == "0.3.0" else "source_commit"
         mutations = [
             (("proof_status",), "failed", "proof_status must be passed"),
             (("status",), "failed", "status must be passed"),
             (("uninstall_transcript_status",), "failed", "uninstall_transcript_status must be passed"),
             (("blockers",), ["failed"], "must have no blockers"),
             (("channel_id",), "wrong", "must match the registry channel"),
-            (("source_commit",), "f" * 40, "must match the approved runtime source"),
+            ((source_field,), "f" * 40, "must match the approved runtime source"),
             (("steps",), [], "requires all six ordered"),
             (("steps", 3, "returncode"), 1, "must exit successfully"),
             (("steps", 3, "returncode"), False, "must exit successfully"),
@@ -91,7 +124,7 @@ class RegistryBundledProofTests(unittest.TestCase):
                 with self.subTest(channel=channel, raw_length=None if raw is None else len(raw)):
                     errors = bundled_registry_proof_blockers(
                         proof, channel_id=channel, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
-                        runtime_source_commit=proof["bundled_cli_supplemental_proof"]["source_commit"],
+                        runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES[SELECTED_PACKAGE_RELEASE_VERSION]["testpypi"]["source_commit"],
                         smoke_stdout=raw,
                     )
                     self.assertTrue(errors)

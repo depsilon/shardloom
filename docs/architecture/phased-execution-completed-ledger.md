@@ -17,6 +17,26 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Publish and verify the 0.3.0 technical-preview version train.
+  - Date: 2026-09-26. Version PR #1457 and publication-preparation PR #1458
+    merged with all 40 checks passing. Release source is
+    `751126027d3abb438952c2fe157dab87c44e3347`; its exact main CI also passed.
+    GitHub, TestPyPI, PyPI and Homebrew are published with channel-specific
+    download, install, complete-result smoke, uninstall and provenance proofs.
+  - TestPyPI run `36244227580` builds the release source. PyPI run
+    `36245638911` builds `c03b9c9a`, which adds only prerequisite proof files.
+    Homebrew tap PR #5 merged at `6639990`, with the exact tested formula tree.
+    All 25 Homebrew steps and both six-step bundled-registry proofs passed.
+  - The final release/proof test modules pass 260 tests with two existing
+    optional-dependency skips. Eleven release/documentation validators pass;
+    website generation and Astro diagnostics pass. See the
+    [publication verification](../release/v0.3.0-publication-verification.md)
+    for artifact identities, command evidence and platform limits.
+  - Historical UAT, 0.2.4 records and open runtime/PERF/CG obligations retain
+    their original scope. The maintainer's September 26 instruction is to
+    finish 0.3.0 and stop; native operators, profiling, ingest and storage do
+    not automatically resume.
+
 - [x] Owned native result composition through retained Vortex sources.
   - Date: 2026-09-20. [PR #1456](https://github.com/depsilon/shardloom/pull/1456)
     merged at `1e356f3c`, accepted head `e3d09186`; all 40 remote checks passed.
