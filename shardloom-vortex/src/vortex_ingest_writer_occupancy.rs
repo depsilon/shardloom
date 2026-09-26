@@ -20,7 +20,7 @@ use vortex::{
     layout::{
         LayoutRef, LayoutStrategy, LayoutWriterContext,
         segments::SegmentSinkRef,
-        sequence::{SendableSequentialStream, SequencePointer},
+        sequence::{SendableSequentialStream, SequencePointer, SequentialStreamAdapter},
     },
     session::VortexSession,
 };
@@ -47,12 +47,19 @@ struct State {
     polls: u64,
     child: Option<Child>,
     children: Vec<Value>,
+    writer: Option<Child>,
+    writer_report: Option<Value>,
+    input: Option<Child>,
+    input_polls: Vec<Value>,
 }
 
 impl State {
     fn advance(&mut self, now: u64) {
         let elapsed = now.checked_sub(self.last).unwrap();
-        if let Some(child) = &mut self.child {
+        for child in [&mut self.child, &mut self.writer, &mut self.input]
+            .into_iter()
+            .flatten()
+        {
             let occupied = self.threads.len();
             assert!(occupied <= LANES, "observer found an extra provider driver");
             child.occupied[occupied] += elapsed;
@@ -125,15 +132,41 @@ impl Observation {
         ChildGuard(Arc::clone(self))
     }
 
+    pub(super) fn writer(self: &Arc<Self>) -> WriterGuard {
+        self.change(|state| {
+            assert!(state.writer.is_none() && state.writer_report.is_none());
+            state.writer = Some(Child {
+                started: state.last,
+                last_full: state.last,
+                ..Child::default()
+            });
+        });
+        WriterGuard(Arc::clone(self))
+    }
+
+    fn input_poll(self: &Arc<Self>) -> InputGuard {
+        self.change(|state| {
+            assert!(state.input.is_none());
+            state.input = Some(Child {
+                started: state.last,
+                last_full: state.last,
+                ..Child::default()
+            });
+        });
+        InputGuard(Arc::clone(self))
+    }
+
     pub(super) fn snapshot(&self) -> Value {
         self.change(|state| {
             assert!(state.child.is_none());
+            assert!(state.writer.is_none() && state.input.is_none());
             assert!(state.threads.is_empty());
             assert_eq!(state.queued_cpu, 0);
             assert_eq!(state.blocking_io, 0);
             json!({"provider_lanes":LANES,"poll_calls":state.polls,
                 "cpu_calls":state.cpu_calls,"blocking_io_calls":state.blocking_calls,
-                "children":state.children,
+                "children":state.children,"complete_writer":state.writer_report,
+                "input_poll_intervals":state.input_polls,
                 "scope":"occupied_driver_wall_regions_not_CPU;async_runnable_queue_unknown;blocking_IO_pool_excluded;nesting_counts_each_thread_once;capacity_opportunity_not_speedup_bound"})
         })
     }
@@ -147,25 +180,42 @@ impl Drop for PollGuard {
 }
 
 struct ChildGuard(Arc<Observation>);
+fn interval_report(child: Child, end: u64) -> Value {
+    let unoccupied = child.occupied[0] * 2 + child.occupied[1];
+    let empty_unoccupied = child.cpu_queue_empty[0] * 2 + child.cpu_queue_empty[1];
+    assert_eq!(child.occupied.iter().sum::<u64>(), end - child.started);
+    json!({"wall_nanos":end-child.started,
+        "terminal_underoccupied_nanos":end-child.last_full,
+        "occupied_driver_wall_histogram_nanos":child.occupied,
+        "cpu_queue_empty_histogram_nanos":child.cpu_queue_empty,
+        "unoccupied_driver_nanos":unoccupied,
+        "cpu_queue_empty_unoccupied_driver_nanos":empty_unoccupied,
+        "maximum_cpu_queue":child.maximum_cpu_queue})
+}
 impl Drop for ChildGuard {
     fn drop(&mut self) {
         self.0.change(|state| {
             let child = state.child.take().unwrap();
-            let unoccupied = child.occupied[0] * 2 + child.occupied[1];
-            let empty_unoccupied = child.cpu_queue_empty[0] * 2 + child.cpu_queue_empty[1];
-            assert_eq!(
-                child.occupied.iter().sum::<u64>(),
-                state.last - child.started
-            );
-            state
-                .children
-                .push(json!({"wall_nanos":state.last-child.started,
-                "terminal_underoccupied_nanos":state.last-child.last_full,
-                "occupied_driver_wall_histogram_nanos":child.occupied,
-                "cpu_queue_empty_histogram_nanos":child.cpu_queue_empty,
-                "unoccupied_driver_nanos":unoccupied,
-                "cpu_queue_empty_unoccupied_driver_nanos":empty_unoccupied,
-                "maximum_cpu_queue":child.maximum_cpu_queue}));
+            state.children.push(interval_report(child, state.last));
+        });
+    }
+}
+
+pub(super) struct WriterGuard(Arc<Observation>);
+impl Drop for WriterGuard {
+    fn drop(&mut self) {
+        self.0.change(|state| {
+            state.writer_report = Some(interval_report(state.writer.take().unwrap(), state.last));
+        });
+    }
+}
+struct InputGuard(Arc<Observation>);
+impl Drop for InputGuard {
+    fn drop(&mut self) {
+        self.0.change(|state| {
+            let mut report = interval_report(state.input.take().unwrap(), state.last);
+            report["completed_children_before_poll"] = json!(state.children.len());
+            state.input_polls.push(report);
         });
     }
 }
@@ -331,6 +381,81 @@ impl LayoutStrategy for ObservedChild {
                 .await
         })
     }
+}
+
+pub(super) struct ObservedInput {
+    pub(super) child: Arc<dyn LayoutStrategy>,
+    pub(super) observation: Arc<Observation>,
+}
+impl LayoutStrategy for ObservedInput {
+    fn write_stream<'a, 'b, 'future>(
+        &'a self,
+        ctx: LayoutWriterContext,
+        sink: SegmentSinkRef,
+        mut input: SendableSequentialStream,
+        eof: SequencePointer,
+        session: &'b VortexSession,
+    ) -> BoxFuture<'future, VortexResult<LayoutRef>>
+    where
+        'a: 'future,
+        'b: 'future,
+        Self: 'future,
+    {
+        let dtype = input.dtype().clone();
+        let observation = Arc::clone(&self.observation);
+        let stream = futures::stream::poll_fn(move |cx| {
+            let _guard = observation.input_poll();
+            input.as_mut().poll_next(cx)
+        });
+        self.child.write_stream(
+            ctx,
+            sink,
+            Box::pin(SequentialStreamAdapter::new(dtype, stream)),
+            eof,
+            session,
+        )
+    }
+}
+
+#[test]
+fn complete_writer_covers_input_and_child_intervals_without_double_counting() {
+    let mut state = State {
+        writer: Some(Child::default()),
+        ..State::default()
+    };
+    state.advance(10);
+    let id = thread::current().id();
+    state.enter(id);
+    state.input = Some(Child {
+        started: 10,
+        last_full: 10,
+        ..Child::default()
+    });
+    state.advance(30);
+    let input = interval_report(state.input.take().unwrap(), 30);
+    state.child = Some(Child {
+        started: 30,
+        last_full: 30,
+        ..Child::default()
+    });
+    state.advance(60);
+    let child = interval_report(state.child.take().unwrap(), 60);
+    state.leave(id);
+    state.advance(70);
+    let writer = interval_report(state.writer.take().unwrap(), 70);
+    assert_eq!(
+        input["occupied_driver_wall_histogram_nanos"],
+        json!([0, 20, 0])
+    );
+    assert_eq!(
+        child["occupied_driver_wall_histogram_nanos"],
+        json!([0, 30, 0])
+    );
+    assert_eq!(
+        writer["occupied_driver_wall_histogram_nanos"],
+        json!([20, 50, 0])
+    );
+    assert_eq!(writer["unoccupied_driver_nanos"], 90);
 }
 
 #[test]

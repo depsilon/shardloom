@@ -1,6 +1,8 @@
 //! Bounded retained-writer attribution; no overlap candidate is implemented.
 
-use super::writer_occupancy::{Observation, ObservedChild, ObservedExecutor, ObservedRuntime};
+use super::writer_occupancy::{
+    Observation, ObservedChild, ObservedExecutor, ObservedInput, ObservedRuntime,
+};
 use super::*;
 use serde_json::{Value, json};
 use std::io::{BufWriter, Write};
@@ -153,17 +155,23 @@ fn run(
         } else { child };
         let strategy = bounded_ingest_layout::BoundedIngestLayout::new(
             child, 0, memory.pool.reserve(0).unwrap());
-        let options = memory.session.write_options().with_strategy(Arc::new(strategy));
+        let strategy: Arc<dyn LayoutStrategy> = Arc::new(strategy);
+        let strategy = if profiled {
+            Arc::new(ObservedInput { child: strategy, observation: Arc::clone(&observation) }) as Arc<dyn LayoutStrategy>
+        } else { strategy };
+        let options = memory.session.write_options().with_strategy(strategy);
         let iter = ArrayIteratorAdapter::new(dtype, region.arrays.clone().into_iter().map(Ok));
         let before = memory.pool.snapshot().reserved_bytes;
         let mut output = Output::new(root, label);
         let drivers = crate::resident_worker_group::ResidentWorkerGroup::new(&context.runtime, 1).unwrap();
         let start = Instant::now();
+        let writer_scope = profiled.then(|| observation.writer());
         let summary = if profiled { options.blocking(&runtime).write(&mut output, iter) }
             else { options.blocking(&context.runtime).write(&mut output, iter) }.unwrap();
         output.flush().unwrap();
         drop(summary);
         drop(drivers);
+        drop(writer_scope);
         let elapsed = u64::try_from(start.elapsed().as_nanos()).unwrap();
         let occupancy = profiled.then(|| observation.snapshot());
         let peak = memory.pool.snapshot().peak_reserved_bytes;
