@@ -1,0 +1,747 @@
+{
+  "checks": {
+    "all_pair_block_arithmetic_matches_reported_totals": true,
+    "coverage_counts_match": true,
+    "current_source_metadata_matches_receipts": true,
+    "dataset_read_by_verifier": false,
+    "receipt_process_exit_and_guards_passed": true,
+    "receipt_source_generations_equal_and_unchanged": true,
+    "whole_artifact_hash_performed": false
+  },
+  "conditional_read_ratio_caveat": {
+    "companion": "parent A row code stream + dependent components divided by independent B cost",
+    "interpretation": "hypothetical independently readable A codes; no provider/control demonstrating this is established; neither ratio alters storage totals",
+    "reported": "full parent dictionary cost + dependent components divided by independent B cost"
+  },
+  "decision": {
+    "artifact_bytes": 15682956116,
+    "candidate": "R7",
+    "claim_gate_status": "not_claim_grade",
+    "conditional_dictionaries": "insufficient_material_storage_opportunity",
+    "minimum_whole_artifact_saving_bytes": 2352443418,
+    "native_performance_claim": false,
+    "native_replacement_artifact_created": false,
+    "native_runtime_changed": false,
+    "next": "R1.b",
+    "numeric_residuals": "insufficient_material_storage_opportunity",
+    "outcome": "drop_at_bounded_analytical_admission",
+    "provider": "blocked_until_vortex_or_shardloom_evidence_for_new_layouts",
+    "scope": "selected simple residual/conditional/union models and sampled regions; not all datasets or cross-column mechanisms",
+    "shared_union_variant": "insufficient_material_storage_opportunity"
+  },
+  "independent_verification_packet": {
+    "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r7-verified-screen.json",
+    "sha256": "81165353017ac17207a321035b9a25ffde2ca4b2dbe318d1635048d5612532c5"
+  },
+  "largest_positive_conditional": {
+    "baseline_bytes": 2738039,
+    "blocks": 24,
+    "candidate_bytes": 2632536,
+    "complete": true,
+    "full_parent_dictionary_read_ratio": 3.884308934452353,
+    "hypothetical_parent_row_codes_only_read_ratio": 1.254106319,
+    "hypothetical_provider_established": false,
+    "pair": "Referer->RefererHash",
+    "saving_bytes": 105503,
+    "saving_pct": 3.853232
+  },
+  "largest_positive_numeric": {
+    "baseline_bytes": 1058101,
+    "blocks": 24,
+    "candidate_bytes": 1048188,
+    "complete": true,
+    "full_charge_read_ratio": 1.6301129468869597,
+    "pair": "EventTime->ClientEventTime",
+    "saving_bytes": 9913,
+    "saving_pct": 0.936867
+  },
+  "largest_positive_union": {
+    "baseline_bytes": 8207324,
+    "blocks": 24,
+    "candidate_bytes": 8178870,
+    "complete": true,
+    "pair": "URL->Referer",
+    "saving_bytes": 28454,
+    "saving_pct": 0.34669
+  },
+  "model_scope": {
+    "analysis_provider": "PyArrow Parquet reference reader; not ShardLoom execution",
+    "block_rows": 8192,
+    "conditional_blocks": 312,
+    "limits": [
+      "analytical serialized-byte model; not Vortex encoded size or elapsed performance",
+      "only sampled first 65536 rows in each of row groups 0, 113, 225; not full-artifact result",
+      "model omits Vortex sparse/patch behavior and physical container/header differences",
+      "numeric probe selection can create optimism; sampled region is not a whole-artifact claim",
+      "pairs overlap and must not be summed into an artifact-wide saving"
+    ],
+    "numeric_blocks": 264,
+    "selected_row_groups": [
+      0,
+      113,
+      225
+    ],
+    "selected_rows_per_region": 65536,
+    "shared_union_blocks": 48,
+    "total_selected_rows": 196608
+  },
+  "notes": [
+    "This is a verification packet, not an independent gate or architecture decision.",
+    "Receipt records include source/script metadata before and after and source remained unchanged.",
+    "No dataset was read by this verifier."
+  ],
+  "positive_conditional_pairs": [
+    {
+      "baseline_bytes": 196854,
+      "blocks": 24,
+      "candidate_bytes": 141690,
+      "complete": true,
+      "full_parent_dictionary_read_ratio": 1.5993543435073145,
+      "hypothetical_parent_row_codes_only_read_ratio": 1.58370959,
+      "hypothetical_provider_established": false,
+      "pair": "RefererCategoryID->RefererRegionID",
+      "saving_bytes": 55164,
+      "saving_pct": 28.022799
+    },
+    {
+      "baseline_bytes": 64719,
+      "blocks": 24,
+      "candidate_bytes": 52559,
+      "complete": true,
+      "full_parent_dictionary_read_ratio": 1.40438209752839,
+      "hypothetical_parent_row_codes_only_read_ratio": 1.384342017,
+      "hypothetical_provider_established": false,
+      "pair": "URLCategoryID->URLRegionID",
+      "saving_bytes": 12160,
+      "saving_pct": 18.788918
+    },
+    {
+      "baseline_bytes": 60309,
+      "blocks": 24,
+      "candidate_bytes": 55295,
+      "complete": true,
+      "full_parent_dictionary_read_ratio": 1.7983283465591258,
+      "hypothetical_parent_row_codes_only_read_ratio": 1.76931833,
+      "hypothetical_provider_established": false,
+      "pair": "UserAgent->UserAgentMajor",
+      "saving_bytes": 5014,
+      "saving_pct": 8.31385
+    },
+    {
+      "baseline_bytes": 13963,
+      "blocks": 24,
+      "candidate_bytes": 10667,
+      "complete": true,
+      "full_parent_dictionary_read_ratio": 1.6635995009357454,
+      "hypothetical_parent_row_codes_only_read_ratio": 1.545539613,
+      "hypothetical_provider_established": false,
+      "pair": "MobilePhone->MobilePhoneModel",
+      "saving_bytes": 3296,
+      "saving_pct": 23.605242
+    },
+    {
+      "baseline_bytes": 2738039,
+      "blocks": 24,
+      "candidate_bytes": 2632536,
+      "complete": true,
+      "full_parent_dictionary_read_ratio": 3.884308934452353,
+      "hypothetical_parent_row_codes_only_read_ratio": 1.254106319,
+      "hypothetical_provider_established": false,
+      "pair": "Referer->RefererHash",
+      "saving_bytes": 105503,
+      "saving_pct": 3.853232
+    }
+  ],
+  "positive_pairs_physical_inventory": {
+    "artifact": {
+      "bytes": 15682956116,
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+      "sha256": "sha256:31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+      "source_consistency_scope": "caller_frozen_artifact_required;pre_post_path_metadata_guard_not_immutable_snapshot"
+    },
+    "byte_scope": "footer_segment_lengths;unique_globally;column_totals_non_additive_for_shared_segments;excludes_footer_padding_and_postscript",
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-physical-inventory/proof.stdout.json",
+    "scope_note": "per-column referenced segment byte counts are non-additive; positive pair estimates overlap and are not summed",
+    "targets": [
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "ClientEventTime"
+            ],
+            "encoding_ids": [
+              "fastlanes.bitpacked",
+              "fastlanes.for",
+              "vortex.primitive"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 386513916,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "ClientEventTime"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "EventTime"
+            ],
+            "encoding_ids": [
+              "fastlanes.bitpacked",
+              "fastlanes.for",
+              "vortex.primitive"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 239183436,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "EventTime"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "LocalEventTime"
+            ],
+            "encoding_ids": [
+              "fastlanes.bitpacked",
+              "fastlanes.for",
+              "vortex.primitive"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 239216276,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "LocalEventTime"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "MobilePhoneModel"
+            ],
+            "encoding_ids": [
+              "vortex.zstd"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 7252712,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "MobilePhoneModel"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "Referer"
+            ],
+            "encoding_ids": [
+              "vortex.zstd"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 2014057440,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "Referer"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "RefererHash"
+            ],
+            "encoding_ids": [
+              "fastlanes.bitpacked",
+              "fastlanes.for",
+              "vortex.primitive",
+              "vortex.runend"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 792807036,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "RefererHash"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "RefererRegionID"
+            ],
+            "encoding_ids": [
+              "fastlanes.bitpacked",
+              "fastlanes.for",
+              "vortex.constant",
+              "vortex.primitive",
+              "vortex.runend",
+              "vortex.sparse"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 121102564,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "RefererRegionID"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "URLRegionID"
+            ],
+            "encoding_ids": [
+              "fastlanes.bitpacked",
+              "fastlanes.for",
+              "vortex.constant",
+              "vortex.primitive",
+              "vortex.runend",
+              "vortex.sparse"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 22378900,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "URLRegionID"
+      },
+      {
+        "records": [
+          {
+            "auxiliary_path": [],
+            "column_path": [
+              "UserAgentMajor"
+            ],
+            "encoding_ids": [
+              "fastlanes.bitpacked",
+              "fastlanes.for",
+              "vortex.constant",
+              "vortex.primitive",
+              "vortex.runend"
+            ],
+            "flat_references": 817,
+            "referenced_segment_bytes_non_additive": 43678276,
+            "unique_referenced_segments": 817
+          }
+        ],
+        "target": "UserAgentMajor"
+      }
+    ]
+  },
+  "positive_union_pairs": [
+    {
+      "baseline_bytes": 8207324,
+      "blocks": 24,
+      "candidate_bytes": 8178870,
+      "complete": true,
+      "pair": "URL->Referer",
+      "saving_bytes": 28454,
+      "saving_pct": 0.34669
+    }
+  ],
+  "schema_version": "shardloom.r7_verified_screen.v1",
+  "screen_receipts": [
+    {
+      "analysis_provider": "PyArrow Parquet reference reader; not ShardLoom execution",
+      "explicit_pair_results": [
+        {
+          "baseline_bytes": 155719,
+          "blocks": 24,
+          "candidate_bytes": 179696,
+          "complete": true,
+          "full_charge_read_ratio": 2.7142576025914655,
+          "pair": "ClientIP->IPNetworkID",
+          "saving_bytes": -23977,
+          "saving_pct": -15.397607
+        },
+        {
+          "baseline_bytes": 179431,
+          "blocks": 24,
+          "candidate_bytes": 183273,
+          "complete": true,
+          "full_charge_read_ratio": 2.0371929824561406,
+          "pair": "ClientIP->RemoteIP",
+          "saving_bytes": -3842,
+          "saving_pct": -2.141213
+        },
+        {
+          "baseline_bytes": 1459,
+          "blocks": 24,
+          "candidate_bytes": 2740,
+          "complete": true,
+          "full_charge_read_ratio": 8.295774647887324,
+          "pair": "CodeVersion->CounterID",
+          "saving_bytes": -1281,
+          "saving_pct": -87.799863
+        },
+        {
+          "baseline_bytes": 126108,
+          "blocks": 24,
+          "candidate_bytes": 165268,
+          "complete": true,
+          "full_charge_read_ratio": 2.8441515878081174,
+          "pair": "ConnectTiming->SendTiming",
+          "saving_bytes": -39160,
+          "saving_pct": -31.052748
+        },
+        {
+          "baseline_bytes": 1058101,
+          "blocks": 24,
+          "candidate_bytes": 1048188,
+          "complete": true,
+          "full_charge_read_ratio": 1.6301129468869597,
+          "pair": "EventTime->ClientEventTime",
+          "saving_bytes": 9913,
+          "saving_pct": 0.936867
+        },
+        {
+          "baseline_bytes": 830642,
+          "blocks": 24,
+          "candidate_bytes": 820851,
+          "complete": true,
+          "full_charge_read_ratio": 1.975500877634408,
+          "pair": "EventTime->LocalEventTime",
+          "saving_bytes": 9791,
+          "saving_pct": 1.178727
+        },
+        {
+          "baseline_bytes": 256103,
+          "blocks": 24,
+          "candidate_bytes": 271912,
+          "complete": true,
+          "full_charge_read_ratio": 1.668836237362097,
+          "pair": "FetchTiming->ResponseStartTiming",
+          "saving_bytes": -15809,
+          "saving_pct": -6.172907
+        },
+        {
+          "baseline_bytes": 830642,
+          "blocks": 24,
+          "candidate_bytes": 820851,
+          "complete": true,
+          "full_charge_read_ratio": 1.975500877634408,
+          "pair": "LocalEventTime->EventTime",
+          "saving_bytes": 9791,
+          "saving_pct": 1.178727
+        },
+        {
+          "baseline_bytes": 176016,
+          "blocks": 24,
+          "candidate_bytes": 196601,
+          "complete": true,
+          "full_charge_read_ratio": 1.4804360947638449,
+          "pair": "ResolutionHeight->WindowClientHeight",
+          "saving_bytes": -20585,
+          "saving_pct": -11.69496
+        },
+        {
+          "baseline_bytes": 164045,
+          "blocks": 24,
+          "candidate_bytes": 183310,
+          "complete": true,
+          "full_charge_read_ratio": 1.5215810881626337,
+          "pair": "ResolutionWidth->WindowClientWidth",
+          "saving_bytes": -19265,
+          "saving_pct": -11.743729
+        },
+        {
+          "baseline_bytes": 310355,
+          "blocks": 24,
+          "candidate_bytes": 343917,
+          "complete": true,
+          "full_charge_read_ratio": 2.326671181848967,
+          "pair": "ResponseStartTiming->ResponseEndTiming",
+          "saving_bytes": -33562,
+          "saving_pct": -10.814068
+        }
+      ],
+      "guard_failures": [],
+      "guard_receipt_unchanged": true,
+      "modeled_blocks": 264,
+      "process_command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r7_numeric_residual_screen.py"
+      ],
+      "proof_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-r7-numeric/proof.stdout.json",
+      "proof_sha256": "ca4661f211a8a814f1adc1e9cd9e0ca27626c32be24864bdb39b198acde4c290",
+      "pyarrow_version": "25.0.1",
+      "receipt_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-r7-numeric/receipt.json",
+      "receipt_sha256": "985daba0fd69d82c20c803fb5529ca1655c3b29deac0c9600466b824af047789",
+      "retained_pairs": 11,
+      "returncode": 0,
+      "runtime_binary_sha256": "4be5bd974c413ea1817a33d091f9470bb8735355d182db7fb852977e266d647e",
+      "script_path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r7_numeric_residual_screen.py",
+      "script_sha256": "7346b9e3c8a232c206ff6285ea0e76df815a1e2117166e19b81751da07ca1fe4",
+      "selected_rows": 196608,
+      "source_generation_after": {
+        "ctime_ns": 1788612069108841600,
+        "device": 16777233,
+        "inode": 84833233,
+        "mtime_ns": 1788461344802364826,
+        "size_bytes": 14779976446
+      },
+      "source_generation_before": {
+        "ctime_ns": 1788612069108841600,
+        "device": 16777233,
+        "inode": 84833233,
+        "mtime_ns": 1788461344802364826,
+        "size_bytes": 14779976446
+      },
+      "source_unchanged": true
+    },
+    {
+      "analysis_provider": "PyArrow Parquet reference reader; not ShardLoom execution",
+      "guard_failures": [],
+      "guard_receipt_unchanged": true,
+      "modeled_pair_blocks": 312,
+      "modeled_union_blocks": 48,
+      "pair_results": [
+        {
+          "baseline_bytes": 116844,
+          "blocks": 24,
+          "candidate_bytes": 120931,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 1.8305405446316394,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.706477151,
+          "hypothetical_provider_established": false,
+          "pair": "RegionID->IPNetworkID",
+          "saving_bytes": -4087,
+          "saving_pct": -3.497826
+        },
+        {
+          "baseline_bytes": 140437,
+          "blocks": 24,
+          "candidate_bytes": 167862,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 1.8722896404033194,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.780873561,
+          "hypothetical_provider_established": false,
+          "pair": "RegionID->ClientIP",
+          "saving_bytes": -27425,
+          "saving_pct": -19.528329
+        },
+        {
+          "baseline_bytes": 196854,
+          "blocks": 24,
+          "candidate_bytes": 141690,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 1.5993543435073145,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.58370959,
+          "hypothetical_provider_established": false,
+          "pair": "RefererCategoryID->RefererRegionID",
+          "saving_bytes": 55164,
+          "saving_pct": 28.022799
+        },
+        {
+          "baseline_bytes": 64719,
+          "blocks": 24,
+          "candidate_bytes": 52559,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 1.40438209752839,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.384342017,
+          "hypothetical_provider_established": false,
+          "pair": "URLCategoryID->URLRegionID",
+          "saving_bytes": 12160,
+          "saving_pct": 18.788918
+        },
+        {
+          "baseline_bytes": 60309,
+          "blocks": 24,
+          "candidate_bytes": 55295,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 1.7983283465591258,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.76931833,
+          "hypothetical_provider_established": false,
+          "pair": "UserAgent->UserAgentMajor",
+          "saving_bytes": 5014,
+          "saving_pct": 8.31385
+        },
+        {
+          "baseline_bytes": 119823,
+          "blocks": 24,
+          "candidate_bytes": 122602,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 1.3763906820095426,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.364019085,
+          "hypothetical_provider_established": false,
+          "pair": "UserAgentMajor->UserAgentMinor",
+          "saving_bytes": -2779,
+          "saving_pct": -2.319254
+        },
+        {
+          "baseline_bytes": 13963,
+          "blocks": 24,
+          "candidate_bytes": 10667,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 1.6635995009357454,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.545539613,
+          "hypothetical_provider_established": false,
+          "pair": "MobilePhone->MobilePhoneModel",
+          "saving_bytes": 3296,
+          "saving_pct": 23.605242
+        },
+        {
+          "baseline_bytes": 116042,
+          "blocks": 24,
+          "candidate_bytes": 155637,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 3.694646884272997,
+          "hypothetical_parent_row_codes_only_read_ratio": 3.660059347,
+          "hypothetical_provider_established": false,
+          "pair": "BrowserCountry->BrowserLanguage",
+          "saving_bytes": -39595,
+          "saving_pct": -34.121266
+        },
+        {
+          "baseline_bytes": 7220989,
+          "blocks": 24,
+          "candidate_bytes": 7267797,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 6.767237943774861,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.328540515,
+          "hypothetical_provider_established": false,
+          "pair": "URL->URLHash",
+          "saving_bytes": -46808,
+          "saving_pct": -0.648221
+        },
+        {
+          "baseline_bytes": 2738039,
+          "blocks": 24,
+          "candidate_bytes": 2632536,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 3.884308934452353,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.254106319,
+          "hypothetical_provider_established": false,
+          "pair": "Referer->RefererHash",
+          "saving_bytes": 105503,
+          "saving_pct": 3.853232
+        },
+        {
+          "baseline_bytes": 8136270,
+          "blocks": 24,
+          "candidate_bytes": 8215080,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 4.129739414221146,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.193461955,
+          "hypothetical_provider_established": false,
+          "pair": "URL->Title",
+          "saving_bytes": -78810,
+          "saving_pct": -0.968626
+        },
+        {
+          "baseline_bytes": 10492699,
+          "blocks": 24,
+          "candidate_bytes": 10639913,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 2.4483896413862234,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.10429857,
+          "hypothetical_provider_established": false,
+          "pair": "URL->OriginalURL",
+          "saving_bytes": -147214,
+          "saving_pct": -1.403014
+        },
+        {
+          "baseline_bytes": 8207324,
+          "blocks": 24,
+          "candidate_bytes": 8414809,
+          "complete": true,
+          "full_parent_dictionary_read_ratio": 4.084257995061892,
+          "hypothetical_parent_row_codes_only_read_ratio": 1.249244407,
+          "hypothetical_provider_established": false,
+          "pair": "URL->Referer",
+          "saving_bytes": -207485,
+          "saving_pct": -2.528047
+        }
+      ],
+      "pairs": 13,
+      "process_command": [
+        "/Users/dylan/.cache/shardloom/fixture-pyarrow-25.0.1/bin/python",
+        "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r7_conditional_dictionary_screen.py"
+      ],
+      "proof_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-r7-conditional/proof.stdout.json",
+      "proof_sha256": "246e1537b06e6e6c0c597801de97087fef193b833e0574a4877f12f78c7375eb",
+      "pyarrow_version": "25.0.1",
+      "receipt_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/dictionary-proof-20260926-r7-conditional/receipt.json",
+      "receipt_sha256": "413c4cbfa5258e18c4c2add0c059a0bc40ddb005b9e04c6c6dbc01be3f8702ad",
+      "returncode": 0,
+      "runtime_binary_sha256": "4be5bd974c413ea1817a33d091f9470bb8735355d182db7fb852977e266d647e",
+      "script_path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r7_conditional_dictionary_screen.py",
+      "script_sha256": "7ba017dd9e7c7994056f9cd50fecf79425bf8d5e3a5152309e40124b4db1fc77",
+      "selected_rows": 196608,
+      "shared_union_pairs": 2,
+      "shared_union_results": [
+        {
+          "baseline_bytes": 10492699,
+          "blocks": 24,
+          "candidate_bytes": 10555886,
+          "complete": true,
+          "pair": "URL->OriginalURL",
+          "saving_bytes": -63187,
+          "saving_pct": -0.6022
+        },
+        {
+          "baseline_bytes": 8207324,
+          "blocks": 24,
+          "candidate_bytes": 8178870,
+          "complete": true,
+          "pair": "URL->Referer",
+          "saving_bytes": 28454,
+          "saving_pct": 0.34669
+        }
+      ],
+      "source_generation_after": {
+        "ctime_ns": 1788612069108841600,
+        "device": 16777233,
+        "inode": 84833233,
+        "mtime_ns": 1788461344802364826,
+        "size_bytes": 14779976446
+      },
+      "source_generation_before": {
+        "ctime_ns": 1788612069108841600,
+        "device": 16777233,
+        "inode": 84833233,
+        "mtime_ns": 1788461344802364826,
+        "size_bytes": 14779976446
+      },
+      "source_unchanged": true
+    }
+  ],
+  "source": {
+    "current_metadata_matches": true,
+    "generation": {
+      "ctime_ns": 1788612069108841600,
+      "device": 16777233,
+      "inode": 84833233,
+      "mtime_ns": 1788461344802364826,
+      "size_bytes": 14779976446
+    },
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet"
+  },
+  "status": "independently_checked_saved_outputs",
+  "portable_reproduction": {
+    "scripts_sha256": {
+      "scripts/r7_numeric_residual_screen.py": "f5b872f1f2a67bc2a0555c0b87c2d4de57ddbf0d7e0f751e0c25e59c30a5ffa0",
+      "scripts/r7_conditional_dictionary_screen.py": "316d223f9aaba4a64bd6869e4cf97fa1cd4672198cde795fb3b5d48e39305f59"
+    },
+    "runner": "scripts/run_local_readonly_proof.py",
+    "runner_tests": "scripts/test_run_local_readonly_proof.py",
+    "model_ast_verification": "all analytical functions unchanged; only main differs; path constants deliberately changed",
+    "self_tests": "both passed with PyArrow25.0.1; no source opened",
+    "full_block_evidence_bundle": "docs/benchmarks/evidence/cross-column-storage-2026-09-26.json.gz",
+    "bundle_sha256": "546ffe77922c6f2a0920367ec3a9b810afec53430b8a97e8af399014d251180c",
+    "historical_measurements_replaced": false
+  }
+}
