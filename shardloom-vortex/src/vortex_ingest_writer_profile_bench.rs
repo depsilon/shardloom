@@ -5,6 +5,7 @@ use super::writer_occupancy::{
 };
 use super::*;
 use serde_json::{Value, json};
+use sha2::Sha256;
 use std::io::{BufWriter, Write};
 use vortex::{
     array::{ArrayRef, VortexSessionExecute as _, iter::ArrayIteratorAdapter},

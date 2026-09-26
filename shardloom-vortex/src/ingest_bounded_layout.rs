@@ -170,6 +170,8 @@ impl LayoutStrategy for BoundedIngestLayout {
             while let Some(item) = next.take() {
                 let (sequence, array) = item?;
                 if array.is_empty() {
+                    drop(array);
+                    drop(sequence);
                     next = input.next().await;
                     continue;
                 }

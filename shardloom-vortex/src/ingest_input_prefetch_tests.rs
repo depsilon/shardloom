@@ -536,6 +536,37 @@ fn two_live_native_inputs_deny_explicitly_while_serial_control_fits() {
 }
 
 #[test]
+fn skipped_empty_owners_release_before_pulling_the_next_native_input() {
+    let limit = native_array_credit() + u64::try_from(4 * size_of::<LayoutRef>()).unwrap();
+    for prefetch in [false, true] {
+        let memory = LiveMemoryPool::new(limit).unwrap();
+        let trace = trace(vec![Outcome::Complete; 2]);
+        let strategy = strategy(&memory, &trace, prefetch);
+        let session = VortexSession::default();
+        let mut future = write(
+            &strategy,
+            &session,
+            &memory,
+            &trace,
+            vec![
+                SourceStep::Batch(vec![]),
+                SourceStep::Batch(vec![1]),
+                SourceStep::Batch(vec![]),
+                SourceStep::Batch(vec![2]),
+                SourceStep::Batch(vec![]),
+            ],
+        );
+        let root = ready(&mut future).unwrap();
+        assert_eq!(root.row_count(), 2);
+        assert_eq!(memory.snapshot().denied_reservations, 0);
+        drop(future);
+        drop(root);
+        drop(strategy);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn dropping_pending_outer_write_releases_child_and_lookahead_ownership() {
     for pending in [false, true] {
         let memory = LiveMemoryPool::new(4096).unwrap();
