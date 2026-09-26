@@ -5,7 +5,10 @@ Status: execution authorized by the maintainer on September 26;
 `6db17c9f`, after 0.3.0 publication. The initial intake contained no runtime
 change or new performance measurement. R1.a is now retained under its
 [storage gate](derived-dictionary-preservation-2026-09-26.md): 15.64% fewer bytes,
-complete values and query results, and bounded regression follow-up. R6.a is next. The
+complete values and query results, and bounded regression follow-up. R6.a is
+retained under its [query gate](native-sort-block-screen-2026-09-26.md): the final
+paired Q26/Q27 calls save 1.49/1.27 seconds, with complete Full43 validation and
+bounded Q35 follow-up. R7 is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
