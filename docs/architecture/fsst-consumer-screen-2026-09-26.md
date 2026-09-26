@@ -85,6 +85,12 @@ dictionary/run-end domains.
 
 The [machine receipt](../benchmarks/fsst-consumer-screen-2026-09-26.json) records
 the executable, source generation, checks, all observations and limitations.
+The complete 14,779,976,446-byte source is identified by SHA-256
+`a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f`.
+It was rehashed under the read-only guard after the screen, with an unchanged
+generation matching the original run. Verify this digest before selecting the
+recorded row-group prefixes on another machine; local inode metadata alone is
+not a portable input identity. The hash check is separate from predicate timing.
 Full local output is under `logs/readonly-proof-r6b-native-source-r1` in the
 local ClickBench UAT workspace. Reproduce with the explicitly ignored
 `clickbench_fsst_predicate_admission_screen` test and `SHARDLOOM_R1B_SOURCE`, using

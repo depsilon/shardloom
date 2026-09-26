@@ -5,6 +5,31 @@
   "decision": "drop_at_bounded_native_admission",
   "production_behavior_changed": false,
   "scope": "native raw-FSST Title/URL sample persistence and explicit encoded LIKE plus native filtered count; not all possible FSST layouts/workloads",
+  "source_identity": {
+    "dataset": "ClickBench hits.parquet",
+    "bytes": 14779976446,
+    "rows": 99997497,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "verification": "Full source SHA-256 recomputed after the screen on 2026-09-26 under the read-only UAT guard; source generation matches the screen before/after generation exactly. This is not a new predicate timing run.",
+    "verification_command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet"
+    ],
+    "verification_generation": {
+      "device": 16777233,
+      "inode": 84833233,
+      "size_bytes": 14779976446,
+      "mtime_ns": 1788461344802364826,
+      "ctime_ns": 1788612069108841600
+    },
+    "verification_unchanged": true,
+    "verification_returncode": 0,
+    "verification_guard_failures": [],
+    "verification_local_receipt": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/readonly-proof-r6b-source-sha256/receipt.json",
+    "reproduction_requirement": "Verify the complete source SHA-256 before selecting row groups 0, 113 and 225 and their first 131072 rows; the local pathname and inode are not portable dataset identities."
+  },
   "build": {
     "source_revision": "c23fe1eb1208f82c52e60f7bc01128d90e859802",
     "binary_path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6b-native-screen-c23fe1eb1208",
