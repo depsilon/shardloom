@@ -60,6 +60,18 @@ observations, not complete-ingest or query-performance claims.
 
 ## Admission and retention
 
+The first screen retained exact values in all 45 outputs but raw dictionary
+preservation grew the sampled artifacts from 44,434,676 to 46,595,352 bytes.
+Before disposition, add one bounded fourth arm: compress only the incoming
+dictionary's value domain with the same native Zstd provider, level and frame
+bound as the retained text writer, retain its original codes, then apply the
+existing preservation admission. Charge domain canonicalization, compaction and
+compression separately, alongside writing and source reading. Re-evaluate
+admission on the transformed input; do not relax the bound. Keep the raw-domain
+arm and all first-screen observations. This is test-only provider composition,
+not a codec sweep or production policy. Exact reopened comparison against the
+original source remains mandatory for every arm.
+
 Only advance a materially promising result to a production candidate. Reusing
 incoming codes must include reader construction, dictionary values/code ownership,
 derived expression work, remapping, statistics and persistence. Reject or retain

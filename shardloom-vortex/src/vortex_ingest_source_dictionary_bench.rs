@@ -25,7 +25,7 @@ use vortex::{
     array::{
         ArrayRef as VortexArrayRef, IntoArray as _, VTable as _, VortexSessionExecute as _,
         arrays::{
-            Dict, Struct, StructArray, VarBinViewArray, dict::DictArraySlotsExt as _,
+            Dict, DictArray, Struct, StructArray, VarBinViewArray, dict::DictArraySlotsExt as _,
             struct_::StructArrayExt as _, varbinview::VarBinViewArrayExt as _,
         },
         dtype::{FieldNames, FieldPath},
@@ -66,6 +66,27 @@ impl InputRole {
 
     const fn dictionary_hint(self) -> bool {
         matches!(self, Self::DictionaryHint)
+    }
+}
+
+#[derive(Clone, Copy)]
+enum WriterCase {
+    Retained,
+    PreserveRawDomain,
+    PreserveZstdDomain,
+}
+
+impl WriterCase {
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Retained => "retained_zstd",
+            Self::PreserveRawDomain => "preserve_raw_domain",
+            Self::PreserveZstdDomain => "preserve_zstd_domain",
+        }
+    }
+
+    const fn preserve(self) -> bool {
+        !matches!(self, Self::Retained)
     }
 }
 
@@ -171,32 +192,66 @@ fn clickbench_source_dictionary_admission_screen() {
                     .all(|value| value.as_bool() == Some(true));
                 let writer_cases = if prepared.role.dictionary_hint() {
                     if region_index.is_multiple_of(2) {
-                        vec![false, true]
+                        vec![
+                            WriterCase::Retained,
+                            WriterCase::PreserveRawDomain,
+                            WriterCase::PreserveZstdDomain,
+                        ]
                     } else {
-                        vec![true, false]
+                        vec![
+                            WriterCase::PreserveZstdDomain,
+                            WriterCase::PreserveRawDomain,
+                            WriterCase::Retained,
+                        ]
                     }
                 } else {
-                    vec![false]
+                    vec![WriterCase::Retained]
                 };
                 let mut cases = Vec::new();
-                for preserve_source_dictionary in writer_cases {
+                for writer_case in writer_cases {
+                    let preparation_started = Instant::now();
+                    let writer_input = if matches!(writer_case, WriterCase::PreserveZstdDomain) {
+                        compress_dictionary_domain(&source_column, &memory)
+                    } else {
+                        source_column.clone()
+                    };
+                    let preparation_micros =
+                        u64::try_from(preparation_started.elapsed().as_micros()).unwrap();
+                    let writer_input_evidence = input_column_evidence(
+                        column_name,
+                        &writer_input,
+                        prepared.role,
+                        &memory.session,
+                    );
+                    let writer_admitted = writer_input_evidence["dictionary_admission_inputs"]
+                        .as_object()
+                        .unwrap()
+                        .values()
+                        .all(|value| value.as_bool() == Some(true));
                     let (artifact, writer_sample) = write_and_verify_column(
                         column_name,
-                        &source_column,
+                        &writer_input,
                         &expected,
                         &memory,
                         &runtime,
-                        preserve_source_dictionary,
+                        writer_case.preserve(),
                     );
                     let preserve_calls = writer_sample["writer_evidence_fields"]
                         ["vortex_ingest_text_dictionary_preserve_calls"]
                         .as_str().unwrap().parse::<u64>().unwrap();
-                    assert_eq!(preserve_calls > 0, preserve_source_dictionary && admitted);
+                    assert_eq!(
+                        preserve_calls > 0,
+                        writer_case.preserve() && writer_admitted
+                    );
                     if preserve_calls > 0 {
                         assert_eq!(artifact["physical_dictionary_retained"], true);
                     }
                     cases.push(json!({
-                        "preserve_economical_source_dictionary_before_retained_zstd": preserve_source_dictionary,
+                        "case": writer_case.name(),
+                        "preserve_economical_source_dictionary_before_retained_zstd": writer_case.preserve(),
+                        "dictionary_domain_preparation_micros": preparation_micros,
+                        "writer_input": writer_input_evidence,
+                        "writer_input_admitted_by_existing_bound": writer_admitted,
                         "native_artifact": artifact,
                         "writer": writer_sample,
                     }));
@@ -232,7 +287,7 @@ fn clickbench_source_dictionary_admission_screen() {
 
     assert_eq!(total_rows, TOTAL_ROW_LIMIT * 2);
     let result = json!({
-        "schema_version": "shardloom.r1b_source_dictionary_admission_screen.v1",
+        "schema_version": "shardloom.r1b_source_dictionary_admission_screen.v2",
         "source": source.display().to_string(),
         "source_role_policy": "same source and row groups; no datatype/name-based production admission rule",
         "roles": [InputRole::Plain.name(), InputRole::DictionaryHint.name()],
@@ -253,7 +308,7 @@ fn clickbench_source_dictionary_admission_screen() {
         "native_writer": {
             "retained_strategy": "large_source_text_vortex_write_strategy_with_dictionaries;explicit_source_text_Zstd_field_override",
             "candidate_strategy": "same_table_with_DictionaryPreservingStrategy_wrapping_source_text_Zstd_field_override",
-            "cases": "plain+retained_Zstd;dictionary_hint+retained_Zstd;dictionary_hint+bounded_preservation_before_Zstd",
+            "cases": "plain+retained_Zstd;dictionary_hint+retained_Zstd;dictionary_hint+bounded_preservation_before_Zstd;dictionary_hint+Zstd_domain_preparation+bounded_preservation_before_Zstd",
             "default_leaf_preserve_input_dictionaries": true,
             "input_batch_rows": INPUT_BATCH_ROWS,
             "row_block_size": WRITER_ROW_BLOCK_SIZE,
@@ -265,7 +320,7 @@ fn clickbench_source_dictionary_admission_screen() {
             "output_payloads_retained_on_disk": false,
         },
         "memory_boundary": "Native writer and copied native input buffers use NativeIngestMemory; Parquet provider/source Arrow, capped output Vec and reopen/verification buffers may remain outside reservations. Serialized byte caps and reservations are not process RSS bounds.",
-        "timing_boundary": "metadata/schema setup recorded once per role; reader build, selected Arrow batch read, and Arrow-to-Vortex conversion once per role and row group; native column writing separately per artifact. Canonical verification, encoding inspection and checksums are outside measured spans; no durable or complete ingest claim.",
+        "timing_boundary": "metadata/schema setup recorded once per role; reader build, selected Arrow batch read, and Arrow-to-Vortex conversion once per role and row group; domain preparation and native column writing separately per artifact. Domain preparation includes canonicalization, compaction and Zstd compression for the compressed-domain arm. Canonical verification, encoding inspection and checksums are outside measured spans; no durable or complete ingest claim.",
         "claims": {
             "complete_ingest_cpu": false,
             "speedup_decision": false,
@@ -280,6 +335,38 @@ fn clickbench_source_dictionary_admission_screen() {
         "screen output exceeded stdout limit"
     );
     print!("{line}");
+}
+
+fn compress_dictionary_domain(
+    input: &VortexArrayRef,
+    memory: &super::super::NativeIngestMemory,
+) -> VortexArrayRef {
+    let dictionary = input.as_::<Dict>();
+    if dictionary.values().is_empty() {
+        return input.clone();
+    }
+    let mut ctx = memory.session.create_execution_ctx();
+    let canonical = dictionary
+        .values()
+        .clone()
+        .execute::<VarBinViewArray>(&mut ctx)
+        .unwrap();
+    let compact = canonical.compact_buffers(&mut ctx).unwrap();
+    let values_per_frame = WRITER_ROW_BLOCK_SIZE.clamp(
+        1,
+        super::super::VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_VALUES_PER_FRAME,
+    );
+    let compressed = vortex_zstd::Zstd::from_var_bin_view_without_dict(
+        &compact,
+        super::super::VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
+        values_per_frame,
+        &mut ctx,
+    )
+    .unwrap()
+    .into_array();
+    DictArray::try_new(dictionary.codes().clone(), compressed)
+        .unwrap()
+        .into_array()
 }
 
 fn prepare_reader(path: &Path, role: InputRole) -> PreparedReader {
