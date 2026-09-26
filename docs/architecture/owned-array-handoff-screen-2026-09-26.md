@@ -54,3 +54,13 @@ Separate construction and execution evidence. R5.b page transfer and R5.c stage
 overlap remain independent decisions. Retained changes require complete semantic,
 resource, cancellation and independent-workload acceptance plus Full43 regression
 coverage wherever the shared file aggregate boundary changes.
+
+The initial complete baseline takes 18–28 ms, below the absolute latency gate.
+Before deciding its disposition, compare process RSS against an attribution run
+that retains the same producer, ranges, repetitions and untimed scalar oracles,
+but omits the entire composition and consumer. Run both through the same frozen
+binary, in three alternating fresh-process pairs. This is deliberately less work
+than a real candidate and cannot establish a speedup or exact RSS bound: allocator
+reuse, code residency and provider allocations can interact. It tests whether
+even removing both stages reveals a credible 30% memory opportunity in the
+frozen workload. Preserve all OS RSS measurements separately from pool credits.

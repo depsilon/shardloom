@@ -517,3 +517,62 @@ fn native_memory_file_composition_baseline() {
     });
     println!("SHARDLOOM_R5A_BASELINE={report}");
 }
+
+/// Attribution only: remove the entire consumer and composition, retaining the
+/// required producer and identical untimed oracles. This is not an equivalent
+/// query, an implemented handoff candidate, or a strict bound on allocator RSS.
+#[test]
+#[ignore = "bounded R5.a producer memory attribution; requires SHARDLOOM_R5A_SOURCE"]
+#[allow(clippy::assertions_on_constants)]
+fn native_composition_producer_memory_attribution() {
+    assert!(!cfg!(debug_assertions), "attribution requires --release");
+    let path = PathBuf::from(
+        std::env::var_os("SHARDLOOM_R5A_SOURCE")
+            .expect("set SHARDLOOM_R5A_SOURCE to the retained native artifact"),
+    )
+    .canonicalize()
+    .unwrap();
+    assert!(path.is_file());
+    let references = RANGE_STARTS
+        .into_iter()
+        .map(|start| oracle(&path, start))
+        .collect::<Vec<_>>();
+    let mut observations = Vec::new();
+    for (start, reference) in RANGE_STARTS.into_iter().zip(&references) {
+        for repetition in 1..=REPETITIONS {
+            let session = ResidentVortexSession::new(SESSION_BYTES, 1).unwrap();
+            let memory = session.memory().clone();
+            let source = session.prepare_file(&path).unwrap();
+            let prepared = projection(&source, start);
+            let result = prepared.execute().unwrap();
+            let rows = result.row_count();
+            let logical_bytes = result.logical_buffer_bytes();
+            drop(result);
+            drop(prepared);
+            drop(source);
+            drop(session);
+            let released = memory.snapshot();
+            assert_eq!(released.reserved_bytes, 0);
+            assert_eq!(rows, RANGE_ROWS);
+            assert_eq!(logical_bytes, reference.logical_input_bytes);
+            observations.push(json!({
+                "row_start": start, "repetition": repetition,
+                "rows": rows, "logical_input_bytes": logical_bytes,
+                "peak_reserved_bytes": released.peak_reserved_bytes,
+                "final_reserved_bytes": released.reserved_bytes,
+            }));
+        }
+    }
+    println!(
+        "SHARDLOOM_R5A_PRODUCER_ATTRIBUTION={}",
+        json!({
+            "schema": "shardloom.r5a.producer_memory_attribution.v1",
+            "scope": "required_producer_and_same_oracles_only_no_equivalent_query_or_speedup_claim",
+            "composition_and_consumer_omitted": true,
+            "strict_process_rss_bound": false,
+            "source": path, "source_rows": SOURCE_ROWS,
+            "projection": COLUMNS, "session_bytes": SESSION_BYTES, "parallelism": 1,
+            "observations": observations,
+        })
+    );
+}
