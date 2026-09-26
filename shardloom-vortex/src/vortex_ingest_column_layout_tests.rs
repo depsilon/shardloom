@@ -353,8 +353,16 @@ fn write_composition(
     // Fresh arrays prevent either writer inheriting cached statistics from its pair.
     let batches = (0..GROUPS).map(batch).collect::<Vec<_>>();
     let dtype = batches[0].dtype().clone();
-    let (options, evidence) =
-        stream_options(context, &decision, &timing, Some(&memory), &dtype, choice).unwrap();
+    let (options, evidence) = stream_options(
+        context,
+        &decision,
+        &timing,
+        Some(&memory),
+        &dtype,
+        choice,
+        None,
+    )
+    .unwrap();
     let summary = options
         .blocking(&context.runtime)
         .write(
@@ -474,6 +482,7 @@ fn column_footer_private_seam_keeps_default_and_inadmissible_schema_on_retained_
             Some(&memory),
             &dtype,
             StreamFooterLayout::ColumnAddressable,
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -522,6 +531,7 @@ fn column_footer_private_seam_keeps_default_and_inadmissible_schema_on_retained_
             None,
             &dtype,
             StreamFooterLayout::ColumnAddressable,
+            None,
         )
         .unwrap();
         assert_eq!(

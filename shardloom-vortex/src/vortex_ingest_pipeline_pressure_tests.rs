@@ -205,6 +205,7 @@ impl vortex::array::iter::ArrayIterator for PressureIterator {
     }
 }
 
+#[allow(clippy::struct_excessive_bools)] // Independent fixture controls, not production policy.
 struct WriteOptions {
     grant: usize,
     expected_rows: u64,
@@ -212,6 +213,7 @@ struct WriteOptions {
     codec: bool,
     overwrite: bool,
     exhaust_after_first: bool,
+    share_writer_input_slot: bool,
 }
 
 impl WriteOptions {
@@ -223,6 +225,7 @@ impl WriteOptions {
             codec: false,
             overwrite: false,
             exhaust_after_first: false,
+            share_writer_input_slot: true,
         }
     }
 }
@@ -233,6 +236,7 @@ struct WriteObservation {
     batch_bytes: Vec<usize>,
     stages: BTreeMap<String, String>,
     pressure_applied: usize,
+    lookahead_enabled: bool,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -285,7 +289,7 @@ fn write_observed(
     )
     .unwrap();
     drop((first_batch, lease));
-    let iterator = StreamingColumnarVortexArrayIterator::new(
+    let mut iterator = StreamingColumnarVortexArrayIterator::new(
         first.dtype().clone(),
         first,
         input.reader,
@@ -300,6 +304,11 @@ fn write_observed(
         Some(memory.clone()),
     )
     .unwrap();
+    let writer_input_lookahead = options
+        .share_writer_input_slot
+        .then(|| iterator.share_input_slot_with_writer(&decision))
+        .flatten();
+    let lookahead_enabled = writer_input_lookahead.is_some();
     let conversion_owner = iterator
         .prefetch
         .as_ref()
@@ -323,6 +332,7 @@ fn write_observed(
         Some(options.expected_rows),
         Some(&memory),
         &source_identities,
+        writer_input_lookahead,
     );
     let snapshot = memory.pool.snapshot();
     assert!(snapshot.peak_reserved_bytes > 0);
@@ -332,6 +342,12 @@ fn write_observed(
     assert!(conversion_owner.is_none_or(|owner| owner.upgrade().is_none()));
     let mut stages = BTreeMap::new();
     let result = result.map(|result| {
+        assert_eq!(
+            result
+                .writer_layout_strategy_applied
+                .contains(";writer_input_lookahead_arrays=1"),
+            lookahead_enabled,
+        );
         stages = result
             .stage_work
             .with_stream(&timing.stages.snapshot())
@@ -347,6 +363,7 @@ fn write_observed(
         batch_bytes,
         stages,
         pressure_applied: pressure_applied.load(Ordering::SeqCst),
+        lookahead_enabled,
     }
 }
 
@@ -411,6 +428,56 @@ fn assert_files(directory: &Path, expected: &[&Path]) {
         actual, expected,
         "owned staging must not survive completion"
     );
+}
+
+#[test]
+fn streaming_writer_shared_input_slot_preserves_constrained_budget_availability() {
+    bounded_completion(|| {
+        let directory = FixtureDirectory::new("shared-input-slot");
+        let batches = vec![
+            batch(0, 32, 512),
+            batch(32, 32, 1024),
+            RecordBatch::new_empty(schema()),
+            batch(64, 32, 128),
+            batch(96, 32, 512),
+            batch(128, 32, 1024),
+        ];
+        let input = directory.0.join("input.arrow");
+        write_ipc(&input, &batches);
+        // Use the real source/conversion/file-statistics/codec/footer pipeline.
+        // Both schedules must fit the same finite budget and publish identical
+        // files. Equal input slots alone cannot prove equal scratch peaks.
+        // The source's largest decoded batch is about 190 KiB; conversion
+        // reserves twice that per producer slot before entering either writer.
+        for memory_bytes in [5 << 20, 6 << 20, 8 << 20] {
+            let mut serial_bytes = None;
+            for share_writer_input_slot in [false, true] {
+                let source =
+                    crate::universal_format_io::stream_flat_arrow_ipc_columnar_source(&input, 160)
+                        .unwrap();
+                let output = directory.0.join(format!(
+                    "budget-{memory_bytes}-{share_writer_input_slot}.vortex"
+                ));
+                let mut options = WriteOptions::new(4, 160);
+                options.codec = true;
+                options.memory_bytes = memory_bytes;
+                options.share_writer_input_slot = share_writer_input_slot;
+                let observed = write_observed(source, &output, &options);
+                assert_eq!(observed.lookahead_enabled, share_writer_input_slot);
+                assert_eq!(observed.result.unwrap(), 160);
+                assert_eq!(observed.memory.denied_reservations, 0);
+                assert_complete_values(&output, &batches);
+                let bytes = fs::read(&output).unwrap();
+                if let Some(expected) = &serial_bytes {
+                    assert_eq!(&bytes, expected);
+                } else {
+                    serial_bytes = Some(bytes);
+                }
+                fs::remove_file(output).unwrap();
+                assert_files(&directory.0, &[&input]);
+            }
+        }
+    });
 }
 
 #[test]
@@ -556,7 +623,10 @@ fn streaming_pressure_full_writer_validation_failure_preserves_existing_destinat
     });
 }
 
-fn codec_cancel_iterator(memory: &NativeIngestMemory) -> StreamingColumnarVortexArrayIterator {
+fn codec_cancel_iterator(
+    memory: &NativeIngestMemory,
+    source_dropped: Arc<AtomicUsize>,
+) -> StreamingColumnarVortexArrayIterator {
     let first_batch = batch(0, 32, 1024);
     let shape = FlatColumnarSourceShape {
         projected_columns: schema()
@@ -588,7 +658,11 @@ fn codec_cancel_iterator(memory: &NativeIngestMemory) -> StreamingColumnarVortex
     StreamingColumnarVortexArrayIterator::new(
         first.dtype().clone(),
         first,
-        Box::new(reader),
+        Box::new(ObservedSource {
+            inner: Box::new(reader),
+            batch_bytes: Arc::new(Mutex::new(Vec::new())),
+            dropped: source_dropped,
+        }),
         schema()
             .fields()
             .iter()
@@ -607,82 +681,172 @@ fn codec_cancel_iterator(memory: &NativeIngestMemory) -> StreamingColumnarVortex
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep the held-codec handoff and cleanup proof together.
 fn streaming_codec_blocked_cancellation_drains_and_prevents_publication() {
+    struct ObservedIterator {
+        inner: StreamingColumnarVortexArrayIterator,
+        delivered: Arc<AtomicUsize>,
+        allow_second: Option<mpsc::Receiver<()>>,
+        second_delivered: mpsc::Sender<()>,
+    }
+
+    impl Iterator for ObservedIterator {
+        type Item = vortex::error::VortexResult<vortex::array::ArrayRef>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let item = self.inner.next();
+            if item.as_ref().is_some_and(std::result::Result::is_ok) {
+                if self.delivered.load(Ordering::SeqCst) == 1
+                    && let Some(allow) = self.allow_second.take()
+                    && let Err(error) = allow.recv_timeout(Duration::from_secs(20))
+                {
+                    return Some(Err(vortex_stream_error(error)));
+                }
+                if self.delivered.fetch_add(1, Ordering::SeqCst) == 1 {
+                    self.second_delivered.send(()).unwrap();
+                }
+            }
+            item
+        }
+    }
+
+    impl vortex::array::iter::ArrayIterator for ObservedIterator {
+        fn dtype(&self) -> &vortex::array::dtype::DType {
+            &self.inner.dtype
+        }
+    }
+
     bounded_completion(|| {
-        let directory = FixtureDirectory::new("codec-cancel");
-        let output = directory.0.join("cancelled.vortex");
-        let (entered, entry) = mpsc::channel();
-        let (release, released) = mpsc::channel();
-        let gate = Arc::new(CodecCompletionGate {
-            entered,
-            release: Mutex::new(Some(released)),
-        });
-        let (ready, resources) = mpsc::channel();
-        let worker_output = output.clone();
-        let writer = thread::spawn(move || {
-            let memory = NativeIngestMemory::new(64 << 20).unwrap();
-            let iterator = codec_cancel_iterator(&memory);
-            let prefetch = iterator.prefetch.as_ref().unwrap();
-            let weak = Arc::downgrade(&prefetch.context);
-            ready
-                .send((prefetch.cancellation.clone(), memory.pool.clone()))
-                .unwrap();
-            let writer_timing = VortexWriterStageTiming {
-                codec_completion_gate: Some(gate),
-                ..VortexWriterStageTiming::default()
-            };
-            // Use the actual codec and bounded source-batch strategy, with the
-            // same native allocator. A later input remains behind the held codec.
-            let result = LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
-                let context = context.borrow();
-                let child = large_source_text_vortex_write_strategy(
-                    32,
-                    1 << 20,
-                    1,
-                    1,
-                    &["renamed_payload".into()],
-                    &writer_timing,
-                    &memory.session,
-                );
-                let options = memory.session.write_options().with_strategy(Arc::new(
-                    bounded_ingest_layout::BoundedIngestLayout::new(
-                        child,
-                        0,
-                        memory.pool.reserve(0).unwrap(),
-                    ),
-                ));
-                shardloom_core::write_workspace_safe_bytes_with_producer(
-                    &directory.0,
-                    &worker_output,
-                    false,
-                    "codec cancellation fixture",
-                    |writer| {
-                        options
-                            .blocking(&context.runtime)
-                            .write(writer, iterator)
-                            .map_err(vortex_error)
-                    },
-                )
+        for shared_slot in [false, true] {
+            let directory = FixtureDirectory::new("codec-cancel");
+            let output = directory.0.join("cancelled.vortex");
+            let (entered, entry) = mpsc::channel();
+            let (release, released) = mpsc::channel();
+            let (allow_second, second_allowed) = mpsc::channel();
+            let (second_delivered, second_delivery) = mpsc::channel();
+            let gate = Arc::new(CodecCompletionGate {
+                entered,
+                release: Mutex::new(Some(released)),
             });
-            assert!(weak.upgrade().is_none());
-            assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
-            assert!(!worker_output.exists());
-            assert_files(&directory.0, &[]);
-            result.map(|_| ()).map_err(|error| error.to_string())
-        });
-        let (cancel, memory) = resources.recv_timeout(Duration::from_secs(20)).unwrap();
-        let reached = entry.recv_timeout(Duration::from_secs(20));
-        let held = memory.snapshot();
-        cancel.cancel();
-        // Always release before assertions or join. Cancellation does not
-        // preempt a provider call; it takes effect when that call returns.
-        let _ = release.send(());
-        let result = writer.join().unwrap();
-        reached.unwrap();
-        assert!(held.reserved_bytes > 0);
-        assert!(held.peak_reserved_bytes <= held.limit_bytes);
-        assert!(result.unwrap_err().contains("execution cancelled"));
-        assert_eq!(memory.snapshot().reserved_bytes, 0);
+            let (ready, resources) = mpsc::channel();
+            let worker_output = output.clone();
+            let writer = thread::spawn(move || {
+                let memory = NativeIngestMemory::new(64 << 20).unwrap();
+                let source_dropped = Arc::new(AtomicUsize::new(0));
+                let mut iterator = codec_cancel_iterator(&memory, Arc::clone(&source_dropped));
+                let mut decision = VortexLayoutWriteRuntimeDecision::not_requested_for_source(
+                    "vortex_array_kernel",
+                    "held-codec cancellation fixture",
+                    VortexIngestCertificationLevel::IngestCertified,
+                    VortexWriterPhysicalDesignSourceInput::writer_only(),
+                );
+                // Synthetic fixture admission: give the actual runtime a caller
+                // and one provider driver. This is not a public CPU-plan claim.
+                decision.writer_runtime_requested_parallelism = 2;
+                decision.writer_runtime_applied_parallelism = 2;
+                decision.writer_runtime_background_workers = 1;
+                let grant = if shared_slot {
+                    iterator.share_input_slot_with_writer(&decision)
+                } else {
+                    None
+                };
+                assert_eq!(grant.is_some(), shared_slot);
+                let prefetch = iterator.prefetch.as_ref().unwrap();
+                assert_eq!(prefetch.refill_after_handoff, !shared_slot);
+                let weak = Arc::downgrade(&prefetch.context);
+                let delivered = Arc::new(AtomicUsize::new(0));
+                ready
+                    .send((
+                        prefetch.cancellation.clone(),
+                        memory.pool.clone(),
+                        Arc::clone(&delivered),
+                    ))
+                    .unwrap();
+                let iterator = ObservedIterator {
+                    inner: iterator,
+                    delivered,
+                    allow_second: shared_slot.then_some(second_allowed),
+                    second_delivered,
+                };
+                let writer_timing = VortexWriterStageTiming {
+                    codec_completion_gate: Some(gate),
+                    ..VortexWriterStageTiming::default()
+                };
+                let result = LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
+                    let context = context.borrow();
+                    let (policy, drivers) = context.apply_runtime_policy(&decision).unwrap();
+                    assert_eq!(policy.background_workers, 1);
+                    let child = large_source_text_vortex_write_strategy(
+                        32,
+                        1 << 20,
+                        1,
+                        1,
+                        &["renamed_payload".into()],
+                        &writer_timing,
+                        &memory.session,
+                    );
+                    let options = memory.session.write_options().with_strategy(Arc::new(
+                        bounded_ingest_layout::BoundedIngestLayout::new(
+                            child,
+                            0,
+                            memory.pool.reserve(0).unwrap(),
+                        )
+                        .with_input_prefetch(grant.is_some()),
+                    ));
+                    let result = shardloom_core::write_workspace_safe_bytes_with_producer(
+                        &directory.0,
+                        &worker_output,
+                        false,
+                        "codec cancellation fixture",
+                        |writer| {
+                            options
+                                .blocking(&context.runtime)
+                                .write(writer, iterator)
+                                .map_err(vortex_error)
+                        },
+                    );
+                    drop(drivers);
+                    result
+                });
+                assert!(weak.upgrade().is_none());
+                assert_eq!(source_dropped.load(Ordering::SeqCst), 1);
+                assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
+                assert!(!worker_output.exists());
+                assert_files(&directory.0, &[]);
+                result.map(|_| ()).map_err(|error| error.to_string())
+            });
+            let (cancel, memory, delivered) =
+                resources.recv_timeout(Duration::from_secs(20)).unwrap();
+            let reached = entry.recv_timeout(Duration::from_secs(20));
+            // In the shared case, release the second handoff only after the
+            // real codec reports it is held. Keep that codec held until the
+            // producer confirms the next native array has been handed off.
+            let handed_off = if shared_slot && reached.is_ok() {
+                let _ = allow_second.send(());
+                Some(second_delivery.recv_timeout(Duration::from_secs(20)))
+            } else {
+                None
+            };
+            let held = memory.snapshot();
+            let held_deliveries = delivered.load(Ordering::SeqCst);
+            cancel.cancel();
+            // Release both gates before assertions or join, including failures.
+            // Cancellation does not interrupt a synchronous provider call.
+            let _ = allow_second.send(());
+            let _ = release.send(());
+            let result = writer.join().unwrap();
+            reached.unwrap();
+            if shared_slot {
+                handed_off.unwrap().unwrap();
+                assert_eq!(held_deliveries, 2);
+            } else {
+                assert_eq!(held_deliveries, 1);
+            }
+            assert!(held.reserved_bytes > 0);
+            assert!(held.peak_reserved_bytes <= held.limit_bytes);
+            assert!(result.unwrap_err().contains("execution cancelled"));
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
     });
 }
 

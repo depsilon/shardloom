@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "candidate": "R9.b",
-  "decision": "drop_below_full_ingest_gate",
+  "decision": "reopened_for_input_slot_hardening_and_retention_of_measured_gain",
   "production_runtime_changed": false,
   "scope": "complete writer attribution, paired bounded screen, and matched full CLI ingest;no retained speedup unless all gates pass",
   "source_commit": "1872e55f484b233ecfa8858083664a36ce4ef48f",
@@ -2327,5 +2327,7 @@
       "frozen portable release binaries;full-file hash outside ingest clock",
       "source digest carried from unchanged prior verified generation"
     ]
-  }
+  },
+  "initial_disposition": "drop_below_full_ingest_gate",
+  "retention_policy_update": "Maintainer accepts useful complete-operation gains below original numerical targets;6.5841% is eligible, pending revised resource/correctness/UAT acceptance."
 }

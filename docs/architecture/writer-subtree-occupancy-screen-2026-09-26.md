@@ -1,7 +1,19 @@
 # Writer subtree occupancy — R9.b
 
-Status: drop after matched full ingest; no runtime change or gain retained.
+Status: reopened for input-slot hardening and retention of a useful measured gain.
 PERF-INTAKE / RFC 0044, after R9.a's fragment-reuse audit.
+
+The maintainer rejected the cutoff-only drop: 6.58% lower complete ingest is
+worth pursuing. Preserve that evidence and revise the producer/writer handshake
+so lookahead occupies an existing input slot. The source queue will refill at
+the next pull, after the prior child completes, rather than immediately after
+yielding the lookahead input. Keep the same workers, configured window and per-task
+credit calculation. Generic streams without this handshake remain sequential.
+Measure the revised implementation independently; the earlier timing is not a
+claim for code that has not yet run. Full correctness/resource/query acceptance
+and independent review remain required before merging PR #1465.
+
+The initial experiment and its superseded cutoff-only disposition follow.
 
 The narrow one-input lookahead passes all eight lifecycle tests and 18 bounded
 complete-value/whole-file checks. Its best full candidate ingest is 92.465509 s
@@ -22,11 +34,13 @@ outside the ingest clock. Native CPU counters, generations and all raw logs are
 in the linked evidence. Four exact duplicate outputs were removed after hashing,
 62,731,824,464 bytes cumulatively, keeping at most one new bulk output at a time.
 
-Remove the prototype, its route marker and experimental source fixtures from the
-retained tree. The evidence archive preserves the exact source patches from
+The initial cutoff-only decision removed the prototype, its route marker and
+experimental source fixtures. That disposition is superseded. The evidence
+archive preserves the exact source patches from
 `0d8dd21201aafb31955fb51e9a105087c3f656de`, frozen build identities, commands,
-bounded observations and full-ingest receipts for reproduction. No query change
-or new artifact remains; a new Full43 run is not needed to accept this drop.
+bounded observations and full-ingest receipts for reproduction. The revised
+candidate retains the runtime and lifecycle tests; test-only attribution code
+stays archived. Revised ingest and Full43 acceptance are still required.
 
 Reopening also requires preserving low-budget availability. The source producer
 replenishes its full existing queue before yielding an owned input; lookahead
@@ -86,9 +100,10 @@ Repeated material unused capacity admitted one bounded next-input overlap
 prototype, with one live child strategy. Two concurrent subtrees were not tested.
 The estimate is neither an achievable speedup nor a strict full-ingest upper
 bound. A screen without credible material headroom parks overlap without claiming
-it can never help. Retention still requires at least 10% lower complete guarded
-ingest under matched resources, no larger artifact, exact full values/schema/
-statistics/reopen checks and query regression acceptance. No new CPU allocation,
+it can never help. The original experiment targeted at least 10% lower complete
+guarded ingest. The maintainer's revised retention policy accepts useful positive
+gains below that target, with matched resources, no larger artifact, exact full
+values/schema/statistics/reopen checks and query regression acceptance. No new CPU allocation,
 codec, file topology, external engine or publication semantics is admitted here.
 
 ## Evaluated narrow prototype
@@ -150,11 +165,11 @@ and compare complete file statistics and artifact bytes before considering full
 guarded ingest. All attribution observations remain evidence, including warmed
 and incomplete earlier screens; none is an achieved speedup.
 
-## Closure validation
+## Initial drop validation — superseded disposition
 
-The final Rust tree is byte-identical to `0d8dd212` for this change. Formatting,
+At the initial drop, the Rust tree was byte-identical to `0d8dd212` for this change. Formatting,
 workspace Clippy with warnings denied, workspace all-target tests, public-claim
-and public-status validators pass. The architecture tracker passes with its
+and public-status validators passed. The architecture tracker passed with its
 documented `--allow-blocked` option; existing unfinished gates remain open.
 Independent review checked all archived source patches, hashes, four raw full
 receipts, gate arithmetic and the next-item update. Native prototype tests and

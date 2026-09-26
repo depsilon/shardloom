@@ -20,6 +20,7 @@ pub(super) const DEFAULT_STREAM_FOOTER_LAYOUT: StreamFooterLayout =
 pub(super) struct StreamLayoutEvidence {
     pub(super) status: &'static str,
     pub(super) counters: Option<Arc<ColumnLayoutCounters>>,
+    input_lookahead_arrays: usize,
 }
 
 impl StreamLayoutEvidence {
@@ -42,9 +43,17 @@ impl StreamLayoutEvidence {
         } else if self.status != "retained_source_batch_rows" {
             let _ = write!(applied, ";footer_layout={}", self.status);
         }
+        if self.input_lookahead_arrays != 0 {
+            let _ = write!(
+                applied,
+                ";writer_input_lookahead_arrays={};writer_input_slot_scope=existing_producer_window",
+                self.input_lookahead_arrays
+            );
+        }
     }
 }
 
+#[allow(clippy::needless_pass_by_value)] // Consume the one-use producer scheduling grant.
 pub(super) fn stream_options(
     context: &LocalVortexWriteContext,
     decision: &VortexLayoutWriteRuntimeDecision,
@@ -52,7 +61,18 @@ pub(super) fn stream_options(
     memory: Option<&NativeIngestMemory>,
     dtype: &DType,
     requested: StreamFooterLayout,
+    input_slot: Option<WriterInputLookahead>,
 ) -> Result<(vortex::file::VortexWriteOptions, StreamLayoutEvidence)> {
+    let lookahead = input_slot.is_some();
+    if lookahead
+        && (memory.is_none()
+            || requested != StreamFooterLayout::RetainedRows
+            || decision.writer_runtime_applied_parallelism <= 1)
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "writer input lookahead requires an owned producer slot, retained-row layout and a provider driver; no fallback execution was attempted".into(),
+        ));
+    }
     let Some(memory) = memory else {
         return Ok((
             context.write_options_for_decision(decision, timing),
@@ -63,6 +83,7 @@ pub(super) fn stream_options(
                     "retained_source_batch_rows"
                 },
                 counters: None,
+                input_lookahead_arrays: 0,
             },
         ));
     };
@@ -85,6 +106,7 @@ pub(super) fn stream_options(
             StreamLayoutEvidence {
                 status: "native_struct_column_chunked_preserved_subtrees",
                 counters: Some(counters),
+                input_lookahead_arrays: 0,
             },
         ));
     }
@@ -93,7 +115,8 @@ pub(super) fn stream_options(
     // incompatible child layout is an error, never a mid-stream route change.
     Ok((
         memory.session.write_options().with_strategy(Arc::new(
-            bounded_ingest_layout::BoundedIngestLayout::new(child, 0, memory.pool.reserve(0)?),
+            bounded_ingest_layout::BoundedIngestLayout::new(child, 0, memory.pool.reserve(0)?)
+                .with_input_prefetch(lookahead),
         )),
         StreamLayoutEvidence {
             status: if requested == StreamFooterLayout::ColumnAddressable {
@@ -102,6 +125,7 @@ pub(super) fn stream_options(
                 "retained_source_batch_rows"
             },
             counters: None,
+            input_lookahead_arrays: usize::from(lookahead),
         },
     ))
 }

@@ -20,8 +20,9 @@ the duplicate proposal is dropped, with RunEnd-specific expansion still requirin
 a distinct measured target. R5.a is [retained under its bounded workflow memory gate](owned-array-handoff-screen-2026-09-26.md):
 37–43% lower process peak RSS, complete values and Full43 regression acceptance.
 R9.a is [dropped as duplicate fragment reuse](native-fragment-reuse-audit-2026-09-26.md).
-R9.b is [dropped below the complete-ingest gate](writer-subtree-occupancy-screen-2026-09-26.md).
-R8 concurrent source reuse is the next attribution target. The
+R9.b's [6.58% complete-ingest gain is reopened for retention](writer-subtree-occupancy-screen-2026-09-26.md)
+after the maintainer rejected a cutoff-only drop. Input-slot hardening and revised
+full validation precede R8 concurrent source reuse. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
@@ -160,6 +161,13 @@ serialization removal does not require page redesign or stage overlap.
 These are acceptance objectives, not predicted results. Existing **query** and
 **memory** gates are retained; the other numerical gates below are proposed for
 this intake and must be frozen with the workload before an experiment begins.
+
+The maintainer subsequently clarified that useful measured gains below these
+numerical targets should be retained. Treat the figures as prioritization targets,
+not automatic reasons to reject a positive complete-operation result. Evaluate
+implementation cost, correctness, memory/availability and regressions alongside
+the gain. Preserve the same symmetric fastest-valid comparison and every sample;
+changing the retention target does not change the measurements or their scope.
 
 - **Suite:** for changes spanning multiple query families, at least 10% lower
   Full43 best-sum and 5% lower geometric mean, with no material family regression
