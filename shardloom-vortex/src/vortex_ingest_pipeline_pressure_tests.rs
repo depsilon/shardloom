@@ -332,6 +332,12 @@ fn write_observed(
     assert!(conversion_owner.is_none_or(|owner| owner.upgrade().is_none()));
     let mut stages = BTreeMap::new();
     let result = result.map(|result| {
+        assert_eq!(
+            result
+                .writer_layout_strategy_applied
+                .contains(";writer_input_lookahead_arrays=1"),
+            decision.writer_runtime_applied_parallelism > 1,
+        );
         stages = result
             .stage_work
             .with_stream(&timing.stages.snapshot())

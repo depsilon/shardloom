@@ -17,9 +17,13 @@ pub(super) enum StreamFooterLayout {
 pub(super) const DEFAULT_STREAM_FOOTER_LAYOUT: StreamFooterLayout =
     StreamFooterLayout::RetainedRows;
 
+// Frozen R9.b full-ingest candidate. No environment-dependent dispatch.
+const STREAM_INPUT_LOOKAHEAD: bool = true;
+
 pub(super) struct StreamLayoutEvidence {
     pub(super) status: &'static str,
     pub(super) counters: Option<Arc<ColumnLayoutCounters>>,
+    input_lookahead_arrays: usize,
 }
 
 impl StreamLayoutEvidence {
@@ -42,6 +46,13 @@ impl StreamLayoutEvidence {
         } else if self.status != "retained_source_batch_rows" {
             let _ = write!(applied, ";footer_layout={}", self.status);
         }
+        if self.input_lookahead_arrays != 0 {
+            let _ = write!(
+                applied,
+                ";writer_input_lookahead_arrays={}",
+                self.input_lookahead_arrays
+            );
+        }
     }
 }
 
@@ -63,6 +74,7 @@ pub(super) fn stream_options(
                     "retained_source_batch_rows"
                 },
                 counters: None,
+                input_lookahead_arrays: 0,
             },
         ));
     };
@@ -85,15 +97,20 @@ pub(super) fn stream_options(
             StreamLayoutEvidence {
                 status: "native_struct_column_chunked_preserved_subtrees",
                 counters: Some(counters),
+                input_lookahead_arrays: 0,
             },
         ));
     }
     // The original writer remains available for statically inadmissible schema.
     // Once an admitted candidate begins writing, a malformed native batch or
     // incompatible child layout is an error, never a mid-stream route change.
+    let lookahead = STREAM_INPUT_LOOKAHEAD
+        && requested == StreamFooterLayout::RetainedRows
+        && decision.writer_runtime_applied_parallelism > 1;
     Ok((
         memory.session.write_options().with_strategy(Arc::new(
-            bounded_ingest_layout::BoundedIngestLayout::new(child, 0, memory.pool.reserve(0)?),
+            bounded_ingest_layout::BoundedIngestLayout::new(child, 0, memory.pool.reserve(0)?)
+                .with_input_prefetch(lookahead),
         )),
         StreamLayoutEvidence {
             status: if requested == StreamFooterLayout::ColumnAddressable {
@@ -102,6 +119,7 @@ pub(super) fn stream_options(
                 "retained_source_batch_rows"
             },
             counters: None,
+            input_lookahead_arrays: usize::from(lookahead),
         },
     ))
 }

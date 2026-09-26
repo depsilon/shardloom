@@ -33,7 +33,6 @@ pub(crate) struct BoundedIngestLayout {
     // serializing the footer, while the root and its references remain live.
     layout_references: Arc<Mutex<MemoryLease>>,
     started: AtomicBool,
-    #[cfg(test)]
     prefetch_input: bool,
 }
 
@@ -81,13 +80,11 @@ impl BoundedIngestLayout {
             initial_chunks,
             layout_references: Arc::new(Mutex::new(layout_references)),
             started: AtomicBool::new(false),
-            #[cfg(test)]
             prefetch_input: false,
         }
     }
 
-    /// Attribution prototype only: retain one next input while writing a child.
-    #[cfg(test)]
+    /// Retain one next input while writing a child; admitted by the stream owner.
     pub(crate) fn with_input_prefetch(mut self, enabled: bool) -> Self {
         self.prefetch_input = enabled;
         self
@@ -162,10 +159,7 @@ impl LayoutStrategy for BoundedIngestLayout {
             let mut children = Vec::new();
             self.grow_references(&mut children, self.initial_chunks)?;
             let mut rows = 0_u64;
-            #[cfg(test)]
             let prefetch = self.prefetch_input;
-            #[cfg(not(test))]
-            let prefetch = false;
             let mut next = input.next().await;
             while let Some(item) = next.take() {
                 let (sequence, array) = item?;

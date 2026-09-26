@@ -91,6 +91,24 @@ input-poll order and child order so those boundaries remain visible. The loaded
 [summary](../benchmarks/writer-subtree-occupancy-2026-09-26.json) links all three
 raw screens, frozen binaries/source hashes, OS process counters and guard receipts.
 
+The `e662f674` paired prototype passes eight deterministic lifecycle tests and
+18 complete-value/whole-file-hash checks. Its best complete-writer savings are
+8.11%, 8.66% and 5.25% for row groups 0, 113 and 225. These bounded writes retain
+all preconverted inputs and have first/last-batch costs, so they do not establish
+the complete ingest gate. Admit a full-size comparison before disposition.
+
+Freeze matched portable CLI builds and run control/candidate/candidate/control
+through `run_clickbench_ingest_uat.sh`: the resident 99,997,497-row source,
+P4, 24 GiB, 600-second timeout and 17 GB artifact ceiling. Preserve the existing
+watchdog, source-residency and storage admission controls. The full candidate
+enables lookahead only in the existing memory-owned stream writer with at least
+one provider background driver; array-only and P1 writers stay sequential.
+No extra worker or codec/row-block setting changes. Retain all samples and use
+the symmetric fastest valid complete process time. Hash each completed output;
+remove it only if identical to the retained native artifact. Any different
+output stays for full value/schema/statistics investigation. Retention still
+requires 10% complete savings, correctness/resource acceptance and query UAT.
+
 Compare fresh-input control/candidate samples in alternating order with the same
 retained writer, source regions, field set and memory/CPU/output limits. Charge
 the complete writer, flush and driver teardown. Independently reopen every value
