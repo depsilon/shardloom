@@ -11209,6 +11209,18 @@ mod prefetch_tests;
 #[path = "vortex_ingest_owned_tests.rs"]
 mod owned_ingest_tests;
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "vortex_ingest_writer_occupancy.rs"]
+mod writer_occupancy;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "vortex_ingest_writer_profile_input.rs"]
+mod writer_profile_input;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "vortex_ingest_writer_profile_bench.rs"]
+mod writer_profile_bench;
+
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_pipeline_pressure_tests.rs"]
 mod pipeline_pressure_tests;

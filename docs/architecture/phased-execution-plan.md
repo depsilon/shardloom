@@ -264,7 +264,9 @@ dropped after the native FSST/predicate screen; see `fsst-consumer-screen-2026-0
 R1.c's shared-transform proposal is already implemented in the inspected paths;
 see `shared-domain-expression-audit-2026-09-26.md`. R5.a meets its bounded workflow
 memory gate with complete regression acceptance; see `owned-array-handoff-screen-2026-09-26.md`.
-R9.a is next. The release train remains
+R5.a merged in PR #1464. R9.a's fragment reuse is already present in the inspected
+paths; see `native-fragment-reuse-audit-2026-09-26.md`. R9.b attribution is next.
+The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
@@ -297,7 +299,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R6.b: drop sampled FSST source-text persistence/predicates after exact native screening; see `fsst-consumer-screen-2026-09-26.md`.
     - [x] R1.c: drop duplicate shared-transform implementation after source/test audit; new RunEnd targets still require attribution. See `shared-domain-expression-audit-2026-09-26.md`.
     - [x] R5.a: retain direct owned-array handoff through the shared prepared aggregate family; 37–43% lower workflow peak RSS, exact complete results and Full43 regression acceptance. See `owned-array-handoff-screen-2026-09-26.md`.
-    - [ ] R9.a: record admission and ship/drop for Prepare/seal native fragments once and reuse encoded payloads.
+    - [x] R9.a: drop duplicate prepare/seal/reuse implementation after tracing one-pass streamed serialization and existing memory-generation segment reuse. See `native-fragment-reuse-audit-2026-09-26.md`.
     - [ ] R9.b: record admission and ship/drop for Bounded writer-subtree overlap.
     - [ ] R8: record admission and ship/drop for Shared scan/decode producer for concurrent queries.
     - [ ] C2.a: record admission and ship/drop for Pre-bound executable block recipes.
@@ -323,11 +325,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: merge the accepted R5.a candidate, then advance to R9.a fragment
-    reuse and R9.b bounded writer-subtree overlap. R5.a preserves shared aggregate
-    kernels and passes its complete-workflow memory gate, Full43, workspace/native
-    validation and independent review. Attribute actual repeated serialization or
-    recoverable writer idle time before adding another representation or queue.
+  - Next outcome: R9.b bounded writer-subtree attribution, after R5.a merged and
+    R9.a's source audit closed the duplicate fragment proposal. Freeze retained
+    input, writer and CPU ownership; compare ordinary and observed writer runs.
+    The test-only observer estimates unused driver capacity, not achievable
+    ingest savings. See `writer-subtree-occupancy-screen-2026-09-26.md`.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
