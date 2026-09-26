@@ -244,6 +244,11 @@ the ledger.
 
 ## Planned
 
+September 26 scope override: finish the authorized 0.3.0 publication train and
+its release-record validation/merge, then stop. Do not start new implementation
+or automatically resume the remaining operator, profiling, ingest or storage
+queue below. Those obligations remain pending, not completed by publication.
+
 September 20 maintainer override after PR #1454: complete native spill/recovery,
 prepared/public-call availability, and concurrent serving before the next ingest
 CPU and persisted-storage ship/drop cycle. This explicitly resumes capability
@@ -2436,7 +2441,9 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-The September 20 maintainer override at the start of Planned takes precedence:
+The September 26 release-only scope override at the start of Planned takes
+precedence. Complete 0.3.0 and stop; the following September 20 implementation
+order remains queued for a later continuation:
 finish spill/recovery, prepared/public availability and concurrent serving with
 implementation, full validation and merges, then screen ingest CPU and persisted
 storage for material improvements. The Q10 selection below is retained history

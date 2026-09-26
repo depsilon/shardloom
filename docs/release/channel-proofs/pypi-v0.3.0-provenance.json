@@ -1,0 +1,229 @@
+{
+  "artifact_refs": [
+    {
+      "bundled_cli": {
+        "member": "shardloom-0.3.0.data/purelib/shardloom/bin/linux-x86_64/shardloom",
+        "platform": "linux-x86_64",
+        "sha256": "9600e9e8b783ffaf45e8ffbd2945625fbf34fbd20388bd02c34efc719b291b3c",
+        "size_bytes": 81102720
+      },
+      "filename": "shardloom-0.3.0-cp313-cp313-manylinux_2_39_x86_64.whl",
+      "inspection_scope": "package_metadata_and_bundled_CLI_bytes;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-030-zpa5k_jf/pypi/shardloom-0.3.0-cp313-cp313-manylinux_2_39_x86_64.whl",
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "adb2e73266af54c3420d076f1327833814bbe8f99d38d6c9b739834303f2a7d6",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.3.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "e20a45c971da79b9d594372092b86d64c35782cc8f1792442ca76a33d995a4ad",
+      "size_bytes": 26198747,
+      "url": "https://files.pythonhosted.org/packages/05/8e/b64a65b3d05553ed6f2d3e40a9893c6649802e87594a5d9e6ffca8a8a723/shardloom-0.3.0-cp313-cp313-manylinux_2_39_x86_64.whl",
+      "wheel_metadata_sha256": "17674805b4f2b080cc1e56ce4856c13cb9cf0a2f66a1d0a5acc7f65c6152ad18",
+      "wheel_tag": "cp313-cp313-manylinux_2_39_x86_64",
+      "workflow_artifact_archive_sha256": "ec25148db423fe0734f781f0d45f92df703137af3a89934316d0a0f52b2ff40e",
+      "workflow_artifact_archive_size_bytes": 26060464,
+      "workflow_artifact_id": 10908060212,
+      "workflow_artifact_name": "python-dist-linux"
+    },
+    {
+      "bundled_cli": {
+        "member": "shardloom-0.3.0.data/purelib/shardloom/bin/macos-aarch64/shardloom",
+        "platform": "macos-aarch64",
+        "sha256": "7120619e36341145e277ca4d94b8a19dc076b86b906cc4ae1aff1673ddf3b697",
+        "size_bytes": 69560664
+      },
+      "filename": "shardloom-0.3.0-cp313-cp313-macosx_26_0_arm64.whl",
+      "inspection_scope": "package_metadata_and_bundled_CLI_bytes;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-030-zpa5k_jf/pypi/shardloom-0.3.0-cp313-cp313-macosx_26_0_arm64.whl",
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "adb2e73266af54c3420d076f1327833814bbe8f99d38d6c9b739834303f2a7d6",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.3.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "72a10004548bbd6e46305ed9178db0df9c9e7757e143f40bb9e7250cdd36ae4d",
+      "size_bytes": 23213096,
+      "url": "https://files.pythonhosted.org/packages/7e/aa/31409dcea275550be2be20f9995fa5059d08ac987af245e7f2907bd0f904/shardloom-0.3.0-cp313-cp313-macosx_26_0_arm64.whl",
+      "wheel_metadata_sha256": "31dc5acc4da89eebe4713e0ff0a2ae73efbad8faa39b2b2a3c1e4d006d991d6e",
+      "wheel_tag": "cp313-cp313-macosx_26_0_arm64",
+      "workflow_artifact_archive_sha256": "694c703b0ccba85fc28c485ece1847dbcfb916a1ed999593fccdfe1f66a66e7f",
+      "workflow_artifact_archive_size_bytes": 23095500,
+      "workflow_artifact_id": 10907805937,
+      "workflow_artifact_name": "python-dist-macos"
+    },
+    {
+      "clean_sdist_no_bundled_cli": true,
+      "filename": "shardloom-0.3.0.tar.gz",
+      "inspection_scope": "source_package_metadata_and_no_bundled_CLI;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-030-zpa5k_jf/pypi/shardloom-0.3.0.tar.gz",
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "adb2e73266af54c3420d076f1327833814bbe8f99d38d6c9b739834303f2a7d6",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.3.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "a4ae9872906bd3ba29d568d6a1735479f5a1a1aac79eea31fbdeb8e08bd07bc1",
+      "size_bytes": 653456,
+      "source_pyproject_sha256": "8cbb875fcba955c7fecacae3d80a59cd92aba3e8e4c057797cd924cb779c119b",
+      "url": "https://files.pythonhosted.org/packages/a6/88/62c19fa6a2413f1b82f6eb775e1eb981984a4a4f7e7f66ee89ae75711b60/shardloom-0.3.0.tar.gz",
+      "workflow_artifact_archive_sha256": "e5b947c6f4966d8b1d003be01b05712304d533ea6d0857d9a0fd098e90c96d40",
+      "workflow_artifact_archive_size_bytes": 653777,
+      "workflow_artifact_id": 10906799835,
+      "workflow_artifact_name": "python-dist-sdist"
+    },
+    {
+      "bundled_cli": {
+        "member": "shardloom-0.3.0.data/purelib/shardloom/bin/windows-x86_64/shardloom.exe",
+        "platform": "windows-x86_64",
+        "sha256": "d962e1b9d6198095bb32ea04a9ad298d832f460fbe39e99af3f9ab25c0236214",
+        "size_bytes": 91364352
+      },
+      "filename": "shardloom-0.3.0-cp313-cp313-win_amd64.whl",
+      "inspection_scope": "package_metadata_and_bundled_CLI_bytes;no_execution",
+      "local_path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-030-zpa5k_jf/pypi/shardloom-0.3.0-cp313-cp313-win_amd64.whl",
+      "package_metadata": {
+        "license_expression": "Apache-2.0",
+        "metadata_sha256": "80d8c49bb93142d108960eae82c32107bf38f7332f4818b9a53e4caa4fbcec24",
+        "name": "shardloom",
+        "requires_dist": [
+          "numpy; extra == \"materialization\"",
+          "pandas; extra == \"materialization\"",
+          "pyarrow; extra == \"materialization\""
+        ],
+        "requires_python": ">=3.10",
+        "version": "0.3.0"
+      },
+      "registry_digest_match": true,
+      "retrieval_source": "existing_GitHub_Actions_workflow_artifact",
+      "sha256": "3c50e49618d1f524696223b4aa8ae4cb1fc9b4e7e2a617deb166f376a782b371",
+      "size_bytes": 26239917,
+      "url": "https://files.pythonhosted.org/packages/40/da/e1b85922891d28a1e83082c1423ffa96858b82804fcc99a297ffa14f1699/shardloom-0.3.0-cp313-cp313-win_amd64.whl",
+      "wheel_metadata_sha256": "d0b50da07c4bbdca70f5d6ffc745e8cc4e635bbdfefc63803bb7c30c9e17b784",
+      "wheel_tag": "cp313-cp313-win_amd64",
+      "workflow_artifact_archive_sha256": "37ac487c552665a5104ce2ac33bc0593b7d2594e05efe60a8ee5c98b71a0dfc6",
+      "workflow_artifact_archive_size_bytes": 26119011,
+      "workflow_artifact_id": 10908215834,
+      "workflow_artifact_name": "python-dist-windows"
+    }
+  ],
+  "build_recipe": "cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces; staged platform wheels; clean source sdist",
+  "channel_id": "pypi",
+  "channel_proof_ref": {
+    "path": "docs/release/channel-proofs/pypi-v0.3.0-transcript.json",
+    "sha256": "65e3d697980abae449b285832afbd6452793f7042841b18244b082b87b76757c"
+  },
+  "checksum_ref": {
+    "path": "docs/release/channel-proofs/pypi-v0.3.0-checksums.sha256",
+    "sha256": "de9117af97a5262239a1ccce773477e43ee216590aaab4ec9a25f50418affc8c"
+  },
+  "complete_compiled_dependency_inventory_claimed": false,
+  "crypto_attestation_verification_performed": false,
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "generator": {
+    "path": "scripts/registry_release_evidence.py",
+    "sha256": "274ec88d17c96db4d273451deae71ce5ebec3d9b6c9368b8200d8ad0435f15af"
+  },
+  "local_build_or_package_execution_performed": false,
+  "observed_at_utc": "2026-09-26T14:01:03.546803Z",
+  "package_name": "shardloom",
+  "package_upload_attempted": false,
+  "package_version": "0.3.0",
+  "proof_status": "passed",
+  "provenance_status": "unsigned_post_publication_observation",
+  "publication_attempted": false,
+  "registry_inventory_ref": {
+    "path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-030-zpa5k_jf/pypi-registry.json",
+    "sha256": "6a0b8ffbe26ca63021902bf8788424f23dd5886f2232ae36a36a32cf95bb7e59"
+  },
+  "release_source_commit": "751126027d3abb438952c2fe157dab87c44e3347",
+  "runtime_and_packaging_source_equal_to_release": true,
+  "sbom_ref": {
+    "path": "docs/release/channel-proofs/pypi-v0.3.0-sbom.cdx.json",
+    "sha256": "9d967f16bc62ae540dd0c873160be168afa4b47b826110c763e394583546d6ab"
+  },
+  "schema_version": "shardloom.registry_release_evidence.v1",
+  "source_changes_from_release": [
+    "docs/release/channel-proofs/github-prerelease-v0.3.0-transcript.json",
+    "docs/release/channel-proofs/testpypi-v0.3.0-bundled-smoke.stdout.json",
+    "docs/release/channel-proofs/testpypi-v0.3.0-transcript.json"
+  ],
+  "source_commit": "c03b9c9afba8062fb706a8502775416ac76321a3",
+  "source_declared_inventory": {
+    "cargo_lock_package_count": 387,
+    "cargo_lock_registry_package_count": 381,
+    "python_optional_dependencies": {
+      "materialization": [
+        "numpy",
+        "pandas",
+        "pyarrow"
+      ]
+    },
+    "python_required_dependencies": [],
+    "scope": "actual build source declarations;not compiled or linked dependency proof"
+  },
+  "source_inputs": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "3cff68bfe028e3e7e0d2cd61781fae1e5a9722a9e9408643cab6ccdfc8878895",
+      "source_commit": "c03b9c9afba8062fb706a8502775416ac76321a3"
+    },
+    {
+      "path": "python/pyproject.toml",
+      "sha256": "8cbb875fcba955c7fecacae3d80a59cd92aba3e8e4c057797cd924cb779c119b",
+      "source_commit": "c03b9c9afba8062fb706a8502775416ac76321a3"
+    },
+    {
+      "path": ".github/workflows/pypi-publish-draft.yml",
+      "sha256": "c5594266bc961733a11fe45986ce658ca998c3880aaacd03fbc5689696c3b413",
+      "source_commit": "c03b9c9afba8062fb706a8502775416ac76321a3"
+    }
+  ],
+  "workflow_artifact_inventory_ref": {
+    "path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-030-zpa5k_jf/pypi-artifacts.json",
+    "sha256": "6e6d2b1308e9d34190e93696456623d297af902d84eef0b6f23c5e196a95b537"
+  },
+  "workflow_attempt": 1,
+  "workflow_metadata_ref": {
+    "path": "/Users/dylan/.cache/shardloom/cargo-target/registry-evidence-030-zpa5k_jf/pypi-workflow.json",
+    "sha256": "2e5c0f30ca8d39addf4ea3327a1da3e3b91da863afe1167764386fef98f63274"
+  },
+  "workflow_observation": {
+    "conclusion": "success",
+    "event": "workflow_dispatch",
+    "head_sha": "c03b9c9afba8062fb706a8502775416ac76321a3",
+    "html_url": "https://github.com/depsilon/shardloom/actions/runs/36245638911",
+    "id": 36245638911,
+    "path": ".github/workflows/pypi-publish-draft.yml",
+    "run_attempt": 1,
+    "status": "completed"
+  },
+  "workflow_path": ".github/workflows/pypi-publish-draft.yml",
+  "workflow_run_id": 36245638911,
+  "workflow_url": "https://github.com/depsilon/shardloom/actions/runs/36245638911"
+}

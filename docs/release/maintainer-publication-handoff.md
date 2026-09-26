@@ -2,9 +2,9 @@
 
 # Maintainer Publication Handoff
 
-Current selected publication: v0.2.4, after all four channel proofs passed. See
-[publication verification](v0.2.4-publication-verification.md) for exact release,
-tag and build identities. The earlier release addenda below remain historical.
+Current selected publication: v0.3.0, after all four channel proofs passed. See
+[publication verification](v0.3.0-publication-verification.md) for exact release,
+tag and registry build identities. Earlier release addenda below remain historical.
 Package access is technical-preview only; production and unfinished capability
 gates remain open.
 
@@ -209,9 +209,9 @@ handoff packet.
 
 ## Decision Summary
 
-Maintainer approval and proof are recorded for the v0.2.4 GitHub pre-release,
+Maintainer approval and proof are recorded for the v0.3.0 GitHub pre-release,
 TestPyPI, PyPI and Homebrew sequence in the
-[publication record](v0.2.4-publication-verification.md). Source-validation and
+[publication record](v0.3.0-publication-verification.md). Source-validation and
 pre-bump implementation UAT retain their separate identities. Public package
 install claims are allowed only for the selected proof-backed technical-preview
 channels.
@@ -223,7 +223,7 @@ Allowed now:
 - Scoped local usability evidence with `public_release_claim_allowed=false`.
 - Current scoped full-local benchmark-publication evidence with public performance claims still
   disallowed.
-- Selected v0.2.4 package-channel install proof for GitHub pre-release, TestPyPI, PyPI, and
+- Selected v0.3.0 package-channel install proof for GitHub pre-release, TestPyPI, PyPI, and
   Homebrew.
 
 Not allowed now:
@@ -238,7 +238,7 @@ Not allowed now:
 ## Evidence Packet
 
 Current channel evidence is recorded in
-[v0.2.4 publication verification](v0.2.4-publication-verification.md).
+[v0.3.0 publication verification](v0.3.0-publication-verification.md).
 The following `RELEASE-PACKAGE-15` artifact references and checksums are
 historical local evidence, not the current release's artifact identities:
 
@@ -288,10 +288,10 @@ signing/attestation policy, and destination channels.
 
 ## Current Blockers
 
-Selected v0.2.4 package-channel verification is complete. Production
+Selected v0.3.0 package-channel verification is complete. Production
 compatibility, signing, future package channels, competitive performance and
-broad runtime claims still require separate proof. The phase plan retains 116
-open items; publication does not close those PERF/CG obligations.
+broad runtime claims still require separate proof. The phase plan retains the
+open implementation and PERF/CG obligations; publication does not close them.
 
 Historical `RELEASE-PACKAGE-15` local evidence recorded the following results.
 These older reports do not establish current architecture or performance-gate
@@ -320,10 +320,10 @@ completion:
 
 | Channel | Current status | Proof or remaining action |
 | --- | --- | --- |
-| GitHub pre-release | Published/proof-backed for v0.2.4 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v0.2.4-transcript.json`. |
-| TestPyPI | Published/proof-backed for v0.2.4 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v0.2.4-transcript.json`. |
-| PyPI | Published/proof-backed for v0.2.4 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v0.2.4-transcript.json`. |
-| Homebrew tap | Published/proof-backed for v0.2.4 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v0.2.4-transcript.json`. |
+| GitHub pre-release | Published/proof-backed for v0.3.0 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v0.3.0-transcript.json`. |
+| TestPyPI | Published/proof-backed for v0.3.0 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v0.3.0-transcript.json`. |
+| PyPI | Published/proof-backed for v0.3.0 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v0.3.0-transcript.json`. |
+| Homebrew tap | Published/proof-backed for v0.3.0 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v0.3.0-transcript.json`. |
 | Scoop | Blocked | Approve bucket manifest, checksums, install/uninstall/smoke transcript, update/rollback policy. |
 | winget | Blocked | Approve manifest/submission, installer proof, install/uninstall/smoke transcript, update/rollback policy. |
 | conda-forge | Blocked | Approve staged-recipes/feedstock submission, clean feedstock install/uninstall/smoke, maintainer policy. |
@@ -332,7 +332,7 @@ completion:
 
 ## Approval Record
 
-Publication approval for v0.2.4 is recorded in
+Publication approval for v0.3.0 is recorded in
 `docs/release/final-release-approval-post-release-verification.json`. The approved channels are
 GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 
@@ -344,7 +344,7 @@ GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 - Approved secrets/OIDC/environment setup for each selected channel.
 - Passed selected-channel checks, with unfinished production and capability gates preserved.
 
-Selected-channel package install claims are now allowed for v0.2.4. Production, performance,
+Selected-channel package install claims are now allowed for v0.3.0. Production, performance,
 Spark-replacement, platform, broad runtime, future package-channel, and fallback-execution claims
 remain prohibited.
 

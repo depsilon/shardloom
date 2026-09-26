@@ -69,8 +69,8 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
         for path in ("../escape", "/absolute", "x/../escape", "x\\escape"):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 evidence.safe_member(path)
-        self.assertEqual(evidence.package_metadata(b"Name: shardloom\nVersion: 0.2.4\n\n")["version"], "0.2.4")
-        for raw in (b"Name: other\nVersion: 0.2.4\n", b"Name: shardloom\nVersion: 0.2.3\n"):
+        self.assertEqual(evidence.package_metadata(b"Name: shardloom\nVersion: 0.3.0\n\n")["version"], "0.3.0")
+        for raw in (b"Name: other\nVersion: 0.3.0\n", b"Name: shardloom\nVersion: 0.2.3\n"):
             with self.assertRaises(ValueError):
                 evidence.package_metadata(raw)
 
@@ -78,7 +78,7 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
         rows = [{"filename": item[0], "sha256": "a" * 64, "size": 8, "url": "https://example.invalid/" + item[0]}
                 for item in evidence.KINDS.values()]
         proof = {"schema_version": "shardloom.python_registry_package_proof.v1", "proof_status": "passed",
-                 "package_version": "0.2.4", "channel_id": "testpypi", "fallback_attempted": False,
+                 "package_version": "0.3.0", "channel_id": "testpypi", "fallback_attempted": False,
                  "external_engine_invoked": False, "registry_release_artifacts": rows}
         def live():
             return {"urls": [dict(row, digests={"sha256": row["sha256"]}) for row in rows]}
@@ -92,11 +92,11 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
         filename, platform, binary = evidence.KINDS["python-dist-macos"]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / filename
-            def write(extra=False, version="0.2.4", relocated=False):
+            def write(extra=False, version="0.3.0", relocated=False):
                 with zipfile.ZipFile(path, "w") as archive:
-                    archive.writestr("shardloom-0.2.4.dist-info/METADATA", f"Name: shardloom\nVersion: {version}\n\n")
-                    archive.writestr("shardloom-0.2.4.dist-info/WHEEL", "Root-Is-Purelib: false\nTag: cp313-cp313-macosx_26_0_arm64\n\n")
-                    prefix = "shardloom-0.2.4.data/purelib/" if relocated else ""
+                    archive.writestr("shardloom-0.3.0.dist-info/METADATA", f"Name: shardloom\nVersion: {version}\n\n")
+                    archive.writestr("shardloom-0.3.0.dist-info/WHEEL", "Root-Is-Purelib: false\nTag: cp313-cp313-macosx_26_0_arm64\n\n")
+                    prefix = "shardloom-0.3.0.data/purelib/" if relocated else ""
                     archive.writestr(prefix + f"shardloom/bin/{platform}/{binary}", b"inert fixture, never executable")
                     if extra:
                         archive.writestr("shardloom/bin/other/shardloom", b"unexpected")
@@ -104,7 +104,7 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
             result = evidence.inspect_distribution(path, "python-dist-macos", b"")
             self.assertEqual(result["bundled_cli"]["sha256"], evidence.sha_bytes(b"inert fixture, never executable"))
             write(relocated=True)
-            self.assertTrue(evidence.inspect_distribution(path, "python-dist-macos", b"")["bundled_cli"]["member"].startswith("shardloom-0.2.4.data/purelib/"))
+            self.assertTrue(evidence.inspect_distribution(path, "python-dist-macos", b"")["bundled_cli"]["member"].startswith("shardloom-0.3.0.data/purelib/"))
             write(extra=True)
             with self.assertRaises(ValueError):
                 evidence.inspect_distribution(path, "python-dist-macos", b"")

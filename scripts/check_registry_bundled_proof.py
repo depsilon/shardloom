@@ -37,7 +37,8 @@ def bundled_registry_proof_blockers(
         require(supplement.get(field) == "passed", f"{field} must be passed")
     require(supplement.get("blockers") == [], "must have no blockers")
     require(supplement.get("channel_id") == channel_id, "must match the registry channel")
-    require(runtime_source_commit is not None and supplement.get("source_commit") == runtime_source_commit,
+    source_field = "release_source_commit" if package_version == "0.3.0" else "source_commit"
+    require(runtime_source_commit is not None and supplement.get(source_field) == runtime_source_commit,
             "must match the approved runtime source")
     for field in (
         "external_cli_override", "source_python_path_override", "fallback_attempted",

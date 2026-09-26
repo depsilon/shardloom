@@ -11,8 +11,9 @@ The maintainer subsequently authorized an interim version bump train on
 September 20. The 0.3.0 preparation includes ownership/prepared and
 result-composition units after PR acceptance; [release notes](../release/v0.3.0-release-notes.md)
 preserve their tested scope. Publication does not close the remaining operator,
-spill or production-serving items below. Native family completion resumes after
-the release train, followed by the requested ingest/storage work.
+spill or production-serving items below. The September 26 scope override limits
+the current work to completing 0.3.0; native family and ingest/storage work remain
+queued and do not automatically resume after publication.
 
 ## Contract and reuse
 

@@ -2,9 +2,9 @@
 
 # V1 Local Source And Package Release Track
 
-Current selected publication: v0.2.4, after all four channel proofs passed. See
-[publication verification](v0.2.4-publication-verification.md) for exact release,
-tag and build identities. The earlier release addenda below remain historical.
+Current selected publication: v0.3.0, after all four channel proofs passed. See
+[publication verification](v0.3.0-publication-verification.md) for exact release,
+tag and registry build identities. Earlier release addenda below remain historical.
 Package access is technical-preview only; production and unfinished capability
 gates remain open.
 
@@ -20,7 +20,7 @@ python scripts\check_v1_local_source_package_release.py
 ```
 
 This page narrows the feasible v1 release after excluding real production environments. Maintainer
-approval and channel proof now exist for the v0.2.4 GitHub pre-release, TestPyPI, PyPI, and
+approval and channel proof now exist for the v0.3.0 GitHub pre-release, TestPyPI, PyPI, and
 Homebrew sequence. This page does not itself publish additional packages, create new tags, create
 new GitHub releases, upload new artifacts, sign artifacts, add secrets, run production services, or
 authorize fallback execution.
@@ -28,7 +28,7 @@ authorize fallback execution.
 Current package publication state:
 
 ```text
-package_channel_status=published_v0.2.4_selected_channels
+package_channel_status=published_v0.3.0_selected_channels
 package_install_commands_visible=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
@@ -52,10 +52,10 @@ object-store/lakehouse, Foundry, or fallback-execution claims.
 | API/schema stability | Stable local v1 machine-readable contract. | `docs/release/v1-api-schema-stability.md`, `docs/release/schemas/v1/*`, `scripts/check_v1_api_schema_stability.py` |
 | Benchmark/public comparison surface | ClickBench handoff publicly; local benchmark artifacts remain separate, claim-gated evidence. | `website-src/src/pages/benchmarks.astro`, `scripts/check_benchmark_publish_doctor.py` |
 | Docs/website/readme | Claim-safe public interpretation layer. | `README.md`, `docs/release/public-status-matrix.md`, `website-src/` |
-| GitHub pre-release | Published v0.2.4 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.2.4-transcript.json` |
-| TestPyPI | Published v0.2.4 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.2.4-transcript.json` |
-| PyPI | Published v0.2.4 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.2.4-transcript.json` |
-| Homebrew tap | Published v0.2.4 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.2.4-transcript.json` |
+| GitHub pre-release | Published v0.3.0 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.3.0-transcript.json` |
+| TestPyPI | Published v0.3.0 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.3.0-transcript.json` |
+| PyPI | Published v0.3.0 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.3.0-transcript.json` |
+| Homebrew tap | Published v0.3.0 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.3.0-transcript.json` |
 
 ## Historical v0.2.3 Publication Sequence
 
@@ -92,7 +92,7 @@ the exact tag ref type, target commit, and commit verification state.
 
 ## Runtime Feature-Gate Packaging Note
 
-The selected GitHub, PyPI, and Homebrew channels expose the v0.2.4 package/CLI posture selected by
+The selected GitHub, PyPI, and Homebrew channels expose the v0.3.0 package/CLI posture selected by
 the release build. Release-user packages build the CLI with
 `--features release-user-surfaces`, which enables the modular user-facing runtime capabilities that
 are already part of the release surface. Feature gates remain runtime/build-scope qualifiers and do
@@ -135,9 +135,9 @@ the delegated ShardLoom command envelope. `SHARDLOOM_PERSISTENT_WORKER=0` disabl
 
 Runtime binary download is rejected for this release track. A verified installation claim for a
 platform requires checksum, SBOM/provenance, clean install/uninstall and no-fallback smoke evidence
-for that exact artifact. The v0.2.4 transcripts provide executed installation proof on macOS arm64;
-Linux and Windows wheels have successful build and registry-metadata evidence, while their runtime
-installation proof remains outstanding. On POSIX platforms, bundled CLI resources must preserve
+for that exact artifact. The current [publication verification](v0.3.0-publication-verification.md) identifies
+the exact wheels exercised by the accepted installation transcripts. Other published wheels have
+build and artifact-inspection evidence; their runtime installation proof remains outstanding. On POSIX platforms, bundled CLI resources must preserve
 the executable bit; non-executable packaged binaries are ignored and binary resolution continues
 in the documented order.
 
