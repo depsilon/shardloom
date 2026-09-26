@@ -129,6 +129,16 @@ admission and malformed values that would otherwise lose the cutoff. Native
 ingest and prepared-sort consumers are covered by existing tests. No ingest rerun
 is needed for this consumer-only change.
 
+CI's native debug lane exposed an invalid fixture-construction assumption: the
+UTF8 builder rejects malformed bytes before the sort test runs when debug
+assertions are enabled. The fixture now supplies owned binary buffers through
+the native buffer-handle boundary, then verifies checked UTF8 rejection and
+null masking in the consumer. No measured runtime code changed. All 1,916 native
+debug tests pass (10 existing ignored), as do the six focused release tests,
+formatting and native release Clippy. The original failing CI job is
+`108466759957` in run `36264603042`. Additional validation is recorded in
+`r6a-fixture-final-validation.json` under the local performance evidence root.
+
 Build each clean source revision with:
 
 ```sh

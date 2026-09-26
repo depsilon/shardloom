@@ -295,9 +295,15 @@ fn native_sort_block_does_not_reinterpret_float_nan_all_ties_or_invalid_indices(
 fn native_sort_block_rejects_malformed_losing_utf8_but_ignores_null_payload_bytes() {
     use vortex::array::dtype::Nullability;
     let make = |validity| {
-        let invalid = VarBinViewArray::from_iter(
-            [Some(&[0xff_u8][..]), Some(&b"valid"[..])],
+        // Build valid binary buffers, then inject malformed UTF8 through the
+        // native buffer-handle boundary. The UTF8 builder validates eagerly in
+        // debug builds, before this fixture can reach the sort consumer.
+        let binary = VarBinViewArray::from_iter_bin([&[0xff_u8][..], &b"valid"[..]]);
+        let invalid = VarBinViewArray::new_handle(
+            binary.views_handle().clone(),
+            binary.data_buffers().to_vec().into(),
             DType::Utf8(Nullability::NonNullable),
+            Validity::NonNullable,
         )
         .into_array();
         StructArray::try_new(
