@@ -14,8 +14,8 @@ Its receipt is `ingest_cli_uat_gated_20260926T172832Z` in the local UAT workspac
 Freeze a bounded screen before changing scheduling. Read row groups 0, 113 and
 225 from the resident official Parquet source, using the production dictionary
 schema and existing lean derived-column preparation. Retain at most three
-131,072-row batches per region. These are capped prefixes; only a tail inside
-that cap is included (row group 225), while row group 0's fourth batch is excluded. Convert into
+131,072-row batches per region. These are capped prefixes; tails inside the cap
+are included, while row group 0's fourth batch is excluded. Convert into
 reservation-owned native input before timing. Keep all 112 retained fields and
 the existing source-text writer, row block 262,144, byte target 8 MiB,
 compression/statistics concurrency four, and caller plus one provider driver.
@@ -29,6 +29,9 @@ owner until drain. Measure CPU tasks queued/running, synchronous future poll
 occupancy, each child wall interval and its terminal drain. Count a thread once
 when scopes nest; keep blocking-I/O pool work separate from provider drivers.
 Record all underoccupied intervals and the CPU-queue-empty subset separately.
+Child records are in input order. The analysis labels their index and whether
+a prepared successor exists; final-child occupancy is kept separate from the
+ready-successor opportunity estimate.
 The async runnable queue is not observable through this wrapper. Poll scopes can
 include synchronous I/O, blocking work and preemption; they are not CPU time.
 
@@ -36,6 +39,9 @@ All prepared batches being ready is a favorable opportunity screen, not a
 production prefetch promise. Record per-batch retained bytes and peak credits;
 identify whether a ready successor can fit the intended memory budget. Compare
 ordinary and instrumented retained-writer runs to expose instrumentation cost.
+Prepare fresh native arrays for each sample so a preceding write or verification
+cannot warm their statistics. Preserve the initial reused-input screen as
+diagnostic evidence, but use the fresh-input screen for the admission decision.
 Verify complete reopened values and schema outside the measurement. Retain all
 samples, source/binary identities and guard receipts. Payloads stay in bounded
 memory or guarded local scratch and are released after each case.

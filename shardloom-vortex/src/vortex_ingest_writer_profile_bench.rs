@@ -195,7 +195,6 @@ fn retained_writer_subtree_occupancy_screen() {
     );
     let mut reports = Vec::new();
     for row_group in [0, 113, 225] {
-        let mut region = writer_profile_input::prepare_region(&source, row_group);
         let mut samples = Vec::new();
         for pair in 0..3 {
             for profiled in if pair % 2 == 0 {
@@ -203,22 +202,26 @@ fn retained_writer_subtree_occupancy_screen() {
             } else {
                 [true, false]
             } {
-                samples.push(run(
+                // A previous write or verification may populate native statistics.
+                // Fresh ownership per sample matches the single-use ingest input.
+                let mut region = writer_profile_input::prepare_region(&source, row_group);
+                let mut sample = run(
                     &mut region,
                     &root,
                     &format!("rg{row_group}-p{pair}-{profiled}"),
                     profiled,
-                ));
+                );
+                sample["preparation"] = region.report;
+                drop(region.arrays);
+                assert_eq!(region.memory.pool.snapshot().reserved_bytes, 0);
+                samples.push(sample);
             }
         }
-        let preparation = region.report;
-        drop(region.arrays);
-        assert_eq!(region.memory.pool.snapshot().reserved_bytes, 0);
-        reports.push(json!({"row_group":row_group,"preparation":preparation,"samples":samples}));
+        reports.push(json!({"row_group":row_group,"samples":samples}));
     }
     println!(
         "SHARDLOOM_R9B_SCREEN={}",
         json!({"regions":reports,
-        "scope":"retained_writer_attribution_only;prepared_arrays_may_cache_native_statistics_across_alternating_runs;OS_cache_uncontrolled;all_samples_retained"})
+        "scope":"retained_writer_attribution_only;fresh_prepared_native_arrays_per_sample;OS_cache_uncontrolled;all_samples_retained"})
     );
 }
