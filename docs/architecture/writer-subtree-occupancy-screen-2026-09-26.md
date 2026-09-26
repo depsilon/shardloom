@@ -4,11 +4,23 @@ Status: drop after matched full ingest; no runtime change or gain retained.
 PERF-INTAKE / RFC 0044, after R9.a's fragment-reuse audit.
 
 The narrow one-input lookahead passes all eight lifecycle tests and 18 bounded
-complete-value/whole-file checks. Its best full candidate ingest is 92.465509 s;
-the control has already completed in 98.982644 s. Even before the final control
-sample, the symmetric fastest-valid comparison cannot reach the frozen 10% gate.
-All full outputs so far exactly match the retained 15,682,956,116-byte artifact.
-The final comparison and every raw record are in the linked evidence below.
+complete-value/whole-file checks. Its best full candidate ingest is 92.465509 s
+against 98.982644 s for control: **6.58%**, below the frozen 10% gate.
+Every output exactly matches the retained 15,682,956,116-byte artifact, including
+encodings, statistics and footer. All four samples remain in the evidence:
+
+| Order | Role | Complete CLI time | OS peak RSS |
+| --- | --- | --- | --- |
+| 1 | Control | 98.982644 s | 2.766 GiB |
+| 2 | Candidate | 113.855263 s | 2.960 GiB |
+| 3 | Candidate | 92.465509 s | 2.941 GiB |
+| 4 | Control | 219.553181 s | 2.687 GiB |
+
+The same fastest-valid rule applies to both roles; no slower sample is removed.
+Cache state and other host activity are uncontrolled. Whole-output hashing is
+outside the ingest clock. Native CPU counters, generations and all raw logs are
+in the linked evidence. Four exact duplicate outputs were removed after hashing,
+62,731,824,464 bytes cumulatively, keeping at most one new bulk output at a time.
 
 Remove the prototype, its route marker and experimental source fixtures from the
 retained tree. The evidence archive preserves the exact source patches from
@@ -26,8 +38,8 @@ insufficient. Add a production-path availability regression before retention.
 
 The retained writer awaits one source-batch subtree at a time; column/zone/codec
 work already overlaps within that subtree. Existing conversion wait and summed
-codec spans do not locate recoverable batch-tail capacity. The current full
-ingest observation is 132.527161 seconds with 287.221417 user CPU seconds,
+codec spans do not locate recoverable batch-tail capacity. The preceding full
+ingest observation was 132.527161 seconds with 287.221417 user CPU seconds,
 13.185876 system CPU seconds and 3,146,301,440 bytes peak RSS. That process-wide
 ratio does not identify writer idle time or justify changing CPU allocation.
 Its receipt is `ingest_cli_uat_gated_20260926T172832Z` in the local UAT workspace.
@@ -70,7 +82,8 @@ Verify complete reopened values and schema outside the measurement. Retain all
 samples, source/binary identities and guard receipts. Payloads stay in bounded
 memory or guarded local scratch and are released after each case.
 
-Repeated material unused capacity can admit one bounded two-subtree prototype.
+Repeated material unused capacity admitted one bounded next-input overlap
+prototype, with one live child strategy. Two concurrent subtrees were not tested.
 The estimate is neither an achievable speedup nor a strict full-ingest upper
 bound. A screen without credible material headroom parks overlap without claiming
 it can never help. Retention still requires at least 10% lower complete guarded
@@ -136,3 +149,13 @@ the complete writer, flush and driver teardown. Independently reopen every value
 and compare complete file statistics and artifact bytes before considering full
 guarded ingest. All attribution observations remain evidence, including warmed
 and incomplete earlier screens; none is an achieved speedup.
+
+## Closure validation
+
+The final Rust tree is byte-identical to `0d8dd212` for this change. Formatting,
+workspace Clippy with warnings denied, workspace all-target tests, public-claim
+and public-status validators pass. The architecture tracker passes with its
+documented `--allow-blocked` option; existing unfinished gates remain open.
+Independent review checked all archived source patches, hashes, four raw full
+receipts, gate arithmetic and the next-item update. Native prototype tests and
+bounded complete-output validation remain historical experimental evidence.

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "candidate": "R9.b",
-  "decision": "admit_test_only_single_input_lookahead_prototype",
+  "decision": "drop_below_full_ingest_gate",
   "production_runtime_changed": false,
-  "scope": "complete_bounded_writer_occupancy_screen;not_full_ingest_or_achievable_speedup",
+  "scope": "complete writer attribution, paired bounded screen, and matched full CLI ingest;no retained speedup unless all gates pass",
   "source_commit": "1872e55f484b233ecfa8858083664a36ce4ef48f",
   "build": {
     "commit": "1872e55f484b233ecfa8858083664a36ce4ef48f",
@@ -26,8 +26,8 @@
   },
   "raw_evidence": {
     "path": "docs/benchmarks/evidence/writer-subtree-occupancy-2026-09-26.json.gz",
-    "sha256": "571578ce851ee20b7e8e4c11d4da5dd1889b24fdd3203f4a4222e100f9a4ff18",
-    "uncompressed_sha256": "31efed4f2d16b7524b5b0462deca3a7c649f6b1229b9cdecaaf646fdd8794dbd",
+    "sha256": "8eb37b0d65faf7ccf541ebaf06a744bede12df80a76a113b028b40039bb834a4",
+    "uncompressed_sha256": "4d32ef41681a81bc938425285173608fdf8004965fad94adb03b303fb76a69d4",
     "all_samples_retained": true
   },
   "formula": "capacity_percent = 100 * sum(2 * zero_occupied_wall_ns + one_occupied_wall_ns) / (2 * complete_writer_ns);ready subset excludes final child",
@@ -2006,5 +2006,326 @@
         }
       ]
     }
-  ]
+  ],
+  "paired_lookahead_screen": {
+    "source_commit": "e662f6745758dbf0ea3da7c8f36a0af88197767f",
+    "scope": "paired_bounded_writer_only;fresh_native_inputs_per_sample;complete_values_and_artifact_bytes_equal;not_full_ingest;OS_cache_uncontrolled",
+    "samples": 18,
+    "aggregate": {
+      "baseline_best_sum_nanos": 673329709,
+      "baseline_region_medians_sum_nanos": 686728917,
+      "best_sum_gain_nanos": 49686584,
+      "best_sum_gain_percent": 7.379235363577282,
+      "formula": "best_sum_gain_percent = (sum(min baseline per region) - sum(min prefetch per region)) / sum(min baseline per region) * 100",
+      "median_of_all_nine_pairwise_gains_percent": 8.331585201734264,
+      "prefetch_best_sum_nanos": 623643125,
+      "prefetch_region_medians_sum_nanos": 635549333,
+      "region_medians_sum_gain_percent": 7.452661848518023
+    },
+    "regions": [
+      {
+        "all_six_output_hashes_identical": true,
+        "artifact_file_bytes": 45448964,
+        "baseline_best_nanos": 244854917,
+        "baseline_median_nanos": 254096417,
+        "baseline_sample_count": 3,
+        "best_gain_nanos": 19858625,
+        "best_gain_percent": 8.110363983419617,
+        "complete_artifact_sha256": "sha256:5f63072b843866fdbc8d4711f7e0b015bdb6508b2d7af94155f3b3c03c7591a6",
+        "median_gain_nanos": 23248042,
+        "median_gain_percent": 9.149299417315278,
+        "median_of_three_paired_gain_percent": 9.149299417315278,
+        "paired_timings": [
+          {
+            "baseline_sample_index_zero_based": 0,
+            "baseline_writer_nanos": 254096417,
+            "gain_nanos": 23248042,
+            "gain_percent": 9.149299417315278,
+            "pair_index_zero_based": 0,
+            "prefetch_sample_index_zero_based": 1,
+            "prefetch_writer_nanos": 230848375
+          },
+          {
+            "baseline_sample_index_zero_based": 3,
+            "baseline_writer_nanos": 259841625,
+            "gain_nanos": 26195166,
+            "gain_percent": 10.081204656875126,
+            "pair_index_zero_based": 1,
+            "prefetch_sample_index_zero_based": 2,
+            "prefetch_writer_nanos": 233646459
+          },
+          {
+            "baseline_sample_index_zero_based": 4,
+            "baseline_writer_nanos": 244854917,
+            "gain_nanos": 19858625,
+            "gain_percent": 8.110363983419617,
+            "pair_index_zero_based": 2,
+            "prefetch_sample_index_zero_based": 5,
+            "prefetch_writer_nanos": 224996292
+          }
+        ],
+        "prefetch_best_nanos": 224996292,
+        "prefetch_median_nanos": 230848375,
+        "prefetch_sample_count": 3,
+        "row_group": 0,
+        "rows_per_output": 393216
+      },
+      {
+        "all_six_output_hashes_identical": true,
+        "artifact_file_bytes": 55351484,
+        "baseline_best_nanos": 214908917,
+        "baseline_median_nanos": 216678958,
+        "baseline_sample_count": 3,
+        "best_gain_nanos": 18617501,
+        "best_gain_percent": 8.662972788606998,
+        "complete_artifact_sha256": "sha256:ba603b552cf5f46678e9c913636398f6969e9f2fa91039be4e4849d1ac396a45",
+        "median_gain_nanos": 18052792,
+        "median_gain_percent": 8.331585201734264,
+        "median_of_three_paired_gain_percent": 8.662972788606998,
+        "paired_timings": [
+          {
+            "baseline_sample_index_zero_based": 0,
+            "baseline_writer_nanos": 214908917,
+            "gain_nanos": 18617501,
+            "gain_percent": 8.662972788606998,
+            "pair_index_zero_based": 0,
+            "prefetch_sample_index_zero_based": 1,
+            "prefetch_writer_nanos": 196291416
+          },
+          {
+            "baseline_sample_index_zero_based": 3,
+            "baseline_writer_nanos": 218473959,
+            "gain_nanos": 19126667,
+            "gain_percent": 8.754666728953266,
+            "pair_index_zero_based": 1,
+            "prefetch_sample_index_zero_based": 2,
+            "prefetch_writer_nanos": 199347292
+          },
+          {
+            "baseline_sample_index_zero_based": 4,
+            "baseline_writer_nanos": 216678958,
+            "gain_nanos": 18052792,
+            "gain_percent": 8.331585201734264,
+            "pair_index_zero_based": 2,
+            "prefetch_sample_index_zero_based": 5,
+            "prefetch_writer_nanos": 198626166
+          }
+        ],
+        "prefetch_best_nanos": 196291416,
+        "prefetch_median_nanos": 198626166,
+        "prefetch_sample_count": 3,
+        "row_group": 113,
+        "rows_per_output": 224831
+      },
+      {
+        "all_six_output_hashes_identical": true,
+        "artifact_file_bytes": 47827396,
+        "baseline_best_nanos": 213565875,
+        "baseline_median_nanos": 215953542,
+        "baseline_sample_count": 3,
+        "best_gain_nanos": 11210458,
+        "best_gain_percent": 5.2491803758442215,
+        "complete_artifact_sha256": "sha256:dd572789b6a339771397df4bcc42c3deb56204c114955ca04fc6ea778bbdbd2d",
+        "median_gain_nanos": 9878750,
+        "median_gain_percent": 4.574479264618868,
+        "median_of_three_paired_gain_percent": 4.574479264618868,
+        "paired_timings": [
+          {
+            "baseline_sample_index_zero_based": 0,
+            "baseline_writer_nanos": 215953542,
+            "gain_nanos": 9878750,
+            "gain_percent": 4.574479264618868,
+            "pair_index_zero_based": 0,
+            "prefetch_sample_index_zero_based": 1,
+            "prefetch_writer_nanos": 206074792
+          },
+          {
+            "baseline_sample_index_zero_based": 3,
+            "baseline_writer_nanos": 213565875,
+            "gain_nanos": 7223167,
+            "gain_percent": 3.3821728307483583,
+            "pair_index_zero_based": 1,
+            "prefetch_sample_index_zero_based": 2,
+            "prefetch_writer_nanos": 206342708
+          },
+          {
+            "baseline_sample_index_zero_based": 4,
+            "baseline_writer_nanos": 217068291,
+            "gain_nanos": 14712874,
+            "gain_percent": 6.777993198463059,
+            "pair_index_zero_based": 2,
+            "prefetch_sample_index_zero_based": 5,
+            "prefetch_writer_nanos": 202355417
+          }
+        ],
+        "prefetch_best_nanos": 202355417,
+        "prefetch_median_nanos": 206074792,
+        "prefetch_sample_count": 3,
+        "row_group": 225,
+        "rows_per_output": 263704
+      }
+    ],
+    "verification": {
+      "all_18_samples_have_source_identity_guard": true,
+      "all_18_samples_read_only_the_selected_row_group": true,
+      "all_18_verified_rows_match_rows_read": true,
+      "full_source_hashing_performed_by_analysis": false,
+      "hashes_equal_across_different_regions": false,
+      "input_identities_before_equal_after": true,
+      "output_hashes_identical_within_each_region": true,
+      "receipt_guard_failures": [],
+      "receipt_returncode": 0,
+      "receipt_unchanged": true,
+      "regions": 3,
+      "samples": 18,
+      "samples_per_region": 6,
+      "source_full_row_count_reported": 99997497,
+      "test_result": "ok; 1 passed; 0 failed"
+    }
+  },
+  "full_ingest_comparison": {
+    "order": [
+      "control1",
+      "candidate1",
+      "candidate2",
+      "control2"
+    ],
+    "scope": "complete production CLI process;existing flush/rename publication;not a new fsync durability guarantee",
+    "resources": {
+      "parallelism": 4,
+      "memory_gib": 24,
+      "max_artifact_gb": 17,
+      "timeout_seconds": 600
+    },
+    "samples": [
+      {
+        "role": "control",
+        "sample": 1,
+        "source_commit": "e662f6745758dbf0ea3da7c8f36a0af88197767f",
+        "binary_sha256": "492c60a6338922d13137cb1d4a7bded91dc983a3118deb1e70a8ee9c631a9cdb",
+        "complete_process_seconds": 98.9826441660116,
+        "native_peak_rss_bytes": 2969878528,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "native_timing": {
+          "seconds": 98.9826441660116,
+          "returncode": 0,
+          "peak_rss_bytes": 2969878528,
+          "user_cpu_seconds": 204.145934,
+          "system_cpu_seconds": 12.686128,
+          "minor_page_faults": 3281687,
+          "major_page_faults": 101,
+          "input_block_operations": 0,
+          "output_block_operations": 0,
+          "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies",
+          "cpu_timing_boundary": "native child CPU work; parallel work overlaps wall time",
+          "peak_rss_scope": "native_child_os_high_water_mark_not_a_reservation_limit",
+          "timing_boundary": "native process creation through complete output and process exit"
+        },
+        "input_generations_unchanged": true,
+        "output_exact_bytes_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T223356Z"
+      },
+      {
+        "role": "candidate",
+        "sample": 1,
+        "source_commit": "d03a3cbf98df0f75802ed412d38d5e61136566a0",
+        "binary_sha256": "7a9501b245c23a6f3b53486e3879a1ff4fe5235e006dc585d691f3423fac9b73",
+        "complete_process_seconds": 113.85526349997963,
+        "native_peak_rss_bytes": 3178020864,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "native_timing": {
+          "seconds": 113.85526349997963,
+          "returncode": 0,
+          "peak_rss_bytes": 3178020864,
+          "user_cpu_seconds": 269.105073,
+          "system_cpu_seconds": 13.987767999999999,
+          "minor_page_faults": 3244913,
+          "major_page_faults": 101,
+          "input_block_operations": 0,
+          "output_block_operations": 0,
+          "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies",
+          "cpu_timing_boundary": "native child CPU work; parallel work overlaps wall time",
+          "peak_rss_scope": "native_child_os_high_water_mark_not_a_reservation_limit",
+          "timing_boundary": "native process creation through complete output and process exit"
+        },
+        "input_generations_unchanged": true,
+        "output_exact_bytes_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T224212Z"
+      },
+      {
+        "role": "candidate",
+        "sample": 2,
+        "source_commit": "d03a3cbf98df0f75802ed412d38d5e61136566a0",
+        "binary_sha256": "7a9501b245c23a6f3b53486e3879a1ff4fe5235e006dc585d691f3423fac9b73",
+        "complete_process_seconds": 92.46550929101068,
+        "native_peak_rss_bytes": 3157573632,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "native_timing": {
+          "seconds": 92.46550929101068,
+          "returncode": 0,
+          "peak_rss_bytes": 3157573632,
+          "user_cpu_seconds": 216.606266,
+          "system_cpu_seconds": 12.021514,
+          "minor_page_faults": 3294049,
+          "major_page_faults": 0,
+          "input_block_operations": 0,
+          "output_block_operations": 0,
+          "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies",
+          "cpu_timing_boundary": "native child CPU work; parallel work overlaps wall time",
+          "peak_rss_scope": "native_child_os_high_water_mark_not_a_reservation_limit",
+          "timing_boundary": "native process creation through complete output and process exit"
+        },
+        "input_generations_unchanged": true,
+        "output_exact_bytes_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T224508Z"
+      },
+      {
+        "role": "control",
+        "sample": 2,
+        "source_commit": "e662f6745758dbf0ea3da7c8f36a0af88197767f",
+        "binary_sha256": "492c60a6338922d13137cb1d4a7bded91dc983a3118deb1e70a8ee9c631a9cdb",
+        "complete_process_seconds": 219.5531812919944,
+        "native_peak_rss_bytes": 2884943872,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "native_timing": {
+          "seconds": 219.5531812919944,
+          "returncode": 0,
+          "peak_rss_bytes": 2884943872,
+          "user_cpu_seconds": 369.05152,
+          "system_cpu_seconds": 27.748893,
+          "minor_page_faults": 3330234,
+          "major_page_faults": 272,
+          "input_block_operations": 0,
+          "output_block_operations": 0,
+          "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies",
+          "cpu_timing_boundary": "native child CPU work; parallel work overlaps wall time",
+          "peak_rss_scope": "native_child_os_high_water_mark_not_a_reservation_limit",
+          "timing_boundary": "native process creation through complete output and process exit"
+        },
+        "input_generations_unchanged": true,
+        "output_exact_bytes_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T224656Z"
+      }
+    ],
+    "best_seconds": {
+      "control": 98.9826441660116,
+      "candidate": 92.46550929101068
+    },
+    "gain_percent": 6.584118791644444,
+    "elapsed_gate_percent": 10,
+    "elapsed_gate_passed": false,
+    "all_four_outputs_byte_identical_to_retained": true,
+    "artifact_bytes": 15682956116,
+    "removed_duplicate_output_bytes": 62731824464,
+    "limitations": [
+      "OS cache and unrelated host activity uncontrolled",
+      "two samples per role;all retained",
+      "frozen portable release binaries;full-file hash outside ingest clock",
+      "source digest carried from unchanged prior verified generation"
+    ]
+  }
 }
