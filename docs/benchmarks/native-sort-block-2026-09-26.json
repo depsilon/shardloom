@@ -1,0 +1,3560 @@
+{
+  "schema_version": "shardloom.native_sort_block_acceptance.v1",
+  "status": "retained_query_gate",
+  "claim_scope": "local complete-query evidence; no suite, memory, cold-cache, production or superiority claim",
+  "artifact": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+    "rows": 99997497,
+    "columns": 112,
+    "bytes": 15682956116,
+    "recorded_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+    "hash_provenance": "dictionary-proof-20260926-physical-inventory/proof.stdout.json; generation revalidated by each paired runner"
+  },
+  "environment": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "cpu_brand": "Apple M5",
+    "physical_memory_bytes": 17179869184,
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: aarch64-apple-darwin\nrelease: 1.98.0\nLLVM version: 22.1.8\n",
+    "cargo": "cargo 1.98.0 (797e8a9bc 2026-08-05)\n"
+  },
+  "vortex_version": "0.85.0",
+  "provider_decision": "use_vortex_native_provider",
+  "gate": {
+    "complete_target_query_saving_seconds": 1.0,
+    "targets": [
+      26,
+      27
+    ],
+    "selection": "symmetric fastest valid complete native process call within each frozen cohort",
+    "regression_rule": "candidate > control by both 10% and 150ms; bounded paired follow-up, no score splicing",
+    "suite_gate_met": false,
+    "memory_gate_met": false,
+    "q35_followup_regression_reproduced": false
+  },
+  "final_build": {
+    "source_commit": "870a9b8b2a6771004244b46545a770c4d3651dc4",
+    "clean_source": true,
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--release",
+      "-p",
+      "shardloom-cli",
+      "--features",
+      "release-user-surfaces"
+    ],
+    "returncode": 0,
+    "build_seconds_not_query_time": 112.44564370899752,
+    "flags": {
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "CARGO_BUILD_TARGET": null,
+      "CARGO_PROFILE_RELEASE_LTO": null,
+      "CARGO_INCREMENTAL": null
+    },
+    "target_directory": "/Users/dylan/.cache/shardloom/cargo-target",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-r6a-870a9b8b2a67",
+    "sha256": "9dc4633dde151a596a0c20b9eea1536a7be4bf9af4ab9b4a0e813dc9d117f3d4",
+    "bytes": 85239856
+  },
+  "initial_screen": {
+    "summary_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T182420766545Z/summary.json",
+    "summary_sha256": "d635b5185e8ca5cb508c4df493f75dee4865dade5ca28917d38f46c409d6609d",
+    "binaries": {
+      "control": {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-c79aa89a",
+        "sha256": "fac1e9a2ca394a9c20c61fb8a39063c9e67da353fd9c7b5a65a2816dd3a700c4",
+        "commit": "c79aa89aea02fcfe785b60130d0033ad9d5370c2"
+      },
+      "candidate": {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-r6a-4e0adecde6d0",
+        "sha256": "0cc668d7fdd19cd1eaf1b846eaaa6acd120bb2ced3f795eea807d3159edf9f38",
+        "commit": "4e0adecde6d01921bcd5cd1fd95cef220e34483c"
+      }
+    },
+    "complete_comparisons": 12,
+    "records": [
+      {
+        "query": 26,
+        "run": 1,
+        "role": "candidate",
+        "seconds": 2.2703054580051685,
+        "native_peak_rss_bytes": 259473408,
+        "user_cpu_seconds": 1.776583,
+        "system_cpu_seconds": 0.159333,
+        "passed": true,
+        "result_sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e"
+      },
+      {
+        "query": 26,
+        "run": 1,
+        "role": "control",
+        "seconds": 2.55253770800482,
+        "native_peak_rss_bytes": 273940480,
+        "user_cpu_seconds": 2.644376,
+        "system_cpu_seconds": 0.134924,
+        "passed": true,
+        "result_sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e"
+      },
+      {
+        "query": 26,
+        "run": 2,
+        "role": "control",
+        "seconds": 2.5872548339975765,
+        "native_peak_rss_bytes": 272252928,
+        "user_cpu_seconds": 2.664015,
+        "system_cpu_seconds": 0.12539,
+        "passed": true,
+        "result_sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e"
+      },
+      {
+        "query": 26,
+        "run": 2,
+        "role": "candidate",
+        "seconds": 1.647684625000693,
+        "native_peak_rss_bytes": 262258688,
+        "user_cpu_seconds": 1.7464359999999999,
+        "system_cpu_seconds": 0.11695499999999999,
+        "passed": true,
+        "result_sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e"
+      },
+      {
+        "query": 26,
+        "run": 3,
+        "role": "candidate",
+        "seconds": 1.6676409579959,
+        "native_peak_rss_bytes": 260407296,
+        "user_cpu_seconds": 1.766947,
+        "system_cpu_seconds": 0.119956,
+        "passed": true,
+        "result_sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e"
+      },
+      {
+        "query": 26,
+        "run": 3,
+        "role": "control",
+        "seconds": 2.5272062919975724,
+        "native_peak_rss_bytes": 274317312,
+        "user_cpu_seconds": 2.62778,
+        "system_cpu_seconds": 0.124634,
+        "passed": true,
+        "result_sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e"
+      },
+      {
+        "query": 27,
+        "run": 1,
+        "role": "control",
+        "seconds": 2.658912833998329,
+        "native_peak_rss_bytes": 323633152,
+        "user_cpu_seconds": 2.778828,
+        "system_cpu_seconds": 0.183246,
+        "passed": true,
+        "result_sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193"
+      },
+      {
+        "query": 27,
+        "run": 1,
+        "role": "candidate",
+        "seconds": 1.6568434579967288,
+        "native_peak_rss_bytes": 314327040,
+        "user_cpu_seconds": 1.770721,
+        "system_cpu_seconds": 0.15798299999999998,
+        "passed": true,
+        "result_sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193"
+      },
+      {
+        "query": 27,
+        "run": 2,
+        "role": "candidate",
+        "seconds": 1.6881041250017006,
+        "native_peak_rss_bytes": 323764224,
+        "user_cpu_seconds": 1.803035,
+        "system_cpu_seconds": 0.152583,
+        "passed": true,
+        "result_sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193"
+      },
+      {
+        "query": 27,
+        "run": 2,
+        "role": "control",
+        "seconds": 2.6774075830035144,
+        "native_peak_rss_bytes": 329187328,
+        "user_cpu_seconds": 2.794187,
+        "system_cpu_seconds": 0.169154,
+        "passed": true,
+        "result_sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193"
+      },
+      {
+        "query": 27,
+        "run": 3,
+        "role": "control",
+        "seconds": 2.6772965830023168,
+        "native_peak_rss_bytes": 334757888,
+        "user_cpu_seconds": 2.7929749999999998,
+        "system_cpu_seconds": 0.16988399999999998,
+        "passed": true,
+        "result_sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193"
+      },
+      {
+        "query": 27,
+        "run": 3,
+        "role": "candidate",
+        "seconds": 1.7113129579956876,
+        "native_peak_rss_bytes": 315555840,
+        "user_cpu_seconds": 1.828764,
+        "system_cpu_seconds": 0.16014699999999998,
+        "passed": true,
+        "result_sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193"
+      }
+    ],
+    "scope": "separate prototype cohort, not substituted into final-runtime Full43"
+  },
+  "runs": [
+    {
+      "run_id": "paired43_20260926T183451559780Z",
+      "summary_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/summary.json",
+      "summary_sha256": "e5ccbf2285f9133e5583649ae1c4967cfef354f0d4f91430d88b61c07424d02d",
+      "selected_query_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43
+      ],
+      "comparison_count": 258,
+      "reverse_order": false,
+      "timing_boundary": "native process creation through complete public CLI output and exit; host snapshots and archival excluded",
+      "correctness_boundary": "complete returned values against retained native outputs; finite floats use 1e-12 tolerance; not an independent oracle",
+      "cache_policy": "fresh process per operation; OS cache shared and uncontrolled; no answer cache or forced purge",
+      "order_policy": "alternate role order at each pair and query",
+      "host_counter_scope": "host-wide VM observations, not unique query traffic or exclusive attribution",
+      "workspace_ceiling_gib": 100.0,
+      "memory_gb": 24,
+      "max_parallelism": 12,
+      "source_generations": {
+        "control": {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+          "generation": {
+            "device": 16777233,
+            "inode": 92249574,
+            "size_bytes": 15682956116,
+            "mtime_ns": 1790441075431248571,
+            "ctime_ns": 1790441075431697695
+          }
+        },
+        "candidate": {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+          "generation": {
+            "device": 16777233,
+            "inode": 92249574,
+            "size_bytes": 15682956116,
+            "mtime_ns": 1790441075431248571,
+            "ctime_ns": 1790441075431697695
+          }
+        }
+      },
+      "binaries": {
+        "control": {
+          "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-c79aa89a",
+          "sha256": "fac1e9a2ca394a9c20c61fb8a39063c9e67da353fd9c7b5a65a2816dd3a700c4",
+          "commit": "c79aa89aea02fcfe785b60130d0033ad9d5370c2"
+        },
+        "candidate": {
+          "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-r6a-870a9b8b2a67",
+          "sha256": "9dc4633dde151a596a0c20b9eea1536a7be4bf9af4ab9b4a0e813dc9d117f3d4",
+          "commit": "870a9b8b2a6771004244b46545a770c4d3651dc4"
+        }
+      },
+      "harness_sha256": {
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/run_clickbench_paired_query_uat.py": "d2b082a00c911aa98dfed8c6882abd3dc130bfbec5bcb6a00e7d14824e24fcb3",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/run_clickbench_query_uat.py": "e556690ac4f9544c66484a3bb677ad01852c710f8fc741d816a06be2526bf72e",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/timed_native_command.py": "a174e86eb6e0d525ceb5d6427c7f152642f57842fbd74c69551fc20deafb40e4",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/local_uat_storage.py": "374f0c6623ff1e24cf64c78a5e9218fe36528e57386b15a4c3838e1aa6c3d647"
+      },
+      "completion": {
+        "complete_result_validation": true,
+        "completed_identity_check": true,
+        "summary_failure": null,
+        "scores_complete": true,
+        "role_runs_passed": {
+          "control": 129,
+          "candidate": 129
+        }
+      },
+      "archives_verified": 43,
+      "archive_members_verified": 1032,
+      "retained_reference_checks": 43,
+      "scope_limitations": [
+        "retained complete outputs are regression references, not independent correctness oracle",
+        "no whole Vortex input artifact hashing",
+        "native RSS is process peak RSS; host VM counters are host-wide observations and are not unique query traffic",
+        "memory_gb/workspace_gib are configured ceilings/reservations, not measured RSS caps",
+        "OS cache shared and uncontrolled; no forced cache purge",
+        "no external engine execution"
+      ],
+      "per_query": [
+        {
+          "query": 1,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.025504792007268406,
+                0.01890208400436677,
+                0.019072625000262633
+              ],
+              "native_peak_rss_bytes": [
+                54722560,
+                54640640,
+                54657024
+              ],
+              "user_cpu_seconds": [
+                0.013973999999999999,
+                0.013727999999999999,
+                0.013633
+              ],
+              "system_cpu_seconds": [
+                0.012015999999999999,
+                0.0045769999999999995,
+                0.004850999999999999
+              ],
+              "fastest_seconds": 0.01890208400436677,
+              "median_seconds": 0.019072625000262633
+            },
+            "candidate": {
+              "seconds": [
+                0.6273505409917561,
+                0.019316083009471186,
+                0.019238499997300096
+              ],
+              "native_peak_rss_bytes": [
+                54542336,
+                54362112,
+                54493184
+              ],
+              "user_cpu_seconds": [
+                0.028946,
+                0.013986,
+                0.013774999999999999
+              ],
+              "system_cpu_seconds": [
+                0.020649,
+                0.004726,
+                0.004847
+              ],
+              "fastest_seconds": 0.019238499997300096,
+              "median_seconds": 0.019316083009471186
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.00033641599293332547,
+          "candidate_minus_control_best_fraction": 0.01779782551255238,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 2,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.06983337500423659,
+                0.06655295800010208,
+                0.06571700000495184
+              ],
+              "native_peak_rss_bytes": [
+                153354240,
+                153649152,
+                153780224
+              ],
+              "user_cpu_seconds": [
+                0.180148,
+                0.178249,
+                0.179413
+              ],
+              "system_cpu_seconds": [
+                0.063054,
+                0.051904,
+                0.050339999999999996
+              ],
+              "fastest_seconds": 0.06571700000495184,
+              "median_seconds": 0.06655295800010208
+            },
+            "candidate": {
+              "seconds": [
+                0.07772345900593791,
+                0.06511358299758285,
+                0.06647737498860806
+              ],
+              "native_peak_rss_bytes": [
+                153305088,
+                152207360,
+                153124864
+              ],
+              "user_cpu_seconds": [
+                0.186109,
+                0.17465,
+                0.180165
+              ],
+              "system_cpu_seconds": [
+                0.09518499999999999,
+                0.049173999999999995,
+                0.051382
+              ],
+              "fastest_seconds": 0.06511358299758285,
+              "median_seconds": 0.06647737498860806
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.0006034170073689893,
+          "candidate_minus_control_best_fraction": -0.009182053461410655,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 3,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.9913274160062429,
+                1.0044476670009317,
+                1.011296750002657
+              ],
+              "native_peak_rss_bytes": [
+                163397632,
+                166723584,
+                170164224
+              ],
+              "user_cpu_seconds": [
+                1.017516,
+                1.033575,
+                1.041359
+              ],
+              "system_cpu_seconds": [
+                0.107194,
+                0.091693,
+                0.08989799999999999
+              ],
+              "fastest_seconds": 0.9913274160062429,
+              "median_seconds": 1.0044476670009317
+            },
+            "candidate": {
+              "seconds": [
+                0.9866309170029126,
+                0.9574537919979775,
+                0.9743386250047479
+              ],
+              "native_peak_rss_bytes": [
+                167723008,
+                169328640,
+                166330368
+              ],
+              "user_cpu_seconds": [
+                1.014461,
+                0.9823369999999999,
+                0.9974259999999999
+              ],
+              "system_cpu_seconds": [
+                0.092523,
+                0.08073799999999999,
+                0.07826899999999999
+              ],
+              "fastest_seconds": 0.9574537919979775,
+              "median_seconds": 0.9743386250047479
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.033873624008265324,
+          "candidate_minus_control_best_fraction": -0.0341699659076633,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 4,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.4125570830074139,
+                0.41100383299635723,
+                0.4166818750090897
+              ],
+              "native_peak_rss_bytes": [
+                177569792,
+                177258496,
+                176422912
+              ],
+              "user_cpu_seconds": [
+                0.42296799999999996,
+                0.420718,
+                0.426187
+              ],
+              "system_cpu_seconds": [
+                0.074086,
+                0.074076,
+                0.075738
+              ],
+              "fastest_seconds": 0.41100383299635723,
+              "median_seconds": 0.4125570830074139
+            },
+            "candidate": {
+              "seconds": [
+                0.4049902499973541,
+                0.40014329200494103,
+                0.42592895799316466
+              ],
+              "native_peak_rss_bytes": [
+                170475520,
+                174129152,
+                176996352
+              ],
+              "user_cpu_seconds": [
+                0.41448199999999996,
+                0.408029,
+                0.434042
+              ],
+              "system_cpu_seconds": [
+                0.08659399999999999,
+                0.06344999999999999,
+                0.074545
+              ],
+              "fastest_seconds": 0.40014329200494103,
+              "median_seconds": 0.4049902499973541
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.010860540991416201,
+          "candidate_minus_control_best_fraction": -0.02642442751017471,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 5,
+          "roles": {
+            "control": {
+              "seconds": [
+                1.394710499997018,
+                1.3620089159958297,
+                1.508889958000509
+              ],
+              "native_peak_rss_bytes": [
+                1841070080,
+                1839677440,
+                1837449216
+              ],
+              "user_cpu_seconds": [
+                1.307003,
+                1.293878,
+                1.406806
+              ],
+              "system_cpu_seconds": [
+                0.17091299999999998,
+                0.15023599999999998,
+                0.180358
+              ],
+              "fastest_seconds": 1.3620089159958297,
+              "median_seconds": 1.394710499997018
+            },
+            "candidate": {
+              "seconds": [
+                1.3796755840012338,
+                1.3577562909922563,
+                1.3769336249970365
+              ],
+              "native_peak_rss_bytes": [
+                1837383680,
+                1835008000,
+                1840693248
+              ],
+              "user_cpu_seconds": [
+                1.307803,
+                1.289755,
+                1.300047
+              ],
+              "system_cpu_seconds": [
+                0.15673399999999998,
+                0.14896299999999998,
+                0.15678499999999998
+              ],
+              "fastest_seconds": 1.3577562909922563,
+              "median_seconds": 1.3769336249970365
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.004252625003573485,
+          "candidate_minus_control_best_fraction": -0.003122318035975735,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 6,
+          "roles": {
+            "control": {
+              "seconds": [
+                3.771940958002233,
+                3.7079941659903852,
+                3.735486709003453
+              ],
+              "native_peak_rss_bytes": [
+                1159069696,
+                1162608640,
+                1158479872
+              ],
+              "user_cpu_seconds": [
+                3.675889,
+                3.615608,
+                3.640013
+              ],
+              "system_cpu_seconds": [
+                0.170921,
+                0.167791,
+                0.179895
+              ],
+              "fastest_seconds": 3.7079941659903852,
+              "median_seconds": 3.735486709003453
+            },
+            "candidate": {
+              "seconds": [
+                3.7104175000131363,
+                3.8043627090082737,
+                3.7764997920021415
+              ],
+              "native_peak_rss_bytes": [
+                1159036928,
+                1159905280,
+                1159577600
+              ],
+              "user_cpu_seconds": [
+                3.614719,
+                3.710021,
+                3.681981
+              ],
+              "system_cpu_seconds": [
+                0.18498299999999998,
+                0.181838,
+                0.174676
+              ],
+              "fastest_seconds": 3.7104175000131363,
+              "median_seconds": 3.7764997920021415
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.002423334022751078,
+          "candidate_minus_control_best_fraction": 0.0006535431055900709,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 7,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.020044666991452686,
+                0.019915582990506664,
+                0.02043670800048858
+              ],
+              "native_peak_rss_bytes": [
+                57491456,
+                57524224,
+                57540608
+              ],
+              "user_cpu_seconds": [
+                0.014216,
+                0.014334999999999999,
+                0.014483999999999999
+              ],
+              "system_cpu_seconds": [
+                0.005645,
+                0.004644,
+                0.0048
+              ],
+              "fastest_seconds": 0.019915582990506664,
+              "median_seconds": 0.020044666991452686
+            },
+            "candidate": {
+              "seconds": [
+                0.020031666004797444,
+                0.019899000006262213,
+                0.020322750002378598
+              ],
+              "native_peak_rss_bytes": [
+                57344000,
+                57409536,
+                57409536
+              ],
+              "user_cpu_seconds": [
+                0.014199999999999999,
+                0.014138,
+                0.014433999999999999
+              ],
+              "system_cpu_seconds": [
+                0.0047669999999999995,
+                0.004821,
+                0.005012
+              ],
+              "fastest_seconds": 0.019899000006262213,
+              "median_seconds": 0.020031666004797444
+            }
+          },
+          "candidate_minus_control_best_seconds": -1.6582984244450927e-05,
+          "candidate_minus_control_best_fraction": -0.000832663761455299,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 8,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.0824171669955831,
+                0.08177008399798069,
+                0.08282825000060257
+              ],
+              "native_peak_rss_bytes": [
+                152764416,
+                151666688,
+                151601152
+              ],
+              "user_cpu_seconds": [
+                0.20646899999999999,
+                0.207206,
+                0.210674
+              ],
+              "system_cpu_seconds": [
+                0.060753999999999996,
+                0.057636,
+                0.061593999999999996
+              ],
+              "fastest_seconds": 0.08177008399798069,
+              "median_seconds": 0.0824171669955831
+            },
+            "candidate": {
+              "seconds": [
+                0.08260925000649877,
+                0.08317262500349898,
+                0.08264574999338947
+              ],
+              "native_peak_rss_bytes": [
+                152944640,
+                153780224,
+                151568384
+              ],
+              "user_cpu_seconds": [
+                0.205418,
+                0.205401,
+                0.20474699999999998
+              ],
+              "system_cpu_seconds": [
+                0.06368599999999999,
+                0.057092,
+                0.058519999999999996
+              ],
+              "fastest_seconds": 0.08260925000649877,
+              "median_seconds": 0.08264574999338947
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.0008391660085180774,
+          "candidate_minus_control_best_fraction": 0.010262506377501035,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 9,
+          "roles": {
+            "control": {
+              "seconds": [
+                1.8568882910039974,
+                1.6864540000096895,
+                1.9705237500020303
+              ],
+              "native_peak_rss_bytes": [
+                3930406912,
+                4124147712,
+                4079419392
+              ],
+              "user_cpu_seconds": [
+                5.33328,
+                6.611244,
+                6.59672
+              ],
+              "system_cpu_seconds": [
+                2.088499,
+                1.280422,
+                1.929654
+              ],
+              "fastest_seconds": 1.6864540000096895,
+              "median_seconds": 1.8568882910039974
+            },
+            "candidate": {
+              "seconds": [
+                1.3474305419949815,
+                2.0792846249969443,
+                1.8881988750072196
+              ],
+              "native_peak_rss_bytes": [
+                4152082432,
+                4121165824,
+                4066508800
+              ],
+              "user_cpu_seconds": [
+                5.286859,
+                7.026357,
+                6.6919
+              ],
+              "system_cpu_seconds": [
+                0.963669,
+                1.6570369999999999,
+                1.806617
+              ],
+              "fastest_seconds": 1.3474305419949815,
+              "median_seconds": 1.8881988750072196
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.339023458014708,
+          "candidate_minus_control_best_fraction": -0.20102739713787632,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 10,
+          "roles": {
+            "control": {
+              "seconds": [
+                5.617663500001072,
+                5.56032858400431,
+                5.710924625003827
+              ],
+              "native_peak_rss_bytes": [
+                1093713920,
+                1086963712,
+                1089503232
+              ],
+              "user_cpu_seconds": [
+                5.6085709999999995,
+                5.543718,
+                5.693872
+              ],
+              "system_cpu_seconds": [
+                0.266987,
+                0.27722199999999997,
+                0.284987
+              ],
+              "fastest_seconds": 5.56032858400431,
+              "median_seconds": 5.617663500001072
+            },
+            "candidate": {
+              "seconds": [
+                5.29091941700608,
+                5.610829166995245,
+                5.584899249995942
+              ],
+              "native_peak_rss_bytes": [
+                1093582848,
+                1087406080,
+                1089699840
+              ],
+              "user_cpu_seconds": [
+                5.2861,
+                5.593222,
+                5.565616
+              ],
+              "system_cpu_seconds": [
+                0.256027,
+                0.272698,
+                0.27860199999999996
+              ],
+              "fastest_seconds": 5.29091941700608,
+              "median_seconds": 5.584899249995942
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.2694091669982299,
+          "candidate_minus_control_best_fraction": -0.048452022740752,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 11,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.944807582985959,
+                0.9601698750047944,
+                0.9670096250047209
+              ],
+              "native_peak_rss_bytes": [
+                294617088,
+                297336832,
+                291667968
+              ],
+              "user_cpu_seconds": [
+                2.075022,
+                2.088685,
+                2.136512
+              ],
+              "system_cpu_seconds": [
+                0.204845,
+                0.203434,
+                0.209398
+              ],
+              "fastest_seconds": 0.944807582985959,
+              "median_seconds": 0.9601698750047944
+            },
+            "candidate": {
+              "seconds": [
+                0.9982342090079328,
+                1.0024980000016512,
+                1.0176601660059532
+              ],
+              "native_peak_rss_bytes": [
+                291962880,
+                294731776,
+                292028416
+              ],
+              "user_cpu_seconds": [
+                2.219148,
+                2.160235,
+                2.190279
+              ],
+              "system_cpu_seconds": [
+                0.20540599999999998,
+                0.203007,
+                0.213418
+              ],
+              "fastest_seconds": 0.9982342090079328,
+              "median_seconds": 1.0024980000016512
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.05342662602197379,
+          "candidate_minus_control_best_fraction": 0.05654762618767828,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 12,
+          "roles": {
+            "control": {
+              "seconds": [
+                2.0857537500123726,
+                1.935218167011044,
+                1.9508252090017777
+              ],
+              "native_peak_rss_bytes": [
+                299384832,
+                297435136,
+                298582016
+              ],
+              "user_cpu_seconds": [
+                2.8154909999999997,
+                2.621181,
+                2.6463039999999998
+              ],
+              "system_cpu_seconds": [
+                0.147869,
+                0.138457,
+                0.13836099999999998
+              ],
+              "fastest_seconds": 1.935218167011044,
+              "median_seconds": 1.9508252090017777
+            },
+            "candidate": {
+              "seconds": [
+                1.9817466660024365,
+                1.9664057920017513,
+                1.9451892919896636
+              ],
+              "native_peak_rss_bytes": [
+                299548672,
+                297811968,
+                298500096
+              ],
+              "user_cpu_seconds": [
+                2.688707,
+                2.683509,
+                2.650903
+              ],
+              "system_cpu_seconds": [
+                0.149442,
+                0.14006,
+                0.13513999999999998
+              ],
+              "fastest_seconds": 1.9451892919896636,
+              "median_seconds": 1.9664057920017513
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.009971124978619628,
+          "candidate_minus_control_best_fraction": 0.005152455236620668,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 13,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.9782646249950631,
+                0.9707857910107123,
+                0.9779923749883892
+              ],
+              "native_peak_rss_bytes": [
+                1686044672,
+                1678114816,
+                1732902912
+              ],
+              "user_cpu_seconds": [
+                5.62689,
+                5.686459,
+                5.666539
+              ],
+              "system_cpu_seconds": [
+                0.68791,
+                0.646135,
+                0.663281
+              ],
+              "fastest_seconds": 0.9707857910107123,
+              "median_seconds": 0.9779923749883892
+            },
+            "candidate": {
+              "seconds": [
+                1.0366335830040043,
+                0.990494541998487,
+                0.989346292000846
+              ],
+              "native_peak_rss_bytes": [
+                1703280640,
+                1703198720,
+                1690566656
+              ],
+              "user_cpu_seconds": [
+                6.023998,
+                5.748613,
+                5.705053
+              ],
+              "system_cpu_seconds": [
+                0.6530159999999999,
+                0.641187,
+                0.652256
+              ],
+              "fastest_seconds": 0.989346292000846,
+              "median_seconds": 0.990494541998487
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.018560500990133733,
+          "candidate_minus_control_best_fraction": 0.019119048879784106,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 14,
+          "roles": {
+            "control": {
+              "seconds": [
+                2.1416684580035508,
+                2.045422958006384,
+                2.1222447920008563
+              ],
+              "native_peak_rss_bytes": [
+                1801289728,
+                1817165824,
+                1799274496
+              ],
+              "user_cpu_seconds": [
+                14.031828,
+                13.58669,
+                14.233816
+              ],
+              "system_cpu_seconds": [
+                0.7731159999999999,
+                0.785685,
+                0.8130109999999999
+              ],
+              "fastest_seconds": 2.045422958006384,
+              "median_seconds": 2.1222447920008563
+            },
+            "candidate": {
+              "seconds": [
+                2.238305417005904,
+                2.1462471669947263,
+                1.9563687089976156
+              ],
+              "native_peak_rss_bytes": [
+                1815396352,
+                1798881280,
+                1804582912
+              ],
+              "user_cpu_seconds": [
+                14.886673,
+                14.389856,
+                13.087417
+              ],
+              "system_cpu_seconds": [
+                0.8186749999999999,
+                0.797797,
+                0.780863
+              ],
+              "fastest_seconds": 1.9563687089976156,
+              "median_seconds": 2.1462471669947263
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.08905424900876824,
+          "candidate_minus_control_best_fraction": -0.043538305199999794,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 15,
+          "roles": {
+            "control": {
+              "seconds": [
+                2.1346637920069043,
+                1.9760148750065127,
+                2.0341177079972113
+              ],
+              "native_peak_rss_bytes": [
+                1477574656,
+                1470365696,
+                1474199552
+              ],
+              "user_cpu_seconds": [
+                13.855472,
+                12.426176,
+                13.160261
+              ],
+              "system_cpu_seconds": [
+                0.764354,
+                0.732699,
+                0.7101109999999999
+              ],
+              "fastest_seconds": 1.9760148750065127,
+              "median_seconds": 2.0341177079972113
+            },
+            "candidate": {
+              "seconds": [
+                2.105718541002716,
+                2.0520452499913517,
+                2.0457543340016855
+              ],
+              "native_peak_rss_bytes": [
+                1482784768,
+                1592229888,
+                1609711616
+              ],
+              "user_cpu_seconds": [
+                13.78537,
+                13.450463,
+                13.287284
+              ],
+              "system_cpu_seconds": [
+                0.7151299999999999,
+                0.737798,
+                0.699025
+              ],
+              "fastest_seconds": 2.0457543340016855,
+              "median_seconds": 2.0520452499913517
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.06973945899517275,
+          "candidate_minus_control_best_fraction": 0.03529298279950588,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 16,
+          "roles": {
+            "control": {
+              "seconds": [
+                2.8384326250088634,
+                2.7748204999952577,
+                2.844377583998721
+              ],
+              "native_peak_rss_bytes": [
+                2327052288,
+                2303885312,
+                2315059200
+              ],
+              "user_cpu_seconds": [
+                4.358841,
+                4.288007,
+                4.458755
+              ],
+              "system_cpu_seconds": [
+                0.38576699999999997,
+                0.372701,
+                0.402163
+              ],
+              "fastest_seconds": 2.7748204999952577,
+              "median_seconds": 2.8384326250088634
+            },
+            "candidate": {
+              "seconds": [
+                2.7684191250009462,
+                2.7662476249970496,
+                2.819073042002856
+              ],
+              "native_peak_rss_bytes": [
+                2323038208,
+                2326822912,
+                2307407872
+              ],
+              "user_cpu_seconds": [
+                4.3345839999999995,
+                4.302912,
+                4.328103
+              ],
+              "system_cpu_seconds": [
+                0.385843,
+                0.384611,
+                0.381752
+              ],
+              "fastest_seconds": 2.7662476249970496,
+              "median_seconds": 2.7684191250009462
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.008572874998208135,
+          "candidate_minus_control_best_fraction": -0.0030895241685805486,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 17,
+          "roles": {
+            "control": {
+              "seconds": [
+                3.8511017080018064,
+                3.8134427920012968,
+                3.6682254999905126
+              ],
+              "native_peak_rss_bytes": [
+                3097067520,
+                3082240000,
+                3079094272
+              ],
+              "user_cpu_seconds": [
+                27.693047,
+                27.654846,
+                26.331151
+              ],
+              "system_cpu_seconds": [
+                1.087408,
+                1.01163,
+                1.014017
+              ],
+              "fastest_seconds": 3.6682254999905126,
+              "median_seconds": 3.8134427920012968
+            },
+            "candidate": {
+              "seconds": [
+                4.0456683749944204,
+                3.9868860409915214,
+                3.831537916994421
+              ],
+              "native_peak_rss_bytes": [
+                3078373376,
+                3091660800,
+                2962817024
+              ],
+              "user_cpu_seconds": [
+                26.792582,
+                29.089382,
+                25.937881
+              ],
+              "system_cpu_seconds": [
+                1.236576,
+                1.00615,
+                1.426992
+              ],
+              "fastest_seconds": 3.831537916994421,
+              "median_seconds": 3.9868860409915214
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.1633124170039082,
+          "candidate_minus_control_best_fraction": 0.044520822671433535,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 18,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.30316004098858684,
+                0.3459255000052508,
+                0.31955945800291374
+              ],
+              "native_peak_rss_bytes": [
+                278790144,
+                297369600,
+                275857408
+              ],
+              "user_cpu_seconds": [
+                0.324808,
+                0.370886,
+                0.348298
+              ],
+              "system_cpu_seconds": [
+                0.12842,
+                0.139653,
+                0.130936
+              ],
+              "fastest_seconds": 0.30316004098858684,
+              "median_seconds": 0.31955945800291374
+            },
+            "candidate": {
+              "seconds": [
+                0.3277274170104647,
+                0.48463958299544174,
+                0.4057968749984866
+              ],
+              "native_peak_rss_bytes": [
+                280903680,
+                308871168,
+                284229632
+              ],
+              "user_cpu_seconds": [
+                0.34460999999999997,
+                0.533354,
+                0.442165
+              ],
+              "system_cpu_seconds": [
+                0.135926,
+                0.185087,
+                0.15009999999999998
+              ],
+              "fastest_seconds": 0.3277274170104647,
+              "median_seconds": 0.4057968749984866
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.024567376021877863,
+          "candidate_minus_control_best_fraction": 0.08103764579845385,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 19,
+          "roles": {
+            "control": {
+              "seconds": [
+                7.186669375005295,
+                6.554315583998687,
+                6.88239329100179
+              ],
+              "native_peak_rss_bytes": [
+                4117823488,
+                3959226368,
+                3816407040
+              ],
+              "user_cpu_seconds": [
+                10.010681,
+                9.471217,
+                9.808651
+              ],
+              "system_cpu_seconds": [
+                2.126948,
+                1.562795,
+                2.017165
+              ],
+              "fastest_seconds": 6.554315583998687,
+              "median_seconds": 6.88239329100179
+            },
+            "candidate": {
+              "seconds": [
+                6.545989249992999,
+                6.50440575000539,
+                7.987260708003305
+              ],
+              "native_peak_rss_bytes": [
+                4023582720,
+                4138270720,
+                3637821440
+              ],
+              "user_cpu_seconds": [
+                9.541088,
+                9.518841,
+                10.793982
+              ],
+              "system_cpu_seconds": [
+                1.4708459999999999,
+                1.59579,
+                2.852539
+              ],
+              "fastest_seconds": 6.50440575000539,
+              "median_seconds": 6.545989249992999
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.04990983399329707,
+          "candidate_minus_control_best_fraction": -0.007614804834107147,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 20,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.07980637499713339,
+                0.076533625004231,
+                0.08296820799296256
+              ],
+              "native_peak_rss_bytes": [
+                167198720,
+                174555136,
+                171950080
+              ],
+              "user_cpu_seconds": [
+                0.21171099999999998,
+                0.216934,
+                0.22833699999999998
+              ],
+              "system_cpu_seconds": [
+                0.077856,
+                0.078024,
+                0.090235
+              ],
+              "fastest_seconds": 0.076533625004231,
+              "median_seconds": 0.07980637499713339
+            },
+            "candidate": {
+              "seconds": [
+                0.08824012501281686,
+                0.07765004198881797,
+                0.08019566698931158
+              ],
+              "native_peak_rss_bytes": [
+                175685632,
+                169000960,
+                169558016
+              ],
+              "user_cpu_seconds": [
+                0.21533,
+                0.218017,
+                0.225106
+              ],
+              "system_cpu_seconds": [
+                0.103846,
+                0.076333,
+                0.085146
+              ],
+              "fastest_seconds": 0.07765004198881797,
+              "median_seconds": 0.08019566698931158
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.0011164169845869765,
+          "candidate_minus_control_best_fraction": 0.014587274345430057,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 21,
+          "roles": {
+            "control": {
+              "seconds": [
+                1.729480333000538,
+                1.5083344169979682,
+                1.4113380829949165
+              ],
+              "native_peak_rss_bytes": [
+                1303625728,
+                1214857216,
+                1371045888
+              ],
+              "user_cpu_seconds": [
+                8.718201,
+                9.163487,
+                8.863704
+              ],
+              "system_cpu_seconds": [
+                1.188346,
+                0.874065,
+                0.905712
+              ],
+              "fastest_seconds": 1.4113380829949165,
+              "median_seconds": 1.5083344169979682
+            },
+            "candidate": {
+              "seconds": [
+                1.3283357089967467,
+                1.3413754999928642,
+                1.440902709000511
+              ],
+              "native_peak_rss_bytes": [
+                1372241920,
+                1328807936,
+                1268826112
+              ],
+              "user_cpu_seconds": [
+                8.664962,
+                8.637794,
+                8.951214
+              ],
+              "system_cpu_seconds": [
+                0.8102969999999999,
+                0.803129,
+                0.963015
+              ],
+              "fastest_seconds": 1.3283357089967467,
+              "median_seconds": 1.3413754999928642
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.08300237399816979,
+          "candidate_minus_control_best_fraction": -0.05881112045246839,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 22,
+          "roles": {
+            "control": {
+              "seconds": [
+                2.1335691249987576,
+                2.157044167004642,
+                2.424652417001198
+              ],
+              "native_peak_rss_bytes": [
+                1074282496,
+                1017380864,
+                1010958336
+              ],
+              "user_cpu_seconds": [
+                9.258035,
+                9.803593,
+                9.829545
+              ],
+              "system_cpu_seconds": [
+                0.834283,
+                0.8046869999999999,
+                0.945083
+              ],
+              "fastest_seconds": 2.1335691249987576,
+              "median_seconds": 2.157044167004642
+            },
+            "candidate": {
+              "seconds": [
+                2.4739229589904426,
+                2.1558941660041455,
+                2.2777173750073416
+              ],
+              "native_peak_rss_bytes": [
+                1061601280,
+                1116487680,
+                1085652992
+              ],
+              "user_cpu_seconds": [
+                10.392037,
+                9.289113,
+                9.746623
+              ],
+              "system_cpu_seconds": [
+                0.961453,
+                0.810514,
+                0.8733799999999999
+              ],
+              "fastest_seconds": 2.1558941660041455,
+              "median_seconds": 2.2777173750073416
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.022325041005387902,
+          "candidate_minus_control_best_fraction": 0.01046370644560235,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 23,
+          "roles": {
+            "control": {
+              "seconds": [
+                6.888828666997142,
+                7.079691791004734,
+                7.126265166996745
+              ],
+              "native_peak_rss_bytes": [
+                2192752640,
+                1878818816,
+                1951940608
+              ],
+              "user_cpu_seconds": [
+                15.860942,
+                16.081962,
+                16.318836
+              ],
+              "system_cpu_seconds": [
+                1.888081,
+                1.968562,
+                1.962132
+              ],
+              "fastest_seconds": 6.888828666997142,
+              "median_seconds": 7.079691791004734
+            },
+            "candidate": {
+              "seconds": [
+                7.615560958001879,
+                7.4007776669895975,
+                7.425833417000831
+              ],
+              "native_peak_rss_bytes": [
+                2142519296,
+                2068430848,
+                2150809600
+              ],
+              "user_cpu_seconds": [
+                17.125189,
+                16.251179,
+                16.691843
+              ],
+              "system_cpu_seconds": [
+                2.10761,
+                1.967342,
+                2.122727
+              ],
+              "fastest_seconds": 7.4007776669895975,
+              "median_seconds": 7.425833417000831
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.5119489999924554,
+          "candidate_minus_control_best_fraction": 0.0743158270788602,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 24,
+          "roles": {
+            "control": {
+              "seconds": [
+                1.6392650000052527,
+                1.7267816660023527,
+                1.6497479579993524
+              ],
+              "native_peak_rss_bytes": [
+                1086881792,
+                1014759424,
+                1070743552
+              ],
+              "user_cpu_seconds": [
+                9.467649,
+                9.417162,
+                9.075775
+              ],
+              "system_cpu_seconds": [
+                1.077911,
+                1.053577,
+                1.04324
+              ],
+              "fastest_seconds": 1.6392650000052527,
+              "median_seconds": 1.6497479579993524
+            },
+            "candidate": {
+              "seconds": [
+                1.7101233330031391,
+                1.62613925000187,
+                1.622335625012056
+              ],
+              "native_peak_rss_bytes": [
+                1110786048,
+                1099661312,
+                986120192
+              ],
+              "user_cpu_seconds": [
+                8.53531,
+                8.800304,
+                9.153177
+              ],
+              "system_cpu_seconds": [
+                1.150263,
+                0.968267,
+                1.229837
+              ],
+              "fastest_seconds": 1.622335625012056,
+              "median_seconds": 1.62613925000187
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.01692937499319669,
+          "candidate_minus_control_best_fraction": -0.010327418076480854,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 25,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.7746007919922704,
+                0.5007100830116542,
+                0.5241620829910971
+              ],
+              "native_peak_rss_bytes": [
+                276348928,
+                279511040,
+                276250624
+              ],
+              "user_cpu_seconds": [
+                1.018298,
+                0.658982,
+                0.682659
+              ],
+              "system_cpu_seconds": [
+                0.20726799999999998,
+                0.138062,
+                0.12906099999999998
+              ],
+              "fastest_seconds": 0.5007100830116542,
+              "median_seconds": 0.5241620829910971
+            },
+            "candidate": {
+              "seconds": [
+                0.2829537910001818,
+                0.2605955000035465,
+                0.28083904199593235
+              ],
+              "native_peak_rss_bytes": [
+                260358144,
+                255328256,
+                258588672
+              ],
+              "user_cpu_seconds": [
+                0.46599399999999996,
+                0.425361,
+                0.457154
+              ],
+              "system_cpu_seconds": [
+                0.12132899999999999,
+                0.111771,
+                0.12126999999999999
+              ],
+              "fastest_seconds": 0.2605955000035465,
+              "median_seconds": 0.28083904199593235
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.24011458300810773,
+          "candidate_minus_control_best_fraction": -0.479548128058206,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 26,
+          "roles": {
+            "control": {
+              "seconds": [
+                4.583418750000419,
+                3.782043874991359,
+                4.043868416003534
+              ],
+              "native_peak_rss_bytes": [
+                247136256,
+                259358720,
+                275152896
+              ],
+              "user_cpu_seconds": [
+                4.703564,
+                3.898084,
+                4.193027
+              ],
+              "system_cpu_seconds": [
+                0.271795,
+                0.210201,
+                0.232309
+              ],
+              "fastest_seconds": 3.782043874991359,
+              "median_seconds": 4.043868416003534
+            },
+            "candidate": {
+              "seconds": [
+                2.2964412500004983,
+                2.65914812500705,
+                2.6470582079928135
+              ],
+              "native_peak_rss_bytes": [
+                258342912,
+                261488640,
+                260554752
+              ],
+              "user_cpu_seconds": [
+                2.404786,
+                2.803249,
+                2.793472
+              ],
+              "system_cpu_seconds": [
+                0.187475,
+                0.237928,
+                0.220331
+              ],
+              "fastest_seconds": 2.2964412500004983,
+              "median_seconds": 2.6470582079928135
+            }
+          },
+          "candidate_minus_control_best_seconds": -1.485602624990861,
+          "candidate_minus_control_best_fraction": -0.3928041752276751,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 27,
+          "roles": {
+            "control": {
+              "seconds": [
+                4.578378042002441,
+                3.338017250003759,
+                3.3317856659996323
+              ],
+              "native_peak_rss_bytes": [
+                291717120,
+                313344000,
+                307183616
+              ],
+              "user_cpu_seconds": [
+                4.638297,
+                3.463427,
+                3.4520049999999998
+              ],
+              "system_cpu_seconds": [
+                0.415693,
+                0.22208899999999998,
+                0.223381
+              ],
+              "fastest_seconds": 3.3317856659996323,
+              "median_seconds": 3.338017250003759
+            },
+            "candidate": {
+              "seconds": [
+                2.066198833010276,
+                2.1174812090030173,
+                2.176613791991258
+              ],
+              "native_peak_rss_bytes": [
+                299696128,
+                315539456,
+                305053696
+              ],
+              "user_cpu_seconds": [
+                2.137127,
+                2.247034,
+                2.300938
+              ],
+              "system_cpu_seconds": [
+                0.222456,
+                0.20677399999999999,
+                0.207588
+              ],
+              "fastest_seconds": 2.066198833010276,
+              "median_seconds": 2.1174812090030173
+            }
+          },
+          "candidate_minus_control_best_seconds": -1.2655868329893565,
+          "candidate_minus_control_best_fraction": -0.3798524154493125,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 28,
+          "roles": {
+            "control": {
+              "seconds": [
+                2.9371418749942677,
+                3.1095972920011263,
+                3.306371874990873
+              ],
+              "native_peak_rss_bytes": [
+                424755200,
+                423837696,
+                424787968
+              ],
+              "user_cpu_seconds": [
+                3.009989,
+                3.198914,
+                3.391852
+              ],
+              "system_cpu_seconds": [
+                0.143478,
+                0.151421,
+                0.16605599999999998
+              ],
+              "fastest_seconds": 2.9371418749942677,
+              "median_seconds": 3.1095972920011263
+            },
+            "candidate": {
+              "seconds": [
+                2.9631222499883734,
+                3.076981291989796,
+                3.127090291993227
+              ],
+              "native_peak_rss_bytes": [
+                423886848,
+                423870464,
+                428933120
+              ],
+              "user_cpu_seconds": [
+                3.040816,
+                3.15813,
+                3.21576
+              ],
+              "system_cpu_seconds": [
+                0.163856,
+                0.156304,
+                0.153478
+              ],
+              "fastest_seconds": 2.9631222499883734,
+              "median_seconds": 3.076981291989796
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.02598037499410566,
+          "candidate_minus_control_best_fraction": 0.008845461370216023,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 29,
+          "roles": {
+            "control": {
+              "seconds": [
+                12.395484291992034,
+                15.363076416004333,
+                13.68661154199799
+              ],
+              "native_peak_rss_bytes": [
+                1440317440,
+                1349238784,
+                1437483008
+              ],
+              "user_cpu_seconds": [
+                15.46278,
+                18.408198,
+                16.713621
+              ],
+              "system_cpu_seconds": [
+                0.870193,
+                0.932407,
+                0.818727
+              ],
+              "fastest_seconds": 12.395484291992034,
+              "median_seconds": 13.68661154199799
+            },
+            "candidate": {
+              "seconds": [
+                12.48081666699727,
+                12.230302875002963,
+                13.907486750002136
+              ],
+              "native_peak_rss_bytes": [
+                1452589056,
+                1374584832,
+                1411301376
+              ],
+              "user_cpu_seconds": [
+                15.709871,
+                15.267956,
+                16.849958
+              ],
+              "system_cpu_seconds": [
+                0.609028,
+                0.714661,
+                0.938838
+              ],
+              "fastest_seconds": 12.230302875002963,
+              "median_seconds": 12.48081666699727
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.1651814169890713,
+          "candidate_minus_control_best_fraction": -0.013325934920976445,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 30,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.31134316699171904,
+                0.2705960419989424,
+                0.2656270840088837
+              ],
+              "native_peak_rss_bytes": [
+                133611520,
+                129466368,
+                129155072
+              ],
+              "user_cpu_seconds": [
+                0.272955,
+                0.282902,
+                0.276003
+              ],
+              "system_cpu_seconds": [
+                0.07181499999999999,
+                0.061479,
+                0.050456999999999995
+              ],
+              "fastest_seconds": 0.2656270840088837,
+              "median_seconds": 0.2705960419989424
+            },
+            "candidate": {
+              "seconds": [
+                0.2637060830020346,
+                0.29244112499873154,
+                0.28759779199026525
+              ],
+              "native_peak_rss_bytes": [
+                127434752,
+                129974272,
+                130531328
+              ],
+              "user_cpu_seconds": [
+                0.27214299999999997,
+                0.304816,
+                0.299879
+              ],
+              "system_cpu_seconds": [
+                0.061992,
+                0.055962,
+                0.056893
+              ],
+              "fastest_seconds": 0.2637060830020346,
+              "median_seconds": 0.28759779199026525
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.0019210010068491101,
+          "candidate_minus_control_best_fraction": -0.007231947050944765,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 31,
+          "roles": {
+            "control": {
+              "seconds": [
+                1.8490296250092797,
+                1.3474888750060927,
+                1.4628885419951985
+              ],
+              "native_peak_rss_bytes": [
+                889798656,
+                886259712,
+                876609536
+              ],
+              "user_cpu_seconds": [
+                2.381051,
+                1.761488,
+                1.90036
+              ],
+              "system_cpu_seconds": [
+                0.9538089999999999,
+                0.6525799999999999,
+                0.738057
+              ],
+              "fastest_seconds": 1.3474888750060927,
+              "median_seconds": 1.4628885419951985
+            },
+            "candidate": {
+              "seconds": [
+                2.1297425410011783,
+                1.2920809579954948,
+                1.3476089580071857
+              ],
+              "native_peak_rss_bytes": [
+                884539392,
+                885145600,
+                869138432
+              ],
+              "user_cpu_seconds": [
+                2.461862,
+                1.673465,
+                1.74443
+              ],
+              "system_cpu_seconds": [
+                0.946911,
+                0.608487,
+                0.631977
+              ],
+              "fastest_seconds": 1.2920809579954948,
+              "median_seconds": 1.3476089580071857
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.055407917010597885,
+          "candidate_minus_control_best_fraction": -0.04111938735698084,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 32,
+          "roles": {
+            "control": {
+              "seconds": [
+                1.7639287920028437,
+                1.6916825420048553,
+                1.7173737080011051
+              ],
+              "native_peak_rss_bytes": [
+                2441478144,
+                2461007872,
+                2439626752
+              ],
+              "user_cpu_seconds": [
+                2.071705,
+                2.001233,
+                2.042225
+              ],
+              "system_cpu_seconds": [
+                1.015674,
+                1.000243,
+                1.004356
+              ],
+              "fastest_seconds": 1.6916825420048553,
+              "median_seconds": 1.7173737080011051
+            },
+            "candidate": {
+              "seconds": [
+                2.0568646250030724,
+                1.7427633750048699,
+                1.6518162909924285
+              ],
+              "native_peak_rss_bytes": [
+                1921318912,
+                2454011904,
+                2432237568
+              ],
+              "user_cpu_seconds": [
+                2.316434,
+                2.058477,
+                1.98496
+              ],
+              "system_cpu_seconds": [
+                1.372124,
+                1.026822,
+                0.9784229999999999
+              ],
+              "fastest_seconds": 1.6518162909924285,
+              "median_seconds": 1.7427633750048699
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.0398662510124268,
+          "candidate_minus_control_best_fraction": -0.02356603560215287,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 33,
+          "roles": {
+            "control": {
+              "seconds": [
+                4.032973167006276,
+                4.5189404580014525,
+                3.8811192919965833
+              ],
+              "native_peak_rss_bytes": [
+                2758836224,
+                2736095232,
+                2770862080
+              ],
+              "user_cpu_seconds": [
+                9.421051,
+                9.356773,
+                9.499207
+              ],
+              "system_cpu_seconds": [
+                2.402519,
+                2.570134,
+                2.736245
+              ],
+              "fastest_seconds": 3.8811192919965833,
+              "median_seconds": 4.032973167006276
+            },
+            "candidate": {
+              "seconds": [
+                3.4968196660047397,
+                3.143369709010585,
+                3.4210688750026748
+              ],
+              "native_peak_rss_bytes": [
+                2776989696,
+                2772451328,
+                2776481792
+              ],
+              "user_cpu_seconds": [
+                9.071914,
+                8.65855,
+                8.847129
+              ],
+              "system_cpu_seconds": [
+                1.449547,
+                1.302725,
+                1.421182
+              ],
+              "fastest_seconds": 3.143369709010585,
+              "median_seconds": 3.4210688750026748
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.7377495829859981,
+          "candidate_minus_control_best_fraction": -0.19008680936639644,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 34,
+          "roles": {
+            "control": {
+              "seconds": [
+                12.137747875007335,
+                12.668981458002236,
+                12.227301749997423
+              ],
+              "native_peak_rss_bytes": [
+                4256235520,
+                4337893376,
+                4366712832
+              ],
+              "user_cpu_seconds": [
+                34.577036,
+                35.452287,
+                36.044138
+              ],
+              "system_cpu_seconds": [
+                16.264051,
+                18.380583,
+                16.180306
+              ],
+              "fastest_seconds": 12.137747875007335,
+              "median_seconds": 12.227301749997423
+            },
+            "candidate": {
+              "seconds": [
+                13.817795750001096,
+                11.898001832989394,
+                13.525256541994167
+              ],
+              "native_peak_rss_bytes": [
+                3854270464,
+                4587241472,
+                4617584640
+              ],
+              "user_cpu_seconds": [
+                34.63856,
+                36.188528,
+                35.388603
+              ],
+              "system_cpu_seconds": [
+                17.733211,
+                15.600101,
+                18.170706
+              ],
+              "fastest_seconds": 11.898001832989394,
+              "median_seconds": 13.525256541994167
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.23974604201794136,
+          "candidate_minus_control_best_fraction": -0.01975210265419991,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 35,
+          "roles": {
+            "control": {
+              "seconds": [
+                10.24539791700954,
+                12.28715058400121,
+                12.65443383299862
+              ],
+              "native_peak_rss_bytes": [
+                4471586816,
+                4531699712,
+                4782391296
+              ],
+              "user_cpu_seconds": [
+                35.10134,
+                34.806729,
+                34.420352
+              ],
+              "system_cpu_seconds": [
+                11.547735,
+                15.094985,
+                15.617959
+              ],
+              "fastest_seconds": 10.24539791700954,
+              "median_seconds": 12.28715058400121
+            },
+            "candidate": {
+              "seconds": [
+                14.494828250011778,
+                12.890421792006237,
+                12.917698290999397
+              ],
+              "native_peak_rss_bytes": [
+                4371316736,
+                4089659392,
+                3822174208
+              ],
+              "user_cpu_seconds": [
+                36.325138,
+                37.981282,
+                34.547126
+              ],
+              "system_cpu_seconds": [
+                19.84276,
+                16.40459,
+                14.196548
+              ],
+              "fastest_seconds": 12.890421792006237,
+              "median_seconds": 12.917698290999397
+            }
+          },
+          "candidate_minus_control_best_seconds": 2.6450238749966957,
+          "candidate_minus_control_best_fraction": 0.2581670225424231,
+          "regression_screen_flag": true
+        },
+        {
+          "query": 36,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.959648375006509,
+                0.5684634579956764,
+                0.7190945830079727
+              ],
+              "native_peak_rss_bytes": [
+                693682176,
+                667205632,
+                681115648
+              ],
+              "user_cpu_seconds": [
+                4.056761,
+                3.522666,
+                3.432383
+              ],
+              "system_cpu_seconds": [
+                0.33459,
+                0.22355899999999998,
+                0.23479599999999998
+              ],
+              "fastest_seconds": 0.5684634579956764,
+              "median_seconds": 0.7190945830079727
+            },
+            "candidate": {
+              "seconds": [
+                0.44483095899340697,
+                0.5365279160032514,
+                0.5559584160073427
+              ],
+              "native_peak_rss_bytes": [
+                681328640,
+                701022208,
+                715669504
+              ],
+              "user_cpu_seconds": [
+                2.991011,
+                3.425208,
+                3.4671279999999998
+              ],
+              "system_cpu_seconds": [
+                0.16439299999999998,
+                0.201631,
+                0.21415099999999998
+              ],
+              "fastest_seconds": 0.44483095899340697,
+              "median_seconds": 0.5365279160032514
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.12363249900226947,
+          "candidate_minus_control_best_fraction": -0.2174853937633574,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 37,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.25441375000809785,
+                0.2610778329981258,
+                0.25272924998716917
+              ],
+              "native_peak_rss_bytes": [
+                270319616,
+                275693568,
+                271482880
+              ],
+              "user_cpu_seconds": [
+                0.286153,
+                0.30147199999999996,
+                0.29551
+              ],
+              "system_cpu_seconds": [
+                0.095496,
+                0.070243,
+                0.069871
+              ],
+              "fastest_seconds": 0.25272924998716917,
+              "median_seconds": 0.25441375000809785
+            },
+            "candidate": {
+              "seconds": [
+                0.24233449999883305,
+                0.24811416601005476,
+                0.25228579199756496
+              ],
+              "native_peak_rss_bytes": [
+                272564224,
+                271073280,
+                270008320
+              ],
+              "user_cpu_seconds": [
+                0.280204,
+                0.29053799999999996,
+                0.295238
+              ],
+              "system_cpu_seconds": [
+                0.068659,
+                0.067429,
+                0.07194099999999999
+              ],
+              "fastest_seconds": 0.24233449999883305,
+              "median_seconds": 0.24811416601005476
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.010394749988336116,
+          "candidate_minus_control_best_fraction": -0.04112998392098999,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 38,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.14976270899933297,
+                0.1466906249988824,
+                0.1508425409992924
+              ],
+              "native_peak_rss_bytes": [
+                492224512,
+                486293504,
+                491143168
+              ],
+              "user_cpu_seconds": [
+                0.202031,
+                0.204781,
+                0.20876499999999998
+              ],
+              "system_cpu_seconds": [
+                0.111133,
+                0.11148,
+                0.117806
+              ],
+              "fastest_seconds": 0.1466906249988824,
+              "median_seconds": 0.14976270899933297
+            },
+            "candidate": {
+              "seconds": [
+                0.1753842910111416,
+                0.14653641599579714,
+                0.14621820900356397
+              ],
+              "native_peak_rss_bytes": [
+                494747648,
+                486457344,
+                488292352
+              ],
+              "user_cpu_seconds": [
+                0.20488199999999998,
+                0.20218999999999998,
+                0.201921
+              ],
+              "system_cpu_seconds": [
+                0.11964899999999999,
+                0.111854,
+                0.11667999999999999
+              ],
+              "fastest_seconds": 0.14621820900356397,
+              "median_seconds": 0.14653641599579714
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.0004724159953184426,
+          "candidate_minus_control_best_fraction": -0.0032204920752232358,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 39,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.1645684999966761,
+                0.12151416699634865,
+                0.1178368330001831
+              ],
+              "native_peak_rss_bytes": [
+                216039424,
+                215252992,
+                217448448
+              ],
+              "user_cpu_seconds": [
+                0.201433,
+                0.17793399999999998,
+                0.174071
+              ],
+              "system_cpu_seconds": [
+                0.05508,
+                0.054209999999999994,
+                0.061152
+              ],
+              "fastest_seconds": 0.1178368330001831,
+              "median_seconds": 0.12151416699634865
+            },
+            "candidate": {
+              "seconds": [
+                0.14468716700503137,
+                0.1312877500022296,
+                0.12011512499884702
+              ],
+              "native_peak_rss_bytes": [
+                216104960,
+                217333760,
+                218480640
+              ],
+              "user_cpu_seconds": [
+                0.19638,
+                0.18592799999999998,
+                0.172183
+              ],
+              "system_cpu_seconds": [
+                0.066093,
+                0.055395,
+                0.053314999999999994
+              ],
+              "fastest_seconds": 0.12011512499884702,
+              "median_seconds": 0.1312877500022296
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.002278291998663917,
+          "candidate_minus_control_best_fraction": 0.019334294215632708,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 40,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.839355833013542,
+                0.7984249589935644,
+                0.8269421660079388
+              ],
+              "native_peak_rss_bytes": [
+                713277440,
+                712310784,
+                711114752
+              ],
+              "user_cpu_seconds": [
+                0.8438899999999999,
+                0.8079609999999999,
+                0.843448
+              ],
+              "system_cpu_seconds": [
+                0.118183,
+                0.103277,
+                0.108292
+              ],
+              "fastest_seconds": 0.7984249589935644,
+              "median_seconds": 0.8269421660079388
+            },
+            "candidate": {
+              "seconds": [
+                0.7910249999986263,
+                0.7768415830068989,
+                0.7663924579974264
+              ],
+              "native_peak_rss_bytes": [
+                712310784,
+                714358784,
+                714620928
+              ],
+              "user_cpu_seconds": [
+                0.7978489999999999,
+                0.795453,
+                0.782486
+              ],
+              "system_cpu_seconds": [
+                0.116967,
+                0.105679,
+                0.103874
+              ],
+              "fastest_seconds": 0.7663924579974264,
+              "median_seconds": 0.7768415830068989
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.03203250099613797,
+          "candidate_minus_control_best_fraction": -0.04011961379127704,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 41,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.11868345900438726,
+                0.10958487501193304,
+                0.11064233299111947
+              ],
+              "native_peak_rss_bytes": [
+                232128512,
+                232112128,
+                232751104
+              ],
+              "user_cpu_seconds": [
+                0.170976,
+                0.16711499999999999,
+                0.16505699999999998
+              ],
+              "system_cpu_seconds": [
+                0.060578999999999994,
+                0.061089,
+                0.067743
+              ],
+              "fastest_seconds": 0.10958487501193304,
+              "median_seconds": 0.11064233299111947
+            },
+            "candidate": {
+              "seconds": [
+                0.11283900000853464,
+                0.11035345900745597,
+                0.11276195901155006
+              ],
+              "native_peak_rss_bytes": [
+                231817216,
+                232456192,
+                232538112
+              ],
+              "user_cpu_seconds": [
+                0.16780299999999998,
+                0.16630399999999998,
+                0.16852699999999998
+              ],
+              "system_cpu_seconds": [
+                0.057092,
+                0.057248999999999994,
+                0.06486499999999999
+              ],
+              "fastest_seconds": 0.11035345900745597,
+              "median_seconds": 0.11276195901155006
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.0007685839955229312,
+          "candidate_minus_control_best_fraction": 0.007013595584602683,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 42,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.09756054100580513,
+                0.09272904200770427,
+                0.09004737499344628
+              ],
+              "native_peak_rss_bytes": [
+                170524672,
+                170328064,
+                171065344
+              ],
+              "user_cpu_seconds": [
+                0.156473,
+                0.150092,
+                0.148614
+              ],
+              "system_cpu_seconds": [
+                0.051182,
+                0.050345,
+                0.051224
+              ],
+              "fastest_seconds": 0.09004737499344628,
+              "median_seconds": 0.09272904200770427
+            },
+            "candidate": {
+              "seconds": [
+                0.10198395898623858,
+                0.09173250000458211,
+                0.093047917005606
+              ],
+              "native_peak_rss_bytes": [
+                170508288,
+                171687936,
+                174456832
+              ],
+              "user_cpu_seconds": [
+                0.151982,
+                0.147346,
+                0.147834
+              ],
+              "system_cpu_seconds": [
+                0.050313,
+                0.051290999999999996,
+                0.052212999999999996
+              ],
+              "fastest_seconds": 0.09173250000458211,
+              "median_seconds": 0.093047917005606
+            }
+          },
+          "candidate_minus_control_best_seconds": 0.001685125011135824,
+          "candidate_minus_control_best_fraction": 0.01871376052059781,
+          "regression_screen_flag": false
+        },
+        {
+          "query": 43,
+          "roles": {
+            "control": {
+              "seconds": [
+                0.11336208300781436,
+                0.09695933300827164,
+                0.09741425000538584
+              ],
+              "native_peak_rss_bytes": [
+                332283904,
+                332464128,
+                331022336
+              ],
+              "user_cpu_seconds": [
+                0.14696299999999998,
+                0.14624499999999999,
+                0.14751
+              ],
+              "system_cpu_seconds": [
+                0.083358,
+                0.07904699999999999,
+                0.07664599999999999
+              ],
+              "fastest_seconds": 0.09695933300827164,
+              "median_seconds": 0.09741425000538584
+            },
+            "candidate": {
+              "seconds": [
+                0.10141766699962318,
+                0.09680620799190365,
+                0.09924720799608622
+              ],
+              "native_peak_rss_bytes": [
+                332578816,
+                332791808,
+                331530240
+              ],
+              "user_cpu_seconds": [
+                0.14709899999999998,
+                0.147116,
+                0.14865499999999998
+              ],
+              "system_cpu_seconds": [
+                0.076066,
+                0.082485,
+                0.07536
+              ],
+              "fastest_seconds": 0.09680620799190365,
+              "median_seconds": 0.09924720799608622
+            }
+          },
+          "candidate_minus_control_best_seconds": -0.00015312501636799425,
+          "candidate_minus_control_best_fraction": -0.0015792705211259417,
+          "regression_screen_flag": false
+        }
+      ],
+      "regression_screen_query_ids": [
+        35
+      ],
+      "native_sort_block_activation": [
+        {
+          "query": 24,
+          "run": 1,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 121,
+                "chunks": 991,
+                "copied_utf8_bytes": 0,
+                "rows": 15911,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 24,
+          "run": 2,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 121,
+                "chunks": 991,
+                "copied_utf8_bytes": 0,
+                "rows": 15911,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 24,
+          "run": 3,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 121,
+                "chunks": 991,
+                "copied_utf8_bytes": 0,
+                "rows": 15911,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 25,
+          "run": 1,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 10429,
+                "chunks": 1548,
+                "copied_utf8_bytes": 0,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 25,
+          "run": 2,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 10429,
+                "chunks": 1548,
+                "copied_utf8_bytes": 0,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 25,
+          "run": 3,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 10429,
+                "chunks": 1548,
+                "copied_utf8_bytes": 0,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 26,
+          "run": 1,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 8839,
+                "chunks": 1548,
+                "copied_utf8_bytes": 456468,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 26,
+          "run": 2,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 8839,
+                "chunks": 1548,
+                "copied_utf8_bytes": 456468,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 26,
+          "run": 3,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 8839,
+                "chunks": 1548,
+                "copied_utf8_bytes": 456468,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 27,
+          "run": 1,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 10431,
+                "chunks": 1548,
+                "copied_utf8_bytes": 571112,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 27,
+          "run": 2,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 10431,
+                "chunks": 1548,
+                "copied_utf8_bytes": 571112,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        },
+        {
+          "query": 27,
+          "run": 3,
+          "role": "candidate",
+          "native_sort_block_counters": [
+            {
+              "path": "human_text.result_summary.values.native_sort_block",
+              "value": {
+                "candidate_rows": 10431,
+                "chunks": 1548,
+                "copied_utf8_bytes": 571112,
+                "rows": 13172392,
+                "scope": "native_decoded_integer_utf8_blocks;owned_possible_topk_survivors;copied_bytes_exclude_final_output_and_provider_allocations;not_zero_decode_or_RSS_bound"
+              }
+            }
+          ]
+        }
+      ],
+      "archives": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q01_completed.tar.xz",
+          "sha256": "31aeeecb27b1086b0c9e5af3491921d1dfef0617016111136a9e2ac6909ad943"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q02_completed.tar.xz",
+          "sha256": "ccc8cdb65412b01bec3c973ccb1b67c65c41471b49465886258eb6f67dee39a6"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q03_completed.tar.xz",
+          "sha256": "de6ed83d7dead4ddef51704d1f2763165dc2400635c8306c25cfe05da1573091"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q04_completed.tar.xz",
+          "sha256": "d8e4b4f36d5b3d46a03c0893fadf4a59b946bf7a23d3381f5f62fc4afdfccaee"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q05_completed.tar.xz",
+          "sha256": "6d8a3ee68c86f1511d6c069ae3b2db8d890b25c69d06fdcef061e078fdb7db5a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q06_completed.tar.xz",
+          "sha256": "fe3df84ff4b725f16736d51ec5978612ebea66c354975ef27da32f9bacf6ea6a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q07_completed.tar.xz",
+          "sha256": "e0d768a5faea079ca59365593dbea3a912d5ee9430db5beb4c11ee945bca800b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q08_completed.tar.xz",
+          "sha256": "ea724059be682e03041e4f25867360bb39c8a3f1b9b0e378ee311f27a5d6bc78"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q09_completed.tar.xz",
+          "sha256": "a84ab4a8078d1114e5bae375d45444586f179c5cc173bb80eee3424e485f22c5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q10_completed.tar.xz",
+          "sha256": "692df794aee780d9f44a7b7dc862bfc87bbfeea73b808e9f20e87df60d4c8417"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q11_completed.tar.xz",
+          "sha256": "7c0dd1ca3e0e0c077f14c3987de7e43e34152a1bb47244bbc1bb788e07dcec49"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q12_completed.tar.xz",
+          "sha256": "4a33b90c6a0b3adb2f6cc6deb40741dbae5f91bcee866cf281b34b125702f99a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q13_completed.tar.xz",
+          "sha256": "cb58f19d14e0fade84805652414ca76a15fa00f2fbbb0e4252c6823ab704ff1c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q14_completed.tar.xz",
+          "sha256": "be3c856efa9b9e47a15a13a7206223372317a161d523e5872532a7ef0670cbe2"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q15_completed.tar.xz",
+          "sha256": "fa15b82808f21db83d8921cc3d734809c4be5f6a06f6da3d909ce1f152e16806"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q16_completed.tar.xz",
+          "sha256": "4496221fee84fbaf04e4e44b8eaa96b1f50774cce128969104e97795c28d4928"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q17_completed.tar.xz",
+          "sha256": "9898614e0147529d81635de76714312ed4e45d385c4387be5310e051183bedb7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q18_completed.tar.xz",
+          "sha256": "9590863a7c37d4b0d4700d77eb7e8e38ed79b610d728a830043c3516d81fd99a"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q19_completed.tar.xz",
+          "sha256": "23a82fce19d2bd903546e17d2029cf24f7850e617bb22a30c70284f63ac65a68"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q20_completed.tar.xz",
+          "sha256": "8dc604c641065459b4be4846ee1c4baf43d14c79ab4b68c3078b67a5ff986fbf"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q21_completed.tar.xz",
+          "sha256": "f5347d9f8b5117cece63b1bf1539ddc1bb06d55661599d41a844837b7e114451"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q22_completed.tar.xz",
+          "sha256": "ff767ac845629c80d5c5500ce7d6cef59eb08e1e8e206c9630c518ce507a3ad2"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q23_completed.tar.xz",
+          "sha256": "398a821a3825826b8ccbf41ed33fae70bb262b847c995b15cb0974360ca67ab0"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q24_completed.tar.xz",
+          "sha256": "d8cae27d422ec7dbb8bd9899da3de4e6942d9c2ed408f85fdf7476067ea8e5af"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q25_completed.tar.xz",
+          "sha256": "becd8dc7035de1856b2e503973afb7f6889ddf9e962a87511cd4c82a59ec20a2"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q26_completed.tar.xz",
+          "sha256": "07a366448de6022209df5b39bbb8b3f2683281f5a57a916f86db685009eed7a7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q27_completed.tar.xz",
+          "sha256": "f1cec89a3601c9d4079b076921d45392947040399ae7ee1601722b7c16e83e8c"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q28_completed.tar.xz",
+          "sha256": "bafcce7f2eae7c5cc233bf2b251cd7dae6bf24316d4d86fa905dc0cadd81a124"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q29_completed.tar.xz",
+          "sha256": "7d02e6ef56c1fd5ce3b6c5a5251835c25d5c38f8a164a30c6c1f15147fe50840"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q30_completed.tar.xz",
+          "sha256": "f89857d4f0eef237b72ccd48d3204df4957bba8c14d159f5f778b555e6aff14f"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q31_completed.tar.xz",
+          "sha256": "0726d758afea1b4f09266c0fb9217a18c8fea8da6d909a1591ad068c0a071819"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q32_completed.tar.xz",
+          "sha256": "ed1d4eb67752b9815e9f4eef643685af7732f60e632c889c041137b3cdecb3a1"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q33_completed.tar.xz",
+          "sha256": "857dc019d8fbf40226d5fe33b3005bfe2938ed058ed73050fc15b2bffcdc1a4b"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q34_completed.tar.xz",
+          "sha256": "2ee043a5624496582e23ad4bf3049ece36b6a3e601e8caf36861ee2e5f4743ef"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q35_completed.tar.xz",
+          "sha256": "577d4d4debc1c6037415756c79eff04ef71579c594b349615f10ab597e24e39e"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q36_completed.tar.xz",
+          "sha256": "a9343dd391e93de8e751bacb33771205610942406f3964b8a2c041e11fdbb8f7"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q37_completed.tar.xz",
+          "sha256": "d6b9fb376ca9ab714df90db0e5f043133a7e6d0004248afc81c3447101c1cb90"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q38_completed.tar.xz",
+          "sha256": "c36a4019d2952d388e363a35729573d783d9d007a753a9aff80327820c2159a5"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q39_completed.tar.xz",
+          "sha256": "65461671e9e301b39df0eb78cd6df5963e7855baaeadea4f4dec2f968ebbf5a8"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q40_completed.tar.xz",
+          "sha256": "9217eab61ae4c508051402d7f7234a5e9aaa716f5b3e75ce49bd423884da83cc"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q41_completed.tar.xz",
+          "sha256": "b1c0ac0fd82b58dfc1cb53a9f757b4074648fdc1f28ac2c778f9107bafa44985"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q42_completed.tar.xz",
+          "sha256": "4064a18ed1413fc6e9136d15866df4d4bb1f1876baafa5667606dce731aebc2d"
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T183451559780Z/q43_completed.tar.xz",
+          "sha256": "ff4b1e6cd85056d680e06a5a2a3f1fc25f57f659f8030db6b2923e20c852d7bf"
+        }
+      ],
+      "unaltered_cohort_scores": {
+        "control": {
+          "complete": true,
+          "queries_passed": 43,
+          "query_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ],
+          "runs_completed": 129,
+          "runs_passed": 129,
+          "query_total_seconds": 101.92469324900594,
+          "hot_total_seconds": 105.78928554203594,
+          "all_raw_run_seconds": 324.8734362471296,
+          "geomean_seconds": 0.8641569199234128,
+          "hot_geomean_seconds": 0.8736912398398864
+        },
+        "candidate": {
+          "complete": true,
+          "queries_passed": 43,
+          "query_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ],
+          "runs_completed": 129,
+          "runs_passed": 129,
+          "query_total_seconds": 100.1756267130113,
+          "hot_total_seconds": 101.80899341896293,
+          "all_raw_run_seconds": 317.79363992004073,
+          "geomean_seconds": 0.8227450565266711,
+          "hot_geomean_seconds": 0.8448358603138364
+        }
+      }
+    },
+    {
+      "run_id": "paired43_20260926T184948503879Z",
+      "summary_path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T184948503879Z/summary.json",
+      "summary_sha256": "40db1b2f11494ffae47e630381a62a3cd7369e78fb005687af3e78b53fae2594",
+      "selected_query_ids": [
+        35
+      ],
+      "comparison_count": 6,
+      "reverse_order": true,
+      "timing_boundary": "native process creation through complete public CLI output and exit; host snapshots and archival excluded",
+      "correctness_boundary": "complete returned values against retained native outputs; finite floats use 1e-12 tolerance; not an independent oracle",
+      "cache_policy": "fresh process per operation; OS cache shared and uncontrolled; no answer cache or forced purge",
+      "order_policy": "alternate role order at each pair and query",
+      "host_counter_scope": "host-wide VM observations, not unique query traffic or exclusive attribution",
+      "workspace_ceiling_gib": 100.0,
+      "memory_gb": 24,
+      "max_parallelism": 12,
+      "source_generations": {
+        "control": {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+          "generation": {
+            "device": 16777233,
+            "inode": 92249574,
+            "size_bytes": 15682956116,
+            "mtime_ns": 1790441075431248571,
+            "ctime_ns": 1790441075431697695
+          }
+        },
+        "candidate": {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+          "generation": {
+            "device": 16777233,
+            "inode": 92249574,
+            "size_bytes": 15682956116,
+            "mtime_ns": 1790441075431248571,
+            "ctime_ns": 1790441075431697695
+          }
+        }
+      },
+      "binaries": {
+        "control": {
+          "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-c79aa89a",
+          "sha256": "fac1e9a2ca394a9c20c61fb8a39063c9e67da353fd9c7b5a65a2816dd3a700c4",
+          "commit": "c79aa89aea02fcfe785b60130d0033ad9d5370c2"
+        },
+        "candidate": {
+          "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/candidate-r6a-870a9b8b2a67",
+          "sha256": "9dc4633dde151a596a0c20b9eea1536a7be4bf9af4ab9b4a0e813dc9d117f3d4",
+          "commit": "870a9b8b2a6771004244b46545a770c4d3651dc4"
+        }
+      },
+      "harness_sha256": {
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/run_clickbench_paired_query_uat.py": "d2b082a00c911aa98dfed8c6882abd3dc130bfbec5bcb6a00e7d14824e24fcb3",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/run_clickbench_query_uat.py": "e556690ac4f9544c66484a3bb677ad01852c710f8fc741d816a06be2526bf72e",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/timed_native_command.py": "a174e86eb6e0d525ceb5d6427c7f152642f57842fbd74c69551fc20deafb40e4",
+        "/Users/dylan/Documents/shardloom-local-repo/scripts/local_uat_storage.py": "374f0c6623ff1e24cf64c78a5e9218fe36528e57386b15a4c3838e1aa6c3d647"
+      },
+      "completion": {
+        "complete_result_validation": true,
+        "completed_identity_check": true,
+        "summary_failure": null,
+        "scores_complete": true,
+        "role_runs_passed": {
+          "control": 3,
+          "candidate": 3
+        }
+      },
+      "archives_verified": 1,
+      "archive_members_verified": 24,
+      "retained_reference_checks": 1,
+      "scope_limitations": [
+        "retained complete outputs are regression references, not independent correctness oracle",
+        "no whole Vortex input artifact hashing",
+        "native RSS is process peak RSS; host VM counters are host-wide observations and are not unique query traffic",
+        "memory_gb/workspace_gib are configured ceilings/reservations, not measured RSS caps",
+        "OS cache shared and uncontrolled; no forced cache purge",
+        "no external engine execution"
+      ],
+      "per_query": [
+        {
+          "query": 35,
+          "roles": {
+            "control": {
+              "seconds": [
+                9.368115541001316,
+                10.981114875001367,
+                16.698743542001466
+              ],
+              "native_peak_rss_bytes": [
+                4327899136,
+                4391714816,
+                4037967872
+              ],
+              "user_cpu_seconds": [
+                25.947942,
+                29.28541,
+                36.900422
+              ],
+              "system_cpu_seconds": [
+                11.176186,
+                16.397041,
+                24.473737
+              ],
+              "fastest_seconds": 9.368115541001316,
+              "median_seconds": 10.981114875001367
+            },
+            "candidate": {
+              "seconds": [
+                7.461156624995056,
+                12.11887195800955,
+                15.66589625000779
+              ],
+              "native_peak_rss_bytes": [
+                4547444736,
+                4175872000,
+                4047814656
+              ],
+              "user_cpu_seconds": [
+                23.724313,
+                31.58755,
+                34.360858
+              ],
+              "system_cpu_seconds": [
+                10.116286,
+                17.04605,
+                22.291699
+              ],
+              "fastest_seconds": 7.461156624995056,
+              "median_seconds": 12.11887195800955
+            }
+          },
+          "candidate_minus_control_best_seconds": -1.9069589160062606,
+          "candidate_minus_control_best_fraction": -0.20355843260686712,
+          "regression_screen_flag": false
+        }
+      ],
+      "regression_screen_query_ids": [],
+      "native_sort_block_activation": [],
+      "archives": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T184948503879Z/q35_completed.tar.xz",
+          "sha256": "89162515f9413db4fc286a68c1ff05e1c4d82773a1e70981d12d24f7702b7c23"
+        }
+      ],
+      "unaltered_cohort_scores": {
+        "control": {
+          "complete": true,
+          "queries_passed": 1,
+          "query_ids": [
+            35
+          ],
+          "runs_completed": 3,
+          "runs_passed": 3,
+          "query_total_seconds": 9.368115541001316,
+          "hot_total_seconds": 10.981114875001367,
+          "all_raw_run_seconds": 37.04797395800415,
+          "geomean_seconds": 9.368115541001316,
+          "hot_geomean_seconds": 10.981114875001367
+        },
+        "candidate": {
+          "complete": true,
+          "queries_passed": 1,
+          "query_ids": [
+            35
+          ],
+          "runs_completed": 3,
+          "runs_passed": 3,
+          "query_total_seconds": 7.461156624995056,
+          "hot_total_seconds": 12.11887195800955,
+          "all_raw_run_seconds": 35.245924833012396,
+          "geomean_seconds": 7.461156624995055,
+          "hot_geomean_seconds": 12.118871958009548
+        }
+      }
+    }
+  ],
+  "verification": {
+    "archive_sha256_and_all_member_sha256_and_bytes_checked": true,
+    "all_stdout_results_extracted_and_compared_to_retained_reference": true,
+    "all_result_hashes_match_summary": true,
+    "all_timing_json_seconds_rss_cpu_match_summary_records": true,
+    "all_commands_returncode_zero_no_watchdog_guard_failures_stderr_empty": true,
+    "summary_completion_identity_flags_true": true,
+    "reference_result_hashes_match_summary": true,
+    "binary_and_harness_hashes_rechecked": true,
+    "full43_count": 258,
+    "q35_followup_count": 6,
+    "no_q35_values_spliced_into_full43": true,
+    "archive_member_hashes_retained_in_artifact": true,
+    "native_sort_block_values_extracted_from_nested_result_summary_json": true,
+    "frozen_gate_recomputed_from_fastest_valid_complete_per_role": true,
+    "median_flags_are_supplemental_non_gate_only": true
+  },
+  "full_forensic_receipt": {
+    "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6a-verified-uat.json",
+    "sha256": "f38ef00525bd3dea1c909b42f1dbab0cfe1aaaf47aa2190ec45f34dbec18845d",
+    "note": "all member hashes retained there; unrelated R1 cost-inventory metadata excluded from this R6 receipt"
+  },
+  "primary_integration_checks": "all timing/RSS/CPU arrays, minima, medians and gate flags recalculated against original summaries; source summary hashes checked",
+  "validation": {
+    "source_commit": "870a9b8b2a6771004244b46545a770c4d3651dc4",
+    "checks": [
+      {
+        "name": "fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "returncode": 0,
+        "seconds": 4.549772625003243,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6a-final-fmt.log"
+      },
+      {
+        "name": "workspace-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "returncode": 0,
+        "seconds": 10.640877915997407,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6a-final-workspace-clippy.log"
+      },
+      {
+        "name": "workspace-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "--test-threads=2"
+        ],
+        "returncode": 0,
+        "seconds": 31.302120666994597,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6a-final-workspace-tests.log"
+      },
+      {
+        "name": "native-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--offline",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "-p",
+          "shardloom-cli",
+          "--all-targets",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "returncode": 0,
+        "seconds": 16.584333167003933,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6a-final-native-clippy.log"
+      },
+      {
+        "name": "native-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--release",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "--test-threads=2"
+        ],
+        "returncode": 0,
+        "seconds": 4.876682999994955,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6a-final-native-tests.log"
+      },
+      {
+        "name": "native-cli-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--release",
+          "-p",
+          "shardloom-cli",
+          "--all-targets",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "--test-threads=2"
+        ],
+        "returncode": 0,
+        "seconds": 109.02882675000001,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r6a-final-native-cli-tests.log"
+      }
+    ]
+  },
+  "test_counts": {
+    "workspace": 3425,
+    "native_library": 1916,
+    "native_library_existing_ignored": 10,
+    "native_cli": 1496
+  },
+  "review": "independent runtime review after reopened-schema guard: no actionable findings",
+  "next_candidate": "R7 cross-column residuals and conditional dictionaries"
+}
