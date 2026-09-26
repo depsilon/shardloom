@@ -265,7 +265,9 @@ R1.c's shared-transform proposal is already implemented in the inspected paths;
 see `shared-domain-expression-audit-2026-09-26.md`. R5.a meets its bounded workflow
 memory gate with complete regression acceptance; see `owned-array-handoff-screen-2026-09-26.md`.
 R5.a merged in PR #1464. R9.a's fragment reuse is already present in the inspected
-paths; see `native-fragment-reuse-audit-2026-09-26.md`. R9.b attribution is next.
+paths; see `native-fragment-reuse-audit-2026-09-26.md`. R9.b's one-input lookahead
+misses the complete-ingest gate and is removed; see
+`writer-subtree-occupancy-screen-2026-09-26.md`. R8 attribution is next.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -300,7 +302,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R1.c: drop duplicate shared-transform implementation after source/test audit; new RunEnd targets still require attribution. See `shared-domain-expression-audit-2026-09-26.md`.
     - [x] R5.a: retain direct owned-array handoff through the shared prepared aggregate family; 37–43% lower workflow peak RSS, exact complete results and Full43 regression acceptance. See `owned-array-handoff-screen-2026-09-26.md`.
     - [x] R9.a: drop duplicate prepare/seal/reuse implementation after tracing one-pass streamed serialization and existing memory-generation segment reuse. See `native-fragment-reuse-audit-2026-09-26.md`.
-    - [ ] R9.b: record admission and ship/drop for Bounded writer-subtree overlap.
+    - [x] R9.b: drop one-input writer lookahead below the complete-ingest gate; preserve occupancy/full-ingest evidence and remove experimental source. See `writer-subtree-occupancy-screen-2026-09-26.md`.
     - [ ] R8: record admission and ship/drop for Shared scan/decode producer for concurrent queries.
     - [ ] C2.a: record admission and ship/drop for Pre-bound executable block recipes.
     - [ ] R5.b: record admission and ship/drop for Transfer reservation-owned pages/buffers across stages.
@@ -325,11 +327,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: R9.b bounded writer-subtree attribution, after R5.a merged and
-    R9.a's source audit closed the duplicate fragment proposal. Freeze retained
-    input, writer and CPU ownership; compare ordinary and observed writer runs.
-    The test-only observer estimates unused driver capacity, not achievable
-    ingest savings. See `writer-subtree-occupancy-screen-2026-09-26.md`.
+  - Next outcome: R8 concurrent source-work attribution, after R9.a's duplicate
+    fragment audit and R9.b's complete-ingest drop. Measure repeated reads/decode
+    through serving calls before introducing a shared producer. Preserve separate
+    cancellation, source-generation validation, reservations and bounded slow
+    consumers. Existing per-query segment reuse is not cross-query sharing.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

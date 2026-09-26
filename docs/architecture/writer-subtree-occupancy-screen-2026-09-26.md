@@ -1,7 +1,28 @@
 # Writer subtree occupancy — R9.b
 
-Status: bounded next-input preparation prototype admitted; no gain retained.
+Status: drop after matched full ingest; no runtime change or gain retained.
 PERF-INTAKE / RFC 0044, after R9.a's fragment-reuse audit.
+
+The narrow one-input lookahead passes all eight lifecycle tests and 18 bounded
+complete-value/whole-file checks. Its best full candidate ingest is 92.465509 s;
+the control has already completed in 98.982644 s. Even before the final control
+sample, the symmetric fastest-valid comparison cannot reach the frozen 10% gate.
+All full outputs so far exactly match the retained 15,682,956,116-byte artifact.
+The final comparison and every raw record are in the linked evidence below.
+
+Remove the prototype, its route marker and experimental source fixtures from the
+retained tree. The evidence archive preserves the exact source patches from
+`0d8dd21201aafb31955fb51e9a105087c3f656de`, frozen build identities, commands,
+bounded observations and full-ingest receipts for reproduction. No query change
+or new artifact remains; a new Full43 run is not needed to accept this drop.
+
+Reopening also requires preserving low-budget availability. The source producer
+replenishes its full existing queue before yielding an owned input; lookahead
+adds another live owner. Reservations remain safe, but the lifecycle fixture
+demonstrates a budget where serial succeeds and lookahead rejects. Share the
+existing slot/credit envelope or prove conservative admission before consuming
+another input. A free-bytes snapshot or retry after consumed-input failure is
+insufficient. Add a production-path availability regression before retention.
 
 The retained writer awaits one source-batch subtree at a time; column/zone/codec
 work already overlaps within that subtree. Existing conversion wait and summed
@@ -57,7 +78,7 @@ ingest under matched resources, no larger artifact, exact full values/schema/
 statistics/reopen checks and query regression acceptance. No new CPU allocation,
 codec, file topology, external engine or publication semantics is admitted here.
 
-## Admitted narrow prototype
+## Evaluated narrow prototype
 
 Complete attribution identifies serial input polling (including existing file
 statistics) while only one provider driver is occupied. Most samples show
@@ -67,7 +88,7 @@ credits. Keep one serial statistics accumulator and one live child strategy.
 No extra worker or concurrently buffered second encoded subtree is introduced.
 Child errors drop pending input; input errors preserve their position after the
 current child. Cancellation and pressure must release all retained owners.
-The initial prototype is test-only and defaults off.
+The initial prototype was test-only and defaulted off.
 The existing conversion producer replenishes its prefetch window when a native
 array is yielded, so this adds one live input beyond the current writer and
 existing producer queue. Native reservations remain attached to that input;
@@ -95,9 +116,9 @@ The `e662f674` paired prototype passes eight deterministic lifecycle tests and
 18 complete-value/whole-file-hash checks. Its best complete-writer savings are
 8.11%, 8.66% and 5.25% for row groups 0, 113 and 225. These bounded writes retain
 all preconverted inputs and have first/last-batch costs, so they do not establish
-the complete ingest gate. Admit a full-size comparison before disposition.
+the complete ingest gate. A full-size comparison followed before disposition.
 
-Freeze matched portable CLI builds and run control/candidate/candidate/control
+Matched portable CLI builds ran control/candidate/candidate/control
 through `run_clickbench_ingest_uat.sh`: the resident 99,997,497-row source,
 P4, 24 GiB, 600-second timeout and 17 GB artifact ceiling. Preserve the existing
 watchdog, source-residency and storage admission controls. The full candidate
@@ -107,7 +128,7 @@ No extra worker or codec/row-block setting changes. Retain all samples and use
 the symmetric fastest valid complete process time. Hash each completed output;
 remove it only if identical to the retained native artifact. Any different
 output stays for full value/schema/statistics investigation. Retention still
-requires 10% complete savings, correctness/resource acceptance and query UAT.
+required 10% complete savings, correctness/resource acceptance and query UAT.
 
 Compare fresh-input control/candidate samples in alternating order with the same
 retained writer, source regions, field set and memory/CPU/output limits. Charge

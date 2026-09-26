@@ -33,7 +33,6 @@ pub(crate) struct BoundedIngestLayout {
     // serializing the footer, while the root and its references remain live.
     layout_references: Arc<Mutex<MemoryLease>>,
     started: AtomicBool,
-    prefetch_input: bool,
 }
 
 struct ReservedLayoutChildren {
@@ -80,14 +79,7 @@ impl BoundedIngestLayout {
             initial_chunks,
             layout_references: Arc::new(Mutex::new(layout_references)),
             started: AtomicBool::new(false),
-            prefetch_input: false,
         }
-    }
-
-    /// Retain one next input while writing a child; admitted by the stream owner.
-    pub(crate) fn with_input_prefetch(mut self, enabled: bool) -> Self {
-        self.prefetch_input = enabled;
-        self
     }
 
     fn reserved_children(&self, children: Vec<LayoutRef>) -> Arc<dyn LayoutChildren> {
@@ -159,14 +151,9 @@ impl LayoutStrategy for BoundedIngestLayout {
             let mut children = Vec::new();
             self.grow_references(&mut children, self.initial_chunks)?;
             let mut rows = 0_u64;
-            let prefetch = self.prefetch_input;
-            let mut next = input.next().await;
-            while let Some(item) = next.take() {
+            while let Some(item) = input.next().await {
                 let (sequence, array) = item?;
                 if array.is_empty() {
-                    drop(array);
-                    drop(sequence);
-                    next = input.next().await;
                     continue;
                 }
                 if children.len() == children.capacity() {
@@ -188,35 +175,21 @@ impl LayoutStrategy for BoundedIngestLayout {
                 // [item,0,...] < [item,1] < [next_item]. No child EOF
                 // depends on polling a later parent item or the global EOF.
                 let (start, child_eof) = sequence.descend().split();
-                let child = self.child.write_stream(
-                    ctx.clone(),
-                    Arc::clone(&sink),
-                    SequentialStreamAdapter::new(
-                        dtype.clone(),
-                        stream::iter([Ok((start.downgrade(), array))]),
+                let child = self
+                    .child
+                    .write_stream(
+                        ctx.clone(),
+                        Arc::clone(&sink),
+                        SequentialStreamAdapter::new(
+                            dtype.clone(),
+                            stream::iter([Ok((start.downgrade(), array))]),
+                        )
+                        .sendable(),
+                        child_eof,
+                        session,
                     )
-                    .sendable(),
-                    child_eof,
-                    session,
-                );
-                let child = if prefetch {
-                    // Poll the child first, then prepare exactly one next input.
-                    // Keep one serial statistics accumulator and one live child.
-                    // Child failure drops the pending pull; an input error remains
-                    // ordered after completion of the current child.
-                    let (child, following) = futures::future::try_join(child, async {
-                        Ok::<_, vortex::error::VortexError>(input.next().await)
-                    })
                     .await?;
-                    next = following;
-                    child
-                } else {
-                    child.await?
-                };
                 children.push(child);
-                if !prefetch {
-                    next = input.next().await;
-                }
             }
             // Keep the enclosing EOF alive until all locally scoped children
             // finish. Child strategies may emit metadata at their own EOF.
@@ -225,10 +198,6 @@ impl LayoutStrategy for BoundedIngestLayout {
         })
     }
 }
-
-#[cfg(test)]
-#[path = "ingest_input_prefetch_tests.rs"]
-mod input_prefetch_tests;
 
 #[cfg(test)]
 mod tests {

@@ -20,7 +20,8 @@ the duplicate proposal is dropped, with RunEnd-specific expansion still requirin
 a distinct measured target. R5.a is [retained under its bounded workflow memory gate](owned-array-handoff-screen-2026-09-26.md):
 37–43% lower process peak RSS, complete values and Full43 regression acceptance.
 R9.a is [dropped as duplicate fragment reuse](native-fragment-reuse-audit-2026-09-26.md).
-R9.b writer occupancy is the next attribution target. The
+R9.b is [dropped below the complete-ingest gate](writer-subtree-occupancy-screen-2026-09-26.md).
+R8 concurrent source reuse is the next attribution target. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
