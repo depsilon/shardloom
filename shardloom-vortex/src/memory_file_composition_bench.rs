@@ -14,7 +14,7 @@ use sha2::{Digest as _, Sha256};
 use shardloom_core::ColumnRef;
 use std::{collections::BTreeMap, fmt::Write as _, path::PathBuf, time::Instant};
 use vortex::array::{
-    Columnar,
+    Columnar, IntoArray as _,
     scalar::{PValue, Scalar, ScalarValue},
 };
 
