@@ -261,7 +261,9 @@ the ranked item below. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
 needed for a candidate's correctness/resource acceptance must be completed first.
 
-- [ ] Evaluate the September 26 ranked performance candidates under existing PERF items.
+- [ ] `PERF-INTAKE` evaluate the September 26 ranked performance candidates under existing PERF items.
+  - Queue identifier only: `PERF-INTAKE` groups the authorized experiments for
+    machine-readable routing; it adds no implementation phase or competitive gate.
   - V1 scope classification: `v1_candidate_pending_feasibility`; runtime experiments
     are authorized, and previously required runtime availability remains required.
   - Source: five maintainer packets, reviewed in

@@ -646,6 +646,15 @@
       }
     ],
     "remaining_candidate_gates": [],
+    "release_scripts_ci_reproducer": {
+      "command": "python3 -B scripts/run_python_test_shard.py --shard release_scripts",
+      "status": "passed",
+      "tests_run": 246,
+      "passed": 244,
+      "skipped": 2,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/release-scripts-ci-fix.log",
+      "fix": "Give the top-level performance queue a stable identifier required by the benchmark doctor's existing next-slice contract; no new implementation phase or runtime change."
+    },
     "architecture_tracker": {
       "command": "python3 -B scripts/check_release_architecture_tracker.py --allow-blocked --output /Users/dylan/LocalData/shardloom/performance-candidates-20260926/final-architecture-tracker.json",
       "status": "blocked",
