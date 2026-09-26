@@ -82,6 +82,10 @@ mod column_layout;
 #[path = "vortex_ingest_column_layout_tests.rs"]
 mod column_layout_tests;
 
+#[cfg(feature = "vortex-write")]
+#[path = "vortex_ingest_dictionary_preservation.rs"]
+mod dictionary_preservation;
+
 #[cfg(all(
     test,
     feature = "vortex-write",
@@ -13648,6 +13652,7 @@ impl LocalVortexWriteContext {
                 layout_write_decision,
                 writer_stage_timing,
                 &self.session,
+                false,
             ))
         } else {
             options
@@ -13659,6 +13664,7 @@ impl LocalVortexWriteContext {
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_stage_timing: &VortexWriterStageTiming,
         writer_session: &vortex::session::VortexSession,
+        preserve_input_dictionaries: bool,
     ) -> Arc<dyn vortex::layout::LayoutStrategy> {
         use vortex::compressor::BtrBlocksCompressorBuilder;
         use vortex::file::WriteStrategyBuilder;
@@ -13668,13 +13674,14 @@ impl LocalVortexWriteContext {
             let block_target_bytes = vortex_writer_block_target_bytes(layout_write_decision);
             let stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
             if vortex_writer_uses_large_source_fast_load(layout_write_decision) {
-                large_source_fast_load_vortex_write_strategy(
+                std::sync::Arc::new(large_source_fast_load_table_strategy_with_dictionaries(
                     row_block_size,
                     block_target_bytes,
                     stats_concurrency,
                     writer_stage_timing,
                     writer_session,
-                )
+                    preserve_input_dictionaries,
+                ))
             } else if vortex_writer_uses_large_source_balanced(layout_write_decision) {
                 WriteStrategyBuilder::default()
                     .with_row_block_size(row_block_size)
@@ -13683,7 +13690,7 @@ impl LocalVortexWriteContext {
                     )
                     .build()
             } else if vortex_writer_uses_large_source_text(layout_write_decision) {
-                large_source_text_vortex_write_strategy(
+                large_source_text_vortex_write_strategy_with_dictionaries(
                     row_block_size,
                     block_target_bytes,
                     vortex_writer_compression_concurrency(layout_write_decision),
@@ -13691,6 +13698,7 @@ impl LocalVortexWriteContext {
                     &layout_write_decision.writer_compression_field_names,
                     writer_stage_timing,
                     writer_session,
+                    preserve_input_dictionaries,
                 )
             } else {
                 WriteStrategyBuilder::default()
@@ -13823,7 +13831,7 @@ fn vortex_writer_uses_large_source_text(decision: &VortexLayoutWriteRuntimeDecis
         && !decision.writer_compression_field_names.is_empty()
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(test, feature = "vortex-write"))]
 fn large_source_fast_load_vortex_write_strategy(
     row_block_size: usize,
     block_target_bytes: u64,
@@ -13840,14 +13848,33 @@ fn large_source_fast_load_vortex_write_strategy(
     ))
 }
 
-#[cfg(feature = "vortex-write")]
-#[allow(clippy::too_many_lines)] // Keep the native strategy tree in one reviewable assembly.
+#[cfg(all(test, feature = "vortex-write"))]
 fn large_source_fast_load_table_strategy(
     row_block_size: usize,
     block_target_bytes: u64,
     stats_concurrency: usize,
     writer_stage_timing: &VortexWriterStageTiming,
     writer_session: &vortex::session::VortexSession,
+) -> vortex::layout::layouts::table::TableStrategy {
+    large_source_fast_load_table_strategy_with_dictionaries(
+        row_block_size,
+        block_target_bytes,
+        stats_concurrency,
+        writer_stage_timing,
+        writer_session,
+        false,
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)] // Keep the native strategy tree in one reviewable assembly.
+fn large_source_fast_load_table_strategy_with_dictionaries(
+    row_block_size: usize,
+    block_target_bytes: u64,
+    stats_concurrency: usize,
+    writer_stage_timing: &VortexWriterStageTiming,
+    writer_session: &vortex::session::VortexSession,
+    preserve_input_dictionaries: bool,
 ) -> vortex::layout::layouts::table::TableStrategy {
     use std::num::NonZeroUsize;
 
@@ -13934,13 +13961,20 @@ fn large_source_fast_load_table_strategy(
         },
     );
     let validity_strategy = CollectStrategy::new(flat);
-    TableStrategy::new(
-        std::sync::Arc::new(validity_strategy),
-        std::sync::Arc::new(repartition),
-    )
+    let data: std::sync::Arc<dyn vortex::layout::LayoutStrategy> = if preserve_input_dictionaries {
+        std::sync::Arc::new(dictionary_preservation::DictionaryPreservingStrategy::new(
+            repartition,
+            row_block_len,
+            writer_stage_timing.stages.clone(),
+            writer_session,
+        ))
+    } else {
+        std::sync::Arc::new(repartition)
+    };
+    TableStrategy::new(std::sync::Arc::new(validity_strategy), data)
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(test, feature = "vortex-write"))]
 fn large_source_text_vortex_write_strategy(
     row_block_size: usize,
     block_target_bytes: u64,
@@ -13950,6 +13984,30 @@ fn large_source_text_vortex_write_strategy(
     writer_stage_timing: &VortexWriterStageTiming,
     writer_session: &vortex::session::VortexSession,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
+    large_source_text_vortex_write_strategy_with_dictionaries(
+        row_block_size,
+        block_target_bytes,
+        compression_concurrency,
+        stats_concurrency,
+        compression_field_names,
+        writer_stage_timing,
+        writer_session,
+        false,
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_arguments)] // Existing writer controls plus bounded-input admission.
+fn large_source_text_vortex_write_strategy_with_dictionaries(
+    row_block_size: usize,
+    block_target_bytes: u64,
+    compression_concurrency: usize,
+    stats_concurrency: usize,
+    compression_field_names: &[String],
+    writer_stage_timing: &VortexWriterStageTiming,
+    writer_session: &vortex::session::VortexSession,
+    preserve_input_dictionaries: bool,
+) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
     use vortex::array::dtype::FieldPath;
 
     let text_strategy = large_source_fast_zstd_text_leaf_strategy(
@@ -13957,12 +14015,13 @@ fn large_source_text_vortex_write_strategy(
         compression_concurrency,
         writer_stage_timing,
     );
-    let mut strategy = large_source_fast_load_table_strategy(
+    let mut strategy = large_source_fast_load_table_strategy_with_dictionaries(
         row_block_size,
         block_target_bytes,
         stats_concurrency,
         writer_stage_timing,
         writer_session,
+        preserve_input_dictionaries,
     );
     for field in compression_field_names {
         strategy = strategy.with_field_writer(

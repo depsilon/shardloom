@@ -1,6 +1,6 @@
 //! Observed ingest scopes. Work spans overlap; they are not CPU or exclusive wall time.
 
-const STAGE_NAMES: [&str; 11] = [
+const STAGE_NAMES: [&str; 12] = [
     "stream_validation",
     "stream_projection",
     "stream_arrow_conversion",
@@ -12,6 +12,7 @@ const STAGE_NAMES: [&str; 11] = [
     "numeric_probe",
     "numeric_compress",
     "numeric_preserve",
+    "text_dictionary_preserve",
 ];
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -27,7 +28,7 @@ struct WorkSpan {
 /// Bytes describe logical input/output buffers, not allocation or physical I/O traffic.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct VortexIngestStageReport {
-    spans: [WorkSpan; 11],
+    spans: [WorkSpan; 12],
     text_active_nanos: u64,
     identity_projection_batches: u64,
 }
@@ -42,6 +43,7 @@ impl VortexIngestStageReport {
             ("vortex_ingest_stage_coverage".into(), "stream_validation_projection_conversion_reader_lock_ordered_wait_selected_text_codec_numeric_probe_and_post_coalescing_numeric_codec".into()),
             ("vortex_ingest_numeric_codec_scope".into(), "non_dict_primitive_data_after_coalescing;edition_admitted_btrblocks_without_integer_or_float_dict_selection;one_job_per_leaf;global_writer_concurrency_not_bounded_here;probe_result_not_reused".into()),
             ("vortex_ingest_dictionary_probe_scope".into(), "baseline_legacy_array_session_empty_edition_whitelist_preserved;canonical_primitive_probe_omitted_when_dict_not_admitted;probe_counters_count_actual_provider_calls;other_inputs_keep_built_in_canonical_or_constant_decisions;not_full_dictionary_or_text_scheme_selection".into()),
+            ("vortex_ingest_text_dictionary_preserve_scope".into(), "economical_existing_utf8_dict_within_row_block_before_repartition;native_code_compression;unchanged_value_owner_and_dictionary_epoch;one_zone_per_input;counter_excludes_statistics_and_serialization".into()),
             ("vortex_ingest_legacy_encode_write_scope".into(), "measured_inclusive_provider_writer_wall_including_compression_not_exclusive_io".into()),
             ("vortex_ingest_legacy_encode_write_semantics".into(), "v2_inclusive_wall;historical_wall_minus_summed_compression_values_not_comparable".into()),
             ("vortex_ingest_legacy_stream_conversion_scope".into(), "validation_and_conversion_work_first_batch_also_includes_writer_admission_and_target_preparation".into()),
@@ -113,6 +115,7 @@ mod measured {
         NumericProbe,
         NumericCompress,
         NumericPreserve,
+        TextDictionaryPreserve,
     }
 
     #[derive(Debug, Default)]
@@ -160,7 +163,7 @@ mod measured {
 
     #[derive(Debug, Default, Clone)]
     pub(crate) struct IngestStageTimings {
-        counters: Arc<[Counter; 11]>,
+        counters: Arc<[Counter; 12]>,
         active: Arc<Mutex<ActiveState>>,
         identities: Arc<AtomicU64>,
     }

@@ -39,17 +39,25 @@ fn digest(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
 fn options(
     arguments: &[String],
 ) -> Result<(PhysicalEncodingInspectionLimits, bool), Box<dyn std::error::Error>> {
-    const USAGE: &str = "usage: physical_encoding_inventory ARTIFACT.vortex [--max-total-segment-bytes POSITIVE_BYTES] [--summary-only] (read-only; actual limits are printed)";
+    const USAGE: &str = "usage: physical_encoding_inventory ARTIFACT.vortex [--max-flat-references POSITIVE_COUNT] [--max-total-segment-bytes POSITIVE_BYTES] [--summary-only] (read-only; actual limits are printed)";
     let Some((_path, flags)) = arguments.split_first() else {
         return Err(USAGE.into());
     };
     let mut limits = PhysicalEncodingInspectionLimits::default();
     let mut flags = flags.iter();
     let mut summary_only = false;
+    let mut flat_references_override = false;
     let mut byte_override = false;
     while let Some(flag) = flags.next() {
         match flag.as_str() {
             "--summary-only" if !summary_only => summary_only = true,
+            "--max-flat-references" if !flat_references_override => {
+                limits.max_flat_references = flags.next().ok_or(USAGE)?.parse()?;
+                if limits.max_flat_references == 0 {
+                    return Err("max-flat-references must be positive".into());
+                }
+                flat_references_override = true;
+            }
             "--max-total-segment-bytes" if !byte_override => {
                 limits.max_total_segment_bytes = flags.next().ok_or(USAGE)?.parse()?;
                 if limits.max_total_segment_bytes == 0 {
@@ -183,6 +191,65 @@ fn inspection_byte_override_is_explicit_positive_and_bounded() {
     .unwrap();
     assert!(summary);
     assert_eq!(limits.max_total_segment_bytes, 64 << 30);
+}
+
+#[test]
+fn inspection_flat_reference_override_is_explicit_positive_and_bounded() {
+    let args = |items: &[&str]| {
+        items
+            .iter()
+            .map(|item| (*item).to_string())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        options(&args(&["fixture.vortex"]))
+            .unwrap()
+            .0
+            .max_flat_references,
+        100_000
+    );
+    assert_eq!(
+        options(&args(&[
+            "fixture.vortex",
+            "--max-flat-references",
+            "250000"
+        ]))
+        .unwrap()
+        .0
+        .max_flat_references,
+        250_000
+    );
+    for items in [
+        vec!["fixture.vortex", "--max-flat-references"],
+        vec!["fixture.vortex", "--max-flat-references", "0"],
+        vec![
+            "fixture.vortex",
+            "--max-flat-references",
+            "18446744073709551616",
+        ],
+        vec![
+            "fixture.vortex",
+            "--max-flat-references",
+            "1000",
+            "--max-flat-references",
+            "2000",
+        ],
+    ] {
+        assert!(options(&args(&items)).is_err());
+    }
+
+    let (limits, summary) = options(&args(&[
+        "fixture.vortex",
+        "--summary-only",
+        "--max-total-segment-bytes",
+        "68719476736",
+        "--max-flat-references",
+        "250000",
+    ]))
+    .unwrap();
+    assert!(summary);
+    assert_eq!(limits.max_total_segment_bytes, 64 << 30);
+    assert_eq!(limits.max_flat_references, 250_000);
 }
 
 #[test]
