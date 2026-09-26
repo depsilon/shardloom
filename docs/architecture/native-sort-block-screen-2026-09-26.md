@@ -40,7 +40,10 @@ Initial admission covers integer/UTF8 columns, no residual predicate or spill,
 the existing bounded Top-K range, and First/Last ties. Other cases keep the
 existing path. The existing metadata pass must establish equal source schemas
 across every partition before any native cutoff pruning: the old comparator is
-not transitive across unlike signed/unsigned numeric variants. Local and
+not transitive across unlike signed/unsigned numeric variants. Reopened scan
+files must still match the admitted schema, or execution fails before scanning
+that partition; switching algorithms cannot recover earlier discarded rows.
+This is an admission check, not a general source-generation consistency claim. Local and
 partitioned scans share the helper. Validate complete
 column lengths and valid UTF8 before pruning; preserve explicit errors, exact
 integer/null/string ordering, direction, offsets, source ordinals, dictionary

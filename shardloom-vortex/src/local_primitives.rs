@@ -23007,6 +23007,11 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                     request.kind.as_str()
                 ))
             })?;
+        native_sort_block::validate_partition_dtype(
+            native_sort_partition_types_match,
+            native_sort_dtype.as_ref(),
+            file.dtype(),
+        )?;
         source_row_count = source_row_count
             .checked_add(file.row_count())
             .ok_or_else(|| {
@@ -65888,6 +65893,44 @@ mod tests {
         );
         assert!(!states.chunk_materialized_partial_updates);
         assert!(!states.transformed_materialized_partial_updates);
+    }
+
+    #[test]
+    fn native_sort_block_rejects_replaced_partition_schema_after_admission() {
+        use vortex::VortexSessionDefault as _;
+        use vortex::array::{IntoArray as _, arrays::PrimitiveArray, validity::Validity};
+        use vortex::file::OpenOptionsSessionExt as _;
+        use vortex::io::runtime::{BlockingRuntime as _, single::SingleThreadRuntime};
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let path = unique_vortex_path("native-sort-replaced-partition-schema");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let inspect = || {
+            runtime
+                .block_on(session.open_options().open_path(&path))
+                .unwrap()
+                .dtype()
+                .clone()
+        };
+        let original = PrimitiveArray::new(vec![1_i64], Validity::NonNullable).into_array();
+        write_array(&path, &original).unwrap();
+        let admitted = inspect();
+        native_sort_block::validate_partition_dtype(true, Some(&admitted), &inspect()).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let replacement = PrimitiveArray::new(vec![0_u64], Validity::NonNullable).into_array();
+        write_array(&path, &replacement).unwrap();
+        let reopened = inspect();
+        std::fs::remove_file(&path).unwrap();
+
+        let error = native_sort_block::validate_partition_dtype(true, Some(&admitted), &reopened)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("partition schema changed after native cutoff admission"));
+        assert!(error.contains("no fallback execution was attempted"));
+        // Existing mixed-schema execution never acquired this pruning proof.
+        native_sort_block::validate_partition_dtype(false, Some(&admitted), &reopened).unwrap();
     }
 
     #[test]

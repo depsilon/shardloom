@@ -22,6 +22,21 @@ enum Column {
     Utf8(VarBinViewArray, Mask),
 }
 
+/// Admission covers every source schema before any cutoff is applied. Reopening
+/// a changed schema must fail: earlier partitions may already have lost rows.
+pub(super) fn validate_partition_dtype(
+    admitted: bool,
+    expected: Option<&DType>,
+    current: &DType,
+) -> Result<()> {
+    if admitted && expected != Some(current) {
+        return Err(failed(
+            "partition schema changed after native cutoff admission",
+        ));
+    }
+    Ok(())
+}
+
 impl Column {
     fn decode(array: &ArrayRef, ctx: &mut ExecutionCtx) -> Result<Self> {
         if matches!(array.dtype(), DType::Primitive(_, _)) {
