@@ -282,7 +282,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     opportunities. Ranking expresses potential scope, not measured speedups.
   - Execution checklist:
     - [x] R1.a: retain bounded native dictionary persistence under the storage gate; full evidence in `derived-dictionary-preservation-2026-09-26.md`.
-    - [ ] R6.a: record admission and ship/drop for Fused encoded block execution.
+    - [ ] R6.a: screen native integer/UTF8 sort-block consumption, then record ship/drop; see `native-sort-block-screen-2026-09-26.md`.
     - [ ] R7: record admission and ship/drop for Cross-column residuals and conditional dictionaries.
     - [ ] R1.b: record admission and ship/drop for Selective preservation of economical source dictionaries.
     - [ ] R6.b: record admission and ship/drop for FSST paired with its encoded predicate consumer.

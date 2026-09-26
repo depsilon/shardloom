@@ -69,6 +69,9 @@ mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/native_sort_block.rs"]
+mod native_sort_block;
 #[cfg(all(
     test,
     feature = "vortex-local-primitives",
@@ -22360,6 +22363,7 @@ fn read_local_vortex_sort_rows_scan(
     let mut max_chunk_rows = 0usize;
     let mut topk_threshold_pruned_chunks = 0usize;
     let mut topk_threshold_pruned_rows = 0usize;
+    let mut native_sort_work = native_sort_block::Work::default();
     if !embedded_layout.metadata_pruned_entire_input {
         let mut scan = file.scan().map_err(vortex_error)?.with_ordered(true);
         if let Some(filter) = plan.filter {
@@ -22463,6 +22467,31 @@ fn read_local_vortex_sort_rows_scan(
                         }
                     }
                 }
+            } else if spill.is_none()
+                && let Some(work) = native_sort_block::append(
+                    &chunk,
+                    &declared_columns,
+                    &candidate_value_column_indices,
+                    &candidate_order_column_indices,
+                    &sort_rows.order_by,
+                    sort_rows.tie_policy,
+                    retained_cap,
+                    selected_rows,
+                    0,
+                    source_rows_seen,
+                    source_row_id_column_index,
+                    &mut candidates,
+                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(&session),
+                )?
+            {
+                selected_rows = selected_rows.checked_add(rows).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation("local Vortex sort selected row count overflowed usize; no fallback execution was attempted".into())
+                })?;
+                if work.candidate_rows == 0 && rows != 0 {
+                    topk_threshold_pruned_chunks += 1;
+                    topk_threshold_pruned_rows += rows;
+                }
+                native_sort_work.add(&work)?;
             } else {
                 let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
@@ -22749,6 +22778,7 @@ fn read_local_vortex_sort_rows_scan(
         "retention_flush_threshold": retention_flush_threshold,
         "topk_threshold_pruned_chunks": topk_threshold_pruned_chunks,
         "topk_threshold_pruned_rows": topk_threshold_pruned_rows,
+        "native_sort_block": native_sort_work.summary(),
         "sort_candidate_value_strategy": if wide_output_second_pass {
             "order_key_only_row_ref_candidates"
         } else {
@@ -22833,6 +22863,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let runtime = local_vortex_runtime(policy);
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut source_row_count_estimate = 0_u64;
+    let mut native_sort_dtype = None;
+    let mut native_sort_partition_types_match = true;
     for source in sources {
         let file = runtime
             .block_on(
@@ -22847,6 +22879,14 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                     request.kind.as_str()
                 ))
             })?;
+        // Unlike numeric StatValue families compare by ordinal, not a total
+        // numeric order. A later incompatible partition must disable native
+        // cutoff pruning for the whole query before any candidate is discarded.
+        if let Some(expected) = &native_sort_dtype {
+            native_sort_partition_types_match &= expected == file.dtype();
+        } else {
+            native_sort_dtype = Some(file.dtype().clone());
+        }
         source_row_count_estimate = source_row_count_estimate
             .checked_add(file.row_count())
             .ok_or_else(|| {
@@ -22943,6 +22983,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let mut max_chunk_rows = 0_usize;
     let mut topk_threshold_pruned_chunks = 0usize;
     let mut topk_threshold_pruned_rows = 0usize;
+    let mut native_sort_work = native_sort_block::Work::default();
     let mut filter_pushdown_applied = false;
     let mut projection_pushdown_applied = false;
     let mut expected_declared_columns: Option<Vec<String>> = None;
@@ -23184,6 +23225,25 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                         });
                     }
                 }
+            } else if native_sort_partition_types_match
+                && let Some(work) = native_sort_block::append(
+                &chunk, declared_columns, candidate_value_column_indices,
+                candidate_order_column_indices.as_ref().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation("partitioned local Vortex sort order indices were not initialized; no fallback execution was attempted".into())
+                })?,
+                &sort_rows.order_by, sort_rows.tie_policy, retained_cap, selected_rows,
+                source_index, source_local_rows_seen, source_row_id_column_index, &mut candidates,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(&session),
+            )?
+            {
+                selected_rows = selected_rows.checked_add(rows).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation("partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted".into())
+                })?;
+                if work.candidate_rows == 0 && rows != 0 {
+                    topk_threshold_pruned_chunks += 1;
+                    topk_threshold_pruned_rows += rows;
+                }
+                native_sort_work.add(&work)?;
             } else {
                 let columns = row_export_columns_from_chunk(&chunk, declared_columns)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
@@ -23469,6 +23529,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         "retention_flush_threshold": retention_flush_threshold,
         "topk_threshold_pruned_chunks": topk_threshold_pruned_chunks,
         "topk_threshold_pruned_rows": topk_threshold_pruned_rows,
+        "native_sort_block": native_sort_work.summary(),
         "sort_candidate_value_strategy": if wide_output_second_pass {
             "order_key_only_row_ref_candidates"
         } else {
@@ -65827,6 +65888,80 @@ mod tests {
         );
         assert!(!states.chunk_materialized_partial_updates);
         assert!(!states.transformed_materialized_partial_updates);
+    }
+
+    #[test]
+    fn native_sort_block_partition_admission_checks_all_source_types_before_pruning() {
+        use vortex::array::{
+            IntoArray as _,
+            arrays::{PrimitiveArray, StructArray},
+            validity::Validity,
+        };
+        for mixed in [false, true] {
+            let paths = (0..3)
+                .map(|index| {
+                    unique_vortex_path(&format!("native-sort-partition-types-{mixed}-{index}"))
+                })
+                .collect::<Vec<_>>();
+            for (index, path) in paths.iter().enumerate() {
+                let metric = if mixed && index == 1 {
+                    PrimitiveArray::new(vec![0_u64], Validity::NonNullable).into_array()
+                } else {
+                    PrimitiveArray::new(vec![i64::from(index == 0)], Validity::NonNullable)
+                        .into_array()
+                };
+                let array =
+                    StructArray::try_new(["metric"].into(), vec![metric], 1, Validity::NonNullable)
+                        .unwrap()
+                        .into_array();
+                write_array(path, &array).unwrap();
+            }
+            let uris = paths
+                .iter()
+                .map(|path| DatasetUri::new(path.display().to_string()).unwrap())
+                .collect::<Vec<_>>();
+            let order = vec![crate::VortexAggregateOrderExpr::new("metric", false)];
+            let request = VortexQueryPrimitiveRequest::sort_rows(
+                DatasetUri::new("placeholder.vortex").unwrap(),
+                ProjectionRequest::All,
+                None,
+                VortexSortRowsRequest::new(order.clone()),
+                1,
+            );
+            let report = execute_vortex_local_partitioned_primitive_with_policy(
+                &request,
+                &uris,
+                VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            )
+            .unwrap();
+            for path in paths {
+                std::fs::remove_file(path).unwrap();
+            }
+            let payload = simple_aggregate_values_json(report.result_summary.as_deref().unwrap());
+            assert_eq!(
+                payload["native_sort_block"]["chunks"],
+                if mixed { 0 } else { 3 }
+            );
+            let mut oracle = (0..3)
+                .map(|index| SortRowCandidate {
+                    ordinal: index,
+                    source_partition_index: index,
+                    source_ordinal: 0,
+                    values: vec![if mixed && index == 1 {
+                        StatValue::UInt64(0)
+                    } else {
+                        StatValue::Int64(i64::from(index == 0))
+                    }],
+                })
+                .collect::<Vec<_>>();
+            sort_materialized_rows(&mut oracle, &order, &[0], VortexSortTiePolicy::First);
+            assert_eq!(
+                payload["values"],
+                serde_json::json!([{"metric":stat_value_to_json_value(&oracle[0].values[0]).unwrap()}])
+            );
+            assert!(!report.fallback_execution_allowed);
+            assert_eq!(report.rows_scanned, 3);
+        }
     }
 
     #[test]
