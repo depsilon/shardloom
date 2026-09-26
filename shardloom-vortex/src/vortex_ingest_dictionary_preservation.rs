@@ -217,3 +217,11 @@ impl CompressorPlugin for DictionaryCodes {
 ))]
 #[path = "vortex_ingest_dictionary_preservation_tests.rs"]
 mod tests;
+
+#[cfg(all(
+    test,
+    feature = "universal-format-io",
+    feature = "vortex-local-primitives"
+))]
+#[path = "vortex_ingest_source_dictionary_bench.rs"]
+mod source_dictionary_bench;
