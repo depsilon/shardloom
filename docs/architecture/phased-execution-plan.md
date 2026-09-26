@@ -257,7 +257,8 @@ through all ranked experiments. R1.a meets its storage gate with 15.64% fewer
 artifact bytes and complete correctness/UAT evidence; see
 `derived-dictionary-preservation-2026-09-26.md`. R6.a meets its query gate after
 complete Full43 and bounded regression follow-up; see
-`native-sort-block-screen-2026-09-26.md`. R7 is next. The release train remains
+`native-sort-block-screen-2026-09-26.md`. R7 is dropped at the bounded analytical
+screen; see `cross-column-storage-screen-2026-09-26.md`. R1.b is next. The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
@@ -285,7 +286,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
   - Execution checklist:
     - [x] R1.a: retain bounded native dictionary persistence under the storage gate; full evidence in `derived-dictionary-preservation-2026-09-26.md`.
     - [x] R6.a: retain native integer/UTF8 sort-block consumption under the query gate; see `native-sort-block-screen-2026-09-26.md`.
-    - [ ] R7: record admission and ship/drop for Cross-column residuals and conditional dictionaries.
+    - [x] R7: drop numeric residuals and conditional dictionaries at the bounded analytical screen; see `cross-column-storage-screen-2026-09-26.md`.
     - [ ] R1.b: record admission and ship/drop for Selective preservation of economical source dictionaries.
     - [ ] R6.b: record admission and ship/drop for FSST paired with its encoded predicate consumer.
     - [ ] R1.c: record admission and ship/drop for Shared expression evaluation over dictionary/run-end values.
@@ -316,8 +317,8 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: R7 cross-column residual and conditional-dictionary screens;
-    no replacement ingest is needed merely to inspect the current artifact.
+  - Next outcome: R1.b selective preservation of economical incoming source dictionaries;
+    trace source dictionary expansion and charge construction/remapping before a full ingest.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
