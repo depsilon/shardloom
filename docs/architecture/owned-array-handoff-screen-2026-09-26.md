@@ -1,6 +1,6 @@
 # Direct owned-array handoff — R5.a
 
-Status: baseline attribution in progress under PERF-INTAKE / RFC 0044.
+Status: owned-array prototype admitted under PERF-INTAKE / RFC 0044.
 No runtime change or new performance result is accepted by this note.
 
 The existing native result composition contract preserves owned Vortex arrays,
@@ -77,3 +77,37 @@ range beginning at zero. Preserve the original three cases, projection, P1,
 must remain an admission failure; it cannot authorize raising the cap or claiming
 a successful workflow. This extension tests half the default maximum row count
 without changing the admitted composition policy.
+
+The four-case extension completed in all three process pairs. Complete-process
+RSS was 210,173,952 / 211,107,840 / 210,272,256 bytes; producer-only RSS was
+126,795,776 bytes in each process. The larger intermediate serialized 56,776,688
+bytes within the unchanged 64 MiB cap. Removing both composition and consumption
+exposes approximately 40% lower observed RSS, sufficient to admit a real candidate.
+This attribution is not an equivalent-query comparison or a retained speedup.
+The frozen control is commit `f352ec71258d85db316078d61157b47fcc9aedb7`, executable
+SHA-256 `12374bda4d37f5abf70c6c8926e3f545891ffdd077e65cbde5feaa0f7cf60eed`.
+All six guard receipts and samples are retained in
+`/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5a-large-paired-receipts.json`.
+
+## Prototype boundary
+
+Pinned Vortex has no existing ArrayRef-backed scan source. Use its public
+`LayoutReader` and `ScanBuilder` interfaces around immutable owned arrays. Reuse
+native slicing, masks and bound expressions; filter before evaluating projection
+expressions. Register bounded natural row splits. Preserve the producer's owned
+buffers and metadata reservations for the entire prepared source lifetime.
+Normalize nullable Struct validity with the same helper as memory-file composition.
+
+The aggregate source binding distinguishes file and owned-array variants. Both
+use the existing lowering, physical policy, workers, exact recounts and finalizers;
+file scans keep their existing footer/pruning behavior. Owned arrays have no file
+footer or persistent segment statistics and must not claim them. The initial
+owned-array binding rejects explicit spill; callers retain the existing memory-file
+composition path when they require the admitted file-backed spill contract.
+Construction has explicit row, field, batch, logical-byte and metadata bounds,
+separate from the session's credited memory limit and observed OS RSS.
+No query answer or mutable aggregate state is retained. Cancellation and nested
+composition borrow the existing native operation grant; completion is counted
+once per outer call. The actual candidate must pass the complete four-case
+paired experiment, ownership/cancellation/semantic tests and applicable regression
+coverage before retention.

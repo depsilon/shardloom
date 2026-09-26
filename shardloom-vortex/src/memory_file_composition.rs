@@ -167,7 +167,7 @@ impl MemoryFileGeneration {
     }
 }
 
-fn composition_array(
+pub(crate) fn composition_array(
     result: &OwnedVortexResultBatch,
     bounds: MemoryFileCompositionBounds,
     context: &NativeExecutionContext<'_>,

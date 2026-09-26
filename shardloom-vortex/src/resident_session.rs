@@ -113,6 +113,48 @@ impl ResidentVortexSession {
         &self.0.memory
     }
 
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub(crate) fn parallelism(&self) -> usize {
+        self.0.parallelism
+    }
+
+    /// Array-backed queries share the same outer admission and completion
+    /// accounting as file queries, without asserting a filesystem generation.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub(crate) fn with_owned_execution<T>(
+        &self,
+        cancellation: &CancellationToken,
+        execute: impl FnOnce(&NativeExecutionContext<'_>) -> Result<T>,
+    ) -> Result<T> {
+        let result = self.with_native_execution_context(cancellation, execute)?;
+        self.0.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub(crate) fn with_owned_execution_drivers<T>(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        restore_drivers: bool,
+        execute: impl FnOnce() -> Result<T>,
+    ) -> Result<(T, usize)> {
+        self.validate_execution_context(context)?;
+        context.check_general_execution()?;
+        let additional = if restore_drivers {
+            context
+                .cpu_lanes()
+                .saturating_sub(1 + self.0.provider_background_workers)
+        } else {
+            0
+        };
+        let workers =
+            ResidentWorkerGroup::new(&self.0.runtime, additional).map_err(native_error)?;
+        let result = execute();
+        drop(workers);
+        context.check_cancelled()?;
+        Ok((result?, additional + self.0.provider_background_workers))
+    }
+
     /// Package an array already completed inside this session's admitted source
     /// execution. Its producer reserved metadata before allocation and attached
     /// payload credits through our allocator. This does not execute or lock.

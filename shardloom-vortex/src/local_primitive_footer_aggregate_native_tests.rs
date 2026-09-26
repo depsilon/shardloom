@@ -220,7 +220,7 @@ fn observed_prepare(
     (
         PreparedVortexAggregate {
             request: request.clone(),
-            source,
+            source: PreparedAggregateSource::File(source),
             session,
             lowering,
             policy,
@@ -454,29 +454,32 @@ fn footer_aggregate_native_generation_is_checked_before_and_after_metadata_compl
                 .unwrap();
         };
         if after_completion {
-            let outcome = prepared
-                .source
-                .with_native_execution(|file, session, runtime| {
-                    let scan = read_lowered_vortex_simple_aggregate_scan(
-                        request.source_uri.as_ref().unwrap(),
-                        &request,
-                        prepared.policy,
-                        file,
-                        session,
-                        runtime,
-                        None,
-                        None,
-                        &prepared.lowering,
-                        Instant::now(),
-                        None,
-                        None,
-                    )?;
-                    let work: Value = serde_json::from_str(&scan.result_summary).unwrap();
-                    assert_eq!(work["values"], fixture.oracle());
-                    assert_eq!(work["metadata_aggregate"]["all_measures_completed"], true);
-                    mutate();
-                    Ok(scan)
-                });
+            let outcome =
+                prepared
+                    .source
+                    .file()
+                    .unwrap()
+                    .with_native_execution(|file, session, runtime| {
+                        let scan = read_lowered_vortex_simple_aggregate_scan(
+                            request.source_uri.as_ref().unwrap(),
+                            &request,
+                            prepared.policy,
+                            runtime::aggregate_scan_source::AggregateScanSource::File(file),
+                            session,
+                            runtime,
+                            None,
+                            None,
+                            &prepared.lowering,
+                            Instant::now(),
+                            None,
+                            None,
+                        )?;
+                        let work: Value = serde_json::from_str(&scan.result_summary).unwrap();
+                        assert_eq!(work["values"], fixture.oracle());
+                        assert_eq!(work["metadata_aggregate"]["all_measures_completed"], true);
+                        mutate();
+                        Ok(scan)
+                    });
             assert!(
                 outcome
                     .err()

@@ -1,17 +1,19 @@
-//! Ignored, bounded R5.a attribution of the existing native composition workflow.
-//! This is a baseline only: no alternative source, kernel, or storage path is used.
+//! Ignored, bounded R5.a native composition workflows over the same producer and
+//! aggregate kernels. Explicit arms select memory-file or owned-array intake.
 
 use super::*;
 use crate::{
     VortexAggregateOrderExpr, VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
     VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    local_primitives::prepared_aggregate::PreparedVortexAggregate,
     memory_file_generation::{
         MemoryFileCompositionBounds, MemoryFileGeneration, MemoryFileGenerationEvidence,
     },
+    owned_array_source::{OwnedArraySource, OwnedArraySourceBounds},
 };
 use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
-use shardloom_core::ColumnRef;
+use shardloom_core::{ColumnRef, DatasetUri};
 use std::{collections::BTreeMap, fmt::Write as _, path::PathBuf, time::Instant};
 use vortex::array::{
     Columnar, IntoArray as _,
@@ -29,6 +31,142 @@ const COLUMNS: [&str; 3] = ["AdvEngineID", "UserID", "URL"];
 const SESSION_BYTES: u64 = 512 * 1024 * 1024;
 const REPETITIONS: usize = 3;
 const MAX_GROUPS: usize = 1024;
+
+#[derive(Clone, Copy)]
+enum Adapter {
+    MemoryFile,
+    OwnedArray,
+}
+
+impl Adapter {
+    fn id(self) -> &'static str {
+        match self {
+            Self::MemoryFile => "shardloom.resident_vortex.memory_file.v1",
+            Self::OwnedArray => "shardloom.resident_vortex.owned_array.v1",
+        }
+    }
+
+    fn admission_stage(self) -> &'static str {
+        match self {
+            Self::MemoryFile => "memory_file_composition_default_bounds",
+            Self::OwnedArray => "owned_array_source_default_bounds",
+        }
+    }
+
+    fn bounds_json(self) -> Value {
+        match self {
+            Self::MemoryFile => {
+                let bounds = MemoryFileCompositionBounds::default();
+                assert_eq!(bounds.storage.max_serialized_bytes, 64 * 1024 * 1024);
+                json!({
+                    "max_rows": bounds.max_rows,
+                    "max_columns": bounds.max_columns,
+                    "max_batches": bounds.max_batches,
+                    "max_serialized_bytes": bounds.storage.max_serialized_bytes,
+                    "max_metadata_bytes": bounds.storage.max_metadata_bytes,
+                    "row_group_rows": bounds.layout.row_group_rows,
+                    "max_segments": bounds.layout.max_segments,
+                })
+            }
+            Self::OwnedArray => {
+                let bounds = OwnedArraySourceBounds::default();
+                assert_eq!(bounds.max_logical_bytes, 64 * 1024 * 1024);
+                assert_eq!(bounds.max_metadata_bytes, 1024 * 1024);
+                json!({
+                    "max_rows": bounds.max_rows,
+                    "max_columns": bounds.max_columns,
+                    "max_batches": bounds.max_batches,
+                    "max_logical_bytes": bounds.max_logical_bytes,
+                    "max_metadata_bytes": bounds.max_metadata_bytes,
+                })
+            }
+        }
+    }
+}
+
+enum Source {
+    Memory(MemoryFileGeneration),
+    Owned(OwnedArraySource),
+}
+
+impl Source {
+    fn from_owned(input: OwnedVortexResultBatch, adapter: Adapter) -> Result<Self> {
+        let cancellation = CancellationToken::default();
+        match adapter {
+            Adapter::MemoryFile => MemoryFileGeneration::from_owned(
+                input,
+                MemoryFileCompositionBounds::default(),
+                &cancellation,
+            )
+            .map(Self::Memory),
+            Adapter::OwnedArray => OwnedArraySource::from_owned(
+                input,
+                OwnedArraySourceBounds::default(),
+                &cancellation,
+            )
+            .map(Self::Owned),
+        }
+    }
+
+    fn source_uri(&self) -> &DatasetUri {
+        match self {
+            Self::Memory(source) => source.source_uri(),
+            Self::Owned(source) => source.source_uri(),
+        }
+    }
+
+    fn row_count(&self) -> u64 {
+        match self {
+            Self::Memory(source) => source.row_count(),
+            Self::Owned(source) => source.row_count(),
+        }
+    }
+
+    fn prepare_aggregate(
+        &self,
+        request: &VortexQueryPrimitiveRequest,
+        policy: VortexLocalPrimitiveExecutionPolicy,
+    ) -> Result<PreparedVortexAggregate> {
+        match self {
+            Self::Memory(source) => source.prepare_aggregate(request, policy),
+            Self::Owned(source) => source.prepare_aggregate(request, policy),
+        }
+    }
+
+    fn evidence(&self, logical_input_bytes: u64) -> SourceEvidence {
+        match self {
+            Self::Memory(source) => SourceEvidence::Memory(source.evidence()),
+            Self::Owned(_) => SourceEvidence::Owned {
+                logical_input_bytes,
+            },
+        }
+    }
+}
+
+enum SourceEvidence {
+    Memory(MemoryFileGenerationEvidence),
+    Owned { logical_input_bytes: u64 },
+}
+
+impl SourceEvidence {
+    fn add_to_json(&self, report: &mut Value) {
+        match self {
+            Self::Memory(evidence) => report["generation"] = generation_json(*evidence),
+            Self::Owned {
+                logical_input_bytes,
+            } => {
+                report["owned_array"] = json!({
+                    "input_logical_bytes": logical_input_bytes,
+                    "evidence_scope": "source_adapter_construction_contract_verified_in_native_certificate_not_provider_allocator_or_decode_counts",
+                    "source_specific_file_opens": 0,
+                    "construction_array_serializer_calls": 0,
+                    "construction_segment_assembly_bytes_copied": 0,
+                    "construction_footer_serializer_calls": 0,
+                })
+            }
+        }
+    }
+}
 
 struct Oracle {
     values: Value,
@@ -57,6 +195,7 @@ impl StageTimings {
 }
 
 struct BaselineSample {
+    adapter: Adapter,
     repetition: usize,
     timings: StageTimings,
     logical_input_bytes: u64,
@@ -65,14 +204,15 @@ struct BaselineSample {
     output_sha256: String,
     values_sha256: String,
     groups: usize,
-    generation: MemoryFileGenerationEvidence,
+    source_evidence: SourceEvidence,
     session: ResidentSessionSnapshot,
     released_memory: LiveMemorySnapshot,
 }
 
 impl BaselineSample {
     fn json(&self) -> Value {
-        json!({
+        let mut report = json!({
+            "adapter": self.adapter.id(),
             "repetition": self.repetition,
             "timings": self.timings.json(),
             "logical_input_bytes": self.logical_input_bytes,
@@ -82,7 +222,6 @@ impl BaselineSample {
             "ordered_values_sha256": self.values_sha256,
             "complete_ordered_values_match": true,
             "groups": self.groups,
-            "generation": generation_json(self.generation),
             "session": {
                 "prepared_source_opens": self.session.prepared_source_opens,
                 "completed_executions": self.session.completed_executions,
@@ -96,7 +235,9 @@ impl BaselineSample {
             },
             "native_io_certified": true,
             "fallback_attempted": false,
-        })
+        });
+        self.source_evidence.add_to_json(&mut report);
+        report
     }
 }
 
@@ -125,6 +266,7 @@ impl SampleOutcome {
 }
 
 struct AdmissionFailure {
+    adapter: Adapter,
     repetition: usize,
     error: String,
     logical_input_bytes: u64,
@@ -139,7 +281,8 @@ impl AdmissionFailure {
     fn json(&self) -> Value {
         json!({
             "status": "admission_failure",
-            "stage": "memory_file_composition_default_bounds",
+            "adapter": self.adapter.id(),
+            "stage": self.adapter.admission_stage(),
             "repetition": self.repetition,
             "error": self.error,
             "logical_input_bytes": self.logical_input_bytes,
@@ -304,7 +447,7 @@ fn oracle(path: &Path, start: u64, row_count: u64) -> Oracle {
     }
 }
 
-fn aggregate_request(generation: &MemoryFileGeneration) -> VortexQueryPrimitiveRequest {
+fn aggregate_request(generation: &Source) -> VortexQueryPrimitiveRequest {
     VortexQueryPrimitiveRequest::simple_aggregate(
         generation.source_uri().clone(),
         VortexSimpleAggregateRequest::grouped(
@@ -334,6 +477,7 @@ fn run(
     row_count: u64,
     repetition: usize,
     expected: &Oracle,
+    adapter: Adapter,
 ) -> SampleOutcome {
     let started = Instant::now();
     let session = ResidentVortexSession::new(SESSION_BYTES, 1).unwrap();
@@ -346,11 +490,7 @@ fn run(
     let input_batches = input.arrays().len();
     let producer_end = Instant::now();
 
-    let generation = MemoryFileGeneration::from_owned(
-        input,
-        MemoryFileCompositionBounds::default(),
-        &CancellationToken::default(),
-    );
+    let generation = Source::from_owned(input, adapter);
     let composition_end = Instant::now();
     let generation = match generation {
         Ok(generation) => generation,
@@ -366,6 +506,7 @@ fn run(
                 "rejected composition retained native owners"
             );
             return SampleOutcome::AdmissionFailure(AdmissionFailure {
+                adapter,
                 repetition,
                 error: error.to_string(),
                 logical_input_bytes,
@@ -391,10 +532,33 @@ fn run(
 
     // These bounded evidence snapshots precede owner release and are charged to
     // teardown. Hashing, JSON parsing, equality, and benchmark JSON are untimed.
-    let evidence = generation.evidence();
+    let evidence = generation.evidence(logical_input_bytes);
     let generation_rows = generation.row_count();
     let session_snapshot = session.snapshot();
     let certified = executed.native_io_certificate.is_certified();
+    let expected_adapter = executed
+        .native_io_certificate
+        .source_capability_report
+        .adapter_id
+        == adapter.id();
+    let construction_proof = match adapter {
+        Adapter::MemoryFile => true,
+        Adapter::OwnedArray => [
+            "immutable_array_owner_retained=true",
+            "source_specific_file_opens=0",
+            "construction_array_serializer_calls=0",
+            "construction_segment_assembly_bytes_copied=0",
+            "construction_footer_serializer_calls=0",
+        ]
+        .iter()
+        .all(|marker| {
+            executed
+                .native_io_certificate
+                .source_pushdown_report
+                .proof_basis
+                .contains(*marker)
+        }),
+    };
     let fallback_attempted = executed.native_io_certificate.fallback_attempted;
     let errors = executed.report.has_errors();
     let output_rows = executed.report.rows_projected;
@@ -416,11 +580,17 @@ fn run(
     );
     assert_eq!(input_rows, row_count);
     assert_eq!(generation_rows, row_count);
-    assert_eq!(evidence.input_logical_bytes, logical_input_bytes);
-    assert_eq!(evidence.source_file_opens, 0);
+    if let SourceEvidence::Memory(evidence) = &evidence {
+        assert_eq!(evidence.input_logical_bytes, logical_input_bytes);
+        assert_eq!(evidence.source_file_opens, 0);
+    }
     assert_eq!(session_snapshot.prepared_source_opens, 1);
     assert_eq!(session_snapshot.completed_executions, 2);
     assert!(certified && !fallback_attempted && !errors);
+    assert!(
+        expected_adapter && construction_proof,
+        "native source adapter evidence differs"
+    );
     let actual = report_values(&output);
     assert_eq!(
         actual, expected.values,
@@ -445,6 +615,7 @@ fn run(
             + timings.drop_nanos
     );
     SampleOutcome::Complete(Box::new(BaselineSample {
+        adapter,
         repetition,
         timings,
         logical_input_bytes,
@@ -453,7 +624,7 @@ fn run(
         output_sha256: sha256(output.as_bytes()),
         values_sha256,
         groups,
-        generation: evidence,
+        source_evidence: evidence,
         session: session_snapshot,
         released_memory,
     }))
@@ -461,8 +632,18 @@ fn run(
 
 #[test]
 #[ignore = "bounded R5.a native baseline; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact"]
-#[allow(clippy::assertions_on_constants)]
 fn native_memory_file_composition_baseline() {
+    complete_workflow(Adapter::MemoryFile);
+}
+
+#[test]
+#[ignore = "bounded R5.a owned-array candidate; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact"]
+fn native_owned_array_composition_candidate() {
+    complete_workflow(Adapter::OwnedArray);
+}
+
+#[allow(clippy::assertions_on_constants)]
+fn complete_workflow(adapter: Adapter) {
     assert!(!cfg!(debug_assertions), "timing fixture requires --release");
     let path = PathBuf::from(
         std::env::var_os("SHARDLOOM_R5A_SOURCE")
@@ -474,8 +655,7 @@ fn native_memory_file_composition_baseline() {
     );
     let path = path.canonicalize().unwrap();
     let source_bytes = path.metadata().unwrap().len();
-    let bounds = MemoryFileCompositionBounds::default();
-    assert_eq!(bounds.storage.max_serialized_bytes, 64 * 1024 * 1024);
+    let bounds = adapter.bounds_json();
     // Compute all four independent references before any timed repetition.
     let mut ranges = CASES
         .into_iter()
@@ -494,6 +674,7 @@ fn native_memory_file_composition_baseline() {
                 range.row_count,
                 repetition,
                 &range.oracle,
+                adapter,
             );
             let rejected = matches!(sample, SampleOutcome::AdmissionFailure(_));
             range.samples.push(sample);
@@ -502,9 +683,22 @@ fn native_memory_file_composition_baseline() {
             }
         }
     }
+    let (schema, scope, prefix) = match adapter {
+        Adapter::MemoryFile => (
+            "shardloom.r5a.memory_file_composition_baseline.v1",
+            "bounded_native_workflow_baseline_only_no_candidate_or_speedup_claim",
+            "SHARDLOOM_R5A_BASELINE",
+        ),
+        Adapter::OwnedArray => (
+            "shardloom.r5a.owned_array_composition_candidate.v1",
+            "bounded_native_workflow_owned_array_candidate_no_retention_or_speedup_claim",
+            "SHARDLOOM_R5A_CANDIDATE",
+        ),
+    };
     let report = json!({
-        "schema": "shardloom.r5a.memory_file_composition_baseline.v1",
-        "scope": "bounded_native_workflow_baseline_only_no_candidate_or_speedup_claim",
+        "schema": schema,
+        "scope": scope,
+        "adapter": adapter.id(),
         "source": path,
         "source_bytes": source_bytes,
         "source_rows": SOURCE_ROWS,
@@ -514,15 +708,7 @@ fn native_memory_file_composition_baseline() {
         "projection_output_limit_bytes": SESSION_BYTES,
         "parallelism": 1,
         "repetitions_per_range": REPETITIONS,
-        "composition_bounds": {
-            "max_rows": bounds.max_rows,
-            "max_columns": bounds.max_columns,
-            "max_batches": bounds.max_batches,
-            "max_serialized_bytes": bounds.storage.max_serialized_bytes,
-            "max_metadata_bytes": bounds.storage.max_metadata_bytes,
-            "row_group_rows": bounds.layout.row_group_rows,
-            "max_segments": bounds.layout.max_segments,
-        },
+        "composition_bounds": bounds,
         "timing_scope": "new_session_open_prepare_project_compose_prepare_aggregate_execute_normal_report_render_native_owner_release",
         "normal_report_sink": "VortexLocalPrimitiveExecutionReport::to_human_text",
         "failed_admission": "recorded_without_success_timing_no_cap_increase_remaining_ranges_continue",
@@ -537,7 +723,7 @@ fn native_memory_file_composition_baseline() {
         "architecture": std::env::consts::ARCH,
         "ranges": ranges.iter().map(RangeBaseline::json).collect::<Vec<_>>(),
     });
-    println!("SHARDLOOM_R5A_BASELINE={report}");
+    println!("{prefix}={report}");
 }
 
 /// Attribution only: remove the entire consumer and composition, retaining the
