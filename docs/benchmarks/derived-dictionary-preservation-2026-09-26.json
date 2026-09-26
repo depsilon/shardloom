@@ -655,6 +655,21 @@
       "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/release-scripts-ci-fix.log",
       "fix": "Give the top-level performance queue a stable identifier required by the benchmark doctor's existing next-slice contract; no new implementation phase or runtime change."
     },
+    "public_status_ci_reproducer": {
+      "status": "passed",
+      "fix": "Classify the PERF-INTAKE queue identifier in the existing v1 inclusion matrix without changing required native-family obligations.",
+      "checks": [
+        "python3 -B scripts/check_public_status_docs.py --output /Users/dylan/LocalData/shardloom/performance-candidates-20260926/public-status-ci-fix.json",
+        "python3 -B scripts/check_website_readiness.py --output /Users/dylan/LocalData/shardloom/performance-candidates-20260926/website-readiness-ci-fix.json",
+        "node website/validate_static_assets.js"
+      ],
+      "adjacent_release_scripts": {
+        "status": "passed",
+        "passed": 244,
+        "skipped": 2,
+        "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/release-scripts-ci-fix-r2.log"
+      }
+    },
     "architecture_tracker": {
       "command": "python3 -B scripts/check_release_architecture_tracker.py --allow-blocked --output /Users/dylan/LocalData/shardloom/performance-candidates-20260926/final-architecture-tracker.json",
       "status": "blocked",
