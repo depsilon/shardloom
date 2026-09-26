@@ -724,9 +724,10 @@ impl PreparedVortexAggregate {
         };
         match context {
             Some(context) => execute(context),
-            None => self
-                .session
-                .with_owned_execution(&Default::default(), execute),
+            None => self.session.with_owned_execution(
+                &shardloom_exec::compute_pool::CancellationToken::default(),
+                execute,
+            ),
         }
     }
 

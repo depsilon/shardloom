@@ -37,11 +37,12 @@ impl AggregateScanSource<'_> {
         }
     }
 
-    pub(super) fn scan(&self, _session: &VortexSession) -> VortexResult<ScanBuilder<ArrayRef>> {
+    pub(super) fn scan(&self, session: &VortexSession) -> VortexResult<ScanBuilder<ArrayRef>> {
+        let _ = session; // File-only feature builds use their retained file session.
         match self {
             Self::File(file) => file.scan(),
             #[cfg(all(feature = "vortex-write", unix))]
-            Self::Owned(source) => Ok(source.scan(_session)),
+            Self::Owned(source) => Ok(source.scan(session)),
         }
     }
 

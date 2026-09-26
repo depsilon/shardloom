@@ -17,6 +17,7 @@ fn values(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep the complete mixed-type oracle and ownership release together.
 fn nullable_filtered_multi_measure_uses_shared_exact_semantics() {
     let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
     let memory = session.memory().clone();

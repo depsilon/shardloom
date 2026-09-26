@@ -162,7 +162,7 @@ impl SourceEvidence {
                     "construction_array_serializer_calls": 0,
                     "construction_segment_assembly_bytes_copied": 0,
                     "construction_footer_serializer_calls": 0,
-                })
+                });
             }
         }
     }
@@ -174,6 +174,7 @@ struct Oracle {
     logical_input_bytes: u64,
 }
 
+#[allow(clippy::struct_field_names)] // Units remain explicit at every measured-clock boundary.
 struct StageTimings {
     producer_nanos: u64,
     composition_nanos: u64,
