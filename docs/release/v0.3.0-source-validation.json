@@ -172,27 +172,27 @@
   "test_counts_overlap_between_feature_configurations": true,
   "changed_package_version_sources": [
     {
-      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/Cargo.toml",
+      "path": "Cargo.toml",
       "sha256": "2b294879ca40b0c8e39a69f2b81a05d04ee5431dcd354cbdd212810bfd9c6dda",
       "bytes": 1610
     },
     {
-      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/Cargo.lock",
+      "path": "Cargo.lock",
       "sha256": "3cff68bfe028e3e7e0d2cd61781fae1e5a9722a9e9408643cab6ccdfc8878895",
       "bytes": 99477
     },
     {
-      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/python/src/shardloom/_version.py",
+      "path": "python/src/shardloom/_version.py",
       "sha256": "d1be07fc697baa8f1b5d2ef0af9353f19816c9aa4a87921e086be48f06c157a1",
       "bytes": 169
     },
     {
-      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/website-src/package.json",
+      "path": "website-src/package.json",
       "sha256": "9ed82328b972a319df07ee1ae42b5c1afa03e5f5caedea2d16178deb49439058",
       "bytes": 1096
     },
     {
-      "path": "/Users/dylan/.codex/worktrees/release-0-3-0/shardloom-local-repo/website-src/package-lock.json",
+      "path": "website-src/package-lock.json",
       "sha256": "9a6ad3ee5d4579ed48ef20398e5f7249f1be2953fa6df43063d6841783d33577",
       "bytes": 301017
     }
