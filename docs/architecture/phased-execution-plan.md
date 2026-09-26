@@ -323,6 +323,8 @@ needed for a candidate's correctness/resource acceptance must be completed first
       the packet is exhausted, and move completed decisions to the completed ledger.
   - Next outcome: R5.a direct owned-array handoff between operations; attribute
     remaining memory-file serialization and preserve downstream kernel/owner contracts.
+    The frozen bounded workflow is in `owned-array-handoff-screen-2026-09-26.md`;
+    baseline attribution precedes any production source-boundary change.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

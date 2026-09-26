@@ -1,0 +1,519 @@
+//! Ignored, bounded R5.a attribution of the existing native composition workflow.
+//! This is a baseline only: no alternative source, kernel, or storage path is used.
+
+use super::*;
+use crate::{
+    VortexAggregateOrderExpr, VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
+    VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    memory_file_generation::{
+        MemoryFileCompositionBounds, MemoryFileGeneration, MemoryFileGenerationEvidence,
+    },
+};
+use serde_json::{Value, json};
+use sha2::{Digest as _, Sha256};
+use shardloom_core::ColumnRef;
+use std::{collections::BTreeMap, fmt::Write as _, path::PathBuf, time::Instant};
+use vortex::array::{
+    Columnar,
+    scalar::{PValue, Scalar, ScalarValue},
+};
+
+const SOURCE_ROWS: u64 = 99_997_497;
+const RANGE_STARTS: [u64; 3] = [0, 50_000_000, 99_800_000];
+const RANGE_ROWS: u64 = 131_072;
+const COLUMNS: [&str; 3] = ["AdvEngineID", "UserID", "URL"];
+const SESSION_BYTES: u64 = 512 * 1024 * 1024;
+const REPETITIONS: usize = 3;
+const MAX_GROUPS: usize = 1024;
+
+struct Oracle {
+    values: Value,
+    values_sha256: String,
+    logical_input_bytes: u64,
+}
+
+struct StageTimings {
+    producer_nanos: u64,
+    composition_nanos: u64,
+    consumer_nanos: u64,
+    drop_nanos: u64,
+    complete_nanos: u64,
+}
+
+impl StageTimings {
+    fn json(&self) -> Value {
+        json!({
+            "producer_nanos": self.producer_nanos,
+            "composition_nanos": self.composition_nanos,
+            "consumer_nanos": self.consumer_nanos,
+            "drop_nanos": self.drop_nanos,
+            "complete_nanos": self.complete_nanos,
+        })
+    }
+}
+
+struct BaselineSample {
+    repetition: usize,
+    timings: StageTimings,
+    logical_input_bytes: u64,
+    input_batches: usize,
+    output_bytes: usize,
+    output_sha256: String,
+    values_sha256: String,
+    groups: usize,
+    generation: MemoryFileGenerationEvidence,
+    session: ResidentSessionSnapshot,
+    released_memory: LiveMemorySnapshot,
+}
+
+impl BaselineSample {
+    fn json(&self) -> Value {
+        json!({
+            "repetition": self.repetition,
+            "timings": self.timings.json(),
+            "logical_input_bytes": self.logical_input_bytes,
+            "input_batches": self.input_batches,
+            "normal_report_output_bytes": self.output_bytes,
+            "normal_report_output_sha256": self.output_sha256,
+            "ordered_values_sha256": self.values_sha256,
+            "complete_ordered_values_match": true,
+            "groups": self.groups,
+            "generation": generation_json(self.generation),
+            "session": {
+                "prepared_source_opens": self.session.prepared_source_opens,
+                "completed_executions": self.session.completed_executions,
+                "provider_background_workers": self.session.provider_background_workers,
+            },
+            "released_memory": {
+                "limit_bytes": self.released_memory.limit_bytes,
+                "reserved_bytes": self.released_memory.reserved_bytes,
+                "peak_reserved_bytes": self.released_memory.peak_reserved_bytes,
+                "denied_reservations": self.released_memory.denied_reservations,
+            },
+            "native_io_certified": true,
+            "fallback_attempted": false,
+        })
+    }
+}
+
+struct RangeBaseline {
+    row_start: u64,
+    oracle: Oracle,
+    samples: Vec<SampleOutcome>,
+}
+
+enum SampleOutcome {
+    Complete(Box<BaselineSample>),
+    AdmissionFailure(AdmissionFailure),
+}
+
+impl SampleOutcome {
+    fn json(&self) -> Value {
+        match self {
+            Self::Complete(sample) => json!({
+                "status": "complete",
+                "sample": sample.json(),
+            }),
+            Self::AdmissionFailure(failure) => failure.json(),
+        }
+    }
+}
+
+struct AdmissionFailure {
+    repetition: usize,
+    error: String,
+    logical_input_bytes: u64,
+    input_batches: usize,
+    producer_nanos: u64,
+    composition_attempt_nanos: u64,
+    drop_nanos: u64,
+    released_memory: LiveMemorySnapshot,
+}
+
+impl AdmissionFailure {
+    fn json(&self) -> Value {
+        json!({
+            "status": "admission_failure",
+            "stage": "memory_file_composition_default_bounds",
+            "repetition": self.repetition,
+            "error": self.error,
+            "logical_input_bytes": self.logical_input_bytes,
+            "input_batches": self.input_batches,
+            "successful_complete_workflow": false,
+            "producer_nanos": self.producer_nanos,
+            "composition_attempt_nanos": self.composition_attempt_nanos,
+            "drop_nanos": self.drop_nanos,
+            "released_reserved_bytes": self.released_memory.reserved_bytes,
+            "peak_reserved_bytes": self.released_memory.peak_reserved_bytes,
+            "denied_reservations": self.released_memory.denied_reservations,
+        })
+    }
+}
+
+impl RangeBaseline {
+    fn json(&self) -> Value {
+        json!({
+            "row_start": self.row_start,
+            "row_end_exclusive": self.row_start + RANGE_ROWS,
+            "rows": RANGE_ROWS,
+            "oracle": {
+                "method": "native_projected_key_scalars_independent_btree_map",
+                "rows_checked": RANGE_ROWS,
+                "groups": self.oracle.values.as_array().unwrap().len(),
+                "logical_input_bytes": self.oracle.logical_input_bytes,
+                "ordered_values_sha256": self.oracle.values_sha256,
+            },
+            "samples": self.samples.iter().map(SampleOutcome::json).collect::<Vec<_>>(),
+        })
+    }
+}
+
+fn generation_json(evidence: MemoryFileGenerationEvidence) -> Value {
+    json!({
+        "input_logical_bytes": evidence.input_logical_bytes,
+        "intake_payload_bytes_copied": evidence.intake_payload_bytes_copied,
+        "segment_assembly_bytes_copied": evidence.segment_assembly_bytes_copied,
+        "array_serializer_calls": evidence.array_serializer_calls,
+        "dictionary_build_calls": evidence.dictionary_build_calls,
+        "memory_file_constructions": evidence.memory_file_constructions,
+        "source_file_opens": evidence.source_file_opens,
+        "memory_segment_requests": evidence.memory_segment_requests,
+        "memory_segment_bytes_returned": evidence.memory_segment_bytes_returned,
+        "columns": evidence.columns,
+        "row_groups": evidence.row_groups,
+        "row_group_rows": evidence.row_group_rows,
+        "row_group_offset_bytes_built": evidence.row_group_offset_bytes_built,
+        "construction_footer_serializer_calls": evidence.construction_footer_serializer_calls,
+        "construction_footer_bytes": evidence.construction_footer_bytes,
+        "construction_native_materialization_calls": evidence.construction_native_materialization_calls,
+        "construction_native_materialization_rows": evidence.construction_native_materialization_rows,
+    })
+}
+
+fn nanos(start: Instant, end: Instant) -> u64 {
+    u64::try_from(end.duration_since(start).as_nanos()).unwrap()
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(64);
+    for byte in Sha256::digest(bytes) {
+        write!(&mut output, "{byte:02x}").unwrap();
+    }
+    output
+}
+
+fn projection(source: &PreparedVortexSource, start: u64) -> PreparedVortexProjection {
+    assert_eq!(
+        source.file().row_count(),
+        SOURCE_ROWS,
+        "unexpected source scale"
+    );
+    source
+        .prepare_projection(&COLUMNS, RANGE_ROWS, SESSION_BYTES)
+        .unwrap()
+        .with_row_range(start..start + RANGE_ROWS)
+        .unwrap()
+}
+
+fn integer_key(scalar: &Scalar) -> u64 {
+    match scalar
+        .value()
+        .expect("AdvEngineID oracle requires non-null keys")
+    {
+        ScalarValue::Primitive(PValue::U8(value)) => u64::from(*value),
+        ScalarValue::Primitive(PValue::U16(value)) => u64::from(*value),
+        ScalarValue::Primitive(PValue::U32(value)) => u64::from(*value),
+        ScalarValue::Primitive(PValue::U64(value)) => *value,
+        ScalarValue::Primitive(PValue::I8(value)) => u64::try_from(*value).unwrap(),
+        ScalarValue::Primitive(PValue::I16(value)) => u64::try_from(*value).unwrap(),
+        ScalarValue::Primitive(PValue::I32(value)) => u64::try_from(*value).unwrap(),
+        ScalarValue::Primitive(PValue::I64(value)) => u64::try_from(*value).unwrap(),
+        _ => panic!("AdvEngineID oracle requires non-negative integer keys"),
+    }
+}
+
+fn oracle(path: &Path, start: u64) -> Oracle {
+    let session = ResidentVortexSession::new(SESSION_BYTES, 1).unwrap();
+    let memory = session.memory().clone();
+    let source = session.prepare_file(path).unwrap();
+    let prepared = projection(&source, start);
+    let result = prepared.execute().unwrap();
+    assert_eq!(result.row_count(), RANGE_ROWS);
+    let logical_input_bytes = result.logical_buffer_bytes();
+    let mut counts = BTreeMap::<u64, u64>::new();
+    let mut context = result.create_execution_ctx();
+    let mut rows = 0_u64;
+    for array in result.arrays() {
+        let fields = array.dtype().as_struct_fields();
+        assert_eq!(
+            fields.names().iter().map(AsRef::as_ref).collect::<Vec<_>>(),
+            COLUMNS
+        );
+        let key = vortex::expr::get_item(COLUMNS[0], vortex::expr::root())
+            .bind(array.dtype())
+            .unwrap();
+        let keys = array
+            .clone()
+            .apply_bound(&key)
+            .unwrap()
+            .execute::<Columnar>(&mut context)
+            .unwrap()
+            .into_array();
+        for row in 0..array.len() {
+            let key = integer_key(&keys.execute_scalar(row, &mut context).unwrap());
+            *counts.entry(key).or_default() += 1;
+            rows += 1;
+        }
+        assert!(
+            counts.len() <= MAX_GROUPS,
+            "source exceeds small-result fixture bound"
+        );
+    }
+    assert_eq!(rows, RANGE_ROWS);
+    assert_eq!(counts.values().sum::<u64>(), RANGE_ROWS);
+    let values = Value::Array(
+        counts
+            .into_iter()
+            .map(|(key, count)| json!({"AdvEngineID": key, "n": count}))
+            .collect(),
+    );
+    let values_sha256 = sha256(&serde_json::to_vec(&values).unwrap());
+    drop(context);
+    drop(result);
+    drop(prepared);
+    drop(source);
+    drop(session);
+    assert_eq!(
+        memory.snapshot().reserved_bytes,
+        0,
+        "oracle retained native owners"
+    );
+    Oracle {
+        values,
+        values_sha256,
+        logical_input_bytes,
+    }
+}
+
+fn aggregate_request(generation: &MemoryFileGeneration) -> VortexQueryPrimitiveRequest {
+    VortexQueryPrimitiveRequest::simple_aggregate(
+        generation.source_uri().clone(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new(COLUMNS[0]).unwrap()],
+            vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new(COLUMNS[0], false)]),
+    )
+}
+
+fn report_values(output: &str) -> Value {
+    let summary = output
+        .lines()
+        .find_map(|line| line.strip_prefix("result summary: "))
+        .expect("normal report omitted its result summary");
+    let payload: Value = serde_json::from_str(summary.rsplit_once(" values=").unwrap().1).unwrap();
+    payload
+        .get("values")
+        .expect("normal report omitted aggregate values")
+        .clone()
+}
+
+#[allow(clippy::too_many_lines)] // Keep contiguous timing and final-owner release visible together.
+fn run(path: &Path, start: u64, repetition: usize, expected: &Oracle) -> SampleOutcome {
+    let started = Instant::now();
+    let session = ResidentVortexSession::new(SESSION_BYTES, 1).unwrap();
+    let memory = session.memory().clone();
+    let source = session.prepare_file(path).unwrap();
+    let projected = projection(&source, start);
+    let input = projected.execute().unwrap();
+    let input_rows = input.row_count();
+    let logical_input_bytes = input.logical_buffer_bytes();
+    let input_batches = input.arrays().len();
+    let producer_end = Instant::now();
+
+    let generation = MemoryFileGeneration::from_owned(
+        input,
+        MemoryFileCompositionBounds::default(),
+        &CancellationToken::default(),
+    );
+    let composition_end = Instant::now();
+    let generation = match generation {
+        Ok(generation) => generation,
+        Err(error) => {
+            // from_owned consumes and releases the input even on rejection.
+            drop(projected);
+            drop(source);
+            drop(session);
+            let finished = Instant::now();
+            let released_memory = memory.snapshot();
+            assert_eq!(
+                released_memory.reserved_bytes, 0,
+                "rejected composition retained native owners"
+            );
+            return SampleOutcome::AdmissionFailure(AdmissionFailure {
+                repetition,
+                error: error.to_string(),
+                logical_input_bytes,
+                input_batches,
+                producer_nanos: nanos(started, producer_end),
+                composition_attempt_nanos: nanos(producer_end, composition_end),
+                drop_nanos: nanos(composition_end, finished),
+                released_memory,
+            });
+        }
+    };
+
+    let request = aggregate_request(&generation);
+    let prepared = generation
+        .prepare_aggregate(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+    let executed = prepared.execute().unwrap();
+    let output = executed.report.to_human_text();
+    let consumer_end = Instant::now();
+
+    // These bounded evidence snapshots precede owner release and are charged to
+    // teardown. Hashing, JSON parsing, equality, and benchmark JSON are untimed.
+    let evidence = generation.evidence();
+    let generation_rows = generation.row_count();
+    let session_snapshot = session.snapshot();
+    let certified = executed.native_io_certificate.is_certified();
+    let fallback_attempted = executed.native_io_certificate.fallback_attempted;
+    let errors = executed.report.has_errors();
+    let output_rows = executed.report.rows_projected;
+    drop(executed);
+    drop(prepared);
+    drop(request);
+    drop(generation);
+    drop(projected);
+    drop(source);
+    drop(session);
+    let finished = Instant::now();
+
+    // Only the detached normal report text survives the clock for verification;
+    // no native result/source/session/generation or provider owner survives.
+    let released_memory = memory.snapshot();
+    assert_eq!(
+        released_memory.reserved_bytes, 0,
+        "workflow retained native owners"
+    );
+    assert_eq!(input_rows, RANGE_ROWS);
+    assert_eq!(generation_rows, RANGE_ROWS);
+    assert_eq!(evidence.input_logical_bytes, logical_input_bytes);
+    assert_eq!(evidence.source_file_opens, 0);
+    assert_eq!(session_snapshot.prepared_source_opens, 1);
+    assert_eq!(session_snapshot.completed_executions, 2);
+    assert!(certified && !fallback_attempted && !errors);
+    let actual = report_values(&output);
+    assert_eq!(
+        actual, expected.values,
+        "complete ordered grouped counts differ"
+    );
+    let groups = actual.as_array().unwrap().len();
+    assert_eq!(output_rows, Some(u64::try_from(groups).unwrap()));
+    let values_sha256 = sha256(&serde_json::to_vec(&actual).unwrap());
+    assert_eq!(values_sha256, expected.values_sha256);
+    let timings = StageTimings {
+        producer_nanos: nanos(started, producer_end),
+        composition_nanos: nanos(producer_end, composition_end),
+        consumer_nanos: nanos(composition_end, consumer_end),
+        drop_nanos: nanos(consumer_end, finished),
+        complete_nanos: nanos(started, finished),
+    };
+    assert_eq!(
+        timings.complete_nanos,
+        timings.producer_nanos
+            + timings.composition_nanos
+            + timings.consumer_nanos
+            + timings.drop_nanos
+    );
+    SampleOutcome::Complete(Box::new(BaselineSample {
+        repetition,
+        timings,
+        logical_input_bytes,
+        input_batches,
+        output_bytes: output.len(),
+        output_sha256: sha256(output.as_bytes()),
+        values_sha256,
+        groups,
+        generation: evidence,
+        session: session_snapshot,
+        released_memory,
+    }))
+}
+
+#[test]
+#[ignore = "bounded R5.a native baseline; requires SHARDLOOM_R5A_SOURCE and --release --ignored --exact"]
+#[allow(clippy::assertions_on_constants)]
+fn native_memory_file_composition_baseline() {
+    assert!(!cfg!(debug_assertions), "timing fixture requires --release");
+    let path = PathBuf::from(
+        std::env::var_os("SHARDLOOM_R5A_SOURCE")
+            .expect("set SHARDLOOM_R5A_SOURCE to the existing retained native ClickBench artifact"),
+    );
+    assert!(
+        path.is_file(),
+        "SHARDLOOM_R5A_SOURCE must identify an existing file"
+    );
+    let path = path.canonicalize().unwrap();
+    let source_bytes = path.metadata().unwrap().len();
+    let bounds = MemoryFileCompositionBounds::default();
+    assert_eq!(bounds.storage.max_serialized_bytes, 64 * 1024 * 1024);
+    // Compute all three independent references before any timed repetition.
+    let mut ranges = RANGE_STARTS
+        .into_iter()
+        .map(|row_start| RangeBaseline {
+            row_start,
+            oracle: oracle(&path, row_start),
+            samples: Vec::with_capacity(REPETITIONS),
+        })
+        .collect::<Vec<_>>();
+    for range in &mut ranges {
+        for repetition in 1..=REPETITIONS {
+            let sample = run(&path, range.row_start, repetition, &range.oracle);
+            let rejected = matches!(sample, SampleOutcome::AdmissionFailure(_));
+            range.samples.push(sample);
+            if rejected {
+                break;
+            }
+        }
+    }
+    let report = json!({
+        "schema": "shardloom.r5a.memory_file_composition_baseline.v1",
+        "scope": "bounded_native_workflow_baseline_only_no_candidate_or_speedup_claim",
+        "source": path,
+        "source_bytes": source_bytes,
+        "source_rows": SOURCE_ROWS,
+        "projection": COLUMNS,
+        "aggregate": "COUNT(*) AS n GROUP BY AdvEngineID ORDER BY AdvEngineID ASC",
+        "session_bytes": SESSION_BYTES,
+        "projection_output_limit_bytes": SESSION_BYTES,
+        "parallelism": 1,
+        "repetitions_per_range": REPETITIONS,
+        "composition_bounds": {
+            "max_rows": bounds.max_rows,
+            "max_columns": bounds.max_columns,
+            "max_batches": bounds.max_batches,
+            "max_serialized_bytes": bounds.storage.max_serialized_bytes,
+            "max_metadata_bytes": bounds.storage.max_metadata_bytes,
+            "row_group_rows": bounds.layout.row_group_rows,
+            "max_segments": bounds.layout.max_segments,
+        },
+        "timing_scope": "new_session_open_prepare_project_compose_prepare_aggregate_execute_normal_report_render_native_owner_release",
+        "normal_report_sink": "VortexLocalPrimitiveExecutionReport::to_human_text",
+        "failed_admission": "recorded_without_success_timing_no_cap_increase_remaining_ranges_continue",
+        "teardown_includes_bounded_evidence_snapshots": true,
+        "detached_report_text_retained_for_untimed_verification": true,
+        "oracle_timing": "all_ranges_before_timed_repetitions",
+        "os_cache": "uncontrolled_oracle_may_warm_source",
+        "memory_scope": "shared_reservation_pool_not_process_rss_or_uncredited_provider_allocations",
+        "external_engine_invoked": false,
+        "crate_version": env!("CARGO_PKG_VERSION"),
+        "os": std::env::consts::OS,
+        "architecture": std::env::consts::ARCH,
+        "ranges": ranges.iter().map(RangeBaseline::json).collect::<Vec<_>>(),
+    });
+    println!("SHARDLOOM_R5A_BASELINE={report}");
+}

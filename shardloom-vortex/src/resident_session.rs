@@ -1292,3 +1292,7 @@ mod file_pruning_tests;
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "memory_file_composition_tests.rs"]
 mod composition_tests;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "memory_file_composition_bench.rs"]
+mod composition_bench;
