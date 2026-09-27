@@ -399,31 +399,45 @@ fn owned_closed_admission_skips_later_key_expression_for_unknown_strings() {
         "number".to_string(),
     ];
     let mut state =
-        GroupedAggregateStates::new(&request, Some(1), &declared, false, false).unwrap();
+        GroupedAggregateStates::new(&request, Some(2), &declared, false, false).unwrap();
     assert_eq!(state.group_key_indices.len(), 3);
     state
         .update(
             &[
-                ["kept", "absent", "kept", "known", "kept"]
-                    .map(|s| StatValue::Utf8(s.to_string()))
-                    .to_vec(),
-                ["known", "known", "unknown", "kept", "known"]
-                    .map(|s| StatValue::Utf8(s.to_string()))
-                    .to_vec(),
-                [0, u64::MAX, u64::MAX, u64::MAX, 0]
+                [
+                    "kept", "other", "absent", "kept", "known", "kept", "kept", "other",
+                ]
+                .map(|s| StatValue::Utf8(s.to_string()))
+                .to_vec(),
+                [
+                    "known",
+                    "second-other",
+                    "known",
+                    "unknown",
+                    "kept",
+                    "second-other",
+                    "known",
+                    "second-other",
+                ]
+                .map(|s| StatValue::Utf8(s.to_string()))
+                .to_vec(),
+                [0, 0, u64::MAX, u64::MAX, u64::MAX, u64::MAX, 0, 0]
                     .map(StatValue::UInt64)
                     .to_vec(),
             ],
-            5,
+            8,
         )
         .unwrap();
     assert!(state.string_interner.values.is_empty());
-    assert_eq!(state.groups.len(), 1);
-    let (_, summary) = state.result_row_count_and_summary(Some(1)).unwrap();
+    assert_eq!(state.groups.len(), 2);
+    let (_, summary) = state.result_row_count_and_summary(Some(2)).unwrap();
     let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
     assert_eq!(
         summary["values"],
-        serde_json::json!([{"label":"kept", "second":"known", "next":1, "rows":2}])
+        serde_json::json!([
+            {"label":"kept", "second":"known", "next":1, "rows":2},
+            {"label":"other", "second":"second-other", "next":1, "rows":2},
+        ])
     );
     let error = state
         .update_row(
@@ -436,4 +450,43 @@ fn owned_closed_admission_skips_later_key_expression_for_unknown_strings() {
         )
         .unwrap_err();
     assert!(error.to_string().contains("overflow"));
+}
+
+#[test]
+fn owned_numeric_prefix_miss_does_not_retry_the_same_later_expression() {
+    let request = VortexSimpleAggregateRequest::grouped(
+        vec![ColumnRef::new("category").unwrap()],
+        vec![crate::VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "rows".to_string(),
+        )],
+    )
+    .with_group_expressions(vec![
+        crate::VortexAggregateExpression::new(
+            "next".to_string(),
+            ColumnRef::new("number").unwrap(),
+            "add_offset",
+        )
+        .with_argument_offset(1),
+    ]);
+    let declared = vec!["category".to_string(), "number".to_string()];
+    let mut state =
+        GroupedAggregateStates::new(&request, Some(1), &declared, false, false).unwrap();
+    assert_eq!(state.group_key_indices.len(), 2);
+    state
+        .update(
+            &[
+                [0, 99, 0].map(StatValue::UInt64).to_vec(),
+                [0, u64::MAX, 0].map(StatValue::UInt64).to_vec(),
+            ],
+            3,
+        )
+        .unwrap();
+    let (_, summary) = state.result_row_count_and_summary(Some(1)).unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        summary["values"],
+        serde_json::json!([{"category":0, "next":1, "rows":2}])
+    );
 }

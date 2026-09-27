@@ -25537,7 +25537,8 @@ struct GroupedAggregateStates<'a> {
     source_order_candidate_filter: source_order_candidate_filter::Work,
     source_order_limited_group_admission: bool,
     materialized_owned_group_keys: bool,
-    source_order_owned_group_strings: Option<Vec<rustc_hash::FxHashSet<std::sync::Arc<str>>>>,
+    source_order_owned_key_prefixes:
+        Option<rustc_hash::FxHashMap<(usize, AggregateDistinctValue), usize>>,
     general_direct_group_state_pre_reserved: bool,
     native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
@@ -28472,7 +28473,7 @@ impl<'a> GroupedAggregateStates<'a> {
             source_order_candidate_filter: source_order_candidate_filter::Work::default(),
             source_order_limited_group_admission: false,
             materialized_owned_group_keys: false,
-            source_order_owned_group_strings: None,
+            source_order_owned_key_prefixes: None,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
             native_numeric_accessor_work: NativeNumericAccessorWork::default(),
@@ -28498,14 +28499,22 @@ impl<'a> GroupedAggregateStates<'a> {
             // used at insertion before checking a direct consumer's existing ID.
             // A direct-only state must keep the existing interner's early miss:
             // later key expressions need not execute for an unknown string.
-            if self.materialized_owned_group_keys
-                && let Some(owned_key) =
+            if self.materialized_owned_group_keys {
+                if let Some(owned_key) =
                     self.grouped_owned_key_for_materialized_row(columns, row_index)?
-                && let Some(group) = self.groups.get_mut(&owned_key)
-            {
-                group.general_states_mut()?.update_row(columns, row_index)?;
-                self.source_order_limited_group_admission = true;
-                return Ok(());
+                    && let Some(group) = self.groups.get_mut(&owned_key)
+                {
+                    group.general_states_mut()?.update_row(columns, row_index)?;
+                    self.source_order_limited_group_admission = true;
+                    return Ok(());
+                }
+                // Without interned strings, every retained key is represented in
+                // the owned prefix directory. A miss is final; retrying would
+                // unnecessarily evaluate later expressions for an excluded row.
+                if self.string_interner.values.is_empty() {
+                    self.source_order_limited_group_admission = true;
+                    return Ok(());
+                }
             }
             let Some(key) = self.grouped_existing_key_for_materialized_row(columns, row_index)?
             else {
@@ -34014,29 +34023,25 @@ impl<'a> GroupedAggregateStates<'a> {
         columns: &[Vec<StatValue>],
         row_index: usize,
     ) -> Result<Option<AggregateGroupKey>> {
-        // Admission is closed, so this immutable membership set can share the
-        // retained key owners. Keep domains separate by irredundant key position:
-        // a value present only in another position cannot match this key. Build
-        // once, without copying strings or scanning every group for every row.
-        let owned_strings = self
-            .source_order_owned_group_strings
-            .get_or_insert_with(|| {
-                (0..self.group_key_indices.len())
-                    .map(|position| {
-                        self.groups
-                            .keys()
-                            .filter_map(|key| match key.get(position) {
-                                Some(AggregateDistinctValue::Utf8(value)) => {
-                                    Some(std::sync::Arc::clone(value))
-                                }
-                                _ => None,
-                            })
-                            .collect()
-                    })
-                    .collect()
-            });
+        // Admission is closed. Build a directory of exact retained prefixes once,
+        // sharing owned string parts. Node zero is the root; each edge identifies
+        // a whole prefix, not a per-position domain that permits cross-products.
+        let prefixes = self.source_order_owned_key_prefixes.get_or_insert_with(|| {
+            let mut prefixes = rustc_hash::FxHashMap::default();
+            for key in self.groups.keys() {
+                let mut prefix = 0;
+                for position in 0..key.len() {
+                    if let Some(value) = key.get(position) {
+                        let next = prefixes.len() + 1;
+                        prefix = *prefixes.entry((prefix, value.clone())).or_insert(next);
+                    }
+                }
+            }
+            prefixes
+        });
+        let mut prefix = 0;
         let mut values = Vec::with_capacity(self.group_key_indices.len());
-        for (position, &index) in self.group_key_indices.iter().enumerate() {
+        for &index in &self.group_key_indices {
             let group_column = self.group_columns.get(index).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex grouped aggregate owned materialized key index was missing; no fallback execution was attempted"
@@ -34048,12 +34053,12 @@ impl<'a> GroupedAggregateStates<'a> {
                 columns,
                 row_index,
             )?;
-            if let StatValue::Utf8(value) = &value
-                && !owned_strings[position].contains(value.as_str())
-            {
+            let value = AggregateDistinctValue::from(&value);
+            let Some(&next) = prefixes.get(&(prefix, value.clone())) else {
                 return Ok(None);
-            }
-            values.push(AggregateDistinctValue::from(&value));
+            };
+            prefix = next;
+            values.push(value);
         }
         Ok(Some(AggregateGroupKey::from_values(values)))
     }
