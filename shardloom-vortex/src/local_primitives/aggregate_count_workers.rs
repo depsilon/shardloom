@@ -1297,6 +1297,48 @@ fn install_weighted_string(
     Ok(())
 }
 
+pub(super) const SMALL_NUMERIC_DIRECT_MAX_ROWS: u64 = 8192;
+
+/// The complete-call crossover screen favors the existing direct update below
+/// this conservative bound for every tested cardinality. Keep larger, filtered,
+/// derived-key and pressured requests on their existing admission paths.
+pub(super) fn small_numeric_direct_selected(
+    states: &GroupedAggregateStates<'_>,
+    dtype: &DType,
+    columns: &[String],
+    source_rows: u64,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> bool {
+    if !(1..=SMALL_NUMERIC_DIRECT_MAX_ROWS).contains(&source_rows)
+        || policy.resource_envelope.max_parallelism < 2
+        || policy.resource_envelope.memory_budget_bytes < 32 * 1024 * 1024
+        || source_rows > policy.resource_envelope.group_state_soft_item_budget as u64
+        || states.group_columns.len() != 1
+        || !numeric_state_admitted(states)
+        || !states
+            .result_limit
+            .and_then(|limit| limit.checked_add(states.request.offset))
+            .is_some_and(|cap| (1..=128).contains(&cap))
+    {
+        return false;
+    }
+    let DType::Struct(fields, _) = dtype else {
+        return false;
+    };
+    columns
+        .get(states.group_columns[0].column_index)
+        .and_then(|column| fields.field(column.as_str()))
+        .is_some_and(|dtype| {
+            matches!(
+                dtype,
+                DType::Primitive(
+                    PType::I32 | PType::I64 | PType::U64,
+                    Nullability::NonNullable
+                )
+            )
+        })
+}
+
 fn numeric_state_admitted(states: &GroupedAggregateStates<'_>) -> bool {
     let Ok(alias) = states.single_numeric_count_order_alias() else {
         return false;

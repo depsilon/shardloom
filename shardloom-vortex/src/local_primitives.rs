@@ -20365,9 +20365,21 @@ fn read_lowered_vortex_simple_aggregate_scan(
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
         .transpose()?;
 
-    // The offline selection screen compares existing routes before input using
-    // the same public request and resource policy. Production admission is unchanged.
-    let worker_admission_selected = true;
+    // Select before input; an execution failure never triggers another route.
+    let small_numeric_direct_selected = worker_memory.is_some()
+        && request.predicate.is_none()
+        && plan.filter.is_none()
+        && residual_evaluator.is_none()
+        && grouped_states.as_ref().is_some_and(|states| {
+            aggregate_count_workers::small_numeric_direct_selected(
+                states,
+                file.dtype(),
+                &declared_columns,
+                source_row_count,
+                policy,
+            )
+        });
+    let worker_admission_selected = !small_numeric_direct_selected;
     #[cfg(test)]
     let worker_admission_selected = aggregate_count_workers::ADMISSION_TEST_WORKERS
         .with(std::cell::Cell::take)
@@ -21255,6 +21267,12 @@ fn read_lowered_vortex_simple_aggregate_scan(
         let mut summary: serde_json::Value = serde_json::from_str(&result_summary)
             .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
         summary["aggregate_provider_background_workers"] = provider_background_workers.into();
+        if small_numeric_direct_selected && !worker_admission_selected {
+            summary["aggregate_worker_selection"] = "small_numeric_count_direct".into();
+            summary["aggregate_worker_selection_source_rows"] = source_row_count.into();
+            summary["aggregate_worker_selection_max_rows"] =
+                aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS.into();
+        }
         summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement {
             "same_prepared_source;numeric_pair_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         } else {
