@@ -7049,6 +7049,7 @@ fn layout_streaming_columnar_source_may_have_batches(source: &VortexIngestSource
         "streaming_arrow_record_batch_columnar_source_state"
             | "typed_text_rows_to_streaming_arrow_record_batch_source_state"
             | "schema_declared_text_to_streaming_arrow_record_batch_source_state"
+            | "whole_json_typed_columns_with_batched_writer"
     ) || source
         .source_stream_policy
         .contains("record_batch_stream_batch_size");
