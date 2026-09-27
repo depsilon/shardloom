@@ -4692,7 +4692,7 @@ impl InferredTextColumnBuilder {
         }
         let data_type = self.data_type.unwrap_or(DataType::Utf8);
         if let Some(builder) = &mut self.builder {
-            if builder.len() != 0 {
+            if !builder.is_empty() {
                 self.chunks.push(builder.finish());
             }
         } else {
