@@ -6133,7 +6133,7 @@ mod tests {
         let reference = reference.finish();
         assert_eq!(chunks.len(), 3);
         for chunk in chunks {
-            assert_eq!(chunk, reference);
+            assert_eq!(chunk.as_ref(), reference.as_ref());
             assert_eq!(
                 chunk.get_array_memory_size(),
                 reference.get_array_memory_size()
