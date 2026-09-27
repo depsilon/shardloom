@@ -9,11 +9,10 @@ use super::super::{
     annotate_simple_aggregate_layout_correlation_summary,
     annotate_simple_aggregate_rewrite_summary, bind_vortex_scan_expr,
     native_numeric_accessor::NativeNumericAccessorWork,
-    plan_vortex_reader_generated_prepared_batch_envelopes,
-    plan_vortex_reader_generated_prepared_batch_kernel_inputs, predicate_to_vortex_expr,
-    projection_scan_plan, reader_generated_encoded_kernel_inputs_from_vortex_chunk,
-    required_simple_aggregate, rewrite_simple_aggregate_for_embedded_derived_columns,
-    split_predicate_for_vortex_pushdown, vortex_error,
+    plan_vortex_reader_generated_prepared_batch_envelopes, predicate_to_vortex_expr,
+    projection_scan_plan, required_simple_aggregate,
+    rewrite_simple_aggregate_for_embedded_derived_columns, split_predicate_for_vortex_pushdown,
+    vortex_error,
 };
 use super::{
     spill_accumulator::{OwnedSpillResult, SpillAccumulator},
@@ -130,7 +129,6 @@ pub(in super::super) fn execute(
     )?;
     let mut numeric_work = NativeNumericAccessorWork::default();
     let mut reader_splits = Vec::new();
-    let mut encoded_inputs = Vec::new();
     let mut rows = 0_usize;
     let mut max_chunk_rows = 0;
     if !embedded_layout.metadata_pruned_entire_input {
@@ -158,11 +156,7 @@ pub(in super::super) fn execute(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
+
             reader_splits.push(split);
         }
     }
@@ -218,15 +212,9 @@ pub(in super::super) fn execute(
     summary["aggregate_spill_owned_cleanup_completed"] = true.into();
     summary["aggregate_spill_scope"] = "one_retained_source_generation;one_runtime;one_run_registry;complete_pairs_then_global_EOF_order;declared_operator_envelope_reserved_from_query_pool_through_native_result;source_provider_and_JSON_allocations_separate;not_RSS;blocking_IO_not_synchronously_interruptible".into();
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let prepared_report = if encoded_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_inputs,
-        )
-    };
+    // Spill must not retain duplicate source payloads solely for diagnostics.
+    let prepared_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     #[cfg(test)]
     AFTER_FINISH.with(|hook| {
         if let Some(hook) = hook.borrow_mut().take() {

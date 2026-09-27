@@ -12,9 +12,7 @@ use super::{
     ResidualPredicateMaterialization, Result, ShardLoomError, UniversalInputSource,
     VortexLocalPrimitiveEmbeddedLayoutReport, VortexLocalPrimitiveExecutionPolicy,
     VortexQueryPrimitiveKind, VortexReaderBackedSplitEvidence, bind_vortex_scan_expr,
-    plan_vortex_reader_generated_prepared_batch_envelopes,
-    plan_vortex_reader_generated_prepared_batch_kernel_inputs,
-    reader_generated_encoded_kernel_inputs_from_vortex_chunk, row_export_columns_from_chunk,
+    plan_vortex_reader_generated_prepared_batch_envelopes, row_export_columns_from_chunk,
     row_export_materialized_row_count, vortex_error,
 };
 use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
@@ -169,7 +167,6 @@ fn execute(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -185,11 +182,7 @@ fn execute(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
+
         reader_splits.push(split);
         evidence_collection_micros =
             evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
@@ -244,15 +237,9 @@ fn execute(
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let evidence_started = Instant::now();
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     evidence_collection_micros =
         evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
     Ok(LocalVortexScan {

@@ -105,6 +105,8 @@ enum PreparedAggregateSource {
 }
 
 impl PreparedAggregateSource {
+    // Keep one fallible contract when the owned-source variant is feature-disabled.
+    #[cfg_attr(not(feature = "vortex-write"), allow(clippy::unnecessary_wraps))]
     fn file(&self) -> Result<&PreparedVortexSource> {
         match self {
             Self::File(source) => Ok(source),

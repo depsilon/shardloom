@@ -6,7 +6,6 @@
 use futures::{StreamExt as _, future::BoxFuture, stream};
 use std::sync::Arc;
 use vortex::{
-    array::{ArrayId, ArrayRef, ExecutionCtx, IntoArray as _, RecursiveCanonical},
     error::{VortexResult, vortex_err},
     layout::{
         LayoutRef, LayoutStrategy, LayoutWriterContext, layout_children,
@@ -20,9 +19,13 @@ use vortex::{
     session::VortexSession,
 };
 
+#[cfg(all(feature = "vortex-write", unix))]
+use vortex::array::{ArrayId, ArrayRef, ExecutionCtx, IntoArray as _, RecursiveCanonical};
+
 /// Preserve admitted encodings; complete only pending native work that cannot
 /// be serialized in the selected file edition. This is an explicit native
 /// materialization boundary shared by durable and in-memory native sinks.
+#[cfg(all(feature = "vortex-write", unix))]
 pub(crate) fn complete_for_serialization(
     array: ArrayRef,
     allowed: &std::collections::BTreeSet<ArrayId>,

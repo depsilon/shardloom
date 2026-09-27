@@ -42,8 +42,9 @@ schedule was stopped for these repairs; completed calls remain evidence.
 - Check all exposed formats, including existing text and other compatibility
   options. Preserve explicit provider type limitations, nullability, empty schemas,
   exact numeric values, row order, resource ownership and atomic output publication.
-- Bind any automatic preparation reuse to unchanged source and prepared artifact
-  generations. Reject stale/unbound state and preserve unrelated user outputs.
+- Bind automatic preparation reuse to the unchanged source generation recorded
+  inside its prepared artifact, and validate the reopened artifact's generation
+  throughout reuse. Reject stale/unbound state and preserve unrelated user outputs.
   Generation checks detect local changes; they are not cryptographic artifact
   authentication.
 - Keep all execution native. No external query-engine dependency or fallback.
@@ -74,6 +75,43 @@ full-size JSON space estimate exceeded free storage. Do not generate large text
 fixtures, repeat the baseline, or run tests/builds/benchmarks concurrently.
 
 ## Implementation boundaries
+
+### Native handoff follow-up
+
+After the plain-Vortex lane completed, the maintainer paused full-size testing
+and prioritized performance at input/operator/output handoffs. Existing timings
+and archives remain the baseline. The later maintainer instruction authorizes one
+fresh plain-Vortex retry after these fixes and correctness checks; the interrupted
+optimized-reference lane and large text fixtures remain paused. The shared-runtime contract is that surviving
+rows, encoded ownership and useful metadata reach the existing fast operators
+without rebuilding unrelated source data merely because the input has a different
+physical Vortex layout. Parsing and sink encoding remain separate lifecycle costs.
+
+The saved Q23 plain report records 7,128 selected rows from 99,997,497 source rows,
+9.447974085 seconds constructing reader evidence and 373,729,316 estimated bytes
+in retained group strings. Source inspection finds two consumers which materialize
+every dictionary value after filtering has reduced its code array: reader kernel
+evidence and aggregate accessors. The plain fixture has been retired; these are
+historical observations and a source-grounded mechanism, not new timing claims.
+
+Vortex-first classification remains `use_vortex_native_provider`: Vortex 0.85.0
+`Array::take` and native dictionary/FSST take execution can select referenced
+dictionary values before canonicalization. Keep the existing dictionary-code
+execution, null behavior, exact results, certificates and owned sink routes. A
+bounded sparse-domain remap must preserve logical row order, reject invalid valid
+codes, ignore null-row placeholder codes, and avoid dense-domain sorting overhead.
+Use focused sparse/dense/null/encoded correctness and work-count regressions before
+the required workspace gates. Full-size timing improvement remains unmeasured.
+
+The native scan, aggregate, sort, other local operator and spill loops also built
+complete `EncodedValueBatch` copies solely to validate a diagnostic report after
+their real computation had consumed the original Vortex arrays. These loops now
+use the existing reader-envelope certificate path. Source/split identity, row
+counts, provider admission and Native I/O certificates remain checked; the nested
+reader report explicitly advertises no separately materialized executable batch.
+That nested availability flag does not describe whether the native query executed.
+Explicit encoded-batch execution APIs and their mapping tests retain real payloads.
+This removes report-only value copying and retention, not execution evidence.
 
 The existing specialized owned aggregate finalizers remain in place. Other
 admitted flat aggregates and sorted results bind completed native scalar values
@@ -117,8 +155,15 @@ DataFrame writes, generated JSON and existing-target preservation. Its temporary
 fixtures were removed. Evidence:
 `/Users/dylan/LocalData/shardloom/format-io-20260927/public-io-correctness.json`.
 
-The default workspace suite passes 3,428 tests. The release-feature workspace
-suite passes 4,823 tests (22 ignored); subsequent CLI regressions pass all 914
-tests. Default and release-feature Clippy pass with warnings denied. The
-optimized CLI build succeeds. The one-time full-size I/O baseline and final PR
-acceptance remain pending; these checks do not establish performance gains.
+The handoff follow-up passes 3,428 default workspace tests and 4,834 release-feature
+workspace tests (22 existing ignored tests). The subsequent minimal-feature
+cleanup passes the final 1,985 native tests (22 ignored). Default, release-feature
+and minimal local-primitive Clippy pass with warnings denied. Conversion helpers
+now compile only for their explicit encoded-batch consumer or mapping tests.
+
+The saved initial Parquet and plain-Vortex lanes each pass all 172 cases. The
+optimized-reference lane was interrupted by the maintainer after 32 successful
+cases and remains incomplete. The new plain-Vortex handoff retry and final PR
+acceptance remain pending; correctness and work-count checks alone do not
+establish elapsed-time gains. Large task-owned caches and the original generated
+plain fixture were retired after their complete lane evidence was preserved.

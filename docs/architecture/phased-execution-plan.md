@@ -266,6 +266,16 @@ PERF-12/public-call and CG-21 workflow obligations. Complete these shared-bounda
 fixes and their correctness checks before continuing the remaining baseline cases;
 do not restart the seven optimization experiments or a repeated benchmark campaign.
 
+After the plain-Vortex lane completed, the maintainer paused full-size testing
+and prioritized the native input/operator/output handoffs in the same I/O repair.
+Inspect saved profiles and repair redundant dictionary/evidence work through
+existing Vortex providers, preserving selection, ownership and the fast operator
+paths. After these fixes pass correctness/work-count and workspace checks, the
+maintainer authorized one fresh plain-Vortex lane with collection and binary
+exports. Regenerate only that fixture, retain prior evidence, run sequentially,
+and retire it after successful validation. The interrupted optimized-reference
+lane and large text-format testing remain paused.
+
 September 26 suggestion-intake override: 0.3.0 publication is complete in
 PR #1459. The maintainer supplied five performance packets and requested a concise
 ship/drop ordering by expected gains, ahead of the previous optimization queue.
