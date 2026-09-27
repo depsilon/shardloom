@@ -26,11 +26,11 @@ struct Fixture(PathBuf);
 
 impl Fixture {
     fn new(root: &Path, values: &[u64]) -> Self {
+        static NEXT_FIXTURE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         assert!(
             !values.is_empty(),
             "initial C2.b fixture requires input rows"
         );
-        static NEXT_FIXTURE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let sequence = NEXT_FIXTURE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -266,6 +266,7 @@ fn single_numeric_workers_and_direct_path_agree_through_complete_public_calls() 
 #[allow(clippy::assertions_on_constants)]
 fn paired_small_numeric_count_selection_screen() {
     use sha2::{Digest as _, Sha256};
+    use std::fmt::Write as _;
     assert!(!cfg!(debug_assertions));
     let root = PathBuf::from(
         std::env::var_os("SHARDLOOM_COUNT_SCREEN_ROOT")
@@ -285,7 +286,10 @@ fn paired_small_numeric_count_selection_screen() {
             let fixture = Fixture::new(&root, &values);
             let request = fixture.query();
             let source_bytes = std::fs::read(&fixture.0).unwrap();
-            let source_sha256 = format!("{:x}", Sha256::digest(&source_bytes));
+            let mut source_sha256 = String::with_capacity(64);
+            for byte in Sha256::digest(&source_bytes) {
+                write!(&mut source_sha256, "{byte:02x}").unwrap();
+            }
             let source_len = source_bytes.len();
             drop(source_bytes);
             let expected = expected_top10(&values);
