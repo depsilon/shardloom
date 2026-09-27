@@ -10313,7 +10313,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     } else {
         "vortex_from_arrow_record_batch_stream"
     };
-    let stream_iter = StreamingColumnarVortexArrayIterator::new(
+    let mut stream_iter = StreamingColumnarVortexArrayIterator::new(
         dtype,
         first_array,
         reader,
@@ -10337,6 +10337,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         ),
         native_memory.clone(),
     )?;
+    let writer_input_lookahead = stream_iter.share_input_slot_with_writer(&layout_write_decision);
     let array_build_micros = array_build_start.elapsed().as_micros();
     let projection_mask_status =
         if request.source.materialized_columns.len() < request.source.header.len() {
@@ -10354,6 +10355,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             .map(usize_to_u64)
             .transpose()?,
         array_iterator: stream_iter,
+        writer_input_lookahead,
         source_identities,
         native_memory,
         emitted_record_batch_count: batch_count,
@@ -10642,6 +10644,7 @@ where
     column_families: Vec<(String, String)>,
     row_count_hint: Option<u64>,
     array_iterator: I,
+    writer_input_lookahead: Option<WriterInputLookahead>,
     source_identities: Vec<Arc<SourceIdentity>>,
     native_memory: Option<NativeIngestMemory>,
     emitted_record_batch_count: Arc<AtomicUsize>,
@@ -10767,6 +10770,11 @@ struct StreamingColumnarVortexArrayIterator {
     native_memory: Option<NativeIngestMemory>,
 }
 
+/// Private handshake: the concrete producer lends one of its existing slots.
+/// Generic streams cannot enable writer lookahead without this configuration.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct WriterInputLookahead;
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl StreamingColumnarVortexArrayIterator {
     #[allow(clippy::too_many_arguments)]
@@ -10833,6 +10841,7 @@ impl StreamingColumnarVortexArrayIterator {
                 window,
                 task_bytes,
                 exhausted: false,
+                refill_after_handoff: true,
             };
             prefetch.fill_window()?;
             (None, Some(prefetch))
@@ -10851,6 +10860,29 @@ impl StreamingColumnarVortexArrayIterator {
             next_batch_index,
             native_memory,
         })
+    }
+
+    fn share_input_slot_with_writer(
+        &mut self,
+        decision: &VortexLayoutWriteRuntimeDecision,
+    ) -> Option<WriterInputLookahead> {
+        if self.native_memory.is_none()
+            || self.first_array.is_none()
+            || decision.writer_runtime_applied_parallelism <= 1
+            || column_layout::DEFAULT_STREAM_FOOTER_LAYOUT
+                != column_layout::StreamFooterLayout::RetainedRows
+        {
+            return None;
+        }
+        let prefetch = self.prefetch.as_mut()?;
+        if !prefetch.refill_after_handoff {
+            return None;
+        }
+        // Keep W slots and the original per-task credit. A yielded lookahead
+        // occupies one of those slots until the prior child finishes. Only
+        // the next pull refills it: child + lookahead + (W-1), not child + W+1.
+        prefetch.refill_after_handoff = false;
+        Some(WriterInputLookahead)
     }
 }
 
@@ -10954,6 +10986,7 @@ struct StreamingColumnarVortexPrefetch {
     window: usize,
     task_bytes: u64,
     exhausted: bool,
+    refill_after_handoff: bool,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -11008,7 +11041,9 @@ impl StreamingColumnarVortexPrefetch {
                 let (array, lease) = array.into_parts();
                 // The Vortex writer now owns the array and its referenced buffers.
                 drop(lease);
-                if let Err(error) = self.fill_window() {
+                if self.refill_after_handoff
+                    && let Err(error) = self.fill_window()
+                {
                     return Some(Err(self.context.primary_failure_or(error)));
                 }
                 if let Some(error) = self.context.failure.get() {
@@ -11212,6 +11247,10 @@ mod owned_ingest_tests;
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_pipeline_pressure_tests.rs"]
 mod pipeline_pressure_tests;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_writer_slot_tests.rs"]
+mod writer_slot_tests;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn next_streaming_record_batch(
@@ -11614,6 +11653,7 @@ where
         row_count_hint,
         input.native_memory.as_ref(),
         &input.source_identities,
+        input.writer_input_lookahead,
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&target_path)?;
     if let Some(expected_rows) = row_count_hint
@@ -13513,6 +13553,7 @@ impl LocalVortexWriteContext {
         expected_rows: Option<u64>,
         native_memory: Option<&NativeIngestMemory>,
         source_identities: &[Arc<SourceIdentity>],
+        writer_input_lookahead: Option<WriterInputLookahead>,
     ) -> Result<LocalVortexWriteResult>
     where
         I: vortex::array::iter::ArrayIterator + Send + 'static,
@@ -13549,6 +13590,7 @@ impl LocalVortexWriteContext {
             &writer_stage_timing,
             native_memory,
             iter.dtype(),
+            writer_input_lookahead,
         )?;
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
@@ -13626,6 +13668,7 @@ impl LocalVortexWriteContext {
         writer_stage_timing: &VortexWriterStageTiming,
         native_memory: Option<&NativeIngestMemory>,
         dtype: &vortex::array::dtype::DType,
+        writer_input_lookahead: Option<WriterInputLookahead>,
     ) -> Result<(
         vortex::file::VortexWriteOptions,
         column_layout::StreamLayoutEvidence,
@@ -13637,6 +13680,7 @@ impl LocalVortexWriteContext {
             native_memory,
             dtype,
             column_layout::DEFAULT_STREAM_FOOTER_LAYOUT,
+            writer_input_lookahead,
         )
     }
 
@@ -14242,6 +14286,7 @@ fn write_vortex_array(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_arguments)] // Explicit generation, memory and producer-slot ownership.
 fn write_vortex_array_iterator<I>(
     path: &Path,
     iter: I,
@@ -14250,6 +14295,7 @@ fn write_vortex_array_iterator<I>(
     expected_rows: Option<u64>,
     native_memory: Option<&NativeIngestMemory>,
     source_identities: &[Arc<SourceIdentity>],
+    writer_input_lookahead: Option<WriterInputLookahead>,
 ) -> Result<LocalVortexWriteResult>
 where
     I: vortex::array::iter::ArrayIterator + Send + 'static,
@@ -14264,6 +14310,7 @@ where
             expected_rows,
             native_memory,
             source_identities,
+            writer_input_lookahead,
         )
     })
 }

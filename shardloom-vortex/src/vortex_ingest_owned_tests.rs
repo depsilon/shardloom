@@ -567,7 +567,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         )
         .unwrap();
         drop((first_batch, lease));
-        let iterator = StreamingColumnarVortexArrayIterator::new(
+        let mut iterator = StreamingColumnarVortexArrayIterator::new(
             first.dtype().clone(),
             first,
             input.reader,
@@ -582,6 +582,10 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             Some(memory.clone()),
         )
         .unwrap();
+        let writer_input_lookahead = iterator.share_input_slot_with_writer(&decision);
+        if parallel_codec {
+            assert!(writer_input_lookahead.is_some());
+        }
         let conversion_owner = iterator
             .prefetch
             .as_ref()
@@ -608,6 +612,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             Some(4),
             Some(&memory),
             &[],
+            writer_input_lookahead,
         );
         let snapshot = memory.pool.snapshot();
         assert!(snapshot.peak_reserved_bytes > 0);

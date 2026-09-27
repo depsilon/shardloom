@@ -35,6 +35,27 @@ it duplicates the corresponding retained artifact. The first candidate bulk
 output is retained until its correctness and ship/drop decision are recorded.
 Receipts and hashes survive bulk retirement.
 
+R9.b's original four full-ingest outputs each matched the complete SHA-256 of the retained
+15,682,956,116-byte native artifact before their exact owned targets were removed.
+This retired 62,731,824,464 cumulative bytes across the sequential runs, not that
+much simultaneous disk usage. Source, retained artifact and binary generations
+were checked. The initial prototype removal was superseded by retained shared-slot
+lookahead. Experimental attribution fixtures remain archived; the hardened runtime
+and lifecycle tests remain in the source tree. Exact original reproduction patches
+and raw evidence remain in
+`docs/benchmarks/evidence/writer-subtree-occupancy-2026-09-26.json.gz`.
+The four revised acceptance outputs were also byte-identical and removed after
+hash/generation checks, another 62,731,824,464 cumulative bytes with one new payload
+at a time. Their receipts are in
+`docs/benchmarks/evidence/writer-input-slot-retention-2026-09-26.json.gz`.
+
+Five obsolete R9.b observer/prototype executables were retired after full hash,
+file-generation, archived-source-patch and open-process checks: 444,226,128 logical
+bytes. The current control and revised candidate executables remain unchanged.
+All build receipts and experiment evidence survive; replay of the old observers
+requires rebuilding their archived source. The exact receipt is
+`r9b-obsolete-binary-cleanup.json` in the local evidence directory below.
+
 Exact actions, generation checks and before/after free space are recorded in
 `/Users/dylan/LocalData/shardloom/performance-candidates-20260926/`:
 `debug-cache-cleanup.json`, `merged-branch-cleanup-inventory.json`,

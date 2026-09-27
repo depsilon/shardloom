@@ -1,0 +1,744 @@
+{
+  "schema_version": "shardloom.writer_input_slot_retention.v1",
+  "decision": "retain_shared_slot_writer_lookahead",
+  "claim_scope": "6.516181% lower best complete CLI ingest across two samples per role; four byte-identical outputs and 258 complete paired query results pass; uncontrolled host/cache state, no attributed query speedup or universal memory claim",
+  "query_regression_screen": {
+    "comparison": "candidate best of three versus control best of three for each query",
+    "threshold": "slower by both 10 percent and 0.150 seconds",
+    "flagged_query_ids": []
+  },
+  "full_ingest_native_reservations": {
+    "control_peak_bytes": [6614972633, 6608726982],
+    "candidate_peak_bytes": [6797471986, 6791065248],
+    "all_denied_reservations_zero": true,
+    "all_final_reservations_zero": true,
+    "scope": "shared input-slot envelope and tested budget availability, not equal scratch peaks or general memory reduction"
+  },
+  "artifact": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+    "sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+    "generation": [
+      16777233,
+      92249574,
+      15682956116,
+      1790441075431248571,
+      1790441075431697695
+    ],
+    "source_sha256_provenance": "retained verified artifact identity; full-output SHA equality checked in each guarded ingest receipt"
+  },
+  "paired_full_ingest": {
+    "order": [
+      "control-1",
+      "candidate-1",
+      "candidate-2",
+      "control-2"
+    ],
+    "timing_field": "prepare_summary.json.native_process_seconds only",
+    "samples": [
+      {
+        "role": "control",
+        "sample": 1,
+        "commit": "e662f6745758dbf0ea3da7c8f36a0af88197767f",
+        "binary_sha256": "492c60a6338922d13137cb1d4a7bded91dc983a3118deb1e70a8ee9c631a9cdb",
+        "native_process_seconds": 144.34813791597844,
+        "native_peak_rss_bytes": 3108405248,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "input_generations_unchanged": true,
+        "output_exact_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T233354Z"
+      },
+      {
+        "role": "candidate",
+        "sample": 1,
+        "commit": "5409a7bac6a8eb357fad5db79b3320e4bd0780f0",
+        "binary_sha256": "646252db5d98e20537cf6d35bb0b2bc87708103d93368d6727053a765697f4de",
+        "native_process_seconds": 134.94215145899216,
+        "native_peak_rss_bytes": 2968305664,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "input_generations_unchanged": true,
+        "output_exact_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T233628Z"
+      },
+      {
+        "role": "candidate",
+        "sample": 2,
+        "commit": "5409a7bac6a8eb357fad5db79b3320e4bd0780f0",
+        "binary_sha256": "646252db5d98e20537cf6d35bb0b2bc87708103d93368d6727053a765697f4de",
+        "native_process_seconds": 135.19096554198768,
+        "native_peak_rss_bytes": 3023683584,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "input_generations_unchanged": true,
+        "output_exact_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T233856Z"
+      },
+      {
+        "role": "control",
+        "sample": 2,
+        "commit": "e662f6745758dbf0ea3da7c8f36a0af88197767f",
+        "binary_sha256": "492c60a6338922d13137cb1d4a7bded91dc983a3118deb1e70a8ee9c631a9cdb",
+        "native_process_seconds": 148.3150272910134,
+        "native_peak_rss_bytes": 3028516864,
+        "artifact_bytes": 15682956116,
+        "artifact_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+        "input_generations_unchanged": true,
+        "output_exact_and_removed": true,
+        "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/ingest_cli_uat_gated_20260926T234123Z"
+      }
+    ],
+    "best_native_process_seconds": {
+      "control": 144.34813791597844,
+      "candidate": 134.94215145899216
+    },
+    "best_sample_gain_percent": 6.51618136041442,
+    "peak_native_rss_bytes_by_role": {
+      "control": 3108405248,
+      "candidate": 3023683584
+    },
+    "all_outputs_byte_identical_and_removed": true,
+    "candidate_marker_only": true,
+    "limitations": [
+      "two complete samples per role; all samples retained",
+      "host load and OS cache state uncontrolled",
+      "full output hashes are correctness checks outside native process timing",
+      "existing publication and flush/rename behavior; no new durability guarantee"
+    ]
+  },
+  "full43": {
+    "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260926T234401225793Z",
+    "records": 258,
+    "control": {
+      "complete": true,
+      "queries_passed": 43,
+      "query_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43
+      ],
+      "runs_completed": 129,
+      "runs_passed": 129,
+      "query_total_seconds": 83.27461424906505,
+      "hot_total_seconds": 84.36447504308308,
+      "all_raw_run_seconds": 268.0916168759577,
+      "geomean_seconds": 0.7692155764292256,
+      "hot_geomean_seconds": 0.7761912636767337,
+      "query_runs": [
+        [
+          0.02987787500023842,
+          0.02689700000337325,
+          0.026233000011416152
+        ],
+        [
+          0.08750983301433735,
+          0.08843195898225531,
+          0.08587316598277539
+        ],
+        [
+          1.5281564579927363,
+          1.4713720829749946,
+          1.478056416992331
+        ],
+        [
+          0.7528094580047764,
+          0.6121607499953825,
+          0.5747987499926239
+        ],
+        [
+          1.9687361670075916,
+          1.961649042001227,
+          1.9587362919992302
+        ],
+        [
+          5.060503457993036,
+          5.085278209007811,
+          4.946719707979355
+        ],
+        [
+          0.025091333023738116,
+          0.02450754100573249,
+          0.031087833020137623
+        ],
+        [
+          0.10095816699322313,
+          0.10330495800008066,
+          0.10245962499175221
+        ],
+        [
+          3.208070791006321,
+          2.301159208000172,
+          2.1370987500122283
+        ],
+        [
+          6.6145372499886435,
+          6.441085124999518,
+          6.81276733300183
+        ],
+        [
+          1.0345996250107419,
+          1.06271841598209,
+          1.0585713339969516
+        ],
+        [
+          2.0789054580091033,
+          2.194413709017681,
+          2.1201345000008587
+        ],
+        [
+          1.4458689999883063,
+          1.171945207985118,
+          1.0617869590059854
+        ],
+        [
+          2.207238208007766,
+          2.277877541986527,
+          2.236369124992052
+        ],
+        [
+          2.088413457997376,
+          2.1010872080223635,
+          2.209404999972321
+        ],
+        [
+          3.4177625000011176,
+          3.381511625018902,
+          3.4167468330124393
+        ],
+        [
+          4.142714291985612,
+          4.501548332977109,
+          4.198606707999716
+        ],
+        [
+          0.3385380000108853,
+          0.3851940000022296,
+          0.3885278749803547
+        ],
+        [
+          9.164313999994192,
+          10.814694208995206,
+          6.552471083996352
+        ],
+        [
+          0.08492116699926555,
+          0.07235779101029038,
+          0.08874112501507625
+        ],
+        [
+          1.129257916007191,
+          0.9778481660177931,
+          0.9344176250160672
+        ],
+        [
+          1.6296624579990748,
+          1.6381647080124822,
+          1.5650986669934355
+        ],
+        [
+          5.428931291011395,
+          5.484074041014537,
+          5.30058262500097
+        ],
+        [
+          1.207077125000069,
+          1.132692249986576,
+          1.0422344580001663
+        ],
+        [
+          0.24199408400454558,
+          0.2326595410122536,
+          0.2333046249987092
+        ],
+        [
+          1.746767499978887,
+          1.697713958012173,
+          1.7081824169727042
+        ],
+        [
+          1.6796235410147347,
+          1.7289506669912953,
+          1.728969917021459
+        ],
+        [
+          2.5681154579797294,
+          2.778772374993423,
+          2.5958801659871824
+        ],
+        [
+          9.297712833009427,
+          9.180166374979308,
+          8.631942999985768
+        ],
+        [
+          0.2145001669996418,
+          0.21424925001338124,
+          0.2168025000137277
+        ],
+        [
+          0.855924999981653,
+          0.8647857090109028,
+          0.8756757499941159
+        ],
+        [
+          1.3698173750017304,
+          1.3811359169776551,
+          1.077220875013154
+        ],
+        [
+          2.350176999985706,
+          2.1218945840082597,
+          2.1483937919838354
+        ],
+        [
+          6.262148749985499,
+          8.073064833995886,
+          7.055001708999043
+        ],
+        [
+          7.6877385420084465,
+          6.649760291998973,
+          6.8893054999934975
+        ],
+        [
+          0.40410254200105555,
+          0.38602524998714216,
+          0.36276829201960936
+        ],
+        [
+          0.21086766698863357,
+          0.19862716700299643,
+          0.19842204201268032
+        ],
+        [
+          0.11826775001827627,
+          0.11642666699481197,
+          0.11920204199850559
+        ],
+        [
+          0.103942666988587,
+          0.10329100000672042,
+          0.10400391701841727
+        ],
+        [
+          0.6705941670225002,
+          0.6661230830068234,
+          0.673189374996582
+        ],
+        [
+          0.10087470800499432,
+          0.15216845899703912,
+          0.0988377500034403
+        ],
+        [
+          0.08825933298794553,
+          0.08302191700204276,
+          0.08361800000420772
+        ],
+        [
+          0.1030692079802975,
+          0.08738991699647158,
+          0.086216791998595
+        ]
+      ]
+    },
+    "candidate": {
+      "complete": true,
+      "queries_passed": 43,
+      "query_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43
+      ],
+      "runs_completed": 129,
+      "runs_passed": 129,
+      "query_total_seconds": 81.51925883197691,
+      "hot_total_seconds": 81.6899942070595,
+      "all_raw_run_seconds": 265.9840246249805,
+      "geomean_seconds": 0.7636370124201066,
+      "hot_geomean_seconds": 0.7670450596657133,
+      "query_runs": [
+        [
+          0.031862500007264316,
+          0.025812833016971126,
+          0.025298833003034815
+        ],
+        [
+          0.10158554199733771,
+          0.08938566700089723,
+          0.08583108300808817
+        ],
+        [
+          1.4429810410074424,
+          1.4365356249909382,
+          1.4918420419853646
+        ],
+        [
+          0.5556292500114068,
+          0.5457978329795878,
+          0.5648723329941276
+        ],
+        [
+          2.040564916009316,
+          1.988434208004037,
+          2.0544365409878083
+        ],
+        [
+          5.0904538329923525,
+          5.056267042004038,
+          4.944310541992309
+        ],
+        [
+          0.026475583988940343,
+          0.02457754101487808,
+          0.03167595900595188
+        ],
+        [
+          0.10607275000074878,
+          0.10164154099766165,
+          0.09999054201762192
+        ],
+        [
+          2.086625166994054,
+          2.0597455000097398,
+          2.1882894579903223
+        ],
+        [
+          7.677628291974543,
+          6.4963904170144815,
+          6.743984333996195
+        ],
+        [
+          1.0993105829984415,
+          1.062404708005488,
+          1.0591514169937
+        ],
+        [
+          2.655622082995251,
+          2.116697416000534,
+          2.085850041010417
+        ],
+        [
+          1.0761467080155853,
+          1.1026820830011275,
+          1.0721292920061387
+        ],
+        [
+          2.1934952920128126,
+          2.208979916991666,
+          2.220120500016492
+        ],
+        [
+          2.037660000001779,
+          2.168990167003358,
+          2.1022739589971025
+        ],
+        [
+          3.7582234170113225,
+          3.431246916996315,
+          3.4261306659900583
+        ],
+        [
+          5.6852511249890085,
+          4.119320708006853,
+          4.214166416000808
+        ],
+        [
+          0.3498682920180727,
+          0.37794429200585,
+          0.37688733302638866
+        ],
+        [
+          10.13902525001322,
+          8.570498290995602,
+          5.828876250016037
+        ],
+        [
+          0.07923862498137169,
+          0.07730554099543951,
+          0.076502249983605
+        ],
+        [
+          0.942570249986602,
+          0.9537034999812022,
+          0.9463608750083949
+        ],
+        [
+          1.5978372090030462,
+          1.7171960409905296,
+          1.6250399590062443
+        ],
+        [
+          5.481939999997849,
+          5.183925624995027,
+          5.889560374984285
+        ],
+        [
+          1.1929426249989774,
+          1.1294913339952473,
+          1.0390348749933764
+        ],
+        [
+          0.23485908398288302,
+          0.22986387499258853,
+          0.2358190839877352
+        ],
+        [
+          1.7192923330003396,
+          1.7487437920062803,
+          1.7162065419834107
+        ],
+        [
+          1.7547477499756496,
+          1.7647619589988608,
+          1.7552508749940898
+        ],
+        [
+          2.781431750016054,
+          2.5050087090057787,
+          2.550841042015236
+        ],
+        [
+          8.967105042014737,
+          9.035070582991466,
+          8.846615874994313
+        ],
+        [
+          0.21524349998799153,
+          0.2159964170132298,
+          0.21743629200500436
+        ],
+        [
+          0.8731662500067614,
+          0.8569107909861486,
+          0.9215693330042996
+        ],
+        [
+          1.2192667500057723,
+          1.1641869160230272,
+          1.0812475830025505
+        ],
+        [
+          2.140716750000138,
+          2.1579919999931008,
+          2.335934917005943
+        ],
+        [
+          7.445899374986766,
+          6.04056516700075,
+          7.273594458994921
+        ],
+        [
+          8.485826082993299,
+          6.887296792003326,
+          5.715615249995608
+        ],
+        [
+          0.34265158299240284,
+          0.36180799998692237,
+          0.35530383299919777
+        ],
+        [
+          0.20219512499170378,
+          0.20576800001435913,
+          0.20304729099734686
+        ],
+        [
+          0.1498085409984924,
+          0.1146540830086451,
+          0.11645808300818317
+        ],
+        [
+          0.10369233298115432,
+          0.10428100000717677,
+          0.10478804202284664
+        ],
+        [
+          0.674999916984234,
+          0.6783772920025513,
+          0.6650139999983367
+        ],
+        [
+          0.10007933399174362,
+          0.10357341700000688,
+          0.09990504101733677
+        ],
+        [
+          0.08850449998863041,
+          0.08282970901927911,
+          0.08291379100410268
+        ],
+        [
+          0.08960979199036956,
+          0.0867671669984702,
+          0.08631087499088608
+        ]
+      ]
+    },
+    "complete_result_validation": true,
+    "completed_identity_check": true,
+    "correctness_provenance": "complete returned values compared against retained ShardLoom reference outputs; not an independent oracle"
+  },
+  "raw_evidence": {
+    "path": "docs/benchmarks/evidence/writer-input-slot-retention-2026-09-26.json.gz",
+    "compressed_sha256": "a71dd34c692f5d4ad76367b779792b20f228352de24d290a19cb2613d77d8614",
+    "uncompressed_sha256": "9cdec2735a62fc8d3bb2c2a8450dde2b7b0242f297571e07b537a889f6b1d43c",
+    "compressed_bytes": 312096,
+    "uncompressed_bytes": 2139378
+  },
+  "validation": [
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 9.873797041014768,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-revised-default-0.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 30.57003329199506,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-revised-default-1.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 2.536322291009128,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-revised-native-final-0.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 13.664608167018741,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-revised-native-final-1.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 133.07141350000165,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-revised-native-final-2.log"
+    }
+  ]
+}

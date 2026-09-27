@@ -270,8 +270,16 @@ fn write_and_query(
     let batches = (0..groups).map(batch).collect::<Vec<_>>();
     let dtype = batches[0].dtype().clone();
     let logical_input_bytes = batches.iter().map(ArrayRef::nbytes).sum::<u64>();
-    let (options, evidence) =
-        stream_options(context, &decision, &timing, Some(&memory), &dtype, choice).unwrap();
+    let (options, evidence) = stream_options(
+        context,
+        &decision,
+        &timing,
+        Some(&memory),
+        &dtype,
+        choice,
+        None,
+    )
+    .unwrap();
     let preparation_nanos = elapsed(setup);
     let lifecycle = Instant::now();
     let drivers =

@@ -19,7 +19,11 @@ transform sharing is [already present in the inspected active paths](shared-doma
 the duplicate proposal is dropped, with RunEnd-specific expansion still requiring
 a distinct measured target. R5.a is [retained under its bounded workflow memory gate](owned-array-handoff-screen-2026-09-26.md):
 37–43% lower process peak RSS, complete values and Full43 regression acceptance.
-R9.a is next. The
+R9.a is [dropped as duplicate fragment reuse](native-fragment-reuse-audit-2026-09-26.md).
+R9.b's [shared-slot lookahead is retained](writer-subtree-occupancy-screen-2026-09-26.md)
+with 6.52% lower complete ingest, byte-identical outputs and paired Full43
+acceptance after the maintainer rejected a cutoff-only drop. R8 concurrent
+source reuse is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
@@ -158,6 +162,30 @@ serialization removal does not require page redesign or stage overlap.
 These are acceptance objectives, not predicted results. Existing **query** and
 **memory** gates are retained; the other numerical gates below are proposed for
 this intake and must be frozen with the workload before an experiment begins.
+
+The maintainer subsequently clarified that useful measured gains below these
+numerical targets should be retained. Treat the figures as prioritization targets,
+not automatic reasons to reject a positive complete-operation result. Evaluate
+implementation cost, correctness, memory/availability and regressions alongside
+the gain. Preserve the same symmetric fastest-valid comparison and every sample;
+changing the retention target does not change the measurements or their scope.
+The historical indexed 4-ary heap for Q34/Q35 is reopened within R10: its ledger
+records about 7% combined complete-query savings and nine correct targeted runs,
+followed by a cutoff-only drop. Recheck current route relevance and fresh paired
+evidence; subsequent query changes mean the historical percentage cannot be
+carried forward. See the [historical decision](clickbench-ingest-optimization-ledger.md#dropped-or-not-yet-shipped-profiles).
+
+The September 26 review of tracked ship/drop and benchmark records found one
+other complete-operation cutoff-only drop in the requested 4–9% range: that heap
+variant, alongside R9.b. It covered the earlier A–I/query-family decisions and
+ingest, storage, delivery, serving, topology, codec and build records; uncatalogued
+local measurements may remain. Fixed partition owners' 7.8% or greater gains
+over eight dynamic workers still lost to one owner by 1.57–4.00x
+([evidence](../benchmarks/perf-native-distinct-resident-2026-09-06.md#measured-experiment-decisions)).
+The dropped text-layout candidate was 7.02% faster than an obsolete baseline,
+but 2.80% slower than the then-retained C7 implementation
+([evidence](../benchmarks/perf-text-layout-pruning-2026-09-05.md)). Neither is a
+cutoff-only missed gain over its better retained alternative.
 
 - **Suite:** for changes spanning multiple query families, at least 10% lower
   Full43 best-sum and 5% lower geometric mean, with no material family regression
