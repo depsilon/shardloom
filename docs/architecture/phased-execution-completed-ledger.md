@@ -17,6 +17,31 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train.
+  - Date: 2026-09-27. This closes the accepted C7 merge (#1475), version/source
+    synchronization (#1476), ordered four-channel publication/install proofs and
+    merged public documentation/site deployment (#1477). Each PR passed all 40
+    checks. Released source is `52a2228512341f158dfa6649b6c0985a33034460`;
+    deployed publication records are `ddc53316472bb1df056adda442678264be65bd84`.
+  - GitHub, TestPyPI, PyPI and Homebrew passed clean installation, complete-result
+    smoke, uninstall and channel-specific checksum/SBOM/provenance checks. The
+    exact production build and public 0.3.1 pages were checked before closing the
+    final release gate. See [publication verification](../release/v0.3.1-publication-verification.md)
+    and the [deployment observation](../release/channel-proofs/website-v0.3.1-deployment.json).
+  - Closeout validation: `check_final_release_approval.py --require-public-release-ready`,
+    `check_v1_inclusion_scope.py`, `check_v1_docs_productization.py` and
+    `check_public_status_docs.py` pass. Python 3.13 release tests pass 244 cases
+    with two existing optional-dependency skips; the pending-deployment regression
+    remains in place. Exact commands and the earlier source/UAT gates are retained
+    in the publication/source records.
+  - The accepted portable build, Vortex-native runtime and no-fallback boundaries
+    remain intact. Installation/deployment evidence does not claim new performance,
+    broad runtime parity or production readiness. No implementation phase or
+    competitive gate is added by this release queue identifier.
+  - The separately requested sequential plain-Vortex format comparison remains
+    authorized in Planned; stop after it. The seven remaining optimization
+    candidates and wider PERF/CG obligations stay queued.
+
 - [x] Publish and verify the 0.3.0 technical-preview version train.
   - Date: 2026-09-26. Version PR #1457 and publication-preparation PR #1458
     merged with all 40 checks passing. Release source is

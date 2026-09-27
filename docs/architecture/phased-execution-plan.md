@@ -244,9 +244,10 @@ the ledger.
 
 ## Planned
 
-September 27 scope override: finish and merge the whole-file JSON C7 PR,
-then complete the explicitly authorized 0.3.1 version/publication train.
-The subsequent maintainer request adds one format comparison after that train:
+September 27 scope override: the whole-file JSON C7 change and authorized 0.3.1
+publication/deployment train are complete; their closure is recorded in the
+[completed ledger](phased-execution-completed-ledger.md).
+The remaining authorized work is the subsequent format comparison:
 create an ordinary Vortex version of the resident hits Parquet source, preserving
 logical schema, column order, row order and values without ShardLoom-derived
 columns. Measure the public Parquet and Vortex preparation routes and query
@@ -256,22 +257,6 @@ report that distinction from Parquet's optimized preparation. Charge the one-tim
 fixture conversion separately. The [comparison plan](plain-vortex-format-comparison-2026-09-27.md)
 freezes the source, validation, timing and cleanup boundaries. The seven remaining performance candidates stay
 queued; this comparison does not resume their implementation.
-
-- [ ] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train after the whole-file JSON PR.
-  - Queue identifier only: `RELEASE-031` records the authorized release train;
-    it adds no implementation phase or competitive gate.
-  - V1 scope classification: `required_for_v1`; existing selected package channels only.
-  - Execution checklist:
-    - [x] Merge the accepted C7 whole-file JSON change with complete UAT and CI (PR #1475).
-    - [x] Synchronize versions, release notes and source validation; merge the version PR (#1476).
-    - [x] Verify GitHub prerelease assets, TestPyPI, PyPI and Homebrew in that order; exact identities and platform scope are recorded in `docs/release/v0.3.1-publication-verification.md`.
-    - [ ] Merge channel proofs, current install/status docs and generated website; verify deployment before the separately requested format comparison.
-  - ShardLoom technique review: preserve the accepted portable build, Vortex-native
-    runtime and evidence-tier boundaries. Release/install proof is separate from
-    query/ingest timing; no scheduling or provider change is part of the bump.
-  - Acceptance: exact source/build identities, package installation/complete-result
-    smoke/uninstall, checksums, SBOM/provenance, selected-channel gates and CI.
-    No external-engine fallback or broader production capability claim.
 
 September 26 suggestion-intake override: 0.3.0 publication is complete in
 PR #1459. The maintainer supplied five performance packets and requested a concise
@@ -329,9 +314,8 @@ C5.a retains portable ThinLTO (3.21% lower query total, 7.53% lower ingest) with
 ordinary release artifact acceptance passing. C5.b/C5.c preserve their measured
 query gains but decline promotion of the tested PGO/native CPU configurations after
 ingest regressions. See `compiler-profile-screen-2026-09-27.md`.
-The 0.3.0 release train is complete. The September 27 instruction separately
-authorizes the 0.3.1 train above after C7, followed by the subsequently requested
-plain-Vortex format comparison, then a stop. Remaining native operator,
+The September 27 instruction authorizes the plain-Vortex format comparison after
+the completed release train, then a stop. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
 needed for a candidate's correctness/resource acceptance must be completed first.
 
@@ -391,8 +375,8 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
   - Next outcome: JSONL merged in PR #1474 and whole-file JSON in PR #1475,
-    with all 40 checks passing. Finish the authorized 0.3.1 release, perform the
-    subsequently requested format comparison, then stop. Whole-file JSON acceptance includes 129 Full43 results,
+    with all 40 checks passing. Perform the subsequently requested format comparison
+    after release closeout, then stop. Whole-file JSON acceptance includes 129 Full43 results,
     byte-identical full-size Parquet ingest, 456 held-out calls and pressure/cleanup
     checks. R2.a and the other six experiments remain queued. Preserve useful
     smaller gains and recorded workload tradeoffs; broader PERF obligations remain open.
@@ -2624,9 +2608,8 @@ Current autonomous execution order:
 
 The September 26 intake at the start of Planned supersedes the earlier
 release-only stop for **planning** and the earlier Q10-first optimization order.
-The 0.3.0 train is complete. The September 27 instruction narrows execution:
-finish the whole-file JSON PR, publish/verify 0.3.1, then perform the subsequently
-requested sequential Parquet/plain-Vortex comparison described above. The order
+The September 27 instruction narrows execution to the sequential
+Parquet/plain-Vortex comparison described above after the completed release. The order
 below is the preserved optimization backlog, not authorization to resume it
 after the release or format comparison.
 
