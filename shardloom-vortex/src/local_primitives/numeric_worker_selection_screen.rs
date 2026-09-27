@@ -360,6 +360,25 @@ fn selected_small_count_preserves_prepared_cancellation_generation_and_cleanup()
             .unwrap_err();
         assert!(error.to_string().contains("cancel"));
         let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 1).unwrap();
+        let late_cancel = CancellationToken::default();
+        let error = prepared
+            .with_native_execution_controlled(&late_cancel, |file, context| {
+                let result = super::read_prepared_vortex_simple_aggregate_scan(
+                    &DatasetUri::new(fixture.0.display().to_string()).unwrap(),
+                    &query,
+                    policy,
+                    file,
+                    context.native_session(),
+                    context.runtime(),
+                    Some(resident.memory()),
+                    None,
+                )?;
+                late_cancel.cancel();
+                Ok(result)
+            })
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("cancel"));
         let outcome = prepared.with_native_execution(|file, session, runtime| {
             let result = super::read_prepared_vortex_simple_aggregate_scan(
                 &DatasetUri::new(fixture.0.display().to_string()).unwrap(),
