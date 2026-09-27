@@ -56,8 +56,11 @@ slows; existing explicit profiles remain available. C7's
 [JSONL typed builders are retained](jsonl-typed-builder-screen-2026-09-27.md)
 with 14.05% lower paired complete ingest and 249–263 MB peak RSS versus
 625–628 MB, byte-identical native artifacts, complete row oracles and full
-applicable acceptance. Whole-file JSON construction remains to be screened
-before C7 closes. The
+applicable acceptance. The separate [whole-file JSON screen](json-typed-builder-screen-2026-09-27.md)
+retains typed construction with 31.11% lower paired ingest and lower RSS;
+complete native identity, row oracle and full applicable acceptance close C7.
+The September 27 scope override is to merge this PR, complete the authorized
+0.3.1 version/publication train, then stop with the seven query experiments queued. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

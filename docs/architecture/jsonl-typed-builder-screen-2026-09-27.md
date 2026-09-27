@@ -1,7 +1,8 @@
 # C7: JSONL typed builder screen
 
 Status: retain the JSONL typed-builder change after complete acceptance. C7's
-whole-file JSON construction screen remains open. This is an existing-input
+separate [whole-file JSON follow-up](json-typed-builder-screen-2026-09-27.md)
+is now retained too; the measurements below remain JSONL-only. This is an existing-input
 optimization under the performance intake, RFC 0031/0033 and CG-5/CG-6 evidence
 obligations; it does not expand input semantics or public capabilities.
 
@@ -112,5 +113,5 @@ coverage-draft findings were withdrawn after source/test verification. An initia
 complete row verification is the export proof. Both receipts remain preserved.
 
 General JSON accepts a whole object or array through a separate materialized
-path. Screen that construction boundary before closing C7; neither this JSONL
-result nor the collecting visitor refactor establishes a general-JSON speedup.
+path. Its subsequent screen closes C7 with separate evidence; neither this
+JSONL result nor the collecting visitor refactor establishes a general-JSON speedup.

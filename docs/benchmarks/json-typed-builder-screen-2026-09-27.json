@@ -1,0 +1,129 @@
+{
+  "schema_version": "shardloom.json_typed_builder_screen.v1",
+  "status": "passed",
+  "decision": "retain_json_typed_builders",
+  "candidate": {
+    "commit": "f950a1ddeb9e8b2b6645d5ba1458cd23a9068d21",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7-whole-json-bounded-cli-f950a1ddeb9e",
+    "sha256": "6e14e8686ad169c51676ba88114a33e1856df82ec37e5285be8aa7c313f7ef29",
+    "bytes": 73396928,
+    "profile": "release",
+    "rustflags": "",
+    "portable": true,
+    "seconds": 243.6048713749915
+  },
+  "control": {
+    "commit": "c0766d1e369575ce673295fc082c319c8645f254",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7-direct-builders-cli-c0766d1e3695",
+    "sha256": "0b4ec877243d3fc26ad709dd97dddf9d03811960cccc918e9d0e924fc6592346",
+    "bytes": 73372928,
+    "profile": "release",
+    "rustflags": "",
+    "portable": true
+  },
+  "pairs": [
+    {
+      "role": "control",
+      "sample": 1,
+      "seconds": 2.213951541983988,
+      "peak_rss_bytes": 2651357184
+    },
+    {
+      "role": "candidate",
+      "sample": 1,
+      "seconds": 2.055314042023383,
+      "peak_rss_bytes": 1196163072
+    },
+    {
+      "role": "candidate",
+      "sample": 2,
+      "seconds": 1.5248174159787595,
+      "peak_rss_bytes": 1196310528
+    },
+    {
+      "role": "control",
+      "sample": 2,
+      "seconds": 2.2536536249972414,
+      "peak_rss_bytes": 3194159104
+    },
+    {
+      "role": "control",
+      "sample": 3,
+      "seconds": 2.2135189999826252,
+      "peak_rss_bytes": 3189800960
+    },
+    {
+      "role": "candidate",
+      "sample": 3,
+      "seconds": 1.5332375830039382,
+      "peak_rss_bytes": 1200652288
+    }
+  ],
+  "best_seconds": {
+    "control": 2.2135189999826252,
+    "candidate": 1.5248174159787595
+  },
+  "complete_ingest_reduction_percent": 31.113425455542586,
+  "fixture": {
+    "allocated_bytes": 186302464,
+    "fixture": "Single top-level JSON array; source row bytes preserved except LF terminators; comma/newline separators added.",
+    "generator_sha256": "63f959a0a479f3caf6e2794b92c5a645009a67e849bdee223b65dbe315636c62",
+    "limits": {
+      "max_output_bytes": 402653184,
+      "min_free_bytes": 12884901888
+    },
+    "native_execution": false,
+    "output": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7-json/sources/events.json",
+    "output_bytes": 186301079,
+    "output_sha256": "163c055070f6af4be26eb8333b127a51bf9bf00b2774be16bb24b6882208c45c",
+    "performance_claim": false,
+    "roundtrip_source_sha256": "9f7dc33053a235e0753b00ca90b7da1c68ab1e61cb85e912de6ac3a89d681803",
+    "rows": 524288,
+    "source": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7-jsonl/sources/events.jsonl",
+    "source_bytes": 185776788,
+    "source_sha256": "9f7dc33053a235e0753b00ca90b7da1c68ab1e61cb85e912de6ac3a89d681803",
+    "status": "passed"
+  },
+  "native_artifact_bytes": 26252024,
+  "native_artifact_sha256": "ce0e1a0cf072eeffda96b46729683b614fa06309ea6efd23a8dcd3e8ee50edd8",
+  "complete_bytes_equal_control": true,
+  "oracle_rows": 524288,
+  "oracle_cells": 6291456,
+  "full43_calls": 129,
+  "query_best_total_seconds": 71.27378908189712,
+  "parquet_ingest_seconds": 94.97807799998554,
+  "parquet_bytes": 15682956116,
+  "parquet_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+  "heldout_calls": 456,
+  "declared_heldout_workers": [
+    1,
+    4,
+    12
+  ],
+  "full_default_heldout_worker_matrix": false,
+  "pressure_calls": 5,
+  "tests": {
+    "workspace": {
+      "passed": 3426,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native": {
+      "passed": 3512,
+      "failed": 0,
+      "ignored": 22
+    }
+  },
+  "scope": "Paired whole-file JSON ingest gain only. Full43/Parquet observations are unpaired regression acceptance. Whole JSON text and typed columns remain resident; only writer batches are bounded.",
+  "audit_scope": "Primary semantic/acceptance review plus independently collected source/coverage audit. Preliminary provider/smoke test failures, preflight fixture-path error and the final reporting correction remain recorded.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "raw_evidence": {
+    "file": "json-typed-builder-screen-2026-09-27.json.gz",
+    "members": 1939,
+    "compressed_bytes": 7449631,
+    "compressed_sha256": "2c7781dbcc9b15658d3ff24419bf683e24c18cf8c53a9de89d1410bda298fc3f",
+    "uncompressed_bytes": 22863574,
+    "uncompressed_sha256": "82874db2eab08f7d9e5610513632251393171396d50789fec9dbf4e82cd6230c"
+  }
+}
