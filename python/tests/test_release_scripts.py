@@ -8826,26 +8826,49 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
         )
 
-    def test_final_release_approval_contract_records_post_release_verification(self) -> None:
+    def test_final_release_approval_contract_blocks_pending_website_verification(self) -> None:
         module = self._load_script_module(
             "check_final_release_approval.py",
             "check_final_release_approval_for_test",
         )
 
-        report = module.build_report(REPO_ROOT)
-        public_report = module.build_report(
-            REPO_ROOT,
-            require_public_release_ready=True,
-        )
+        contract = json.loads((REPO_ROOT / module.DEFAULT_CONTRACT).read_text())
+        contract.update(public_release_ready=False, post_release_verification_ready=False)
+        for row in contract["verification_rows"]:
+            row["verification_status"] = (
+                "pending_deployment_verification" if row["row_id"] in
+                {"docs_links_public_smoke", "website_support_matrix_public_smoke"} else "passed"
+            )
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            contract_path = repo_root / "pending-website-contract.json"
+            contract_path.write_text(json.dumps(contract))
+            report = module.build_report(repo_root, contract_path=contract_path)
+            public_report = module.build_report(
+                repo_root, contract_path=contract_path, require_public_release_ready=True,
+            )
+            # Passed top-level flags cannot hide incomplete public website rows.
+            contract.update(public_release_ready=True, post_release_verification_ready=True)
+            contract_path.write_text(json.dumps(contract))
+            premature_report = module.build_report(
+                repo_root, contract_path=contract_path, require_public_release_ready=True,
+            )
 
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(report["contract_validation_status"], "passed")
-        self.assertTrue(report["public_release_ready"])
-        self.assertTrue(report["post_release_verification_ready"])
+        self.assertFalse(report["public_release_ready"])
+        self.assertFalse(report["post_release_verification_ready"])
         self.assertEqual(report["publication_authorization_state"], "approved")
-        self.assertEqual(report["public_release_blockers"], [])
-        self.assertEqual(public_report["status"], "passed", public_report["blockers"])
-        self.assertEqual(public_report["public_release_blockers"], [])
+        self.assertEqual(public_report["status"], "failed")
+        self.assertEqual(public_report["public_release_blockers"], [
+            "public_release_ready must be true",
+            "post_release_verification_ready must be true",
+            "docs_links_public_smoke: verification_status=pending_deployment_verification",
+            "website_support_matrix_public_smoke: verification_status=pending_deployment_verification",
+        ])
+        self.assertEqual(report["public_release_blockers"], public_report["public_release_blockers"])
+        self.assertEqual(premature_report["status"], "failed")
+        self.assertEqual(premature_report["public_release_blockers"], public_report["public_release_blockers"][2:])
         self.assertFalse(public_report["fallback_attempted"])
         self.assertFalse(public_report["external_engine_invoked"])
 
