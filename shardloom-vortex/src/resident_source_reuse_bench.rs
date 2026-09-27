@@ -2,6 +2,7 @@
 //! This measures the existing path only; it adds no source cache or sharing runtime behavior.
 
 #[path = "resident_source_fanout_bench.rs"]
+#[cfg(feature = "vortex-local-primitives")]
 mod fanout;
 
 use super::*;

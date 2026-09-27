@@ -196,7 +196,10 @@ fn existing_owned_producer_fanout_pairs() {
         )
         .unwrap();
     let mut cancelled = consumers(&prepared, true).into_iter();
-    assert!(cancelled.next().unwrap().is_err());
+    assert!(
+        matches!(cancelled.next().unwrap(), Err(shardloom_core::ShardLoomError::InvalidOperation(reason))
+        if reason == "execution cancelled; fallback execution was not attempted")
+    );
     let survivors = cancelled.map(Result::unwrap).collect::<Vec<_>>();
     assert_eq!(verify_aggregates(&survivors).len(), 3);
     assert_eq!(
@@ -214,7 +217,7 @@ fn existing_owned_producer_fanout_pairs() {
         "control": "one retained file aggregate handle; prepare excluded equally from each repeated control call",
         "candidate": "one completed file projection plus owned-source handoff and consumer preparation charged per cohort, then four independent aggregates",
         "session_bytes": SESSION_BYTES, "parallelism": 4, "general_cpu_lanes": 1,
-        "all_pairs": pairs, "independent_cancel_survivors": 3, "post_cancel_reexecution": true});
+        "all_pairs": pairs, "pre_admission_cancel_isolation_survivors": 3, "post_cancel_reexecution": true});
     drop((survivors, prepared, owned, baseline, source, session));
     let final_memory = memory.snapshot();
     assert_eq!(final_memory.reserved_bytes, 0);
