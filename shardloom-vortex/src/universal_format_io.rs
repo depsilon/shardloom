@@ -4645,7 +4645,7 @@ impl InferredTextColumnBuilder {
             self.nullable = true;
         } else if self.builder.is_none() {
             let data_type = primitive_arrow_dtype(&self.column, value, &self.context)?;
-            let mut builder = make_builder(&data_type, 1024);
+            let mut builder = make_builder(&data_type, self.batch_size.min(1024));
             for _ in 0..self.rows / self.batch_size {
                 self.chunks
                     .push(arrow_array::new_null_array(&data_type, self.batch_size));
@@ -4677,6 +4677,12 @@ impl InferredTextColumnBuilder {
             && let Some(builder) = &mut self.builder
         {
             self.chunks.push(builder.finish());
+            // Arrow finish resets byte-builder capacities to zero. Recreate
+            // the same initial geometry so later chunks do not grow from the
+            // first value's arbitrary byte length and inflate admission bytes.
+            if let Some(data_type) = &self.data_type {
+                *builder = make_builder(data_type, self.batch_size.min(1024));
+            }
         }
         self.failed = false;
         Ok(())
@@ -6104,6 +6110,36 @@ mod tests {
     type BinarySinkEncoder = fn(&[String], &[FlatSinkRow]) -> Result<Vec<u8>>;
     type TypedSinkEncoder =
         fn(&[String], &[Option<LogicalDType>], &[FlatSinkRow]) -> Result<Vec<u8>>;
+
+    #[test]
+    fn inferred_text_column_chunks_preserve_allocation_geometry() {
+        let value = ScalarValue::Utf8("x".repeat(165));
+        let mut builder = InferredTextColumnBuilder::new("text", 0, 128, "test").unwrap();
+        for _ in 0..384 {
+            builder.append(&value).unwrap();
+        }
+        let (_, chunks) = builder.finish().unwrap();
+        let mut reference = make_builder(&DataType::Utf8, 128);
+        for _ in 0..128 {
+            append_scalar_to_arrow_builder(
+                reference.as_mut(),
+                &DataType::Utf8,
+                &value,
+                "text",
+                "test",
+            )
+            .unwrap();
+        }
+        let reference = reference.finish();
+        assert_eq!(chunks.len(), 3);
+        for chunk in chunks {
+            assert_eq!(chunk, reference);
+            assert_eq!(
+                chunk.get_array_memory_size(),
+                reference.get_array_memory_size()
+            );
+        }
+    }
 
     #[test]
     fn inferred_text_column_builder_backfills_nulls_and_invalidates_type_errors() {
