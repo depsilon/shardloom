@@ -212,9 +212,11 @@ objects. Common admitted methods include:
   transform returns a ShardLoom
   `LazyFrame`; unwrapped Python callables and data UDFs remain deterministic blockers.
 - Local execution and writes: bounded `collect(...)`, `run(...)`, `route(...)`, `prepare(...)`,
-  `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`,
+  `write(...)`, `write_json(...)` (one JSON array), `write_jsonl(...)`, `write_csv(...)`,
+  feature-gated `write_parquet(...)`,
   `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and
-  `fanout(...)`. Local JSONL/CSV fanout uses staged multi-target commit and exposes
+  `fanout(...)`. JSON and JSONL text sinks do not preserve static type or Vortex layout metadata.
+  Local JSONL/CSV fanout uses staged multi-target commit and exposes
   target-level commit, cleanup, and no-fallback evidence.
 - Bounded inspection: `schema(...)`, `describe_schema(...)`, `validate_schema(...)`,
   `schema_contract(...)`, `data_quality_check(...)`, `data_quality(...)`,
@@ -264,8 +266,8 @@ Source-free helpers are ShardLoom-generated inputs, not external-engine shortcut
 - `sl.dataframe_source_free_projection(...)`
 - `sl.dataframe_generated_with_column(...)`
 
-They can write local JSONL/CSV by default and feature-gated structured outputs when the build
-admits the sink. They do not read an input dataset.
+They can write local JSON arrays, JSONL, or CSV by default and feature-gated structured outputs when
+the build admits the sink. They do not read an input dataset.
 
 ## SQL Surface
 

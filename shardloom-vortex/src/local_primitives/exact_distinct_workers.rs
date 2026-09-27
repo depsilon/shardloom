@@ -158,11 +158,11 @@ impl ExactDistinctResult {
         }
     }
 
-    pub(in super::super) fn result_summary(
+    pub(in super::super) fn result_payload(
         &self,
         states: &GroupedAggregateStates<'_>,
         limit: Option<usize>,
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let limit = limit.ok_or_else(|| failed("final distinct counts require bounded output"))?;
         let group = states
             .group_columns
@@ -203,7 +203,7 @@ impl ExactDistinctResult {
             })?;
         }
         let row_count = rows.len();
-        self.summary(states, row_count, Some(&rows))
+        self.summary_payload(states, row_count, Some(&rows))
     }
 
     pub(in super::super) fn summary(
@@ -212,6 +212,16 @@ impl ExactDistinctResult {
         row_count: usize,
         rows: Option<&[serde_json::Value]>,
     ) -> Result<(usize, String)> {
+        let (count, payload) = self.summary_payload(states, row_count, rows)?;
+        Ok((count, payload.to_string()))
+    }
+
+    fn summary_payload(
+        &self,
+        states: &GroupedAggregateStates<'_>,
+        row_count: usize,
+        rows: Option<&[serde_json::Value]>,
+    ) -> Result<(usize, serde_json::Value)> {
         let group = states
             .group_columns
             .first()
@@ -269,7 +279,7 @@ impl ExactDistinctResult {
             }
             payload
         };
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 }
 

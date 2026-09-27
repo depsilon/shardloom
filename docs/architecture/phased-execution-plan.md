@@ -258,6 +258,32 @@ fixture conversion separately. The [comparison plan](plain-vortex-format-compari
 freezes the source, validation, timing and cleanup boundaries. The seven remaining performance candidates stay
 queued; this comparison does not resume their implementation.
 
+During the comparison the maintainer narrowed performance measurement to a single
+baseline pass, added Vortex/Parquet/Arrow IPC query-result exports, and then
+authorized fixing discovered I/O integration issues across exposed format options.
+The [public I/O repair](public-io-route-repair-2026-09-27.md) is attached to existing
+PERF-12/public-call and CG-21 workflow obligations. Complete these shared-boundary
+fixes and their correctness checks before continuing the remaining baseline cases;
+do not restart the seven optimization experiments or a repeated benchmark campaign.
+
+After the plain-Vortex lane completed, the maintainer paused full-size testing
+and prioritized the native input/operator/output handoffs in the same I/O repair.
+Inspect saved profiles and repair redundant dictionary/evidence work through
+existing Vortex providers, preserving selection, ownership and the fast operator
+paths. After these fixes pass correctness/work-count and workspace checks, the
+maintainer authorized one fresh plain-Vortex lane with collection and binary
+exports. Regenerate only that fixture, retain prior evidence, run sequentially,
+and retire it after successful validation. The interrupted optimized-reference
+lane and large text-format testing remain paused.
+
+The handoff retry is complete: all 172 fresh plain-Vortex collection/export cases
+passed, with 104.73s collection and 106.16s Vortex-export totals across 43 queries.
+The regenerated fixture was byte-identical to the original and was retired after
+verified archival. See the [scoped comparison](plain-vortex-format-comparison-2026-09-27.md#handoff-retry-evidence).
+The coherent I/O repair and integration acceptance are tracked in
+[PR #1479](https://github.com/depsilon/shardloom/pull/1479). Keep unrelated candidates
+and the interrupted optimized-reference lane paused.
+
 September 26 suggestion-intake override: 0.3.0 publication is complete in
 PR #1459. The maintainer supplied five performance packets and requested a concise
 ship/drop ordering by expected gains, ahead of the previous optimization queue.

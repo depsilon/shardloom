@@ -2,8 +2,12 @@
 
 # Plain Vortex source comparison
 
-Status: requested local benchmark, next after the verified 0.3.1 release closeout.
-No new format timing or full-size conversion is claimed by this plan.
+Status: release closeout, full-value fixture conversion, initial Parquet/plain
+lanes, and the authorized plain-Vortex handoff retry are complete. The
+[public I/O repair](public-io-route-repair-2026-09-27.md) passes correctness checks.
+The optimized-reference lane remains paused after 32 successful cases.
+The maintainer narrowed the original repeated schedule to a quick baseline and
+requested cleanup after each input lane. The boundaries below reflect that change.
 
 The maintainer requested an ordinary Vortex version of the resident hits Parquet
 source and timing of Vortex input through ShardLoom. This is a bounded follow-up
@@ -29,9 +33,9 @@ streaming writer with its default compression, matching the approved dependency
 graph and released provider. The native
 [`BlockingWriter`](https://github.com/vortex-data/vortex/blob/0.85.0/vortex-file/src/writer.rs)
 accepts bounded record batches; ordered native scans and the Arrow boundary
-support complete-value validation. PyArrow 25.0.1 is used only to create small
-correctness fixtures. This avoids adding the Python Vortex package's transitive
-dependencies. No new dependency, query-engine integration or external execution
+support complete-value validation. PyArrow 25.0.1 creates small correctness
+fixtures and validates result exports. This avoids adding the Python Vortex
+package's transitive dependencies. No new dependency, query-engine integration or external execution
 fallback is involved. Do not materialize the full dataset in memory.
 
 Before timing, compare all source and Vortex values in bounded batches, aligning
@@ -54,13 +58,71 @@ route and those different output contracts alongside preparation time.
   Record all samples, process wall time, peak RSS, output bytes and route fields.
 - Where same-file admission is measured, label it separately from target creation.
   Never treat metadata admission as reading or rewriting the full file.
-- Run the existing paired Full43 harness with the same binary and two artifacts,
-  alternating their order while keeping calls sequential. Validate complete
-  returned results and retain all samples. This reveals query costs of the plain
-  layout instead of inferring them from preparation speed.
+- Retain completed collection calls from the interrupted paired schedule with
+  their original binary identities. Finish missing collection calls and the
+  requested Vortex/Parquet/Arrow IPC result exports with one sample per case.
+  Execute complete input lanes sequentially to release storage between lanes.
+  Validate complete returned results and read back each exported result outside
+  the timed call. Record the repaired binary separately from released 0.3.1.
 - Keep the one-time conversion, preparation, query execution and total lifecycle
-  costs separate. Report the symmetric best-of-three query totals together with
-  the samples; OS page cache is uncontrolled, not a cold-cache claim.
+  costs separate. Report individual calls and which evidence was retained;
+  this mixed-version pulse is not a best-of-three or causal speedup comparison.
+  OS page cache is uncontrolled, not a cold-cache claim.
+- CSV, JSON and JSONL routes receive setup and small correctness checks only.
+  Do not generate their full-size input fixtures or run extra performance lanes.
+
+## Handoff retry evidence
+
+After the shared handoff fixes, the maintainer authorized one fresh plain-Vortex
+pass: all 43 queries, each collected and exported to Vortex, Parquet and Arrow IPC.
+All **172 cases passed**, including complete readback of all 129 exports against
+the retained native reference results. The release binary was built from
+`503e67eede1236e4c5fa73dca2bcbd40d8cca570` (SHA-256
+`74edd91ec3fd4f23b4f3c45601561b202bbb310d782df3e4387ca6863aa784ce`).
+
+The regenerated 15,267,757,096-byte fixture has the same SHA-256 as the original:
+`ea246b09de4d2515c2db8deeda75d6adbc7449caa04029f5aacdde0538e780ae`.
+This carries forward the earlier complete-value/schema/order proof. Every retry
+measurement is fresh; no timing sample is reused. Each total below sums 43 native
+CLI calls through complete result/output and process exit. Readback, fixture
+conversion and archival are outside those calls.
+
+| Route | Saved baseline | Handoff retry | Elapsed reduction |
+| --- | ---: | ---: | ---: |
+| Collection | 330.04s | 104.73s | 68.27% |
+| Vortex export | 328.22s | 106.16s | 67.65% |
+| Parquet export | 345.80s | 110.73s | 67.98% |
+| Arrow IPC export | 351.11s | 106.70s | 69.61% |
+
+Q23 collection fell from 62.99s to 3.12s; its Vortex export fell from 69.86s to
+2.75s. Its reader-evidence elapsed scope fell from 9.448s to 0.009s, accessor scope
+from 11.004s to 1.392s, and estimated retained group-string storage from
+373,729,316 to 243,711 bytes. These estimates are not process RSS: Q23 collection's
+recorded peak RSS was still 6,470,041,600 bytes. Q28/Q29 collection measured
+6.97s/5.81s, down from 29.49s/25.05s. The slowest remaining plain collection calls
+are Q34 12.04s, Q35 11.26s, Q17 8.93s and Q19 8.30s.
+
+These are observed single-sample comparisons with uncontrolled OS page cache.
+The saved collection baseline contains 18 released and 25 repaired-binary calls;
+all saved exports use `efdaa865`. All retry calls use `503e67ee`. The identical
+fixture controls physical representation; this is not isolated causal attribution,
+a best-of-three result, or a claim of subsecond completion for every query.
+
+Reproduction inputs, commands, frozen binaries, harness source, hashes and full
+per-case timings are retained under the local-only workspace:
+
+- `format-io-20260927/handoff-frozen-input-identities.json`
+- `format-io-20260927/io_pulse_handoff.py` (one manifest argument; fresh plain lane)
+- `format-io-20260927/handoff-plain-comparison.json`
+- `clickbench-100m-uat/logs/io_pulse_v2_plain_20260927T181211867110Z/summary.json`
+- `clickbench-100m-uat/logs/io_pulse_handoff_plain_20260927T192735120583Z/summary.json`
+
+All paths above are relative to `/Users/dylan/LocalData/shardloom`. All 43 result
+archives and every archived member were reverified against their recorded hashes.
+The wrapper reports no remaining native workload. The regenerated fixture was
+hash-checked and removed after completion, reclaiming 15.27GB. The original
+Parquet and protected optimized Vortex references remain. CSV/JSON/JSONL retain
+small correctness coverage only; the optimized-reference lane was not resumed.
 
 ## Storage and process ownership
 
@@ -70,9 +132,10 @@ equivalent guards, a deadline, log/RSS limits and process-group cleanup to fixtu
 creation. Do not run overlapping tests or builds while measuring, and do not
 terminate unrelated user processes to force isolation.
 
-Keep the original Parquet, one validated plain Vortex source, the current optimized
-artifact and protected reference. Retire redundant newly generated targets only
-after hash/generation checks, preserving their timings and correctness evidence.
+Keep the original Parquet, current optimized artifact and protected reference.
+After all results in an input lane are captured, retire its task-owned preparation
+cache or generated plain-Vortex fixture after hash/generation checks, preserving
+timings, correctness evidence and small output archives.
 Completed logs may be losslessly archived with verified per-member hashes.
 The [storage note](local-development-storage.md) records preparatory cleanup.
 

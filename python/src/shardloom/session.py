@@ -870,6 +870,24 @@ class SessionLazyFrame:
             check=check,
         )
 
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        reuse: bool = True,
+        check: bool = True,
+    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            check=check,
+        )
+
     def write_csv(
         self,
         target_uri: str | os.PathLike[str],
@@ -1215,6 +1233,29 @@ class SessionSqlWorkflow:
         return self.write(
             target_uri,
             output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            check=check,
+        )
+
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        reuse: bool = True,
+        check: bool = True,
+    ) -> (
+        SessionSqlResult
+        | GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,

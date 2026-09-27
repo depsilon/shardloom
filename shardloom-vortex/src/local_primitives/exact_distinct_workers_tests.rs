@@ -577,7 +577,7 @@ fn exact_distinct_empty_input_and_empty_batches_finalize_without_fake_sets() {
         let result = workers.take_exact_result().unwrap();
         assert_eq!(result.group_count(), 0);
         assert_eq!(result.retained_count(), 0);
-        assert_eq!(result.result_summary(&states, Some(2)).unwrap().0, 0);
+        assert_eq!(result.result_payload(&states, Some(2)).unwrap().0, 0);
         assert!(states.groups.is_empty());
         drop(result);
         drop(workers);

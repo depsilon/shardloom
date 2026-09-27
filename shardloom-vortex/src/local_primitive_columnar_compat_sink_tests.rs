@@ -389,6 +389,68 @@ fn columnar_compatibility_zero_match_scan_is_not_reported_as_zero_read_or_decode
 }
 
 #[test]
+fn columnar_compatibility_large_filtered_source_keeps_output_bounded() {
+    let fixture = Fixture::new();
+    let source = fixture.source(65_537);
+    let mut query = request(&source);
+    query.predicate = Some(predicate(65_536));
+    for format in [
+        VortexLocalPrimitiveRowExportFormat::ArrowIpc,
+        VortexLocalPrimitiveRowExportFormat::Parquet,
+        VortexLocalPrimitiveRowExportFormat::Avro,
+        VortexLocalPrimitiveRowExportFormat::Orc,
+    ] {
+        let prepared = prepare(
+            &query,
+            &source,
+            format,
+            policy(),
+            CompatibilityLimits::default(),
+        )
+        .unwrap()
+        .unwrap();
+        let output = fixture.0.join(format!("selected.{}", format.as_str()));
+        let report = prepared.write(&output, false).unwrap();
+        assert_eq!(report.report.rows_written, 1);
+        assert!(report.report.evidence.pushdown.filter_pushdown_applied);
+
+        let mut excess = request(&source);
+        excess.predicate = Some(predicate(0));
+        let prepared = prepare(
+            &excess,
+            &source,
+            format,
+            policy(),
+            CompatibilityLimits::default(),
+        )
+        .unwrap()
+        .unwrap();
+        let output = fixture.0.join(format!("excess.{}", format.as_str()));
+        assert!(prepared.write(&output, false).is_err());
+        assert!(!output.exists());
+        assert!(!temporary_output_path(&output).unwrap().exists());
+    }
+    let query = request(&source).with_source_order_limit(2);
+    let prepared = prepare(
+        &query,
+        &source,
+        VortexLocalPrimitiveRowExportFormat::ArrowIpc,
+        policy(),
+        CompatibilityLimits::default(),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        prepared
+            .write(&fixture.0.join("limited.arrow"), false)
+            .unwrap()
+            .report
+            .rows_written,
+        2
+    );
+}
+
+#[test]
 fn columnar_compatibility_pressure_and_expansion_fail_without_published_or_leaked_output() {
     for format in [
         VortexLocalPrimitiveRowExportFormat::ArrowIpc,
@@ -539,7 +601,7 @@ fn columnar_compatibility_unsupported_shapes_and_bounds_do_not_change_admission(
             CompatibilityLimits::default()
         )
         .unwrap()
-        .is_none()
+        .is_some()
     );
     let limits = CompatibilityLimits {
         source_rows: 1,
@@ -553,8 +615,7 @@ fn columnar_compatibility_unsupported_shapes_and_bounds_do_not_change_admission(
             policy(),
             limits
         )
-        .unwrap()
-        .is_none()
+        .is_err()
     );
     assert!(
         CompatibilityLimits {

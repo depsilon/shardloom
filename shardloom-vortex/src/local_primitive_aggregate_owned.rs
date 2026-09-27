@@ -34,6 +34,153 @@ const UTF8_BOUNDARY: &str = "owned_native_utf8_columns;no_JSON_or_StatValue_outp
 #[path = "local_primitive_aggregate_owned_utf8.rs"]
 mod utf8;
 
+pub(super) enum AggregateOutput {
+    Direct(Box<OwnedAggregateFinalizer>),
+    General(super::completed_result::CompletedRows),
+}
+
+impl AggregateOutput {
+    #[cfg(unix)]
+    pub(super) fn new(
+        request: &VortexQueryPrimitiveRequest,
+        dtype: &DType,
+        session: &crate::resident_session::ResidentVortexSession,
+    ) -> Result<Self> {
+        if admitted_key_kind(request, dtype).is_ok() {
+            return OwnedAggregateFinalizer::new(request, dtype, session)
+                .map(Box::new)
+                .map(Self::Direct);
+        }
+        super::completed_result::CompletedRows::new(
+            super::completed_result::aggregate_fields(request, dtype)?,
+            session.memory(),
+        )
+        .map(Self::General)
+    }
+
+    pub(super) fn finish(
+        &mut self,
+        states: &GroupedAggregateStates<'_>,
+    ) -> Result<(usize, String)> {
+        match self {
+            Self::Direct(output) => output.finish(states),
+            Self::General(output) => {
+                // Check the actual cardinality before building any scalar rows.
+                // Small complete groups do not need a user-written LIMIT.
+                let rows = output.admit_group_count(
+                    states.result_limit,
+                    states.group_count().saturating_sub(states.request.offset),
+                )?;
+                let max_utf8_len = if output.has_utf8() {
+                    grouped_output_max_utf8_len(states)?
+                } else {
+                    0
+                };
+                let _finalization = output.reserve_finalization(rows, max_utf8_len)?;
+                let (rows, mut payload) =
+                    states.result_row_count_and_payload(states.result_limit)?;
+                output.finish_payload(rows, &mut payload)?;
+                Ok((rows, payload.to_string()))
+            }
+        }
+    }
+
+    pub(super) fn finish_scalar(
+        &mut self,
+        states: &super::SimpleAggregateStates,
+        having: &[super::VortexAggregateHavingExpr],
+    ) -> Result<(usize, String)> {
+        let Self::General(output) = self else {
+            return Err(failed("scalar output requires general finalization"));
+        };
+        // HAVING evaluation itself materializes measure values, so reserve even
+        // when that evaluation will ultimately reject the scalar row.
+        let _finalization = output.reserve_finalization(1, scalar_output_max_utf8_len(states))?;
+        let rows = states.result_row_count(having)?;
+        let mut payload = states.result_payload(having)?;
+        output.finish_payload(rows, &mut payload)?;
+        Ok((rows, payload.to_string()))
+    }
+
+    #[cfg(unix)]
+    pub(super) fn into_array(self) -> Result<(ArrayRef, MemoryLease)> {
+        match self {
+            Self::Direct(output) => output.into_array(),
+            Self::General(output) => output.into_array(),
+        }
+    }
+}
+
+fn stat_utf8_len(value: &super::StatValue) -> usize {
+    match value {
+        super::StatValue::Utf8(value) => value.len(),
+        _ => 0,
+    }
+}
+
+fn scalar_output_max_utf8_len(states: &super::SimpleAggregateStates) -> usize {
+    states
+        .states
+        .iter()
+        .map(|state| match state.function {
+            SimpleAggregateFunction::Min => state.min.as_ref().map_or(0, stat_utf8_len),
+            SimpleAggregateFunction::Max => state.max.as_ref().map_or(0, stat_utf8_len),
+            _ => 0,
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+fn key_utf8_len(key: &AggregateGroupKey) -> usize {
+    let part = |value: &AggregateDistinctValue| match value {
+        AggregateDistinctValue::Utf8(value) => value.len(),
+        // Interned keys are covered by the retained interner below.
+        _ => 0,
+    };
+    match key {
+        AggregateGroupKey::Empty => 0,
+        AggregateGroupKey::Single(a) => part(a),
+        AggregateGroupKey::Pair(a, b) => part(a).max(part(b)),
+        AggregateGroupKey::Triple(a, b, c) => part(a).max(part(b)).max(part(c)),
+        AggregateGroupKey::Many(parts) => parts.iter().map(part).max().unwrap_or(0),
+    }
+}
+
+fn grouped_output_max_utf8_len(states: &GroupedAggregateStates<'_>) -> Result<usize> {
+    let mut maximum = states
+        .string_interner
+        .values
+        .iter()
+        .map(|value| value.len())
+        .max()
+        .unwrap_or(0);
+    for (key, group) in &states.groups {
+        maximum = maximum.max(key_utf8_len(key));
+        if let Some(values) = group.group_values() {
+            maximum = maximum.max(values.iter().map(stat_utf8_len).max().unwrap_or(0));
+        }
+        if let GroupedAggregateState::General { states, .. } = group {
+            maximum = maximum.max(scalar_output_max_utf8_len(states));
+        }
+    }
+    if let Some(groups) = &states.transformed_dictionary_dense_general_groups {
+        for state in groups.values() {
+            for text in [&state.min_utf8, &state.max_utf8].into_iter().flatten() {
+                maximum = maximum.max(text.len());
+            }
+        }
+    }
+    if let Some(finalized) = &states.finalized_distinct_counts
+        && finalized.is_utf8()
+    {
+        finalized.visit_utf8(|text, _| {
+            maximum = maximum.max(text.len());
+            Ok(())
+        })?;
+    }
+    Ok(maximum)
+}
+
 #[derive(Clone, Copy)]
 // Construction requires the Unix held-source API; shared finalization is still
 // compiled on other feature-enabled targets.

@@ -50,6 +50,9 @@ mod compound_count_tests;
 #[path = "local_primitives/compound_count_workers.rs"]
 mod compound_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/dictionary_handoff.rs"]
+mod dictionary_handoff;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/encoded_numeric_reduction.rs"]
 mod encoded_numeric_reduction;
 #[cfg(feature = "vortex-local-primitives")]
@@ -128,6 +131,12 @@ mod utf8_distinct_output;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_aggregate_owned.rs"]
 mod aggregate_owned;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_completed_result.rs"]
+mod completed_result;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_json_sink.rs"]
+mod json_sink;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_count.rs"]
 pub mod prepared_count;
@@ -191,14 +200,15 @@ mod string_count_partitions;
 #[cfg(feature = "vortex-local-primitives")]
 use std::time::Instant;
 
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    any(test, feature = "vortex-traditional-analytics-benchmark")
+))]
+use crate::{VortexEncodedValuePredicateBatch, VortexReaderGeneratedEncodedKernelInput};
 #[cfg(feature = "vortex-local-primitives")]
 use regex::Regex;
 #[cfg(feature = "vortex-local-primitives")]
-use shardloom_core::{
-    ColumnRef, EncodedSegment, EncodedValueBatch, EncodedValueRun, EncodingKind, LayoutKind,
-    LogicalDType, Nullability as ShardLoomNullability, SegmentId, SegmentLayout, SegmentStats,
-    UniversalInputSource, UriScheme,
-};
+use shardloom_core::{ColumnRef, LogicalDType, UniversalInputSource, UriScheme};
 use shardloom_core::{
     ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetUri, Diagnostic,
     DiagnosticCode, DiagnosticSeverity, ExecutionCertificate, ExecutionCertificateInput,
@@ -208,6 +218,14 @@ use shardloom_core::{
     NativeIoSourcePushdownReport, PredicateExpr, RepresentationState, Result, ShardLoomError,
     StatValue,
 };
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    any(test, feature = "vortex-traditional-analytics-benchmark")
+))]
+use shardloom_core::{
+    EncodedSegment, EncodedValueBatch, EncodedValueRun, EncodingKind, LayoutKind,
+    Nullability as ShardLoomNullability, SegmentId, SegmentLayout, SegmentStats,
+};
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_core::{ScalarValue, parse_iso_date32};
 use shardloom_plan::ProjectionRequest;
@@ -215,12 +233,10 @@ use shardloom_plan::ProjectionRequest;
 #[cfg(feature = "vortex-local-primitives")]
 use crate::{
     VortexAggregateExpression, VortexAggregateHavingExpr, VortexDuplicateKeepPolicy,
-    VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
-    VortexExpressionProjectionRequest, VortexExpressionRewrite, VortexMeltProjectionRequest,
-    VortexPivotProjectionRequest, VortexReaderGeneratedEncodedKernelInput,
-    VortexRollingWindowRequest, VortexSortRowsRequest, VortexSortTiePolicy,
+    VortexExplodeProjectionRequest, VortexExpressionProjectionRequest, VortexExpressionRewrite,
+    VortexMeltProjectionRequest, VortexPivotProjectionRequest, VortexRollingWindowRequest,
+    VortexSortRowsRequest, VortexSortTiePolicy,
     plan_vortex_reader_generated_prepared_batch_envelopes,
-    plan_vortex_reader_generated_prepared_batch_kernel_inputs,
 };
 use crate::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
@@ -2305,23 +2321,27 @@ fn local_vortex_runtime(policy: VortexLocalPrimitiveExecutionPolicy) -> LocalVor
 /// Native or compatibility output format for a scoped local Vortex primitive export.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalPrimitiveRowExportFormat {
+    Json,
     Jsonl,
     Csv,
     Vortex,
     Parquet,
     ArrowIpc,
     Avro,
+    Orc,
 }
 impl VortexLocalPrimitiveRowExportFormat {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Json => "json",
             Self::Jsonl => "jsonl",
             Self::Csv => "csv",
             Self::Vortex => "vortex",
             Self::Parquet => "parquet",
             Self::ArrowIpc => "arrow-ipc",
             Self::Avro => "avro",
+            Self::Orc => "orc",
         }
     }
 
@@ -2329,13 +2349,16 @@ impl VortexLocalPrimitiveRowExportFormat {
     pub const fn is_structured_projection_export(self) -> bool {
         matches!(
             self,
-            Self::Vortex | Self::Parquet | Self::ArrowIpc | Self::Avro
+            Self::Vortex | Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
         )
     }
 
     #[must_use]
     pub const fn is_compatibility_binary(self) -> bool {
-        matches!(self, Self::Parquet | Self::ArrowIpc | Self::Avro)
+        matches!(
+            self,
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
+        )
     }
 }
 
@@ -4362,6 +4385,10 @@ fn execute_vortex_local_primitive_row_export_enabled(
     use vortex::session::VortexSession;
 
     let (policy, physical_policy) = policy.with_writer_sink_physical_policy_for_request(request);
+    if output_format == VortexLocalPrimitiveRowExportFormat::Json {
+        return json_sink::execute(request, output_path, allow_overwrite, policy)
+            .map(|report| report.with_physical_policy(physical_policy));
+    }
     if request.kind == VortexQueryPrimitiveKind::PivotRows {
         return execute_vortex_local_pivot_row_export_enabled(
             request,
@@ -4459,15 +4486,13 @@ fn execute_vortex_local_primitive_row_export_enabled(
     }
     if output_format.is_structured_projection_export() {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-        if request.structured_projection.is_some()
-            && let Some(prepared) = columnar_compat_sink::prepare(
-                request,
-                &path,
-                output_format,
-                policy,
-                columnar_compat_sink::CompatibilityLimits::default(),
-            )?
-        {
+        if let Some(prepared) = columnar_compat_sink::prepare(
+            request,
+            &path,
+            output_format,
+            policy,
+            columnar_compat_sink::CompatibilityLimits::default(),
+        )? {
             return prepared
                 .write(output_path, allow_overwrite)
                 .map(|completed| completed.report.with_physical_policy(physical_policy));
@@ -5848,7 +5873,11 @@ fn encode_structured_row_export_bytes(
         VortexLocalPrimitiveRowExportFormat::Avro => {
             crate::encode_flat_avro_rows_with_dtypes(output_columns, column_dtypes, rows)
         }
+        VortexLocalPrimitiveRowExportFormat::Orc => {
+            crate::encode_flat_orc_rows_with_dtypes(output_columns, column_dtypes, rows)
+        }
         VortexLocalPrimitiveRowExportFormat::Jsonl
+        | VortexLocalPrimitiveRowExportFormat::Json
         | VortexLocalPrimitiveRowExportFormat::Csv
         | VortexLocalPrimitiveRowExportFormat::Vortex => {
             Err(ShardLoomError::InvalidOperation(
@@ -6345,12 +6374,9 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
     use std::io::Write as _;
 
     #[cfg(all(feature = "vortex-write", unix))]
-    if matches!(
-        output_format,
-        VortexLocalPrimitiveRowExportFormat::Vortex
-            | VortexLocalPrimitiveRowExportFormat::ArrowIpc
-            | VortexLocalPrimitiveRowExportFormat::Parquet
-    ) {
+    if output_format == VortexLocalPrimitiveRowExportFormat::Vortex
+        || output_format.is_compatibility_binary()
+    {
         #[cfg(not(feature = "universal-format-io"))]
         if output_format != VortexLocalPrimitiveRowExportFormat::Vortex {
             return Err(ShardLoomError::InvalidOperation("aggregate compatibility output requires universal-format-io; no fallback execution was attempted".into()));
@@ -6469,6 +6495,8 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+// Keep result handoff and the existing atomic text publication lifecycle together.
+#[allow(clippy::too_many_lines)]
 fn execute_vortex_local_sort_rows_row_export_enabled(
     request: &VortexQueryPrimitiveRequest,
     output_path: &std::path::Path,
@@ -6477,6 +6505,19 @@ fn execute_vortex_local_sort_rows_row_export_enabled(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
     use std::io::Write as _;
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    if output_format == VortexLocalPrimitiveRowExportFormat::Vortex
+        || output_format.is_compatibility_binary()
+    {
+        return completed_result::export_sort(
+            request,
+            output_path,
+            output_format,
+            allow_overwrite,
+            policy,
+        );
+    }
 
     let Some(uri) = request.source_uri.as_ref() else {
         return Ok(VortexLocalPrimitiveRowExportReport::blocked(
@@ -6709,7 +6750,7 @@ fn write_simple_aggregate_result_row(
         ));
     }
     match format {
-        VortexLocalPrimitiveRowExportFormat::Jsonl => {
+        VortexLocalPrimitiveRowExportFormat::Jsonl | VortexLocalPrimitiveRowExportFormat::Json => {
             let mut row = serde_json::Map::with_capacity(output_columns.len());
             for (column, value) in output_columns.iter().zip(row_values) {
                 row.insert(column.clone(), value.clone());
@@ -6736,6 +6777,7 @@ fn write_simple_aggregate_result_row(
         VortexLocalPrimitiveRowExportFormat::Parquet
         | VortexLocalPrimitiveRowExportFormat::ArrowIpc
         | VortexLocalPrimitiveRowExportFormat::Avro
+        | VortexLocalPrimitiveRowExportFormat::Orc
         | VortexLocalPrimitiveRowExportFormat::Vortex => {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex aggregate row export text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7059,7 +7101,8 @@ fn write_row_export_selected_rows(
 
     for &row_index in row_indices {
         match format {
-            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+            VortexLocalPrimitiveRowExportFormat::Jsonl
+            | VortexLocalPrimitiveRowExportFormat::Json => {
                 let mut row = serde_json::Map::with_capacity(columns.len());
                 for (column_index, column) in columns.iter().enumerate() {
                     row.insert(
@@ -7089,6 +7132,7 @@ fn write_row_export_selected_rows(
             VortexLocalPrimitiveRowExportFormat::Parquet
             | VortexLocalPrimitiveRowExportFormat::ArrowIpc
             | VortexLocalPrimitiveRowExportFormat::Avro
+            | VortexLocalPrimitiveRowExportFormat::Orc
             | VortexLocalPrimitiveRowExportFormat::Vortex => {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex row export text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7117,7 +7161,8 @@ fn write_row_export_materialized_rows(
             ));
         }
         match format {
-            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+            VortexLocalPrimitiveRowExportFormat::Jsonl
+            | VortexLocalPrimitiveRowExportFormat::Json => {
                 let mut row = serde_json::Map::with_capacity(columns.len());
                 for (column, value) in columns.iter().zip(row_values) {
                     row.insert(column.clone(), stat_value_to_json_value(value)?);
@@ -7144,6 +7189,7 @@ fn write_row_export_materialized_rows(
             VortexLocalPrimitiveRowExportFormat::Parquet
             | VortexLocalPrimitiveRowExportFormat::ArrowIpc
             | VortexLocalPrimitiveRowExportFormat::Avro
+            | VortexLocalPrimitiveRowExportFormat::Orc
             | VortexLocalPrimitiveRowExportFormat::Vortex => {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex materialized row text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7172,7 +7218,8 @@ fn write_row_export_sparse_materialized_rows(
             ));
         }
         match format {
-            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+            VortexLocalPrimitiveRowExportFormat::Jsonl
+            | VortexLocalPrimitiveRowExportFormat::Json => {
                 let mut row = serde_json::Map::with_capacity(columns.len());
                 for (column, value) in columns.iter().zip(row_values) {
                     row.insert(
@@ -7208,6 +7255,7 @@ fn write_row_export_sparse_materialized_rows(
             VortexLocalPrimitiveRowExportFormat::Parquet
             | VortexLocalPrimitiveRowExportFormat::ArrowIpc
             | VortexLocalPrimitiveRowExportFormat::Avro
+            | VortexLocalPrimitiveRowExportFormat::Orc
             | VortexLocalPrimitiveRowExportFormat::Vortex => {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex sparse row text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7331,7 +7379,8 @@ fn write_row_export_melt_rows(
             let value_column = melt_projection.value_columns[value_offset].as_str();
             let value_index = id_count + value_offset;
             match format {
-                VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                VortexLocalPrimitiveRowExportFormat::Jsonl
+                | VortexLocalPrimitiveRowExportFormat::Json => {
                     let mut row = serde_json::Map::with_capacity(output_columns.len());
                     for (id_index, id_column) in melt_projection.id_columns.iter().enumerate() {
                         row.insert(
@@ -7372,6 +7421,7 @@ fn write_row_export_melt_rows(
                 VortexLocalPrimitiveRowExportFormat::Parquet
                 | VortexLocalPrimitiveRowExportFormat::ArrowIpc
                 | VortexLocalPrimitiveRowExportFormat::Avro
+                | VortexLocalPrimitiveRowExportFormat::Orc
                 | VortexLocalPrimitiveRowExportFormat::Vortex => {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex melt text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7825,7 +7875,8 @@ fn write_row_export_explode_rows(
                 return Ok(written);
             }
             match format {
-                VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                VortexLocalPrimitiveRowExportFormat::Jsonl
+                | VortexLocalPrimitiveRowExportFormat::Json => {
                     let mut row =
                         serde_json::Map::with_capacity(explode_columns.output_columns.len());
                     for (column, values) in explode_columns
@@ -7858,6 +7909,7 @@ fn write_row_export_explode_rows(
                 VortexLocalPrimitiveRowExportFormat::Parquet
                 | VortexLocalPrimitiveRowExportFormat::ArrowIpc
                 | VortexLocalPrimitiveRowExportFormat::Avro
+                | VortexLocalPrimitiveRowExportFormat::Orc
                 | VortexLocalPrimitiveRowExportFormat::Vortex => {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex explode text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -14648,7 +14700,6 @@ fn read_local_vortex_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -14664,11 +14715,6 @@ fn read_local_vortex_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         evidence_collection_micros =
             evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
@@ -14723,15 +14769,9 @@ fn read_local_vortex_scan(
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let evidence_started = Instant::now();
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     evidence_collection_micros =
         evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
     Ok(LocalVortexScan {
@@ -14783,7 +14823,6 @@ fn read_local_vortex_partitioned_scan(
     let mut pre_limit_result_row_count = 0_usize;
     let mut arrays_read_count = 0_usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0_usize;
     let mut projected_columns: Option<Vec<String>> = None;
     let mut output_columns: Option<Vec<String>> = None;
@@ -14917,11 +14956,6 @@ fn read_local_vortex_partitioned_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                &source.uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             evidence_collection_micros =
                 evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
@@ -14975,15 +15009,9 @@ fn read_local_vortex_partitioned_scan(
     }
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
     let evidence_started = Instant::now();
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     evidence_collection_micros =
         evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
     Ok(LocalVortexScan {
@@ -15013,6 +15041,7 @@ fn read_local_vortex_partitioned_scan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 pub(crate) fn reader_generated_encoded_kernel_inputs_from_vortex_chunk(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15033,6 +15062,7 @@ pub(crate) fn reader_generated_encoded_kernel_inputs_from_vortex_chunk(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn encoded_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15081,6 +15111,7 @@ fn encoded_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn constant_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15119,6 +15150,7 @@ fn constant_kernel_input_from_vortex_array(
 
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_lines)]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn dictionary_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15133,12 +15165,17 @@ fn dictionary_kernel_input_from_vortex_array(
     let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
         return Ok(None);
     };
-    let Some(dictionary_values) = stat_values_from_vortex_array(dictionary_array.values()) else {
-        return Ok(None);
-    };
-    let Some((codes, row_nulls)) =
+    let Some((mut codes, row_nulls)) =
         direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes())
     else {
+        return Ok(None);
+    };
+    let values = dictionary_handoff::referenced_values(
+        dictionary_array.values(),
+        &mut codes,
+        row_nulls.as_deref(),
+    )?;
+    let Some(dictionary_values) = stat_values_from_vortex_array(&values) else {
         return Ok(None);
     };
     let row_count = u64::try_from(codes.len()).map_err(|error| {
@@ -15231,6 +15268,7 @@ fn dictionary_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn stat_value_to_optional_encoded_value(value: StatValue) -> Option<StatValue> {
     match value {
         StatValue::Null => None,
@@ -15239,6 +15277,7 @@ fn stat_value_to_optional_encoded_value(value: StatValue) -> Option<StatValue> {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn bitpacked_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15311,6 +15350,7 @@ fn bitpacked_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn collect_bitpacked_unsigned_values<T>(
     bitpacked_array: &vortex::array::ArrayView<'_, vortex::encodings::fastlanes::BitPacked>,
 ) -> Result<Vec<u64>>
@@ -15340,6 +15380,7 @@ where
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn sequence_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15389,6 +15430,7 @@ fn sequence_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn sparse_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15466,6 +15508,7 @@ fn sparse_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn push_sparse_run(runs: &mut Vec<EncodedValueRun>, value: StatValue, len: u64) {
     if len == 0 {
         return;
@@ -15480,6 +15523,7 @@ fn push_sparse_run(runs: &mut Vec<EncodedValueRun>, value: StatValue, len: u64) 
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn run_end_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -16003,6 +16047,7 @@ fn primitive_u32_codes_from_primitive_values(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn direct_non_nullable_u64_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Option<Vec<u64>> {
@@ -16011,6 +16056,7 @@ fn direct_non_nullable_u64_values_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn primitive_u64_values_from_primitive_array(
     primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
 ) -> Option<Vec<u64>> {
@@ -16075,6 +16121,7 @@ fn direct_host_primitive(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "universal-format-io"))]
 fn shardloom_logical_dtype_from_vortex_dtype(
     dtype: &vortex::array::dtype::DType,
 ) -> Option<LogicalDType> {
@@ -16138,6 +16185,7 @@ fn vortex_pvalue_to_stat_value(value: vortex::array::scalar::PValue) -> Option<S
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn shardloom_nullability_from_vortex_dtype(
     dtype: &vortex::array::dtype::DType,
 ) -> ShardLoomNullability {
@@ -18047,7 +18095,6 @@ fn read_local_vortex_distinct_scan(
     let mut result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -18062,11 +18109,6 @@ fn read_local_vortex_distinct_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let materialized_columns = row_export_columns_from_chunk(&chunk, &materialization_columns)?;
         let materialized_rows = row_export_materialized_row_count(&materialized_columns, rows)?;
@@ -18100,15 +18142,9 @@ fn read_local_vortex_distinct_scan(
         }
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -18242,7 +18278,6 @@ fn read_local_vortex_drop_duplicate_scan(
     let mut global_index = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -18257,11 +18292,6 @@ fn read_local_vortex_drop_duplicate_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let materialized_columns = row_export_columns_from_chunk(&chunk, &materialization_columns)?;
         let row_key_columns = row_key_columns_from_chunk(&chunk, &declared_columns, &key_columns)?;
@@ -18315,15 +18345,9 @@ fn read_local_vortex_drop_duplicate_scan(
         limit.min(pre_limit_result_row_count)
     });
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -18406,7 +18430,6 @@ fn read_local_vortex_duplicate_mask_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
@@ -18420,11 +18443,6 @@ fn read_local_vortex_duplicate_mask_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let row_key_columns =
             row_key_columns_from_chunk(&chunk, &declared_columns, &declared_columns)?;
@@ -18469,15 +18487,9 @@ fn read_local_vortex_duplicate_mask_scan(
         }
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -18562,7 +18574,6 @@ fn read_local_vortex_tail_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
@@ -18584,26 +18595,15 @@ fn read_local_vortex_tail_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         max_chunk_rows = max_chunk_rows.max(rows);
         arrays_read_count += 1;
     }
     let result_row_count = pre_limit_result_row_count.min(source_order_limit);
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -18756,7 +18756,6 @@ fn read_local_vortex_sample_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -18771,11 +18770,6 @@ fn read_local_vortex_sample_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let materialized_columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
         let materialized_rows = materialized_columns.first().map_or(rows, Vec::len);
@@ -18842,15 +18836,9 @@ fn read_local_vortex_sample_scan(
         sample_scores.len()
     };
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -19003,7 +18991,6 @@ fn read_local_vortex_expression_project_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut row_number_offset = 0_u64;
     let mut expression_projection_state = ExpressionProjectionState::default();
@@ -19020,11 +19007,6 @@ fn read_local_vortex_expression_project_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let source_columns = row_export_columns_from_chunk(&chunk, &projected_columns)?;
         let source_materialized_rows = row_export_materialized_row_count(&source_columns, rows)?;
@@ -19079,15 +19061,9 @@ fn read_local_vortex_expression_project_scan(
         }
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -19224,7 +19200,6 @@ fn read_local_vortex_melt_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut melt_value_dtype: Option<LogicalDType> = None;
     let mut residual_predicate_materialized = false;
@@ -19240,11 +19215,6 @@ fn read_local_vortex_melt_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
         let source_materialized_rows = row_export_materialized_row_count(&columns, rows)?;
@@ -19282,15 +19252,9 @@ fn read_local_vortex_melt_scan(
         }
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -19430,7 +19394,6 @@ fn read_local_vortex_pivot_scan(
 
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut index_keys = std::collections::BTreeSet::<String>::new();
     let mut pivot_columns = std::collections::BTreeMap::<String, String>::new();
@@ -19450,11 +19413,6 @@ fn read_local_vortex_pivot_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let column_values = row_export_columns_from_chunk(&chunk, &declared_columns)?;
         let required_column_count = index_column_index
@@ -19499,15 +19457,9 @@ fn read_local_vortex_pivot_scan(
     projected_columns.push(pivot_projection.index_column.as_str().to_string());
     projected_columns.extend(pivot_columns.into_values());
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -19646,7 +19598,6 @@ fn read_local_vortex_explode_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
@@ -19661,11 +19612,6 @@ fn read_local_vortex_explode_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let (candidate_indices, residual_materialized) = if residual_evaluator.is_some() {
             let residual_columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
@@ -19708,15 +19654,9 @@ fn read_local_vortex_explode_scan(
         }
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -19852,7 +19792,6 @@ fn read_local_vortex_rolling_window_scan(
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut rolling_state = RollingWindowState::new(rolling_window.window_size);
     let mut residual_predicate_materialized = false;
@@ -19868,11 +19807,6 @@ fn read_local_vortex_rolling_window_scan(
             chunk.nchildren(),
             chunk.nbuffers(),
         )?;
-        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-            source_uri,
-            &split.split_ref,
-            &chunk,
-        )?);
         reader_splits.push(split);
         let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
         let source_materialized_rows = row_export_materialized_row_count(&columns, rows)?;
@@ -19951,15 +19885,9 @@ fn read_local_vortex_rolling_window_scan(
         })?;
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Certify the reader boundary without copying executable values for reporting.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -20230,7 +20158,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
     lowering: &aggregate_lowering::AggregateLowering,
     attempt_started: Instant,
-    mut owned_output: Option<&mut aggregate_owned::OwnedAggregateFinalizer>,
+    mut owned_output: Option<&mut aggregate_owned::AggregateOutput>,
     cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
 ) -> Result<LocalVortexAggregateScan> {
     let check_cancelled = || {
@@ -20421,7 +20349,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
     };
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
     if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
@@ -20485,7 +20412,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     drop(grouped_states.take());
                     drop(scalar_states.take());
                     drop(reader_splits);
-                    drop(encoded_kernel_inputs);
+
                     let discarded_nanos = attempt_started.elapsed().as_nanos();
                     let replay_started = Instant::now();
                     let (_replay_drivers, replay_provider_workers) =
@@ -20559,11 +20486,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             aggregate_timing.reader_evidence_nanos += evidence_started.elapsed().as_nanos();
             if let Some(predicate) = residual_evaluator.as_ref() {
@@ -20823,11 +20745,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             states.update_numeric_pair_late_measure_direct_from_chunk(&chunk, &declared_columns)?;
             max_chunk_rows = max_chunk_rows.max(rows);
@@ -20871,13 +20788,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     chunk.nchildren(),
                     chunk.nbuffers(),
                 )?;
-                encoded_kernel_inputs.extend(
-                    reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                        source_uri,
-                        &split.split_ref,
-                        &chunk,
-                    )?,
-                );
                 reader_splits.push(split);
                 if !states.update_numeric_utf8_topk_heavy_hitter_exact_from_chunk(
                     &chunk,
@@ -20936,11 +20846,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             update_grouped_exact_states_from_chunk(
                 &mut exact_states,
@@ -20992,13 +20897,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     chunk.nchildren(),
                     chunk.nbuffers(),
                 )?;
-                encoded_kernel_inputs.extend(
-                    reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                        source_uri,
-                        &split.split_ref,
-                        &chunk,
-                    )?,
-                );
                 reader_splits.push(split);
                 let residual_row_indices = if let Some(predicate) = residual_evaluator.as_ref() {
                     let Some(row_indices) = predicate
@@ -21074,11 +20972,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             update_grouped_exact_states_from_chunk(
                 &mut exact_states,
@@ -21131,13 +21024,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     chunk.nchildren(),
                     chunk.nbuffers(),
                 )?;
-                encoded_kernel_inputs.extend(
-                    reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                        source_uri,
-                        &split.split_ref,
-                        &chunk,
-                    )?,
-                );
                 reader_splits.push(split);
                 if !states.update_string_count_distinct_topk_heavy_hitter_exact_from_chunk(
                     &chunk,
@@ -21198,11 +21084,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             update_grouped_exact_states_from_chunk(
                 &mut exact_states,
@@ -21246,9 +21127,14 @@ fn read_lowered_vortex_simple_aggregate_scan(
         } else {
             states.result_row_count(&aggregate.having)?
         };
+        let (result_row_count, result_summary) = if let Some(output) = owned_output {
+            output.finish_scalar(&states, &aggregate.having)?
+        } else {
+            (result_row_count, states.result_summary(&aggregate.having)?)
+        };
         (
             result_row_count,
-            states.result_summary(&aggregate.having)?,
+            result_summary,
             states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     };
@@ -21283,15 +21169,10 @@ fn read_lowered_vortex_simple_aggregate_scan(
         result_summary = summary.to_string();
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Native operators consume the original provider arrays. Preserve reader/source
+    // certificates without retaining a second, unused set of executable values.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     check_cancelled()?;
     Ok(LocalVortexAggregateScan {
         metadata_completed: metadata_completion.is_some(),
@@ -21745,7 +21626,6 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     let mut pre_limit_result_row_count = 0_usize;
     let mut arrays_read_count = 0_usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0_usize;
     let mut filter_pushdown_applied = false;
     let mut projection_pushdown_applied = false;
@@ -21839,11 +21719,6 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                &source.uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             if let Some(predicate) = residual_evaluator.as_ref() {
                 let selected_rows = if let Some(row_indices) = predicate
@@ -22063,15 +21938,10 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, &aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Native operators consume the original provider arrays. Preserve reader/source
+    // certificates without retaining a second, unused set of executable values.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexAggregateScan {
         metadata_completed: false,
         scan: LocalVortexScan {
@@ -22191,6 +22061,18 @@ fn read_local_vortex_sort_rows_scan(
     path: &std::path::Path,
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexRowsScan> {
+    read_local_vortex_sort_rows_scan_with_output(source_uri, path, request, policy, None)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_sort_rows_scan_with_output(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    output: Option<&mut completed_result::CompletedRows>,
 ) -> Result<LocalVortexRowsScan> {
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
@@ -22401,7 +22283,6 @@ fn read_local_vortex_sort_rows_scan(
     let mut source_rows_seen = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut topk_threshold_pruned_chunks = 0usize;
     let mut topk_threshold_pruned_rows = 0usize;
@@ -22427,11 +22308,6 @@ fn read_local_vortex_sort_rows_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             if let Some(predicate) = residual_evaluator.as_ref() {
                 if let Some(row_indices) =
@@ -22746,15 +22622,10 @@ fn read_local_vortex_sort_rows_scan(
     }
     let result_row_count = result_rows.len();
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Native operators consume the original provider arrays. Preserve reader/source
+    // certificates without retaining a second, unused set of executable values.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     let spill_json = spill_report.as_ref().map(|spill| serde_json::json!({
         "workspace": spill.workspace,
         "quota_bytes": spill.quota_bytes,
@@ -22830,8 +22701,11 @@ fn read_local_vortex_sort_rows_scan(
         "sort_candidate_value_columns": candidate_value_columns,
         "values": result_rows,
         "native_sort_spill": spill_json,
-    })
-    .to_string();
+    });
+    if let Some(output) = output {
+        output.finish_payload(result_row_count, &mut result_summary)?;
+    }
+    let mut result_summary = result_summary.to_string();
     if let Some(rewrite) = predicate_rewrite.as_ref() {
         annotate_embedded_derived_column_rewrite_summary(
             &mut result_summary,
@@ -23021,7 +22895,6 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let mut source_rows_seen = 0_usize;
     let mut arrays_read_count = 0_usize;
     let mut reader_splits = Vec::new();
-    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0_usize;
     let mut topk_threshold_pruned_chunks = 0usize;
     let mut topk_threshold_pruned_rows = 0usize;
@@ -23196,11 +23069,6 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                &source.uri,
-                &split.split_ref,
-                &chunk,
-            )?);
             reader_splits.push(split);
             if let Some(predicate) = residual_evaluator.as_ref() {
                 if let Some(row_indices) =
@@ -23517,15 +23385,10 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     };
     let result_row_count = result_rows.len();
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
-    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_kernel_inputs,
-        )
-    };
+    // Native operators consume the original provider arrays. Preserve reader/source
+    // certificates without retaining a second, unused set of executable values.
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     let mut result_summary = serde_json::json!({
         "rows": result_rows.len(),
         "order_by": sort_rows
@@ -25247,6 +25110,10 @@ impl SimpleAggregateStates {
     }
 
     fn result_summary(&self, having: &[VortexAggregateHavingExpr]) -> Result<String> {
+        Ok(self.result_payload(having)?.to_string())
+    }
+
+    fn result_payload(&self, having: &[VortexAggregateHavingExpr]) -> Result<serde_json::Value> {
         let values = self.result_values()?;
         let matched = aggregate_row_matches_having(&values, having)?;
         let payload = serde_json::json!({
@@ -25274,7 +25141,7 @@ impl SimpleAggregateStates {
             "expression_plan_fingerprint_status": self.expression_plan_fingerprint_status(),
             "values": if matched { values } else { serde_json::Map::new() },
         });
-        Ok(payload.to_string())
+        Ok(payload)
     }
 
     fn has_count_distinct(&self) -> bool {
@@ -34227,10 +34094,18 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
-    #[allow(clippy::too_many_lines)]
     fn result_row_count_and_summary(&self, limit: Option<usize>) -> Result<(usize, String)> {
+        let (rows, payload) = self.result_row_count_and_payload(limit)?;
+        Ok((rows, payload.to_string()))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn result_row_count_and_payload(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<(usize, serde_json::Value)> {
         if let Some(finalized) = &self.finalized_distinct_counts {
-            return finalized.result_summary(self, limit);
+            return finalized.result_payload(self, limit);
         }
         let group_by = self
             .group_columns
@@ -34365,7 +34240,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "transformed_dictionary_lazy_utf8_minmax_updates",
             self.transformed_dictionary_lazy_utf8_minmax_updates,
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -34373,7 +34248,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self
             .transformed_dictionary_dense_general_groups
             .as_ref()
@@ -34491,7 +34366,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "transformed_dictionary_lazy_utf8_minmax_updates",
             self.transformed_dictionary_lazy_utf8_minmax_updates,
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn transformed_dictionary_dense_general_ordered_candidates(
@@ -34684,7 +34559,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex numeric-UTF8 top-K heavy-hitter aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -34897,7 +34772,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "numeric_utf8_topk_candidate_clone_strategy",
             "clone_only_surviving_retained_candidates",
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::unused_self)]
@@ -34991,7 +34866,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex string top-K heavy-hitter aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -35322,7 +35197,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "string_count_topk_candidate_clone_strategy",
             "clone_only_surviving_retained_candidates",
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::unused_self)]
@@ -35391,7 +35266,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex string count-distinct top-K heavy-hitter aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -35588,7 +35463,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "string_count_distinct_topk_candidate_clone_strategy",
             "clone_only_surviving_retained_candidates",
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn admits_generic_count_star_streaming_topk(&self, limit: Option<usize>) -> bool {
@@ -35616,7 +35491,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: usize,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let retained_cap = self.request.offset.saturating_add(limit);
         let large_retained_window =
             retained_cap > Self::grouped_count_star_streaming_topk_linear_retention_cap();
@@ -35751,7 +35626,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "values": rows,
         });
         self.annotate_transformed_dictionary_key_cache_summary(&mut payload)?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn count_star_ordered_candidate(
@@ -35800,7 +35675,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let mut rows = Vec::new();
         let mut skipped = 0usize;
         let prepared_having = prepare_aggregate_having(&self.request.having);
@@ -35884,7 +35759,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "values": rows,
         });
         self.annotate_transformed_dictionary_key_cache_summary(&mut payload)?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn ordered_candidates(&self) -> Result<Vec<GroupedAggregateOrderCandidate>> {
@@ -35922,7 +35797,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let candidate_group_count = self
             .numeric_pair_late_measure_candidate_group_count
             .ok_or_else(|| {
@@ -36064,7 +35939,7 @@ impl<'a> GroupedAggregateStates<'a> {
                     .numeric_pair_late_measure_near_unique_directory
                     .is_none(),
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -36072,7 +35947,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self.numeric_pair_compact_groups.as_ref().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex numeric-pair aggregate state was missing; no fallback execution was attempted"
@@ -36221,7 +36096,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "values": rows,
         });
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -36229,7 +36104,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self
             .numeric_minute_string_count_groups
             .as_ref()
@@ -36382,7 +36257,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "values": rows,
         });
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -36390,7 +36265,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self.single_numeric_count_groups.as_ref().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex single-numeric aggregate state was missing; no fallback execution was attempted"
@@ -36531,7 +36406,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "values": rows,
         });
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn capillary_select_ordered_candidates(
@@ -42688,56 +42563,55 @@ fn aggregate_direct_numeric_dictionary_values<T: Copy, U: Copy>(
 fn aggregate_direct_utf8_dictionary_accessor(
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
-    use vortex::array::arrays::dict::DictArraySlotsExt as _;
+    use vortex::array::{
+        VortexSessionExecute as _,
+        arrays::{
+            VarBinViewArray, dict::DictArraySlotsExt as _, varbinview::VarBinViewArrayExt as _,
+        },
+        dtype::DType,
+    };
 
     let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
         return Ok(None);
     };
-    let Some(dictionary) = stat_values_from_vortex_array(dictionary_array.values()) else {
+    if !matches!(dictionary_array.values().dtype(), DType::Utf8(_)) {
         return Ok(None);
-    };
-    let mut values = Vec::with_capacity(dictionary.len());
-    let mut value_null_flags = Vec::with_capacity(dictionary.len());
-    let mut has_null_value = false;
-    for value in dictionary {
-        match value {
-            StatValue::Utf8(value) => {
-                values.push(std::sync::Arc::<str>::from(value));
-                value_null_flags.push(false);
-            }
-            StatValue::Null => {
-                values.push(std::sync::Arc::<str>::from(""));
-                value_null_flags.push(true);
-                has_null_value = true;
-            }
-            _ => return Ok(None),
-        }
     }
-    let Some((row_ids, row_nulls)) =
+    let Some((mut row_ids, row_nulls)) =
         direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes())
     else {
         return Ok(None);
     };
-    for (row_index, id) in row_ids.iter().enumerate() {
-        if row_nulls
-            .as_ref()
-            .and_then(|nulls| nulls.get(row_index))
-            .copied()
-            .unwrap_or(false)
-        {
-            continue;
-        }
-        let index = usize::try_from(*id).map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "local Vortex UTF-8 dictionary code overflowed usize during aggregate accessor construction: {error}; no fallback execution was attempted"
-            ))
-        })?;
-        if index >= values.len() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "local Vortex UTF-8 dictionary code {id} exceeded dictionary value count {}; no fallback execution was attempted",
-                values.len()
-            )));
-        }
+    let selected = dictionary_handoff::referenced_values(
+        dictionary_array.values(),
+        &mut row_ids,
+        row_nulls.as_deref(),
+    )?;
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+    let dictionary = selected
+        .execute::<VarBinViewArray>(&mut ctx)
+        .map_err(vortex_error)?;
+    let validity = dictionary.varbinview_validity();
+    let mut values = Vec::with_capacity(dictionary.len());
+    let mut value_null_flags = Vec::with_capacity(dictionary.len());
+    let mut has_null_value = false;
+    for index in 0..dictionary.len() {
+        let is_null = !validity
+            .execute_is_valid(index, &mut ctx)
+            .map_err(vortex_error)?;
+        let value = if is_null {
+            std::sync::Arc::<str>::from("")
+        } else {
+            let bytes = dictionary.bytes_at(index);
+            std::sync::Arc::<str>::from(
+                std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?,
+            )
+        };
+        // Promote each retained value directly to its owned representation;
+        // avoid the previous String -> Arc<str> intermediate copy.
+        values.push(value);
+        value_null_flags.push(is_null);
+        has_null_value |= is_null;
     }
     Ok(Some(AggregateDirectColumnAccessor::Utf8Dictionary {
         row_ids,
@@ -49051,7 +48925,7 @@ mod tests {
     }
 
     #[test]
-    fn local_scan_lowers_constant_reader_chunks_into_encoded_kernel_inputs() {
+    fn local_scan_certifies_reader_chunks_without_unused_encoded_payloads() {
         let path = unique_vortex_path("constant-kernel-input");
         write_constant_primitive_fixture(&path).expect("fixture");
         let uri = DatasetUri::new(path.display().to_string()).expect("uri");
@@ -49069,28 +48943,20 @@ mod tests {
             .expect("reader-generated prepared batch report");
         assert_eq!(
             prepared_report.status,
-            VortexReaderGeneratedPreparedBatchStatus::PreparedEncodedKernelInputs
+            VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes
         );
         assert!(prepared_report.reader_generated_prepared_batches);
         assert!(prepared_report.reader_chunk_envelopes_available);
         assert!(prepared_report.provider_boundary.is_policy_admitted());
-        assert!(prepared_report.encoded_value_batch_available);
-        assert!(prepared_report.encoded_projection_batch_available);
-        assert_eq!(
-            prepared_report.encoded_kernel_input_count,
-            report.arrays_read_count
-        );
-        assert!(!prepared_report.kernel_input_lowering_blocked);
-        assert!(prepared_report.runtime_execution_allowed);
-        assert_eq!(prepared_report.residual_executor, "none");
-        assert_eq!(
-            prepared_report.representation_after,
-            "reader_generated_prepared_encoded_kernel_input"
-        );
-        assert!(prepared_report.encoded_kernel_inputs_source_uri_matches_source);
-        assert!(prepared_report.encoded_kernel_input_split_refs_covered_by_reader);
-        assert!(prepared_report.encoded_kernel_input_row_counts_match_reader);
-        assert!(prepared_report.encoded_kernel_input_mapping_evidence_complete);
+        assert!(!prepared_report.encoded_value_batch_available);
+        assert!(!prepared_report.encoded_projection_batch_available);
+        assert_eq!(prepared_report.encoded_kernel_input_count, 0);
+        assert_eq!(prepared_report.reader_split_count, report.arrays_read_count);
+        assert!(prepared_report.reader_source_uri_matches_source);
+        // This nested report does not admit a second executable batch. The
+        // native scan above has already executed using the original arrays.
+        assert!(prepared_report.kernel_input_lowering_blocked);
+        assert!(!prepared_report.runtime_execution_allowed);
         assert!(prepared_report.avoids_forbidden_effects());
         assert!(!prepared_report.has_errors());
         assert!(!report.data_decoded);
@@ -49098,6 +48964,50 @@ mod tests {
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn aggregate_and_sort_handoffs_keep_reader_certificates_without_value_copies() {
+        let path = unique_vortex_path("native-handoff-evidence");
+        write_constant_primitive_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).unwrap();
+        let aggregate = VortexQueryPrimitiveRequest::simple_aggregate(
+            uri.clone(),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("value").unwrap()],
+                vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())],
+            ),
+        );
+        let sort = VortexQueryPrimitiveRequest::sort_rows(
+            uri,
+            ProjectionRequest::columns(vec![ColumnRef::new("value").unwrap()]),
+            None,
+            VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new("value", true)]),
+            2,
+        );
+        for (request, expected_rows) in [(aggregate, 1), (sort, 2)] {
+            let report = execute_vortex_local_primitive(&request).unwrap();
+            assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+            assert_eq!(report.rows_projected, Some(expected_rows));
+            assert!(report.arrays_read_count > 0);
+            let reader = report
+                .reader_generated_prepared_batch_report
+                .as_ref()
+                .unwrap();
+            assert_eq!(reader.encoded_kernel_input_count, 0);
+            assert_eq!(reader.reader_split_count, report.arrays_read_count);
+            assert!(reader.reader_source_uri_matches_source);
+            assert!(reader.reader_chunk_envelopes_available);
+            assert!(reader.provider_boundary.is_policy_admitted());
+            assert!(!reader.has_errors());
+            assert!(
+                local_primitive_native_io_certificate(&request, &report)
+                    .unwrap()
+                    .is_certified()
+            );
+            assert!(!report.fallback_execution_allowed);
+        }
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

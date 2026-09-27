@@ -62,6 +62,7 @@ const SCHEMA_VERSION: &str = "shardloom.local_source_runtime.v1";
 const VORTEX_PREPARE_SCHEMA_VERSION: &str = "shardloom.vortex_prepare.v1";
 const LOCAL_SOURCE_STATE_SCHEMA_VERSION: &str = "shardloom.local_source_state.v1";
 const LOCAL_INPUT_ADAPTER_REGISTRY_VERSION: &str = "shardloom.local_input_adapter_registry.v1";
+const JSON_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-json-output.native-io.v1";
 const JSONL_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const CSV_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-csv-output.native-io.v1";
 const PARQUET_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-parquet-output.native-io.v1";
@@ -1416,6 +1417,7 @@ struct SqlOutputReplayEvidence {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SqlLocalSourceOutputFormat {
     InlineJsonl,
+    Json,
     Csv,
     Parquet,
     ArrowIpc,
@@ -1428,6 +1430,7 @@ impl SqlLocalSourceOutputFormat {
     fn parse(value: &str) -> Result<Self, ShardLoomError> {
         match value.trim().to_ascii_lowercase().as_str() {
             "inline-jsonl" | "jsonl" | "json-lines" | "ndjson" => Ok(Self::InlineJsonl),
+            "json" => Ok(Self::Json),
             "csv" => Ok(Self::Csv),
             "parquet" => Ok(Self::Parquet),
             "arrow" | "arrow-ipc" | "arrow_ipc" | "ipc" | "feather" => Ok(Self::ArrowIpc),
@@ -1435,13 +1438,14 @@ impl SqlLocalSourceOutputFormat {
             "orc" => Ok(Self::Orc),
             "vortex" | "vtx" => Ok(Self::Vortex),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL, CSV, and feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
+                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSON arrays, JSONL, CSV, and feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
             ))),
         }
     }
 
     const fn as_str(self) -> &'static str {
         match self {
+            Self::Json => "json",
             Self::InlineJsonl => "inline_jsonl",
             Self::Csv => "csv",
             Self::Parquet => "parquet",
@@ -1454,6 +1458,7 @@ impl SqlLocalSourceOutputFormat {
 
     const fn sink_format(self) -> &'static str {
         match self {
+            Self::Json => "json",
             Self::InlineJsonl => "jsonl",
             Self::Csv => "csv",
             Self::Parquet => "parquet",
@@ -1466,6 +1471,7 @@ impl SqlLocalSourceOutputFormat {
 
     const fn certificate_status(self) -> &'static str {
         match self {
+            Self::Json => "certified_local_json_sink",
             Self::InlineJsonl => "certified_local_jsonl_sink",
             Self::Csv => "certified_local_csv_sink",
             Self::Parquet => "certified_local_parquet_sink",
@@ -1478,6 +1484,7 @@ impl SqlLocalSourceOutputFormat {
 
     const fn certificate_ref(self) -> &'static str {
         match self {
+            Self::Json => JSON_OUTPUT_CERTIFICATE_ID,
             Self::InlineJsonl => JSONL_OUTPUT_CERTIFICATE_ID,
             Self::Csv => CSV_OUTPUT_CERTIFICATE_ID,
             Self::Parquet => PARQUET_OUTPUT_CERTIFICATE_ID,
@@ -1490,7 +1497,7 @@ impl SqlLocalSourceOutputFormat {
 
     const fn materialization_required(self) -> &'static str {
         match self {
-            Self::InlineJsonl | Self::Csv => "terminal_text_materialization_required",
+            Self::InlineJsonl | Self::Json | Self::Csv => "terminal_text_materialization_required",
             Self::Parquet | Self::ArrowIpc | Self::Avro => {
                 "flat_scalar_or_inferable_typed_nested_row_bridge_required_no_text_rendering"
             }
@@ -1507,12 +1514,13 @@ impl SqlLocalSourceOutputFormat {
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
                 "schema_and_row_count_replay_required"
             }
-            Self::InlineJsonl | Self::Csv => "not_required_for_text_sink",
+            Self::InlineJsonl | Self::Json | Self::Csv => "not_required_for_text_sink",
         }
     }
 
     const fn text_materialization_boundary(self) -> &'static str {
         match self {
+            Self::Json => "json_array_terminal_encoder",
             Self::InlineJsonl => "jsonl_terminal_encoder",
             Self::Csv => "csv_terminal_encoder",
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc | Self::Vortex => {
@@ -1523,7 +1531,7 @@ impl SqlLocalSourceOutputFormat {
 
     const fn type_nullability_support(self) -> &'static str {
         match self {
-            Self::InlineJsonl => "logical_values_including_nested_json_boundary",
+            Self::InlineJsonl | Self::Json => "logical_values_including_nested_json_boundary",
             Self::Csv => "flat_scalar_and_nested_json_text_values_null_as_empty_boundary",
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Vortex => {
                 "flat_scalar_nullable_and_inferable_typed_nested_nullable_values_supported"
@@ -1537,12 +1545,13 @@ impl SqlLocalSourceOutputFormat {
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc | Self::Vortex => {
                 "not_required_current_local_sink"
             }
-            Self::InlineJsonl | Self::Csv => "not_applicable_text_sink",
+            Self::InlineJsonl | Self::Json | Self::Csv => "not_applicable_text_sink",
         }
     }
 
     const fn compression_encoding_posture(self) -> &'static str {
         match self {
+            Self::Json => "json_array_uncompressed_text_terminal_encoder",
             Self::InlineJsonl => "jsonl_uncompressed_text_terminal_encoder",
             Self::Csv => "csv_uncompressed_text_terminal_encoder",
             Self::Parquet => "parquet_provider_default_encoding",
@@ -1557,6 +1566,7 @@ impl SqlLocalSourceOutputFormat {
         match self {
             Self::Vortex => "write_digest_reopen_row_count",
             Self::InlineJsonl
+            | Self::Json
             | Self::Csv
             | Self::Parquet
             | Self::ArrowIpc
@@ -1573,6 +1583,7 @@ impl SqlLocalSourceOutputFormat {
             Self::Avro => "avro_provider_default_block_codec_advisory",
             Self::Orc => "orc_provider_default_stripe_index_advisory",
             Self::Csv => "csv_streaming_text_chunk_advisory",
+            Self::Json => "json_array_text_framing",
             Self::InlineJsonl => "jsonl_streaming_text_chunk_advisory",
         }
     }
@@ -1585,7 +1596,8 @@ impl SqlLocalSourceOutputFormat {
             | Self::Avro
             | Self::Orc
             | Self::Csv
-            | Self::InlineJsonl => "advisory_only_no_runtime_write_knob_applied",
+            | Self::InlineJsonl
+            | Self::Json => "advisory_only_no_runtime_write_knob_applied",
         }
     }
 
@@ -1603,7 +1615,7 @@ impl SqlLocalSourceOutputFormat {
             Self::Csv => {
                 "column_names=preserved,row_order=preserved,row_count=digest_replay_verified,nested_values=json_text_when_present,static_types=dropped"
             }
-            Self::InlineJsonl => {
+            Self::InlineJsonl | Self::Json => {
                 "field_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=logical_json_boundary"
             }
         }
@@ -1618,7 +1630,9 @@ impl SqlLocalSourceOutputFormat {
             Self::Csv => {
                 "static_types_nullability_nested_type_metadata_and_vortex_layout_metadata_lost_json_text_values_preserved"
             }
-            Self::InlineJsonl => "static_types_and_vortex_layout_metadata_not_fully_preserved",
+            Self::InlineJsonl | Self::Json => {
+                "static_types_and_vortex_layout_metadata_not_fully_preserved"
+            }
         }
     }
 
@@ -1639,7 +1653,10 @@ impl SqlLocalSourceOutputFormat {
     }
 
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
-        if !matches!(self, Self::InlineJsonl | Self::Csv | Self::Vortex) {
+        if !matches!(
+            self,
+            Self::InlineJsonl | Self::Json | Self::Csv | Self::Vortex
+        ) {
             validate_flat_scalar_result_batch(batch, self)?;
         }
         let columns = batch.column_names();
@@ -1657,6 +1674,14 @@ impl SqlLocalSourceOutputFormat {
         rows: &[SqlOutputRow],
     ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
+            Self::Json => Ok(format!(
+                "[{}]\n",
+                render_jsonl_output_rows(columns, rows)
+                    .lines()
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+            .into_bytes()),
             Self::InlineJsonl => Ok(render_jsonl_output_rows(columns, rows).into_bytes()),
             Self::Csv => Ok(render_csv_output_rows(columns, rows).into_bytes()),
             Self::Parquet => {
@@ -3966,7 +3991,7 @@ impl SchemaDeclaredTextRecordBatchReader {
         let mut line = String::new();
         while rows.len() < self.batch_size {
             line.clear();
-            let bytes_read = self.reader.read_line(&mut line).map_err(|error| {
+            let bytes_read = read_csv_record(&mut self.reader, &mut line).map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
                     "{} failed to read {} source row {}: {error}; no fallback execution was attempted",
                     self.context,
@@ -4218,7 +4243,7 @@ fn schema_declared_text_stream_contract(
             })?;
             let mut reader = BufReader::new(file);
             let mut header_line = String::new();
-            let bytes_read = reader.read_line(&mut header_line).map_err(|error| {
+            let bytes_read = read_csv_record(&mut reader, &mut header_line).map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
                     "{context} failed to read CSV header from {}: {error}; no fallback execution was attempted",
                     source_path.display()
@@ -4443,7 +4468,7 @@ fn inferred_text_stream_contract(
     let mut reader = BufReader::new(file);
     if source_format == LocalSourceFormat::Csv {
         let mut header_line = String::new();
-        reader.read_line(&mut header_line).map_err(|error| {
+        read_csv_record(&mut reader, &mut header_line).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "{context} failed to read CSV header from {}: {error}; no fallback execution was attempted",
                 source_path.display()
@@ -4478,7 +4503,7 @@ fn infer_csv_text_stream_schema(
     })?;
     let mut reader = BufReader::new(file);
     let mut header_line = String::new();
-    let bytes_read = reader.read_line(&mut header_line).map_err(|error| {
+    let bytes_read = read_csv_record(&mut reader, &mut header_line).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "{context} failed to read CSV header from {}: {error}; no fallback execution was attempted",
             source_path.display()
@@ -4502,7 +4527,7 @@ fn infer_csv_text_stream_schema(
     let mut line = String::new();
     loop {
         line.clear();
-        let bytes_read = reader.read_line(&mut line).map_err(|error| {
+        let bytes_read = read_csv_record(&mut reader, &mut line).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "{context} failed to read CSV row {}: {error}; no fallback execution was attempted",
                 row_count + 1
@@ -5025,6 +5050,7 @@ struct VortexIngestRequest {
     max_parallelism: usize,
     source_fingerprint_policy: SourceFingerprintPolicy,
     delta: Option<VortexIngestDeltaRequest>,
+    prepared_source_binding: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5106,10 +5132,27 @@ enum VortexIngestOutcome {
     Prepared(Box<VortexIngestReport>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub(crate) struct PublicWorkflowVortexPreparation {
     pub(crate) target_path: PathBuf,
     pub(crate) fields: Vec<(String, String)>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    identity: Option<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>,
+}
+
+impl PublicWorkflowVortexPreparation {
+    // Keep the same call boundary in builds that cannot prepare/reuse artifacts.
+    #[cfg_attr(
+        not(all(feature = "vortex-write", feature = "universal-format-io", unix)),
+        allow(clippy::unused_self, clippy::unnecessary_wraps)
+    )]
+    pub(crate) fn validate_generation(&self) -> Result<(), ShardLoomError> {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+        if let Some(identity) = &self.identity {
+            identity.validate_generation()?;
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn handle_local_source_runtime(
@@ -5127,7 +5170,7 @@ pub(crate) fn handle_local_source_runtime_with_facade(
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {COMMAND} <sql-statement> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--output-format inline-jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--output local.jsonl|local.csv|local.parquet|local.arrow|local.avro|local.orc|local.vortex] [--fanout-output format=local-path]... [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {COMMAND} <sql-statement> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--output-format json|inline-jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--output local.json|local.jsonl|local.csv|local.parquet|local.arrow|local.avro|local.orc|local.vortex] [--fanout-output format=local-path]... [--allow-overwrite] [--format text|json]"
         );
         return ExitCode::from(2);
     };
@@ -5329,7 +5372,7 @@ fn parse_sql_local_source_request(
     })
 }
 
-fn parse_vortex_ingest_schema_hints(
+pub(crate) fn parse_vortex_ingest_schema_hints(
     raw: &str,
 ) -> Result<Vec<(String, LogicalDType)>, ShardLoomError> {
     let trimmed = raw.trim();
@@ -5716,6 +5759,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         max_parallelism,
         source_fingerprint_policy,
         delta,
+        prepared_source_binding: None,
     };
 
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
@@ -5831,6 +5875,7 @@ fn fields_with_extra(
     fields
 }
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
 pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     source_path: impl AsRef<Path>,
     target_path: impl AsRef<Path>,
@@ -5840,6 +5885,33 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     memory_gb: Option<u64>,
     source_fingerprint_policy: Option<&str>,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    prepare_local_source_as_vortex_for_public_workflow_with_schema(
+        source_path,
+        target_path,
+        source_format,
+        allow_overwrite,
+        max_parallelism,
+        memory_gb,
+        source_fingerprint_policy,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
+    source_path: impl AsRef<Path>,
+    target_path: impl AsRef<Path>,
+    source_format: Option<&str>,
+    allow_overwrite: bool,
+    max_parallelism: usize,
+    memory_gb: Option<u64>,
+    source_fingerprint_policy: Option<&str>,
+    source_schema: Option<&str>,
+) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    let source_schema_hints = source_schema
+        .map(parse_vortex_ingest_schema_hints)
+        .transpose()?
+        .unwrap_or_default();
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
         return Err(ShardLoomError::NotImplemented(
             "vortex_ingest feature gate is not enabled".to_string(),
@@ -5848,6 +5920,11 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     if source_format.is_some_and(source_format_token_is_vortex)
         || path_has_vortex_extension(source_path.as_ref())
     {
+        if source_schema.is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "source schema hints apply only to compatibility inputs; native Vortex input does not accept --source-schema; no fallback execution was attempted".into(),
+            ));
+        }
         let target_path =
             normalize_local_vortex_ingest_target_path(&target_path.as_ref().display().to_string())?;
         let request = shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
@@ -5863,6 +5940,8 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         return Ok(PublicWorkflowVortexPreparation {
             target_path,
             fields: public_workflow_preparation_fields(&raw_fields),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            identity: None,
         });
     }
     let source_format_override = match source_format {
@@ -5877,8 +5956,35 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         .map(SourceFingerprintPolicy::parse)
         .transpose()?
         .unwrap_or(SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let binding_started = Instant::now();
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let prepared_source_binding = Some(public_preparation_source_binding(
+        source_path.as_ref(),
+        source_format_override,
+        source_fingerprint_policy,
+        source_schema,
+    )?);
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io", unix)))]
+    let prepared_source_binding: Option<String> = None;
     let target_path =
         normalize_local_vortex_ingest_target_path(&target_path.as_ref().display().to_string())?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    if !allow_overwrite && target_path.exists() {
+        let binding = prepared_source_binding
+            .as_deref()
+            .expect("feature-admitted binding");
+        let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
+            &target_path,
+            binding,
+        )?;
+        return Ok(public_workflow_reused_preparation(
+            target_path,
+            source_fingerprint_policy,
+            identity,
+            binding_started.elapsed().as_millis(),
+        ));
+    }
     if let Some(parent) = target_path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -5898,8 +6004,9 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         max_parallelism,
         source_fingerprint_policy,
         delta: None,
+        prepared_source_binding: prepared_source_binding.clone(),
     };
-    let raw_fields = match run_vortex_prepare(request)? {
+    let raw_fields = match run_vortex_prepare_with_schema(request, &source_schema_hints)? {
         VortexIngestOutcome::Prepared(report) => {
             if report.differential_preparation_blocked() {
                 return Err(ShardLoomError::InvalidOperation(format!(
@@ -5910,10 +6017,172 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
             report.fields()
         }
     };
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let (raw_fields, identity) = {
+        let mut fields = raw_fields;
+        let identity = if let Some(binding) = prepared_source_binding {
+            let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
+                &target_path,
+                &binding,
+            )?;
+            public_preparation_identity_fields(&mut fields, &identity, false);
+            Some(identity)
+        } else {
+            None
+        };
+        (fields, identity)
+    };
     Ok(PublicWorkflowVortexPreparation {
         target_path,
         fields: public_workflow_preparation_fields(&raw_fields),
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+        identity,
     })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+fn public_workflow_reused_preparation(
+    target_path: PathBuf,
+    source_fingerprint_policy: SourceFingerprintPolicy,
+    identity: shardloom_vortex::prepared_source_binding::LocalPreparationIdentity,
+    elapsed_millis: u128,
+) -> PublicWorkflowVortexPreparation {
+    let mut raw_fields = vec![
+        ("vortex_ingest_performed".into(), "false".into()),
+        (
+            "vortex_ingest_status".into(),
+            "reused_embedded_source_binding".into(),
+        ),
+        ("prepared_state_created".into(), "false".into()),
+        ("prepared_state_reused".into(), "true".into()),
+        ("prepared_state_reuse_hit".into(), "true".into()),
+        ("input_row_count".into(), identity.row_count.to_string()),
+        (
+            "target_vortex_path".into(),
+            target_path.display().to_string(),
+        ),
+        (
+            "prepared_artifact_ref".into(),
+            target_path.display().to_string(),
+        ),
+        (
+            "source_fingerprint_policy".into(),
+            source_fingerprint_policy.as_str().into(),
+        ),
+        ("prepare_once_millis".into(), elapsed_millis.to_string()),
+    ];
+    public_preparation_identity_fields(&mut raw_fields, &identity, true);
+    PublicWorkflowVortexPreparation {
+        target_path,
+        fields: public_workflow_preparation_fields(&raw_fields),
+        identity: Some(identity),
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+fn public_preparation_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    identity: &shardloom_vortex::prepared_source_binding::LocalPreparationIdentity,
+    reused: bool,
+) {
+    // Public workflow identities describe the validated local generations. The
+    // detailed ingest/capillary reports retain their own execution identities.
+    for (key, value) in [
+        (
+            "source_state_id",
+            format!("source-state-local-preparation-{}", identity.source_digest),
+        ),
+        ("source_state_digest", identity.source_digest.clone()),
+        (
+            "prepared_state_id",
+            format!(
+                "vortex-prepared-state-local-generation-{}",
+                identity.prepared_digest
+            ),
+        ),
+        ("prepared_state_digest", identity.prepared_digest.clone()),
+        (
+            "prepared_state_identity_policy",
+            "validated_local_source_and_artifact_generations_v1".into(),
+        ),
+        ("prepared_state_reuse_allowed", "true".into()),
+        (
+            "prepared_state_reuse_scope",
+            "embedded_source_binding".into(),
+        ),
+        (
+            "prepared_state_reuse_manifest_path",
+            "embedded:shardloom.prepared-source.v1".into(),
+        ),
+        (
+            "prepared_state_reuse_manifest_digest",
+            identity.source_digest.clone(),
+        ),
+        (
+            "prepared_state_reuse_manifest_digest_algorithm",
+            "sha256_source_binding_not_artifact_content".into(),
+        ),
+        (
+            "prepared_state_reuse_policy",
+            "unchanged_local_source_and_artifact_generation".into(),
+        ),
+        (
+            "prepared_state_reuse_reason",
+            if reused {
+                "embedded_source_binding_matched"
+            } else {
+                "new_artifact_binding_validated"
+            }
+            .into(),
+        ),
+        ("prepared_state_invalidation_reason", "none".into()),
+        ("fallback_attempted", "false".into()),
+        ("external_engine_invoked", "false".into()),
+    ] {
+        set_cli_field(fields, key, value);
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+fn public_preparation_source_binding(
+    path: &Path,
+    format: Option<LocalSourceFormat>,
+    policy: SourceFingerprintPolicy,
+    source_schema: Option<&str>,
+) -> Result<String, ShardLoomError> {
+    let format = LocalInputAdapterSelection::select(path, format)?.source_format;
+    let initial = shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
+        path,
+        format.as_str(),
+        policy.as_str(),
+        source_schema,
+    )?;
+    if policy == SourceFingerprintPolicy::MetadataOnly {
+        return Ok(initial);
+    }
+    let scout = if path.is_dir() {
+        scout_local_source_partition_files_with_budget(path, format, None, policy)?.evidence
+    } else {
+        fingerprint_local_source_file_with_budget_report(path, format.row_label(), None, policy)?
+    };
+    if shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
+        path,
+        format.as_str(),
+        policy.as_str(),
+        source_schema,
+    )? != initial
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "source changed during preparation fingerprint; no fallback execution was attempted"
+                .into(),
+        ));
+    }
+    shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
+        path,
+        format.as_str(),
+        &scout.digest,
+        source_schema,
+    )
 }
 
 #[allow(clippy::too_many_lines)]
@@ -5989,6 +6258,15 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         "prepared_state_created",
         "prepared_state_reused",
         "prepared_state_reuse_hit",
+        "prepared_state_identity_policy",
+        "prepared_state_reuse_allowed",
+        "prepared_state_reuse_scope",
+        "prepared_state_reuse_manifest_path",
+        "prepared_state_reuse_manifest_digest",
+        "prepared_state_reuse_manifest_digest_algorithm",
+        "prepared_state_reuse_policy",
+        "prepared_state_reuse_reason",
+        "prepared_state_invalidation_reason",
         "input_row_count",
         "target_vortex_path",
         "prepared_artifact_ref",
@@ -6458,6 +6736,7 @@ fn canonical_output_path_key(path: &Path) -> Result<String, ShardLoomError> {
     Ok(normalized_output_path_key(&plan.target_path))
 }
 
+#[cfg(all(test, feature = "vortex-write"))]
 fn run_vortex_prepare(request: VortexIngestRequest) -> Result<VortexIngestOutcome, ShardLoomError> {
     run_vortex_prepare_with_schema(request, &[])
 }
@@ -6488,6 +6767,7 @@ fn run_vortex_prepare_with_schema(
                 max_parallelism: base_report.request.max_parallelism,
                 source_fingerprint_policy: base_report.request.source_fingerprint_policy,
                 delta: None,
+                prepared_source_binding: None,
             },
             source_schema_hints,
         )
@@ -7025,8 +7305,7 @@ fn layout_chunking_strategy(source: &VortexIngestSourceData) -> String {
 
 fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str {
     if source.columnar_source_preserved
-        && (layout_streaming_columnar_source_may_have_batches(source)
-            || source.record_batch_count > 0)
+        && (layout_uses_streaming_columnar_source(source) || source.record_batch_count > 0)
     {
         "vortex_array_kernel"
     } else {
@@ -7035,8 +7314,7 @@ fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str 
 }
 
 fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static str {
-    if source.columnar_source_preserved && layout_streaming_columnar_source_may_have_batches(source)
-    {
+    if source.columnar_source_preserved && layout_uses_streaming_columnar_source(source) {
         "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)"
     } else if source.columnar_source_preserved && source.record_batch_count > 0 {
         "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)"
@@ -7047,8 +7325,10 @@ fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static s
     }
 }
 
-fn layout_streaming_columnar_source_may_have_batches(source: &VortexIngestSourceData) -> bool {
-    let streaming_layout = matches!(
+fn layout_uses_streaming_columnar_source(source: &VortexIngestSourceData) -> bool {
+    // Product streaming writers reserve native memory even for empty inputs. They
+    // therefore convert a schema-bearing empty Arrow batch through the same provider.
+    matches!(
         source.materialization_layout,
         "streaming_arrow_record_batch_columnar_source_state"
             | "typed_text_rows_to_streaming_arrow_record_batch_source_state"
@@ -7056,9 +7336,7 @@ fn layout_streaming_columnar_source_may_have_batches(source: &VortexIngestSource
             | "whole_json_typed_columns_with_batched_writer"
     ) || source
         .source_stream_policy
-        .contains("record_batch_stream_batch_size");
-    streaming_layout
-        && (!source.row_count_known || source.row_count > 0 || source.record_batch_count > 0)
+        .contains("record_batch_stream_batch_size")
 }
 
 fn layout_verification_depth(
@@ -7739,6 +8017,10 @@ fn try_run_schema_declared_text_vortex_prepare(
         request.memory_gb,
         request.max_parallelism,
     ));
+    let mut vortex_request = vortex_request;
+    vortex_request
+        .prepared_source_binding
+        .clone_from(&request.prepared_source_binding);
     let vortex_report =
         shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
     let source = prewrite_source.with_observed_streaming_write(
@@ -7961,6 +8243,10 @@ fn try_run_inferred_text_vortex_prepare(
         request.memory_gb,
         request.max_parallelism,
     ));
+    let mut vortex_request = vortex_request;
+    vortex_request
+        .prepared_source_binding
+        .clone_from(&request.prepared_source_binding);
     let vortex_report =
         shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
     let source = prewrite_source.with_observed_streaming_write(
@@ -8154,6 +8440,10 @@ fn finish_text_streaming_vortex_prepare(
         request.memory_gb,
         request.max_parallelism,
     ));
+    let mut vortex_request = vortex_request;
+    vortex_request
+        .prepared_source_binding
+        .clone_from(&request.prepared_source_binding);
     let vortex_report =
         shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
     let source = prewrite_source.with_observed_streaming_write(
@@ -8317,6 +8607,10 @@ fn run_columnar_vortex_prepare(
         request.memory_gb,
         request.max_parallelism,
     ));
+    let mut vortex_request = vortex_request;
+    vortex_request
+        .prepared_source_binding
+        .clone_from(&request.prepared_source_binding);
     let vortex_report =
         shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
     let source = prewrite_source.with_observed_streaming_write(
@@ -11005,6 +11299,7 @@ fn vortex_ingest_scout_blocked_request(
             max_parallelism: request.max_parallelism,
             source_fingerprint_policy: request.source_fingerprint_policy,
             delta: None,
+            prepared_source_binding: None,
         };
     }
     request.clone()
@@ -17254,7 +17549,12 @@ fn prepare_sql_outputs(
     let non_jsonl_sink_format = output_plan
         .sinks
         .iter()
-        .find(|sink| !matches!(sink.format, SqlLocalSourceOutputFormat::InlineJsonl))
+        .find(|sink| {
+            !matches!(
+                sink.format,
+                SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Json
+            )
+        })
         .map(|sink| sink.format);
     if let Some(format) = non_jsonl_sink_format {
         validate_flat_scalar_result_batch(batch, format)?;
@@ -17892,13 +18192,17 @@ fn validate_shared_fanout_materialization_formats(
     let logical_text_sink_requested = formats.iter().any(|format| {
         matches!(
             format,
-            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+            SqlLocalSourceOutputFormat::InlineJsonl
+                | SqlLocalSourceOutputFormat::Json
+                | SqlLocalSourceOutputFormat::Csv
         )
     });
     let typed_structured_sink_requested = formats.iter().any(|format| {
         !matches!(
             format,
-            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+            SqlLocalSourceOutputFormat::InlineJsonl
+                | SqlLocalSourceOutputFormat::Json
+                | SqlLocalSourceOutputFormat::Csv
         )
     });
     if logical_text_sink_requested && typed_structured_sink_requested {
@@ -17971,7 +18275,9 @@ fn result_batch_state_materialization_required_value(request: &SqlLocalSourceReq
     if requested_formats.iter().any(|format| {
         matches!(
             format,
-            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+            SqlLocalSourceOutputFormat::InlineJsonl
+                | SqlLocalSourceOutputFormat::Json
+                | SqlLocalSourceOutputFormat::Csv
         )
     }) {
         "terminal_text_materialization_required".to_string()
@@ -18191,7 +18497,9 @@ fn replay_sql_vortex_output(
 
 fn output_fidelity_status(format: SqlLocalSourceOutputFormat) -> &'static str {
     match format {
-        SqlLocalSourceOutputFormat::InlineJsonl => "logical_rows_replay_verified",
+        SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Json => {
+            "logical_rows_replay_verified"
+        }
         SqlLocalSourceOutputFormat::Csv => {
             "logical_rows_replay_verified_type_metadata_not_preserved"
         }
@@ -18207,6 +18515,9 @@ fn output_fidelity_status(format: SqlLocalSourceOutputFormat) -> &'static str {
 
 fn output_fidelity_loss(format: SqlLocalSourceOutputFormat) -> &'static str {
     match format {
+        SqlLocalSourceOutputFormat::Json => {
+            "json_array_text_roundtrip_not_full_type_metadata_fidelity"
+        }
         SqlLocalSourceOutputFormat::InlineJsonl => {
             "jsonl_text_roundtrip_not_full_type_metadata_fidelity"
         }
@@ -33855,10 +34166,18 @@ fn parse_csv_source_content_with_plan(
     read_plan: &LocalSourceReadPlan,
     max_input_rows: Option<usize>,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let mut records = content
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(split_csv_record);
+    let mut reader = std::io::Cursor::new(content.as_bytes());
+    let mut line = String::new();
+    let mut records = std::iter::from_fn(|| {
+        loop {
+            match read_csv_record(&mut reader, &mut line) {
+                Ok(0) => return None,
+                Ok(_) if line.trim().is_empty() => {}
+                Ok(_) => return Some(split_csv_record(line.trim_end_matches(['\r', '\n']))),
+                Err(error) => return Some(Err(error)),
+            }
+        }
+    });
     let Some(header_record) = records.next() else {
         return Err(unsupported_sql_error(
             "CSV source must include a header row",
@@ -43436,6 +43755,45 @@ fn csv_decimal_exponent_integer(raw: &str) -> Option<i64> {
     }
 }
 
+// A CSV record may span physical lines. Quote parity treats escaped double
+// quotes as a balanced pair and preserves embedded LF/CRLF bytes verbatim.
+fn read_csv_record(
+    reader: &mut impl std::io::BufRead,
+    record: &mut String,
+) -> Result<usize, ShardLoomError> {
+    use std::io::{BufRead as _, Read as _};
+    const MAX_RECORD_BYTES: usize = 8 * 1024 * 1024;
+    record.clear();
+    let mut quoted = false;
+    loop {
+        let start = record.len();
+        let remaining = MAX_RECORD_BYTES.saturating_add(1).saturating_sub(start);
+        let read = reader
+            .by_ref()
+            .take(remaining as u64)
+            .read_line(record)
+            .map_err(|error| unsupported_sql_error(&format!("CSV record read failed: {error}")))?;
+        if record.len() > MAX_RECORD_BYTES {
+            return Err(unsupported_sql_error("CSV record exceeds 8 MiB admission"));
+        }
+        if read == 0 {
+            return if quoted {
+                Err(unsupported_sql_error("CSV quoted field is not closed"))
+            } else {
+                Ok(record.len())
+            };
+        }
+        for byte in &record.as_bytes()[start..] {
+            if *byte == b'"' {
+                quoted = !quoted;
+            }
+        }
+        if !quoted {
+            return Ok(record.len());
+        }
+    }
+}
+
 fn split_csv_record(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     let mut values = Vec::new();
     let mut current = String::new();
@@ -44204,7 +44562,9 @@ fn validate_flat_scalar_result_batch(
     if batch.contains_all_null_complex_dtype_without_child_schema()
         && !matches!(
             format,
-            SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+            SqlLocalSourceOutputFormat::InlineJsonl
+                | SqlLocalSourceOutputFormat::Json
+                | SqlLocalSourceOutputFormat::Csv
         )
     {
         return Err(unsupported_sql_error(&format!(
@@ -44271,7 +44631,9 @@ fn validate_sql_output_plan_sink_target(
         | SqlLocalSourceOutputFormat::ArrowIpc
         | SqlLocalSourceOutputFormat::Avro
         | SqlLocalSourceOutputFormat::Orc => validate_sql_universal_format_output_plan(format),
-        SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv => Ok(()),
+        SqlLocalSourceOutputFormat::InlineJsonl
+        | SqlLocalSourceOutputFormat::Json
+        | SqlLocalSourceOutputFormat::Csv => Ok(()),
     }
 }
 
@@ -44293,6 +44655,7 @@ fn validate_sql_universal_format_output_plan(
         SqlLocalSourceOutputFormat::Avro => "Avro",
         SqlLocalSourceOutputFormat::Orc => "ORC",
         SqlLocalSourceOutputFormat::InlineJsonl
+        | SqlLocalSourceOutputFormat::Json
         | SqlLocalSourceOutputFormat::Csv
         | SqlLocalSourceOutputFormat::Vortex => {
             return Ok(());
@@ -44309,7 +44672,9 @@ fn sql_output_plan_conversion_blocker(
 ) -> Option<&'static str> {
     if matches!(
         format,
-        SqlLocalSourceOutputFormat::InlineJsonl | SqlLocalSourceOutputFormat::Csv
+        SqlLocalSourceOutputFormat::InlineJsonl
+            | SqlLocalSourceOutputFormat::Json
+            | SqlLocalSourceOutputFormat::Csv
     ) {
         return None;
     }
@@ -44446,6 +44811,10 @@ fn unsupported_sql_error(reason: &str) -> ShardLoomError {
         "{reason}; no fallback execution was attempted and external_engine_invoked=false"
     ))
 }
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "public_io_route_tests.rs"]
+mod public_io_route_tests;
 
 #[cfg(test)]
 #[allow(clippy::too_many_lines)]
@@ -46125,6 +46494,7 @@ mod tests {
             max_parallelism: 2,
             source_fingerprint_policy: SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE,
             delta: None,
+            prepared_source_binding: None,
         }
     }
 

@@ -358,7 +358,7 @@ fn owned_count_empty_pruned_and_offset_past_end_keep_schema_and_native_sink_life
 }
 
 #[test]
-fn owned_count_rejects_column_counts_wrong_order_and_memory_before_execution() {
+fn owned_count_general_shapes_preserve_reference_and_reject_excessive_output() {
     let fixture = Fixture::new();
     let path = standard(&fixture);
     let mut requests = vec![count_request(&path, 65_536, 1, false)];
@@ -386,12 +386,45 @@ fn owned_count_rejects_column_counts_wrong_order_and_memory_before_execution() {
         .unwrap();
         let memory = prepared.session.memory().clone();
         let prepared_bytes = memory.snapshot().reserved_bytes;
-        assert!(prepared.execute_owned().is_err());
-        assert_eq!(prepared.snapshot().completed_executions, 0);
+        if request.simple_aggregate.as_ref().unwrap().offset > 0 {
+            assert!(prepared.execute_owned().is_err());
+            assert_eq!(prepared.snapshot().completed_executions, 0);
+        } else {
+            let reference = prepared.execute().unwrap();
+            let expected: serde_json::Value = serde_json::from_str(
+                reference
+                    .report
+                    .result_summary
+                    .as_deref()
+                    .unwrap()
+                    .rsplit_once(" values=")
+                    .unwrap()
+                    .1,
+            )
+            .unwrap();
+            let owned = prepared.execute_owned().unwrap();
+            let columns = request.simple_aggregate.as_ref().unwrap().output_columns();
+            let actual: serde_json::Value = serde_json::from_str(
+                owned
+                    .result
+                    .to_bounded_json(&columns, 65536)
+                    .unwrap()
+                    .value(),
+            )
+            .unwrap();
+            assert_eq!(actual, expected["values"]);
+            assert_eq!(prepared.snapshot().completed_executions, 2);
+        }
         assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
         drop(prepared);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
+}
+
+#[test]
+fn owned_count_rejects_pressure_before_execution_or_output_publication() {
+    let fixture = Fixture::new();
+    let path = standard(&fixture);
     let prepared = prepare_aggregate(
         &count_request(&path, 0, 10, false),
         VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
@@ -437,8 +470,18 @@ fn owned_count_rejects_column_counts_wrong_order_and_memory_before_execution() {
         VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
     )
     .unwrap();
-    assert!(prepared.execute_owned().is_err());
-    assert_eq!(prepared.snapshot().completed_executions, 0);
+    let result = prepared.execute_owned().unwrap();
+    assert_eq!(rendered(&result.result).as_array().unwrap().len(), 2);
+    assert!(
+        result
+            .result
+            .dtype()
+            .as_struct_fields_opt()
+            .unwrap()
+            .field(KEY)
+            .unwrap()
+            .is_nullable()
+    );
 }
 
 #[test]

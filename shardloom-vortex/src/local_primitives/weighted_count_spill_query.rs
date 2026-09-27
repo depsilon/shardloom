@@ -9,10 +9,8 @@ use super::{
     VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
     aggregate_scan_runtime::AggregateScanRuntime,
     bind_vortex_scan_expr, integer_key_json_value,
-    plan_vortex_reader_generated_prepared_batch_envelopes,
-    plan_vortex_reader_generated_prepared_batch_kernel_inputs, predicate_to_vortex_expr,
-    projection_scan_plan, reader_generated_encoded_kernel_inputs_from_vortex_chunk,
-    split_predicate_for_vortex_pushdown, vortex_error,
+    plan_vortex_reader_generated_prepared_batch_envelopes, predicate_to_vortex_expr,
+    projection_scan_plan, split_predicate_for_vortex_pushdown, vortex_error,
     weighted_count_spill_accumulator::{Accumulator, OwnedResult},
     weighted_count_spill_admission::{self, failed},
 };
@@ -130,7 +128,6 @@ pub(super) fn execute(
             None
         };
     let mut reader_splits = Vec::new();
-    let mut encoded_inputs = Vec::new();
     let mut rows = 0_usize;
     let mut max_chunk_rows = 0;
     if !embedded_layout.metadata_pruned_entire_input {
@@ -187,11 +184,7 @@ pub(super) fn execute(
                 chunk.nchildren(),
                 chunk.nbuffers(),
             )?;
-            encoded_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
-                source_uri,
-                &split.split_ref,
-                &chunk,
-            )?);
+
             reader_splits.push(split);
         }
     }
@@ -223,15 +216,9 @@ pub(super) fn execute(
     let (result_row_count, mut summary) = result_summary(&owner, request)?;
     owner.source_work.numeric.annotate(&mut summary)?;
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let prepared_report = if encoded_inputs.is_empty() {
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
-    } else {
-        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
-            &source,
-            &reader_splits,
-            &encoded_inputs,
-        )
-    };
+    // Spill must not retain duplicate source payloads solely for diagnostics.
+    let prepared_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     let scan = LocalVortexScan {
         source_row_count: file.row_count(),
         result_row_count,

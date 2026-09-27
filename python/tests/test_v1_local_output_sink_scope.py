@@ -43,8 +43,11 @@ class V1LocalOutputSinkScopeTests(unittest.TestCase):
         self.assertTrue(report.all_output_routes_emit_sink_evidence)
         self.assertTrue(report.all_feature_gated_formats_labeled)
         self.assertTrue(report.write_policy_contract_ready)
-        self.assertEqual(len(report.supported_output_formats), 7)
-        self.assertEqual(len(report.user_write_methods), 9)
+        self.assertEqual(len(report.supported_output_formats), 8)
+        self.assertEqual(len(report.default_output_formats), 3)
+        self.assertEqual(len(report.user_write_methods), 10)
+        self.assertIn("json", report.supported_output_formats)
+        self.assertIn("write_json", report.user_write_methods)
         self.assertIn("append_mode", report.unsupported_boundary_ids)
         self.assertFalse(report.performance_claim_allowed)
         self.assertFalse(report.production_claim_allowed)
@@ -64,8 +67,9 @@ class V1LocalOutputSinkScopeTests(unittest.TestCase):
             report["local_output_sink_benchmark_rows_with_required_fields"],
             0,
         )
-        self.assertEqual(len(report["supported_output_formats"]), 7)
-        self.assertEqual(len(report["user_write_methods"]), 9)
+        self.assertEqual(len(report["supported_output_formats"]), 8)
+        self.assertEqual(len(report["default_output_formats"]), 3)
+        self.assertEqual(len(report["user_write_methods"]), 10)
         self.assertEqual(len(report["golden_fixture_paths"]), 3)
 
 

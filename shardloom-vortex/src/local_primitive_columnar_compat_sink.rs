@@ -39,6 +39,9 @@ use vortex::{
 
 #[derive(Clone)]
 pub(super) struct CompatibilityLimits {
+    // Only an unlimited, unfiltered projection has the source cardinality as
+    // its output cardinality. Filtered/limited plans enforce output_rows while
+    // streaming, before conversion, and never publish a truncated result.
     pub source_rows: u64,
     pub output_rows: u64,
     pub columns: usize,
@@ -55,7 +58,7 @@ impl Default for CompatibilityLimits {
         Self {
             source_rows: 65_536,
             output_rows: 65_536,
-            columns: 32,
+            columns: 128,
             batch_rows: 2048,
             batches: 256,
             string_bytes: 64 * 1024,
@@ -84,7 +87,7 @@ impl CompatibilityLimits {
         }
         if self.source_rows > 65_536
             || self.output_rows > 65_536
-            || self.columns > 32
+            || self.columns > 128
             || self.batch_rows > 2048
             || self.batches > 256
             || self.string_bytes > 64 * 1024
@@ -138,11 +141,7 @@ pub(super) fn prepare(
     limits: CompatibilityLimits,
 ) -> Result<Option<PreparedCompatibilityExport>> {
     limits.check()?;
-    if !matches!(
-        format,
-        VortexLocalPrimitiveRowExportFormat::ArrowIpc
-            | VortexLocalPrimitiveRowExportFormat::Parquet
-    ) {
+    if !format.is_compatibility_binary() {
         return Ok(None);
     }
     let Some(plan) = native_sink::prepare(request, path, policy)? else {
@@ -159,17 +158,16 @@ pub(super) fn prepare_plan(
     limits: CompatibilityLimits,
 ) -> Result<Option<PreparedCompatibilityExport>> {
     limits.check()?;
-    if !matches!(
-        format,
-        VortexLocalPrimitiveRowExportFormat::ArrowIpc
-            | VortexLocalPrimitiveRowExportFormat::Parquet
-    ) {
+    if !format.is_compatibility_binary() {
         return Ok(None);
     }
-    if plan.row_count > limits.source_rows
-        || plan.limit.is_some_and(|limit| limit > limits.output_rows)
-    {
-        return Ok(None);
+    if plan.filter.is_none() && plan.limit.is_none() && plan.row_count > limits.source_rows {
+        return Err(error(
+            "unlimited projection exceeds output row admission; supply an explicit limit",
+        ));
+    }
+    if plan.limit.is_some_and(|limit| limit > limits.output_rows) {
+        return Err(error("requested output limit exceeds row admission"));
     }
     let Some(schema) = schema_for(&plan.dtype, limits.columns) else {
         return Ok(None);
@@ -327,6 +325,8 @@ impl Write for CappedWriter<'_> {
 enum Writer<'a> {
     Ipc(Box<arrow_ipc::writer::FileWriter<CappedWriter<'a>>>),
     Parquet(Box<ArrowWriter<CappedWriter<'a>>>),
+    Avro(Box<arrow_avro::writer::AvroWriter<CappedWriter<'a>>>),
+    Orc(Box<orc_rust::ArrowWriter<CappedWriter<'a>>>),
 }
 impl<'a> Writer<'a> {
     fn new(
@@ -341,6 +341,17 @@ impl<'a> Writer<'a> {
             written: 0,
         };
         match format {
+            VortexLocalPrimitiveRowExportFormat::Avro => Ok(Self::Avro(Box::new(
+                arrow_avro::writer::AvroWriter::new(sink, schema.as_ref().clone())
+                    .map_err(vortex_error)?,
+            ))),
+            VortexLocalPrimitiveRowExportFormat::Orc => Ok(Self::Orc(Box::new(
+                orc_rust::ArrowWriterBuilder::new(sink, translated_schema(&schema, format))
+                    .with_batch_size(limits.batch_rows)
+                    .with_stripe_byte_size(1024 * 1024)
+                    .try_build()
+                    .map_err(vortex_error)?,
+            ))),
             VortexLocalPrimitiveRowExportFormat::ArrowIpc => Ok(Self::Ipc(Box::new(
                 arrow_ipc::writer::FileWriter::try_new(sink, &schema).map_err(vortex_error)?,
             ))),
@@ -366,6 +377,12 @@ impl<'a> Writer<'a> {
     fn write(&mut self, batch: &RecordBatch, work: &mut CompatibilityWork) -> Result<()> {
         match self {
             Self::Ipc(writer) => writer.write(batch).map_err(vortex_error),
+            Self::Avro(writer) => writer.write(batch).map_err(vortex_error),
+            Self::Orc(writer) => writer
+                .write(&crate::universal_format_io::translate_orc_record_batch(
+                    batch,
+                )?)
+                .map_err(vortex_error),
             Self::Parquet(writer) => {
                 writer.write(batch).map_err(vortex_error)?;
                 let retained = usize_to_u64(writer.memory_size())?;
@@ -384,6 +401,8 @@ impl<'a> Writer<'a> {
         match self {
             Self::Ipc(mut writer) => writer.finish().map_err(vortex_error),
             Self::Parquet(writer) => (*writer).close().map(|_| ()).map_err(vortex_error),
+            Self::Avro(mut writer) => writer.finish().map_err(vortex_error),
+            Self::Orc(writer) => writer.close().map_err(vortex_error),
         }
     }
 }
@@ -583,6 +602,12 @@ impl PreparedCompatibilityExport {
             dtype_and_row_count_validated: true,
             output_sha256: checksum,
             metadata_fidelity: match self.format {
+                VortexLocalPrimitiveRowExportFormat::Avro => {
+                    "compatibility_arrow_boundary;avro_integer_widths_widened_unsigned_to_signed_checked;uint64_above_i64_max_rejected;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
+                }
+                VortexLocalPrimitiveRowExportFormat::Orc => {
+                    "compatibility_arrow_boundary;orc_unsigned_to_signed_checked;uint64_above_i64_max_rejected;schema_nullability_relaxed;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
+                }
                 VortexLocalPrimitiveRowExportFormat::Parquet => {
                     "compatibility_arrow_boundary;logical_dtype_names_order_validity_preserved;native_encodings_layout_statistics_user_metadata_not_copied;parquet_plain_uncompressed_no_dictionary;provider_copy_bytes_not_measured;read_decode_materialize_flags_conservative_scan_scope_not_observed_bytes"
                 }
@@ -660,9 +685,77 @@ fn validate_reopen(
                 return Err(error("Parquet reopen schema or row count differs"));
             }
         }
+        VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc => {
+            use arrow_array::RecordBatchReader as _;
+            let reader: Box<dyn arrow_array::RecordBatchReader> = match format {
+                VortexLocalPrimitiveRowExportFormat::Avro => Box::new(
+                    arrow_avro::reader::ReaderBuilder::new()
+                        .with_batch_size(limits.batch_rows)
+                        .build(std::io::BufReader::new(file))
+                        .map_err(vortex_error)?,
+                ),
+                _ => Box::new(
+                    orc_rust::ArrowReaderBuilder::try_new(file)
+                        .map_err(vortex_error)?
+                        .with_batch_size(limits.batch_rows)
+                        .build(),
+                ),
+            };
+            let expected = translated_schema(schema, format);
+            let actual = reader.schema();
+            if actual.fields().len() != expected.fields().len()
+                || actual
+                    .fields()
+                    .iter()
+                    .zip(expected.fields())
+                    .any(|(actual, expected)| {
+                        actual.name() != expected.name()
+                            || actual.data_type() != expected.data_type()
+                    })
+            {
+                return Err(error(
+                    "compatibility reopen schema differs from declared translation",
+                ));
+            }
+            let mut actual_rows = 0;
+            for batch in reader {
+                limits.check()?;
+                add(
+                    &mut actual_rows,
+                    usize_to_u64(batch.map_err(vortex_error)?.num_rows())?,
+                )?;
+                if actual_rows > rows {
+                    return Err(error("compatibility reopen row count exceeds output"));
+                }
+            }
+            if actual_rows != rows {
+                return Err(error("compatibility reopen row count differs"));
+            }
+        }
         _ => return Err(error("unsupported reopen target")),
     }
     Ok(())
+}
+
+fn translated_schema(schema: &SchemaRef, format: VortexLocalPrimitiveRowExportFormat) -> SchemaRef {
+    let fields = schema
+        .fields()
+        .iter()
+        .map(|field| {
+            let dtype = match (format, field.data_type()) {
+                (
+                    VortexLocalPrimitiveRowExportFormat::Avro,
+                    DataType::Int8 | DataType::Int16 | DataType::UInt8 | DataType::UInt16,
+                )
+                | (_, DataType::UInt16) => DataType::Int32,
+                (_, DataType::UInt8) => DataType::Int16,
+                (_, DataType::UInt32 | DataType::UInt64) => DataType::Int64,
+                (_, dtype) => dtype.clone(),
+            };
+            Field::new(field.name(), dtype, field.is_nullable())
+        })
+        .collect::<Vec<_>>();
+    Arc::new(Schema::new(fields))
 }
 
 fn error(message: &str) -> ShardLoomError {

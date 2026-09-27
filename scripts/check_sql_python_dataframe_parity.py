@@ -286,6 +286,7 @@ REQUIRED_DATAFRAME_METHOD_STATUSES = {
     "apply": {"lazy_plan_supported"},
     "pipe": {"lazy_plan_supported"},
     "write": {"production_admitted_local_workflow"},
+    "write_json": {"production_admitted_local_workflow"},
     "write_jsonl": {"production_admitted_local_workflow"},
     "write_csv": {"production_admitted_local_workflow"},
     "fanout": {"production_admitted_local_workflow"},

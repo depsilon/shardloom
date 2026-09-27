@@ -45,6 +45,7 @@ impl FileGeneration {
 /// compares the path and held descriptor's device, inode, length, modification
 /// and change timestamps; it is not a content hash or a filesystem snapshot.
 /// Strong local generation admission is currently available on Unix only.
+#[derive(Debug)]
 pub struct SourceIdentity {
     path: PathBuf,
     pub(crate) file: File,
@@ -53,6 +54,27 @@ pub struct SourceIdentity {
 }
 
 impl SourceIdentity {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    pub(crate) fn preparation_binding(&self) -> Result<serde_json::Value> {
+        self.validate()?;
+        let modified = match self
+            .generation
+            .modified
+            .duration_since(SystemTime::UNIX_EPOCH)
+        {
+            Ok(duration) => format!("+{}:{}", duration.as_secs(), duration.subsec_nanos()),
+            Err(error) => format!(
+                "-{}:{}",
+                error.duration().as_secs(),
+                error.duration().subsec_nanos()
+            ),
+        };
+        Ok(
+            serde_json::json!({"path":self.path,"size":self.generation.len,
+            "modified":modified,"device":self.generation.device,"inode":self.generation.inode,
+            "changed":self.generation.changed}),
+        )
+    }
     /// Capture a generation for a native path that must reopen the source.
     #[cfg(any(unix, feature = "vortex-local-primitives"))]
     pub(crate) fn capture(path: &std::path::Path) -> Result<Self> {

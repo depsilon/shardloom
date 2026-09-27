@@ -29,7 +29,7 @@ impl AggregateScanSource<'_> {
         }
     }
 
-    pub(super) fn row_count(&self) -> u64 {
+    pub(super) fn row_count(self) -> u64 {
         match self {
             Self::File(file) => file.row_count(),
             #[cfg(all(feature = "vortex-write", unix))]
@@ -37,7 +37,7 @@ impl AggregateScanSource<'_> {
         }
     }
 
-    pub(super) fn scan(&self, session: &VortexSession) -> VortexResult<ScanBuilder<ArrayRef>> {
+    pub(super) fn scan(self, session: &VortexSession) -> VortexResult<ScanBuilder<ArrayRef>> {
         let _ = session; // File-only feature builds use their retained file session.
         match self {
             Self::File(file) => file.scan(),
@@ -46,13 +46,13 @@ impl AggregateScanSource<'_> {
         }
     }
 
-    pub(super) fn bind(&self, expr: &Expression) -> Result<BoundExpression> {
+    pub(super) fn bind(self, expr: &Expression) -> Result<BoundExpression> {
         expr.optimize_recursive(self.dtype())
             .and_then(|expr| expr.bind(self.dtype()))
             .map_err(vortex_error)
     }
 
-    pub(super) fn can_prune(&self, expr: &Expression) -> VortexResult<Option<bool>> {
+    pub(super) fn can_prune(self, expr: &Expression) -> VortexResult<Option<bool>> {
         match self {
             Self::File(file) => file.can_prune(expr).map(Some),
             #[cfg(all(feature = "vortex-write", unix))]
@@ -61,7 +61,7 @@ impl AggregateScanSource<'_> {
     }
 
     pub(super) fn embedded_layout(
-        &self,
+        self,
         kind: VortexQueryPrimitiveKind,
         filter: bool,
         projection: bool,
@@ -81,7 +81,7 @@ impl AggregateScanSource<'_> {
 
     #[cfg(unix)]
     pub(super) fn complete(
-        &self,
+        self,
         request: &VortexQueryPrimitiveRequest,
         states: &mut SimpleAggregateStates,
     ) -> Result<Option<footer_aggregate::Completion>> {

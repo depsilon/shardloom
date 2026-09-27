@@ -286,6 +286,7 @@ V1_LOCAL_OUTPUT_SINK_SCOPE_DOCUMENT = (
     "docs/architecture/v1-local-output-sink-scope.md"
 )
 V1_LOCAL_OUTPUT_SINK_SUPPORTED_OUTPUT_FORMATS = (
+    "json",
     "jsonl",
     "csv",
     "parquet",
@@ -294,7 +295,7 @@ V1_LOCAL_OUTPUT_SINK_SUPPORTED_OUTPUT_FORMATS = (
     "orc",
     "vortex",
 )
-V1_LOCAL_OUTPUT_SINK_DEFAULT_OUTPUT_FORMATS = ("jsonl", "csv")
+V1_LOCAL_OUTPUT_SINK_DEFAULT_OUTPUT_FORMATS = ("jsonl", "csv", "json")
 V1_LOCAL_OUTPUT_SINK_FEATURE_GATED_OUTPUT_FORMATS = (
     "parquet",
     "arrow-ipc",
@@ -304,6 +305,7 @@ V1_LOCAL_OUTPUT_SINK_FEATURE_GATED_OUTPUT_FORMATS = (
 )
 V1_LOCAL_OUTPUT_SINK_USER_WRITE_METHODS = (
     "write",
+    "write_json",
     "write_jsonl",
     "write_csv",
     "write_parquet",
@@ -5967,10 +5969,34 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "Scoped write() is admitted for native/prepared Vortex primitive row streams to "
-            "JSONL/CSV and exact provider-backed native Vortex result summaries to "
-            "write_vortex/JSONL/CSV. Other output formats or unadmitted operators fail closed "
+            "JSON arrays/JSONL/CSV and exact provider-backed native Vortex result summaries to "
+            "write_vortex/JSONL/CSV. Bounded flat projection, aggregate, and sort routes also "
+            "admit Vortex, Parquet, Arrow IPC, Avro, and ORC under feature, type, and size limits. "
+            "Unadmitted operators fail closed "
             "with deterministic blockers; direct decoded compatibility sinks remain internal "
             "smoke safeguards only."
+        ),
+    ),
+    _df_method(
+        "write_json",
+        "write",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_derived_json_export_contract",
+            "explicit_decode_materialization_boundary",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "write_json is admitted only when a JSON array is derived from a native/prepared "
+            "Vortex primitive row stream or ordinary SQL/generated scalar/grouped aggregate "
+            "result rows with explicit decode/materialization "
+            "evidence. It must not execute direct decoded local-source sink code as the public "
+            "runtime middle."
         ),
     ),
     _df_method(
@@ -7457,14 +7483,14 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "global_runtime_supported",
         sql_surface=(
             "ctx.sql(\"SELECT COUNT(*)/SUM(...)/columns FROM 'local.vortex' WHERE ... LIMIT ...\")"
-            ".collect/write_jsonl/write_csv/fanout"
+            ".collect/write_json/write_jsonl/write_csv/fanout"
         ),
         python_surface=(
-            "ctx.read_vortex(...).count/filter/select/agg/collect/write_jsonl/write_csv/fanout "
+            "ctx.read_vortex(...).count/filter/select/agg/collect/write_json/write_jsonl/write_csv/fanout "
             "scoped primitive reports"
         ),
         dataframe_surface=(
-            "read_vortex(...).filter/select/count/agg/collect/write_jsonl/write_csv/fanout "
+            "read_vortex(...).filter/select/count/agg/collect/write_json/write_jsonl/write_csv/fanout "
             "scoped primitive reports"
         ),
         shared_runtime_path=(
@@ -7488,7 +7514,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "Scoped SQL, Python, and DataFrame-style local Vortex primitive report workflows "
             "share ShardLoom's explicit Vortex primitive command family for count, count-where, "
             "filter, project, filter-project, scalar aggregate, optional source-order limit, and "
-            "scoped JSONL/CSV row export/fanout with an explicit decode/materialization boundary. Native `.vortex` "
+            "scoped JSON-array/JSONL/CSV row export plus JSONL/CSV fanout with an explicit "
+            "decode/materialization boundary. Native `.vortex` "
             "input is already at the Vortex boundary, so this row is the direct Vortex-normalized "
             "case. Structured Parquet/Arrow IPC/Avro compatibility exports for scoped ARRAY/STRUCT "
             "projections are tracked in the typed nested compatibility sink row. This is not broad "
@@ -14224,6 +14251,7 @@ def _object_store_generated_output_requires_report_only(
 def _normalize_generated_object_store_output_format(output_format: str) -> str:
     normalized = output_format.strip().lower()
     aliases = {
+        "json-array": "json",
         "json-lines": "jsonl",
         "ndjson": "jsonl",
         "inline-jsonl": "jsonl",
@@ -14234,10 +14262,10 @@ def _normalize_generated_object_store_output_format(output_format: str) -> str:
         "vtx": "vortex",
     }
     normalized = aliases.get(normalized, normalized)
-    if normalized in {"jsonl", "csv", "parquet", "arrow-ipc", "avro", "orc", "vortex"}:
+    if normalized in {"json", "jsonl", "csv", "parquet", "arrow-ipc", "avro", "orc", "vortex"}:
         return normalized
     raise ValueError(
-        "object-store generated output currently supports JSONL, CSV, and "
+        "object-store generated output currently supports JSON arrays, JSONL, CSV, and "
         "feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex staging formats"
     )
 
@@ -14253,6 +14281,7 @@ def _generated_object_store_staging_path(target_ref: str, output_format: str) ->
     target_name = target_path.name or "generated-output"
     digest = sha256(f"{target_ref}|{output_format}".encode("utf-8")).hexdigest()[:16]
     extension = {
+        "json": "json",
         "jsonl": "jsonl",
         "csv": "csv",
         "parquet": "parquet",
@@ -14293,6 +14322,7 @@ def _generated_partition_output_file_name(
     if output_file_name is not None:
         return _require_safe_partition_path_part("partition output file name", output_file_name)
     extension = {
+        "json": "json",
         "jsonl": "jsonl",
         "csv": "csv",
         "parquet": "parquet",

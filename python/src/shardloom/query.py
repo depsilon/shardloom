@@ -1170,6 +1170,22 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
             check=check,
         )
 
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def write_csv(
         self,
         target_uri: str | os.PathLike[str],
@@ -1384,6 +1400,22 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
         return self.write(
             target_uri,
             output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -1676,6 +1708,22 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             check=check,
         )
 
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def write_csv(
         self,
         target_uri: str | os.PathLike[str],
@@ -1784,6 +1832,22 @@ class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
         return self.write(
             target_uri,
             output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -2456,6 +2520,27 @@ class SqlWorkflow:
             check=check,
         )
 
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> (
+        GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def write_csv(
         self,
         target_uri: str | os.PathLike[str],
@@ -2647,49 +2732,39 @@ class SqlWorkflow:
         | VortexWorkflowExecutionReport
         | UnsupportedWorkflowOperationReport
     ):
-        if requested_output in {"write_vortex", "write_jsonl", "write_csv"}:
-            if report := self._vortex_sql_user_route_write_report(
-                target_uri,
-                requested_output=requested_output,
-                allow_overwrite=allow_overwrite,
+        if (requested_output in {"write_vortex", "write_jsonl", "write_csv"}
+                and _vortex_sql_user_route_shape(self.statement) is not None):
+            return self._vortex_sql_user_route_write_report(
+                target_uri, requested_output=requested_output,
+                allow_overwrite=allow_overwrite, check=check,
                 fanout_outputs=fanout_outputs,
-                check=check,
-            ):
-                return report
-            if report := self._local_source_auto_vortex_sql_write_report(
-                target_uri,
-                requested_output=requested_output,
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                check=check,
-            ):
-                return report
+            )
+        # The CLI owns source preparation and native operator/sink admission.
+        # Sending the original statement preserves optimized aggregate/sort paths
+        # and avoids rebuilding compatibility inputs in Python for each sink.
+        execution = self.client.public_workflow_run(
+            "sql",
+            sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=target_uri,
+            fanout_outputs=fanout_outputs,
+            execution_policy="vortex_middle",
+            materialization_policy="bounded",
+            evidence_level="production_admitted_local_workflow",
+            bounded=True,
+            allow_overwrite=allow_overwrite,
+            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            check=check,
+            **self._declared_or_embedded_vortex_input_kwargs(),
+        )
         if _is_source_free_sql_statement(self.statement):
-            execution = self.client.public_workflow_run(
-                "sql",
-                sql_statement=self.statement,
-                plan_summary=self.operation_summary,
-                requested_output=requested_output,
-                output_ref=target_uri,
-                fanout_outputs=fanout_outputs,
-                materialization_policy="bounded",
-                evidence_level="runtime_smoke",
-                bounded=True,
-                allow_overwrite=allow_overwrite,
-                check=check,
-            )
             return GeneratedSourceWriteReport(execution.envelope)
-        if _is_local_source_sql_statement(self.statement):
-            return self._public_workflow_blocked_report(
-                f"native-vortex-{requested_output.replace('_', '-')}-sql-sink",
-                target_ref=str(target_uri),
-                requested_output=requested_output,
-                output_ref=target_uri,
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                check=check,
-            )
-        return self._unsupported_operation("sql", self.statement, check=check)
+        return VortexWorkflowExecutionReport(
+            workflow=self._report_workflow(),
+            operation=requested_output,
+            envelope=execution.envelope,
+        )
 
     def _public_workflow_blocked_report(
         self,
@@ -2868,7 +2943,7 @@ class SqlWorkflow:
             _native_vortex_row_export_payload_from_primitive_shape(
                 _vortex_sql_primitive_shape(candidate.workflow.statement)
             )
-            if requested_output in {"write_jsonl", "write_csv"}
+            if requested_output in {"write_json", "write_jsonl", "write_csv"}
             else None
         )
         if provider_shape is None and primitive_payload is None:
@@ -3125,7 +3200,7 @@ class SqlWorkflow:
     ) -> VortexWorkflowExecutionReport | None:
         shape = _vortex_sql_user_route_shape(self.statement)
         if shape is None:
-            if requested_output not in {"write_jsonl", "write_csv"}:
+            if requested_output not in {"write_json", "write_jsonl", "write_csv"}:
                 return None
             primitive_shape = _vortex_sql_primitive_shape(self.statement)
             primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
@@ -3824,7 +3899,7 @@ def _sql_native_vortex_public_workflow_kwargs(
 ) -> dict[str, Any]:
     """Return exact native Vortex route payloads inferred from a SQL workflow."""
 
-    if requested_output in {"write_vortex", "write_jsonl", "write_csv"}:
+    if requested_output in {"write_vortex", "write_json", "write_jsonl", "write_csv"}:
         provider_shape = _vortex_sql_user_route_shape(statement)
         if provider_shape is not None:
             payload: dict[str, Any] = {
@@ -3836,7 +3911,7 @@ def _sql_native_vortex_public_workflow_kwargs(
             if provider_shape.right_input is not None:
                 payload["native_vortex_right_input"] = provider_shape.right_input
             return payload
-        if requested_output in {"write_jsonl", "write_csv"}:
+        if requested_output in {"write_json", "write_jsonl", "write_csv"}:
             primitive_shape = _vortex_sql_primitive_shape(statement)
             primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
                 primitive_shape
@@ -6333,7 +6408,7 @@ class LazyFrame:
             return {}
         if requested_output == "profile":
             return {"native_vortex_operation_family": "profile"}
-        if requested_output in {"write_vortex", "write_jsonl", "write_csv"}:
+        if requested_output in {"write_vortex", "write_json", "write_jsonl", "write_csv"}:
             shape = self._native_vortex_user_route_shape()
             if shape is not None:
                 payload: dict[str, Any] = {
@@ -6343,7 +6418,7 @@ class LazyFrame:
                 if shape.right_input is not None:
                     payload["native_vortex_right_input"] = shape.right_input
                 return payload
-            if requested_output in {"write_jsonl", "write_csv"}:
+            if requested_output in {"write_json", "write_jsonl", "write_csv"}:
                 primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
                     self._vortex_primitive_shape()
                 )
@@ -6676,6 +6751,11 @@ class LazyFrame:
                 check=check,
             )
         requested_output = _public_write_request_for_format(normalized_output_format)
+        if self._sql_local_source_statement() is not None:
+            return self._public_workflow_write_report(
+                target_uri, requested_output=requested_output,
+                allow_overwrite=allow_overwrite, check=check,
+            )
         if self.source.source_format == "vortex":
             return self._vortex_user_route_write_report(
                 target_uri,
@@ -6739,6 +6819,22 @@ class LazyFrame:
         return self.write(
             target_uri,
             output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_json(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="json")` (one JSON array)."""
+
+        return self.write(
+            target_uri,
+            output_format="json",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -6856,6 +6952,14 @@ class LazyFrame:
         output_format, output_path = normalized_outputs[0]
         requested_output = _public_write_request_for_format(output_format)
         fanout_outputs = normalized_outputs[1:]
+        if self.source.schema and self._sql_local_source_statement() is not None:
+            return self._public_workflow_write_report(
+                output_path,
+                requested_output=requested_output,
+                allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
+                check=check,
+            )
         if self.source.source_format == "vortex":
             return self._vortex_user_route_write_report(
                 output_path,
@@ -7130,6 +7234,11 @@ class LazyFrame:
         return ShardLoom's deterministic Vortex sink blocker.
         """
 
+        if self._sql_local_source_statement() is not None:
+            return self._public_workflow_write_report(
+                target_uri, requested_output="write_vortex",
+                allow_overwrite=allow_overwrite, check=check,
+            )
         if self.source.source_format == "vortex":
             return self._vortex_user_route_write_vortex_report(
                 target_uri,
@@ -7171,6 +7280,10 @@ class LazyFrame:
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
         check: bool = False,
     ) -> UnsupportedWorkflowOperationReport:
+        # The public SQL facade cannot infer a replacement for a declared schema.
+        # Unlowerable declared writes must remain side-effect-free blockers.
+        if self.source.schema and requested_output.startswith("write_"):
+            return self._unsupported_operation(operation, target_ref, check=check)
         execution = self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
@@ -7208,7 +7321,7 @@ class LazyFrame:
         check: bool,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> SqlLocalSourceSmokeReport:
-        statement = self._sql_local_source_statement()
+        statement = self._sql_local_source_statement(allow_native_source=True)
         if statement is None:
             raise ValueError(
                 "public workflow write facade requires an admitted local-source statement"
@@ -7217,6 +7330,11 @@ class LazyFrame:
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
+            source_schema=(
+                (self.source.schema or None)
+                if self.source.source_format != "vortex"
+                else None
+            ),
             sql_statement=statement,
             plan_summary=self.operation_summary,
             requested_output=requested_output,
@@ -7947,7 +8065,10 @@ class LazyFrame:
             _native_vortex_row_export_payload_from_primitive_shape(
                 candidate.frame._vortex_primitive_shape()
             )
-            if requested_output in {"write_jsonl", "write_csv"}
+            if requested_output in {
+                "write_vortex", "write_parquet", "write_arrow_ipc", "write_avro",
+                "write_orc", "write_json", "write_jsonl", "write_csv",
+            }
             else None
         )
         structured_binary_payload = requested_output in {
@@ -7955,6 +8076,7 @@ class LazyFrame:
             "write_parquet",
             "write_arrow_ipc",
             "write_avro",
+            "write_orc",
         } and candidate.frame._has_structured_binary_export_shape()
         if provider_shape is None and primitive_payload is None and not structured_binary_payload:
             return None
@@ -8627,7 +8749,7 @@ class LazyFrame:
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         shape = self._native_vortex_user_route_shape()
         if shape is None:
-            if requested_output in {"write_jsonl", "write_csv"}:
+            if requested_output in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc", "write_json", "write_jsonl", "write_csv"}:
                 primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
                     self._vortex_primitive_shape()
                 )
@@ -8650,14 +8772,14 @@ class LazyFrame:
                         check=check,
                         **primitive_payload,
                     ).envelope
-                return VortexWorkflowExecutionReport(
-                    workflow=self,
-                    operation=operation,
-                    envelope=envelope,
-                )
+                    return VortexWorkflowExecutionReport(
+                        workflow=self,
+                        operation=operation,
+                        envelope=envelope,
+                    )
             if (
                 requested_output
-                in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro"}
+                in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc"}
                 and self._has_structured_binary_export_shape()
             ):
                 write_method = requested_output.removeprefix("write_")
@@ -10221,8 +10343,12 @@ class LazyFrame:
             engine_mode=self.engine_mode,
         )
 
-    def _sql_local_source_statement(self, *, default_limit: int | None = None) -> str | None:
-        if not _is_query_builder_local_source(self.source):
+    def _sql_local_source_statement(
+        self, *, default_limit: int | None = None, allow_native_source: bool = False
+    ) -> str | None:
+        if not _is_query_builder_local_source(self.source) and not (
+            allow_native_source and self.source.source_format == "vortex"
+        ):
             return None
         projection_list: tuple[str, ...] | None = None
         aggregate_list: tuple[str, ...] | None = None
@@ -16833,6 +16959,8 @@ def _stable_quality_value_key(value: object) -> str:
 
 def _normalize_local_output_format(value: str) -> str:
     normalized = value.strip().lower()
+    if normalized in {"json", "json-array"}:
+        return "json"
     if normalized in {"jsonl", "json-lines", "ndjson", "inline-jsonl"}:
         return "jsonl"
     if normalized == "csv":
@@ -16848,7 +16976,7 @@ def _normalize_local_output_format(value: str) -> str:
     if normalized in {"vortex", "vtx"}:
         return "vortex"
     raise ValueError(
-        "scoped local writes currently support local JSONL, CSV, and feature-gated "
+        "scoped local writes currently support local JSON arrays, JSONL, CSV, and feature-gated "
         "Parquet/Arrow IPC/Avro/ORC/Vortex only"
     )
 
@@ -16856,6 +16984,7 @@ def _normalize_local_output_format(value: str) -> str:
 def _public_write_request_for_format(output_format: str) -> str:
     normalized = _normalize_local_output_format(output_format)
     return {
+        "json": "write_json",
         "jsonl": "write_jsonl",
         "csv": "write_csv",
         "parquet": "write_parquet",

@@ -62,6 +62,7 @@ REQUIRED_QUERY_BUILDER_METHODS = [
     "window",
     "collect",
     "write",
+    "write_json",
     "write_jsonl",
     "fanout",
     "to_python_objects",
