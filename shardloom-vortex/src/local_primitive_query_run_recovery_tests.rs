@@ -135,6 +135,9 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
                 .unwrap();
         }
         let directory = store.directory().to_path_buf();
+        // A concurrent fork can briefly retain the same open file description
+        // until exec. Model it deterministically without relying on scheduling.
+        let inherited_owner = store.directory_owner.as_ref().unwrap().try_clone().unwrap();
         store.abandon_for_recovery_test();
         let marker = fs::read(directory.join(OWNERSHIP_MARKER)).unwrap();
         let sort = crate::VortexSortSpillPolicy::new(&workspace.0, 32 << 20, 4 << 20).unwrap();
@@ -178,6 +181,7 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         sort.cancel();
         aggregate.cancel();
         cleanup(&renewed_sort, &renewed_aggregate).unwrap();
+        drop(inherited_owner);
         drop(store);
         drop(work);
         assert_eq!(memory.snapshot().reserved_bytes, 0);

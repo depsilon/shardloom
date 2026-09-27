@@ -290,7 +290,10 @@ separately scoped. See
 at current workload admission; C6 retains the existing native packed-comparison
 provider with five provider/lowering proofs and drops duplicate layout/kernel
 work. Neither claims a new speedup. See `lookup-interleaving-admission-2026-09-27.md`
-and `packed-numeric-provider-screen-2026-09-27.md`. C2.b follows.
+and `packed-numeric-provider-screen-2026-09-27.md`. C2.b retains bounded direct
+selection for small integer COUNT requests after 960 complete screen calls,
+held-out boundary/resource acceptance and all 258 Full43 results. See
+`small-numeric-count-selection-screen-2026-09-27.md`. C1 follows.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -333,7 +336,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C4: retain compact chunk-code candidate directories and read-only owned-key closure updates; final Full43 and native validation pass. See `compact-candidate-directory-screen-2026-09-27.md`.
     - [x] C3: drop a new AMAC prototype at current workload admission; preserve exact source/caller attribution and explicit reopening conditions. See `lookup-interleaving-admission-2026-09-27.md`.
     - [x] C6: retain the existing native packed-comparison provider with five independent provider/lowering fixtures; drop duplicate kernel/layout work and retain reader-evidence obligations. See `packed-numeric-provider-screen-2026-09-27.md`.
-    - [ ] C2.b: record admission and ship/drop for Finite cost-based selection among exact implementations.
+    - [x] C2.b: retain bounded small-integer COUNT selection before worker admission; complete crossover, held-out/resource acceptance and Full43 pass. See `small-numeric-count-selection-screen-2026-09-27.md`.
     - [ ] C1: record admission and ship/drop for Isolated Vortex provider upgrade.
     - [ ] C5.a: record admission and ship/drop for Existing ThinLTO build.
     - [ ] C5.b: record admission and ship/drop for Trained PGO.
@@ -350,11 +353,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: C2.b compares existing numeric grouped COUNT workers with the
-    existing direct native route on small inputs. Use the same complete public
-    call, literal results and physical/request characteristics; restore provider
-    drivers on the same source before input when declining workers. Implement a
-    production selector only after a measured crossover and held-out acceptance.
+  - Next outcome: C1 reviews the released Vortex provider line against the
+    existing input/output, feature, allocator ownership and typed-denial contracts.
+    Admit a paired runtime experiment only when those contracts survive migration;
+    preserve the current provider if the new API cannot meet them. Build-profile
+    screens C5.a–C5.c follow without mixing provider and compiler changes.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

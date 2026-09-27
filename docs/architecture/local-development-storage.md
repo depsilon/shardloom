@@ -26,6 +26,12 @@ The [September 26 cleanup](local-artifact-cleanup-2026-09-26.md) records retirem
 of obsolete local test/UAT artifacts. Local incremental compilation is disabled
 after its debug/test cache accumulated 146 GiB. Preserve frozen comparison
 binaries and receipts; retire redundant bulk outputs only after identity checks.
+On September 27, 5,822 completed historical per-call log files were compacted
+losslessly into three `completed-call-logs-20260927.tar.xz` archives beside their
+original summaries. Per-member size/SHA-256 manifests preserve old path lookup;
+every archived byte was verified before removing its original. This recovered
+about 22 MiB of allocated log space without discarding failed-run evidence or
+raising the 256 MiB guard. The C2.b benchmark packet retains the compaction receipt.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

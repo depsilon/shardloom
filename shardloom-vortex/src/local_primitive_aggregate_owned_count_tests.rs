@@ -97,6 +97,10 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
                     // deliberately exercises the existing caller/compact path.
                     runtime::aggregate_count_workers::ADMISSION_TEST_PRESSURE
                         .with(|flag| flag.set(pressure && !explicit_tie));
+                    // This loop targets the worker's pressure transition even
+                    // when the automatic small-input selector prefers direct.
+                    runtime::aggregate_count_workers::ADMISSION_TEST_WORKERS
+                        .with(|flag| flag.set(Some(true)));
                     let completed = prepared.execute_owned().unwrap();
                     assert!(
                         !runtime::aggregate_count_workers::ADMISSION_TEST_PRESSURE
@@ -122,6 +126,20 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
                     drop(completed);
                     assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
                 }
+                let automatic = prepared.execute_owned().unwrap();
+                let automatic_work = work(&automatic);
+                assert_eq!(
+                    rendered(&automatic.result),
+                    count_oracle(keys, offset, limit)
+                );
+                if workers > 1 && !explicit_tie {
+                    assert_eq!(
+                        automatic_work["aggregate_worker_selection"],
+                        "small_numeric_count_direct"
+                    );
+                }
+                drop(automatic);
+                assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
                 let ordinary = prepared.execute().unwrap();
                 let (_, payload) = ordinary
                     .report

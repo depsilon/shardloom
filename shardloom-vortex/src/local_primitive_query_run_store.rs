@@ -623,7 +623,13 @@ impl QueryRunStore {
     #[cfg(all(test, feature = "vortex-write"))]
     pub(super) fn abandon_for_recovery_test(&mut self) {
         self.failed = true;
-        self.directory_owner.take();
+        if let Some(owner) = self.directory_owner.take() {
+            // Simulate loss of the owning process even if a concurrently
+            // spawned test briefly inherited this open file description.
+            owner
+                .unlock()
+                .expect("release abandoned test workspace lock");
+        }
     }
 
     fn validate_directory(&self) -> Result<()> {
