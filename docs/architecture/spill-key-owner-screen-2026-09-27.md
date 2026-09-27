@@ -1,6 +1,6 @@
 # Spill merge key ownership — R5.b
 
-Status: admission screen under PERF-INTAKE / RFC 0044, following C2.a's PR #1467.
+Status: bounded candidate under PERF-INTAKE / RFC 0044, following merged C2.a PR #1467.
 No runtime change or performance claim is retained yet.
 
 The source audit finds existing payload transfers in ReservedHostAllocator,
@@ -47,3 +47,20 @@ across blocks, signed compound ordering, cancellation/corruption/quota failures,
 terminal iteration and owner refunds. Complete required Rust/native checks,
 applicable public UAT and independent review. Failed prototypes are removed while
 their evidence remains. R5.c overlap stays a separate experiment.
+
+The initial frozen control (`098934fcb6a9f9c3fe1d086c89445cdfd60a1d00`,
+test executable SHA-256
+`dd8363896310f5561db799622b7d96dc2de65b9ed8c4b4929c0b6dbcc8a86ae4`)
+passes all nine complete calls and cleans every owned workspace. The repeated-key
+cases record 20,910,592 merge-head copied bytes per call; the unique-key case
+records 33,292,544 bytes. Best complete calls are 51.360 / 48.263 / 92.228 ms.
+The control commit predates the C2 squash; its tree is identical to the rebased
+observer commit `bc5762b1`. These measurements admit a small ownership candidate,
+not a performance claim for that candidate or a production-scale spill benchmark.
+
+The prototype removes the redundant `RunReader.previous` payload. Initial heads
+have no predecessor; successor reads borrow the popped heap row, still owned by
+the merge through that read. New coverage checks complete-key regression at the
+native block boundary for all three key orders, terminal failure and refunds,
+plus one independent head copy per key in a single native run. The existing
+within-block corruption, signatures, weights, cancellation and quota tests remain.

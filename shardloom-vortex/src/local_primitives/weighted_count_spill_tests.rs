@@ -340,6 +340,12 @@ fn weighted_count_spill_repeated_complete_keys_reduce_native_records_and_written
             result.evidence.initial_run_records
         );
         assert_eq!(result.evidence.runs_written, 1);
+        // One independent merge-head copy per persisted key; ordering borrows
+        // that owner and must not create a second predecessor payload.
+        assert_eq!(
+            result.evidence.merge_head_text_bytes_copied,
+            result.evidence.encoded_text_bytes_copied,
+        );
         assert!(result.evidence.native_bytes_written > 0);
         observations.push((
             result.evidence.native_bytes_written,
@@ -529,6 +535,84 @@ fn weighted_count_spill_native_corruption_signature_order_and_weight_are_rejecte
             spill.evidence.source_weight = 2;
         }
         assert!(spill.finish(&runtime, &session).is_err());
+        workspace.empty();
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn weighted_count_spill_borrowed_predecessor_checks_order_across_native_blocks() {
+    let workspace = Workspace::new();
+    let (runtime, session) = runtime();
+    for order in [
+        KeyOrder::Text,
+        KeyOrder::IntegerText { signed: true },
+        KeyOrder::TextInteger { signed: true },
+    ] {
+        let policy = workspace.policy();
+        let memory = LiveMemoryPool::new(policy.memory_bytes).unwrap();
+        let mut spill = WeightedCountSpill::new(policy, memory.clone(), order, 7).unwrap();
+        spill.ensure_store().unwrap();
+        let spec = spill.spec(1025, 1).unwrap();
+        assert_eq!(spec.block_rows, 1024);
+        let first = runs::array(
+            std::iter::repeat_n((0, b"m".as_slice(), 1), spec.block_rows),
+            order.signature(),
+            &spill.copies,
+        )
+        .unwrap();
+        let last = runs::array(
+            [(0, b"a".as_slice(), 1)].into_iter(),
+            order.signature(),
+            &spill.copies,
+        )
+        .unwrap();
+        let native = spill
+            .store
+            .as_mut()
+            .unwrap()
+            .write_arrays(
+                &spec,
+                [Ok(first), Ok(last)].into_iter(),
+                &runtime,
+                &session,
+                &spill.work,
+            )
+            .unwrap();
+        spill.runs.push(Run {
+            native,
+            level: 0,
+            max_key_bytes: 1,
+        });
+        let mut merge = RunMerge::new(
+            spill.runs.iter(),
+            spill.store.as_ref().unwrap(),
+            Arc::clone(&spill.work),
+            spill.policy.clone(),
+            order,
+            Arc::clone(&spill.copies),
+            &runtime,
+            &session,
+        )
+        .unwrap();
+        for _ in 0..1023 {
+            assert_eq!(merge.next().unwrap().unwrap().text, b"m");
+        }
+        // The first block has been released, but its popped independent key
+        // still detects regression before the last predecessor can be emitted.
+        assert!(
+            merge
+                .next()
+                .unwrap()
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("complete key order regressed")
+        );
+        assert!(merge.next().is_none());
+        assert_eq!(spill.copies.heads.load(Ordering::Relaxed), 1025);
+        drop(merge);
+        drop(spill);
         workspace.empty();
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }

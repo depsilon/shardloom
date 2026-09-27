@@ -239,7 +239,6 @@ struct RunReader {
     reader: QueryRunReader,
     block: Option<ReadBlock>,
     remaining: u64,
-    previous: Option<Row>,
     max_key_bytes: usize,
     max_observed_key_bytes: usize,
 }
@@ -259,6 +258,7 @@ impl RunReader {
         policy: &Policy,
         order: KeyOrder,
         copies: &Copies,
+        previous: Option<&Row>,
     ) -> Result<Option<Row>> {
         policy.check()?;
         if self.remaining == 0 {
@@ -285,22 +285,15 @@ impl RunReader {
                 .ok_or_else(|| failed("run yielded empty block"))?
         };
         self.max_observed_key_bytes = self.max_observed_key_bytes.max(row.text.len());
-        if self.previous.as_ref().is_some_and(|previous| {
+        if previous.is_some_and(|previous| {
             order
                 .compare((previous.number, &previous.text), (row.number, &row.text))
                 .is_gt()
         }) {
             return Err(failed("native run complete key order regressed"));
         }
-        // A bounded independent previous key allows releasing the previous
-        // native block before reading its successor. Count this copy too.
-        self.previous = None;
-        Copies::add(&copies.heads, row.text.len())?;
-        self.previous = Some(Row {
-            number: row.number,
-            text: copy_text(&row.text)?,
-            weight: row.weight,
-        });
+        // The merge still owns its popped independent key during this read.
+        // Borrow it for ordering without copying it or retaining a source block.
         self.remaining -= 1;
         Ok(Some(row))
     }
@@ -370,7 +363,6 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
                 reader: store.open(&run.native, &dtype(), runtime, session, Arc::clone(&work))?,
                 block: None,
                 remaining: run.native.rows,
-                previous: None,
                 max_key_bytes: run.max_key_bytes,
                 max_observed_key_bytes: 0,
             });
@@ -384,7 +376,7 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
             return Err(failed("merge head allocation exceeded reservation"));
         }
         for (reader, input) in readers.iter_mut().enumerate() {
-            if let Some(row) = input.next(runtime, &mut ctx, &policy, order, &copies)? {
+            if let Some(row) = input.next(runtime, &mut ctx, &policy, order, &copies, None)? {
                 heads.push(Head { row, reader, order });
             }
         }
@@ -425,6 +417,7 @@ impl<R: BlockingRuntime> Iterator for RunMerge<'_, R> {
             &self.policy,
             self.order,
             &self.copies,
+            Some(&row),
         ) {
             Ok(Some(next)) => self.heads.push(Head {
                 row: next,
