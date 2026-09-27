@@ -7,19 +7,24 @@
   "runtime_changed": false,
   "speedup_claim": false,
   "no_minimum_gain_cutoff": true,
-  "source_base": "6160c26edd5cf282d0a27928d00fa74d42bab6ea",
+  "source_base": "1cd1752898b2ec9d3a738bca80213e36bade6261",
   "validation_source_identity": {
-    "commit": "10e0867dcbe27363256f001fb6793b28dfe1df1c",
+    "kind": "sha256_source_manifest",
     "source_sha256": {
       "shardloom-vortex/src/local_primitives.rs": "e1b6bd8be06bfcb44cdbf9258537180b465f33f0851327c88892c74d463758ef",
       "shardloom-vortex/src/local_primitives/packed_numeric_provider_tests.rs": "4052bc89159f88e1571dbc9f63fb1c78e992e09f27408c9f4dbc76317d5177c5"
-    }
+    },
+    "historical_local_commit": "10e0867dcbe27363256f001fb6793b28dfe1df1c",
+    "historical_commit_scope": "Recorded at validation time; not required to resolve Git objects. Verify archived source bytes against source_sha256."
   },
   "production_source_proof": {
     "path": "shardloom-vortex/src/local_primitives.rs",
     "base_sha256": "585ca11ee24b5926b846b2ef324264e3d908f5ea8a6ba6c8521e97a33e8133b6",
     "current_sha256": "e1b6bd8be06bfcb44cdbf9258537180b465f33f0851327c88892c74d463758ef",
-    "removing_only_cfg_test_module_restores_base": true
+    "removing_only_cfg_test_module_restores_base": true,
+    "current_source_member": "source/local_primitives.rs",
+    "removed_module_member": "source/provider-test-module.txt",
+    "verification": "Hash archived current source, remove the exact archived module once, and hash the result against base_sha256. The base is also reachable through merged main; no historical local commit is required."
   },
   "provider": {
     "crate": "vortex-fastlanes",
@@ -829,10 +834,10 @@
   "complete_query_uat": "No production runtime changed; C4 final frozen-runtime Full43 remains applicable. Prior Full43 envelopes are attribution only, not new measurements.",
   "raw_evidence": {
     "path": "docs/benchmarks/evidence/lookup-packed-provider-admission-2026-09-27.json.gz",
-    "compressed_bytes": 924091,
-    "compressed_sha256": "47bc72cd8f3635f5644be287b1a6f233c4594418afd9adf96e0efabef90d4b4f",
-    "uncompressed_bytes": 7588955,
-    "uncompressed_sha256": "1d597aec4b98458e5c51add687dc5b889ccfda18d640bded403066981548b753",
-    "members": 61
+    "compressed_bytes": 1226935,
+    "compressed_sha256": "292743f9866bf546d70e640020b39707bc3dcc0146c79ae1e2763de15d6c95d9",
+    "uncompressed_bytes": 10591145,
+    "uncompressed_sha256": "e682840d7132aa4d4092fa5a55944b1abb12d517fea8400d54dc0a6ff57657d7",
+    "members": 65
   }
 }

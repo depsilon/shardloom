@@ -68,5 +68,10 @@ Formatting, strict workspace/native Clippy, 3,425 workspace tests and 1,981 nati
 tests pass (19 existing native tests ignored). The packet records the validated
 source hashes and proves that removing only the new `cfg(test)` module restores
 the C4 production source byte for byte.
+
+The proof uses the reachable C4 merge as its base and archives the full validated
+source plus the exact test-module insertion. SHA-256 content identities remain
+verifiable after squash/rebase; historical local commit IDs in the original
+receipts are provenance notes, not required Git objects.
 Only test modules and documentation change; the final C4 runtime's complete
 Full43 UAT remains applicable. No repeated ingest or query timing is claimed.
