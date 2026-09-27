@@ -293,7 +293,10 @@ work. Neither claims a new speedup. See `lookup-interleaving-admission-2026-09-2
 and `packed-numeric-provider-screen-2026-09-27.md`. C2.b retains bounded direct
 selection for small integer COUNT requests after 960 complete screen calls,
 held-out boundary/resource acceptance and all 258 Full43 results. See
-`small-numeric-count-selection-screen-2026-09-27.md`. C1 follows.
+`small-numeric-count-selection-screen-2026-09-27.md`. C1 drops the released
+0.86.x upgrade at allocator-resource admission; the current typed-denial and
+buffer-credit contract stays intact. See `vortex-086-upgrade-admission-2026-09-27.md`.
+C5.a–C5.c follow under `compiler-profile-screen-2026-09-27.md`.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -337,7 +340,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C3: drop a new AMAC prototype at current workload admission; preserve exact source/caller attribution and explicit reopening conditions. See `lookup-interleaving-admission-2026-09-27.md`.
     - [x] C6: retain the existing native packed-comparison provider with five independent provider/lowering fixtures; drop duplicate kernel/layout work and retain reader-evidence obligations. See `packed-numeric-provider-screen-2026-09-27.md`.
     - [x] C2.b: retain bounded small-integer COUNT selection before worker admission; complete crossover, held-out/resource acceptance and Full43 pass. See `small-numeric-count-selection-screen-2026-09-27.md`.
-    - [ ] C1: record admission and ship/drop for Isolated Vortex provider upgrade.
+    - [x] C1: drop the 0.86.x upgrade at resource-contract admission; preserve 0.85.0 and explicit reopening conditions. See `vortex-086-upgrade-admission-2026-09-27.md`.
     - [ ] C5.a: record admission and ship/drop for Existing ThinLTO build.
     - [ ] C5.b: record admission and ship/drop for Trained PGO.
     - [ ] C5.c: record admission and ship/drop for Explicit CPU-targeted build.
@@ -353,11 +356,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: C1 reviews the released Vortex provider line against the
-    existing input/output, feature, allocator ownership and typed-denial contracts.
-    Admit a paired runtime experiment only when those contracts survive migration;
-    preserve the current provider if the new API cannot meet them. Build-profile
-    screens C5.a–C5.c follow without mixing provider and compiler changes.
+  - Next outcome: C5.a compares the existing ThinLTO build with ordinary release,
+    holding source, dependencies, native artifact and policy fixed. C5.b then
+    screens trained PGO with disjoint evaluation; C5.c separates explicit native
+    CPU targeting from portable distribution. Preserve useful smaller gains and
+    complete applicable query, ingest and held-out acceptance before retention.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
