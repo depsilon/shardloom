@@ -3,7 +3,15 @@
 //! Input text and typed columns remain whole-document allocations. Only writer
 //! batches are bounded; this is not a streaming JSON parser or an RSS bound.
 
-use super::*;
+use super::{
+    Arc, BTreeMap, ColumnarSourceScoutEvidence, Instant, LocalInputAdapterSelection,
+    LocalSourceFormat, LocalSourceProjectionPushdownStatus, LocalSourceReadPlan, RecordBatch,
+    ScalarValue, Schema, ShardLoomError, VortexIngestReport, VortexIngestRequest,
+    VortexIngestSourceData, decode_local_text_source, enforce_local_source_row_budget,
+    finish_text_streaming_vortex_prepare, fnv64_digest, fnv64_digest_bytes,
+    read_local_source_bytes_with_budget_report, text_stream_record_batch_size,
+    unsupported_sql_error, visit_json_source_rows_with_plan,
+};
 use arrow_array::RecordBatchIterator;
 use shardloom_vortex::universal_format_io::InferredTextColumnBuilder;
 
@@ -41,8 +49,10 @@ pub(super) fn prepare(
         LocalSourceFormat::Json,
         byte_read.bytes,
     )?;
-    let batch = parse(&content, limits.input_rows)?;
+    let batch_size = text_stream_record_batch_size(limits.input_rows);
+    let batches = parse(&content, limits.input_rows, batch_size)?;
     drop(content);
+    let batch = &batches[0];
     let header = batch
         .schema()
         .fields()
@@ -56,15 +66,9 @@ pub(super) fn prepare(
         .map(|field| Some(field.data_type().clone()))
         .collect::<Vec<_>>();
     let schema = batch.schema();
-    let rows = batch.num_rows();
-    let batch_size = text_stream_record_batch_size(limits.input_rows);
-    let batch_count = rows.div_ceil(batch_size);
-    let reader = RecordBatchIterator::new(
-        (0..rows)
-            .step_by(batch_size)
-            .map(move |start| Ok(batch.slice(start, batch_size.min(rows - start)))),
-        schema,
-    );
+    let rows = batches.iter().map(RecordBatch::num_rows).sum::<usize>();
+    let batch_count = batches.len();
+    let reader = RecordBatchIterator::new(batches.into_iter().map(Ok), schema);
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
         column_dtypes: vec![None; header.len()],
         column_arrow_dtypes,
@@ -88,7 +92,7 @@ pub(super) fn prepare(
         source_dictionary_preservation_status: "json_typed_builders_no_source_dictionary"
             .to_string(),
         ingest_executor_status: "whole_json_typed_columns_ready".to_string(),
-        ingest_executor_kind: "whole_json_typed_columns_to_record_batch_slices".to_string(),
+        ingest_executor_kind: "whole_json_typed_columns_to_record_batch_reader".to_string(),
         ingest_executor_requested_parallelism: 1,
         ingest_executor_applied_parallelism: 1,
         ingest_executor_unit_count_hint: Some(batch_count),
@@ -128,7 +132,15 @@ pub(super) fn prepare(
     )
 }
 
-fn parse(content: &str, max_rows: Option<usize>) -> Result<RecordBatch, ShardLoomError> {
+fn parse(
+    content: &str,
+    max_rows: Option<usize>,
+    batch_size: usize,
+) -> Result<Vec<RecordBatch>, ShardLoomError> {
+    let batch_size = batch_size.clamp(
+        1,
+        shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
+    );
     let read_plan = LocalSourceReadPlan::full("whole_json_typed_columns");
     let mut indices = BTreeMap::<String, usize>::new();
     let mut values = Vec::<ScalarValue>::new();
@@ -146,6 +158,7 @@ fn parse(content: &str, max_rows: Option<usize>) -> Result<RecordBatch, ShardLoo
                 builders.push(InferredTextColumnBuilder::new(
                     &name,
                     row_count - 1,
+                    batch_size,
                     CONTEXT,
                 )?);
                 values.push(ScalarValue::Null);
@@ -164,19 +177,39 @@ fn parse(content: &str, max_rows: Option<usize>) -> Result<RecordBatch, ShardLoo
             "JSON source must include at least one object row",
         ));
     }
-    let (fields, arrays): (Vec<_>, Vec<_>) = builders
+    let (fields, columns): (Vec<_>, Vec<_>) = builders
         .into_iter()
         .map(InferredTextColumnBuilder::finish)
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .unzip();
-    RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays).map_err(|error| {
-        unsupported_sql_error(&format!("{CONTEXT} failed to construct columns: {error}"))
-    })
+    let schema = Arc::new(Schema::new(fields));
+    let mut batches = (0..row_count.div_ceil(batch_size))
+        .map(|_| Vec::with_capacity(columns.len()))
+        .collect::<Vec<_>>();
+    for column in columns {
+        if column.len() != batches.len() {
+            return Err(unsupported_sql_error(
+                "JSON typed column batch counts differ",
+            ));
+        }
+        for (batch, array) in batches.iter_mut().zip(column) {
+            batch.push(array);
+        }
+    }
+    batches
+        .into_iter()
+        .map(|arrays| {
+            RecordBatch::try_new(Arc::clone(&schema), arrays).map_err(|error| {
+                unsupported_sql_error(&format!("{CONTEXT} failed to construct columns: {error}"))
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::{ordered_source_rows, parse_json_source_content};
     use super::*;
 
     fn reference(content: &str) -> Result<RecordBatch, ShardLoomError> {
@@ -210,11 +243,18 @@ mod tests {
             r#"[{"n":null},{"n":null}]"#,
             r#"{"id":18446744073709551615}"#,
         ] {
-            assert_eq!(
-                parse(content, None).unwrap(),
-                reference(content).unwrap(),
-                "{content}"
-            );
+            let reference = reference(content).unwrap();
+            for size in [1, 2, 3, 65_536] {
+                let actual = parse(content, None, size).unwrap();
+                assert_eq!(actual.len(), reference.num_rows().div_ceil(size));
+                for (i, batch) in actual.iter().enumerate() {
+                    assert_eq!(
+                        batch,
+                        &reference.slice(i * size, size.min(reference.num_rows() - i * size)),
+                        "{content}"
+                    );
+                }
+            }
         }
     }
 
@@ -239,14 +279,17 @@ mod tests {
             r#"[{"x":true},{"x":"true"}]"#,
         ] {
             assert!(reference(content).is_err(), "reference admits {content}");
-            assert!(parse(content, None).is_err(), "candidate admits {content}");
+            assert!(
+                parse(content, None, 2).is_err(),
+                "candidate admits {content}"
+            );
         }
         assert!(
-            parse(r#"[{"x":1},{"x":2}]"#, Some(1))
+            parse(r#"[{"x":1},{"x":2}]"#, Some(1), 1)
                 .unwrap_err()
                 .to_string()
                 .contains("at most 1")
         );
-        assert!(parse(r#"{"x":1}"#, Some(0)).is_err());
+        assert!(parse(r#"{"x":1}"#, Some(0), 1).is_err());
     }
 }
