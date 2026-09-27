@@ -3688,7 +3688,9 @@ impl VortexIngestSourceData {
     }
 
     fn source_read_buffer_carry_status(&self) -> &'static str {
-        if self.columnar_source_preserved {
+        if self.materialization_layout == "whole_json_typed_columns_with_batched_writer" {
+            "read_once_buffer_carried_to_text_parser"
+        } else if self.columnar_source_preserved {
             if self.source_fingerprint.content_performed {
                 "streamed_source_fingerprint_reader_reopens_columnar_source"
             } else {
@@ -3708,7 +3710,9 @@ impl VortexIngestSourceData {
     }
 
     fn source_read_mmap_eligibility_status(&self) -> &'static str {
-        if self.columnar_source_preserved {
+        if self.materialization_layout == "whole_json_typed_columns_with_batched_writer" {
+            "not_used_owned_text_buffer_default"
+        } else if self.columnar_source_preserved {
             "not_used_columnar_reader_owns_buffer_lifetime"
         } else {
             "not_used_owned_text_buffer_default"
@@ -47134,11 +47138,23 @@ mod tests {
         let request = vortex_ingest_reuse_request(source.clone(), target.clone(), false);
         let report = prepared_vortex_ingest_report(run_vortex_prepare(request).unwrap());
         assert_eq!(report.vortex_report.row_count, 2);
+        let fields = field_map(report.fields());
         assert_field_eq(
-            &field_map(report.fields()),
+            &fields,
             "source_state_projection_pushdown_status",
             "not_requested_full_read",
         );
+        assert_field_eq(
+            &fields,
+            "source_read_buffer_carry_status",
+            "read_once_buffer_carried_to_text_parser",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_mmap_eligibility_status",
+            "not_used_owned_text_buffer_default",
+        );
+        assert_field_eq(&fields, "source_content_fingerprint_performed", "true");
         assert_eq!(
             report.source.materialization_layout,
             "whole_json_typed_columns_with_batched_writer"
