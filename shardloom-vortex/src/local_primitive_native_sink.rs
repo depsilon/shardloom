@@ -363,7 +363,10 @@ impl NativeSinkPlan {
                     .blocking(runtime)
                     .writer(&mut output.file, self.dtype.clone());
                 if !self.metadata_pruned && self.row_count > 0 {
-                    for array in self.arrays(file, runtime, SCAN_ROWS)? {
+                    let arrays = self.arrays(file, runtime, SCAN_ROWS)?;
+                    #[cfg(test)]
+                    let arrays = overlap_timing::instrument(arrays);
+                    for array in arrays {
                         let array = array?;
                         arrays_read += 1;
                         max_rows = max_rows.max(array.len());
@@ -390,19 +393,30 @@ impl NativeSinkPlan {
                         // File editions exclude lazy filter/slice/expression arrays.
                         // Preserve serializable encoded batches; only pending native
                         // work is completed into provider-owned canonical buffers.
+                        #[cfg(test)]
+                        let started = overlap_timing::clock();
                         let (array, _) = native_flat_layout::complete_for_serialization(
                             array,
                             &allowed_encodings,
                             &mut context,
                         )
                         .map_err(vortex_error)?;
+                        #[cfg(test)]
+                        overlap_timing::record("serialization_completion", started);
                         rows_written = rows_written
                             .checked_add(usize_to_u64(array.len())?)
                             .ok_or_else(|| sink_error("native sink row count overflow"))?;
                         native_bytes = native_bytes
                             .checked_add(array.nbytes())
                             .ok_or_else(|| sink_error("native sink logical byte overflow"))?;
+                        #[cfg(test)]
+                        let started = overlap_timing::clock();
                         writer.push(array).map_err(vortex_error)?;
+                        #[cfg(test)]
+                        {
+                            overlap_timing::record("writer_push", started);
+                            overlap_timing::buffered(writer.buffered_bytes());
+                        }
                         arrays_submitted += 1;
                         if self.limit == Some(rows_written) {
                             stopped_at_limit = true;
@@ -410,7 +424,11 @@ impl NativeSinkPlan {
                         }
                     }
                 }
+                #[cfg(test)]
+                let started = overlap_timing::clock();
                 let summary = writer.finish().map_err(vortex_error)?;
+                #[cfg(test)]
+                overlap_timing::record("writer_finish", started);
                 if summary.row_count() != rows_written
                     || summary.footer().approx_byte_size().is_none_or(|bytes| {
                         u64::try_from(bytes).unwrap_or(u64::MAX) > metadata_bytes
@@ -420,6 +438,8 @@ impl NativeSinkPlan {
                         "native output row count or footer exceeded admission",
                     ));
                 }
+                #[cfg(test)]
+                let started = overlap_timing::clock();
                 output.file.sync_all().map_err(vortex_error)?;
                 let reopened = runtime
                     .block_on(session.open_options().open_path(&output.temporary))
@@ -429,11 +449,17 @@ impl NativeSinkPlan {
                         "native output dtype or row count validation failed",
                     ));
                 }
+                #[cfg(test)]
+                overlap_timing::record("sync_and_reopen", started);
                 Ok(())
             })?;
+        #[cfg(test)]
+        let started = overlap_timing::clock();
         let checksum = output.checksum()?;
         self.source.validate_generation()?;
         output.commit()?;
+        #[cfg(test)]
+        overlap_timing::record("checksum_and_commit", started);
         // An unfiltered footer proves the pre-limit count without reading all
         // rows. Otherwise early limit termination proves only the matches
         // already observed; exhausting the stream proves the exact count.
@@ -624,6 +650,10 @@ fn sink_error(message: &str) -> ShardLoomError {
         "native array sink: {message}; no fallback execution was attempted"
     ))
 }
+
+#[cfg(test)]
+#[path = "local_primitive_native_sink_overlap_timing.rs"]
+mod overlap_timing;
 
 #[cfg(test)]
 #[path = "local_primitive_native_sink_tests.rs"]

@@ -92,9 +92,13 @@ impl Fixture {
         Self(path)
     }
     fn source(&self, rows: usize) -> PathBuf {
+        self.source_with_padding(rows, 0)
+    }
+    fn source_with_padding(&self, rows: usize, padding: usize) -> PathBuf {
         let path = self.0.join("source.vortex");
         let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
         let session = VortexSession::default().with_handle(runtime.handle());
+        let suffix = "x".repeat(padding);
         let array = StructArray::new(
             ["shipment_sequence", "priority", "destination"].into(),
             vec![
@@ -103,10 +107,9 @@ impl Fixture {
                     (0..rows).map(|index| i64::try_from(index % 97).unwrap() - 48),
                 )
                 .into_array(),
-                VarBinViewArray::from_iter_nullable_str(
-                    (0..rows)
-                        .map(|index| (!index.is_multiple_of(7)).then(|| format!("港-{index}"))),
-                )
+                VarBinViewArray::from_iter_nullable_str((0..rows).map(|index| {
+                    (!index.is_multiple_of(7)).then(|| format!("港-{index}{suffix}"))
+                }))
                 .into_array(),
             ],
             rows,
@@ -130,6 +133,9 @@ impl Fixture {
         )
     }
 }
+
+#[path = "local_primitive_native_sink_overlap_screen.rs"]
+mod overlap_screen;
 impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
