@@ -244,45 +244,39 @@ the ledger.
 
 ## Planned
 
-September 27 scope override: the whole-file JSON C7 change and authorized 0.3.1
-publication/deployment train are complete; their closure is recorded in the
-[completed ledger](phased-execution-completed-ledger.md).
-The remaining authorized work is the subsequent format comparison:
-create an ordinary Vortex version of the resident hits Parquet source, preserving
-logical schema, column order, row order and values without ShardLoom-derived
-columns. Measure the public Parquet and Vortex preparation routes and query
-behavior sequentially, with storage guards and verified cleanup. Vortex preparation
-currently preserves the input layout through metadata admission or byte copy;
-report that distinction from Parquet's optimized preparation. Charge the one-time
-fixture conversion separately. The [comparison plan](plain-vortex-format-comparison-2026-09-27.md)
-freezes the source, validation, timing and cleanup boundaries. The seven remaining performance candidates stay
-queued; this comparison does not resume their implementation.
+September 27 scope override: the whole-file JSON C7 change, 0.3.1 publication,
+authorized format pulse and public I/O handoff repairs are complete. Their
+closure is recorded in the [completed ledger](phased-execution-completed-ledger.md).
+[PR #1479](https://github.com/depsilon/shardloom/pull/1479) merged at
+`6495a715a50494230303748a5484d83a375e15d4` after all 40 checks passed.
+The maintainer subsequently authorized another version bump/deployment train.
+Keep the seven optimization candidates, interrupted optimized-reference lane and
+large text-format performance tests paused. The shared all-I/O layout policy
+remains follow-up: native Vortex preparation preserves existing input layout.
 
-During the comparison the maintainer narrowed performance measurement to a single
-baseline pass, added Vortex/Parquet/Arrow IPC query-result exports, and then
-authorized fixing discovered I/O integration issues across exposed format options.
-The [public I/O repair](public-io-route-repair-2026-09-27.md) is attached to existing
-PERF-12/public-call and CG-21 workflow obligations. Complete these shared-boundary
-fixes and their correctness checks before continuing the remaining baseline cases;
-do not restart the seven optimization experiments or a repeated benchmark campaign.
-
-After the plain-Vortex lane completed, the maintainer paused full-size testing
-and prioritized the native input/operator/output handoffs in the same I/O repair.
-Inspect saved profiles and repair redundant dictionary/evidence work through
-existing Vortex providers, preserving selection, ownership and the fast operator
-paths. After these fixes pass correctness/work-count and workspace checks, the
-maintainer authorized one fresh plain-Vortex lane with collection and binary
-exports. Regenerate only that fixture, retain prior evidence, run sequentially,
-and retire it after successful validation. The interrupted optimized-reference
-lane and large text-format testing remain paused.
-
-The handoff retry is complete: all 172 fresh plain-Vortex collection/export cases
-passed, with 104.73s collection and 106.16s Vortex-export totals across 43 queries.
-The regenerated fixture was byte-identical to the original and was retired after
-verified archival. See the [scoped comparison](plain-vortex-format-comparison-2026-09-27.md#handoff-retry-evidence).
-The coherent I/O repair and integration acceptance are tracked in
-[PR #1479](https://github.com/depsilon/shardloom/pull/1479). Keep unrelated candidates
-and the interrupted optimized-reference lane paused.
+- [ ] `RELEASE-032` publish and verify the 0.3.2 technical-preview patch train.
+  - Scope: release packaging of the merged PERF-12/CG-21 I/O repair; no new
+    implementation phase or competitive gate. CG-1 through CG-23 remain visible
+    in the existing track and retain their current completion boundaries.
+  - ShardLoom technique review: preserve the shared Vortex-native runtime,
+    metadata-first execution, capillary/PulseWeave resource policy and route timing
+    fields. Evidence-tier controls separate pre-bump performance, exact versioned
+    source validation and channel installation. This step adds no runtime policy.
+  - Execution checklist:
+    - [x] Merge the I/O repair with complete local and exact-head CI validation.
+    - [x] Prepare synchronized source/package versions and scoped release notes.
+    - [ ] Validate and merge the version-source PR.
+    - [ ] Publish and verify GitHub release assets, then TestPyPI, PyPI and Homebrew.
+    - [ ] Update proof-backed public status and verify the deployed website.
+    - [ ] Retire temporary release artifacts after retaining proof and move this
+      release item to the completed ledger.
+  - Evidence: [release notes](../release/v0.3.2-release-notes.md), exact source CI,
+    versioned artifact installation, checksums/SBOM/provenance and channel receipts.
+    No repeated full-size benchmark is required for the version-only change.
+  - Boundary: published-channel status stays at 0.3.1 until new channel proofs
+    pass. Deployment readiness stays pending until the actual production site is
+    verified. Internal Rust crates remain unpublished; technical-preview access
+    does not imply production readiness, broad parity or performance superiority.
 
 September 26 suggestion-intake override: 0.3.0 publication is complete in
 PR #1459. The maintainer supplied five performance packets and requested a concise
