@@ -248,7 +248,9 @@ September 27 scope override: finish and merge the whole-file JSON C7 PR,
 then complete the explicitly authorized 0.3.1 version/publication train and stop.
 The remaining performance candidates stay queued; do not resume them after publication.
 
-- [ ] Publish and verify the 0.3.1 technical-preview version train after the whole-file JSON PR.
+- [ ] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train after the whole-file JSON PR.
+  - Queue identifier only: `RELEASE-031` records the authorized release train;
+    it adds no implementation phase or competitive gate.
   - V1 scope classification: `required_for_v1`; existing selected package channels only.
   - Execution checklist:
     - [ ] Merge the accepted C7 whole-file JSON change with complete UAT and CI.
