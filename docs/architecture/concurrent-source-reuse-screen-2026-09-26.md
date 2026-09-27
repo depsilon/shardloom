@@ -73,3 +73,25 @@ frozen arrival trace and adequate tail samples after a candidate exists.
 
 No runtime throughput, latency, decode-reuse or production fairness claim follows
 from this design or source audit. Broader serving/operator obligations remain open.
+
+## Existing owned-source fanout screen
+
+Before creating a broker, compare the already-shipped owned-array handoff with
+four concurrent calls through one retained file-aggregate handle. Use the same
+fixture and P4 serving session. The request computes row count, nullable text
+count, exact integer DISTINCT and maximum text. Independent expected values come
+from the fixture generator. Mutable aggregate state remains per execution.
+
+The shared-producer arm charges the complete file projection, bounded owned-source
+construction, consumer preparation, all four complete aggregate reports and
+producer/source-owner drop. The control reuses its already-prepared file handle;
+it does not pay another file open or lowering per cohort. Both use the same native
+aggregate family. Preserve one warmup and five measured pairs in alternating
+order. All output values are checked outside the native cohort clock, and report
+drop is separately timed. This is an explicit composed workflow, not automatic
+query coalescing or decoded-value sharing: owned arrays may retain encoded children.
+
+Also verify that one pre-cancelled consumer leaves three peers and subsequent
+execution successful, then drop every owner and require zero reservations and
+exact temporary-directory cleanup. A positive result would describe a use of the
+existing API, not a new runtime optimization or production serving-tail proof.

@@ -1,6 +1,9 @@
 //! Bounded release-only attribution screen for concurrent readers of one retained source.
 //! This measures the existing path only; it adds no source cache or sharing runtime behavior.
 
+#[path = "resident_source_fanout_bench.rs"]
+mod fanout;
+
 use super::*;
 use futures::future::BoxFuture;
 use serde_json::{Value, json};
