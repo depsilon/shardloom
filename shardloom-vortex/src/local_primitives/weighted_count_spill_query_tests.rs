@@ -31,6 +31,8 @@ struct Fixture {
     rows: Vec<(i64, String, u64)>,
 }
 
+#[path = "weighted_count_spill_owner_bench.rs"]
+mod owner_bench;
 #[path = "prepared_spill_queue_tests.rs"]
 mod prepared_queue;
 impl Fixture {

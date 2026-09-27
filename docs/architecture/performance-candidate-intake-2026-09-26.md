@@ -27,7 +27,9 @@ producer is [dropped for the measured concurrent workflow](concurrent-source-reu
 the existing explicit owned-array API remains available. C2.a's
 [block-bound numeric recipes are retained](executable-block-recipes-screen-2026-09-27.md)
 with 18.34% lower best complete Q10 time in the initial screen and Full43
-regression acceptance. R5.b buffer ownership transfer is next. The
+regression acceptance. R5.b's [borrowed spill predecessor is retained](spill-key-owner-screen-2026-09-27.md):
+50% fewer merge-head copied bytes and 3.41–6.29% lower paired public-call cohort
+time, with complete Full43 and native validation. R5.c workflow overlap is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

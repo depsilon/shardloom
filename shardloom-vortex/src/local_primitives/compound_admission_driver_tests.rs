@@ -14,10 +14,24 @@ use vortex::{
 struct Fixture(std::path::PathBuf);
 impl Fixture {
     fn new() -> Self {
-        let fixture = Self(std::env::temp_dir().join(format!(
-            "shardloom-compound-admission-{}-{}.vortex", std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
-        )));
+        Self::with_stamp(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        )
+    }
+
+    fn with_stamp(stamp: u128) -> Self {
+        static NEXT_FIXTURE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let sequence = NEXT_FIXTURE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Self::at_path(std::env::temp_dir().join(format!(
+            "shardloom-compound-admission-{}-{stamp}-{sequence}.vortex",
+            std::process::id(),
+        )))
+    }
+
+    fn at_path(path: std::path::PathBuf) -> Self {
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
         let arrays = [
@@ -34,8 +48,11 @@ impl Fixture {
         let mut output = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&fixture.0)
+            .open(&path)
             .unwrap();
+        // Cleanup owns only files created by this fixture. A create_new failure
+        // must not remove a file belonging to another test.
+        let fixture = Self(path);
         let mut writer = session
             .write_options()
             .with_strategy(
@@ -71,6 +88,23 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.0);
     }
+}
+
+#[test]
+fn compound_admission_fixtures_are_distinct_with_the_same_clock_tick() {
+    let first = Fixture::with_stamp(1);
+    let second = Fixture::with_stamp(1);
+    assert_ne!(first.0, second.0);
+    drop(first);
+    assert!(second.0.is_file());
+}
+
+#[test]
+fn failed_compound_fixture_creation_preserves_the_existing_owner() {
+    let fixture = Fixture::new();
+    let before = std::fs::read(&fixture.0).unwrap();
+    assert!(std::panic::catch_unwind(|| Fixture::at_path(fixture.0.clone())).is_err());
+    assert_eq!(std::fs::read(&fixture.0).unwrap(), before);
 }
 
 #[test]

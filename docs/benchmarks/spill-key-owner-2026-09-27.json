@@ -1,0 +1,4800 @@
+{
+  "schema_version": "shardloom.spill_owner_retention.v1",
+  "decision": "retain_borrowed_spill_predecessor",
+  "scope": "bounded exact native public-call pressured spill workflow; no production-scale, ingest, process-memory or ClickBench speedup claim",
+  "timing_boundary": "fresh public native call through complete report plus report release; fixture/request creation, oracle verification and observer output excluded",
+  "correctness": "72 complete spill results independently verified, certified and cleaned; 258 Full43 results checked against retained native references",
+  "spill_binaries": {
+    "control": {
+      "commit": "098934fcb6a9f9c3fe1d086c89445cdfd60a1d00",
+      "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-control-test-098934fcb6a9",
+      "sha256": "dd8363896310f5561db799622b7d96dc2de65b9ed8c4b4929c0b6dbcc8a86ae4",
+      "bytes": 89836896,
+      "build_command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_seconds": 62.59880458400585,
+      "source_tree_note": "clean committed source; benchmark observer only, runtime matches C2"
+    },
+    "candidate": {
+      "commit": "ef8e08f3e00569b81185e4cc6899abf6c2b9547e",
+      "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-candidate-test-ef8e08f3e005",
+      "sha256": "4ca9614c8d4524fc55a33451b922b4fd8a909b28cd183a6c6ddb81231e3ae91b",
+      "bytes": 89651008,
+      "build_command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_seconds": 58.43970933399396,
+      "source_tree_note": "clean committed source; borrowed native spill merge predecessor candidate"
+    }
+  },
+  "spill_source_identity_and_values": "Every matched sample agrees; all raw values, source hashes, byte lengths, counters and process receipts are in the packet",
+  "spill_admission": {
+    "control": {
+      "receipt": {
+        "role": "control",
+        "label": "admission",
+        "build": {
+          "commit": "098934fcb6a9f9c3fe1d086c89445cdfd60a1d00",
+          "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-control-test-098934fcb6a9",
+          "sha256": "dd8363896310f5561db799622b7d96dc2de65b9ed8c4b4929c0b6dbcc8a86ae4",
+          "bytes": 89836896,
+          "build_command": [
+            "cargo",
+            "test",
+            "--offline",
+            "--release",
+            "-p",
+            "shardloom-vortex",
+            "--features",
+            "release-user-surfaces",
+            "--lib",
+            "--no-run",
+            "--message-format=json"
+          ],
+          "build_seconds": 62.59880458400585,
+          "source_tree_note": "clean committed source; benchmark observer only, runtime matches C2"
+        },
+        "command": [
+          "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-control-test-098934fcb6a9",
+          "--ignored",
+          "--exact",
+          "local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "binary_before": {
+          "device": 16777233,
+          "inode": 92497682,
+          "size_bytes": 89836896,
+          "mtime_ns": 1790475042326370873,
+          "ctime_ns": 1790475042441252917
+        },
+        "binary_after": {
+          "device": 16777233,
+          "inode": 92497682,
+          "size_bytes": 89836896,
+          "mtime_ns": 1790475042326370873,
+          "ctime_ns": 1790475042441252917
+        },
+        "temporary": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/tmp-spill-owner-20260927-control-admission",
+        "temporary_empty": true,
+        "result": {
+          "returncode": 0,
+          "seconds": 1.3492425000004005,
+          "guard_failures": [],
+          "supervised_wall_seconds": 1.3782725839992054,
+          "native_peak_rss_bytes": 111116288,
+          "user_cpu_seconds": 0.540355,
+          "system_cpu_seconds": 0.248916,
+          "minor_page_faults": 8847,
+          "major_page_faults": 0,
+          "input_block_operations": 0,
+          "output_block_operations": 0,
+          "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+        },
+        "logs": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/spill-owner-20260927-control-admission"
+      },
+      "screen": {
+        "memory_scope": "process RSS includes fixture and oracle construction; native reservations are separate",
+        "samples": [
+          {
+            "case": "integer_text_repeated",
+            "certified": true,
+            "complete_nanos": 57399250,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000008xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000009xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000010xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000012xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000013xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000014xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000015xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000017xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000018xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000019xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000020xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000022xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000023xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000024xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000025xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000027xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000028xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000029xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000032xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 57387542,
+            "repetition": 1,
+            "report_drop_nanos": 11708,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 20910592,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895217,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_repeated",
+            "certified": true,
+            "complete_nanos": 51359916,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000008xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000009xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000010xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000012xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000013xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000014xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000015xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000017xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000018xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000019xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000020xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000022xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000023xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000024xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000025xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000027xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000028xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000029xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000032xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 51357375,
+            "repetition": 2,
+            "report_drop_nanos": 2541,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 20910592,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895217,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_repeated",
+            "certified": true,
+            "complete_nanos": 58197959,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000008xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000009xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000010xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000012xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000013xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000014xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000015xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000017xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000018xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000019xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000020xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000022xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000023xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000024xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000025xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000027xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000028xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000029xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000032xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 58195584,
+            "repetition": 3,
+            "report_drop_nanos": 2375,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 20910592,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895217,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "text_integer_repeated",
+            "certified": true,
+            "complete_nanos": 50905125,
+            "complete_values": [
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 50902709,
+            "repetition": 1,
+            "report_drop_nanos": 2416,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 20910592,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895217,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "text_integer_repeated",
+            "certified": true,
+            "complete_nanos": 48263291,
+            "complete_values": [
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 48260458,
+            "repetition": 2,
+            "report_drop_nanos": 2833,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 20910592,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895217,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "text_integer_repeated",
+            "certified": true,
+            "complete_nanos": 48938042,
+            "complete_values": [
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 48935583,
+            "repetition": 3,
+            "report_drop_nanos": 2459,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 20910592,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895217,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_unique",
+            "certified": true,
+            "complete_nanos": 99787000,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000035xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000040xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000045xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000050xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000055xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000060xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000065xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000070xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000075xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000080xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000085xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000090xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000095xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000105xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000110xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000115xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000120xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000125xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 64,
+            "public_call_nanos": 99783500,
+            "repetition": 1,
+            "report_drop_nanos": 3500,
+            "source_bytes": 12879712,
+            "source_rows": 131072,
+            "source_sha256": "cd04d1916e1b71e5aa8337f69e1a351d405f60a2a6f741d3c6eed4a00413ddb5",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 32,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 16646272,
+              "fitted_partition_selection": false,
+              "initial_run_records": 130049,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 682,
+              "max_run_key_bytes": 64,
+              "merge_head_text_bytes_copied": 33292544,
+              "merge_passes": 2,
+              "min_run_block_rows": 682,
+              "native_bytes_written": 23333288,
+              "native_records_written": 260098,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 17483832,
+              "peak_reserved_bytes": 7029009,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 8323136,
+              "source_batches": 32,
+              "source_records": 131072,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 131072,
+              "utf8_native_value_bytes": 10485760,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_unique",
+            "certified": true,
+            "complete_nanos": 92478625,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000035xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000040xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000045xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000050xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000055xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000060xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000065xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000070xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000075xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000080xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000085xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000090xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000095xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000105xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000110xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000115xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000120xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000125xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 64,
+            "public_call_nanos": 92475250,
+            "repetition": 2,
+            "report_drop_nanos": 3375,
+            "source_bytes": 12879712,
+            "source_rows": 131072,
+            "source_sha256": "cd04d1916e1b71e5aa8337f69e1a351d405f60a2a6f741d3c6eed4a00413ddb5",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 32,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 16646272,
+              "fitted_partition_selection": false,
+              "initial_run_records": 130049,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 682,
+              "max_run_key_bytes": 64,
+              "merge_head_text_bytes_copied": 33292544,
+              "merge_passes": 2,
+              "min_run_block_rows": 682,
+              "native_bytes_written": 23333288,
+              "native_records_written": 260098,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 17483832,
+              "peak_reserved_bytes": 7029009,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 8323136,
+              "source_batches": 32,
+              "source_records": 131072,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 131072,
+              "utf8_native_value_bytes": 10485760,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_unique",
+            "certified": true,
+            "complete_nanos": 92227583,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000035xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000040xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000045xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000050xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000055xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000060xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000065xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000070xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000075xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000080xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000085xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000090xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000095xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000105xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000110xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000115xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000120xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000125xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 64,
+            "public_call_nanos": 92224292,
+            "repetition": 3,
+            "report_drop_nanos": 3291,
+            "source_bytes": 12879712,
+            "source_rows": 131072,
+            "source_sha256": "cd04d1916e1b71e5aa8337f69e1a351d405f60a2a6f741d3c6eed4a00413ddb5",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 32,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 16646272,
+              "fitted_partition_selection": false,
+              "initial_run_records": 130049,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 682,
+              "max_run_key_bytes": 64,
+              "merge_head_text_bytes_copied": 33292544,
+              "merge_passes": 2,
+              "min_run_block_rows": 682,
+              "native_bytes_written": 23333288,
+              "native_records_written": 260098,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 17483832,
+              "peak_reserved_bytes": 7029009,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 8323136,
+              "source_batches": 32,
+              "source_records": 131072,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 131072,
+              "utf8_native_value_bytes": 10485760,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          }
+        ],
+        "schema_version": "shardloom.spill_key_owner_screen.v1",
+        "timing_boundary": "fresh public native call through complete report plus report release; fixture/request creation, oracle verification and observer output excluded"
+      }
+    },
+    "candidate": {
+      "receipt": {
+        "role": "candidate",
+        "label": "admission",
+        "build": {
+          "commit": "ef8e08f3e00569b81185e4cc6899abf6c2b9547e",
+          "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-candidate-test-ef8e08f3e005",
+          "sha256": "4ca9614c8d4524fc55a33451b922b4fd8a909b28cd183a6c6ddb81231e3ae91b",
+          "bytes": 89651008,
+          "build_command": [
+            "cargo",
+            "test",
+            "--offline",
+            "--release",
+            "-p",
+            "shardloom-vortex",
+            "--features",
+            "release-user-surfaces",
+            "--lib",
+            "--no-run",
+            "--message-format=json"
+          ],
+          "build_seconds": 58.43970933399396,
+          "source_tree_note": "clean committed source; borrowed native spill merge predecessor candidate"
+        },
+        "command": [
+          "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-candidate-test-ef8e08f3e005",
+          "--ignored",
+          "--exact",
+          "local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "binary_before": {
+          "device": 16777233,
+          "inode": 92501455,
+          "size_bytes": 89651008,
+          "mtime_ns": 1790475687638273978,
+          "ctime_ns": 1790475687737698144
+        },
+        "binary_after": {
+          "device": 16777233,
+          "inode": 92501455,
+          "size_bytes": 89651008,
+          "mtime_ns": 1790475687638273978,
+          "ctime_ns": 1790475687737698144
+        },
+        "temporary": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/tmp-spill-owner-20260927-candidate-admission",
+        "temporary_empty": true,
+        "result": {
+          "returncode": 0,
+          "seconds": 1.338204792002216,
+          "guard_failures": [],
+          "supervised_wall_seconds": 1.3680981670040637,
+          "native_peak_rss_bytes": 111149056,
+          "user_cpu_seconds": 0.513501,
+          "system_cpu_seconds": 0.24254699999999998,
+          "minor_page_faults": 8863,
+          "major_page_faults": 0,
+          "input_block_operations": 0,
+          "output_block_operations": 0,
+          "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+        },
+        "logs": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/spill-owner-20260927-candidate-admission"
+      },
+      "screen": {
+        "memory_scope": "process RSS includes fixture and oracle construction; native reservations are separate",
+        "samples": [
+          {
+            "case": "integer_text_repeated",
+            "certified": true,
+            "complete_nanos": 56026000,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000008xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000009xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000010xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000012xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000013xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000014xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000015xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000017xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000018xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000019xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000020xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000022xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000023xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000024xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000025xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000027xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000028xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000029xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000032xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 56013625,
+            "repetition": 1,
+            "report_drop_nanos": 12375,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 10455296,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895363,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_repeated",
+            "certified": true,
+            "complete_nanos": 48727625,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000008xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000009xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000010xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000012xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000013xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000014xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000015xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000017xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000018xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000019xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000020xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000022xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000023xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000024xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000025xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000027xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000028xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000029xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000032xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 48725167,
+            "repetition": 2,
+            "report_drop_nanos": 2458,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 10455296,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895363,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_repeated",
+            "certified": true,
+            "complete_nanos": 45788583,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000008xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000009xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000010xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000012xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000013xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000014xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000015xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000017xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000018xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000019xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000020xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000022xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000023xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000024xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000025xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000027xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000028xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000029xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000032xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 45786208,
+            "repetition": 3,
+            "report_drop_nanos": 2375,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 10455296,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895363,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "text_integer_repeated",
+            "certified": true,
+            "complete_nanos": 48634542,
+            "complete_values": [
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 48632334,
+            "repetition": 1,
+            "report_drop_nanos": 2208,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 10455296,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895363,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "text_integer_repeated",
+            "certified": true,
+            "complete_nanos": 50286375,
+            "complete_values": [
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 50284208,
+            "repetition": 2,
+            "report_drop_nanos": 2167,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 10455296,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895363,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "text_integer_repeated",
+            "certified": true,
+            "complete_nanos": 48202500,
+            "complete_values": [
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000001xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000002xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000003xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 7,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000004xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 9223372036854775807,
+                "frequency": 13,
+                "label_renamed": "k0000005xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -7,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": 0,
+                "frequency": 13,
+                "label_renamed": "k0000006xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 128,
+            "public_call_nanos": 48200250,
+            "repetition": 3,
+            "report_drop_nanos": 2250,
+            "source_bytes": 10638984,
+            "source_rows": 65536,
+            "source_sha256": "be8e63ab7ce9fb5032f81e837bdcf40b87c405814f032e43b8b01b0f9bd66515",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 16,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 10455296,
+              "fitted_partition_selection": false,
+              "initial_run_records": 40841,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 409,
+              "max_run_key_bytes": 128,
+              "merge_head_text_bytes_copied": 10455296,
+              "merge_passes": 2,
+              "min_run_block_rows": 409,
+              "native_bytes_written": 12601416,
+              "native_records_written": 81682,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 9481176,
+              "peak_reserved_bytes": 6895363,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 653568,
+              "source_batches": 16,
+              "source_records": 65536,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 65536,
+              "utf8_native_value_bytes": 9437184,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_unique",
+            "certified": true,
+            "complete_nanos": 96894542,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000035xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000040xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000045xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000050xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000055xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000060xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000065xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000070xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000075xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000080xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000085xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000090xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000095xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000105xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000110xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000115xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000120xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000125xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 64,
+            "public_call_nanos": 96891125,
+            "repetition": 1,
+            "report_drop_nanos": 3417,
+            "source_bytes": 12879712,
+            "source_rows": 131072,
+            "source_sha256": "cd04d1916e1b71e5aa8337f69e1a351d405f60a2a6f741d3c6eed4a00413ddb5",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 32,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 16646272,
+              "fitted_partition_selection": false,
+              "initial_run_records": 130049,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 682,
+              "max_run_key_bytes": 64,
+              "merge_head_text_bytes_copied": 16646272,
+              "merge_passes": 2,
+              "min_run_block_rows": 682,
+              "native_bytes_written": 23333288,
+              "native_records_written": 260098,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 17483832,
+              "peak_reserved_bytes": 7029155,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 8323136,
+              "source_batches": 32,
+              "source_records": 131072,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 131072,
+              "utf8_native_value_bytes": 10485760,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_unique",
+            "certified": true,
+            "complete_nanos": 89942293,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000035xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000040xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000045xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000050xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000055xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000060xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000065xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000070xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000075xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000080xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000085xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000090xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000095xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000105xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000110xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000115xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000120xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000125xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 64,
+            "public_call_nanos": 89938584,
+            "repetition": 2,
+            "report_drop_nanos": 3709,
+            "source_bytes": 12879712,
+            "source_rows": 131072,
+            "source_sha256": "cd04d1916e1b71e5aa8337f69e1a351d405f60a2a6f741d3c6eed4a00413ddb5",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 32,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 16646272,
+              "fitted_partition_selection": false,
+              "initial_run_records": 130049,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 682,
+              "max_run_key_bytes": 64,
+              "merge_head_text_bytes_copied": 16646272,
+              "merge_passes": 2,
+              "min_run_block_rows": 682,
+              "native_bytes_written": 23333288,
+              "native_records_written": 260098,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 17483832,
+              "peak_reserved_bytes": 7029155,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 8323136,
+              "source_batches": 32,
+              "source_records": 131072,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 131072,
+              "utf8_native_value_bytes": 10485760,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          },
+          {
+            "case": "integer_text_unique",
+            "certified": true,
+            "complete_nanos": 87675167,
+            "complete_values": [
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000030xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000035xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000040xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000045xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000050xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000055xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000060xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000065xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000070xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000075xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000080xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000085xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000090xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000095xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000105xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000110xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000115xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000120xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "cohort_renamed": -9223372036854775808,
+                "frequency": 1,
+                "label_renamed": "k0000125xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              }
+            ],
+            "key_width": 64,
+            "public_call_nanos": 87671667,
+            "repetition": 3,
+            "report_drop_nanos": 3500,
+            "source_bytes": 12879712,
+            "source_rows": 131072,
+            "source_sha256": "cd04d1916e1b71e5aa8337f69e1a351d405f60a2a6f741d3c6eed4a00413ddb5",
+            "spill_evidence": {
+              "buffer_bytes": 1048576,
+              "buffer_rows": 32768,
+              "committed_weight": 0,
+              "deferred_weight": 0,
+              "dictionary_batches": 32,
+              "drained_epochs": 0,
+              "encoded_text_bytes_copied": 16646272,
+              "fitted_partition_selection": false,
+              "initial_run_records": 130049,
+              "max_admitted_key_bytes": 65536,
+              "max_run_block_rows": 682,
+              "max_run_key_bytes": 64,
+              "merge_head_text_bytes_copied": 16646272,
+              "merge_passes": 2,
+              "min_run_block_rows": 682,
+              "native_bytes_written": 23333288,
+              "native_records_written": 260098,
+              "owned_cleanup_completed": true,
+              "peak_disk_bytes": 17483832,
+              "peak_reserved_bytes": 7029155,
+              "runs_validated": 10,
+              "runs_written": 10,
+              "selection_text_bytes_copied": 8323136,
+              "source_batches": 32,
+              "source_records": 131072,
+              "source_text_bytes_copied": 8388608,
+              "source_text_bytes_copied_scope": "native_run_buffer_only;excludes_partition_owned_key_copies",
+              "source_weight": 131072,
+              "utf8_native_value_bytes": 10485760,
+              "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
+              "worker_jobs_completed": 0,
+              "worker_peak_jobs": 0,
+              "workers_created": 0
+            },
+            "workspace_empty": true
+          }
+        ],
+        "schema_version": "shardloom.spill_key_owner_screen.v1",
+        "timing_boundary": "fresh public native call through complete report plus report release; fixture/request creation, oracle verification and observer output excluded"
+      }
+    }
+  },
+  "spill_paired_cases": [
+    {
+      "case": "integer_text_repeated",
+      "complete_milliseconds": {
+        "control": [
+          50.320376,
+          47.099125,
+          47.592792,
+          49.400333,
+          46.9245,
+          47.288709,
+          50.02575,
+          46.718041,
+          47.920083
+        ],
+        "candidate": [
+          45.927459,
+          44.791417,
+          44.339375,
+          46.910209,
+          46.986416,
+          49.033542,
+          46.353167,
+          45.166833,
+          50.083833
+        ]
+      },
+      "best_gain_percent": 5.0915362654011975,
+      "median_gain_percent": 2.6046486199002628
+    },
+    {
+      "case": "text_integer_repeated",
+      "complete_milliseconds": {
+        "control": [
+          47.865708,
+          53.875041,
+          54.291374,
+          48.220459,
+          51.545959,
+          53.196874,
+          49.079083,
+          50.955791,
+          51.969251
+        ],
+        "candidate": [
+          44.903751,
+          49.050917,
+          50.11425,
+          52.0925,
+          50.793292,
+          50.507917,
+          47.756375,
+          50.239959,
+          49.056792
+        ]
+      },
+      "best_gain_percent": 6.188056384750428,
+      "median_gain_percent": 2.7775387785490713
+    },
+    {
+      "case": "integer_text_unique",
+      "complete_milliseconds": {
+        "control": [
+          91.349418,
+          89.099458,
+          94.002916,
+          90.901,
+          92.050125,
+          96.518584,
+          92.469875,
+          92.920709,
+          102.491458
+        ],
+        "candidate": [
+          86.555167,
+          85.327625,
+          88.29825,
+          85.866834,
+          84.884126,
+          89.349042,
+          88.907791,
+          87.215791,
+          89.498041
+        ]
+      },
+      "best_gain_percent": 4.7310411248517426,
+      "median_gain_percent": 5.681941280876613
+    }
+  ],
+  "spill_paired_cohorts": [
+    {
+      "pair": 1,
+      "process_order": [
+        "control",
+        "candidate"
+      ],
+      "total_complete_milliseconds": {
+        "control": 575.496208,
+        "candidate": 539.308211
+      },
+      "gain_percent": 6.28813821827997
+    },
+    {
+      "pair": 2,
+      "process_order": [
+        "candidate",
+        "control"
+      ],
+      "total_complete_milliseconds": {
+        "candidate": 556.423878,
+        "control": 576.046543
+      },
+      "gain_percent": 3.4064374204568537
+    },
+    {
+      "pair": 3,
+      "process_order": [
+        "control",
+        "candidate"
+      ],
+      "total_complete_milliseconds": {
+        "control": 584.550041,
+        "candidate": 554.278582
+      },
+      "gain_percent": 5.178591545082101
+    }
+  ],
+  "spill_copy_reduction_percent": 50,
+  "spill_memory_note": "Operator reservation and quota unchanged; actual process RSS includes fixture/oracle construction and is not an exclusive operator measurement. Peak reservation varies slightly; no reservation or RSS reduction is claimed.",
+  "full43": {
+    "log_directory": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260927T022452941798Z",
+    "records": 258,
+    "scores": {
+      "complete": true,
+      "roles": {
+        "control": {
+          "complete": true,
+          "queries_passed": 43,
+          "query_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ],
+          "runs_completed": 129,
+          "runs_passed": 129,
+          "query_total_seconds": 67.69199342283537,
+          "hot_total_seconds": 68.11253154688166,
+          "all_raw_run_seconds": 211.8914467577124,
+          "geomean_seconds": 0.6422044180664896,
+          "hot_geomean_seconds": 0.6465067517145057,
+          "query_runs": [
+            [
+              0.024992083985125646,
+              0.019124625017866492,
+              0.01913383402279578
+            ],
+            [
+              0.06939874999807216,
+              0.06553887500194833,
+              0.06808204101980664
+            ],
+            [
+              0.9879132920177653,
+              0.958297874982236,
+              0.9691037080192473
+            ],
+            [
+              0.39691158299683593,
+              0.40692512498935685,
+              0.39315666697802953
+            ],
+            [
+              1.2965445419831667,
+              1.2736350829945877,
+              1.3344362920033745
+            ],
+            [
+              3.9163324999972247,
+              3.7089841249980964,
+              3.6075832920032553
+            ],
+            [
+              0.01994979099254124,
+              0.019674375012982637,
+              0.019833792001008987
+            ],
+            [
+              0.08123295797850005,
+              0.08102716598659754,
+              0.08050762501079589
+            ],
+            [
+              1.1476063340087421,
+              1.13957954099169,
+              1.1594072500010952
+            ],
+            [
+              4.097137708013179,
+              4.0135945419897325,
+              4.057418167009018
+            ],
+            [
+              0.7691250409989152,
+              0.7648286670155358,
+              0.7587435840105172
+            ],
+            [
+              1.5125796670035925,
+              1.5107571659900714,
+              1.4868839580158237
+            ],
+            [
+              0.6852266670030076,
+              0.6480495829891879,
+              0.672858667006949
+            ],
+            [
+              1.553936208016239,
+              1.4869548329734243,
+              1.464843416993972
+            ],
+            [
+              1.5318746249831747,
+              1.5058048329956364,
+              1.5091994999966118
+            ],
+            [
+              2.3798621249734424,
+              2.3248644580016844,
+              2.3068999999959487
+            ],
+            [
+              2.5387085840047803,
+              2.4616263750067446,
+              2.660544708982343
+            ],
+            [
+              0.3072502500144765,
+              0.29568937499425374,
+              0.27859158400679007
+            ],
+            [
+              5.131088750000345,
+              5.081738457985921,
+              5.013894917006837
+            ],
+            [
+              0.07643049999023788,
+              0.06939774999045767,
+              0.07047624999540858
+            ],
+            [
+              0.7697873750003055,
+              0.7825671669852454,
+              0.8669035409984645
+            ],
+            [
+              1.5763798329862766,
+              1.4868957079888787,
+              1.4574565000075381
+            ],
+            [
+              4.891384374990594,
+              5.216831583005842,
+              5.292559708002955
+            ],
+            [
+              1.1341055840021,
+              1.0465136249840725,
+              1.0369279169826768
+            ],
+            [
+              0.23287770798197016,
+              0.2771789580001496,
+              0.2710602500010282
+            ],
+            [
+              1.9675425830064341,
+              2.0135459170269314,
+              1.7235049589944538
+            ],
+            [
+              1.716923667001538,
+              1.923998207988916,
+              1.7108769589976873
+            ],
+            [
+              2.523463666992029,
+              2.5244316659809556,
+              2.452208957984112
+            ],
+            [
+              8.834786958992481,
+              8.753408750024391,
+              8.6200150839868
+            ],
+            [
+              0.224107333982829,
+              0.21651724999537691,
+              0.21619991699117236
+            ],
+            [
+              0.8654572499799542,
+              0.924833375000162,
+              0.8987349160015583
+            ],
+            [
+              1.1454289169923868,
+              1.0930105839797761,
+              1.0941368750063702
+            ],
+            [
+              2.223608708009124,
+              2.1665694169932976,
+              2.182492332998663
+            ],
+            [
+              6.166083083982812,
+              6.047321624995675,
+              5.97648841701448
+            ],
+            [
+              7.858715542010032,
+              6.801687250001123,
+              5.235469165985705
+            ],
+            [
+              0.40318108300562017,
+              0.38700095799867995,
+              0.36869491697871126
+            ],
+            [
+              0.20705941700725816,
+              0.18912033399101347,
+              0.18930487500620075
+            ],
+            [
+              0.11410166599671356,
+              0.11293704199488275,
+              0.1130219170008786
+            ],
+            [
+              0.10296958399703726,
+              0.10224087498500012,
+              0.1014732500188984
+            ],
+            [
+              0.6454339589981828,
+              0.656284875003621,
+              0.660400666994974
+            ],
+            [
+              0.09794941698783077,
+              0.09618254099041224,
+              0.09433208400150761
+            ],
+            [
+              0.08166095899650827,
+              0.08148925000568852,
+              0.07991212498745881
+            ],
+            [
+              0.10021058400161564,
+              0.08726454200223088,
+              0.08642662499914877
+            ]
+          ]
+        },
+        "candidate": {
+          "complete": true,
+          "queries_passed": 43,
+          "query_ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ],
+          "runs_completed": 129,
+          "runs_passed": 129,
+          "query_total_seconds": 67.8337244579161,
+          "hot_total_seconds": 68.08201962491148,
+          "all_raw_run_seconds": 208.71817570581334,
+          "geomean_seconds": 0.6386040479007064,
+          "hot_geomean_seconds": 0.6438581438793399,
+          "query_runs": [
+            [
+              0.62868370799697,
+              0.018765458022244275,
+              0.01881962502375245
+            ],
+            [
+              0.07547725000767969,
+              0.06463329200050794,
+              0.06962191598722711
+            ],
+            [
+              0.9581521669751965,
+              0.9628804580133874,
+              0.9554192920040805
+            ],
+            [
+              0.386734040977899,
+              0.3972825829987414,
+              0.39686470801825635
+            ],
+            [
+              1.249918624991551,
+              1.2684772910142783,
+              1.2652826660196297
+            ],
+            [
+              3.8363867920124903,
+              3.619357375020627,
+              3.604810541990446
+            ],
+            [
+              0.019913749973056838,
+              0.020072457991773263,
+              0.019873416982591152
+            ],
+            [
+              0.082457082986366,
+              0.0827299169905018,
+              0.08310029198764823
+            ],
+            [
+              1.1281712919881102,
+              1.1398137089854572,
+              1.1643774579861201
+            ],
+            [
+              4.103566999983741,
+              4.063757208001334,
+              4.098224749992369
+            ],
+            [
+              0.7563934159989003,
+              0.7580628329887986,
+              0.7592887500068173
+            ],
+            [
+              1.5275806249992456,
+              1.4998716249829158,
+              1.5009601670026314
+            ],
+            [
+              0.6472118749807123,
+              0.6513997500005644,
+              0.6580268749967217
+            ],
+            [
+              1.3431172500131652,
+              1.4832321249996312,
+              1.382029665983282
+            ],
+            [
+              1.341398708987981,
+              1.3771824169962201,
+              1.4963867499900516
+            ],
+            [
+              2.3520556669973303,
+              2.3326636670099106,
+              2.3568766250100452
+            ],
+            [
+              2.748673875001259,
+              2.589627583976835,
+              2.792978832992958
+            ],
+            [
+              0.28422025000327267,
+              0.29882570801419206,
+              0.28483545800554566
+            ],
+            [
+              4.966136875009397,
+              4.964372791000642,
+              5.032876000012038
+            ],
+            [
+              0.07415474997833371,
+              0.07202816699282266,
+              0.06998033399577253
+            ],
+            [
+              0.7200043750053737,
+              0.7362214160093572,
+              0.8547839999955613
+            ],
+            [
+              1.4357764999731444,
+              1.4362366669811308,
+              1.5297382500139065
+            ],
+            [
+              5.154939915984869,
+              5.119900999998208,
+              5.2862166249833535
+            ],
+            [
+              0.9818969579937402,
+              1.016464749991428,
+              1.0282508330128621
+            ],
+            [
+              0.2344427090138197,
+              0.24602862499887124,
+              0.2608790000085719
+            ],
+            [
+              2.0656135409954004,
+              1.7060792919946834,
+              1.708698332979111
+            ],
+            [
+              1.8171349170152098,
+              1.8044194589892868,
+              1.7522684579889756
+            ],
+            [
+              2.4782694159948733,
+              2.4880105830088723,
+              2.494085458019981
+            ],
+            [
+              8.642499375011539,
+              8.660782499995548,
+              8.614900917018531
+            ],
+            [
+              0.21496229100739583,
+              0.2160100839973893,
+              0.21670962500502355
+            ],
+            [
+              0.8591413340182044,
+              0.881041415996151,
+              0.8833927079977002
+            ],
+            [
+              1.2238966669829097,
+              1.0814193330006674,
+              1.0759325830149464
+            ],
+            [
+              2.17221916699782,
+              2.1549452919862233,
+              2.1458500000007916
+            ],
+            [
+              6.552579166018404,
+              6.406572750012856,
+              6.170055624999804
+            ],
+            [
+              6.211479749996215,
+              5.384112708008615,
+              5.245416582998587
+            ],
+            [
+              0.35048204101622105,
+              0.3850558339909185,
+              0.383942833985202
+            ],
+            [
+              0.19532433402491733,
+              0.1882389999809675,
+              0.19016866700258106
+            ],
+            [
+              0.1460580840066541,
+              0.1115397079847753,
+              0.11358679199474864
+            ],
+            [
+              0.1031657499843277,
+              0.10043141699861735,
+              0.10253174998797476
+            ],
+            [
+              0.6613665409968235,
+              0.6729969579901081,
+              0.6617921249999199
+            ],
+            [
+              0.09722254198277369,
+              0.09730787499574944,
+              0.09655037501943298
+            ],
+            [
+              0.08212791700498201,
+              0.08299995900597423,
+              0.08243816599133424
+            ],
+            [
+              0.08599875000072643,
+              0.08469166699796915,
+              0.08580012500169687
+            ]
+          ]
+        }
+      },
+      "score_scope": "full_43",
+      "per_query": [
+        {
+          "query": 1,
+          "seconds": {
+            "control": [
+              0.024992083985125646,
+              0.019124625017866492,
+              0.01913383402279578
+            ],
+            "candidate": [
+              0.62868370799697,
+              0.018765458022244275,
+              0.01881962502375245
+            ]
+          },
+          "median_seconds": {
+            "control": 0.01913383402279578,
+            "candidate": 0.01881962502375245
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.6036916240118444,
+            -0.00035916699562221766,
+            -0.00031420899904333055
+          ]
+        },
+        {
+          "query": 2,
+          "seconds": {
+            "control": [
+              0.06939874999807216,
+              0.06553887500194833,
+              0.06808204101980664
+            ],
+            "candidate": [
+              0.07547725000767969,
+              0.06463329200050794,
+              0.06962191598722711
+            ]
+          },
+          "median_seconds": {
+            "control": 0.06808204101980664,
+            "candidate": 0.06962191598722711
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.006078500009607524,
+            -0.0009055830014403909,
+            0.0015398749674204737
+          ]
+        },
+        {
+          "query": 3,
+          "seconds": {
+            "control": [
+              0.9879132920177653,
+              0.958297874982236,
+              0.9691037080192473
+            ],
+            "candidate": [
+              0.9581521669751965,
+              0.9628804580133874,
+              0.9554192920040805
+            ]
+          },
+          "median_seconds": {
+            "control": 0.9691037080192473,
+            "candidate": 0.9581521669751965
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.029761125042568892,
+            0.004582583031151444,
+            -0.01368441601516679
+          ]
+        },
+        {
+          "query": 4,
+          "seconds": {
+            "control": [
+              0.39691158299683593,
+              0.40692512498935685,
+              0.39315666697802953
+            ],
+            "candidate": [
+              0.386734040977899,
+              0.3972825829987414,
+              0.39686470801825635
+            ]
+          },
+          "median_seconds": {
+            "control": 0.39691158299683593,
+            "candidate": 0.39686470801825635
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.010177542018936947,
+            -0.009642541990615427,
+            0.003708041040226817
+          ]
+        },
+        {
+          "query": 5,
+          "seconds": {
+            "control": [
+              1.2965445419831667,
+              1.2736350829945877,
+              1.3344362920033745
+            ],
+            "candidate": [
+              1.249918624991551,
+              1.2684772910142783,
+              1.2652826660196297
+            ]
+          },
+          "median_seconds": {
+            "control": 1.2965445419831667,
+            "candidate": 1.2652826660196297
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.04662591699161567,
+            -0.005157791980309412,
+            -0.06915362598374486
+          ]
+        },
+        {
+          "query": 6,
+          "seconds": {
+            "control": [
+              3.9163324999972247,
+              3.7089841249980964,
+              3.6075832920032553
+            ],
+            "candidate": [
+              3.8363867920124903,
+              3.619357375020627,
+              3.604810541990446
+            ]
+          },
+          "median_seconds": {
+            "control": 3.7089841249980964,
+            "candidate": 3.619357375020627
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.07994570798473433,
+            -0.08962674997746944,
+            -0.0027727500128094107
+          ]
+        },
+        {
+          "query": 7,
+          "seconds": {
+            "control": [
+              0.01994979099254124,
+              0.019674375012982637,
+              0.019833792001008987
+            ],
+            "candidate": [
+              0.019913749973056838,
+              0.020072457991773263,
+              0.019873416982591152
+            ]
+          },
+          "median_seconds": {
+            "control": 0.019833792001008987,
+            "candidate": 0.019913749973056838
+          },
+          "paired_candidate_minus_control_seconds": [
+            -3.604101948440075e-05,
+            0.00039808297879062593,
+            3.9624981582164764e-05
+          ]
+        },
+        {
+          "query": 8,
+          "seconds": {
+            "control": [
+              0.08123295797850005,
+              0.08102716598659754,
+              0.08050762501079589
+            ],
+            "candidate": [
+              0.082457082986366,
+              0.0827299169905018,
+              0.08310029198764823
+            ]
+          },
+          "median_seconds": {
+            "control": 0.08102716598659754,
+            "candidate": 0.0827299169905018
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.0012241250078659505,
+            0.0017027510039042681,
+            0.0025926669768523425
+          ]
+        },
+        {
+          "query": 9,
+          "seconds": {
+            "control": [
+              1.1476063340087421,
+              1.13957954099169,
+              1.1594072500010952
+            ],
+            "candidate": [
+              1.1281712919881102,
+              1.1398137089854572,
+              1.1643774579861201
+            ]
+          },
+          "median_seconds": {
+            "control": 1.1476063340087421,
+            "candidate": 1.1398137089854572
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.019435042020631954,
+            0.000234167993767187,
+            0.004970207985024899
+          ]
+        },
+        {
+          "query": 10,
+          "seconds": {
+            "control": [
+              4.097137708013179,
+              4.0135945419897325,
+              4.057418167009018
+            ],
+            "candidate": [
+              4.103566999983741,
+              4.063757208001334,
+              4.098224749992369
+            ]
+          },
+          "median_seconds": {
+            "control": 4.057418167009018,
+            "candidate": 4.098224749992369
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.00642929197056219,
+            0.050162666011601686,
+            0.04080658298335038
+          ]
+        },
+        {
+          "query": 11,
+          "seconds": {
+            "control": [
+              0.7691250409989152,
+              0.7648286670155358,
+              0.7587435840105172
+            ],
+            "candidate": [
+              0.7563934159989003,
+              0.7580628329887986,
+              0.7592887500068173
+            ]
+          },
+          "median_seconds": {
+            "control": 0.7648286670155358,
+            "candidate": 0.7580628329887986
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.012731625000014901,
+            -0.006765834026737139,
+            0.0005451659963000566
+          ]
+        },
+        {
+          "query": 12,
+          "seconds": {
+            "control": [
+              1.5125796670035925,
+              1.5107571659900714,
+              1.4868839580158237
+            ],
+            "candidate": [
+              1.5275806249992456,
+              1.4998716249829158,
+              1.5009601670026314
+            ]
+          },
+          "median_seconds": {
+            "control": 1.5107571659900714,
+            "candidate": 1.5009601670026314
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.015000957995653152,
+            -0.010885541007155553,
+            0.014076208986807615
+          ]
+        },
+        {
+          "query": 13,
+          "seconds": {
+            "control": [
+              0.6852266670030076,
+              0.6480495829891879,
+              0.672858667006949
+            ],
+            "candidate": [
+              0.6472118749807123,
+              0.6513997500005644,
+              0.6580268749967217
+            ]
+          },
+          "median_seconds": {
+            "control": 0.672858667006949,
+            "candidate": 0.6513997500005644
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.038014792022295296,
+            0.0033501670113764703,
+            -0.014831792010227218
+          ]
+        },
+        {
+          "query": 14,
+          "seconds": {
+            "control": [
+              1.553936208016239,
+              1.4869548329734243,
+              1.464843416993972
+            ],
+            "candidate": [
+              1.3431172500131652,
+              1.4832321249996312,
+              1.382029665983282
+            ]
+          },
+          "median_seconds": {
+            "control": 1.4869548329734243,
+            "candidate": 1.382029665983282
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.21081895800307393,
+            -0.003722707973793149,
+            -0.08281375101068988
+          ]
+        },
+        {
+          "query": 15,
+          "seconds": {
+            "control": [
+              1.5318746249831747,
+              1.5058048329956364,
+              1.5091994999966118
+            ],
+            "candidate": [
+              1.341398708987981,
+              1.3771824169962201,
+              1.4963867499900516
+            ]
+          },
+          "median_seconds": {
+            "control": 1.5091994999966118,
+            "candidate": 1.3771824169962201
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.19047591599519365,
+            -0.12862241599941626,
+            -0.012812750006560236
+          ]
+        },
+        {
+          "query": 16,
+          "seconds": {
+            "control": [
+              2.3798621249734424,
+              2.3248644580016844,
+              2.3068999999959487
+            ],
+            "candidate": [
+              2.3520556669973303,
+              2.3326636670099106,
+              2.3568766250100452
+            ]
+          },
+          "median_seconds": {
+            "control": 2.3248644580016844,
+            "candidate": 2.3520556669973303
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.027806457976112142,
+            0.007799209008226171,
+            0.0499766250140965
+          ]
+        },
+        {
+          "query": 17,
+          "seconds": {
+            "control": [
+              2.5387085840047803,
+              2.4616263750067446,
+              2.660544708982343
+            ],
+            "candidate": [
+              2.748673875001259,
+              2.589627583976835,
+              2.792978832992958
+            ]
+          },
+          "median_seconds": {
+            "control": 2.5387085840047803,
+            "candidate": 2.748673875001259
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.20996529099647887,
+            0.12800120897009037,
+            0.13243412401061505
+          ]
+        },
+        {
+          "query": 18,
+          "seconds": {
+            "control": [
+              0.3072502500144765,
+              0.29568937499425374,
+              0.27859158400679007
+            ],
+            "candidate": [
+              0.28422025000327267,
+              0.29882570801419206,
+              0.28483545800554566
+            ]
+          },
+          "median_seconds": {
+            "control": 0.29568937499425374,
+            "candidate": 0.28483545800554566
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.02303000001120381,
+            0.00313633301993832,
+            0.006243873998755589
+          ]
+        },
+        {
+          "query": 19,
+          "seconds": {
+            "control": [
+              5.131088750000345,
+              5.081738457985921,
+              5.013894917006837
+            ],
+            "candidate": [
+              4.966136875009397,
+              4.964372791000642,
+              5.032876000012038
+            ]
+          },
+          "median_seconds": {
+            "control": 5.081738457985921,
+            "candidate": 4.966136875009397
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.16495187499094754,
+            -0.11736566698527895,
+            0.01898108300520107
+          ]
+        },
+        {
+          "query": 20,
+          "seconds": {
+            "control": [
+              0.07643049999023788,
+              0.06939774999045767,
+              0.07047624999540858
+            ],
+            "candidate": [
+              0.07415474997833371,
+              0.07202816699282266,
+              0.06998033399577253
+            ]
+          },
+          "median_seconds": {
+            "control": 0.07047624999540858,
+            "candidate": 0.07202816699282266
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.002275750011904165,
+            0.002630417002364993,
+            -0.000495915999636054
+          ]
+        },
+        {
+          "query": 21,
+          "seconds": {
+            "control": [
+              0.7697873750003055,
+              0.7825671669852454,
+              0.8669035409984645
+            ],
+            "candidate": [
+              0.7200043750053737,
+              0.7362214160093572,
+              0.8547839999955613
+            ]
+          },
+          "median_seconds": {
+            "control": 0.7825671669852454,
+            "candidate": 0.7362214160093572
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.04978299999493174,
+            -0.04634575097588822,
+            -0.012119541002903134
+          ]
+        },
+        {
+          "query": 22,
+          "seconds": {
+            "control": [
+              1.5763798329862766,
+              1.4868957079888787,
+              1.4574565000075381
+            ],
+            "candidate": [
+              1.4357764999731444,
+              1.4362366669811308,
+              1.5297382500139065
+            ]
+          },
+          "median_seconds": {
+            "control": 1.4868957079888787,
+            "candidate": 1.4362366669811308
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.14060333301313221,
+            -0.050659041007747874,
+            0.07228175000636838
+          ]
+        },
+        {
+          "query": 23,
+          "seconds": {
+            "control": [
+              4.891384374990594,
+              5.216831583005842,
+              5.292559708002955
+            ],
+            "candidate": [
+              5.154939915984869,
+              5.119900999998208,
+              5.2862166249833535
+            ]
+          },
+          "median_seconds": {
+            "control": 5.216831583005842,
+            "candidate": 5.154939915984869
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.26355554099427536,
+            -0.09693058300763369,
+            -0.006343083019601181
+          ]
+        },
+        {
+          "query": 24,
+          "seconds": {
+            "control": [
+              1.1341055840021,
+              1.0465136249840725,
+              1.0369279169826768
+            ],
+            "candidate": [
+              0.9818969579937402,
+              1.016464749991428,
+              1.0282508330128621
+            ]
+          },
+          "median_seconds": {
+            "control": 1.0465136249840725,
+            "candidate": 1.016464749991428
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.15220862600835972,
+            -0.030048874992644414,
+            -0.008677083969814703
+          ]
+        },
+        {
+          "query": 25,
+          "seconds": {
+            "control": [
+              0.23287770798197016,
+              0.2771789580001496,
+              0.2710602500010282
+            ],
+            "candidate": [
+              0.2344427090138197,
+              0.24602862499887124,
+              0.2608790000085719
+            ]
+          },
+          "median_seconds": {
+            "control": 0.2710602500010282,
+            "candidate": 0.24602862499887124
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.0015650010318495333,
+            -0.03115033300127834,
+            -0.010181249992456287
+          ]
+        },
+        {
+          "query": 26,
+          "seconds": {
+            "control": [
+              1.9675425830064341,
+              2.0135459170269314,
+              1.7235049589944538
+            ],
+            "candidate": [
+              2.0656135409954004,
+              1.7060792919946834,
+              1.708698332979111
+            ]
+          },
+          "median_seconds": {
+            "control": 1.9675425830064341,
+            "candidate": 1.708698332979111
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.09807095798896626,
+            -0.307466625032248,
+            -0.014806626015342772
+          ]
+        },
+        {
+          "query": 27,
+          "seconds": {
+            "control": [
+              1.716923667001538,
+              1.923998207988916,
+              1.7108769589976873
+            ],
+            "candidate": [
+              1.8171349170152098,
+              1.8044194589892868,
+              1.7522684579889756
+            ]
+          },
+          "median_seconds": {
+            "control": 1.716923667001538,
+            "candidate": 1.8044194589892868
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.10021125001367182,
+            -0.11957874899962917,
+            0.041391498991288245
+          ]
+        },
+        {
+          "query": 28,
+          "seconds": {
+            "control": [
+              2.523463666992029,
+              2.5244316659809556,
+              2.452208957984112
+            ],
+            "candidate": [
+              2.4782694159948733,
+              2.4880105830088723,
+              2.494085458019981
+            ]
+          },
+          "median_seconds": {
+            "control": 2.523463666992029,
+            "candidate": 2.4880105830088723
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.045194250997155905,
+            -0.03642108297208324,
+            0.04187650003586896
+          ]
+        },
+        {
+          "query": 29,
+          "seconds": {
+            "control": [
+              8.834786958992481,
+              8.753408750024391,
+              8.6200150839868
+            ],
+            "candidate": [
+              8.642499375011539,
+              8.660782499995548,
+              8.614900917018531
+            ]
+          },
+          "median_seconds": {
+            "control": 8.753408750024391,
+            "candidate": 8.642499375011539
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.19228758398094214,
+            -0.09262625002884306,
+            -0.005114166968269274
+          ]
+        },
+        {
+          "query": 30,
+          "seconds": {
+            "control": [
+              0.224107333982829,
+              0.21651724999537691,
+              0.21619991699117236
+            ],
+            "candidate": [
+              0.21496229100739583,
+              0.2160100839973893,
+              0.21670962500502355
+            ]
+          },
+          "median_seconds": {
+            "control": 0.21651724999537691,
+            "candidate": 0.2160100839973893
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.00914504297543317,
+            -0.0005071659979876131,
+            0.0005097080138511956
+          ]
+        },
+        {
+          "query": 31,
+          "seconds": {
+            "control": [
+              0.8654572499799542,
+              0.924833375000162,
+              0.8987349160015583
+            ],
+            "candidate": [
+              0.8591413340182044,
+              0.881041415996151,
+              0.8833927079977002
+            ]
+          },
+          "median_seconds": {
+            "control": 0.8987349160015583,
+            "candidate": 0.881041415996151
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.006315915961749852,
+            -0.043791959004011005,
+            -0.015342208003858104
+          ]
+        },
+        {
+          "query": 32,
+          "seconds": {
+            "control": [
+              1.1454289169923868,
+              1.0930105839797761,
+              1.0941368750063702
+            ],
+            "candidate": [
+              1.2238966669829097,
+              1.0814193330006674,
+              1.0759325830149464
+            ]
+          },
+          "median_seconds": {
+            "control": 1.0941368750063702,
+            "candidate": 1.0814193330006674
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.07846774999052286,
+            -0.011591250979108736,
+            -0.018204291991423815
+          ]
+        },
+        {
+          "query": 33,
+          "seconds": {
+            "control": [
+              2.223608708009124,
+              2.1665694169932976,
+              2.182492332998663
+            ],
+            "candidate": [
+              2.17221916699782,
+              2.1549452919862233,
+              2.1458500000007916
+            ]
+          },
+          "median_seconds": {
+            "control": 2.182492332998663,
+            "candidate": 2.1549452919862233
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.05138954101130366,
+            -0.011624125007074326,
+            -0.03664233299787156
+          ]
+        },
+        {
+          "query": 34,
+          "seconds": {
+            "control": [
+              6.166083083982812,
+              6.047321624995675,
+              5.97648841701448
+            ],
+            "candidate": [
+              6.552579166018404,
+              6.406572750012856,
+              6.170055624999804
+            ]
+          },
+          "median_seconds": {
+            "control": 6.047321624995675,
+            "candidate": 6.406572750012856
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.3864960820355918,
+            0.35925112501718104,
+            0.19356720798532479
+          ]
+        },
+        {
+          "query": 35,
+          "seconds": {
+            "control": [
+              7.858715542010032,
+              6.801687250001123,
+              5.235469165985705
+            ],
+            "candidate": [
+              6.211479749996215,
+              5.384112708008615,
+              5.245416582998587
+            ]
+          },
+          "median_seconds": {
+            "control": 6.801687250001123,
+            "candidate": 5.384112708008615
+          },
+          "paired_candidate_minus_control_seconds": [
+            -1.6472357920138165,
+            -1.4175745419925079,
+            0.009947417012881488
+          ]
+        },
+        {
+          "query": 36,
+          "seconds": {
+            "control": [
+              0.40318108300562017,
+              0.38700095799867995,
+              0.36869491697871126
+            ],
+            "candidate": [
+              0.35048204101622105,
+              0.3850558339909185,
+              0.383942833985202
+            ]
+          },
+          "median_seconds": {
+            "control": 0.38700095799867995,
+            "candidate": 0.383942833985202
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.05269904198939912,
+            -0.0019451240077614784,
+            0.015247917006490752
+          ]
+        },
+        {
+          "query": 37,
+          "seconds": {
+            "control": [
+              0.20705941700725816,
+              0.18912033399101347,
+              0.18930487500620075
+            ],
+            "candidate": [
+              0.19532433402491733,
+              0.1882389999809675,
+              0.19016866700258106
+            ]
+          },
+          "median_seconds": {
+            "control": 0.18930487500620075,
+            "candidate": 0.19016866700258106
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.011735082982340828,
+            -0.0008813340100459754,
+            0.0008637919963803142
+          ]
+        },
+        {
+          "query": 38,
+          "seconds": {
+            "control": [
+              0.11410166599671356,
+              0.11293704199488275,
+              0.1130219170008786
+            ],
+            "candidate": [
+              0.1460580840066541,
+              0.1115397079847753,
+              0.11358679199474864
+            ]
+          },
+          "median_seconds": {
+            "control": 0.1130219170008786,
+            "candidate": 0.11358679199474864
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.031956418009940535,
+            -0.0013973340101074427,
+            0.0005648749938700348
+          ]
+        },
+        {
+          "query": 39,
+          "seconds": {
+            "control": [
+              0.10296958399703726,
+              0.10224087498500012,
+              0.1014732500188984
+            ],
+            "candidate": [
+              0.1031657499843277,
+              0.10043141699861735,
+              0.10253174998797476
+            ]
+          },
+          "median_seconds": {
+            "control": 0.10224087498500012,
+            "candidate": 0.10253174998797476
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.000196165987290442,
+            -0.0018094579863827676,
+            0.0010584999690763652
+          ]
+        },
+        {
+          "query": 40,
+          "seconds": {
+            "control": [
+              0.6454339589981828,
+              0.656284875003621,
+              0.660400666994974
+            ],
+            "candidate": [
+              0.6613665409968235,
+              0.6729969579901081,
+              0.6617921249999199
+            ]
+          },
+          "median_seconds": {
+            "control": 0.656284875003621,
+            "candidate": 0.6617921249999199
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.01593258199864067,
+            0.016712082986487076,
+            0.0013914580049458891
+          ]
+        },
+        {
+          "query": 41,
+          "seconds": {
+            "control": [
+              0.09794941698783077,
+              0.09618254099041224,
+              0.09433208400150761
+            ],
+            "candidate": [
+              0.09722254198277369,
+              0.09730787499574944,
+              0.09655037501943298
+            ]
+          },
+          "median_seconds": {
+            "control": 0.09618254099041224,
+            "candidate": 0.09722254198277369
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.0007268750050570816,
+            0.0011253340053372085,
+            0.0022182910179253668
+          ]
+        },
+        {
+          "query": 42,
+          "seconds": {
+            "control": [
+              0.08166095899650827,
+              0.08148925000568852,
+              0.07991212498745881
+            ],
+            "candidate": [
+              0.08212791700498201,
+              0.08299995900597423,
+              0.08243816599133424
+            ]
+          },
+          "median_seconds": {
+            "control": 0.08148925000568852,
+            "candidate": 0.08243816599133424
+          },
+          "paired_candidate_minus_control_seconds": [
+            0.00046695800847373903,
+            0.0015107090002857149,
+            0.0025260410038754344
+          ]
+        },
+        {
+          "query": 43,
+          "seconds": {
+            "control": [
+              0.10021058400161564,
+              0.08726454200223088,
+              0.08642662499914877
+            ],
+            "candidate": [
+              0.08599875000072643,
+              0.08469166699796915,
+              0.08580012500169687
+            ]
+          },
+          "median_seconds": {
+            "control": 0.08726454200223088,
+            "candidate": 0.08580012500169687
+          },
+          "paired_candidate_minus_control_seconds": [
+            -0.014211834000889212,
+            -0.002572875004261732,
+            -0.0006264999974519014
+          ]
+        }
+      ]
+    },
+    "regression_screen_flags": [],
+    "regression_screen": "candidate best slower by both 10% and 150ms",
+    "scope": "complete regression coverage; ordinary ClickBench calls do not admit the changed explicit weighted-count spill path; no attributed suite speedup"
+  },
+  "regression_followups": [],
+  "binaries": {
+    "control": {
+      "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c2-candidate-cli-3dee8fc21504",
+      "sha256": "d6893ba09fd787576c01639727783609608d3d7ac4357557f6c7fe8ed2e1c707",
+      "commit": "3dee8fc2150424b08fbe2dce54609b7fe28b2b8f"
+    },
+    "candidate": {
+      "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-candidate-cli-ef8e08f3e005",
+      "sha256": "b4ffe44fe9e7b7fc0f60a6f4f9bcaa734dee96c0ec1437ef08c3043de5c80ad9",
+      "commit": "ef8e08f3e00569b81185e4cc6899abf6c2b9547e"
+    }
+  },
+  "source": {
+    "control": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+      "generation": {
+        "device": 16777233,
+        "inode": 92249574,
+        "size_bytes": 15682956116,
+        "mtime_ns": 1790441075431248571,
+        "ctime_ns": 1790441075431697695
+      }
+    },
+    "candidate": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+      "generation": {
+        "device": 16777233,
+        "inode": 92249574,
+        "size_bytes": 15682956116,
+        "mtime_ns": 1790441075431248571,
+        "ctime_ns": 1790441075431697695
+      }
+    }
+  },
+  "validation": [
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "started_utc": "2026-09-27T02:37:59.433584+00:00",
+      "exit_code": 0,
+      "seconds": 2.3112112090166193,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-final-fmt.log"
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_utc": "2026-09-27T02:38:01.745109+00:00",
+      "exit_code": 0,
+      "seconds": 0.23695229200529866,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-final-workspace-clippy.log"
+    },
+    {
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_utc": "2026-09-27T02:38:01.982280+00:00",
+      "exit_code": 0,
+      "seconds": 11.12167066600523,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-final-native-clippy.log"
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--workspace",
+        "--all-targets"
+      ],
+      "started_utc": "2026-09-27T02:38:13.104218+00:00",
+      "exit_code": 0,
+      "seconds": 2.780136292014504,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-final-workspace-tests.log"
+    },
+    {
+      "name": "native-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets"
+      ],
+      "started_utc": "2026-09-27T02:38:15.884607+00:00",
+      "exit_code": 0,
+      "seconds": 22.22927958299988,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5b-final-native-tests.log"
+    }
+  ],
+  "test_counts": {
+    "workspace-tests": {
+      "passed": 3425,
+      "ignored": 0
+    },
+    "native-tests": {
+      "passed": 1966,
+      "ignored": 18
+    }
+  },
+  "machine_context": {
+    "recorded_utc": "2026-09-27T02:24:00.674188+00:00",
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "cache_policy": "OS page caches were not flushed; sources freshly generated by each benchmark process; no cold-cache claim",
+    "other_host_work": "concurrent host work acknowledged by maintainer; all timing samples retained",
+    "commands": {
+      "os": {
+        "command": [
+          "sw_vers"
+        ],
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0\nBuildVersion:\t\t26A428\n"
+      },
+      "hardware": {
+        "command": [
+          "sysctl",
+          "-n",
+          "machdep.cpu.brand_string",
+          "hw.memsize",
+          "hw.ncpu"
+        ],
+        "stdout": "Apple M5\n17179869184\n10\n"
+      },
+      "rustc": {
+        "command": [
+          "rustc",
+          "-Vv"
+        ],
+        "stdout": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: aarch64-apple-darwin\nrelease: 1.98.0\nLLVM version: 22.1.8\n"
+      },
+      "cargo": {
+        "command": [
+          "cargo",
+          "-V"
+        ],
+        "stdout": "cargo 1.98.0 (797e8a9bc 2026-08-05)\n"
+      }
+    }
+  },
+  "validation_failure_and_repair": "Initial native suite had two existing admission-fixture failures: timestamp path collision and cleanup deleting the other owner. Same-stamp construction reproduces AlreadyExists deterministically. Test-only repair adds an atomic suffix and creates cleanup ownership only after exclusive creation; two focused regressions and the final suite verify it. Runtime benchmarks use unchanged production code at ef8e08f3; supplemental fixture patch is archived.",
+  "review": "Independent static review found no actionable issue in predecessor identity, block lifetime, corruption timing, cancellation or reservation release; focused tests supplement that review.",
+  "observer_corrections": "Preserved initial observer Sha256 formatting and test fixture iterator compile errors, plus successful repairs; CLI build succeeded, executable freeze selector corrected from package name to binary target without rebuild.",
+  "raw_evidence": {
+    "path": "docs/benchmarks/evidence/spill-key-owner-2026-09-27.json.gz",
+    "compressed_bytes": 4917490,
+    "compressed_sha256": "06f20f5da265ce80b047d37951b5dc5772daa3c15d601b9da75eff6733ab72c4",
+    "uncompressed_bytes": 45173388,
+    "uncompressed_sha256": "21bc190c8ccff40dec5d6c189f3d8437d72ca06c39a6f1e78efe2b395e9245e2",
+    "members": 1117
+  }
+}
