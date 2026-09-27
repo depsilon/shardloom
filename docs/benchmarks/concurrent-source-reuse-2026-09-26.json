@@ -190,6 +190,25 @@
     "control_median_nanos": 24909750,
     "shared_median_nanos": 25313583,
     "shared_median_slower_percent": 1.621184475958204,
+    "paired_shared_minus_control_nanos": [
+      2077958,
+      3013124,
+      -3143875,
+      993625,
+      -406375
+    ],
+    "paired_shared_slower_percent": [
+      7.868767808985178,
+      13.110775796162933,
+      -11.759819184843057,
+      4.085636167628248,
+      -1.6313893154286996
+    ],
+    "paired_shared_wins": 2,
+    "paired_shared_losses": 3,
+    "paired_median_delta_nanos": 993625,
+    "paired_median_slower_percent": 4.085636167628248,
+    "interpretation": "Mixed paired effects: two shared wins and three losses; no established repeatable advantage. Independent best/median comparisons are descriptive, not paired effects. Automatic routing is not adopted; existing explicit API remains available.",
     "complete_paired_results_verified_including_warmup": 48,
     "pre_admission_cancel_isolation_survivors": 3,
     "post_cancel_reexecution_verified": true
@@ -371,10 +390,10 @@
   "additional_validation_limitation": "Strict write-only Clippy found the existing unused test helper large_source_text_vortex_write_strategy in unchanged vortex_ingest.rs; write-only cargo check succeeds. Workspace and release-user-surfaces strict Clippy pass.",
   "raw_archive": {
     "path": "docs/benchmarks/evidence/concurrent-source-reuse-2026-09-26.json.gz",
-    "bytes": 177534,
-    "sha256": "f4649e990f144349d5b7fd7ed5586b95d500a002b4a38804fb69d283233bd69a",
-    "uncompressed_bytes": 990053,
-    "uncompressed_sha256": "05bd2a38d5eed76a94cf8b88c4626ce911c992e990c98d2bbc1c72c9e8f554bf",
+    "bytes": 177782,
+    "sha256": "d8a12438e0df633771c71e8c189ff6cc7b63515a3cd528b1396e786b04fe4c63",
+    "uncompressed_bytes": 990914,
+    "uncompressed_sha256": "386dcf6d6177ac9c9f36c1edceff87a5649d3a6d4516d5f6dffae18feb84f3e7",
     "member_count": 41
   }
 }

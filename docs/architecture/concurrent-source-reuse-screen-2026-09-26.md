@@ -130,9 +130,22 @@ file and owned-array paths, with producer construction charged to the shared arm
 | Retained file aggregate | 26.408 / 22.982 / 26.734 / 24.320 / 24.910 ms | 22.982 ms | 24.910 ms |
 | Eager owned-array producer | 28.486 / 25.995 / 23.590 / 25.314 / 24.503 ms | 23.590 ms | 25.314 ms |
 
-The shared arm has no measured win: its best cohort is 0.608 ms (2.65%) slower,
-and its median is 1.62% slower. This is a bounded ship/drop screen, not a claim of
-a stable regression percentage. All 48 paired aggregate outputs, including
+The shared arm wins two pairs and loses three. Preserve the pairing when assessing
+those effects:
+
+| Pair | Shared minus file cohort | Shared relative to file |
+| --- | ---: | ---: |
+| 1 | +2.078 ms | 7.87% slower |
+| 2 | +3.013 ms | 13.11% slower |
+| 3 | −3.144 ms | 11.76% faster |
+| 4 | +0.994 ms | 4.09% slower |
+| 5 | −0.406 ms | 1.63% faster |
+
+These five mixed pairs do not establish a repeatable advantage or a stable
+regression. Separately, the shared arm's best observed cohort is 0.608 ms (2.65%)
+slower than the control's best, and its median is 1.62% slower. Those independent
+summaries do not describe paired effects; the median paired delta is +0.994 ms.
+All 48 paired aggregate outputs, including
 warmup, matched all four independent expected values. Three peers and a later
 execution also succeeded after another consumer's **pre-admission cancellation**;
 the exact cancellation diagnostic was checked. Active-consumer cancellation is
@@ -142,7 +155,9 @@ Both screens ended with zero reservations, zero reservation denials and successf
 removal of their exact temporary directory. The source-read screen additionally
 checks zero active scoped I/O after every cohort.
 
-**Drop the eager pre-scan/fanout default for this measured workload.** The existing
+**Do not adopt an eager pre-scan/fanout default from this inconclusive screen.**
+The scoped ship/drop decision declines new automatic routing, not the observed
+individual wins or a possible benefit on other workloads. The existing
 explicit API remains available, including its R5.a memory benefit in other
 workflows. Repeated bytes alone do not justify a new broker. A streaming shared
 decoder, larger working set, cold reads and mixed-query arrival trace were not
