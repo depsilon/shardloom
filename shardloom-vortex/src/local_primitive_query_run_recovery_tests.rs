@@ -157,11 +157,10 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
                 _ => unreachable!(),
             }
         };
+        let error = cleanup(&sort, &aggregate).unwrap_err();
         assert!(
-            cleanup(&sort, &aggregate)
-                .unwrap_err()
-                .to_string()
-                .contains("cancelled")
+            error.to_string().contains("cancelled"),
+            "{namespace}: {error}"
         );
         assert!(AFTER_RECOVERY_REMOVE.with(|hook| hook.borrow().is_none()));
         // One run was removed, while the marker and remaining run are retained.

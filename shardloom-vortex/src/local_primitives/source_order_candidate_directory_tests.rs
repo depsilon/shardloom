@@ -371,3 +371,67 @@ fn interned_closed_admission_skips_later_key_expression_for_unknown_string() {
         serde_json::json!([{"label":"kept", "next":1, "uniques":1}])
     );
 }
+
+#[test]
+fn owned_closed_admission_skips_later_key_expression_for_unknown_strings() {
+    let request = VortexSimpleAggregateRequest::grouped(
+        vec![
+            ColumnRef::new("label").unwrap(),
+            ColumnRef::new("second").unwrap(),
+        ],
+        vec![crate::VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "rows".to_string(),
+        )],
+    )
+    .with_group_expressions(vec![
+        crate::VortexAggregateExpression::new(
+            "next".to_string(),
+            ColumnRef::new("number").unwrap(),
+            "add_offset",
+        )
+        .with_argument_offset(1),
+    ]);
+    let declared = vec![
+        "label".to_string(),
+        "second".to_string(),
+        "number".to_string(),
+    ];
+    let mut state =
+        GroupedAggregateStates::new(&request, Some(1), &declared, false, false).unwrap();
+    assert_eq!(state.group_key_indices.len(), 3);
+    state
+        .update(
+            &[
+                ["kept", "absent", "kept", "kept"]
+                    .map(|s| StatValue::Utf8(s.to_string()))
+                    .to_vec(),
+                ["known", "known", "unknown", "known"]
+                    .map(|s| StatValue::Utf8(s.to_string()))
+                    .to_vec(),
+                [0, u64::MAX, u64::MAX, 0].map(StatValue::UInt64).to_vec(),
+            ],
+            4,
+        )
+        .unwrap();
+    assert!(state.string_interner.values.is_empty());
+    assert_eq!(state.groups.len(), 1);
+    let (_, summary) = state.result_row_count_and_summary(Some(1)).unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        summary["values"],
+        serde_json::json!([{"label":"kept", "second":"known", "next":1, "rows":2}])
+    );
+    let error = state
+        .update_row(
+            &[
+                vec![StatValue::Utf8("kept".to_string())],
+                vec![StatValue::Utf8("known".to_string())],
+                vec![StatValue::UInt64(u64::MAX)],
+            ],
+            0,
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("overflow"));
+}

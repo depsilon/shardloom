@@ -25537,6 +25537,7 @@ struct GroupedAggregateStates<'a> {
     source_order_candidate_filter: source_order_candidate_filter::Work,
     source_order_limited_group_admission: bool,
     materialized_owned_group_keys: bool,
+    source_order_owned_group_strings: Option<rustc_hash::FxHashSet<std::sync::Arc<str>>>,
     general_direct_group_state_pre_reserved: bool,
     native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
@@ -28471,6 +28472,7 @@ impl<'a> GroupedAggregateStates<'a> {
             source_order_candidate_filter: source_order_candidate_filter::Work::default(),
             source_order_limited_group_admission: false,
             materialized_owned_group_keys: false,
+            source_order_owned_group_strings: None,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
             native_numeric_accessor_work: NativeNumericAccessorWork::default(),
@@ -28496,13 +28498,14 @@ impl<'a> GroupedAggregateStates<'a> {
             // used at insertion before checking a direct consumer's existing ID.
             // A direct-only state must keep the existing interner's early miss:
             // later key expressions need not execute for an unknown string.
-            if self.materialized_owned_group_keys {
-                let owned_key = self.grouped_owned_key_for_materialized_row(columns, row_index)?;
-                if let Some(group) = self.groups.get_mut(&owned_key) {
-                    group.general_states_mut()?.update_row(columns, row_index)?;
-                    self.source_order_limited_group_admission = true;
-                    return Ok(());
-                }
+            if self.materialized_owned_group_keys
+                && let Some(owned_key) =
+                    self.grouped_owned_key_for_materialized_row(columns, row_index)?
+                && let Some(group) = self.groups.get_mut(&owned_key)
+            {
+                group.general_states_mut()?.update_row(columns, row_index)?;
+                self.source_order_limited_group_admission = true;
+                return Ok(());
             }
             let Some(key) = self.grouped_existing_key_for_materialized_row(columns, row_index)?
             else {
@@ -34007,10 +34010,25 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn grouped_owned_key_for_materialized_row(
-        &self,
+        &mut self,
         columns: &[Vec<StatValue>],
         row_index: usize,
-    ) -> Result<AggregateGroupKey> {
+    ) -> Result<Option<AggregateGroupKey>> {
+        // Admission is closed, so this immutable membership set can share the
+        // retained key owners. Build once, only for generic-owned states: do not
+        // copy strings, grow the interner, or scan every group for every row.
+        let owned_strings = self
+            .source_order_owned_group_strings
+            .get_or_insert_with(|| {
+                self.groups
+                    .keys()
+                    .flat_map(|key| (0..key.len()).filter_map(|index| key.get(index)))
+                    .filter_map(|value| match value {
+                        AggregateDistinctValue::Utf8(value) => Some(std::sync::Arc::clone(value)),
+                        _ => None,
+                    })
+                    .collect()
+            });
         let mut values = Vec::with_capacity(self.group_key_indices.len());
         for &index in &self.group_key_indices {
             let group_column = self.group_columns.get(index).ok_or_else(|| {
@@ -34024,9 +34042,14 @@ impl<'a> GroupedAggregateStates<'a> {
                 columns,
                 row_index,
             )?;
+            if let StatValue::Utf8(value) = &value
+                && !owned_strings.contains(value.as_str())
+            {
+                return Ok(None);
+            }
             values.push(AggregateDistinctValue::from(&value));
         }
-        Ok(AggregateGroupKey::from_values(values))
+        Ok(Some(AggregateGroupKey::from_values(values)))
     }
 
     fn grouped_existing_key_for_materialized_row(
