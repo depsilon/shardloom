@@ -17,7 +17,7 @@ dictionary code to a machine-word list index, with an explicit absent sentinel.
 Only retained strings present in the current dictionary acquire candidate lists.
 An ID-only discovery pass and a second group traversal prevent unmatched groups
 from retaining payloads during row counting; timing includes both traversals.
-The immutable table remains local to the chunk; do not introduce a cache,
+The immutable table remains local to the chunk; do not introduce a cross-chunk cache,
 perfect hash dependency, cross-chunk string owner or persistent format. The
 code-index table uses one machine word per value instead of three-word vector
 descriptors. Include construction and every row probe in complete public Q18
@@ -50,8 +50,13 @@ fix first probes the same transformed owned key used at insertion, then preserve
 the existing interned-key probe for General states seeded by direct consumers.
 The owned probe is enabled only after this generic route has admitted keys;
 direct-only states preserve their earlier interner miss before later key
-expressions execute. An unknown-string/overflow fixture reproduced that
-short-circuit regression before the guard was added.
+expressions execute. Once admission closes, the owned route builds an exact
+retained-prefix directory with shared string owners. Unknown prefixes stop before
+later expressions execute; positions and correlations between retained key parts
+are preserved. When no alternate interned representation exists, a definitive
+miss does not retry another lookup. Failing fixtures reproduced unknown-string,
+swapped-position, cross-group and numeric-prefix overflow cases before these
+corrections. A matching prefix still evaluates and reports a genuine overflow.
 Only the irredundant key columns are evaluated: dependent output expressions
 remain unevaluated for unretained rows. The review's dependent-offset overflow
 fixture reproduced the initial full-expression probe regression before the
@@ -61,6 +66,11 @@ compact directory; the latter covers both owned and interned General seeds.
 Q18's comparison uses the direct candidate-directory route, so this generic
 correctness fix is not credited with its performance outcome.
 
+One unrelated recovery test failed in CI without reporting its underlying error.
+Its assertion now includes that error and namespace. The local recovery tests and
+fresh complete native CI pass; this improves diagnostics, not a claimed runtime
+fix or explanation of the original failure.
+
 Separate pre-existing obligation: mixed generic/direct key construction before
 admission closure, and scalar-to-direct transitions after closure, require a
 broader representation-normalization audit. This patch does not claim that
@@ -68,33 +78,38 @@ arbitrary mixed routes or compact-to-General state conversion are supported.
 
 ## Retention evidence
 
-The final frozen candidate is `443a5325687fbb86599ca196dbb240f536782ab9`, compared
+The final frozen candidate is `fd407c2c0d77482c2c2fcef8a7a93d17dd302334`, compared
 with the R5.b runtime `ef8e08f3e00569b81185e4cc6899abf6c2b9547e`; R5.c changed test
 attribution only. The retained source has 99,997,497 rows and 15,682,956,116 bytes.
 All comparisons time native process startup, complete CLI output and exit.
 
 | Final Q18 evidence, six calls per binary | Control | Candidate |
 | --- | ---: | ---: |
-| Best complete call | 274.744 ms | 272.281 ms |
-| Median complete call | 282.041 ms | 280.055 ms |
+| Best complete call | 269.963 ms | 270.879 ms |
+| Median complete call | 288.594 ms | 282.267 ms |
 
-The best comparison is 0.90% lower; the median is 0.70% lower. Retain this small
-observed gain and the compact code table without claiming exclusive attribution,
-whole-query memory reduction or production-wide improvement. Every sample,
-including the first slower candidate calls, remains in the evidence.
+The final best comparison is 0.916 ms slower (0.34%); the median is 6.327 ms lower
+(2.19%). The earlier `443a532` revision recorded 0.90% lower best time and 0.70%
+lower median time. Those are separate revision-specific observations. Retain the
+compact code table and correctness fixes without claiming exclusive attribution,
+a consistent latency improvement, whole-query memory reduction or production-wide
+improvement. Every sample, including the first slower candidate calls, remains
+in the evidence.
 
 Final Full43 validates all 258 complete outputs; its best-of-three sums are
-73.901890 s control and 73.373526 s candidate. This is regression coverage,
-not an attributed suite speedup. Its Q26 timing screen is followed by six exact
-calls: best 1.637505 s control / 1.642711 s candidate, clearing the screen.
-Final Full43 does not reproduce the initial revision's Q35 timing flag.
-The packet keeps all 540 outputs across the superseded and final comparisons.
+70.015689 s control and 69.958898 s candidate. This is regression coverage,
+not an attributed suite speedup. The earlier Q26/Q35 timing flags do not recur.
+Q17 alone crosses the final timing screen. Six reverse-order follow-up calls
+validate complete values and clear that screen: best 2.947601 s control /
+2.873507 s candidate. The packet keeps all 1,074 outputs across superseded and
+final comparisons; no follow-up sample replaces a Full43 result.
 
-Seven focused regressions, 3,425 workspace tests and 1,973 native tests pass
+Nine focused regressions, 3,425 workspace tests and 1,975 native tests pass
 (19 native tests ignored). Formatting and strict workspace/native Clippy pass.
-Static review led to matched-only payload retention and the two expression
-short-circuit fixtures; the final source passes the primary adversarial review.
-Independent PR review remains part of merge acceptance.
+Static and independent PR review led to matched-only payload retention and exact
+prefix short-circuit fixtures. All 40 remote checks pass on the final runtime
+commit. The final evidence/documentation revision remains subject to PR review
+before merge.
 
 The [machine-readable evidence](../benchmarks/compact-candidate-directory-2026-09-27.json)
 links the portable raw packet with complete envelopes, source patches, binary

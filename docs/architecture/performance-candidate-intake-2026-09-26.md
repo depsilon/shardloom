@@ -33,8 +33,10 @@ time, with complete Full43 and native validation. R5.c's
 [native output screen](native-sink-overlap-screen-2026-09-27.md) drops a second
 generic overlap queue at bounded admission; existing provider overlap remains.
 C4's [compact candidate directory is retained](compact-candidate-directory-screen-2026-09-27.md):
-0.90% lower best final Q18 time, exact owned-key closure fixes, complete Full43
-acceptance and bounded Q26 follow-up. C3 lookup-interleaving admission is next. The
+one-word code indices, exact owned-key closure fixes, complete final Full43
+acceptance and bounded Q17 follow-up. Final Q18 best time is 0.916 ms slower and
+median time 6.327 ms lower; earlier gains remain separately recorded.
+C3 lookup-interleaving admission is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
