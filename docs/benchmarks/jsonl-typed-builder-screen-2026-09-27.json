@@ -1,0 +1,137 @@
+{
+  "schema_version": "shardloom.jsonl_typed_builder_screen.v1",
+  "status": "passed",
+  "decision": "retain_jsonl_typed_builders",
+  "candidate": {
+    "commit": "c0766d1e369575ce673295fc082c319c8645f254",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7-direct-builders-cli-c0766d1e3695",
+    "sha256": "0b4ec877243d3fc26ad709dd97dddf9d03811960cccc918e9d0e924fc6592346",
+    "bytes": 73372928,
+    "profile": "release",
+    "rustflags": "",
+    "portable": true,
+    "seconds": 243.5314144580043
+  },
+  "control": {
+    "commit": "8f533fbfc903f83ffc1cb6d91b6a2177b3785a69",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c5-default-final-cli-8f533fbfc903",
+    "sha256": "f837cf6fab4f144ba0acccef330b4a1baa64fd4e08c6ed4f906d2fb581d6a4ba",
+    "bytes": 73353184,
+    "profile": "release",
+    "rustflags": "",
+    "portable": true
+  },
+  "pairs": [
+    {
+      "role": "control",
+      "sample": 1,
+      "seconds": 2.8814993749838322,
+      "peak_rss_bytes": 624721920
+    },
+    {
+      "role": "candidate",
+      "sample": 1,
+      "seconds": 2.9194119999883696,
+      "peak_rss_bytes": 248692736
+    },
+    {
+      "role": "candidate",
+      "sample": 2,
+      "seconds": 2.3784451249812264,
+      "peak_rss_bytes": 257982464
+    },
+    {
+      "role": "control",
+      "sample": 2,
+      "seconds": 2.7671080000000075,
+      "peak_rss_bytes": 625803264
+    },
+    {
+      "role": "control",
+      "sample": 3,
+      "seconds": 2.7809828750032466,
+      "peak_rss_bytes": 628064256
+    },
+    {
+      "role": "candidate",
+      "sample": 3,
+      "seconds": 2.4147441250097472,
+      "peak_rss_bytes": 263274496
+    }
+  ],
+  "best_seconds": {
+    "control": 2.7671080000000075,
+    "candidate": 2.3784451249812264
+  },
+  "complete_ingest_reduction_percent": 14.04581516221196,
+  "fixture": {
+    "status": "passed",
+    "rows": 524288,
+    "source": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7-jsonl/sources/events.jsonl",
+    "source_bytes": 185776788,
+    "source_sha256": "9f7dc33053a235e0753b00ca90b7da1c68ab1e61cb85e912de6ac3a89d681803",
+    "allocated_bytes": 198270976,
+    "columns": [
+      "event_id",
+      "tenant_code",
+      "state_text",
+      "optional_label",
+      "units",
+      "ratio",
+      "active",
+      "uri",
+      "payload_text",
+      "attributes"
+    ],
+    "fixture": "Generated event records with nulls, Unicode/escapes, nested JSON text, skew and unique payloads.",
+    "limits": {
+      "max_source_bytes": 402653184,
+      "min_free_bytes": 12884901888
+    },
+    "generator_sha256": "9c65984c355cc3963eb2c6320dabb881c7d9f9ae499fccb34724ff2c13323ec9",
+    "performance_claim": false,
+    "complete_ingest_run": false
+  },
+  "native_artifact_bytes": 26252040,
+  "native_artifact_sha256": "7c8eccb2189abbe5ed5dc8100554e14a638893232dfbe80752655726fe5b1b34",
+  "complete_bytes_equal_control": true,
+  "oracle_rows": 524288,
+  "oracle_cells": 6291456,
+  "full43_calls": 129,
+  "query_best_total_seconds": 62.64045762299793,
+  "parquet_ingest_seconds": 84.53659266699106,
+  "parquet_bytes": 15682956116,
+  "parquet_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+  "heldout_calls": 456,
+  "declared_heldout_workers": [
+    1,
+    4,
+    12
+  ],
+  "full_default_heldout_worker_matrix": false,
+  "pressure_calls": 5,
+  "tests": {
+    "workspace": {
+      "passed": 3426,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native": {
+      "passed": 3507,
+      "failed": 0,
+      "ignored": 22
+    }
+  },
+  "scope": "Paired JSONL ingest gain only. Full43/Parquet observations are unpaired regression acceptance. General JSON direct builder work remains separately unevaluated.",
+  "audit_scope": "Primary semantic/acceptance review plus independently collected source/coverage audit; corrected draft false positives retained. Route-only export preflight was not execution or a runtime failure.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "raw_evidence": {
+    "file": "jsonl-typed-builder-screen-2026-09-27.json.gz",
+    "members": 1917,
+    "compressed_bytes": 7033808,
+    "compressed_sha256": "f2112688e6339831f332c53a6f6a8b29fadf3cfbb08ac788c24f7d1f39606dbc",
+    "uncompressed_bytes": 19933074,
+    "uncompressed_sha256": "8e540644339471743a5962e3217338da00ebb0b6459f53c6367e72eaedf054c3"
+  }
+}

@@ -52,7 +52,12 @@ The [C5 compiler-profile screens](compiler-profile-screen-2026-09-27.md) retain
 portable ThinLTO (3.21% lower query total, 7.53% lower ingest) for ordinary release;
 final artifact acceptance passes. Tested PGO and native CPU configurations
 retain their small query gains in the record but are not promoted because ingest
-slows; existing explicit profiles remain available. The
+slows; existing explicit profiles remain available. C7's
+[JSONL typed builders are retained](jsonl-typed-builder-screen-2026-09-27.md)
+with 14.05% lower paired complete ingest and 249–263 MB peak RSS versus
+625–628 MB, byte-identical native artifacts, complete row oracles and full
+applicable acceptance. Whole-file JSON construction remains to be screened
+before C7 closes. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
