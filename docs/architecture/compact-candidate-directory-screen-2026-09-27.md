@@ -1,7 +1,8 @@
 # Compact immutable candidate directories — C4
 
-Status: admitted bounded experiment under PERF-INTAKE / RFC 0044, after the
-R5.c attribution PR #1469. No gain is claimed before complete-query comparison.
+Status: retained bounded change under PERF-INTAKE / RFC 0044, after the
+R5.c attribution PR #1469. Complete-query comparison and final Full43 acceptance
+are recorded below; `claim_gate_status=not_claim_grade`.
 
 The relevant fixed-key phase is source-order integer/UTF8 grouped COUNT after
 its admission limit closes. Q18's saved native route retains ten groups, builds
@@ -25,7 +26,10 @@ query memory. Retain any useful measured gain; no one-second/percentage cutoff.
 
 Vortex-first check: native dictionary codes already provide dense exact indices.
 Use those indices, retaining existing source values and full-byte string-ID
-binding. A new perfect hash over the same codes would add construction without
+binding. Q18 currently uses the host chunk dictionary accessor for SearchPhrase;
+its native Vortex dictionary accessor field is `none`. These are chunk-local
+codes, not evidence that persisted DictArray codes survive into this consumer.
+A new perfect hash over the same codes would add construction without
 removing a lookup. The mutable chunk interner and live aggregate maps are not
 immutable-directory replacement targets. Optional recount paths do perform
 read-only lookups, but current Q13/Q17/Q23/Q34/Q35 evidence already avoids their
@@ -61,3 +65,39 @@ Separate pre-existing obligation: mixed generic/direct key construction before
 admission closure, and scalar-to-direct transitions after closure, require a
 broader representation-normalization audit. This patch does not claim that
 arbitrary mixed routes or compact-to-General state conversion are supported.
+
+## Retention evidence
+
+The final frozen candidate is `443a5325687fbb86599ca196dbb240f536782ab9`, compared
+with the R5.b runtime `ef8e08f3e00569b81185e4cc6899abf6c2b9547e`; R5.c changed test
+attribution only. The retained source has 99,997,497 rows and 15,682,956,116 bytes.
+All comparisons time native process startup, complete CLI output and exit.
+
+| Final Q18 evidence, six calls per binary | Control | Candidate |
+| --- | ---: | ---: |
+| Best complete call | 274.744 ms | 272.281 ms |
+| Median complete call | 282.041 ms | 280.055 ms |
+
+The best comparison is 0.90% lower; the median is 0.70% lower. Retain this small
+observed gain and the compact code table without claiming exclusive attribution,
+whole-query memory reduction or production-wide improvement. Every sample,
+including the first slower candidate calls, remains in the evidence.
+
+Final Full43 validates all 258 complete outputs; its best-of-three sums are
+73.901890 s control and 73.373526 s candidate. This is regression coverage,
+not an attributed suite speedup. Its Q26 timing screen is followed by six exact
+calls: best 1.637505 s control / 1.642711 s candidate, clearing the screen.
+Final Full43 does not reproduce the initial revision's Q35 timing flag.
+The packet keeps all 540 outputs across the superseded and final comparisons.
+
+Seven focused regressions, 3,425 workspace tests and 1,973 native tests pass
+(19 native tests ignored). Formatting and strict workspace/native Clippy pass.
+Static review led to matched-only payload retention and the two expression
+short-circuit fixtures; the final source passes the primary adversarial review.
+Independent PR review remains part of merge acceptance.
+
+The [machine-readable evidence](../benchmarks/compact-candidate-directory-2026-09-27.json)
+links the portable raw packet with complete envelopes, source patches, binary
+hashes, build/validation logs, failed reproductions and guarded runners. Warmed
+or uncontrolled caches and concurrent host work are accepted measurement context.
+There is no new ingest measurement, format change or package publication.
