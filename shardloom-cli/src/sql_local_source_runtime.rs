@@ -3901,6 +3901,7 @@ struct SchemaDeclaredTextRecordBatchReader {
     source_format: LocalSourceFormat,
     reader: BufReader<fs::File>,
     read_plan: LocalSourceReadPlan,
+    column_indices: BTreeMap<String, usize>,
     batch_size: usize,
     max_input_rows: Option<usize>,
     next_row_number: usize,
@@ -3926,6 +3927,12 @@ impl SchemaDeclaredTextRecordBatchReader {
         context: String,
     ) -> Self {
         let required_columns = header.iter().cloned().collect::<BTreeSet<_>>();
+        let column_indices = header
+            .iter()
+            .cloned()
+            .enumerate()
+            .map(|(index, name)| (name, index))
+            .collect();
         Self {
             schema,
             header,
@@ -3936,6 +3943,7 @@ impl SchemaDeclaredTextRecordBatchReader {
                 required_columns,
                 "schema_declared_text_stream_columns",
             ),
+            column_indices,
             batch_size: config.batch_size,
             max_input_rows: config.max_input_rows,
             next_row_number: 0,
@@ -3944,6 +3952,9 @@ impl SchemaDeclaredTextRecordBatchReader {
     }
 
     fn next_record_batch(&mut self) -> Result<Option<RecordBatch>, ShardLoomError> {
+        if self.source_format == LocalSourceFormat::JsonLines {
+            return self.next_jsonl_record_batch();
+        }
         let mut rows = Vec::<Vec<(String, ScalarValue)>>::with_capacity(self.batch_size.min(1024));
         let mut line = String::new();
         while rows.len() < self.batch_size {
@@ -3970,8 +3981,8 @@ impl SchemaDeclaredTextRecordBatchReader {
             )?;
             let row = match self.source_format {
                 LocalSourceFormat::Csv => self.csv_row_from_line(&line)?,
-                LocalSourceFormat::JsonLines => self.jsonl_row_from_line(&line)?,
-                LocalSourceFormat::Json
+                LocalSourceFormat::JsonLines
+                | LocalSourceFormat::Json
                 | LocalSourceFormat::Parquet
                 | LocalSourceFormat::ArrowIpc
                 | LocalSourceFormat::Avro
@@ -4032,45 +4043,91 @@ impl SchemaDeclaredTextRecordBatchReader {
             .collect()
     }
 
-    fn jsonl_row_from_line(
+    fn next_jsonl_record_batch(&mut self) -> Result<Option<RecordBatch>, ShardLoomError> {
+        let mut builder = None;
+        let mut values = vec![ScalarValue::Null; self.header.len()];
+        let mut line = String::new();
+        let mut row_count = 0;
+        while row_count < self.batch_size {
+            line.clear();
+            let bytes_read = self.reader.read_line(&mut line).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{} failed to read {} source row {}: {error}; no fallback execution was attempted",
+                    self.context, self.source_format.row_label(), self.next_row_number + 1
+                ))
+            })?;
+            if bytes_read == 0 {
+                break;
+            }
+            if line.trim().is_empty() {
+                continue;
+            }
+            self.next_row_number += 1;
+            enforce_local_source_row_budget(
+                self.next_row_number,
+                self.max_input_rows,
+                self.source_format.row_label(),
+            )?;
+            self.jsonl_values_from_line(&line, &mut values)?;
+            // Allocate only for a nonempty batch. Keep no named scalar rows
+            // alive while the native writer consumes the resulting columns.
+            if builder.is_none() {
+                builder = Some(
+                    shardloom_vortex::universal_format_io::TextRecordBatchBuilder::new(
+                        Arc::clone(&self.schema),
+                        &self.header,
+                        self.batch_size,
+                        &self.context,
+                    )?,
+                );
+            }
+            if let Some(builder) = builder.as_mut() {
+                builder.append_row(&values)?;
+            }
+            row_count += 1;
+        }
+        builder
+            .map(shardloom_vortex::universal_format_io::TextRecordBatchBuilder::finish)
+            .transpose()
+    }
+
+    fn jsonl_values_from_line(
         &self,
         line: &str,
-    ) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+        values: &mut [ScalarValue],
+    ) -> Result<(), ShardLoomError> {
         let line = if self.next_row_number == 1 {
             line.strip_prefix('\u{feff}').unwrap_or(line)
         } else {
             line
         };
-        let fields =
-            parse_flat_json_object_with_plan(line.trim(), &self.read_plan).map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "{} JSONL row {} is not admitted: {error}; no fallback execution was attempted",
-                    self.context, self.next_row_number
-                ))
-            })?;
-        let mut values = BTreeMap::<String, ScalarValue>::new();
-        for (column, value) in fields {
-            if self.read_plan.should_materialize(&column) {
-                values.insert(column, value);
+        values.fill(ScalarValue::Null);
+        visit_flat_json_object_with_plan(line.trim(), &self.read_plan, |column, value| {
+            if let Some(&index) = self.column_indices.get(&column) {
+                values[index] = value;
             }
-        }
-        self.header
-            .iter()
-            .zip(self.column_dtypes.iter())
-            .map(|(column, dtype)| {
-                let dtype = dtype.as_ref().ok_or_else(|| {
+        })
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "{} JSONL row {} is not admitted: {error}; no fallback execution was attempted",
+                self.context, self.next_row_number
+            ))
+        })?;
+        for ((column, dtype), value) in self.header.iter().zip(&self.column_dtypes).zip(values) {
+            let dtype = dtype.as_ref().ok_or_else(|| {
                     ShardLoomError::InvalidOperation(format!(
                         "{} missing declared dtype for JSONL column '{column}'; no fallback execution was attempted",
                         self.context
                     ))
                 })?;
-                let value = values.remove(column).unwrap_or(ScalarValue::Null);
-                Ok((
-                    column.clone(),
-                    coerce_schema_declared_json_scalar(value, dtype, column, &self.context)?,
-                ))
-            })
-            .collect()
+            *value = coerce_schema_declared_json_scalar(
+                std::mem::replace(value, ScalarValue::Null),
+                dtype,
+                column,
+                &self.context,
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -34155,30 +34212,63 @@ fn parse_flat_json_object_with_plan(
     raw: &str,
     read_plan: &LocalSourceReadPlan,
 ) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+    let mut fields = Vec::new();
+    visit_flat_json_object_with_plan(raw, read_plan, |key, value| fields.push((key, value)))?;
+    Ok(fields)
+}
+
+fn visit_flat_json_object_with_plan(
+    raw: &str,
+    read_plan: &LocalSourceReadPlan,
+    mut visitor: impl FnMut(String, ScalarValue),
+) -> Result<(), ShardLoomError> {
     let chars = raw.trim().chars().collect::<Vec<_>>();
-    let (fields, index) =
-        parse_flat_json_object_at_with_plan(&chars, skip_json_ws(&chars, 0), "JSONL", read_plan)?;
+    let index = visit_flat_json_object_at_with_plan(
+        &chars,
+        skip_json_ws(&chars, 0),
+        "JSONL",
+        read_plan,
+        &mut visitor,
+    )?;
     if skip_json_ws(&chars, index) != chars.len() {
         return Err(unsupported_sql_error(
             "JSONL rows must contain exactly one JSON object per line",
         ));
     }
-    Ok(fields)
+    Ok(())
 }
 
 fn parse_flat_json_object_at_with_plan(
     chars: &[char],
-    mut index: usize,
+    index: usize,
     source_label: &str,
     read_plan: &LocalSourceReadPlan,
 ) -> Result<(Vec<(String, ScalarValue)>, usize), ShardLoomError> {
+    let mut fields = Vec::new();
+    let index = visit_flat_json_object_at_with_plan(
+        chars,
+        index,
+        source_label,
+        read_plan,
+        &mut |key, value| fields.push((key, value)),
+    )?;
+    Ok((fields, index))
+}
+
+fn visit_flat_json_object_at_with_plan(
+    chars: &[char],
+    mut index: usize,
+    source_label: &str,
+    read_plan: &LocalSourceReadPlan,
+    visitor: &mut impl FnMut(String, ScalarValue),
+) -> Result<usize, ShardLoomError> {
     if chars.get(index) != Some(&'{') {
         return Err(unsupported_sql_error(&format!(
             "{source_label} rows must be flat JSON objects"
         )));
     }
     index += 1;
-    let mut fields = Vec::new();
+    let mut has_fields = false;
     loop {
         index = skip_json_ws(chars, index);
         if chars.get(index) == Some(&'}') {
@@ -34196,12 +34286,13 @@ fn parse_flat_json_object_at_with_plan(
         index += 1;
         if read_plan.should_materialize(&key) {
             let (value, next_index) = parse_json_value(chars, index)?;
-            fields.push((key, value));
+            visitor(key, value);
             index = next_index;
         } else {
             index = skip_json_value(chars, index)?;
-            fields.push((key, ScalarValue::Null));
+            visitor(key, ScalarValue::Null);
         }
+        has_fields = true;
         index = skip_json_ws(chars, index);
         match chars.get(index) {
             Some(',') => index += 1,
@@ -34216,12 +34307,12 @@ fn parse_flat_json_object_at_with_plan(
             }
         }
     }
-    if fields.is_empty() {
+    if !has_fields {
         return Err(unsupported_sql_error(&format!(
             "{source_label} object rows must include at least one field"
         )));
     }
-    Ok((fields, index))
+    Ok(index)
 }
 
 fn parse_json_value(
@@ -46722,6 +46813,186 @@ mod tests {
         }
 
         fs::remove_dir_all(root).expect("remove inferred text stream root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn direct_jsonl_test_reader(
+        body: &str,
+        columns: &[(&str, LogicalDType)],
+        batch_size: usize,
+        max_input_rows: Option<usize>,
+    ) -> (PathBuf, SchemaDeclaredTextRecordBatchReader) {
+        let root = vortex_ingest_reuse_test_root("direct-jsonl");
+        let path = root.join("input.jsonl");
+        fs::write(&path, body).unwrap();
+        let header = columns
+            .iter()
+            .map(|(name, _)| (*name).to_owned())
+            .collect::<Vec<_>>();
+        let schema = Arc::new(Schema::new(
+            columns
+                .iter()
+                .map(|(name, dtype)| {
+                    Field::new(
+                        *name,
+                        schema_declared_text_arrow_dtype(dtype, name, "test").unwrap(),
+                        true,
+                    )
+                })
+                .collect::<Vec<_>>(),
+        ));
+        let reader = SchemaDeclaredTextRecordBatchReader::new(
+            LocalSourceFormat::JsonLines,
+            schema,
+            header,
+            columns
+                .iter()
+                .map(|(_, dtype)| Some(dtype.clone()))
+                .collect(),
+            BufReader::new(fs::File::open(path).unwrap()),
+            TextRecordBatchReaderConfig {
+                max_input_rows,
+                batch_size,
+            },
+            "direct JSONL test".into(),
+        );
+        (root, reader)
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn direct_jsonl_builder_preserves_duplicate_coercion_missing_and_batch_values() {
+        let columns = [
+            ("id", LogicalDType::Int64),
+            ("unsigned", LogicalDType::UInt64),
+            ("ratio", LogicalDType::Float64),
+            ("truth", LogicalDType::Boolean),
+            ("label", LogicalDType::Utf8),
+            ("bin", LogicalDType::Binary),
+            ("date", LogicalDType::Date32),
+            ("time", LogicalDType::TimestampMicros),
+            ("nested", LogicalDType::Utf8),
+        ];
+        let body = concat!(
+            "\n\u{feff}",
+            r#"{"id":"discard","id":9223372036854775807,"unsigned":12,"ratio":3,"truth":true,"label":"é\n\uD834\uDD1E","bin":"ab","date":"1970-01-02","time":"1970-01-01T00:00:01Z","nested":{"b":[true,null],"a":1},"ignored":[{"a":"escaped\""}]}"#,
+            "\n\n",
+            r#"{"ignored":null}"#,
+            "\n",
+            r#"{"label":false,"id":-9223372036854775808,}"#,
+            "\n"
+        );
+        let (root, mut reader) = direct_jsonl_test_reader(body, &columns, 2, None);
+        let expected = [
+            vec![
+                ScalarValue::Int64(i64::MAX),
+                ScalarValue::UInt64(12),
+                ScalarValue::Float64(3.0),
+                ScalarValue::Boolean(true),
+                ScalarValue::Utf8("é\n𝄞".into()),
+                ScalarValue::Binary(b"ab".to_vec()),
+                ScalarValue::Date32(1),
+                ScalarValue::TimestampMicros(1_000_000),
+                ScalarValue::Utf8(r#"{"a":1,"b":[true,null]}"#.into()),
+            ],
+            vec![ScalarValue::Null; columns.len()],
+            vec![
+                ScalarValue::Int64(i64::MIN),
+                ScalarValue::Null,
+                ScalarValue::Null,
+                ScalarValue::Null,
+                ScalarValue::Utf8("false".into()),
+                ScalarValue::Null,
+                ScalarValue::Null,
+                ScalarValue::Null,
+                ScalarValue::Null,
+            ],
+        ];
+        for rows in expected.chunks(2) {
+            let named_rows = rows
+                .iter()
+                .map(|row| {
+                    reader
+                        .header
+                        .iter()
+                        .cloned()
+                        .zip(row.iter().cloned())
+                        .collect()
+                })
+                .collect::<Vec<_>>();
+            let expected_batch =
+                shardloom_vortex::universal_format_io::flat_rows_to_record_batch_with_schema(
+                    Arc::clone(&reader.schema),
+                    &reader.header,
+                    &named_rows,
+                    "expected",
+                )
+                .unwrap();
+            assert_eq!(reader.next_record_batch().unwrap().unwrap(), expected_batch);
+        }
+        assert!(reader.next_record_batch().unwrap().is_none());
+        assert_eq!(reader.next_row_number, 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn direct_jsonl_builder_rejects_invalid_rows_before_emitting_a_batch() {
+        let cases = [
+            (r#"{"v":-1}"#, LogicalDType::UInt64),
+            (r#"{"v":9223372036854775808}"#, LogicalDType::UInt64),
+            (r#"{"v":1.5}"#, LogicalDType::Int64),
+            (r#"{"v":1}"#, LogicalDType::Boolean),
+            (r#"{"v":true}"#, LogicalDType::Float64),
+            (r#"{"v":1}"#, LogicalDType::Binary),
+            (r#"{"v":"not-date"}"#, LogicalDType::Date32),
+            (r#"{"v":"not-time"}"#, LogicalDType::TimestampMicros),
+            (r#"{"v":"\x","v":"okay"}"#, LogicalDType::Utf8),
+            (r#"{"v":1} trailing"#, LogicalDType::Int64),
+            (r#"{"ignored":[1,}"#, LogicalDType::Int64),
+            (r#"{"ignored":"\x"}"#, LogicalDType::Int64),
+            (r#"{}"#, LogicalDType::Int64),
+        ];
+        for (invalid, dtype) in cases {
+            let (root, mut reader) = direct_jsonl_test_reader(
+                &format!("{{\"v\":null}}\n{invalid}\n"),
+                &[("v", dtype)],
+                3,
+                None,
+            );
+            assert!(reader.next_record_batch().is_err(), "{invalid}");
+            fs::remove_dir_all(root).unwrap();
+        }
+        let (root, mut reader) = direct_jsonl_test_reader(
+            "{\"v\":1}\n{\"v\":2}\n{\"v\":3}\n",
+            &[("v", LogicalDType::Int64)],
+            3,
+            Some(2),
+        );
+        assert!(reader.next_record_batch().is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn direct_jsonl_builder_handles_empty_and_exact_batch_boundaries() {
+        for row_count in 0..=5 {
+            let (root, mut reader) = direct_jsonl_test_reader(
+                &"{\"v\":null}\n".repeat(row_count),
+                &[("v", LogicalDType::Int64)],
+                2,
+                None,
+            );
+            let mut observed = Vec::new();
+            while let Some(batch) = reader.next_record_batch().unwrap() {
+                assert_eq!(batch.column(0).null_count(), batch.num_rows());
+                observed.push(batch.num_rows());
+            }
+            assert_eq!(observed.iter().sum::<usize>(), row_count);
+            assert_eq!(observed.len(), row_count.div_ceil(2));
+            assert!(reader.next_record_batch().unwrap().is_none());
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

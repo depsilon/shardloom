@@ -4580,6 +4580,138 @@ fn logical_dtype_arrow_hint(
     })
 }
 
+/// Bounded column builders for schema-declared compatibility text input.
+///
+/// Rows contain only values in schema order. A failed append invalidates the
+/// entire batch, including values appended before the failure.
+pub struct TextRecordBatchBuilder {
+    schema: SchemaRef,
+    builders: Vec<Box<dyn ArrayBuilder>>,
+    context: String,
+    failed: bool,
+}
+
+impl TextRecordBatchBuilder {
+    /// Create builders for the primitive types admitted by text ingestion.
+    ///
+    /// # Errors
+    /// Rejects invalid column names, schema order, or unsupported text dtypes.
+    pub fn new(
+        schema: SchemaRef,
+        columns: &[String],
+        capacity: usize,
+        context: &str,
+    ) -> Result<Self> {
+        validate_flat_columns(columns, context)?;
+        if schema.fields().len() != columns.len() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} schema has {} fields for {} columns",
+                schema.fields().len(),
+                columns.len()
+            )));
+        }
+        for (index, (field, column)) in schema.fields().iter().zip(columns).enumerate() {
+            if field.name() != column {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} schema field mismatch at index {index}: expected '{column}', found '{}'",
+                    field.name()
+                )));
+            }
+            if !matches!(
+                field.data_type(),
+                DataType::Boolean
+                    | DataType::Int64
+                    | DataType::UInt64
+                    | DataType::Float64
+                    | DataType::Utf8
+                    | DataType::Binary
+                    | DataType::Date32
+                    | DataType::Timestamp(TimeUnit::Microsecond, None)
+            ) {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{context} column '{column}' has unsupported text builder dtype {:?}",
+                    field.data_type()
+                )));
+            }
+        }
+        let builders = schema
+            .fields()
+            .iter()
+            .map(|field| make_builder(field.data_type(), capacity))
+            .collect();
+        Ok(Self {
+            schema,
+            builders,
+            context: context.to_owned(),
+            failed: false,
+        })
+    }
+
+    /// Append one already-coerced row in schema order.
+    ///
+    /// # Errors
+    /// Rejects an invalidated batch, wrong row width, or incompatible scalar.
+    /// Any error permanently invalidates this builder.
+    pub fn append_row(&mut self, values: &[ScalarValue]) -> Result<()> {
+        if self.failed {
+            return Err(self.invalidated_error());
+        }
+        self.failed = true;
+        if values.len() != self.builders.len() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{} text row has {} values for {} columns",
+                self.context,
+                values.len(),
+                self.builders.len()
+            )));
+        }
+        for ((builder, field), value) in self
+            .builders
+            .iter_mut()
+            .zip(self.schema.fields())
+            .zip(values)
+        {
+            append_scalar_to_arrow_builder(
+                builder.as_mut(),
+                field.data_type(),
+                value,
+                field.name(),
+                &self.context,
+            )?;
+        }
+        self.failed = false;
+        Ok(())
+    }
+
+    /// Finish the batch, consuming the builders.
+    ///
+    /// # Errors
+    /// Rejects a previous append failure or invalid Arrow batch shape.
+    pub fn finish(mut self) -> Result<RecordBatch> {
+        if self.failed {
+            return Err(self.invalidated_error());
+        }
+        let arrays = self
+            .builders
+            .iter_mut()
+            .map(|builder| builder.finish())
+            .collect();
+        RecordBatch::try_new(self.schema, arrays).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to build {} record batch: {error}",
+                self.context
+            ))
+        })
+    }
+
+    fn invalidated_error(&self) -> ShardLoomError {
+        ShardLoomError::InvalidOperation(format!(
+            "{} text record batch is invalid after a failed row append",
+            self.context
+        ))
+    }
+}
+
 /// Build an Arrow `RecordBatch` from ordered flat scalar rows using an existing schema.
 ///
 /// This keeps streaming adapters schema-stable across batches when later
@@ -5850,6 +5982,117 @@ mod tests {
     type BinarySinkEncoder = fn(&[String], &[FlatSinkRow]) -> Result<Vec<u8>>;
     type TypedSinkEncoder =
         fn(&[String], &[Option<LogicalDType>], &[FlatSinkRow]) -> Result<Vec<u8>>;
+
+    #[test]
+    fn text_record_batch_builder_preserves_primitive_values_nulls_and_empty_batches() {
+        let cases = [
+            (DataType::Boolean, ScalarValue::Boolean(true)),
+            (DataType::Int64, ScalarValue::Int64(i64::MIN)),
+            (DataType::UInt64, ScalarValue::UInt64(u64::MAX)),
+            (DataType::Float64, ScalarValue::Float64(-0.25)),
+            (DataType::Utf8, ScalarValue::Utf8("é\n𝄞".into())),
+            (DataType::Binary, ScalarValue::Binary(vec![0, 255, 42])),
+            (DataType::Date32, ScalarValue::Date32(-1)),
+            (
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                ScalarValue::TimestampMicros(-1),
+            ),
+        ];
+        let columns = (0..cases.len())
+            .map(|index| format!("c{index}"))
+            .collect::<Vec<_>>();
+        let schema = Arc::new(Schema::new(
+            columns
+                .iter()
+                .zip(&cases)
+                .map(|(name, (dtype, _))| Field::new(name, dtype.clone(), true))
+                .collect::<Vec<_>>(),
+        ));
+        let mut builder =
+            TextRecordBatchBuilder::new(Arc::clone(&schema), &columns, 2, "test").unwrap();
+        let values = cases
+            .iter()
+            .map(|(_, value)| value.clone())
+            .collect::<Vec<_>>();
+        builder.append_row(&values).unwrap();
+        builder
+            .append_row(&vec![ScalarValue::Null; columns.len()])
+            .unwrap();
+        let batch = builder.finish().unwrap();
+        assert_eq!(batch.num_rows(), 2);
+        for (index, (_, value)) in cases.iter().enumerate() {
+            assert_eq!(
+                arrow_scalar_to_shardloom(
+                    batch.column(index).as_ref(),
+                    0,
+                    &columns[index],
+                    Path::new("test"),
+                    "test"
+                )
+                .unwrap(),
+                *value
+            );
+            assert!(batch.column(index).is_null(1));
+        }
+        assert_eq!(
+            TextRecordBatchBuilder::new(schema, &columns, 0, "test")
+                .unwrap()
+                .finish()
+                .unwrap()
+                .num_rows(),
+            0
+        );
+    }
+
+    #[test]
+    fn text_record_batch_builder_rejects_schema_and_poisoned_rows() {
+        let columns = vec!["a".into(), "b".into()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int64, true),
+            Field::new("b", DataType::Boolean, true),
+        ]));
+        assert!(
+            TextRecordBatchBuilder::new(Arc::clone(&schema), &["b".into(), "a".into()], 1, "test")
+                .is_err()
+        );
+        assert!(
+            TextRecordBatchBuilder::new(Arc::clone(&schema), &["a".into()], 1, "test").is_err()
+        );
+        for field in [
+            Field::new("a", DataType::Int32, true),
+            Field::new("__shardloom_derived_utf8_len_URL", DataType::Int64, true),
+        ] {
+            let names = vec![field.name().clone()];
+            assert!(
+                TextRecordBatchBuilder::new(Arc::new(Schema::new(vec![field])), &names, 1, "test")
+                    .is_err()
+            );
+        }
+        let valid = [ScalarValue::Int64(1), ScalarValue::Boolean(true)];
+        for invalid in [
+            vec![ScalarValue::Int64(2)],
+            vec![ScalarValue::Int64(2), ScalarValue::Int64(3)],
+        ] {
+            let mut builder =
+                TextRecordBatchBuilder::new(Arc::clone(&schema), &columns, 3, "test").unwrap();
+            builder.append_row(&valid).unwrap();
+            assert!(builder.append_row(&invalid).is_err());
+            assert!(
+                builder
+                    .append_row(&valid)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("invalid after")
+            );
+            assert!(
+                builder
+                    .finish()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("invalid after")
+            );
+        }
+    }
 
     #[test]
     fn embedded_url_domain_capacity_is_bounded_by_expected_domain_cardinality() {
