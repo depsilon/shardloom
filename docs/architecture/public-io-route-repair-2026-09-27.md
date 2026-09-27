@@ -210,11 +210,12 @@ checks use the frozen handoff CLI; the Rust preparation-identity and fidelity
 changes are covered by the new CLI tests. The complete-query timings above remain
 the measurements from commit `503e67ee`, before these review corrections.
 
-The generation-retention correction passes 3,432 default workspace tests and
-919 release-feature CLI tests, with default/release-feature Clippy and the same
+The generation-retention correction passes 3,433 default workspace tests and
+920 release-feature CLI tests, with default/release-feature Clippy and the same
 docs/contract checks. Adversarial cases replace source or artifact generations
 during cold/warm reuse on either join input, and check that stale envelopes are
-discarded. Output buffering also covers text/JSON errors and unwinding.
+discarded. Output buffering also covers text/JSON errors and unwinding, with
+distinct stdout/stderr variants preserving the response and diagnostic channels.
 The aggregate conformance and release-readiness inventories now track the eight
 output formats, ten write methods and 114 Python method rows; their previous
 seven/nine/113 counts rejected otherwise passing producer evidence.

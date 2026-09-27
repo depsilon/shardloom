@@ -19,9 +19,9 @@ use crate::{command_family::classify_command, typed_envelope::apply_typed_envelo
 
 static OUTPUT_EMISSION_COUNT: AtomicU64 = AtomicU64::new(0);
 
-struct PendingLine {
-    rendered: String,
-    stderr: bool,
+enum PendingLine {
+    Stdout { rendered: String },
+    Stderr { message: String },
 }
 
 thread_local! {
@@ -265,9 +265,8 @@ pub(crate) fn emit_error(
     let envelope = OutputEnvelope::from_error(command, summary, error)
         .with_lifecycle_field("command_family", classify_command(command).as_str());
     match format {
-        OutputFormat::Text => write_output_line(PendingLine {
-            rendered: envelope.to_text(),
-            stderr: true,
+        OutputFormat::Text => write_output_line(PendingLine::Stderr {
+            message: envelope.to_text(),
         }),
         OutputFormat::Json => write_stdout_line(envelope.to_json()),
     }
@@ -285,9 +284,8 @@ pub(crate) fn emit_error_with_fields(
         .with_lifecycle_field("command_family", classify_command(command).as_str());
     let envelope = apply_typed_envelope_fields(envelope, command, fields);
     match format {
-        OutputFormat::Text => write_output_line(PendingLine {
-            rendered: envelope.to_text(),
-            stderr: true,
+        OutputFormat::Text => write_output_line(PendingLine::Stderr {
+            message: envelope.to_text(),
         }),
         OutputFormat::Json => write_stdout_line(envelope.to_json()),
     }
@@ -295,10 +293,7 @@ pub(crate) fn emit_error_with_fields(
 }
 
 fn write_stdout_line(rendered: String) {
-    write_output_line(PendingLine {
-        rendered,
-        stderr: false,
-    });
+    write_output_line(PendingLine::Stdout { rendered });
 }
 
 fn write_output_line(line: PendingLine) {
@@ -310,13 +305,16 @@ fn write_output_line(line: PendingLine) {
             Some(line)
         }
     });
-    let Some(PendingLine { rendered, stderr }) = line else {
-        return;
+    // Keep response payloads and human diagnostics in separate variants/fields;
+    // a buffered JSON response must never be routed to the diagnostic channel.
+    let rendered = match line {
+        Some(PendingLine::Stdout { rendered }) => rendered,
+        Some(PendingLine::Stderr { message }) => {
+            eprintln!("{message}");
+            return;
+        }
+        None => return,
     };
-    if stderr {
-        eprintln!("{rendered}");
-        return;
-    }
     let mut stdout = io::stdout().lock();
     if let Err(error) = writeln!(stdout, "{rendered}") {
         if error.kind() == ErrorKind::BrokenPipe {
@@ -422,7 +420,7 @@ mod tests {
             outer
                 .take()
                 .into_iter()
-                .map(|line| line.rendered)
+                .map(stdout_text)
                 .collect::<Vec<_>>(),
             ["first", "second"]
         );
@@ -440,7 +438,38 @@ mod tests {
         );
         assert!(outer.take().is_empty());
         super::write_stdout_line("after unwind".into());
-        assert_eq!(outer.take()[0].rendered, "after unwind");
+        assert_eq!(stdout_text(outer.take().pop().unwrap()), "after unwind");
+    }
+
+    fn stdout_text(line: super::PendingLine) -> String {
+        match line {
+            super::PendingLine::Stdout { rendered } => rendered,
+            super::PendingLine::Stderr { .. } => panic!("expected stdout response"),
+        }
+    }
+
+    #[test]
+    fn validated_output_preserves_text_error_and_json_response_channels() {
+        let outer = super::PendingOutput::new();
+        super::with_validated_output(
+            || Ok(()),
+            || {
+                let error = ShardLoomError::InvalidOperation("expected diagnostic".into());
+                super::emit_error("run", OutputFormat::Text, "failed", &error);
+                super::emit_error("run", OutputFormat::Json, "failed", &error);
+            },
+        )
+        .unwrap();
+        let mut lines = outer.take().into_iter();
+        assert!(
+            matches!(lines.next(), Some(super::PendingLine::Stderr { message })
+            if message.contains("expected diagnostic"))
+        );
+        assert!(
+            matches!(lines.next(), Some(super::PendingLine::Stdout { rendered })
+            if serde_json::from_str::<serde_json::Value>(&rendered).is_ok())
+        );
+        assert!(lines.next().is_none());
     }
 
     fn timing_values() -> EmitTimingReplacementValues {
