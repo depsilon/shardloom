@@ -2,13 +2,14 @@
 
 # Public I/O route integration repair
 
-Status: implemented and locally validated, including the authorized plain-Vortex
-handoff retry. Integration is tracked in
-[PR #1479](https://github.com/depsilon/shardloom/pull/1479). Authorized during the
+Status: merged and validated, including the authorized plain-Vortex handoff retry.
+[PR #1479](https://github.com/depsilon/shardloom/pull/1479) merged at
+`6495a715a50494230303748a5484d83a375e15d4` with all 40 checks passing. Authorized during the
 September 27 format baseline, this belongs to existing PERF-12/public-call and
 CG-21 workflow work.
-The 0.3.1 publication/deployment train is complete. This note does not reopen the
-seven queued performance experiments or claim a new published release.
+The 0.3.1 publication/deployment train is complete. The newly authorized 0.3.2
+train packages these fixes; this note does not claim it is already published or
+reopen the seven queued performance experiments.
 
 ## Observed failures
 

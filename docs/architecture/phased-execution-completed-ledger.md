@@ -17,6 +17,32 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Public I/O integration and native handoff repair, with one format pulse.
+  - Date: 2026-09-27. [PR #1479](https://github.com/depsilon/shardloom/pull/1479)
+    merged at `6495a715a50494230303748a5484d83a375e15d4`; accepted head
+    `b8396a17ecc23e4469a91c1b3963660a377886e4` passed all 40 remote checks.
+  - Complete typed results now reach shared writers; schema-bound preparation
+    reuse holds artifact generations through execution/evidence. Sparse native
+    dictionary selection and reader-envelope certificates remove redundant
+    diagnostic/accessor work. Pre-finalization aggregate admission and declared
+    schema/SQL propagation fixes are included. See the
+    [integration record](public-io-route-repair-2026-09-27.md).
+  - Final local proof: 3,436 default workspace tests, 924 release-feature CLI
+    tests, 1,987 native tests (22 existing ignores), 668 Python passes (144
+    existing skips), default/release/minimal-feature Clippy and formatting.
+    Twenty real schema round trips supplement 110 earlier general format cases.
+    Test counts overlap across configurations; final review fixes have correctness
+    proof, not a new performance run.
+  - The [plain-Vortex retry](plain-vortex-format-comparison-2026-09-27.md#handoff-retry-evidence)
+    passed 172 cases and 129 complete export readbacks. Collection totaled
+    104.73s and Vortex export 106.16s over 43 queries, with one sample per route.
+    These frozen-build observations do not isolate causal speedup or establish
+    an input-format ranking. The generated fixture was hash-verified and retired;
+    logs and small outputs remain in verified archives.
+  - This closes the scoped PERF-12/CG-21 repair, not general operator/sink parity
+    or unified physical-layout optimization. Native Vortex admission preserves
+    existing layout. The subsequent authorized 0.3.2 train is in Planned.
+
 - [x] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train.
   - Date: 2026-09-27. This closes the accepted C7 merge (#1475), version/source
     synchronization (#1476), ordered four-channel publication/install proofs and
