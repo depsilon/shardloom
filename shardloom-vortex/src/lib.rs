@@ -109,6 +109,8 @@ pub mod owned_buffers;
 #[cfg(feature = "vortex-file-io")]
 pub mod physical_encoding_inventory;
 pub mod physical_operator_bridge;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+pub mod prepared_source_binding;
 pub mod projection_readiness;
 pub mod query_primitive;
 pub mod query_primitives;

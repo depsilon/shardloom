@@ -4855,6 +4855,8 @@ pub struct VortexPreparedStateColumnarStreamWriteRequest {
     /// Source-reader internals and native allocations bypassing that allocator
     /// remain outside the admitted scope.
     pub shared_native_memory_budget_bytes: Option<u64>,
+    /// Optional single-artifact preparation provenance, validated before commit.
+    pub prepared_source_binding: Option<String>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -4919,6 +4921,7 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
             layout_write_advisor: None,
             capillary_prewrite_input: None,
             shared_native_memory_budget_bytes: None,
+            prepared_source_binding: None,
         }
     }
 
@@ -10191,6 +10194,15 @@ pub fn write_flat_columnar_vortex_prepared_state(
 pub fn write_flat_columnar_vortex_prepared_state_streaming(
     request: VortexPreparedStateColumnarStreamWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    if let Some(binding) = &request.prepared_source_binding {
+        #[cfg(unix)]
+        crate::prepared_source_binding::validate(binding)?;
+        #[cfg(not(unix))]
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "prepared source binding requires Unix generation admission ({} bytes); no fallback execution was attempted",
+            binding.len()
+        )));
+    }
     if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
         return Err(ShardLoomError::InvalidOperation(
             "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
@@ -10231,7 +10243,10 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let first_batch =
         match next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")? {
             Some(batch) => batch,
-            None if native_memory.is_some() || !source_identities.is_empty() => {
+            None if native_memory.is_some()
+                || !source_identities.is_empty()
+                || request.prepared_source_binding.is_some() =>
+            {
                 RecordBatch::new_empty(reader.schema())
             }
             None => {
@@ -10347,6 +10362,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         };
     finalize_vortex_prepared_state_stream_write(VortexPreparedStateStreamFinalizeInput {
         target_path: request.target_path,
+        prepared_source_binding: request.prepared_source_binding,
         column_count: request.source.materialized_columns.len(),
         column_families,
         row_count_hint: request
@@ -10640,6 +10656,7 @@ where
     I: vortex::array::iter::ArrayIterator + Send + 'static,
 {
     target_path: PathBuf,
+    prepared_source_binding: Option<String>,
     column_count: usize,
     column_families: Vec<(String, String)>,
     row_count_hint: Option<u64>,
@@ -11654,6 +11671,7 @@ where
         input.native_memory.as_ref(),
         &input.source_identities,
         input.writer_input_lookahead,
+        input.prepared_source_binding.as_deref(),
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&target_path)?;
     if let Some(expected_rows) = row_count_hint
@@ -13543,7 +13561,10 @@ impl LocalVortexWriteContext {
     }
 
     #[cfg(feature = "universal-format-io")]
-    #[allow(clippy::too_many_arguments)] // Keep resource and source-generation admission explicit.
+    #[allow(clippy::too_many_arguments)]
+    // Keep resource and source-generation admission explicit.
+    // Source-generation validation and embedded provenance share this commit boundary.
+    #[allow(clippy::too_many_lines)]
     fn write_array_iterator<I>(
         &self,
         path: &Path,
@@ -13554,6 +13575,7 @@ impl LocalVortexWriteContext {
         native_memory: Option<&NativeIngestMemory>,
         source_identities: &[Arc<SourceIdentity>],
         writer_input_lookahead: Option<WriterInputLookahead>,
+        prepared_source_binding: Option<&str>,
     ) -> Result<LocalVortexWriteResult>
     where
         I: vortex::array::iter::ArrayIterator + Send + 'static,
@@ -13592,6 +13614,17 @@ impl LocalVortexWriteContext {
             iter.dtype(),
             writer_input_lookahead,
         )?;
+        #[cfg(unix)]
+        let write_options = if let Some(binding) = prepared_source_binding {
+            write_options.with_metadata_segment(
+                crate::prepared_source_binding::KEY,
+                binding.as_bytes().to_vec(),
+            )
+        } else {
+            write_options
+        };
+        #[cfg(not(unix))]
+        let _ = prepared_source_binding;
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -13618,6 +13651,10 @@ impl LocalVortexWriteContext {
                     }
                     for identity in source_identities {
                         identity.validate()?;
+                    }
+                    #[cfg(unix)]
+                    if let Some(binding) = prepared_source_binding {
+                        crate::prepared_source_binding::validate(binding)?;
                     }
                     Ok(())
                 },
@@ -14296,6 +14333,7 @@ fn write_vortex_array_iterator<I>(
     native_memory: Option<&NativeIngestMemory>,
     source_identities: &[Arc<SourceIdentity>],
     writer_input_lookahead: Option<WriterInputLookahead>,
+    prepared_source_binding: Option<&str>,
 ) -> Result<LocalVortexWriteResult>
 where
     I: vortex::array::iter::ArrayIterator + Send + 'static,
@@ -14311,6 +14349,7 @@ where
             native_memory,
             source_identities,
             writer_input_lookahead,
+            prepared_source_binding,
         )
     })
 }

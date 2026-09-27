@@ -390,7 +390,18 @@ fn footer_aggregate_native_aliases_having_and_text_exports_share_scalar_contract
         assert_eq!(payload(&result.report)["values"], expected);
         assert_eq!(result.report.projected_columns, ["hi", "n"]);
         assert!(result.native_io_certificate.is_certified());
-        assert!(prepared.execute_owned().is_err()); // Scalar owned admission remains unchanged.
+        let owned = prepared.execute_owned().unwrap();
+        assert_eq!(owned.execution.report.arrays_read_count, 0);
+        let columns = vec!["hi".to_string(), "n".to_string()];
+        let values: serde_json::Value = serde_json::from_str(
+            owned
+                .result
+                .to_bounded_json(&columns, 65536)
+                .unwrap()
+                .value(),
+        )
+        .unwrap();
+        assert_eq!(values, if reject { json!([]) } else { json!([expected]) });
         for format in [
             runtime::VortexLocalPrimitiveRowExportFormat::Jsonl,
             runtime::VortexLocalPrimitiveRowExportFormat::Csv,

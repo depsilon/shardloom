@@ -93,6 +93,7 @@ REQUIRED_PYTHON_METHODS = (
     "group_by",
     "join",
     "collect",
+    "write_json",
     "write_jsonl",
     "write_vortex",
 )

@@ -54,31 +54,14 @@ impl ExecutedOwnedVortexAggregate {
         format: super::VortexLocalPrimitiveRowExportFormat,
         allow_overwrite: bool,
     ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
-        let plan = super::native_sink::NativeSinkPlan::completed(self.result)?;
-        let mut report = match format {
-            super::VortexLocalPrimitiveRowExportFormat::Vortex => {
-                plan.write(&self.request, path, allow_overwrite, self.policy)?
-            }
-            #[cfg(feature = "universal-format-io")]
-            super::VortexLocalPrimitiveRowExportFormat::ArrowIpc
-            | super::VortexLocalPrimitiveRowExportFormat::Parquet => {
-                super::columnar_compat_sink::prepare_plan(
-                    &self.request,
-                    plan,
-                    format,
-                    self.policy,
-                    super::columnar_compat_sink::CompatibilityLimits::default(),
-                )?
-                .ok_or_else(|| failed("completed result exceeds compatibility sink admission"))?
-                .write(path, allow_overwrite)?
-                .report
-            }
-            _ => {
-                return Err(failed(
-                    "owned aggregate sink requires enabled Vortex, Arrow IPC or Parquet output",
-                ));
-            }
-        };
+        let mut report = super::completed_result::write(
+            self.result,
+            &self.request,
+            path,
+            format,
+            allow_overwrite,
+            self.policy,
+        )?;
         let execution = self.execution.report;
         report.rows_scanned = execution.rows_scanned;
         report.arrays_read_count = execution.arrays_read_count;
@@ -579,14 +562,14 @@ impl PreparedVortexAggregate {
 
     fn read_with_output(
         &self,
-        output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
+        output: Option<&mut super::aggregate_owned::AggregateOutput>,
     ) -> Result<LocalVortexAggregateScan> {
         self.read_with_output_in_context(output, None)
     }
 
     fn read_with_output_in_context(
         &self,
-        mut output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
+        mut output: Option<&mut super::aggregate_owned::AggregateOutput>,
         context: Option<&NativeExecutionContext<'_>>,
     ) -> Result<LocalVortexAggregateScan> {
         if let Some(context) = context {
@@ -693,7 +676,7 @@ impl PreparedVortexAggregate {
     fn read_owned_source(
         &self,
         source: &crate::owned_array_source::OwnedArraySource,
-        mut output: Option<&mut super::aggregate_owned::OwnedAggregateFinalizer>,
+        mut output: Option<&mut super::aggregate_owned::AggregateOutput>,
         context: Option<&NativeExecutionContext<'_>>,
     ) -> Result<LocalVortexAggregateScan> {
         let mut execute = |context: &NativeExecutionContext<'_>| {
@@ -826,14 +809,16 @@ impl PreparedVortexAggregate {
         self.certify(&scan)
     }
 
-    /// Execute fresh integer grouped COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*).
-    /// Preserves original integer width or exact UTF8 bytes, count-descending/key-ascending
-    /// ordering and offset/limit; no result rows are rendered before a sink.
+    /// Execute once and retain complete typed native result columns for a sink.
+    /// Specialized integer/UTF8 count finalizers retain their direct column path.
+    /// Other admitted aggregates bind completed scalar values to the declared
+    /// schema without serializing and reparsing JSON or replaying the query.
     /// # Errors
-    /// Rejects unsupported or nullable shapes before execution, source changes,
-    /// pressure, and offset plus limit above 65536. No query is retried to render rows.
+    /// Rejects unsupported shapes, source changes, pressure, explicit spill,
+    /// and grouped offset plus limit above 65536. General results have an 8 MiB
+    /// output bound. No query is retried to render rows.
     pub fn execute_owned(&self) -> Result<ExecutedOwnedVortexAggregate> {
-        let mut output = super::aggregate_owned::OwnedAggregateFinalizer::new(
+        let mut output = super::aggregate_owned::AggregateOutput::new(
             &self.request,
             self.source.dtype(),
             &self.session,

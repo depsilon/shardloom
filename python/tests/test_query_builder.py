@@ -15,6 +15,8 @@ import shardloom as sl
 from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
 from shardloom.query import (
     _embedded_vortex_input_uri,
+    _normalize_local_output_format,
+    _public_write_request_for_format,
     _rewrite_predicate_with_computed_columns,
     _sql_native_vortex_public_workflow_kwargs,
     _vortex_expression_scalar_payload,
@@ -53,6 +55,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     def _shardloom_public_request_output_format(requested_output):
         return {
             "collect": "inline-jsonl",
+            "write_json": "json",
             "write_jsonl": "jsonl",
             "write_csv": "csv",
             "write_parquet": "parquet",
@@ -716,6 +719,53 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         prefix = "" if rewrite_public_run else "_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE = True\n"
         path.write_text(prefix + _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
         return [sys.executable, str(path)]
+
+    def fake_public_local_write_cli(
+        self, *, requested_output: str, output_path: str, output_format: str
+    ) -> list[str]:
+        return self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] == ["run", "dataframe"], sys.argv
+                assert args[args.index("--input") + 1] == "target/input.csv", sys.argv
+                assert args[args.index("--input-format") + 1] == "csv", sys.argv
+                assert "target/input.csv" in args[args.index("--sql") + 1], sys.argv
+                assert "target/input.csv" in args[args.index("--plan") + 1], sys.argv
+                assert args[args.index("--request") + 1] == {requested_output!r}, sys.argv
+                assert args[args.index("--output") + 1] == {output_path!r}, sys.argv
+                assert args[args.index("--execution-policy") + 1] == "vortex_middle", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--evidence-level") + 1] == "production_admitted_local_workflow", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
+                assert "--allow-overwrite" in args, sys.argv
+                assert args[args.index("--max-parallelism") + 1] == {str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM)!r}, sys.argv
+                assert args[-2:] == ["--format", "json"], sys.argv
+                fields = [
+                    ["public_workflow_facade_command", "run"],
+                    ["public_workflow_requested_output", {requested_output!r}],
+                    ["output_path", {output_path!r}],
+                    ["output_format", {output_format!r}],
+                    ["output_io_performed", "true"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                ]
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "public local write",
+                    "human_text": "public local write",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [{{"key": key, "value": value}} for key, value in fields],
+                }}))
+                """
+            ),
+            rewrite_public_run=False,
+        )
 
     def test_auto_prepared_vortex_collect_overwrites_internal_target(self) -> None:
         class CapturingClient:
@@ -15212,15 +15262,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
     def test_local_csv_query_builder_write_csv_routes_through_public_run_facade(
         self,
     ) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import sys
-
-                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
-                """
-            ),
-            rewrite_public_run=False,
+        binary = self.fake_public_local_write_cli(
+            requested_output="write_csv",
+            output_path="target/out-public.csv",
+            output_format="csv",
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
@@ -15231,26 +15276,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write_csv("target/out-public.csv", allow_overwrite=True)
         )
 
-        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
-        self.assertEqual(
-            report.envelope.field("public_workflow_route_id"),
-            "native_vortex_primitive_row_export",
-        )
-        self.assertEqual(
-            report.envelope.field("public_workflow_resolved_internal_command"),
-            "vortex-local-primitive-row-export",
-        )
+        self.assertIsInstance(report, sl.SqlLocalSourceSmokeReport)
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_csv")
-        self.assertEqual(
-            report.envelope.field("native_vortex_result_export_format"),
-            "csv",
-        )
-        self.assertEqual(
-            report.envelope.field("native_vortex_result_export_path"),
-            "target/out-public.csv",
-        )
-        self.assertEqual(report.envelope.field("fallback_attempted"), "false")
-        self.assertEqual(report.envelope.field("external_engine_invoked"), "false")
+        self.assertEqual(report.output_path, "target/out-public.csv")
+        self.assertEqual(report.output_format, "csv")
+        self.assertTrue(report.output_io_performed)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_local_csv_query_builder_fanout_routes_through_prepared_vortex_row_export(self) -> None:
         binary = self.fake_cli(
@@ -15306,12 +15338,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_local_csv_query_builder_write_structured_binary_uses_vortex_export(
+    def test_local_csv_query_builder_write_structured_binary_uses_public_run_facade(
         self,
     ) -> None:
-        binary = self.fake_cli("raise AssertionError('fake native Vortex export was not used')")
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
-
         writers = (
             (
                 "vortex",
@@ -15361,48 +15390,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         for output_format, requested_output, output_path, writer in writers:
             with self.subTest(output_format=output_format):
+                cli_format = {
+                    "vortex": "vortex",
+                    "parquet": "parquet",
+                    "arrow-ipc": "arrow_ipc",
+                    "avro": "avro",
+                }[output_format]
+                binary = self.fake_public_local_write_cli(
+                    requested_output=requested_output,
+                    output_path=output_path,
+                    output_format=cli_format,
+                )
+                ctx = ShardLoomContext(ShardLoomClient(binary=binary))
                 report = writer()
-                self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
-                self.assertEqual(
-                    report.preparation_envelope.field("vortex_ingest_performed"),
-                    "true",
-                )
-                self.assertEqual(
-                    report.envelope.field("public_workflow_route_id"),
-                    "native_vortex_primitive_row_export",
-                )
-                self.assertEqual(
-                    report.envelope.field("public_workflow_resolved_internal_command"),
-                    "vortex-local-primitive-row-export",
-                )
+                self.assertIsInstance(report, sl.SqlLocalSourceSmokeReport)
                 self.assertEqual(
                     report.envelope.field("public_workflow_requested_output"),
                     requested_output,
                 )
-                self.assertEqual(
-                    report.envelope.field("native_vortex_result_export_format"),
-                    output_format,
-                )
-                self.assertEqual(
-                    report.envelope.field("native_vortex_result_export_path"),
-                    output_path,
-                )
-                self.assertEqual(
-                    report.envelope.field("typed_sink_contract"),
-                    "native_vortex_structured_row_stream_to_vortex_sink"
-                    if requested_output == "write_vortex"
-                    else "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink",
-                )
-                self.assertEqual(
-                    report.envelope.field(
-                        "public_workflow_vortex_expression_projection_present"
-                    ),
-                    "true",
-                )
-                self.assertEqual(
-                    report.envelope.field("public_workflow_vortex_middle_status"),
-                    "native_vortex_primitive_row_export",
-                )
+                self.assertEqual(report.output_path, output_path)
+                self.assertEqual(report.output_format, cli_format)
                 self.assertTrue(report.output_io_performed)
                 self.assertFalse(report.fallback_attempted)
                 self.assertFalse(report.external_engine_invoked)
@@ -15410,7 +15417,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
     def test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary(
         self,
     ) -> None:
-        binary = self.fake_cli("raise AssertionError('fake native Vortex export was not used')")
+        binary = self.fake_public_local_write_cli(
+            requested_output="write_parquet",
+            output_path="target/nested.parquet",
+            output_format="parquet",
+        )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
         report = (
@@ -15426,26 +15437,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 .write_parquet("target/nested.parquet", allow_overwrite=True)
         )
 
-        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
-        self.assertEqual(
-            report.preparation_envelope.field("vortex_ingest_performed"), "true"
-        )
-        self.assertEqual(
-            report.envelope.field("public_workflow_route_id"),
-            "native_vortex_primitive_row_export",
-        )
-        self.assertEqual(
-            report.envelope.field("native_vortex_result_export_format"),
-            "parquet",
-        )
-        self.assertEqual(
-            report.envelope.field("typed_sink_contract"),
-            "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink",
-        )
-        self.assertEqual(
-            report.envelope.field("public_workflow_vortex_expression_projection_present"),
-            "true",
-        )
+        self.assertIsInstance(report, sl.SqlLocalSourceSmokeReport)
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_parquet")
+        self.assertEqual(report.output_path, "target/nested.parquet")
+        self.assertEqual(report.output_format, "parquet")
         self.assertTrue(report.output_io_performed)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -15515,8 +15510,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_local_csv_query_builder_write_vortex_uses_native_vortex_export(self) -> None:
-        binary = self.fake_cli("raise AssertionError('fake native Vortex export was not used')")
+    def test_local_csv_query_builder_write_vortex_uses_public_run_facade(self) -> None:
+        binary = self.fake_public_local_write_cli(
+            requested_output="write_vortex",
+            output_path="target/out.vortex",
+            output_format="vortex",
+        )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
         report = (
@@ -15526,21 +15525,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write_vortex("target/out.vortex", allow_overwrite=True)
         )
 
-        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
-        self.assertEqual(
-            report.preparation_envelope.field("vortex_ingest_performed"), "true"
-        )
-        self.assertEqual(
-            report.envelope.field("public_workflow_route_id"),
-            "native_vortex_primitive_row_export",
-        )
-        self.assertEqual(
-            report.envelope.field("native_vortex_result_export_format"), "vortex"
-        )
-        self.assertEqual(
-            report.envelope.field("typed_sink_contract"),
-            "native_vortex_structured_row_stream_to_vortex_sink",
-        )
+        self.assertIsInstance(report, sl.SqlLocalSourceSmokeReport)
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_vortex")
+        self.assertEqual(report.output_path, "target/out.vortex")
+        self.assertEqual(report.output_format, "vortex")
         self.assertTrue(report.output_io_performed)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -15960,6 +15948,63 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_generated_source_write_json_alias_requests_json_array_sink(self) -> None:
+        self.assertEqual(_normalize_local_output_format(" JSON "), "json")
+        self.assertEqual(_normalize_local_output_format("json-array"), "json")
+        self.assertEqual(_public_write_request_for_format("json"), "write_json")
+
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-range",
+                    "target/range.json",
+                    "2",
+                    "8",
+                    "--step",
+                    "2",
+                    "--column",
+                    "id",
+                    "--output-format",
+                    "json",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-range",
+                    "status": "success",
+                    "summary": "generated range",
+                    "human_text": "generated range",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/range.json"},
+                        {"key": "output_format", "value": "json"},
+                        {"key": "generated_source_kind", "value": "range"},
+                        {"key": "generated_source_row_count", "value": "3"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.range(2, 8, step=2, column="id").write_json(
+            "target/range.json",
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(report.output_path, "target/range.json")
+        self.assertEqual(report.output_format, "json")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_range_limit_preserves_engine_native_generated_source_smoke(self) -> None:
         binary = self.fake_cli(

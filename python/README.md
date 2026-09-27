@@ -189,9 +189,10 @@ format helpers. CSV, flat JSON/JSONL/NDJSON, generated rows, and scoped local Vo
 the default public examples. Parquet, Arrow IPC/Feather, Avro, and ORC are admitted scoped
 local-format surfaces when the matching feature-gated build is present; builds without those
 readers return deterministic adapter blockers instead of invoking another engine. Compatibility
-exports such as `write_jsonl(...)`, `write_csv(...)`, Parquet/Arrow IPC/Avro/ORC writers, fanout,
-and quarantine sinks are admitted only when the workflow first carries Vortex preparation or native
-Vortex-input evidence and the sink emits replay evidence such as `result_replay_verified`.
+exports such as `write_json(...)` (one JSON array), `write_jsonl(...)`, `write_csv(...)`,
+Parquet/Arrow IPC/Avro/ORC writers, fanout, and quarantine sinks are admitted only when the
+workflow first carries Vortex preparation or native Vortex-input evidence and the sink emits replay
+evidence such as `result_replay_verified`.
 Format-specific behavior belongs at read/ingest and write/sink boundaries only; compute semantics
 should lower through the shared ShardLoom/Vortex runtime or return a deterministic unsupported
 report.
@@ -374,8 +375,11 @@ Lazy DataFrame bounded `collect()` and admitted generated-source/source-free wri
 the public `run` facade and return existing typed reports with attached `public_workflow_*` route
 fields. `write_vortex(...)` remains the highest-fidelity native sink when the upstream provider
 route is admitted. Exact provider-backed result summaries can export bounded `result_json` to
-workspace-safe JSONL/CSV, and scoped primitive filter/project/filter-project/distinct/tail/sample row streams
-can export JSONL/CSV or JSONL+CSV fanout through `native_vortex_primitive_row_export`. Broader
+workspace-safe JSONL/CSV. Ordinary SQL/generated local result sinks and primitive
+filter/project/filter-project row streams also admit JSON arrays; scoped primitive
+filter/project/filter-project/distinct/tail/sample row streams can export JSONL/CSV or JSONL+CSV
+fanout through `native_vortex_primitive_row_export`.
+JSON and JSONL text outputs do not preserve static type or Vortex layout metadata. Broader
 compatibility writes such as arbitrary `write(...)`, structured write aliases, unsupported formats,
 and unsafe or non-admitted fanout return deterministic blockers until a native Vortex sink/export
 route exists for the normalized plan. Native Vortex primitive and promoted provider helpers attach
@@ -739,8 +743,12 @@ contains, and native Vortex result sinks. The current exact-route inventory live
 General SQL/DataFrame parity, arbitrary expression trees, arbitrary joins, broad schema/profile
 materialization, and broad remote/table exports are not implied by those exact routes.
 
-Compatibility sinks such as JSONL/CSV/Parquet/Arrow IPC/Avro/ORC are admitted for scoped local
-workflows after Vortex preparation or native Vortex input and declared output replay evidence.
+Compatibility sinks such as JSON arrays/JSONL/CSV/Parquet/Arrow IPC/Avro/ORC are admitted for
+scoped local workflows after Vortex preparation or native Vortex input and declared output replay
+evidence. `write_json(...)` emits one top-level JSON array for admitted ordinary SQL/generated
+local results and primitive filter/project/filter-project row exports; it is not currently admitted
+for provider-backed result summaries. JSON text does not preserve static type or Vortex layout
+metadata.
 `write_vortex(...)` remains the highest-fidelity local Vortex sink route for admitted native-provider
 workflows. If a sink shape is not admitted, call it with `check=False` to inspect the deterministic
 blocker without raising:
@@ -750,6 +758,14 @@ result = orders.write_jsonl("target/orders.jsonl", allow_overwrite=True, check=F
 print(result.output_path)
 print(result.result_replay_verified)
 print(result.fallback_attempted, result.external_engine_invoked)
+```
+
+Use `write_json(...)` when a single top-level JSON array is preferred:
+
+```python
+result = orders.write_json("target/orders.json", allow_overwrite=True, check=False)
+print(result.output_path)
+print(result.result_replay_verified)
 ```
 
 The lower-level `client.sql_local_source_smoke(...)` helper remains documented only for internal

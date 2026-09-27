@@ -33,6 +33,7 @@ LATEST_BENCHMARK_ARTIFACT = Path(
 DOC_MARKERS = (
     "shardloom.v1_local_output_sink_scope.v1",
     "ShardLoomContext.local_output_sink_scope_report()",
+    "write_json",
     "jsonl",
     "arrow-ipc",
     "write_vortex",
@@ -195,14 +196,14 @@ def validate_context_report(report: Any) -> list[str]:
         blockers.append("feature-gated output formats must be labeled")
     if report.write_policy_contract_ready is not True:
         blockers.append("write policy contract must be ready")
-    if len(report.supported_output_formats) != 7:
-        blockers.append("supported output format coverage must contain 7 formats")
-    if len(report.default_output_formats) != 2:
-        blockers.append("default output format coverage must contain 2 formats")
+    if len(report.supported_output_formats) != 8 or "json" not in report.supported_output_formats:
+        blockers.append("supported output format coverage must contain JSON and 7 existing formats")
+    if len(report.default_output_formats) != 3 or "json" not in report.default_output_formats:
+        blockers.append("default output format coverage must contain JSON, JSONL, and CSV")
     if len(report.feature_gated_output_formats) != 5:
         blockers.append("feature-gated output format coverage must contain 5 formats")
-    if len(report.user_write_methods) != 9:
-        blockers.append("write method coverage must contain 9 methods")
+    if len(report.user_write_methods) != 10 or "write_json" not in report.user_write_methods:
+        blockers.append("write method coverage must contain write_json and 9 existing methods")
     if len(report.write_policy_ids) != 5:
         blockers.append("write policy coverage must contain 5 policies")
     if len(report.golden_fixture_paths) != 3:

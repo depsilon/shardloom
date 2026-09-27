@@ -597,8 +597,21 @@ fn prepared_utf8_count_retains_nullable_schema_without_reopening() {
             ])
         );
     }
-    assert!(operation.execute_owned().is_err());
-    assert_eq!(session.snapshot().completed_executions, 3);
+    let owned = operation.execute_owned().unwrap();
+    let values: serde_json::Value = serde_json::from_str(
+        owned
+            .result
+            .to_bounded_json(&[KEY.to_string(), COUNT.to_string()], 65536)
+            .unwrap()
+            .value(),
+    )
+    .unwrap();
+    assert_eq!(
+        values,
+        serde_json::json!([{KEY:"x",COUNT:2},{KEY:null,COUNT:1}])
+    );
+    assert_eq!(session.snapshot().completed_executions, 4);
+    assert_eq!(session.snapshot().prepared_source_opens, 1);
 }
 
 #[test]

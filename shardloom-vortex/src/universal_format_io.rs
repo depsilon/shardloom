@@ -4341,7 +4341,7 @@ pub fn encode_flat_orc_rows_with_arrow_dtypes(
         rows,
         "local ORC output",
     )?;
-    validate_orc_record_batch_supported(&batch)?;
+    let batch = translate_orc_record_batch(&batch)?;
     let buffer = SharedBufferWriter::default();
     let retained_buffer = buffer.clone();
     let mut writer = orc_rust::ArrowWriterBuilder::new(buffer, batch.schema())
@@ -4360,6 +4360,111 @@ pub fn encode_flat_orc_rows_with_arrow_dtypes(
         ))
     })?;
     Ok(retained_buffer.into_bytes())
+}
+
+fn orc_conversion_error(message: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "local ORC output: {message}; no fallback execution was attempted"
+    ))
+}
+
+#[cfg(test)]
+mod orc_output_admission_tests {
+    use super::*;
+
+    #[test]
+    fn unsigned_orc_values_are_checked_before_provider_conversion() {
+        let columns = vec!["id".to_string()];
+        for rows in [
+            vec![],
+            vec![vec![("id".into(), ScalarValue::Null)]],
+            vec![vec![("id".into(), ScalarValue::UInt64(i64::MAX as u64))]],
+        ] {
+            let bytes =
+                encode_flat_orc_rows_with_dtypes(&columns, &[Some(LogicalDType::UInt64)], &rows)
+                    .unwrap();
+            assert!(bytes.starts_with(b"ORC"));
+        }
+        let rows = vec![vec![("id".into(), ScalarValue::UInt64(u64::MAX))]];
+        let error =
+            encode_flat_orc_rows_with_dtypes(&columns, &[Some(LogicalDType::UInt64)], &rows)
+                .unwrap_err();
+        assert!(error.to_string().contains("above i64::MAX"));
+        let batch = RecordBatch::new_empty(Arc::new(Schema::new(vec![Field::new(
+            "date",
+            DataType::Date32,
+            true,
+        )])));
+        assert!(
+            translate_orc_record_batch(&batch)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported writer dtype")
+        );
+    }
+}
+
+pub(crate) fn translate_orc_record_batch(batch: &RecordBatch) -> Result<RecordBatch> {
+    use arrow_array::{
+        Int16Array, Int32Array, Int64Array, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    };
+    validate_orc_record_batch_supported(batch)?;
+    let mut arrays = Vec::<arrow_array::ArrayRef>::with_capacity(batch.num_columns());
+    for array in batch.columns() {
+        let converted: arrow_array::ArrayRef = match array.data_type() {
+            DataType::UInt8 => Arc::new(Int16Array::from_iter(
+                array
+                    .as_any()
+                    .downcast_ref::<UInt8Array>()
+                    .ok_or_else(|| orc_conversion_error("invalid UInt8 array"))?
+                    .iter()
+                    .map(|value| value.map(i16::from)),
+            )),
+            DataType::UInt16 => Arc::new(Int32Array::from_iter(
+                array
+                    .as_any()
+                    .downcast_ref::<UInt16Array>()
+                    .ok_or_else(|| orc_conversion_error("invalid UInt16 array"))?
+                    .iter()
+                    .map(|value| value.map(i32::from)),
+            )),
+            DataType::UInt32 => Arc::new(Int64Array::from_iter(
+                array
+                    .as_any()
+                    .downcast_ref::<UInt32Array>()
+                    .ok_or_else(|| orc_conversion_error("invalid UInt32 array"))?
+                    .iter()
+                    .map(|value| value.map(i64::from)),
+            )),
+            DataType::UInt64 => {
+                let values = array
+                    .as_any()
+                    .downcast_ref::<UInt64Array>()
+                    .ok_or_else(|| orc_conversion_error("invalid UInt64 array"))?
+                    .iter()
+                    .map(|value| {
+                        value.map(i64::try_from).transpose().map_err(|_| {
+                            orc_conversion_error("ORC cannot represent uint64 above i64::MAX")
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                Arc::new(Int64Array::from(values))
+            }
+            _ => Arc::clone(array),
+        };
+        arrays.push(converted);
+    }
+    let fields = batch
+        .schema()
+        .fields()
+        .iter()
+        .zip(&arrays)
+        .map(|(field, array)| {
+            Field::new(field.name(), array.data_type().clone(), field.is_nullable())
+        })
+        .collect::<Vec<_>>();
+    RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays)
+        .map_err(|error| orc_conversion_error(&error.to_string()))
 }
 
 fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
@@ -4382,6 +4487,30 @@ fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
         ) {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "local ORC output does not yet admit typed decimal128 preservation for column '{}'; orc-rust 0.8.0 can read decimal128 but its Arrow writer does not support decimal128 columns, so ShardLoom blocks before provider conversion instead of allowing a writer panic; decimal128 values are admitted through Parquet/Arrow IPC/Avro typed result boundaries and scoped local Vortex typed decimal output in this runtime slice; no fallback execution was attempted",
+                field.name()
+            )));
+        }
+        if !matches!(
+            field.data_type(),
+            DataType::Boolean
+                | DataType::Int8
+                | DataType::Int16
+                | DataType::Int32
+                | DataType::Int64
+                | DataType::UInt8
+                | DataType::UInt16
+                | DataType::UInt32
+                | DataType::UInt64
+                | DataType::Float32
+                | DataType::Float64
+                | DataType::Utf8
+                | DataType::LargeUtf8
+                | DataType::Binary
+                | DataType::LargeBinary
+        ) {
+            return Err(orc_conversion_error(&format!(
+                "unsupported writer dtype {:?} for column '{}'",
+                field.data_type(),
                 field.name()
             )));
         }

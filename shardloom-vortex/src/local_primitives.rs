@@ -128,6 +128,12 @@ mod utf8_distinct_output;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_aggregate_owned.rs"]
 mod aggregate_owned;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_completed_result.rs"]
+mod completed_result;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_json_sink.rs"]
+mod json_sink;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_count.rs"]
 pub mod prepared_count;
@@ -2305,23 +2311,27 @@ fn local_vortex_runtime(policy: VortexLocalPrimitiveExecutionPolicy) -> LocalVor
 /// Native or compatibility output format for a scoped local Vortex primitive export.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalPrimitiveRowExportFormat {
+    Json,
     Jsonl,
     Csv,
     Vortex,
     Parquet,
     ArrowIpc,
     Avro,
+    Orc,
 }
 impl VortexLocalPrimitiveRowExportFormat {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Json => "json",
             Self::Jsonl => "jsonl",
             Self::Csv => "csv",
             Self::Vortex => "vortex",
             Self::Parquet => "parquet",
             Self::ArrowIpc => "arrow-ipc",
             Self::Avro => "avro",
+            Self::Orc => "orc",
         }
     }
 
@@ -2329,13 +2339,16 @@ impl VortexLocalPrimitiveRowExportFormat {
     pub const fn is_structured_projection_export(self) -> bool {
         matches!(
             self,
-            Self::Vortex | Self::Parquet | Self::ArrowIpc | Self::Avro
+            Self::Vortex | Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
         )
     }
 
     #[must_use]
     pub const fn is_compatibility_binary(self) -> bool {
-        matches!(self, Self::Parquet | Self::ArrowIpc | Self::Avro)
+        matches!(
+            self,
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
+        )
     }
 }
 
@@ -4362,6 +4375,10 @@ fn execute_vortex_local_primitive_row_export_enabled(
     use vortex::session::VortexSession;
 
     let (policy, physical_policy) = policy.with_writer_sink_physical_policy_for_request(request);
+    if output_format == VortexLocalPrimitiveRowExportFormat::Json {
+        return json_sink::execute(request, output_path, allow_overwrite, policy)
+            .map(|report| report.with_physical_policy(physical_policy));
+    }
     if request.kind == VortexQueryPrimitiveKind::PivotRows {
         return execute_vortex_local_pivot_row_export_enabled(
             request,
@@ -4459,15 +4476,13 @@ fn execute_vortex_local_primitive_row_export_enabled(
     }
     if output_format.is_structured_projection_export() {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-        if request.structured_projection.is_some()
-            && let Some(prepared) = columnar_compat_sink::prepare(
-                request,
-                &path,
-                output_format,
-                policy,
-                columnar_compat_sink::CompatibilityLimits::default(),
-            )?
-        {
+        if let Some(prepared) = columnar_compat_sink::prepare(
+            request,
+            &path,
+            output_format,
+            policy,
+            columnar_compat_sink::CompatibilityLimits::default(),
+        )? {
             return prepared
                 .write(output_path, allow_overwrite)
                 .map(|completed| completed.report.with_physical_policy(physical_policy));
@@ -5848,7 +5863,11 @@ fn encode_structured_row_export_bytes(
         VortexLocalPrimitiveRowExportFormat::Avro => {
             crate::encode_flat_avro_rows_with_dtypes(output_columns, column_dtypes, rows)
         }
+        VortexLocalPrimitiveRowExportFormat::Orc => {
+            crate::encode_flat_orc_rows_with_dtypes(output_columns, column_dtypes, rows)
+        }
         VortexLocalPrimitiveRowExportFormat::Jsonl
+        | VortexLocalPrimitiveRowExportFormat::Json
         | VortexLocalPrimitiveRowExportFormat::Csv
         | VortexLocalPrimitiveRowExportFormat::Vortex => {
             Err(ShardLoomError::InvalidOperation(
@@ -6345,12 +6364,9 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
     use std::io::Write as _;
 
     #[cfg(all(feature = "vortex-write", unix))]
-    if matches!(
-        output_format,
-        VortexLocalPrimitiveRowExportFormat::Vortex
-            | VortexLocalPrimitiveRowExportFormat::ArrowIpc
-            | VortexLocalPrimitiveRowExportFormat::Parquet
-    ) {
+    if output_format == VortexLocalPrimitiveRowExportFormat::Vortex
+        || output_format.is_compatibility_binary()
+    {
         #[cfg(not(feature = "universal-format-io"))]
         if output_format != VortexLocalPrimitiveRowExportFormat::Vortex {
             return Err(ShardLoomError::InvalidOperation("aggregate compatibility output requires universal-format-io; no fallback execution was attempted".into()));
@@ -6469,6 +6485,8 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+// Keep result handoff and the existing atomic text publication lifecycle together.
+#[allow(clippy::too_many_lines)]
 fn execute_vortex_local_sort_rows_row_export_enabled(
     request: &VortexQueryPrimitiveRequest,
     output_path: &std::path::Path,
@@ -6477,6 +6495,19 @@ fn execute_vortex_local_sort_rows_row_export_enabled(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
     use std::io::Write as _;
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    if output_format == VortexLocalPrimitiveRowExportFormat::Vortex
+        || output_format.is_compatibility_binary()
+    {
+        return completed_result::export_sort(
+            request,
+            output_path,
+            output_format,
+            allow_overwrite,
+            policy,
+        );
+    }
 
     let Some(uri) = request.source_uri.as_ref() else {
         return Ok(VortexLocalPrimitiveRowExportReport::blocked(
@@ -6709,7 +6740,7 @@ fn write_simple_aggregate_result_row(
         ));
     }
     match format {
-        VortexLocalPrimitiveRowExportFormat::Jsonl => {
+        VortexLocalPrimitiveRowExportFormat::Jsonl | VortexLocalPrimitiveRowExportFormat::Json => {
             let mut row = serde_json::Map::with_capacity(output_columns.len());
             for (column, value) in output_columns.iter().zip(row_values) {
                 row.insert(column.clone(), value.clone());
@@ -6736,6 +6767,7 @@ fn write_simple_aggregate_result_row(
         VortexLocalPrimitiveRowExportFormat::Parquet
         | VortexLocalPrimitiveRowExportFormat::ArrowIpc
         | VortexLocalPrimitiveRowExportFormat::Avro
+        | VortexLocalPrimitiveRowExportFormat::Orc
         | VortexLocalPrimitiveRowExportFormat::Vortex => {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex aggregate row export text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7059,7 +7091,8 @@ fn write_row_export_selected_rows(
 
     for &row_index in row_indices {
         match format {
-            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+            VortexLocalPrimitiveRowExportFormat::Jsonl
+            | VortexLocalPrimitiveRowExportFormat::Json => {
                 let mut row = serde_json::Map::with_capacity(columns.len());
                 for (column_index, column) in columns.iter().enumerate() {
                     row.insert(
@@ -7089,6 +7122,7 @@ fn write_row_export_selected_rows(
             VortexLocalPrimitiveRowExportFormat::Parquet
             | VortexLocalPrimitiveRowExportFormat::ArrowIpc
             | VortexLocalPrimitiveRowExportFormat::Avro
+            | VortexLocalPrimitiveRowExportFormat::Orc
             | VortexLocalPrimitiveRowExportFormat::Vortex => {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex row export text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7117,7 +7151,8 @@ fn write_row_export_materialized_rows(
             ));
         }
         match format {
-            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+            VortexLocalPrimitiveRowExportFormat::Jsonl
+            | VortexLocalPrimitiveRowExportFormat::Json => {
                 let mut row = serde_json::Map::with_capacity(columns.len());
                 for (column, value) in columns.iter().zip(row_values) {
                     row.insert(column.clone(), stat_value_to_json_value(value)?);
@@ -7144,6 +7179,7 @@ fn write_row_export_materialized_rows(
             VortexLocalPrimitiveRowExportFormat::Parquet
             | VortexLocalPrimitiveRowExportFormat::ArrowIpc
             | VortexLocalPrimitiveRowExportFormat::Avro
+            | VortexLocalPrimitiveRowExportFormat::Orc
             | VortexLocalPrimitiveRowExportFormat::Vortex => {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex materialized row text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7172,7 +7208,8 @@ fn write_row_export_sparse_materialized_rows(
             ));
         }
         match format {
-            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+            VortexLocalPrimitiveRowExportFormat::Jsonl
+            | VortexLocalPrimitiveRowExportFormat::Json => {
                 let mut row = serde_json::Map::with_capacity(columns.len());
                 for (column, value) in columns.iter().zip(row_values) {
                     row.insert(
@@ -7208,6 +7245,7 @@ fn write_row_export_sparse_materialized_rows(
             VortexLocalPrimitiveRowExportFormat::Parquet
             | VortexLocalPrimitiveRowExportFormat::ArrowIpc
             | VortexLocalPrimitiveRowExportFormat::Avro
+            | VortexLocalPrimitiveRowExportFormat::Orc
             | VortexLocalPrimitiveRowExportFormat::Vortex => {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex sparse row text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7331,7 +7369,8 @@ fn write_row_export_melt_rows(
             let value_column = melt_projection.value_columns[value_offset].as_str();
             let value_index = id_count + value_offset;
             match format {
-                VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                VortexLocalPrimitiveRowExportFormat::Jsonl
+                | VortexLocalPrimitiveRowExportFormat::Json => {
                     let mut row = serde_json::Map::with_capacity(output_columns.len());
                     for (id_index, id_column) in melt_projection.id_columns.iter().enumerate() {
                         row.insert(
@@ -7372,6 +7411,7 @@ fn write_row_export_melt_rows(
                 VortexLocalPrimitiveRowExportFormat::Parquet
                 | VortexLocalPrimitiveRowExportFormat::ArrowIpc
                 | VortexLocalPrimitiveRowExportFormat::Avro
+                | VortexLocalPrimitiveRowExportFormat::Orc
                 | VortexLocalPrimitiveRowExportFormat::Vortex => {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex melt text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -7825,7 +7865,8 @@ fn write_row_export_explode_rows(
                 return Ok(written);
             }
             match format {
-                VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                VortexLocalPrimitiveRowExportFormat::Jsonl
+                | VortexLocalPrimitiveRowExportFormat::Json => {
                     let mut row =
                         serde_json::Map::with_capacity(explode_columns.output_columns.len());
                     for (column, values) in explode_columns
@@ -7858,6 +7899,7 @@ fn write_row_export_explode_rows(
                 VortexLocalPrimitiveRowExportFormat::Parquet
                 | VortexLocalPrimitiveRowExportFormat::ArrowIpc
                 | VortexLocalPrimitiveRowExportFormat::Avro
+                | VortexLocalPrimitiveRowExportFormat::Orc
                 | VortexLocalPrimitiveRowExportFormat::Vortex => {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex explode text writer received a structured or native Vortex format; no fallback execution was attempted"
@@ -20230,7 +20272,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     mut uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
     lowering: &aggregate_lowering::AggregateLowering,
     attempt_started: Instant,
-    mut owned_output: Option<&mut aggregate_owned::OwnedAggregateFinalizer>,
+    mut owned_output: Option<&mut aggregate_owned::AggregateOutput>,
     cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
 ) -> Result<LocalVortexAggregateScan> {
     let check_cancelled = || {
@@ -21246,9 +21288,14 @@ fn read_lowered_vortex_simple_aggregate_scan(
         } else {
             states.result_row_count(&aggregate.having)?
         };
+        let (result_row_count, result_summary) = if let Some(output) = owned_output {
+            output.finish_scalar(&states, &aggregate.having)?
+        } else {
+            (result_row_count, states.result_summary(&aggregate.having)?)
+        };
         (
             result_row_count,
-            states.result_summary(&aggregate.having)?,
+            result_summary,
             states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     };
@@ -22192,6 +22239,18 @@ fn read_local_vortex_sort_rows_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexRowsScan> {
+    read_local_vortex_sort_rows_scan_with_output(source_uri, path, request, policy, None)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_sort_rows_scan_with_output(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    output: Option<&mut completed_result::CompletedRows>,
+) -> Result<LocalVortexRowsScan> {
     use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
@@ -22830,8 +22889,11 @@ fn read_local_vortex_sort_rows_scan(
         "sort_candidate_value_columns": candidate_value_columns,
         "values": result_rows,
         "native_sort_spill": spill_json,
-    })
-    .to_string();
+    });
+    if let Some(output) = output {
+        output.finish_payload(result_row_count, &mut result_summary)?;
+    }
+    let mut result_summary = result_summary.to_string();
     if let Some(rewrite) = predicate_rewrite.as_ref() {
         annotate_embedded_derived_column_rewrite_summary(
             &mut result_summary,
@@ -25247,6 +25309,10 @@ impl SimpleAggregateStates {
     }
 
     fn result_summary(&self, having: &[VortexAggregateHavingExpr]) -> Result<String> {
+        Ok(self.result_payload(having)?.to_string())
+    }
+
+    fn result_payload(&self, having: &[VortexAggregateHavingExpr]) -> Result<serde_json::Value> {
         let values = self.result_values()?;
         let matched = aggregate_row_matches_having(&values, having)?;
         let payload = serde_json::json!({
@@ -25274,7 +25340,7 @@ impl SimpleAggregateStates {
             "expression_plan_fingerprint_status": self.expression_plan_fingerprint_status(),
             "values": if matched { values } else { serde_json::Map::new() },
         });
-        Ok(payload.to_string())
+        Ok(payload)
     }
 
     fn has_count_distinct(&self) -> bool {
@@ -34227,10 +34293,18 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
-    #[allow(clippy::too_many_lines)]
     fn result_row_count_and_summary(&self, limit: Option<usize>) -> Result<(usize, String)> {
+        let (rows, payload) = self.result_row_count_and_payload(limit)?;
+        Ok((rows, payload.to_string()))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn result_row_count_and_payload(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<(usize, serde_json::Value)> {
         if let Some(finalized) = &self.finalized_distinct_counts {
-            return finalized.result_summary(self, limit);
+            return finalized.result_payload(self, limit);
         }
         let group_by = self
             .group_columns
@@ -34365,7 +34439,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "transformed_dictionary_lazy_utf8_minmax_updates",
             self.transformed_dictionary_lazy_utf8_minmax_updates,
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -34373,7 +34447,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self
             .transformed_dictionary_dense_general_groups
             .as_ref()
@@ -34491,7 +34565,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "transformed_dictionary_lazy_utf8_minmax_updates",
             self.transformed_dictionary_lazy_utf8_minmax_updates,
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn transformed_dictionary_dense_general_ordered_candidates(
@@ -34684,7 +34758,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex numeric-UTF8 top-K heavy-hitter aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -34897,7 +34971,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "numeric_utf8_topk_candidate_clone_strategy",
             "clone_only_surviving_retained_candidates",
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::unused_self)]
@@ -34991,7 +35065,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex string top-K heavy-hitter aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -35322,7 +35396,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "string_count_topk_candidate_clone_strategy",
             "clone_only_surviving_retained_candidates",
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::unused_self)]
@@ -35391,7 +35465,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex string count-distinct top-K heavy-hitter aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -35588,7 +35662,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "string_count_distinct_topk_candidate_clone_strategy",
             "clone_only_surviving_retained_candidates",
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn admits_generic_count_star_streaming_topk(&self, limit: Option<usize>) -> bool {
@@ -35616,7 +35690,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: usize,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let retained_cap = self.request.offset.saturating_add(limit);
         let large_retained_window =
             retained_cap > Self::grouped_count_star_streaming_topk_linear_retention_cap();
@@ -35751,7 +35825,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "values": rows,
         });
         self.annotate_transformed_dictionary_key_cache_summary(&mut payload)?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn count_star_ordered_candidate(
@@ -35800,7 +35874,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let mut rows = Vec::new();
         let mut skipped = 0usize;
         let prepared_having = prepare_aggregate_having(&self.request.having);
@@ -35884,7 +35958,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "values": rows,
         });
         self.annotate_transformed_dictionary_key_cache_summary(&mut payload)?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn ordered_candidates(&self) -> Result<Vec<GroupedAggregateOrderCandidate>> {
@@ -35922,7 +35996,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let candidate_group_count = self
             .numeric_pair_late_measure_candidate_group_count
             .ok_or_else(|| {
@@ -36064,7 +36138,7 @@ impl<'a> GroupedAggregateStates<'a> {
                     .numeric_pair_late_measure_near_unique_directory
                     .is_none(),
         )?;
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -36072,7 +36146,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self.numeric_pair_compact_groups.as_ref().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex numeric-pair aggregate state was missing; no fallback execution was attempted"
@@ -36221,7 +36295,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "values": rows,
         });
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -36229,7 +36303,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self
             .numeric_minute_string_count_groups
             .as_ref()
@@ -36382,7 +36456,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "values": rows,
         });
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -36390,7 +36464,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         limit: Option<usize>,
         group_by: &[&str],
-    ) -> Result<(usize, String)> {
+    ) -> Result<(usize, serde_json::Value)> {
         let groups = self.single_numeric_count_groups.as_ref().ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex single-numeric aggregate state was missing; no fallback execution was attempted"
@@ -36531,7 +36605,7 @@ impl<'a> GroupedAggregateStates<'a> {
             "offset": self.request.offset,
             "values": rows,
         });
-        Ok((row_count, payload.to_string()))
+        Ok((row_count, payload))
     }
 
     fn capillary_select_ordered_candidates(

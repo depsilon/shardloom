@@ -613,6 +613,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             Some(&memory),
             &[],
             writer_input_lookahead,
+            None,
         );
         let snapshot = memory.pool.snapshot();
         assert!(snapshot.peak_reserved_bytes > 0);

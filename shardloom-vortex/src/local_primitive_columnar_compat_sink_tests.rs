@@ -539,7 +539,7 @@ fn columnar_compatibility_unsupported_shapes_and_bounds_do_not_change_admission(
             CompatibilityLimits::default()
         )
         .unwrap()
-        .is_none()
+        .is_some()
     );
     let limits = CompatibilityLimits {
         source_rows: 1,

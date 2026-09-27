@@ -34,6 +34,68 @@ const UTF8_BOUNDARY: &str = "owned_native_utf8_columns;no_JSON_or_StatValue_outp
 #[path = "local_primitive_aggregate_owned_utf8.rs"]
 mod utf8;
 
+pub(super) enum AggregateOutput {
+    Direct(Box<OwnedAggregateFinalizer>),
+    General(super::completed_result::CompletedRows),
+}
+
+impl AggregateOutput {
+    #[cfg(unix)]
+    pub(super) fn new(
+        request: &VortexQueryPrimitiveRequest,
+        dtype: &DType,
+        session: &crate::resident_session::ResidentVortexSession,
+    ) -> Result<Self> {
+        if admitted_key_kind(request, dtype).is_ok() {
+            return OwnedAggregateFinalizer::new(request, dtype, session)
+                .map(Box::new)
+                .map(Self::Direct);
+        }
+        super::completed_result::CompletedRows::new(
+            super::completed_result::aggregate_fields(request, dtype)?,
+            session.memory(),
+        )
+        .map(Self::General)
+    }
+
+    pub(super) fn finish(
+        &mut self,
+        states: &GroupedAggregateStates<'_>,
+    ) -> Result<(usize, String)> {
+        match self {
+            Self::Direct(output) => output.finish(states),
+            Self::General(output) => {
+                let (rows, mut payload) =
+                    states.result_row_count_and_payload(states.result_limit)?;
+                output.finish_payload(rows, &mut payload)?;
+                Ok((rows, payload.to_string()))
+            }
+        }
+    }
+
+    pub(super) fn finish_scalar(
+        &mut self,
+        states: &super::SimpleAggregateStates,
+        having: &[super::VortexAggregateHavingExpr],
+    ) -> Result<(usize, String)> {
+        let Self::General(output) = self else {
+            return Err(failed("scalar output requires general finalization"));
+        };
+        let rows = states.result_row_count(having)?;
+        let mut payload = states.result_payload(having)?;
+        output.finish_payload(rows, &mut payload)?;
+        Ok((rows, payload.to_string()))
+    }
+
+    #[cfg(unix)]
+    pub(super) fn into_array(self) -> Result<(ArrayRef, MemoryLease)> {
+        match self {
+            Self::Direct(output) => output.into_array(),
+            Self::General(output) => output.into_array(),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 // Construction requires the Unix held-source API; shared finalization is still
 // compiled on other feature-enabled targets.

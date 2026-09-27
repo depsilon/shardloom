@@ -130,6 +130,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     def _shardloom_public_request_output_format(requested_output):
         return {
             "collect": "inline-jsonl",
+            "write_json": "json",
             "write_jsonl": "jsonl",
             "write_csv": "csv",
             "write_parquet": "parquet",
@@ -7922,6 +7923,15 @@ class ShardLoomClientTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
+            dataframe_methods.row("write_json").required_evidence,
+            (
+                "vortex_prepared_state_or_native_vortex_input",
+                "native_vortex_derived_json_export_contract",
+                "explicit_decode_materialization_boundary",
+                "no_fallback_evidence",
+            ),
+        )
+        self.assertEqual(
             dataframe_methods.row("write_csv").required_evidence,
             (
                 "vortex_prepared_state_or_native_vortex_input",
@@ -7936,6 +7946,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(dataframe_methods.row("write_csv").runtime_execution)
         self.assertTrue(dataframe_methods.row("write_jsonl").write_io)
+        self.assertTrue(dataframe_methods.row("write_json").write_io)
         self.assertEqual(
             dataframe_methods.row("fanout").required_evidence,
             (

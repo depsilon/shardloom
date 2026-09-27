@@ -12484,11 +12484,12 @@ jobs:
         module: object,
         repo_root: Path,
     ) -> None:
-        supported_formats = ("jsonl", "csv", "parquet", "arrow-ipc", "avro", "orc", "vortex")
-        default_formats = ("jsonl", "csv")
+        supported_formats = ("json", "jsonl", "csv", "parquet", "arrow-ipc", "avro", "orc", "vortex")
+        default_formats = ("jsonl", "csv", "json")
         feature_gated_formats = ("parquet", "arrow-ipc", "avro", "orc", "vortex")
         write_methods = (
             "write",
+            "write_json",
             "write_jsonl",
             "write_csv",
             "write_parquet",

@@ -1,5 +1,7 @@
 use super::*;
 
+#[path = "local_primitive_completed_result_tests.rs"]
+mod completed_result_tests;
 #[path = "local_primitive_aggregate_owned_count_tests.rs"]
 mod count_tests;
 #[path = "local_primitive_aggregate_owned_utf8_tests.rs"]
@@ -413,10 +415,7 @@ fn owned_distinct_empty_and_fully_pruned_results_keep_typed_empty_schema() {
 fn owned_distinct_declines_unsupported_shapes_and_memory_before_execution() {
     let fixture = Fixture::new();
     let path = standard(&fixture);
-    let mut requests = vec![request(&path, 65_536, 1), request(&path, 0, 65_537)];
-    let mut reverse = request(&path, 0, 10);
-    reverse.simple_aggregate.as_mut().unwrap().order_by[0].descending = false;
-    requests.push(reverse);
+    let requests = vec![request(&path, 65_536, 1), request(&path, 0, 65_537)];
     for request in requests {
         let prepared = prepare_aggregate(
             &request,
@@ -454,8 +453,13 @@ fn owned_distinct_declines_unsupported_shapes_and_memory_before_execution() {
         VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
     )
     .unwrap();
-    assert!(prepared.execute_owned().is_err());
-    assert_eq!(prepared.snapshot().completed_executions, 0);
+    let result = prepared.execute_owned().unwrap();
+    assert_eq!(
+        rendered(&result.result),
+        serde_json::json!([
+            {KEY: null, COUNT: 1}, {KEY: 1, COUNT: 1}
+        ])
+    );
 }
 
 #[test]

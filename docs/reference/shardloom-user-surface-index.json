@@ -207,6 +207,7 @@
       "route",
       "prepare",
       "write",
+      "write_json",
       "write_jsonl",
       "write_csv",
       "write_parquet",

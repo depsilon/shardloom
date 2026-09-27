@@ -2,8 +2,10 @@
 
 # Plain Vortex source comparison
 
-Status: requested local benchmark, next after the verified 0.3.1 release closeout.
-No new format timing or full-size conversion is claimed by this plan.
+Status: the 0.3.1 release closeout and full-value fixture conversion are complete.
+The one-time baseline paused for the [public I/O repair](public-io-route-repair-2026-09-27.md).
+The maintainer narrowed the original repeated schedule to a quick baseline and
+requested cleanup after each input lane. The boundaries below reflect that change.
 
 The maintainer requested an ordinary Vortex version of the resident hits Parquet
 source and timing of Vortex input through ShardLoom. This is a bounded follow-up
@@ -54,13 +56,18 @@ route and those different output contracts alongside preparation time.
   Record all samples, process wall time, peak RSS, output bytes and route fields.
 - Where same-file admission is measured, label it separately from target creation.
   Never treat metadata admission as reading or rewriting the full file.
-- Run the existing paired Full43 harness with the same binary and two artifacts,
-  alternating their order while keeping calls sequential. Validate complete
-  returned results and retain all samples. This reveals query costs of the plain
-  layout instead of inferring them from preparation speed.
+- Retain completed collection calls from the interrupted paired schedule with
+  their original binary identities. Finish missing collection calls and the
+  requested Vortex/Parquet/Arrow IPC result exports with one sample per case.
+  Execute complete input lanes sequentially to release storage between lanes.
+  Validate complete returned results and read back each exported result outside
+  the timed call. Record the repaired binary separately from released 0.3.1.
 - Keep the one-time conversion, preparation, query execution and total lifecycle
-  costs separate. Report the symmetric best-of-three query totals together with
-  the samples; OS page cache is uncontrolled, not a cold-cache claim.
+  costs separate. Report individual calls and which evidence was retained;
+  this mixed-version pulse is not a best-of-three or causal speedup comparison.
+  OS page cache is uncontrolled, not a cold-cache claim.
+- CSV, JSON and JSONL routes receive setup and small correctness checks only.
+  Do not generate their full-size input fixtures or run extra performance lanes.
 
 ## Storage and process ownership
 
@@ -70,9 +77,10 @@ equivalent guards, a deadline, log/RSS limits and process-group cleanup to fixtu
 creation. Do not run overlapping tests or builds while measuring, and do not
 terminate unrelated user processes to force isolation.
 
-Keep the original Parquet, one validated plain Vortex source, the current optimized
-artifact and protected reference. Retire redundant newly generated targets only
-after hash/generation checks, preserving their timings and correctness evidence.
+Keep the original Parquet, current optimized artifact and protected reference.
+After all results in an input lane are captured, retire its task-owned preparation
+cache or generated plain-Vortex fixture after hash/generation checks, preserving
+timings, correctness evidence and small output archives.
 Completed logs may be losslessly archived with verified per-member hashes.
 The [storage note](local-development-storage.md) records preparatory cleanup.
 

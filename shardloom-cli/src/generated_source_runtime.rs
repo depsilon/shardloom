@@ -3,7 +3,7 @@
 //! This module implements local generated-output runtime. It
 //! accepts either rows already supplied by the user/API layer or narrow
 //! ShardLoom-native integer generators, writes local sinks, and emits
-//! generated-source/output evidence. Default builds admit JSONL/CSV sinks; flat
+//! generated-source/output evidence. Default builds admit JSON/JSONL/CSV sinks; flat
 //! scalar Parquet, Arrow IPC, Avro, and ORC sinks are gated behind
 //! `universal-format-io`, and local Vortex output is gated behind
 //! `vortex-write`. It does not read source datasets, parse broad SQL, execute
@@ -136,6 +136,7 @@ impl UserRowsGeneratedSourceKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GeneratedOutputFormat {
+    Json,
     Jsonl,
     Csv,
     Parquet,
@@ -148,6 +149,7 @@ enum GeneratedOutputFormat {
 impl GeneratedOutputFormat {
     fn parse(value: &str) -> Result<Self, ShardLoomError> {
         match value.trim().to_ascii_lowercase().as_str() {
+            "json" | "json-array" => Ok(Self::Json),
             "jsonl" | "json-lines" | "ndjson" => Ok(Self::Jsonl),
             "csv" => Ok(Self::Csv),
             "parquet" => Ok(Self::Parquet),
@@ -156,13 +158,14 @@ impl GeneratedOutputFormat {
             "orc" => Ok(Self::Orc),
             "vortex" | "vtx" => Ok(Self::Vortex),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported generated-source output format {other:?}; generated-source runtime supports local JSONL/CSV plus feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
+                "unsupported generated-source output format {other:?}; generated-source runtime supports local JSON/JSONL/CSV plus feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
             ))),
         }
     }
 
     const fn as_str(self) -> &'static str {
         match self {
+            Self::Json => "json",
             Self::Jsonl => "jsonl",
             Self::Csv => "csv",
             Self::Parquet => "parquet",
@@ -175,6 +178,7 @@ impl GeneratedOutputFormat {
 
     const fn sink_label(self) -> &'static str {
         match self {
+            Self::Json => "json",
             Self::Jsonl => "jsonl",
             Self::Csv => "csv",
             Self::Parquet => "parquet",
@@ -188,6 +192,7 @@ impl GeneratedOutputFormat {
     #[cfg(not(feature = "universal-format-io"))]
     const fn display_name(self) -> &'static str {
         match self {
+            Self::Json => "JSON",
             Self::Jsonl => "JSONL",
             Self::Csv => "CSV",
             Self::Parquet => "Parquet",
@@ -200,7 +205,7 @@ impl GeneratedOutputFormat {
 
     const fn certificate_status(self) -> &'static str {
         match self {
-            Self::Jsonl | Self::Csv => "certified_local_file_sink",
+            Self::Json | Self::Jsonl | Self::Csv => "certified_local_file_sink",
             Self::Parquet => "certified_local_parquet_sink",
             Self::ArrowIpc => "certified_local_arrow_ipc_sink",
             Self::Avro => "certified_local_avro_sink",
@@ -215,6 +220,7 @@ impl GeneratedOutputFormat {
         rows: &[GeneratedRow],
     ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
+            Self::Json => Ok(format!("[{}]\n", render_jsonl(schema, rows)?.lines().collect::<Vec<_>>().join(",")).into_bytes()),
             Self::Jsonl => Ok(render_jsonl(schema, rows)?.into_bytes()),
             Self::Csv => Ok(render_csv(schema, rows)?.into_bytes()),
             Self::Parquet => encode_parquet_output_rows(schema, rows),
@@ -699,7 +705,7 @@ pub(crate) fn handle_generated_source_user_rows_runtime_with_facade(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar|dataframe_source_free_projection|dataframe_generated_with_column] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
+            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar|dataframe_source_free_projection|dataframe_generated_with_column] [--output-format json|jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -942,7 +948,7 @@ fn handle_generated_source_range_like_runtime(
     let noun = source_kind.summary_noun();
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
+            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format json|jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -1187,7 +1193,7 @@ pub(crate) fn handle_generated_source_sql_runtime_with_facade(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
+            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format json|jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -2348,7 +2354,9 @@ fn validate_generated_output_format_available(
     output_path: &Path,
 ) -> Result<(), ShardLoomError> {
     match format {
-        GeneratedOutputFormat::Jsonl | GeneratedOutputFormat::Csv => Ok(()),
+        GeneratedOutputFormat::Json | GeneratedOutputFormat::Jsonl | GeneratedOutputFormat::Csv => {
+            Ok(())
+        }
         GeneratedOutputFormat::Parquet
         | GeneratedOutputFormat::ArrowIpc
         | GeneratedOutputFormat::Avro
@@ -2503,7 +2511,9 @@ fn replay_generated_output(
 
 fn generated_output_fidelity_status(format: GeneratedOutputFormat) -> &'static str {
     match format {
-        GeneratedOutputFormat::Jsonl => "logical_rows_replay_verified",
+        GeneratedOutputFormat::Json | GeneratedOutputFormat::Jsonl => {
+            "logical_rows_replay_verified"
+        }
         GeneratedOutputFormat::Csv => "logical_rows_replay_verified_type_metadata_not_preserved",
         GeneratedOutputFormat::Parquet
         | GeneratedOutputFormat::ArrowIpc
@@ -2515,6 +2525,7 @@ fn generated_output_fidelity_status(format: GeneratedOutputFormat) -> &'static s
 
 fn generated_output_fidelity_loss(format: GeneratedOutputFormat) -> &'static str {
     match format {
+        GeneratedOutputFormat::Json => "json_array_text_roundtrip_not_full_type_metadata_fidelity",
         GeneratedOutputFormat::Jsonl => "jsonl_text_roundtrip_not_full_type_metadata_fidelity",
         GeneratedOutputFormat::Csv => "csv_text_roundtrip_loses_static_type_metadata",
         GeneratedOutputFormat::Parquet
@@ -5583,6 +5594,30 @@ mod tests {
         GeneratedOutputFormat, GeneratedUserRowsSmokeRequest, UserRowsGeneratedSourceKind,
         generated_range_rows, normalize_local_output_path, range_row_count,
     };
+
+    #[test]
+    fn generated_json_array_preserves_exact_values_escaping_and_empty_output() {
+        let schema = vec![
+            super::GeneratedColumn {
+                name: "id".into(),
+                value_type: super::GeneratedValueType::Int64,
+            },
+            super::GeneratedColumn {
+                name: "text".into(),
+                value_type: super::GeneratedValueType::Utf8,
+            },
+        ];
+        let rows = vec![super::GeneratedRow {
+            values: vec![i64::MAX.to_string(), "line\n\"quoted\"".into()],
+        }];
+        let format = GeneratedOutputFormat::parse("json").unwrap();
+        let output = format.render_rows(&schema, &rows).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&output).unwrap(),
+            serde_json::json!([{"id":i64::MAX,"text":"line\n\"quoted\""}])
+        );
+        assert_eq!(format.render_rows(&schema, &[]).unwrap(), b"[]\n");
+    }
 
     #[test]
     fn range_row_count_does_not_step_past_final_boundary_row() {

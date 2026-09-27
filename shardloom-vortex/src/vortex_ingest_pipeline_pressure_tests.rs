@@ -333,6 +333,7 @@ fn write_observed(
         Some(&memory),
         &source_identities,
         writer_input_lookahead,
+        None,
     );
     let snapshot = memory.pool.snapshot();
     assert!(snapshot.peak_reserved_bytes > 0);
