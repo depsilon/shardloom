@@ -25536,6 +25536,7 @@ struct GroupedAggregateStates<'a> {
     source_order_numeric_utf8_dictionary_direct_updates: bool,
     source_order_candidate_filter: source_order_candidate_filter::Work,
     source_order_limited_group_admission: bool,
+    materialized_owned_group_keys: bool,
     general_direct_group_state_pre_reserved: bool,
     native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
@@ -25795,6 +25796,17 @@ struct SourceOrderNumericUtf8Candidate {
     numeric_signed: bool,
     group_order_index: usize,
 }
+
+#[cfg(feature = "vortex-local-primitives")]
+struct SourceOrderNumericUtf8CandidateSlots {
+    // Dictionary codes index this immutable table. Missing strings have no list.
+    by_code: Vec<usize>,
+    by_string: Vec<Vec<SourceOrderNumericUtf8Candidate>>,
+}
+
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/source_order_candidate_directory_tests.rs"]
+mod source_order_candidate_directory_tests;
 
 #[cfg(feature = "vortex-local-primitives")]
 #[derive(Clone)]
@@ -28458,6 +28470,7 @@ impl<'a> GroupedAggregateStates<'a> {
             source_order_numeric_utf8_dictionary_direct_updates: false,
             source_order_candidate_filter: source_order_candidate_filter::Work::default(),
             source_order_limited_group_admission: false,
+            materialized_owned_group_keys: false,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
             native_numeric_accessor_work: NativeNumericAccessorWork::default(),
@@ -28478,6 +28491,28 @@ impl<'a> GroupedAggregateStates<'a> {
 
     fn update_row(&mut self, columns: &[Vec<StatValue>], row_index: usize) -> Result<()> {
         if self.source_order_group_admission_closed() {
+            // This generic path creates owned UTF8 keys, whereas native direct
+            // consumers may have admitted interned keys. Probe the representation
+            // used at insertion before checking a direct consumer's existing ID.
+            // A direct-only state must keep the existing interner's early miss:
+            // later key expressions need not execute for an unknown string.
+            if self.materialized_owned_group_keys {
+                if let Some(owned_key) =
+                    self.grouped_owned_key_for_materialized_row(columns, row_index)?
+                    && let Some(group) = self.groups.get_mut(&owned_key)
+                {
+                    group.general_states_mut()?.update_row(columns, row_index)?;
+                    self.source_order_limited_group_admission = true;
+                    return Ok(());
+                }
+                // Without interned strings, every retained key is represented in
+                // the owned group table. A miss is final; retrying would
+                // unnecessarily evaluate later expressions for an excluded row.
+                if self.string_interner.values.is_empty() {
+                    self.source_order_limited_group_admission = true;
+                    return Ok(());
+                }
+            }
             let Some(key) = self.grouped_existing_key_for_materialized_row(columns, row_index)?
             else {
                 self.source_order_limited_group_admission = true;
@@ -28492,6 +28527,7 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.group_columns.len() == 1
             && self.update_single_group_fast_path(columns, row_index)?
         {
+            self.materialized_owned_group_keys = true;
             return Ok(());
         }
         let group_values = self
@@ -28540,6 +28576,7 @@ impl<'a> GroupedAggregateStates<'a> {
             }
         };
         entry.general_states_mut()?.update_row(columns, row_index)?;
+        self.materialized_owned_group_keys = true;
         Ok(())
     }
 
@@ -29127,15 +29164,16 @@ impl<'a> GroupedAggregateStates<'a> {
         let numeric_keys = aggregate_direct_integer_key_slice(numeric_accessor);
         for row_index in start_row..numeric_accessor.len() {
             let code_index = aggregate_utf8_dictionary_code_index(row_ids, row_index)?;
-            let Some(candidates) = candidate_slots.get(code_index) else {
+            let Some(&candidate_index) = candidate_slots.by_code.get(code_index) else {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex source-order numeric-UTF8 aggregate dictionary code was out of bounds; no fallback execution was attempted"
                         .to_string(),
                 ));
             };
-            if candidates.is_empty() {
+            if candidate_index == usize::MAX {
                 continue;
             }
+            let candidates = &candidate_slots.by_string[candidate_index];
             let numeric = numeric_keys.map_or_else(
                 || {
                     aggregate_direct_integer_key_part(
@@ -29277,31 +29315,48 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         dictionary_values: &[std::sync::Arc<str>],
         roles: NumericUtf8GroupRoles,
-    ) -> Result<Option<Vec<Vec<SourceOrderNumericUtf8Candidate>>>> {
-        let mut candidates_by_string_id =
-            rustc_hash::FxHashMap::<u64, Vec<SourceOrderNumericUtf8Candidate>>::default();
+    ) -> Result<Option<SourceOrderNumericUtf8CandidateSlots>> {
+        let mut candidates_by_string_id = rustc_hash::FxHashMap::<u64, usize>::default();
+        let mut by_string = Vec::<Vec<SourceOrderNumericUtf8Candidate>>::new();
+        for key in &self.group_order {
+            let Some((_, utf8_id)) = self.source_order_numeric_utf8_key_parts(key, roles)? else {
+                return Ok(None);
+            };
+            candidates_by_string_id.insert(utf8_id, usize::MAX);
+        }
+        let mut by_code = vec![usize::MAX; dictionary_values.len()];
+        for (code_index, value) in dictionary_values.iter().enumerate() {
+            if let Some(utf8_id) = self.string_interner.id(value.as_ref())
+                && let Some(candidate_index) = candidates_by_string_id.get_mut(&utf8_id)
+            {
+                if *candidate_index == usize::MAX {
+                    *candidate_index = by_string.len();
+                    by_string.push(Vec::new());
+                }
+                by_code[code_index] = *candidate_index;
+            }
+        }
+        // Only matched strings retain candidate payloads during row counting.
+        // A small next-chunk dictionary must not pin all previously selected groups.
         for (group_order_index, key) in self.group_order.iter().enumerate() {
             let Some((numeric, utf8_id)) = self.source_order_numeric_utf8_key_parts(key, roles)?
             else {
                 return Ok(None);
             };
-            candidates_by_string_id.entry(utf8_id).or_default().push(
-                SourceOrderNumericUtf8Candidate {
+            if let Some(&candidate_index) = candidates_by_string_id.get(&utf8_id)
+                && candidate_index != usize::MAX
+            {
+                by_string[candidate_index].push(SourceOrderNumericUtf8Candidate {
                     numeric_bits: numeric.bits,
                     numeric_signed: numeric.signed,
                     group_order_index,
-                },
-            );
-        }
-        let mut candidates_by_code = vec![Vec::new(); dictionary_values.len()];
-        for (code_index, value) in dictionary_values.iter().enumerate() {
-            if let Some(utf8_id) = self.string_interner.id(value.as_ref())
-                && let Some(candidates) = candidates_by_string_id.get(&utf8_id)
-            {
-                candidates_by_code[code_index].extend_from_slice(candidates);
+                });
             }
         }
-        Ok(Some(candidates_by_code))
+        Ok(Some(SourceOrderNumericUtf8CandidateSlots {
+            by_code,
+            by_string,
+        }))
     }
 
     fn source_order_numeric_utf8_key_parts(
@@ -33958,6 +34013,48 @@ impl<'a> GroupedAggregateStates<'a> {
                 Ok(AggregateGroupKey::from_values(values))
             }
         }
+    }
+
+    fn grouped_owned_key_for_materialized_row(
+        &self,
+        columns: &[Vec<StatValue>],
+        row_index: usize,
+    ) -> Result<Option<AggregateGroupKey>> {
+        let mut values = Vec::with_capacity(self.group_key_indices.len());
+        for &index in &self.group_key_indices {
+            let group_column = self.group_columns.get(index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex grouped aggregate owned materialized key index was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            let value = match aggregate_group_column_stat_value_for_materialized_row(
+                group_column,
+                columns,
+                row_index,
+            ) {
+                Ok(value) => value,
+                Err(error) => {
+                    // Key expressions are pure. Check the already evaluated prefix
+                    // only on error, so rejected rows retain short-circuit semantics
+                    // without a second persistent index or a group scan per row.
+                    if !values.is_empty()
+                        && !self.groups.keys().any(|key| {
+                            values
+                                .iter()
+                                .enumerate()
+                                .all(|(position, value)| key.get(position) == Some(value))
+                        })
+                    {
+                        return Ok(None);
+                    }
+                    return Err(error);
+                }
+            };
+            values.push(AggregateDistinctValue::from(&value));
+        }
+        let key = AggregateGroupKey::from_values(values);
+        Ok(self.groups.contains_key(&key).then_some(key))
     }
 
     fn grouped_existing_key_for_materialized_row(
