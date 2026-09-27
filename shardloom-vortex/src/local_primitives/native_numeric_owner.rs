@@ -160,6 +160,26 @@ impl NativeNumericOwner {
     pub(super) fn numeric_value(&self, row: usize) -> Result<Option<f64>> {
         numeric_dispatch!(self, numeric_typed, row)
     }
+
+    pub(super) fn bind_numeric_update(&self) -> super::bound_numeric_updates::RowKernel<'_> {
+        numeric_dispatch!(self, bind_numeric_update_typed)
+    }
+
+    fn bind_numeric_update_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+    ) -> super::bound_numeric_updates::RowKernel<'_> {
+        let values = self.primitive.as_slice::<T>();
+        let valid = &self.valid;
+        Box::new(move |state, row| {
+            let value = values
+                .get(row)
+                .ok_or_else(|| failed("native typed row index was out of bounds"))?;
+            if ALL_VALID || valid.value(row) {
+                state.update_direct_numeric_value(value.widen().numeric())?;
+            }
+            Ok(())
+        })
+    }
     fn integer_typed<T: Numeric, const ALL_VALID: bool>(
         &self,
         row: usize,

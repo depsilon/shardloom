@@ -1,0 +1,512 @@
+{
+  "schema_version": "shardloom.recipe_route_attribution.v1",
+  "scope": "extraction from existing complete R9.b results; no new runtime or timing measurement",
+  "source_run": "paired43_20260926T234401225793Z",
+  "binaries": {
+    "control": {
+      "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-control-cli-e662f6745758",
+      "sha256": "492c60a6338922d13137cb1d4a7bded91dc983a3118deb1e70a8ee9c631a9cdb",
+      "commit": "e662f6745758dbf0ea3da7c8f36a0af88197767f"
+    },
+    "candidate": {
+      "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r9b-revised-cli-5409a7bac6a8",
+      "sha256": "646252db5d98e20537cf6d35bb0b2bc87708103d93368d6727053a765697f4de",
+      "commit": "5409a7bac6a8eb357fad5db79b3320e4bd0780f0"
+    }
+  },
+  "source": {
+    "control": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+      "generation": {
+        "device": 16777233,
+        "inode": 92249574,
+        "size_bytes": 15682956116,
+        "mtime_ns": 1790441075431248571,
+        "ctime_ns": 1790441075431697695
+      }
+    },
+    "candidate": {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/derived-dictionary-20260926.vortex",
+      "generation": {
+        "device": 16777233,
+        "inode": 92249574,
+        "size_bytes": 15682956116,
+        "mtime_ns": 1790441075431248571,
+        "ctime_ns": 1790441075431697695
+      }
+    }
+  },
+  "source_summary_sha256": "5ce9ec05fd1eb4eeac5b1c185c320b26f72bda514c8a8558a4a58b45b87ffc46",
+  "memory_gb": 24,
+  "max_parallelism": 12,
+  "accessor_remainder_scope": "inclusive first-pass accessor less nested UTF8 provider and dictionary elapsed spans; includes other work and timer overhead, not pure setup, CPU, per-row dispatch or complete-query savings",
+  "accessor_attribution_all_candidate_runs": [
+    {
+      "query": 10,
+      "run": 1,
+      "role": "candidate",
+      "source_member": "q10_run1_candidate.stdout.json",
+      "source_member_sha256": "3014a23f849781b3d400a6a0150c0a2bbff6ebe887257ef2daca698f5d046d18",
+      "native_process_seconds": 7.677628291974543,
+      "result_sha256": "e3e8726edb33e37262051d4bab261b01e8e08f0aa596711c20af183957dc8191",
+      "first_pass_accessor_nanos": 457874491,
+      "first_pass_group_update_nanos": 7035634614,
+      "first_pass_accessor_chunks": 1550,
+      "first_pass_accessor_rows": 99997497,
+      "utf8_chunk_accessor": {},
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 1419707648,
+        "columns": [
+          "AdvEngineID",
+          "RegionID",
+          "ResolutionWidth",
+          "UserID"
+        ],
+        "decode_and_typed_copy_nanos": 443959583,
+        "max_source_array_rows": 99864,
+        "native_decode_calls": 5852,
+        "rows": 377458450,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 593230742,
+        "typed_value_bytes_copied": 0
+      }
+    },
+    {
+      "query": 10,
+      "run": 2,
+      "role": "candidate",
+      "source_member": "q10_run2_candidate.stdout.json",
+      "source_member_sha256": "65abf95d59d1c84345899af7568b90d45ed71cebe9debab554ff4e8a3754b5d9",
+      "native_process_seconds": 6.4963904170144815,
+      "result_sha256": "e3e8726edb33e37262051d4bab261b01e8e08f0aa596711c20af183957dc8191",
+      "first_pass_accessor_nanos": 401193727,
+      "first_pass_group_update_nanos": 5927428124,
+      "first_pass_accessor_chunks": 1550,
+      "first_pass_accessor_rows": 99997497,
+      "utf8_chunk_accessor": {},
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 1419707648,
+        "columns": [
+          "AdvEngineID",
+          "RegionID",
+          "ResolutionWidth",
+          "UserID"
+        ],
+        "decode_and_typed_copy_nanos": 390741367,
+        "max_source_array_rows": 99864,
+        "native_decode_calls": 5852,
+        "rows": 377458450,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 593230742,
+        "typed_value_bytes_copied": 0
+      }
+    },
+    {
+      "query": 10,
+      "run": 3,
+      "role": "candidate",
+      "source_member": "q10_run3_candidate.stdout.json",
+      "source_member_sha256": "4427bf4e3d30b08896bc1a27dccdc90621ca491dc4cc6556b9b0c693fa30353b",
+      "native_process_seconds": 6.743984333996195,
+      "result_sha256": "e3e8726edb33e37262051d4bab261b01e8e08f0aa596711c20af183957dc8191",
+      "first_pass_accessor_nanos": 413023215,
+      "first_pass_group_update_nanos": 6061311339,
+      "first_pass_accessor_chunks": 1550,
+      "first_pass_accessor_rows": 99997497,
+      "utf8_chunk_accessor": {},
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 1419707648,
+        "columns": [
+          "AdvEngineID",
+          "RegionID",
+          "ResolutionWidth",
+          "UserID"
+        ],
+        "decode_and_typed_copy_nanos": 401827671,
+        "max_source_array_rows": 99864,
+        "native_decode_calls": 5852,
+        "rows": 377458450,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 593230742,
+        "typed_value_bytes_copied": 0
+      }
+    },
+    {
+      "query": 23,
+      "run": 1,
+      "role": "candidate",
+      "source_member": "q23_run1_candidate.stdout.json",
+      "source_member_sha256": "d17ccea4e4c8a380061d13c68598c6c97d3762ee15019325ece2df8c37d35d23",
+      "native_process_seconds": 5.481939999997849,
+      "result_sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd",
+      "first_pass_accessor_nanos": 5236587260,
+      "first_pass_group_update_nanos": 14019236,
+      "first_pass_accessor_chunks": 820,
+      "first_pass_accessor_rows": 7128,
+      "utf8_chunk_accessor": {
+        "accessor_rows": 21384,
+        "calls": 2460,
+        "copied_utf8_bytes": 1189618,
+        "dictionary_build_nanos": 5699972,
+        "dictionary_entries": 12376,
+        "provider_execute_nanos": 5207443622,
+        "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+      },
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 57024,
+        "columns": [
+          "UserID"
+        ],
+        "decode_and_typed_copy_nanos": 15652906,
+        "max_source_array_rows": 63,
+        "native_decode_calls": 820,
+        "rows": 7128,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 279632688,
+        "typed_value_bytes_copied": 0
+      },
+      "accessor_minus_utf8_provider_and_dictionary_nanos": 23443666
+    },
+    {
+      "query": 23,
+      "run": 2,
+      "role": "candidate",
+      "source_member": "q23_run2_candidate.stdout.json",
+      "source_member_sha256": "64bf8ab834d6c97c5605b41bcfbeabb3e14cd5790845ab82ba001ddad0878fe0",
+      "native_process_seconds": 5.183925624995027,
+      "result_sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd",
+      "first_pass_accessor_nanos": 4960062095,
+      "first_pass_group_update_nanos": 12148220,
+      "first_pass_accessor_chunks": 820,
+      "first_pass_accessor_rows": 7128,
+      "utf8_chunk_accessor": {
+        "accessor_rows": 21384,
+        "calls": 2460,
+        "copied_utf8_bytes": 1189618,
+        "dictionary_build_nanos": 5235842,
+        "dictionary_entries": 12376,
+        "provider_execute_nanos": 4935493900,
+        "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+      },
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 57024,
+        "columns": [
+          "UserID"
+        ],
+        "decode_and_typed_copy_nanos": 12491034,
+        "max_source_array_rows": 63,
+        "native_decode_calls": 820,
+        "rows": 7128,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 279632688,
+        "typed_value_bytes_copied": 0
+      },
+      "accessor_minus_utf8_provider_and_dictionary_nanos": 19332353
+    },
+    {
+      "query": 23,
+      "run": 3,
+      "role": "candidate",
+      "source_member": "q23_run3_candidate.stdout.json",
+      "source_member_sha256": "df3a3b17687f0c936eadd791ea7af37ba53b807f91c8dd178579748183c55520",
+      "native_process_seconds": 5.889560374984285,
+      "result_sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd",
+      "first_pass_accessor_nanos": 5584266194,
+      "first_pass_group_update_nanos": 15834080,
+      "first_pass_accessor_chunks": 820,
+      "first_pass_accessor_rows": 7128,
+      "utf8_chunk_accessor": {
+        "accessor_rows": 21384,
+        "calls": 2460,
+        "copied_utf8_bytes": 1189618,
+        "dictionary_build_nanos": 6578353,
+        "dictionary_entries": 12376,
+        "provider_execute_nanos": 5551149765,
+        "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+      },
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 57024,
+        "columns": [
+          "UserID"
+        ],
+        "decode_and_typed_copy_nanos": 16750617,
+        "max_source_array_rows": 63,
+        "native_decode_calls": 820,
+        "rows": 7128,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 279632688,
+        "typed_value_bytes_copied": 0
+      },
+      "accessor_minus_utf8_provider_and_dictionary_nanos": 26538076
+    },
+    {
+      "query": 29,
+      "run": 1,
+      "role": "candidate",
+      "source_member": "q29_run1_candidate.stdout.json",
+      "source_member_sha256": "c4a5e01f206a9b11a08f462daef8f7362f76fd3d02f053d4f47a2fa7d3c67f2a",
+      "native_process_seconds": 8.967105042014737,
+      "result_sha256": "fc6242e120770d4cd9ffc73c5fbb0d55b12dc1b98b055bcad96945290e151308",
+      "first_pass_accessor_nanos": 6284484798,
+      "first_pass_group_update_nanos": 1971704885,
+      "first_pass_accessor_chunks": 1550,
+      "first_pass_accessor_rows": 81032736,
+      "utf8_chunk_accessor": {
+        "accessor_rows": 81032736,
+        "calls": 1550,
+        "copied_utf8_bytes": 3120823803,
+        "dictionary_build_nanos": 3783802688,
+        "dictionary_entries": 25771910,
+        "provider_execute_nanos": 2495999166,
+        "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+      },
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 0,
+        "columns": [],
+        "decode_and_typed_copy_nanos": 0,
+        "max_source_array_rows": 0,
+        "native_decode_calls": 0,
+        "rows": 0,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 0,
+        "typed_value_bytes_copied": 0
+      },
+      "accessor_minus_utf8_provider_and_dictionary_nanos": 4682944
+    },
+    {
+      "query": 29,
+      "run": 2,
+      "role": "candidate",
+      "source_member": "q29_run2_candidate.stdout.json",
+      "source_member_sha256": "33bde14925cca39d9804dcd0f1c86574c0784596cc9349925ad4adff1943e6b0",
+      "native_process_seconds": 9.035070582991466,
+      "result_sha256": "fc6242e120770d4cd9ffc73c5fbb0d55b12dc1b98b055bcad96945290e151308",
+      "first_pass_accessor_nanos": 6383837964,
+      "first_pass_group_update_nanos": 1980677546,
+      "first_pass_accessor_chunks": 1550,
+      "first_pass_accessor_rows": 81032736,
+      "utf8_chunk_accessor": {
+        "accessor_rows": 81032736,
+        "calls": 1550,
+        "copied_utf8_bytes": 3120823803,
+        "dictionary_build_nanos": 3854595049,
+        "dictionary_entries": 25771910,
+        "provider_execute_nanos": 2524597662,
+        "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+      },
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 0,
+        "columns": [],
+        "decode_and_typed_copy_nanos": 0,
+        "max_source_array_rows": 0,
+        "native_decode_calls": 0,
+        "rows": 0,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 0,
+        "typed_value_bytes_copied": 0
+      },
+      "accessor_minus_utf8_provider_and_dictionary_nanos": 4645253
+    },
+    {
+      "query": 29,
+      "run": 3,
+      "role": "candidate",
+      "source_member": "q29_run3_candidate.stdout.json",
+      "source_member_sha256": "27b3d4987a4df4dca411998956c11413b993d1636056129d69ad20334d354aeb",
+      "native_process_seconds": 8.846615874994313,
+      "result_sha256": "fc6242e120770d4cd9ffc73c5fbb0d55b12dc1b98b055bcad96945290e151308",
+      "first_pass_accessor_nanos": 6250928539,
+      "first_pass_group_update_nanos": 1941036960,
+      "first_pass_accessor_chunks": 1550,
+      "first_pass_accessor_rows": 81032736,
+      "utf8_chunk_accessor": {
+        "accessor_rows": 81032736,
+        "calls": 1550,
+        "copied_utf8_bytes": 3120823803,
+        "dictionary_build_nanos": 3771199276,
+        "dictionary_entries": 25771910,
+        "provider_execute_nanos": 2475530654,
+        "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads"
+      },
+      "native_numeric_accessor": {
+        "canonical_array_nbytes_estimate": 0,
+        "columns": [],
+        "decode_and_typed_copy_nanos": 0,
+        "max_source_array_rows": 0,
+        "native_decode_calls": 0,
+        "rows": 0,
+        "scope": "retained_aggregate_attempt;native_primitive_owner_original_width_and_validity;no_adapter_numeric_payload_copy;provider_decode_filter_and_validity_work_may_allocate;Array_nbytes_estimates_not_unique_allocations;referenced_child_data_can_exceed_selected_rows;dictionary_gather_copies_excluded;no_Arrow_or_external_engine;not_zero_decode_or_RSS_bound;decode_and_typed_copy_nanos_is_legacy_field_for_decode_and_owner_setup",
+        "source_array_nbytes_estimate": 0,
+        "typed_value_bytes_copied": 0
+      },
+      "accessor_minus_utf8_provider_and_dictionary_nanos": 4198609
+    }
+  ],
+  "heap_route_all_control_and_candidate_runs": [
+    {
+      "query": 34,
+      "run": 1,
+      "role": "control",
+      "source_member": "q34_run1_control.stdout.json",
+      "source_member_sha256": "5430ab51417a382c1e4f32b7746098ab6c29037806c9ee8dc71a885b19e2d38a",
+      "native_process_seconds": 6.262148749985499,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status"
+      }
+    },
+    {
+      "query": 34,
+      "run": 1,
+      "role": "candidate",
+      "source_member": "q34_run1_candidate.stdout.json",
+      "source_member_sha256": "b8d3e8a3d6fc32ccbb5956198f4499c163c207999a390200dbb719ee07121358",
+      "native_process_seconds": 7.445899374986766,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status"
+      }
+    },
+    {
+      "query": 34,
+      "run": 2,
+      "role": "control",
+      "source_member": "q34_run2_control.stdout.json",
+      "source_member_sha256": "cb427c9af3a2351bbdcca3fde76ebc79df5405c6160bb77a981b3a555a809a77",
+      "native_process_seconds": 8.073064833995886,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status"
+      }
+    },
+    {
+      "query": 34,
+      "run": 2,
+      "role": "candidate",
+      "source_member": "q34_run2_candidate.stdout.json",
+      "source_member_sha256": "36b4199c24eb723ba9e29d8d48e93d81b239097c65a23a2712f416bf26750be9",
+      "native_process_seconds": 6.04056516700075,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status"
+      }
+    },
+    {
+      "query": 34,
+      "run": 3,
+      "role": "control",
+      "source_member": "q34_run3_control.stdout.json",
+      "source_member_sha256": "192e4089416d1fef723fbf253f5e91fbc8f453d0c58c5bd5ea33ace13b55e4b8",
+      "native_process_seconds": 7.055001708999043,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status"
+      }
+    },
+    {
+      "query": 34,
+      "run": 3,
+      "role": "candidate",
+      "source_member": "q34_run3_candidate.stdout.json",
+      "source_member_sha256": "f749464c391b996c0850ca88bdd30e3cb2e3f52b870b57270e0fdb5344cd1aec",
+      "native_process_seconds": 7.273594458994921,
+      "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status"
+      }
+    },
+    {
+      "query": 35,
+      "run": 1,
+      "role": "control",
+      "source_member": "q35_run1_control.stdout.json",
+      "source_member_sha256": "24eb24d08fb7c484c2ae4a4d8af1c834a7d43b4d1146a1d418088aa6aaa44f93",
+      "native_process_seconds": 7.6877385420084465,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status,derived_group_key_width_reduction"
+      }
+    },
+    {
+      "query": 35,
+      "run": 1,
+      "role": "candidate",
+      "source_member": "q35_run1_candidate.stdout.json",
+      "source_member_sha256": "3ca04fe89f86d444b45ba26a449fa8c2994714c64ab429b95c05ac8a583d1555",
+      "native_process_seconds": 8.485826082993299,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status,derived_group_key_width_reduction"
+      }
+    },
+    {
+      "query": 35,
+      "run": 2,
+      "role": "control",
+      "source_member": "q35_run2_control.stdout.json",
+      "source_member_sha256": "6d3238d5df3530a97e52f614385d81c99bec05d777372acab7fb7a1c3c922021",
+      "native_process_seconds": 6.649760291998973,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status,derived_group_key_width_reduction"
+      }
+    },
+    {
+      "query": 35,
+      "run": 2,
+      "role": "candidate",
+      "source_member": "q35_run2_candidate.stdout.json",
+      "source_member_sha256": "204902b0592d6058d4979aea41e1cd5a70145cacd80ae177f7df76aaf8570683",
+      "native_process_seconds": 6.887296792003326,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status,derived_group_key_width_reduction"
+      }
+    },
+    {
+      "query": 35,
+      "run": 3,
+      "role": "control",
+      "source_member": "q35_run3_control.stdout.json",
+      "source_member_sha256": "5b2c63d3e1c78aa562efe19c20b13796673aecaed430b442f067b486f8136a23",
+      "native_process_seconds": 6.8893054999934975,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status,derived_group_key_width_reduction"
+      }
+    },
+    {
+      "query": 35,
+      "run": 3,
+      "role": "candidate",
+      "source_member": "q35_run3_candidate.stdout.json",
+      "source_member_sha256": "0a6868922f1853703c54da97f2d1b84183590684f76a2f876fd94560ff2a3c23",
+      "native_process_seconds": 5.715615249995608,
+      "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8",
+      "route_fields": {
+        "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+        "local_primitive_pulseweave_pressure_signals": "group_cardinality,aggregate_input_rows,group_state_rows,topk_heap_rows,retained_candidate_groups,row_materialization_bypass,compact_group_state_memory,complete_key_partition_exact_topk_proof,string_topk_sketch_update_elided,string_topk_second_scan_elided,interned_group_key_strings,estimated_group_string_storage_bytes,estimated_group_key_storage_bytes,evicted_or_spilled_group_count,uniqueness_proof_status,derived_group_key_width_reduction"
+      }
+    }
+  ],
+  "heap_decision_scope": "the historical sketch-update heap is inactive in these 12 calls; no claim about another workload or R10 dense COUNT payloads",
+  "raw_archive": {
+    "path": "docs/benchmarks/evidence/recipe-route-attribution-2026-09-27.json.gz",
+    "bytes": 522457,
+    "sha256": "a6d860937d105e5e50105635ff0846c4153a8fa31e97d725cfccbb1a957ce404",
+    "uncompressed_bytes": 4410415,
+    "uncompressed_sha256": "7ba39a4cb05f778c75698b80523695d83652d85348b1e3412a2e4ba64b19c7f7",
+    "member_count": 23
+  }
+}

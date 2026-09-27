@@ -25,6 +25,9 @@ mod aggregate_scan_source;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/bound_numeric_updates.rs"]
+mod bound_numeric_updates;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/bounded_numeric_reduction_experiment.rs"]
 mod bounded_numeric_reduction_experiment;
@@ -25503,6 +25506,7 @@ struct GroupedAggregateStates<'a> {
     grouped_count_distinct_pair_preunion_unique_pairs: u64,
     grouped_count_distinct_pair_preunion_chunk_group_partials: bool,
     grouped_count_distinct_pair_preunion_chunk_groups: u64,
+    bound_numeric_recipe_chunks: u64,
     string_count_topk_heavy_hitter_direct_updates: bool,
     string_count_distinct_topk_heavy_hitter_direct_updates: bool,
     chunk_dictionary_direct_updates: bool,
@@ -28425,6 +28429,7 @@ impl<'a> GroupedAggregateStates<'a> {
             grouped_count_distinct_pair_preunion_unique_pairs: 0,
             grouped_count_distinct_pair_preunion_chunk_group_partials: false,
             grouped_count_distinct_pair_preunion_chunk_groups: 0,
+            bound_numeric_recipe_chunks: 0,
             string_count_topk_heavy_hitter_direct_updates: false,
             string_count_distinct_topk_heavy_hitter_direct_updates: false,
             chunk_dictionary_direct_updates: false,
@@ -32030,6 +32035,12 @@ impl<'a> GroupedAggregateStates<'a> {
                 ))
             })?;
         let mut unique_pairs = 0_u64;
+        let recipe = bound_numeric_updates::BoundNumericUpdates::bind(
+            &self.state_template,
+            accessors,
+            distinct_state_index,
+            chunk_rows,
+        );
         for row_index in 0..chunk_rows {
             let pair_key = AggregateCountDistinctPairPreunionKey::from_integer_key_slices(
                 group_keys,
@@ -32045,12 +32056,16 @@ impl<'a> GroupedAggregateStates<'a> {
                     entry.insert(self.state_template.clone())
                 }
             };
-            group_states.update_direct_row_from_accessors_except_state(
-                accessors,
-                row_index,
-                chunk_rows,
-                distinct_state_index,
-            )?;
+            if let Some(recipe) = &recipe {
+                recipe.update(group_states, row_index)?;
+            } else {
+                group_states.update_direct_row_from_accessors_except_state(
+                    accessors,
+                    row_index,
+                    chunk_rows,
+                    distinct_state_index,
+                )?;
+            }
             if pair_inserted {
                 group_states.update_count_distinct_preunion_value_at(
                     distinct_state_index,
@@ -32108,6 +32123,9 @@ impl<'a> GroupedAggregateStates<'a> {
         self.general_direct_count_distinct_updates = true;
         self.general_direct_group_state_pre_reserved = true;
         self.grouped_count_distinct_pair_preunion_updates = true;
+        if recipe.is_some() {
+            self.bound_numeric_recipe_chunks += 1;
+        }
         self.grouped_count_distinct_pair_preunion_input_rows = self
             .grouped_count_distinct_pair_preunion_input_rows
             .checked_add(usize_to_u64(chunk_rows)?)
@@ -37226,6 +37244,11 @@ impl<'a> GroupedAggregateStates<'a> {
             payload,
             "grouped_count_distinct_pair_preunion_chunk_groups",
             self.grouped_count_distinct_pair_preunion_chunk_groups,
+        )?;
+        json_object_insert_u64(
+            payload,
+            "aggregate_bound_numeric_recipe_chunks",
+            self.bound_numeric_recipe_chunks,
         )?;
         json_object_insert_u64(
             payload,
@@ -45065,18 +45088,7 @@ impl SimpleAggregateState {
         chunk_rows: usize,
     ) -> Result<()> {
         let Some(column_index) = self.column_index else {
-            if row_index >= chunk_rows {
-                return Err(ShardLoomError::InvalidOperation(
-                    "local Vortex grouped aggregate direct count row index exceeded chunk rows; no fallback execution was attempted"
-                        .to_string(),
-                ));
-            }
-            self.count = self.count.checked_add(1).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped aggregate direct count overflowed u64".to_string(),
-                )
-            })?;
-            return Ok(());
+            return self.update_count_star_direct_row(row_index, chunk_rows);
         };
         let accessor = accessors.get(column_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
@@ -45114,35 +45126,52 @@ impl SimpleAggregateState {
                 Ok(())
             }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
-                let Some(mut numeric) = self.direct_numeric_measure_value(accessor, row_index)?
-                else {
+                let Some(numeric) = self.direct_numeric_measure_value(accessor, row_index)? else {
                     return Ok(());
                 };
-                if let Some(offset) = self.argument_offset {
-                    numeric += int64_stat_to_float64(offset);
-                }
-                if !numeric.is_finite() {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "local Vortex grouped aggregate direct numeric update encountered non-finite value; no fallback execution was attempted"
-                            .to_string(),
-                    ));
-                }
-                self.count = self.count.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex grouped aggregate direct numeric count overflowed u64"
-                            .to_string(),
-                    )
-                })?;
-                self.sum += numeric;
-                if !self.sum.is_finite() {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "local Vortex grouped aggregate direct numeric sum became non-finite; no fallback execution was attempted"
-                            .to_string(),
-                    ));
-                }
-                Ok(())
+                self.update_direct_numeric_value(numeric)
             }
         }
+    }
+
+    fn update_count_star_direct_row(&mut self, row: usize, chunk_rows: usize) -> Result<()> {
+        if row >= chunk_rows {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct count row index exceeded chunk rows; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        self.count = self.count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct count overflowed u64".to_string(),
+            )
+        })?;
+        Ok(())
+    }
+
+    fn update_direct_numeric_value(&mut self, mut numeric: f64) -> Result<()> {
+        if let Some(offset) = self.argument_offset {
+            numeric += int64_stat_to_float64(offset);
+        }
+        if !numeric.is_finite() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct numeric update encountered non-finite value; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        self.count = self.count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct numeric count overflowed u64".to_string(),
+            )
+        })?;
+        self.sum += numeric;
+        if !self.sum.is_finite() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct numeric sum became non-finite; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        Ok(())
     }
 
     fn merge_preaggregated_from(&mut self, other: &Self) -> Result<()> {
