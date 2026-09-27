@@ -4591,6 +4591,104 @@ pub struct TextRecordBatchBuilder {
     failed: bool,
 }
 
+/// One inferred primitive column for whole-document text input.
+///
+/// Leading/missing nulls do not choose a dtype. The first non-null scalar does;
+/// later scalars must have the same dtype. A failed append invalidates the column.
+pub struct InferredTextColumnBuilder {
+    column: String,
+    context: String,
+    builder: Option<Box<dyn ArrayBuilder>>,
+    data_type: Option<DataType>,
+    rows: usize,
+    nullable: bool,
+    failed: bool,
+}
+
+impl InferredTextColumnBuilder {
+    /// Start a column with nulls for rows preceding its first occurrence.
+    ///
+    /// # Errors
+    /// Rejects names outside the flat text column contract.
+    pub fn new(column: &str, preceding_rows: usize, context: &str) -> Result<Self> {
+        validate_flat_columns(&[column.to_owned()], context)?;
+        Ok(Self {
+            column: column.to_owned(),
+            context: context.to_owned(),
+            builder: None,
+            data_type: None,
+            rows: preceding_rows,
+            nullable: preceding_rows != 0,
+            failed: false,
+        })
+    }
+
+    /// Append a scalar after duplicate fields have been resolved by the parser.
+    ///
+    /// # Errors
+    /// Rejects unsupported or changing scalar types and invalidated columns.
+    pub fn append(&mut self, value: &ScalarValue) -> Result<()> {
+        if self.failed {
+            return Err(self.invalidated_error());
+        }
+        self.failed = true;
+        if matches!(value, ScalarValue::Null) {
+            self.nullable = true;
+        } else if self.builder.is_none() {
+            let data_type = primitive_arrow_dtype(&self.column, value, &self.context)?;
+            let mut builder = make_builder(&data_type, 1024);
+            for _ in 0..self.rows {
+                append_null_to_arrow_builder(
+                    builder.as_mut(),
+                    &data_type,
+                    &self.column,
+                    &self.context,
+                )?;
+            }
+            self.builder = Some(builder);
+            self.data_type = Some(data_type);
+        }
+        if let (Some(builder), Some(data_type)) = (&mut self.builder, &self.data_type) {
+            append_scalar_to_arrow_builder(
+                builder.as_mut(),
+                data_type,
+                value,
+                &self.column,
+                &self.context,
+            )?;
+        }
+        self.rows = self.rows.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!("{} row count overflow", self.context))
+        })?;
+        self.failed = false;
+        Ok(())
+    }
+
+    /// Finish a typed column, using nullable UTF8 for an all-null column.
+    ///
+    /// # Errors
+    /// Rejects any previous append failure.
+    pub fn finish(mut self) -> Result<(Field, ArrayRef)> {
+        if self.failed {
+            return Err(self.invalidated_error());
+        }
+        let data_type = self.data_type.unwrap_or(DataType::Utf8);
+        let array = if let Some(builder) = &mut self.builder {
+            builder.finish()
+        } else {
+            arrow_array::new_null_array(&data_type, self.rows)
+        };
+        Ok((Field::new(self.column, data_type, self.nullable), array))
+    }
+
+    fn invalidated_error(&self) -> ShardLoomError {
+        ShardLoomError::InvalidOperation(format!(
+            "{} text column '{}' is invalid after a failed append",
+            self.context, self.column
+        ))
+    }
+}
+
 impl TextRecordBatchBuilder {
     /// Create builders for the primitive types admitted by text ingestion.
     ///

@@ -10,6 +10,9 @@
 //! integrations. Local Vortex output is a scoped writer sink behind
 //! `vortex-write`, not a Vortex query-engine integration or table commit.
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+mod whole_json_typed;
+
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
@@ -7433,6 +7436,13 @@ fn run_scalar_vortex_prepare(
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    if source_adapter.source_format == LocalSourceFormat::Json
+        && !request.source_path.is_dir()
+        && source_schema_hints.is_empty()
+    {
+        return whole_json_typed::prepare(request, source_adapter);
+    }
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     if let Some(report) = try_run_schema_declared_text_vortex_prepare(
         request.clone(),
         source_adapter.clone(),
@@ -8093,6 +8103,24 @@ fn run_text_streaming_vortex_prepare(
         .source_dictionary_preservation_status
         .clone_from(&columnar_source.source_dictionary_preservation_status);
 
+    finish_text_streaming_vortex_prepare(
+        request,
+        prewrite_source,
+        columnar_source,
+        source_schema_digest,
+        prepare_start,
+    )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+fn finish_text_streaming_vortex_prepare(
+    request: VortexIngestRequest,
+    prewrite_source: VortexIngestSourceData,
+    columnar_source: shardloom_vortex::FlatLocalColumnarStreamSource,
+    source_schema_digest: String,
+    prepare_start: Instant,
+) -> Result<VortexIngestReport, ShardLoomError> {
     let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
     let prewrite_source_state_digest =
         source_state_digest_for_source(&prewrite_source, &source_schema_digest);
@@ -34056,6 +34084,19 @@ fn parse_json_source_content_with_plan(
     read_plan: &LocalSourceReadPlan,
     max_input_rows: Option<usize>,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let mut raw_rows = Vec::new();
+    visit_json_source_rows_with_plan(content, read_plan, |fields| {
+        raw_rows.push(fields);
+        Ok(())
+    })?;
+    materialize_flat_json_rows("JSON", raw_rows, read_plan, max_input_rows)
+}
+
+fn visit_json_source_rows_with_plan(
+    content: &str,
+    read_plan: &LocalSourceReadPlan,
+    mut visitor: impl FnMut(Vec<(String, ScalarValue)>) -> Result<(), ShardLoomError>,
+) -> Result<(), ShardLoomError> {
     let trimmed = content.trim_start_matches('\u{feff}').trim();
     if trimmed.is_empty() {
         return Err(unsupported_sql_error(
@@ -34064,7 +34105,6 @@ fn parse_json_source_content_with_plan(
     }
     let chars = trimmed.chars().collect::<Vec<_>>();
     let mut index = skip_json_ws(&chars, 0);
-    let mut raw_rows = Vec::new();
     match chars.get(index) {
         Some('{') => {
             let (fields, next_index) =
@@ -34075,7 +34115,7 @@ fn parse_json_source_content_with_plan(
                     "JSON source must contain exactly one flat object or one array of flat objects",
                 ));
             }
-            raw_rows.push(fields);
+            visitor(fields)?;
         }
         Some('[') => {
             index += 1;
@@ -34087,7 +34127,7 @@ fn parse_json_source_content_with_plan(
                 }
                 let (fields, next_index) =
                     parse_flat_json_object_at_with_plan(&chars, index, "JSON", read_plan)?;
-                raw_rows.push(fields);
+                visitor(fields)?;
                 index = skip_json_ws(&chars, next_index);
                 match chars.get(index) {
                     Some(',') => index += 1,
@@ -34114,7 +34154,7 @@ fn parse_json_source_content_with_plan(
             ));
         }
     }
-    materialize_flat_json_rows("JSON", raw_rows, read_plan, max_input_rows)
+    Ok(())
 }
 
 fn materialize_flat_json_rows(
