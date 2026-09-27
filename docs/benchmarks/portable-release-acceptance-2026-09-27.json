@@ -1,0 +1,50 @@
+{
+  "schema_version": "shardloom.default_release_acceptance.v1",
+  "status": "passed",
+  "build": {
+    "commit": "8f533fbfc903f83ffc1cb6d91b6a2177b3785a69",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c5-default-final-cli-8f533fbfc903",
+    "sha256": "f837cf6fab4f144ba0acccef330b4a1baa64fd4e08c6ed4f906d2fb581d6a4ba",
+    "bytes": 73353184,
+    "profile": "release",
+    "rustflags": "",
+    "portable": true,
+    "seconds": 346.33752800000366
+  },
+  "full43_calls": 129,
+  "heldout_calls": 456,
+  "pressure_calls": 5,
+  "declared_heldout_workers": [
+    1,
+    4,
+    12
+  ],
+  "full_default_heldout_worker_matrix": false,
+  "query_best_total_seconds": 70.46315045899246,
+  "ingest_seconds": 96.66240920801647,
+  "ingest_bytes": 15682956116,
+  "ingest_sha256": "31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35",
+  "tests": {
+    "workspace": {
+      "passed": 3426,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native": {
+      "passed": 1986,
+      "failed": 0,
+      "ignored": 22
+    }
+  },
+  "scope": "Acceptance of actual ordinary release artifact; these single-artifact observations are not additional paired speedup claims.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "raw_evidence": {
+    "file": "portable-release-acceptance-2026-09-27.json.gz",
+    "members": 1822,
+    "compressed_bytes": 6390992,
+    "compressed_sha256": "36c0eab353b3e57984ba8fc076b850f3c8e5429a1edd08acd46cf357c4b21cea",
+    "uncompressed_bytes": 15688095,
+    "uncompressed_sha256": "ab7c01a673f3eabbad5458142f00bafb84042b1174e1f76f62d9b84fcb7e23b8"
+  }
+}

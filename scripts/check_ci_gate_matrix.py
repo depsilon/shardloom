@@ -283,7 +283,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/check_v1_local_output_sink_scope.py",
             "python scripts/check_v1_local_resource_safety.py --skip-build",
             "python scripts/check_v1_observability_support.py --skip-build",
-            "python scripts/check_v1_example_replay.py --profile-order release,debug --skip-build",
+            "python scripts/check_v1_example_replay.py --binary target/release/shardloom --profile-order release,debug --skip-build",
             "python scripts/check_user_surface_runtime_gap_inventory.py",
             "python scripts/check_user_surface_graduation_matrix.py",
             "python scripts/check_runtime_gap_family_burn_down.py",

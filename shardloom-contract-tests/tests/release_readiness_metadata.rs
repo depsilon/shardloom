@@ -189,7 +189,7 @@ fn cargo_metadata_marks_current_workspace_crates_internal() {
 
 #[test]
 fn optimized_build_profiles_preserve_portable_release_boundary() {
-    let workspace = read_repo_file("Cargo.toml");
+    let workspace = read_repo_file("Cargo.toml").replace("\r\n", "\n");
     let release = workspace
         .split("[profile.release]\n")
         .nth(1)

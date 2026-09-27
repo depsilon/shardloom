@@ -297,7 +297,7 @@ held-out boundary/resource acceptance and all 258 Full43 results. See
 0.86.x upgrade at allocator-resource admission; the current typed-denial and
 buffer-credit contract stays intact. See `vortex-086-upgrade-admission-2026-09-27.md`.
 C5.a retains portable ThinLTO (3.21% lower query total, 7.53% lower ingest) with
-ordinary release artifact acceptance in progress. C5.b/C5.c preserve their measured
+ordinary release artifact acceptance passing. C5.b/C5.c preserve their measured
 query gains but decline promotion of the tested PGO/native CPU configurations after
 ingest regressions. See `compiler-profile-screen-2026-09-27.md`.
 The release train remains
@@ -344,7 +344,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C6: retain the existing native packed-comparison provider with five independent provider/lowering fixtures; drop duplicate kernel/layout work and retain reader-evidence obligations. See `packed-numeric-provider-screen-2026-09-27.md`.
     - [x] C2.b: retain bounded small-integer COUNT selection before worker admission; complete crossover, held-out/resource acceptance and Full43 pass. See `small-numeric-count-selection-screen-2026-09-27.md`.
     - [x] C1: drop the 0.86.x upgrade at resource-contract admission; preserve 0.85.0 and explicit reopening conditions. See `vortex-086-upgrade-admission-2026-09-27.md`.
-    - [ ] C5.a: retained portable ThinLTO; finish final ordinary release artifact acceptance and merge.
+    - [x] C5.a: retain portable ThinLTO for ordinary release after complete paired screens, final artifact UAT and workspace/native validation.
     - [x] C5.b: drop promotion of tested PGO corpus/profile after an ingest regression; preserve small query/size gains and existing explicit tooling.
     - [x] C5.c: preserve the explicit nonportable CPU profile and measured query gain; drop automatic selection of the tested configuration after an ingest regression.
     - [ ] C7: record admission and ship/drop for Direct JSON/JSONL parse into typed builders.
@@ -359,9 +359,9 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: finish C5.a's ordinary release artifact validation, independent
-    review and PR/merge, then profile C7 JSON/JSONL construction. All three compiler
-    screens have complete paired query, ingest and held-out/resource acceptance.
+  - Next outcome: PR/merge the completed C1/C5 admission unit, then profile C7
+    JSON/JSONL construction. All three compiler screens and the final ordinary
+    release artifact have complete applicable query, ingest and held-out/resource acceptance.
     Preserve useful smaller gains and recorded workload tradeoffs.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.

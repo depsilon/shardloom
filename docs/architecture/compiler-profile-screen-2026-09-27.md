@@ -1,7 +1,7 @@
 # Compiler profile screens — C5.a/C5.b/C5.c
 
 Status: retain portable ThinLTO for ordinary release builds; final ordinary-profile
-artifact acceptance is in progress. These are PERF-INTAKE / RFC 0044 compiler
+artifact acceptance passes. These are PERF-INTAKE / RFC 0044 compiler
 screens over the retained Vortex 0.85.0 provider and unchanged native runtime.
 The C1 provider upgrade remains dropped at resource admission.
 
@@ -30,7 +30,7 @@ held-out acceptance, including resource/error behavior. Stage a bounded screen
 first when it can reject a consistently slower variant without more bulk work.
 No percentage cutoff discards a useful gain. Any default-profile or packaging
 change requires its own final artifact verification; the selected ordinary release
-profile change is undergoing that verification before merge.
+profile has completed that verification.
 
 These are compiler experiments over ShardLoom-native execution, with explicit
 no-fallback evidence. They do not introduce JIT execution, a new provider or a
@@ -139,12 +139,21 @@ pressure/export admission failures remain preserved alongside successful attempt
 
 ## Final artifact gate
 
-Local receipts and reproduction scripts are under
-`/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c5-*`.
-Complete envelopes, typed oracle checks, identities and ingest receipts are being
-bundled for the PR. Large payloads, executable caches and profile blobs remain local,
-with hashes and generators retained. The changed ordinary release profile requires
-its own frozen binary, complete Full43, guarded ingest, held-out/resource acceptance,
-workspace checks and independent review before merge. Screen evidence does not
-substitute for that final artifact verification. No package publication or version
-bump occurs. C7 JSON/JSONL ingestion is next after this compiler work is merged.
+The [screen index](../benchmarks/compiler-profile-screen-2026-09-27.json) links the
+lossless compiler evidence bundle: all samples, complete envelopes, typed oracle
+checks, identities, training coverage, attempts and independent audits. The
+[ordinary release acceptance](../benchmarks/portable-release-acceptance-2026-09-27.json)
+records its separate final binary and proof. Large native payloads, frozen binaries
+and profile blobs stay local with hashes/generators retained. Completed PGO-owned
+Cargo caches were retired after verifying the frozen binaries, recovering 4,121,219,072
+accounted bytes; the shared Cargo cache and unrelated worktrees were preserved.
+
+Ordinary release commit `8f533fbfc903` produces a 73,353,184-byte binary with SHA-256
+`f837cf6fab4f144ba0acccef330b4a1baa64fd4e08c6ed4f906d2fb581d6a4ba`. It passes 129
+Full43 calls, guarded byte-identical full-size ingest, 456 declared held-out calls,
+and five pressure calls. Required formatting, workspace/native Clippy, 3,426
+workspace tests and 1,986 native-feature tests pass; 22 existing tests are ignored.
+The PGO orchestration and profile metadata checks also pass. No later runtime or
+Cargo change follows this binary; review fixes only make CI select the explicit
+release binary and make the metadata assertion tolerate CRLF, with focused checks.
+No package publication or version bump occurs. C7 JSON/JSONL ingestion is next.
