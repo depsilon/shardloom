@@ -317,6 +317,72 @@ fn small_count_automatic_selection_preserves_boundaries_encodings_and_nulls() {
 }
 
 #[test]
+fn small_count_selection_preserves_nullable_parent_semantics() {
+    // Vortex 0.85's file statistics writer rejects nullable root structs. Check
+    // this logical source contract directly against native arrays instead.
+    let values: Vec<u64> = (0..513).map(|i| i % 5).collect();
+    let columns = vec!["alias_key".to_owned()];
+    let request = VortexSimpleAggregateRequest::grouped(
+        vec![ColumnRef::new("alias_key").unwrap()],
+        vec![VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "n_rows".to_owned(),
+        )],
+    )
+    .with_order_by(vec![VortexAggregateOrderExpr::new("n_rows", true)]);
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(12, 1).unwrap();
+    for valid in [
+        vec![true; 513],
+        vec![false; 513],
+        (0..513).map(|i| i % 3 != 0).collect(),
+    ] {
+        let expected_values: Vec<Option<u64>> = values
+            .iter()
+            .zip(&valid)
+            .map(|(&value, &valid)| valid.then_some(value))
+            .collect();
+        let array = StructArray::try_new(
+            FieldNames::from(["alias_key"]),
+            vec![
+                values
+                    .iter()
+                    .copied()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+            ],
+            values.len(),
+            Validity::from_iter(valid),
+        )
+        .unwrap()
+        .into_array();
+        let mut states = super::GroupedAggregateStates::new_with_resource_envelope(
+            &request,
+            Some(10),
+            &columns,
+            false,
+            false,
+            policy.resource_envelope(),
+        )
+        .unwrap();
+        assert!(
+            !super::aggregate_count_workers::small_numeric_direct_selected(
+                &states,
+                array.dtype(),
+                &columns,
+                513,
+                policy,
+            ),
+            "nullable parent must retain existing admission"
+        );
+        super::update_grouped_exact_states_from_chunk(&mut states, &array, &columns, None).unwrap();
+        let (_, summary) = states.result_row_count_and_summary(Some(10)).unwrap();
+        let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
+        assert_eq!(payload["values"], expected_counts(&expected_values, 10));
+    }
+}
+
+#[test]
 fn small_count_selection_preserves_low_memory_and_single_lane_admission() {
     let values = Distribution::NearUnique.values(4093);
     let fixture = Fixture::new(&std::env::temp_dir(), &values);

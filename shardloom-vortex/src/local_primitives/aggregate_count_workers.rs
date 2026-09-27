@@ -1314,6 +1314,7 @@ pub(super) fn small_numeric_direct_selected(
         || policy.resource_envelope.memory_budget_bytes < 32 * 1024 * 1024
         || source_rows > policy.resource_envelope.group_state_soft_item_budget as u64
         || states.group_columns.len() != 1
+        || !super::aggregate_group_key_dtypes_nonnullable(dtype, states.request)
         || !numeric_state_admitted(states)
         || !states
             .result_limit
