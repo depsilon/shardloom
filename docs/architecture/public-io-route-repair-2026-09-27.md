@@ -2,8 +2,9 @@
 
 # Public I/O route integration repair
 
-Status: implementation in progress, authorized during the September 27 format
-baseline. This belongs to existing PERF-12/public-call and CG-21 workflow work.
+Status: implemented and locally validated, including the authorized plain-Vortex
+handoff retry; PR acceptance pending. Authorized during the September 27 format
+baseline, this belongs to existing PERF-12/public-call and CG-21 workflow work.
 The 0.3.1 publication/deployment train is complete. This note does not reopen the
 seven queued performance experiments or claim a new published release.
 
@@ -149,7 +150,8 @@ preparation lifecycle repair, not a new PulseWeave scheduler or performance resu
 
 ## Validation so far
 
-The real Python-to-CLI round-trip matrix passes 110 small cases across the eight
+The frozen handoff release binary passes the real Python-to-CLI round-trip matrix:
+110 small cases across the eight
 formats, including scalar/mixed/grouped aggregates, sorting, empty results,
 DataFrame writes, generated JSON and existing-target preservation. Its temporary
 fixtures were removed. Evidence:
@@ -163,7 +165,9 @@ now compile only for their explicit encoded-batch consumer or mapping tests.
 
 The saved initial Parquet and plain-Vortex lanes each pass all 172 cases. The
 optimized-reference lane was interrupted by the maintainer after 32 successful
-cases and remains incomplete. The new plain-Vortex handoff retry and final PR
-acceptance remain pending; correctness and work-count checks alone do not
-establish elapsed-time gains. Large task-owned caches and the original generated
-plain fixture were retired after their complete lane evidence was preserved.
+cases and remains incomplete. The authorized fresh plain-Vortex retry also passes
+all 172 cases: collection totals 104.73s and Vortex export 106.16s, compared with
+330.04s and 328.22s in the saved baseline. See the
+[complete timing boundaries and evidence](plain-vortex-format-comparison-2026-09-27.md#handoff-retry-evidence).
+Final PR acceptance remains pending. Large task-owned caches and both generated
+plain fixtures were retired after their complete lane evidence was preserved.

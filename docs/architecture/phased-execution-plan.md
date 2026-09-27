@@ -276,6 +276,13 @@ exports. Regenerate only that fixture, retain prior evidence, run sequentially,
 and retire it after successful validation. The interrupted optimized-reference
 lane and large text-format testing remain paused.
 
+The handoff retry is complete: all 172 fresh plain-Vortex collection/export cases
+passed, with 104.73s collection and 106.16s Vortex-export totals across 43 queries.
+The regenerated fixture was byte-identical to the original and was retired after
+verified archival. See the [scoped comparison](plain-vortex-format-comparison-2026-09-27.md#handoff-retry-evidence).
+Close the coherent I/O repair through PR/CI acceptance; keep unrelated candidates
+and the interrupted optimized-reference lane paused.
+
 September 26 suggestion-intake override: 0.3.0 publication is complete in
 PR #1459. The maintainer supplied five performance packets and requested a concise
 ship/drop ordering by expected gains, ahead of the previous optimization queue.
