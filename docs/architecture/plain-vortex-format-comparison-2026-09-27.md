@@ -2,8 +2,8 @@
 
 # Plain Vortex source comparison
 
-Status: requested local benchmark, pending the 0.3.1 publication train. No new
-format timing or full-size conversion is claimed by this plan.
+Status: requested local benchmark, next after the verified 0.3.1 release closeout.
+No new format timing or full-size conversion is claimed by this plan.
 
 The maintainer requested an ordinary Vortex version of the resident hits Parquet
 source and timing of Vortex input through ShardLoom. This is a bounded follow-up
