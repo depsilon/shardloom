@@ -3,8 +3,10 @@
 # Public I/O route integration repair
 
 Status: implemented and locally validated, including the authorized plain-Vortex
-handoff retry; PR acceptance pending. Authorized during the September 27 format
-baseline, this belongs to existing PERF-12/public-call and CG-21 workflow work.
+handoff retry. Integration is tracked in
+[PR #1479](https://github.com/depsilon/shardloom/pull/1479). Authorized during the
+September 27 format baseline, this belongs to existing PERF-12/public-call and
+CG-21 workflow work.
 The 0.3.1 publication/deployment train is complete. This note does not reopen the
 seven queued performance experiments or claim a new published release.
 
@@ -169,5 +171,6 @@ cases and remains incomplete. The authorized fresh plain-Vortex retry also passe
 all 172 cases: collection totals 104.73s and Vortex export 106.16s, compared with
 330.04s and 328.22s in the saved baseline. See the
 [complete timing boundaries and evidence](plain-vortex-format-comparison-2026-09-27.md#handoff-retry-evidence).
-Final PR acceptance remains pending. Large task-owned caches and both generated
-plain fixtures were retired after their complete lane evidence was preserved.
+The PR records final CI and integration acceptance. Large task-owned caches and
+both generated plain fixtures were retired after their complete lane evidence
+was preserved.

@@ -33,9 +33,9 @@ streaming writer with its default compression, matching the approved dependency
 graph and released provider. The native
 [`BlockingWriter`](https://github.com/vortex-data/vortex/blob/0.85.0/vortex-file/src/writer.rs)
 accepts bounded record batches; ordered native scans and the Arrow boundary
-support complete-value validation. PyArrow 25.0.1 is used only to create small
-correctness fixtures. This avoids adding the Python Vortex package's transitive
-dependencies. No new dependency, query-engine integration or external execution
+support complete-value validation. PyArrow 25.0.1 creates small correctness
+fixtures and validates result exports. This avoids adding the Python Vortex
+package's transitive dependencies. No new dependency, query-engine integration or external execution
 fallback is involved. Do not materialize the full dataset in memory.
 
 Before timing, compare all source and Vortex values in bounded batches, aligning

@@ -80,8 +80,7 @@ fn public_io_repeated_preparation_reuses_embedded_binding_across_inputs() {
                 second.fields.iter().any(|(key, value)| key
                     == "public_workflow_preparation_prepared_state_reused"
                     && value == "true"),
-                "{format}: {:?}",
-                second.fields
+                "{format}/{policy}: unchanged prepared state was not reused"
             );
             assert_eq!(fs::read(&target).unwrap(), original);
         }
