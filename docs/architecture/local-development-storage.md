@@ -38,6 +38,21 @@ held-out call logs into `completed-call-logs-c5-20260927.tar.xz`, recovering abo
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 
+Before the September 27 plain-Vortex format comparison, the superseded
+18,591,586,804-byte `performance-pr-ingest-4f2c7b970078-r1.vortex` payload was
+retired. Its complete hash matched the retained September 26 evidence, whose
+full-value comparison proves all 99,997,497 rows and 112 columns equal to the
+current 15,682,956,116-byte artifact. Both hashes and file generations were
+rechecked before removal. The original Parquet, current optimized artifact and
+protected older `perf-current-c71a558e.vortex` reference remain intact. Replaying
+the superseded physical layout now requires regeneration.
+Completed Full43 per-call logs were also archived losslessly with per-member
+hashes, while summaries and failed-run evidence were preserved. Exact removals,
+archive identities and before/after space are recorded in
+`/Users/dylan/LocalData/shardloom/release-0.3.1-20260927/format-storage-cleanup.json`.
+This supersedes the September 26 note that the 18.59 GB comparison payload remains
+locally retained; it does not alter the historical timing or correctness evidence.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

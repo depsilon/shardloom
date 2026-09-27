@@ -13,30 +13,39 @@ from release_channel_contract import PUBLISHED_REGISTRY_BUILD_IDENTITIES, SELECT
 
 
 class RegistryBundledProofTests(unittest.TestCase):
-    def test_030_source_field_requires_matching_release_commit(self):
-        original = self.proof("testpypi")
-        smoke_stdout = (ROOT / "docs/release/channel-proofs" /
-                        f"testpypi-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json").read_bytes()
-        expected = "a" * 40
-        for release_source_commit, should_block in ((expected, False), ("b" * 40, True), (None, True)):
-            with self.subTest(release_source_commit=release_source_commit):
-                proof = copy.deepcopy(original)
-                supplement = proof["bundled_cli_supplemental_proof"]
-                supplement["source_commit"] = expected if should_block else "c" * 40
-                if release_source_commit is None:
-                    supplement.pop("release_source_commit", None)
-                else:
-                    supplement["release_source_commit"] = release_source_commit
-                blockers = bundled_registry_proof_blockers(
-                    proof, channel_id="testpypi", package_version="0.3.0",
-                    runtime_source_commit=expected, smoke_stdout=smoke_stdout,
-                )
-                has_source_blocker = any("must match the approved runtime source" in blocker for blocker in blockers)
-                self.assertEqual(has_source_blocker, should_block, blockers)
+    def test_030_and_031_source_field_requires_matching_release_commit(self):
+        for version in ("0.3.0", "0.3.1"):
+            original = self.proof_for_version("testpypi", version)
+            smoke_stdout = (ROOT / "docs/release/channel-proofs" /
+                            f"testpypi-v{version}-bundled-smoke.stdout.json").read_bytes()
+            expected = original["bundled_cli_supplemental_proof"]["release_source_commit"]
+            cases = ((expected, False), ("b" * 40, True), (None, True))
+            for release_source_commit, should_block in cases:
+                with self.subTest(version=version, release_source_commit=release_source_commit):
+                    proof = copy.deepcopy(original)
+                    supplement = proof["bundled_cli_supplemental_proof"]
+                    # Newer registry proofs use release_source_commit; the obsolete
+                    # source_commit must not affect either acceptance or rejection.
+                    supplement["source_commit"] = expected if should_block else "c" * 40
+                    if release_source_commit is None:
+                        supplement.pop("release_source_commit", None)
+                    else:
+                        supplement["release_source_commit"] = release_source_commit
+                    blockers = bundled_registry_proof_blockers(
+                        proof, channel_id="testpypi", package_version=version,
+                        runtime_source_commit=expected, smoke_stdout=smoke_stdout,
+                    )
+                    has_source_blocker = any(
+                        "must match the approved runtime source" in blocker for blocker in blockers
+                    )
+                    self.assertEqual(has_source_blocker, should_block, blockers)
 
     def proof(self, channel):
+        return self.proof_for_version(channel, SELECTED_PACKAGE_RELEASE_VERSION)
+
+    def proof_for_version(self, channel, version):
         return json.loads((ROOT / "docs/release/channel-proofs" /
-                           f"{channel}-v{SELECTED_PACKAGE_RELEASE_VERSION}-transcript.json").read_text())
+                           f"{channel}-v{version}-transcript.json").read_text())
 
     def validate(self, proof, channel):
         return bundled_registry_proof_blockers(
@@ -51,19 +60,20 @@ class RegistryBundledProofTests(unittest.TestCase):
             with self.subTest(channel=channel):
                 self.assertEqual(self.validate(self.proof(channel), channel), [])
 
-    def test_preserves_historical_024_installation_proofs(self):
-        for channel in ("testpypi", "pypi"):
-            with self.subTest(channel=channel):
-                base = ROOT / "docs/release/channel-proofs"
-                proof = json.loads((base / f"{channel}-v0.2.4-transcript.json").read_text())
-                self.assertEqual(bundled_registry_proof_blockers(
-                    proof, channel_id=channel, package_version="0.2.4",
-                    runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES["0.2.4"]["testpypi"]["source_commit"],
-                    smoke_stdout=(base / f"{channel}-v0.2.4-bundled-smoke.stdout.json").read_bytes(),
-                ), [])
+    def test_preserves_historical_024_and_030_installation_proofs(self):
+        base = ROOT / "docs/release/channel-proofs"
+        for version in ("0.2.4", "0.3.0"):
+            for channel in ("testpypi", "pypi"):
+                with self.subTest(version=version, channel=channel):
+                    proof = self.proof_for_version(channel, version)
+                    self.assertEqual(bundled_registry_proof_blockers(
+                        proof, channel_id=channel, package_version=version,
+                        runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES[version]["testpypi"]["source_commit"],
+                        smoke_stdout=(base / f"{channel}-v{version}-bundled-smoke.stdout.json").read_bytes(),
+                    ), [])
 
     def test_rejects_failed_missing_or_unbound_bundled_evidence(self):
-        source_field = "release_source_commit" if SELECTED_PACKAGE_RELEASE_VERSION == "0.3.0" else "source_commit"
+        source_field = "source_commit" if SELECTED_PACKAGE_RELEASE_VERSION == "0.2.4" else "release_source_commit"
         mutations = [
             (("proof_status",), "failed", "proof_status must be passed"),
             (("status",), "failed", "status must be passed"),

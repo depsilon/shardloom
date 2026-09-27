@@ -60,7 +60,9 @@ applicable acceptance. The separate [whole-file JSON screen](json-typed-builder-
 retains typed construction with 31.11% lower paired ingest and lower RSS;
 complete native identity, row oracle and full applicable acceptance close C7.
 The September 27 scope override is to merge this PR, complete the authorized
-0.3.1 version/publication train, then stop with the seven query experiments queued. The
+0.3.1 version/publication train, then perform the subsequently requested
+[plain-Vortex format comparison](plain-vortex-format-comparison-2026-09-27.md)
+and stop with the seven query experiments queued. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
