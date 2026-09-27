@@ -101,6 +101,9 @@ fn signed_packed_provider_preserves_nulls_patches_empty_inputs_and_tail_rows() {
             &mut ctx,
         )
         .unwrap();
+        if values.contains(&Some(i64::MAX)) {
+            assert!(packed.patches().is_some());
+        }
         for op in OPS {
             let rhs = ConstantArray::new(7_i64, values.len()).into_array();
             let actual =
