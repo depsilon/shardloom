@@ -266,7 +266,7 @@ pub(crate) fn emit_error(
         .with_lifecycle_field("command_family", classify_command(command).as_str());
     match format {
         OutputFormat::Text => write_output_line(PendingLine::Stderr {
-            message: envelope.to_text(),
+            message: error.to_string(),
         }),
         OutputFormat::Json => write_stdout_line(envelope.to_json()),
     }
@@ -285,7 +285,7 @@ pub(crate) fn emit_error_with_fields(
     let envelope = apply_typed_envelope_fields(envelope, command, fields);
     match format {
         OutputFormat::Text => write_output_line(PendingLine::Stderr {
-            message: envelope.to_text(),
+            message: error.to_string(),
         }),
         OutputFormat::Json => write_stdout_line(envelope.to_json()),
     }
@@ -470,6 +470,23 @@ mod tests {
             if serde_json::from_str::<serde_json::Value>(&rendered).is_ok())
         );
         assert!(lines.next().is_none());
+    }
+
+    #[test]
+    fn buffered_text_errors_preserve_the_existing_plain_error_text() {
+        let outer = super::PendingOutput::new();
+        let error = ShardLoomError::InvalidOperation("expected diagnostic".into());
+        super::emit_error_with_fields(
+            "run",
+            OutputFormat::Text,
+            "failed",
+            &error,
+            vec![("unrelated_result_field".into(), "not human text".into())],
+        );
+        let Some(super::PendingLine::Stderr { message }) = outer.take().pop() else {
+            panic!("missing diagnostic");
+        };
+        assert_eq!(message, error.to_string());
     }
 
     fn timing_values() -> EmitTimingReplacementValues {

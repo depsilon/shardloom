@@ -7326,34 +7326,15 @@ class LazyFrame:
             raise ValueError(
                 "public workflow write facade requires an admitted local-source statement"
             )
-        if self.source.schema and self.source.source_format != "vortex":
-            candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-            if candidate is None:
-                raise ValueError("declared schema requires an admitted Vortex preparation")
-            preparation = self._prepare_vortex_candidate(
-                candidate,
-                check=check,
-                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-            )
-            if preparation.envelope.status != "success":
-                return SqlLocalSourceSmokeReport(
-                    preparation.envelope, preparation_envelope=preparation.envelope
-                )
-            report = candidate.frame._public_workflow_write_report(
-                target_uri,
-                requested_output=requested_output,
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                check=check,
-            )
-            return SqlLocalSourceSmokeReport(
-                report.envelope, preparation_envelope=preparation.envelope
-            )
         execution = self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
+            source_schema=(
+                (self.source.schema or None)
+                if self.source.source_format != "vortex"
+                else None
+            ),
             sql_statement=statement,
             plan_summary=self.operation_summary,
             requested_output=requested_output,

@@ -141,18 +141,60 @@ pub(super) fn aggregate_fields(
 }
 
 impl CompletedRows {
-    pub(super) fn admit_group_count(&self, limit: Option<usize>, groups: usize) -> Result<()> {
+    pub(super) fn admit_group_count(&self, limit: Option<usize>, groups: usize) -> Result<usize> {
         if limit.is_none() && groups > MAX_ROWS {
             return Err(failed(
                 "grouped output without a limit exceeds 65536 groups",
             ));
         }
-        if limit.is_none()
-            && self.fields.len().saturating_mul(groups).saturating_mul(32) > MAX_BYTES
+        let rows = limit.map_or(groups, |limit| groups.min(limit));
+        if rows > MAX_ROWS || self.fields.len().saturating_mul(rows).saturating_mul(32) > MAX_BYTES
         {
             return Err(failed("grouped output exceeds 8 MiB output admission"));
         }
-        Ok(())
+        Ok(rows)
+    }
+
+    pub(super) fn has_utf8(&self) -> bool {
+        self.fields
+            .iter()
+            .any(|(_, dtype)| matches!(dtype, DType::Utf8(_)))
+    }
+
+    /// Admit and reserve the scalar-row bridge before its JSON/StatValue clones.
+    /// The string bound is conservative across retained candidates, before HAVING
+    /// and final selection. Native builders acquire their own overlapping lease.
+    pub(super) fn reserve_finalization(
+        &self,
+        rows: usize,
+        max_utf8_len: usize,
+    ) -> Result<MemoryLease> {
+        let utf8_fields = self
+            .fields
+            .iter()
+            .filter(|(_, dtype)| matches!(dtype, DType::Utf8(_)))
+            .count();
+        let string_bytes = rows
+            .saturating_mul(utf8_fields)
+            .saturating_mul(max_utf8_len);
+        let cells = rows.saturating_mul(self.fields.len());
+        if rows > MAX_ROWS || cells.saturating_mul(32).saturating_add(string_bytes) > MAX_BYTES {
+            return Err(failed(
+                "completed values exceed 8 MiB output admission before finalization",
+            ));
+        }
+        // Per cell: two scalar/map representations plus BTreeMap node slack.
+        // Names may be 256 bytes and are copied into each result row. Per row:
+        // vector/map headers and growth; strings allow overlapping value clones.
+        let name_bytes: usize = self.fields.iter().map(|(name, _)| name.len()).sum();
+        let bytes = cells
+            .saturating_mul(256)
+            .saturating_add(rows.saturating_mul(name_bytes).saturating_mul(2))
+            .saturating_add(rows.saturating_mul(1024))
+            .saturating_add(string_bytes.saturating_mul(4))
+            .saturating_add(64 * 1024);
+        self.memory
+            .reserve(u64::try_from(bytes).map_err(vortex_error)?)
     }
 
     pub(super) fn new(fields: Vec<(String, DType)>, memory: &LiveMemoryPool) -> Result<Self> {

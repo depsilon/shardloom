@@ -21,6 +21,56 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn public_io_declared_schema_is_bound_to_cold_warm_and_held_generations() {
+    let fixture = Fixture::new();
+    let source = fixture.0.join("labels.csv");
+    let target = fixture.0.join("prepared.vortex");
+    fs::write(&source, "label\n001\n010\n").unwrap();
+    for policy in ["metadata_only", "content_digest"] {
+        let prepare = |schema, overwrite| {
+            prepare_local_source_as_vortex_for_public_workflow_with_schema(
+                &source,
+                &target,
+                Some("csv"),
+                overwrite,
+                1,
+                Some(1),
+                Some(policy),
+                Some(schema),
+            )
+        };
+        let cold = prepare("label:utf8", true).unwrap();
+        let original = fs::read(&target).unwrap();
+        let warm = prepare("label:utf8", false).unwrap();
+        assert_reused_identity(&cold, &warm);
+        cold.validate_generation().unwrap();
+        warm.validate_generation().unwrap();
+        assert!(prepare("label:int64", false).is_err());
+        assert_eq!(fs::read(&target).unwrap(), original);
+        let replacement = fixture.0.join("replacement.vortex");
+        fs::write(&replacement, &original).unwrap();
+        fs::rename(&replacement, &target).unwrap();
+        assert!(cold.validate_generation().is_err());
+        assert!(warm.validate_generation().is_err());
+    }
+    let absent = fixture.0.join("absent").join("artifact.vortex");
+    assert!(
+        prepare_local_source_as_vortex_for_public_workflow_with_schema(
+            &source,
+            &absent,
+            Some("csv"),
+            false,
+            1,
+            Some(1),
+            None,
+            Some("invalid"),
+        )
+        .is_err()
+    );
+    assert!(!absent.parent().unwrap().exists());
+}
+
+#[test]
 fn public_io_repeated_preparation_reuses_embedded_binding_across_inputs() {
     let fixture = Fixture::new();
     let columns = vec!["id".to_string(), "text".to_string()];

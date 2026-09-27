@@ -16121,7 +16121,7 @@ fn direct_host_primitive(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(any(test, feature = "universal-format-io"))]
 fn shardloom_logical_dtype_from_vortex_dtype(
     dtype: &vortex::array::dtype::DType,
 ) -> Option<LogicalDType> {

@@ -11203,6 +11203,7 @@ class ShardLoomClient:
         *,
         input_uri: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
+        source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         sql_statement: str | None = None,
         plan_summary: str | None = None,
         requested_output: str = "collect",
@@ -11249,6 +11250,9 @@ class ShardLoomClient:
             args.extend(["--input", str(input_uri)])
         if input_format is not None:
             args.extend(["--input-format", input_format])
+        source_schema_arg = _schema_command_arg(source_schema)
+        if source_schema_arg is not None:
+            args.extend(["--source-schema", source_schema_arg])
         if sql_statement is not None:
             args.extend(["--sql", sql_statement])
         if plan_summary is not None:
@@ -11309,6 +11313,7 @@ class ShardLoomClient:
         *,
         input_uri: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
+        source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         sql_statement: str | None = None,
         plan_summary: str | None = None,
         requested_output: str = "collect",
@@ -11356,6 +11361,7 @@ class ShardLoomClient:
             surface,
             input_uri=input_uri,
             input_format=input_format,
+            source_schema=source_schema,
             sql_statement=sql_statement,
             plan_summary=plan_summary,
             requested_output=requested_output,
@@ -11404,6 +11410,7 @@ class ShardLoomClient:
         input_uri: str | os.PathLike[str],
         output_ref: str | os.PathLike[str],
         input_format: str | None = None,
+        source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         plan_summary: str | None = None,
         evidence_level: str = "runtime_smoke",
         memory_gb: int | None = None,
@@ -11417,6 +11424,7 @@ class ShardLoomClient:
             surface,
             input_uri=input_uri,
             input_format=input_format,
+            source_schema=source_schema,
             plan_summary=plan_summary,
             requested_output="prepare",
             output_ref=output_ref,
@@ -11436,6 +11444,7 @@ class ShardLoomClient:
         *,
         input_uri: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
+        source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         sql_statement: str | None = None,
         plan_summary: str | None = None,
         requested_output: str = "collect",
@@ -11480,6 +11489,9 @@ class ShardLoomClient:
             args.extend(["--input", str(input_uri)])
         if input_format is not None:
             args.extend(["--input-format", input_format])
+        source_schema_arg = _schema_command_arg(source_schema)
+        if source_schema_arg is not None:
+            args.extend(["--source-schema", source_schema_arg])
         if sql_statement is not None:
             args.extend(["--sql", sql_statement])
         if plan_summary is not None:

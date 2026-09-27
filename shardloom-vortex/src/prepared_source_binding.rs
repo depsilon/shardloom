@@ -53,6 +53,22 @@ fn source_paths(source: &Path, format: &str) -> Result<Vec<PathBuf>> {
 /// # Errors
 /// Rejects missing, nonregular, changing, or oversized local source inventories.
 pub fn local_preparation_binding(source: &Path, format: &str, fingerprint: &str) -> Result<String> {
+    local_preparation_binding_with_schema(source, format, fingerprint, None)
+}
+
+/// Bind a declared input schema to the prepared artifact's source generation.
+/// Undeclared schemas preserve the existing binding representation.
+/// # Errors
+/// Rejects missing, changing or oversized source inventories and schema metadata.
+pub fn local_preparation_binding_with_schema(
+    source: &Path,
+    format: &str,
+    fingerprint: &str,
+    source_schema: Option<&str>,
+) -> Result<String> {
+    if source_schema.is_some_and(|schema| schema.len() > MAX_BYTES) {
+        return Err(error("schema metadata exceeds 64 KiB"));
+    }
     let source = std::path::absolute(source).map_err(error)?;
     let files = source_paths(&source, format)?;
     // Bound the embedded metadata independently of partition count. Hash each
@@ -74,10 +90,13 @@ pub fn local_preparation_binding(source: &Path, format: &str, fingerprint: &str)
     for byte in generations.finalize() {
         write!(generations_sha256, "{byte:02x}").map_err(error)?;
     }
-    let binding = serde_json::json!({"version":1,"engine":env!("CARGO_PKG_VERSION"),
+    let mut binding = serde_json::json!({"version":1,"engine":env!("CARGO_PKG_VERSION"),
         "provider":crate::UPSTREAM_VORTEX_PROVIDER_VERSION,"source":source,"format":format,
-        "fingerprint":fingerprint,"file_count":files.len(),"generations_sha256":generations_sha256})
-    .to_string();
+        "fingerprint":fingerprint,"file_count":files.len(),"generations_sha256":generations_sha256});
+    if let Some(schema) = source_schema {
+        binding["source_schema"] = schema.into();
+    }
+    let binding = binding.to_string();
     if binding.len() > MAX_BYTES {
         return Err(error("metadata exceeds 64 KiB"));
     }
@@ -98,7 +117,13 @@ pub(crate) fn validate(binding: &str) -> Result<()> {
     let fingerprint = fields["fingerprint"]
         .as_str()
         .ok_or_else(|| error("fingerprint missing"))?;
-    if local_preparation_binding(Path::new(source), format, fingerprint)? != binding {
+    let source_schema = fields
+        .get("source_schema")
+        .map(|value| value.as_str().ok_or_else(|| error("invalid source schema")))
+        .transpose()?;
+    if local_preparation_binding_with_schema(Path::new(source), format, fingerprint, source_schema)?
+        != binding
+    {
         return Err(error("source generation changed during preparation"));
     }
     Ok(())

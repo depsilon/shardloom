@@ -5372,7 +5372,7 @@ fn parse_sql_local_source_request(
     })
 }
 
-fn parse_vortex_ingest_schema_hints(
+pub(crate) fn parse_vortex_ingest_schema_hints(
     raw: &str,
 ) -> Result<Vec<(String, LogicalDType)>, ShardLoomError> {
     let trimmed = raw.trim();
@@ -5875,7 +5875,7 @@ fn fields_with_extra(
     fields
 }
 
-#[allow(clippy::too_many_lines)]
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
 pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     source_path: impl AsRef<Path>,
     target_path: impl AsRef<Path>,
@@ -5885,6 +5885,33 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     memory_gb: Option<u64>,
     source_fingerprint_policy: Option<&str>,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    prepare_local_source_as_vortex_for_public_workflow_with_schema(
+        source_path,
+        target_path,
+        source_format,
+        allow_overwrite,
+        max_parallelism,
+        memory_gb,
+        source_fingerprint_policy,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
+    source_path: impl AsRef<Path>,
+    target_path: impl AsRef<Path>,
+    source_format: Option<&str>,
+    allow_overwrite: bool,
+    max_parallelism: usize,
+    memory_gb: Option<u64>,
+    source_fingerprint_policy: Option<&str>,
+    source_schema: Option<&str>,
+) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    let source_schema_hints = source_schema
+        .map(parse_vortex_ingest_schema_hints)
+        .transpose()?
+        .unwrap_or_default();
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
         return Err(ShardLoomError::NotImplemented(
             "vortex_ingest feature gate is not enabled".to_string(),
@@ -5893,6 +5920,11 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     if source_format.is_some_and(source_format_token_is_vortex)
         || path_has_vortex_extension(source_path.as_ref())
     {
+        if source_schema.is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "source schema hints apply only to compatibility inputs; native Vortex input does not accept --source-schema; no fallback execution was attempted".into(),
+            ));
+        }
         let target_path =
             normalize_local_vortex_ingest_target_path(&target_path.as_ref().display().to_string())?;
         let request = shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
@@ -5931,6 +5963,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         source_path.as_ref(),
         source_format_override,
         source_fingerprint_policy,
+        source_schema,
     )?);
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io", unix)))]
     let prepared_source_binding: Option<String> = None;
@@ -5973,7 +6006,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         delta: None,
         prepared_source_binding: prepared_source_binding.clone(),
     };
-    let raw_fields = match run_vortex_prepare(request)? {
+    let raw_fields = match run_vortex_prepare_with_schema(request, &source_schema_hints)? {
         VortexIngestOutcome::Prepared(report) => {
             if report.differential_preparation_blocked() {
                 return Err(ShardLoomError::InvalidOperation(format!(
@@ -6115,12 +6148,14 @@ fn public_preparation_source_binding(
     path: &Path,
     format: Option<LocalSourceFormat>,
     policy: SourceFingerprintPolicy,
+    source_schema: Option<&str>,
 ) -> Result<String, ShardLoomError> {
     let format = LocalInputAdapterSelection::select(path, format)?.source_format;
-    let initial = shardloom_vortex::prepared_source_binding::local_preparation_binding(
+    let initial = shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
         path,
         format.as_str(),
         policy.as_str(),
+        source_schema,
     )?;
     if policy == SourceFingerprintPolicy::MetadataOnly {
         return Ok(initial);
@@ -6130,10 +6165,11 @@ fn public_preparation_source_binding(
     } else {
         fingerprint_local_source_file_with_budget_report(path, format.row_label(), None, policy)?
     };
-    if shardloom_vortex::prepared_source_binding::local_preparation_binding(
+    if shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
         path,
         format.as_str(),
         policy.as_str(),
+        source_schema,
     )? != initial
     {
         return Err(ShardLoomError::InvalidOperation(
@@ -6141,10 +6177,11 @@ fn public_preparation_source_binding(
                 .into(),
         ));
     }
-    shardloom_vortex::prepared_source_binding::local_preparation_binding(
+    shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
         path,
         format.as_str(),
         &scout.digest,
+        source_schema,
     )
 }
 
@@ -6699,6 +6736,7 @@ fn canonical_output_path_key(path: &Path) -> Result<String, ShardLoomError> {
     Ok(normalized_output_path_key(&plan.target_path))
 }
 
+#[cfg(all(test, feature = "vortex-write"))]
 fn run_vortex_prepare(request: VortexIngestRequest) -> Result<VortexIngestOutcome, ShardLoomError> {
     run_vortex_prepare_with_schema(request, &[])
 }

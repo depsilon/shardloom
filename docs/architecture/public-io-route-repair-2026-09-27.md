@@ -123,9 +123,15 @@ serialized JSON round trip and source replay, but still has scalar-row and build
 materialization costs. General owned output is limited to 65,536 rows, 128 fields
 and 8 MiB; explicit aggregate spill output and nested/extension result types are
 not newly admitted. Existing SUM/AVG floating accumulation semantics are unchanged.
-Groups without an explicit LIMIT are admitted when their observed group count and
-minimum row-storage estimate fit these bounds; rejection precedes row finalization.
-Variable-size strings also pass the completed-value byte check before array building.
+Aggregate output admission checks effective cardinality and field width even with
+an explicit LIMIT. Before scalar-row construction, retained group keys and MIN/MAX
+values supply a conservative maximum string-length bound; an overlapping memory
+lease covers maps, copied names and values until native builders finish. Scalar
+HAVING evaluation uses the same preflight. This may reject a large retained-string
+bound even when final selection would produce a smaller result; a small LIMIT can
+still admit a large input group count. Existing ranking scratch is separate from
+this output-bridge reservation. Completed values are checked again before array
+building. Sort output retains its existing completed-value check.
 
 Binary writers share native result ownership and bounded Arrow batches at the
 compatibility boundary. Filtered and explicitly limited source projections enforce
@@ -146,8 +152,14 @@ route, which owns preparation/reuse and native admission. Existing specialized
 provider scenarios retain their Vortex/JSONL/CSV sink scope; this repair is not a
 claim that every operator has every sink or that arbitrary SQL is supported.
 
-Declared Python schemas are applied during preparation before the shared SQL
-write route receives the prepared Vortex input, including binary sinks and fanout.
+Declared Python schemas pass through `--source-schema` in the same public CLI call
+that prepares, validates and executes the write, including binary sinks and fanout.
+The original source and declared schema reach preparation together; the declaration
+is part of the embedded reuse binding and automatic cache target identity. A warm
+artifact prepared with a different declaration cannot be reused. The CLI rejects
+declared schemas on native or generated inputs instead of silently ignoring them.
+Prepared DataFrame routes preserve executable lowered SQL alongside descriptive
+operation summaries, including scalar MIN/MAX aliases.
 An unlowerable declared write cannot resubmit its original source for inference.
 JSON and ORC export reports use the existing text and binary fidelity categories.
 Automatic public preparation emits the same source/prepared identities after cold
@@ -201,21 +213,21 @@ The PR records final CI and integration acceptance. Large task-owned caches and
 both generated plain fixtures were retired after their complete lane evidence
 was preserved.
 
-The subsequent review corrections pass 3,429 default workspace tests, 915
-release-feature CLI tests, 666 Python tests (144 existing skips), default and
-release-feature Clippy, formatting and the seven docs/contract validators.
-Eighteen small real Python write/readback checks preserve declared numeric-looking
-UTF8 values across the eight sinks and admitted fanout. Those Python routing
-checks use the frozen handoff CLI; the Rust preparation-identity and fidelity
-changes are covered by the new CLI tests. The complete-query timings above remain
-the measurements from commit `503e67ee`, before these review corrections.
-
-The generation-retention correction passes 3,433 default workspace tests and
-920 release-feature CLI tests, with default/release-feature Clippy and the same
-docs/contract checks. Adversarial cases replace source or artifact generations
+The final review corrections have targeted native and public-call coverage.
+Adversarial cases replace source or artifact generations
 during cold/warm reuse on either join input, and check that stale envelopes are
 discarded. Output buffering also covers text/JSON errors and unwinding, with
 distinct stdout/stderr variants preserving the response and diagnostic channels.
+Aggregate regressions reject oversized limited widths and string values before
+row construction, verify denied/released memory grants, and retain admission of
+large group counts with small limits. The native suite passes 1,987 tests (22
+existing ignored), and Python passes 668 tests (144 existing skips).
+Twenty real Python write/readback cases against a fresh debug CLI preserve
+numeric-looking UTF8 across eight sinks and fanout, validate cold/warm identity,
+separate integer-schema preparation, and reuse the original UTF8 artifact unchanged.
+These checks measure correctness only; complete-query timings above remain from
+the frozen `503e67ee` runtime. Final workspace/CLI/Clippy and CI acceptance is
+recorded on the PR.
 The aggregate conformance and release-readiness inventories now track the eight
 output formats, ten write methods and 114 Python method rows; their previous
 seven/nine/113 counts rejected otherwise passing producer evidence.
