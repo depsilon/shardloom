@@ -4691,11 +4691,7 @@ impl TextRecordBatchBuilder {
         if self.failed {
             return Err(self.invalidated_error());
         }
-        let arrays = self
-            .builders
-            .iter_mut()
-            .map(|builder| builder.finish())
-            .collect();
+        let arrays = self.builders.iter_mut().map(ArrayBuilder::finish).collect();
         RecordBatch::try_new(self.schema, arrays).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to build {} record batch: {error}",

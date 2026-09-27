@@ -4076,7 +4076,7 @@ impl SchemaDeclaredTextRecordBatchReader {
                     shardloom_vortex::universal_format_io::TextRecordBatchBuilder::new(
                         Arc::clone(&self.schema),
                         &self.header,
-                        self.batch_size,
+                        self.batch_size.min(1024),
                         &self.context,
                     )?,
                 );
