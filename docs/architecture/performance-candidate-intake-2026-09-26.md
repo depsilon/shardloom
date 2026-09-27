@@ -41,7 +41,11 @@ the measured fixed-key work is small or already avoided; no runtime slowdown is
 asserted. C6 [retains the existing packed-comparison provider](packed-numeric-provider-screen-2026-09-27.md)
 with five executable provider/lowering proofs and drops duplicate kernel/layout
 work. Legacy numeric evidence expansion and ordered FoR attribution remain open.
-C2.b's finite exact-path selection screen is next. The
+C2.b [retains bounded small-input COUNT selection](small-numeric-count-selection-screen-2026-09-27.md):
+960 complete native screen calls establish a conservative 32,768-row bound,
+with exact/resource acceptance and all 258 Full43 results passing. Useful small
+boundary gains are retained; no Full43 speedup is attributed to the selector.
+C1's isolated provider upgrade review is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
