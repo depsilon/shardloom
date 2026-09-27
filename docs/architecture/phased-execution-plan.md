@@ -278,7 +278,10 @@ paired Full43 comparison, with 276 complete outputs validated. See
 `executable-block-recipes-screen-2026-09-27.md`. R5.b retains borrowed spill
 predecessor keys: 50% fewer merge-head copied bytes and 3.41–6.29% lower paired
 public-call cohort time, with all 258 Full43 results and native acceptance passing.
-See `spill-key-owner-screen-2026-09-27.md`. R5.c follows.
+See `spill-key-owner-screen-2026-09-27.md`. R5.c drops a second generic overlap
+queue at bounded admission: existing provider overlap is retained and twelve
+complete native output calls pass, without an identified independent idle stage.
+See `native-sink-overlap-screen-2026-09-27.md`. C4 follows.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -317,7 +320,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R8: drop eager shared-producer routing after source-read attribution and complete concurrent aggregates; retain existing explicit owned fanout. Broader streaming/decode sharing needs new attribution. See `concurrent-source-reuse-screen-2026-09-26.md`.
     - [x] C2.a: retain block-bound numeric measure kernels in mixed exact-DISTINCT updates; complete Q10 gains, Full43 and bounded Q9 follow-up pass. See `executable-block-recipes-screen-2026-09-27.md`.
     - [x] R5.b: retain borrowed spill predecessor ownership; half the merge-head copies, faster complete pressured calls and Full43 regression acceptance. See `spill-key-owner-screen-2026-09-27.md`.
-    - [ ] R5.c: record admission and ship/drop for Bounded read/compute/output overlap in native workflows.
+    - [x] R5.c: drop another generic overlap queue at bounded admission; preserve existing bounded provider overlap and complete native output attribution. See `native-sink-overlap-screen-2026-09-27.md`.
     - [ ] C4: record admission and ship/drop for Compact immutable dictionary directories.
     - [ ] C3: record admission and ship/drop for AMAC-style lookup interleaving.
     - [ ] C6: record admission and ship/drop for Exact packed numeric predicates.
@@ -338,10 +341,10 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: after R5.b's PR, screen R5.c read/compute/output overlap against
-    existing native scan tasks, bounded aggregate jobs and writer channels. Admit
-    another queue only for measured complementary stages and recoverable idle
-    intervals, preserving current ownership, CPU and byte limits.
+  - Next outcome: after R5.c's PR, audit C4 for a necessary retained fixed-key
+    lookup directory. Include construction and reuse break-even; do not replace
+    mutable aggregation state or already-direct dictionary-code indexing with
+    an immutable lookup abstraction.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
