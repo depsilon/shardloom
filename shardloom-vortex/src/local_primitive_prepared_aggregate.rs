@@ -815,8 +815,9 @@ impl PreparedVortexAggregate {
     /// schema without serializing and reparsing JSON or replaying the query.
     /// # Errors
     /// Rejects unsupported shapes, source changes, pressure, explicit spill,
-    /// and grouped offset plus limit above 65536. General results have an 8 MiB
-    /// output bound. No query is retried to render rows.
+    /// and grouped offset plus limit above 65536. Without an explicit limit,
+    /// general finalization checks the actual group count before building rows.
+    /// General results have an 8 MiB output bound. No query is retried to render rows.
     pub fn execute_owned(&self) -> Result<ExecutedOwnedVortexAggregate> {
         let mut output = super::aggregate_owned::AggregateOutput::new(
             &self.request,

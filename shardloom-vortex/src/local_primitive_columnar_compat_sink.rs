@@ -39,6 +39,9 @@ use vortex::{
 
 #[derive(Clone)]
 pub(super) struct CompatibilityLimits {
+    // Only an unlimited, unfiltered projection has the source cardinality as
+    // its output cardinality. Filtered/limited plans enforce output_rows while
+    // streaming, before conversion, and never publish a truncated result.
     pub source_rows: u64,
     pub output_rows: u64,
     pub columns: usize,
@@ -158,10 +161,13 @@ pub(super) fn prepare_plan(
     if !format.is_compatibility_binary() {
         return Ok(None);
     }
-    if plan.row_count > limits.source_rows
-        || plan.limit.is_some_and(|limit| limit > limits.output_rows)
-    {
-        return Ok(None);
+    if plan.filter.is_none() && plan.limit.is_none() && plan.row_count > limits.source_rows {
+        return Err(error(
+            "unlimited projection exceeds output row admission; supply an explicit limit",
+        ));
+    }
+    if plan.limit.is_some_and(|limit| limit > limits.output_rows) {
+        return Err(error("requested output limit exceeds row admission"));
     }
     let Some(schema) = schema_for(&plan.dtype, limits.columns) else {
         return Ok(None);

@@ -82,9 +82,15 @@ serialized JSON round trip and source replay, but still has scalar-row and build
 materialization costs. General owned output is limited to 65,536 rows, 128 fields
 and 8 MiB; explicit aggregate spill output and nested/extension result types are
 not newly admitted. Existing SUM/AVG floating accumulation semantics are unchanged.
+Groups without an explicit LIMIT are admitted when their observed group count and
+minimum row-storage estimate fit these bounds; rejection precedes row finalization.
+Variable-size strings also pass the completed-value byte check before array building.
 
 Binary writers share native result ownership and bounded Arrow batches at the
-compatibility boundary. ORC uses checked signed widening and rejects UInt64 values
+compatibility boundary. Filtered and explicitly limited source projections enforce
+the 65,536-row output cap during streaming, independently of input cardinality;
+an oversized result fails before publication instead of becoming a partial file.
+ORC uses checked signed widening and rejects UInt64 values
 above Int64's maximum; Avro also cannot represent that unsigned range. Format
 reports expose width, nullability and physical-metadata losses. Vortex remains the
 native persistence target. JSON arrays frame the existing JSONL renderer's owned

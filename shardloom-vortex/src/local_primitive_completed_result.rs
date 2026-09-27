@@ -87,14 +87,14 @@ pub(super) fn aggregate_fields(
         return Err(failed("owned aggregate spill output is not admitted"));
     }
     if (!aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty())
-        && request.source_order_limit.is_none_or(|limit| {
+        && request.source_order_limit.is_some_and(|limit| {
             aggregate
                 .offset
                 .checked_add(limit)
                 .is_none_or(|n| n > MAX_ROWS)
         })
     {
-        return Err(failed("grouped output requires a limit at most 65536"));
+        return Err(failed("grouped output limit plus offset exceeds 65536"));
     }
     let mut fields = Vec::new();
     for name in &aggregate.group_by {
@@ -141,6 +141,20 @@ pub(super) fn aggregate_fields(
 }
 
 impl CompletedRows {
+    pub(super) fn admit_group_count(&self, limit: Option<usize>, groups: usize) -> Result<()> {
+        if limit.is_none() && groups > MAX_ROWS {
+            return Err(failed(
+                "grouped output without a limit exceeds 65536 groups",
+            ));
+        }
+        if limit.is_none()
+            && self.fields.len().saturating_mul(groups).saturating_mul(32) > MAX_BYTES
+        {
+            return Err(failed("grouped output exceeds 8 MiB output admission"));
+        }
+        Ok(())
+    }
+
     pub(super) fn new(fields: Vec<(String, DType)>, memory: &LiveMemoryPool) -> Result<Self> {
         if fields.is_empty() || fields.len() > 128 {
             return Err(failed("requires 1..=128 flat scalar columns"));

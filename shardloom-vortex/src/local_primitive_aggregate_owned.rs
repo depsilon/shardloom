@@ -65,6 +65,9 @@ impl AggregateOutput {
         match self {
             Self::Direct(output) => output.finish(states),
             Self::General(output) => {
+                // Check the actual cardinality before building any scalar rows.
+                // Small complete groups do not need a user-written LIMIT.
+                output.admit_group_count(states.result_limit, states.group_count())?;
                 let (rows, mut payload) =
                     states.result_row_count_and_payload(states.result_limit)?;
                 output.finish_payload(rows, &mut payload)?;

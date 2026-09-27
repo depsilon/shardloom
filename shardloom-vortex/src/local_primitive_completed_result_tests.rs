@@ -190,7 +190,8 @@ fn completed_mixed_aggregate_exports_all_binary_formats_and_preserves_existing_f
         PrimitiveArray::new(vec![1_i64, 1, 3], Validity::NonNullable).into_array(),
         vec![2, 4, 9],
     );
-    let query = mixed_request(&path, true);
+    let mut query = mixed_request(&path, true);
+    query.source_order_limit = None;
     for format in [
         crate::VortexLocalPrimitiveRowExportFormat::Vortex,
         crate::VortexLocalPrimitiveRowExportFormat::Parquet,
@@ -233,6 +234,33 @@ fn completed_mixed_aggregate_exports_all_binary_formats_and_preserves_existing_f
             ])
         );
     }
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn completed_grouped_output_without_limit_rejects_excess_cardinality() {
+    let fixture = Fixture::new();
+    let keys = (0_i64..65_537).collect::<Vec<_>>();
+    let path = fixture.source(
+        PrimitiveArray::new(keys, Validity::NonNullable).into_array(),
+        vec![1; 65_537],
+    );
+    let mut query = mixed_request(&path, true);
+    query.source_order_limit = None;
+    let prepared = prepare_aggregate(
+        &query,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    let Err(error) = prepared.execute_owned() else {
+        panic!("unbounded result was admitted");
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("without a limit exceeds 65536 groups"),
+        "{error}"
+    );
 }
 
 #[cfg(feature = "universal-format-io")]
