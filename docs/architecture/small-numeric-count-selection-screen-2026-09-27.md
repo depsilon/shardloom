@@ -8,7 +8,8 @@ persistent cache. No minimum percentage or seconds cutoff applies.
 ## Selection contract
 
 The selector uses complete source metadata and already-lowered request facts.
-It admits 1–32,768 source rows, one non-null I32/I64/U64 identity grouping key,
+It admits 1–32,768 source rows, a non-null root struct and one non-null I32/I64/U64
+identity grouping key,
 COUNT(*) ordered descending, no predicate or HAVING, and a checked OFFSET + LIMIT
 between 1 and 128. It requires the existing numeric-state admission proof,
 at least two requested CPU slots, a memory budget of at least 32 MiB, and enough
@@ -19,7 +20,9 @@ Selection happens before input. Declining aggregate workers restores the native
 provider drivers on the same runtime/source; it neither reopens nor replays the
 source. An admitted execution failure does not trigger the alternate choice.
 Results report `aggregate_worker_selection=small_numeric_count_direct`, the
-source row count and the row bound. Existing execution and resource evidence
+source row count and the row bound. Public CLI/SQL/Python fields retain all three
+values and distinguish preselection from an actual worker-admission decline.
+Existing execution and resource evidence
 remains available. SQL/CLI/Python requests that reach this shared native family
 receive the same rule; no frontend-specific selector is added.
 
@@ -78,15 +81,42 @@ complete values and reservation cleanup. Existing owned-result worker-pressure
 tests explicitly retain forced-worker coverage and add automatic-route coverage.
 
 Formatting and strict workspace/native Clippy pass. The final source passes
-3,425 workspace tests and 1,985 native tests; 22 native tests are ignored,
+3,426 workspace tests and 1,986 native tests; 22 native tests are ignored,
 including the three explicitly run release measurement screens.
-Paired Full43 passes all 258 complete outputs against the frozen C4 control.
+The original paired Full43 passes all 258 complete outputs against the frozen C4 control.
 The retained source has 99,997,497 rows and 15,682,956,116 bytes. Best-of-three
 sums are 74.175540 s control and 74.091229 s candidate; no query crosses the
 10% plus 150 ms timing screen. All calls remain outside the new selector, with
 zero selection activations. These are regression results, not an attributed
-Full43 speedup. The frozen final CLI is `3d6594259710`, SHA-256
+Full43 speedup. That measurement's frozen CLI is `3d6594259710`, SHA-256
 `b6bf781688d84061083ccc2921a9045b7f7ea169ae22385695e2e76a82bd2cdc`.
+
+Review acceptance adds a distinct public preselection scope and reuses the
+existing full group-key nullability proof, including root validity. A native-array
+regression fails before the nullability fix and passes afterward for all-valid,
+all-null and mixed parent validity with complete values. Vortex 0.85's file
+statistics writer rejects nullable root structs, so this test makes no claim
+about persisting them. Three final-binary calls on a 257-row non-null native file
+(fresh CLI and two persistent Python calls) verify complete results, all selector
+fields, the corrected scope, no invented worker counters and worker cleanup.
+
+The corrected runtime binary `fd44dabbc66f`, SHA-256
+`009ca1ca5d961f307a9ccc6c6ebd82c45cab9559a06bfd43f48b795c7e5bda9f`,
+passes another 258 complete Full43 outputs and all identity checks. Best-of-three
+sums are 73.746595 s control and 74.184432 s candidate. Q19 crosses the timing
+screen (5.164254/5.969974 s best); all 258 calls remain outside this selector.
+The agreed concurrent-host comparison context applies, every sample is retained,
+and no exclusive timing cause or Full43 speedup is attributed to this change.
+The [review evidence supplement](../benchmarks/small-numeric-count-selection-review-2026-09-27.json)
+preserves the final runtime proof separately from the original measurements.
+
+CI also exposed a recovery test-fixture lock race. Retaining a duplicate owner
+reproduces the failure deterministically; the test-only abandonment helper now
+explicitly unlocks its simulated dead owner. The cancellation/retry test passes
+with that duplicate still alive, and broad validation passes again. Production
+recovery and the measured release runtime are unchanged. This follows
+[Rust's file-lock contract](https://doc.rust-lang.org/std/fs/struct.File.html#method.unlock)
+and [open-file-description lock ownership](https://man7.org/linux/man-pages/man2/flock.2.html).
 
 The [portable evidence packet](../benchmarks/small-numeric-count-selection-2026-09-27.json)
 includes complete screen and Full43 outputs,
