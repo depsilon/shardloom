@@ -1,9 +1,10 @@
 {
   "schema_version": 1,
   "candidate": "R9.b",
-  "decision": "reopened_for_input_slot_hardening_and_retention_of_measured_gain",
+  "decision": "historical_experiment_superseded_by_revised_shared_slot_retention",
+  "superseded_by": "docs/benchmarks/writer-input-slot-retention-2026-09-26.json",
   "production_runtime_changed": false,
-  "scope": "complete writer attribution, paired bounded screen, and matched full CLI ingest;no retained speedup unless all gates pass",
+  "scope": "historical writer attribution, paired bounded screen and original full CLI ingest; final runtime disposition and revised measurements are in superseded_by",
   "source_commit": "1872e55f484b233ecfa8858083664a36ce4ef48f",
   "build": {
     "commit": "1872e55f484b233ecfa8858083664a36ce4ef48f",
@@ -2329,5 +2330,5 @@
     ]
   },
   "initial_disposition": "drop_below_full_ingest_gate",
-  "retention_policy_update": "Maintainer accepts useful complete-operation gains below original numerical targets;6.5841% is eligible, pending revised resource/correctness/UAT acceptance."
+  "retention_policy_update": "Maintainer accepts useful complete-operation gains below original numerical targets; original 6.5841% remains historical evidence. Revised shared-slot implementation passes resource/correctness/UAT acceptance with its own 6.5162% comparison; see superseded_by."
 }

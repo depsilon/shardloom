@@ -265,10 +265,11 @@ R1.c's shared-transform proposal is already implemented in the inspected paths;
 see `shared-domain-expression-audit-2026-09-26.md`. R5.a meets its bounded workflow
 memory gate with complete regression acceptance; see `owned-array-handoff-screen-2026-09-26.md`.
 R5.a merged in PR #1464. R9.a's fragment reuse is already present in the inspected
-paths; see `native-fragment-reuse-audit-2026-09-26.md`. R9.b's one-input lookahead
-shows 6.58% lower best complete ingest and is reopened after the maintainer rejected
-a cutoff-only drop. Input-slot hardening and revised full validation are current;
-see `writer-subtree-occupancy-screen-2026-09-26.md`. R8 follows.
+paths; see `native-fragment-reuse-audit-2026-09-26.md`. R9.b retains one-input
+lookahead within the existing producer slot envelope: 6.52% lower complete ingest,
+byte-identical output, low-budget/cancellation acceptance and all 258 paired
+Full43 calls pass. This supersedes the original cutoff-only drop; see
+`writer-subtree-occupancy-screen-2026-09-26.md`. R8 follows.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -303,7 +304,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R1.c: drop duplicate shared-transform implementation after source/test audit; new RunEnd targets still require attribution. See `shared-domain-expression-audit-2026-09-26.md`.
     - [x] R5.a: retain direct owned-array handoff through the shared prepared aggregate family; 37–43% lower workflow peak RSS, exact complete results and Full43 regression acceptance. See `owned-array-handoff-screen-2026-09-26.md`.
     - [x] R9.a: drop duplicate prepare/seal/reuse implementation after tracing one-pass streamed serialization and existing memory-generation segment reuse. See `native-fragment-reuse-audit-2026-09-26.md`.
-    - [ ] R9.b: retain useful measured improvement after sharing the existing producer input-slot envelope and completing revised full validation; the original 6.58% gain remains evidence. See `writer-subtree-occupancy-screen-2026-09-26.md`.
+    - [x] R9.b: retain shared-slot writer lookahead with 6.52% lower complete ingest, exact output and paired Full43 acceptance; the original 6.58% gain remains separately scoped evidence. See `writer-subtree-occupancy-screen-2026-09-26.md`.
     - [ ] R8: record admission and ship/drop for Shared scan/decode producer for concurrent queries.
     - [ ] C2.a: record admission and ship/drop for Pre-bound executable block recipes.
     - [ ] R5.b: record admission and ship/drop for Transfer reservation-owned pages/buffers across stages.
@@ -322,15 +323,13 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
     - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.
     - [ ] R6.c: record admission and ship/drop for Progressive provider selection, Q23 first.
-    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first.
+    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first; also re-evaluate the historical indexed-heap variant dropped solely for a 10% cutoff despite about 7% combined savings, after checking current route relevance.
     - [ ] R2.b: record admission and ship/drop for Bounded parallel dictionary preparation.
     - [ ] For each retained cohesive change, complete semantic/resource gates, full
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: finish R9.b input-slot hardening and revised full validation,
-    applying the maintainer's direction to retain useful gains below numerical
-    prioritization targets. Then measure R8 repeated reads/decode through serving
+  - Next outcome: after R9.b's PR, measure R8 repeated reads/decode through serving
     calls before introducing a shared producer; preserve independent cancellation,
     generation checks, reservations and bounded slow consumers.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,

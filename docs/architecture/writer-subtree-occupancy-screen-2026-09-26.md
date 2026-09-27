@@ -1,19 +1,95 @@
 # Writer subtree occupancy — R9.b
 
-Status: reopened for input-slot hardening and retention of a useful measured gain.
+Status: retain shared-slot writer lookahead after complete ingest and paired Full43 acceptance.
 PERF-INTAKE / RFC 0044, after R9.a's fragment-reuse audit.
 
-The maintainer rejected the cutoff-only drop: 6.58% lower complete ingest is
-worth pursuing. Preserve that evidence and revise the producer/writer handshake
-so lookahead occupies an existing input slot. The source queue will refill at
-the next pull, after the prior child completes, rather than immediately after
-yielding the lookahead input. Keep the same workers, configured window and per-task
-credit calculation. Generic streams without this handshake remain sequential.
-Measure the revised implementation independently; the earlier timing is not a
-claim for code that has not yet run. Full correctness/resource/query acceptance
-and independent review remain required before merging PR #1465.
+The maintainer rejected the cutoff-only drop. The revised implementation retains
+**6.52% lower complete ingest**, saving **9.406 seconds** in the matched
+best-to-best comparison, while sharing the existing producer input-slot envelope.
+The earlier 6.58% observation remains separately scoped historical evidence.
+The producer refills at the next pull, after the prior child completes, rather
+than immediately after yielding lookahead. Workers, configured window and
+per-task credits stay unchanged. Generic streams remain sequential. The
+[revised evidence](../benchmarks/writer-input-slot-retention-2026-09-26.json)
+records full acceptance for PR #1465; R8 concurrent source reuse is next.
 
-The initial experiment and its superseded cutoff-only disposition follow.
+## Revised complete ingest
+
+Frozen candidate `5409a7ba` and control `e662f674` ran C/A/A/C through the same
+guarded CLI, resident 99,997,497-row source, P4 and 24 GiB allocation. These
+measurements belong to the revised slot-sharing implementation:
+
+| Order | Role | Complete CLI time | OS peak RSS bytes |
+| --- | --- | --- | --- |
+| 1 | Control | 144.348138 s | 3,108,405,248 |
+| 2 | Candidate | 134.942151 s | 2,968,305,664 |
+| 3 | Candidate | 135.190966 s | 3,023,683,584 |
+| 4 | Control | 148.315027 s | 3,028,516,864 |
+
+Both candidate samples are faster than both controls. The same fastest-valid
+rule applies to each role, with every sample retained. Cache and host activity
+remain uncontrolled; do not combine this comparison with earlier timings from
+different code. Every complete output matches the retained artifact's SHA-256
+and 15,682,956,116-byte size. Each duplicate was removed only after its whole-file
+hash and source/reference/binary generations passed. Hashing is outside the
+native ingest clock. Publication and durability semantics are unchanged.
+Maximum reported native reservations are 6,614,972,633 bytes for control and
+6,797,471,986 bytes for candidate; all four runs have zero denials and zero final
+reservations. The input-slot envelope is preserved, but scratch overlap and
+reported reservation peaks need not be identical. This is not a general memory
+reduction claim.
+
+The same frozen control executable previously completed in 98.982644 seconds,
+with a second sample of 219.553181 seconds. Its revised-session best is
+144.348138 seconds despite unchanged binary, source and resource settings.
+The earlier prototype's 92.465509-second result is valid historical evidence;
+the newer absolute times do not isolate a code regression or a particular host
+process. Native CPU counters also vary. Concurrent activity, scheduling, cache
+and other host conditions were not independently controlled or attributed.
+
+## Paired query acceptance
+
+Both frozen executables ran every ClickBench query three times against the same
+retained artifact, P12 and 24 GiB, alternating role order. All **258 complete
+results pass**, with final binary/source identity checks. The best-of-three
+query sums are **83.274614 s control** and **81.519259 s candidate**; geometric
+means are 0.769216 and 0.763637 seconds. No query is slower by both 10% and
+150 ms, so the predefined screen requires no focused follow-up. These are query
+regression observations, not an attributed query speedup from an ingest change.
+Returned values are compared with retained ShardLoom outputs, including finite
+float tolerance of 1e-12; this is a regression oracle, not an independent engine.
+All samples, host observations, identities and validation receipts are archived
+with the revised evidence. OS cache and host activity remain uncontrolled.
+
+## Shared-slot implementation
+
+The revised candidate uses a private one-use producer grant. Native owned input,
+a nonzero conversion window, the retained-row layout and a background provider
+driver are required. Without that grant, the writer remains sequential. The
+producer keeps its original workers, window W and per-task credit, but refills a
+handed-off slot on the next pull. The input envelope is therefore
+`current child + next input + (W−1) producer slots`, replacing `current child + W`.
+Only one child writer and one statistics accumulator remain active. Empty input
+owners drop before another pull; failure and cancellation drain the retained
+source, conversion work, input owners and unpublished staging.
+
+This uses the pinned Vortex 0.85 native layout/sequence/runtime APIs and the
+existing ShardLoom bounded writer. It adds no codec, file format, worker, external
+execution provider or public tuning option. Native persistence and no-fallback
+contracts are preserved. The route evidence records the configured lookahead
+capacity and existing-producer-window scope, not observed queue occupancy.
+
+Validation at `5409a7ba` includes the default workspace gates, native-feature
+Clippy and all-target tests (1,937 native library tests passed, 15 explicitly
+ignored measurement/regeneration helpers). Six producer tests cover W1/W3 boundaries, admission,
+ordering, empty input, pressure, cancellation and owner release. Eight layout
+tests cover child/input ordering and failures. Actual serial and shared-slot
+writes produce identical files at 5/6/8 MiB, and the codec-held cancellation test
+checks cleanup with the second native input live. These checks establish the
+slot contract and availability at those budgets, not equal scratch peaks for
+every workload. Full revised ingest and query measurements are separate.
+
+## Original experiment — historical evidence
 
 The narrow one-input lookahead passes all eight lifecycle tests and 18 bounded
 complete-value/whole-file checks. Its best full candidate ingest is 92.465509 s
@@ -40,15 +116,14 @@ archive preserves the exact source patches from
 `0d8dd21201aafb31955fb51e9a105087c3f656de`, frozen build identities, commands,
 bounded observations and full-ingest receipts for reproduction. The revised
 candidate retains the runtime and lifecycle tests; test-only attribution code
-stays archived. Revised ingest and Full43 acceptance are still required.
+stays archived. Revised ingest and Full43 acceptance are recorded above.
 
-Reopening also requires preserving low-budget availability. The source producer
-replenishes its full existing queue before yielding an owned input; lookahead
-adds another live owner. Reservations remain safe, but the lifecycle fixture
-demonstrates a budget where serial succeeds and lookahead rejects. Share the
-existing slot/credit envelope or prove conservative admission before consuming
-another input. A free-bytes snapshot or retry after consumed-input failure is
-insufficient. Add a production-path availability regression before retention.
+Review of the original prototype also identified a low-budget availability gap:
+the producer replenished its existing queue before yielding input, and lookahead
+added another live owner. Reservations stayed safe, but the lifecycle fixture
+demonstrated a budget where serial succeeded and lookahead rejected. The revised
+shared-slot implementation and production-path availability tests above close
+that gap without relying on a free-bytes snapshot or retry after input consumption.
 
 The retained writer awaits one source-batch subtree at a time; column/zone/codec
 work already overlaps within that subtree. Existing conversion wait and summed

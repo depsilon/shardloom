@@ -339,6 +339,13 @@ Constraints:
 ## Dropped Or Not-Yet-Shipped Profiles
 
 - Dense indexed 4-ary heap for proofbound heavy-hitter sketches:
+  - September 26 policy update: reopen within R10's Q34/Q35 evaluation. The
+    maintainer accepts useful positive gains below prior numerical targets;
+    the cutoff-only drop below is historical. Re-establish current route
+    relevance and compare against today's implementation before retention.
+    The historical raw summary is no longer present at its cited local path;
+    the ledger records the old result, not fresh acceptance or reproducible raw
+    evidence by itself.
   - Reason dropped: correct and slightly faster, but below the material-gain threshold.
   - Evidence:
     `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/heavy_hitter_indexed_heap_20260831T124753Z/summary.json`.
