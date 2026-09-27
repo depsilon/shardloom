@@ -1,0 +1,74 @@
+{
+  "schema_version": "shardloom.public_website_deployment_observation.v1",
+  "status": "passed",
+  "release_tag": "v0.3.1",
+  "release_source_commit": "52a2228512341f158dfa6649b6c0985a33034460",
+  "publication_records_pr": "https://github.com/depsilon/shardloom/pull/1477",
+  "deployed_commit": "ddc53316472bb1df056adda442678264be65bd84",
+  "pr_merged_at": "2026-09-27T14:39:30Z",
+  "accepted_pr_head": "6a3fa7fdca463edda41faab5a13822977c246035",
+  "accepted_pr_check_count": 40,
+  "cloudflare": {
+    "check_run_id": 108640891196,
+    "check_name": "Workers Builds: shardloom",
+    "status": "completed",
+    "conclusion": "success",
+    "completed_at": "2026-09-27T14:40:20Z",
+    "head_sha": "ddc53316472bb1df056adda442678264be65bd84",
+    "build_id": "56fda79d-827a-4d8b-bb4c-8b810ece2893",
+    "worker_version_id": "951fc6e2-df9e-49d4-aadd-da49a164946e",
+    "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/56fda79d-827a-4d8b-bb4c-8b810ece2893"
+  },
+  "public_browser_observation": {
+    "observed_at": "2026-09-27T14:41:28.108Z",
+    "method": "Codex in-app browser accessibility and rendered DOM inspection",
+    "pages": [
+      {
+        "url": "https://shardloom.io/start/",
+        "title": "Start Local Proof | ShardLoom",
+        "release_text": "Selected v0.3.1 package channels are published; future package channels remain outside the selected release surface until their own proof exists.",
+        "selected_channels_visible": ["GitHub prerelease", "TestPyPI", "PyPI", "Homebrew"],
+        "install_and_source_guide_links_present": true
+      },
+      {
+        "url": "https://shardloom.io/benchmarks",
+        "title": "Benchmarks | ShardLoom",
+        "heading": "Use ClickBench as the public comparison surface.",
+        "comparison_url": "https://benchmark.clickhouse.com/",
+        "no_local_ranking_claim": true,
+        "external_engines_baselines_only": true
+      },
+      {
+        "url": "https://shardloom.io/field-guide/limitations/",
+        "title": "Limitations | ShardLoom",
+        "production_broad_parity_and_superiority_remain_unclaimed": true,
+        "unsupported_work_must_not_use_external_engine_fallback": true
+      }
+    ]
+  },
+  "public_document_checks": [
+    {
+      "path": "docs/getting-started/package-user-install.md",
+      "sha256": "85bfd6390c9a67f42f2a985d580297cfd18cf9d67a9c8f8c0294e7ca14b91b46",
+      "bytes": 5197,
+      "remote_matches_deployed_commit": true,
+      "release_031_present": true
+    },
+    {
+      "path": "docs/getting-started/source-checkout-install.md",
+      "sha256": "62ae75ba0e3f9e6f82236fee3711a35d98a622944c930050337ac6789ec6f6c1",
+      "bytes": 1932,
+      "remote_matches_deployed_commit": true
+    },
+    {
+      "path": "docs/getting-started/v1-supported-unsupported.md",
+      "sha256": "a32520f5a4f18894a10b2a4ae58eec08d5d6c4bc38573f1ec59e36f6bf112ff5",
+      "bytes": 20668,
+      "remote_matches_deployed_commit": true,
+      "release_031_present": true
+    }
+  ],
+  "scope": "Selected technical-preview package and public website verification, not new runtime or performance evidence. GitHub document bytes were retrieved at the deployed commit and compared with its Git blobs. Browser checks cover the listed public URLs; they are not a complete site crawl.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}

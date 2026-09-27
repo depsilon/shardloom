@@ -257,7 +257,7 @@ fixture conversion separately. The [comparison plan](plain-vortex-format-compari
 freezes the source, validation, timing and cleanup boundaries. The seven remaining performance candidates stay
 queued; this comparison does not resume their implementation.
 
-- [ ] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train after the whole-file JSON PR.
+- [x] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train after the whole-file JSON PR.
   - Queue identifier only: `RELEASE-031` records the authorized release train;
     it adds no implementation phase or competitive gate.
   - V1 scope classification: `required_for_v1`; existing selected package channels only.
@@ -265,7 +265,7 @@ queued; this comparison does not resume their implementation.
     - [x] Merge the accepted C7 whole-file JSON change with complete UAT and CI (PR #1475).
     - [x] Synchronize versions, release notes and source validation; merge the version PR (#1476).
     - [x] Verify GitHub prerelease assets, TestPyPI, PyPI and Homebrew in that order; exact identities and platform scope are recorded in `docs/release/v0.3.1-publication-verification.md`.
-    - [ ] Merge channel proofs, current install/status docs and generated website; verify deployment before the separately requested format comparison.
+    - [x] Merge channel proofs, current install/status docs and generated website (PR #1477); verify the exact production build and public 0.3.1 pages before the separately requested format comparison. Evidence: `docs/release/channel-proofs/website-v0.3.1-deployment.json`.
   - ShardLoom technique review: preserve the accepted portable build, Vortex-native
     runtime and evidence-tier boundaries. Release/install proof is separate from
     query/ingest timing; no scheduling or provider change is part of the bump.

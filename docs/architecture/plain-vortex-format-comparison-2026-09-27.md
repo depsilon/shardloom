@@ -24,14 +24,15 @@ sort rows, or reuse the existing 112-column optimized artifact as the plain inpu
 Physical pages, encodings and chunk boundaries may differ. This is logical
 equivalence, not an identical physical representation.
 
-Use the upstream Vortex 0.85.0 streaming writer with its default compression,
-matching the Rust provider version in the released engine. PyArrow 25.0.1 supplies
-bounded Parquet record batches at this explicit fixture-generation boundary.
-Upstream [`write`](https://github.com/vortex-data/vortex/blob/0.85.0/vortex-python/src/io.rs)
-accepts a record-batch reader; the versioned
-[`VortexFile` API](https://github.com/vortex-data/vortex/blob/0.85.0/vortex-python/python/vortex/_lib/file.pyi)
-supports streamed Arrow validation. No query-engine integration or external
-execution fallback is involved. Do not materialize the full dataset in Python.
+Use the existing Rust Parquet/Arrow 58.3.0 reader and upstream Vortex 0.85.0
+streaming writer with its default compression, matching the approved dependency
+graph and released provider. The native
+[`BlockingWriter`](https://github.com/vortex-data/vortex/blob/0.85.0/vortex-file/src/writer.rs)
+accepts bounded record batches; ordered native scans and the Arrow boundary
+support complete-value validation. PyArrow 25.0.1 is used only to create small
+correctness fixtures. This avoids adding the Python Vortex package's transitive
+dependencies. No new dependency, query-engine integration or external execution
+fallback is involved. Do not materialize the full dataset in memory.
 
 Before timing, compare all source and Vortex values in bounded batches, aligning
 different chunk boundaries. Check the native logical schema before requesting an
