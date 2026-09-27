@@ -286,7 +286,11 @@ directory and owned-key closure fix: one-word code indices and read-only owned
 probes, with complete final Full43 acceptance. Final Q18 best time is 1.063 ms
 slower and median time 11.357 ms slower; prior revision gains stay
 separately scoped. See
-`compact-candidate-directory-screen-2026-09-27.md`. C3 follows.
+`compact-candidate-directory-screen-2026-09-27.md`. C3 drops a new AMAC prototype
+at current workload admission; C6 retains the existing native packed-comparison
+provider with five provider/lowering proofs and drops duplicate layout/kernel
+work. Neither claims a new speedup. See `lookup-interleaving-admission-2026-09-27.md`
+and `packed-numeric-provider-screen-2026-09-27.md`. C2.b follows.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -327,8 +331,8 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R5.b: retain borrowed spill predecessor ownership; half the merge-head copies, faster complete pressured calls and Full43 regression acceptance. See `spill-key-owner-screen-2026-09-27.md`.
     - [x] R5.c: drop another generic overlap queue at bounded admission; preserve existing bounded provider overlap and complete native output attribution. See `native-sink-overlap-screen-2026-09-27.md`.
     - [x] C4: retain compact chunk-code candidate directories and read-only owned-key closure updates; final Full43 and native validation pass. See `compact-candidate-directory-screen-2026-09-27.md`.
-    - [ ] C3: record admission and ship/drop for AMAC-style lookup interleaving.
-    - [ ] C6: record admission and ship/drop for Exact packed numeric predicates.
+    - [x] C3: drop a new AMAC prototype at current workload admission; preserve exact source/caller attribution and explicit reopening conditions. See `lookup-interleaving-admission-2026-09-27.md`.
+    - [x] C6: retain the existing native packed-comparison provider with five independent provider/lowering fixtures; drop duplicate kernel/layout work and retain reader-evidence obligations. See `packed-numeric-provider-screen-2026-09-27.md`.
     - [ ] C2.b: record admission and ship/drop for Finite cost-based selection among exact implementations.
     - [ ] C1: record admission and ship/drop for Isolated Vortex provider upgrade.
     - [ ] C5.a: record admission and ship/drop for Existing ThinLTO build.
@@ -346,10 +350,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: after C4's PR, close C3's bounded lookup-interleaving admission
-    using current fixed-key routes, caller timing and prepared dimension-lookup
-    coverage; do not confuse large mutable first-pass counts with immutable probes.
-    Continue with C6's existing native packed-predicate provider check.
+  - Next outcome: C2.b compares existing numeric grouped COUNT workers with the
+    existing direct native route on small inputs. Use the same complete public
+    call, literal results and physical/request characteristics; restore provider
+    drivers on the same source before input when declining workers. Implement a
+    production selector only after a measured crossover and held-out acceptance.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
@@ -704,6 +709,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     - [ ] Separate exclusive wall spans, overlapping worker work, output, and validation.
     - [ ] Extend separately timed latency acceptance to newly admitted families.
     - [ ] Identify dominant costs and preserve raw evidence without synthetic elapsed claims.
+    - [ ] Correct the legacy reader-generated `BitPackedUnsigned` expansion evidence:
+      its unpacked values must not be labeled as mapped without decode. Attribute
+      that bridge separately from native packed-predicate provider activation;
+      see `packed-numeric-provider-screen-2026-09-27.md` and PERF-07.
   - ShardLoom technique review: preserve route timing separation, evidence tiers,
     no-fallback fields, and source residency; measurements must cover actual work.
 
@@ -836,6 +845,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       through the remaining physical result and compatibility sink families.
     - [ ] Complete close/cancel/slice and copied/decoded-byte acceptance for
       those routes, validating complete requested output.
+    - [ ] Replace the legacy reader-generated numeric expansion with an explicit
+      owned/executable or descriptive-only boundary without removing callable
+      behavior. Keep its bytes and decode reporting consistent with PERF-01.
   - ShardLoom technique review: late materialization and Vortex-native output apply;
     descriptive opaque storage is not an executable array payload.
 

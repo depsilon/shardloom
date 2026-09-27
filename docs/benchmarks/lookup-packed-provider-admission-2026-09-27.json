@@ -1,0 +1,843 @@
+{
+  "schema_version": "shardloom.lookup_packed_provider_admission.v1",
+  "decisions": {
+    "C3": "drop_new_AMAC_prototype_at_current_workload_admission",
+    "C6": "retain_existing_native_packed_comparison_provider_drop_duplicate_kernel_and_layout"
+  },
+  "runtime_changed": false,
+  "speedup_claim": false,
+  "no_minimum_gain_cutoff": true,
+  "source_base": "1cd1752898b2ec9d3a738bca80213e36bade6261",
+  "validation_source_identity": {
+    "kind": "sha256_source_manifest",
+    "source_sha256": {
+      "shardloom-vortex/src/local_primitives.rs": "e1b6bd8be06bfcb44cdbf9258537180b465f33f0851327c88892c74d463758ef",
+      "shardloom-vortex/src/local_primitives/packed_numeric_provider_tests.rs": "4052bc89159f88e1571dbc9f63fb1c78e992e09f27408c9f4dbc76317d5177c5"
+    },
+    "historical_local_commit": "10e0867dcbe27363256f001fb6793b28dfe1df1c",
+    "historical_commit_scope": "Recorded at validation time; not required to resolve Git objects. Verify archived source bytes against source_sha256."
+  },
+  "production_source_proof": {
+    "path": "shardloom-vortex/src/local_primitives.rs",
+    "base_sha256": "585ca11ee24b5926b846b2ef324264e3d908f5ea8a6ba6c8521e97a33e8133b6",
+    "current_sha256": "e1b6bd8be06bfcb44cdbf9258537180b465f33f0851327c88892c74d463758ef",
+    "removing_only_cfg_test_module_restores_base": true,
+    "current_source_member": "source/local_primitives.rs",
+    "removed_module_member": "source/provider-test-module.txt",
+    "verification": "Hash archived current source, remove the exact archived module once, and hash the result against base_sha256. The base is also reachable through merged main; no historical local commit is required."
+  },
+  "provider": {
+    "crate": "vortex-fastlanes",
+    "version": "0.85.0",
+    "license": "Apache-2.0",
+    "classification": "use_vortex_native_provider"
+  },
+  "scope": "Existing measured query routes and direct provider/lowering fixtures; no universal lookup or per-ClickBench packed-kernel activation claim",
+  "c3_source_admission": {
+    "decision": "drop_new_AMAC_prototype_at_current_workload_admission",
+    "measured_candidate_speedup": null,
+    "native_runtime_changed": false,
+    "no_cutoff_rejection": true,
+    "provenance": {
+      "inventory_bytes": 67352,
+      "inventory_sha256": "19db244660e76a5791abe896fffc9849b242fbd416974beae48ed048449fccca"
+    },
+    "q18_caller_scope_observations": [
+      {
+        "fields": {
+          "aggregate_first_pass_accessor_chunks": "9",
+          "aggregate_first_pass_accessor_nanos": "223534103",
+          "aggregate_first_pass_accessor_rows": "65563",
+          "aggregate_first_pass_group_update_nanos": "354708",
+          "aggregate_native_numeric_accessor_decode_and_typed_copy_nanos": "89043995",
+          "aggregate_timing_scope": "disjoint_caller_elapsed_scopes_first_pass_scan_next_reader_evidence_compact_group_accessors_and_updates_plus_final_result_render_not_cpu_or_complete_wall;scan_next_includes_provider_progress;residual_row_updates_and_later_passes_not_instrumented"
+        },
+        "member": "full43/q18_run1_candidate.stdout.json",
+        "member_sha256": "7638d15191fd29eea2c3ff218d771f0854f525d8bc44e3a4997ca3b906086bdd"
+      },
+      {
+        "fields": {
+          "aggregate_first_pass_accessor_chunks": "9",
+          "aggregate_first_pass_accessor_nanos": "237678447",
+          "aggregate_first_pass_accessor_rows": "65563",
+          "aggregate_first_pass_group_update_nanos": "342793",
+          "aggregate_native_numeric_accessor_decode_and_typed_copy_nanos": "88950901",
+          "aggregate_timing_scope": "disjoint_caller_elapsed_scopes_first_pass_scan_next_reader_evidence_compact_group_accessors_and_updates_plus_final_result_render_not_cpu_or_complete_wall;scan_next_includes_provider_progress;residual_row_updates_and_later_passes_not_instrumented"
+        },
+        "member": "full43/q18_run2_candidate.stdout.json",
+        "member_sha256": "353824ebe870ba6153842e74f799511a3629ad7a21684ef72653d76dfeb773d2"
+      },
+      {
+        "fields": {
+          "aggregate_first_pass_accessor_chunks": "9",
+          "aggregate_first_pass_accessor_nanos": "223161634",
+          "aggregate_first_pass_accessor_rows": "65563",
+          "aggregate_first_pass_group_update_nanos": "375418",
+          "aggregate_native_numeric_accessor_decode_and_typed_copy_nanos": "86564488",
+          "aggregate_timing_scope": "disjoint_caller_elapsed_scopes_first_pass_scan_next_reader_evidence_compact_group_accessors_and_updates_plus_final_result_render_not_cpu_or_complete_wall;scan_next_includes_provider_progress;residual_row_updates_and_later_passes_not_instrumented"
+        },
+        "member": "full43/q18_run3_candidate.stdout.json",
+        "member_sha256": "169d4066e0269f7a2237cd33a487534c00ef7b26322a4d867bb1900d15844c4b"
+      }
+    ],
+    "reason": "Measured Q18 fixed-key updates are a small caller scope behind accessor work; other costly candidate counts are mutable first-pass state or elided recounts. Sparse prepared dimension probes exist but lack a measured large-map target and exposed staged probe state.",
+    "reopening": "Identify a current costly ownership-stable dependent lookup, retain the same structure/equality, and compare bounded interleaving widths through the complete consumer. No blanket rejection of future sparse joins or mutable-state designs.",
+    "schema_version": "shardloom.lookup_interleaving_admission.v1",
+    "scope": "Existing Full43 paths and prepared traditional dimension-membership source/test coverage; not all workloads",
+    "source_inventory": {
+      "counter_availability": {
+        "dependent_memory_stall_or_lookup_phase_timing": "absent in selected Full43 candidate output members",
+        "per-phase adapter unpack time_or_bytes": "absent in cited source output fields; ordinary scan exposes combined evidence_collection_micros only",
+        "per_encoding_bitpacked_expansion_or_activation_counter": "absent in selected Full43 candidate output members"
+      },
+      "full43_packet": {
+        "compressed_bytes": 4917490,
+        "path": "/Users/dylan/Documents/shardloom-local-repo/docs/benchmarks/evidence/spill-key-owner-2026-09-27.json.gz",
+        "selected_candidate_members": {
+          "full43/q13_run1_candidate.stdout.json": {
+            "member_bytes": 177317,
+            "member_sha256": "f8060c24cb45d76a369f01755d80d5a0f94788b1bd6013ab6571a352ae1ea0a5",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "6019102",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q13_run2_candidate.stdout.json": {
+            "member_bytes": 177317,
+            "member_sha256": "e7d7803fa72e4564eaf75408f0fb79f61c0bc529cd6da0d5888876b8f7b467fc",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "6019102",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q13_run3_candidate.stdout.json": {
+            "member_bytes": 177320,
+            "member_sha256": "fe2750a717c3d8c4dc55a1d93efe89e55763682c726cddbda6f9f4995506da35",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "6019102",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q15_run1_candidate.stdout.json": {
+            "member_bytes": 173073,
+            "member_sha256": "30e50d849bdc270871a4ebc69bb00fa937a36a0564ff3fc72d9c7d0bcd988878",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "6474212",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q15_run2_candidate.stdout.json": {
+            "member_bytes": 173073,
+            "member_sha256": "9887c23a3a0084984d749f556cc3c47b270d0b7ec1cbe6f7e35cfbd8991607d3",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "6474212",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q15_run3_candidate.stdout.json": {
+            "member_bytes": 173073,
+            "member_sha256": "14726c7213c7ea8d81c95801a7dcea346b756cb1a7df988b7c566522b631c638",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "6474212",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q17_run1_candidate.stdout.json": {
+            "member_bytes": 172481,
+            "member_sha256": "62210e724792fb0f799cd7f884e15848dfea29904104d5b0fe98a40014273151",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "24070560",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q17_run2_candidate.stdout.json": {
+            "member_bytes": 172481,
+            "member_sha256": "3049054fc7f63d5c83b5c57fec8f1bd68c8d34a0f65896f315587bc5c4447518",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "24070560",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q17_run3_candidate.stdout.json": {
+            "member_bytes": 172481,
+            "member_sha256": "ee4ac649f24934c71fd5c2d74064f889d3e35214b768228a9175226500c25892",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_utf8_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "24070560",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_numeric_utf8_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q18_run1_candidate.stdout.json": {
+            "member_bytes": 160492,
+            "member_sha256": "7638d15191fd29eea2c3ff218d771f0854f525d8bc44e3a4997ca3b906086bdd",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "source_order_numeric_utf8_dictionary_code_count_star_group_update",
+              "local_primitive_candidate_groups": "10",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q18_run2_candidate.stdout.json": {
+            "member_bytes": 160491,
+            "member_sha256": "353824ebe870ba6153842e74f799511a3629ad7a21684ef72653d76dfeb773d2",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "source_order_numeric_utf8_dictionary_code_count_star_group_update",
+              "local_primitive_candidate_groups": "10",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q18_run3_candidate.stdout.json": {
+            "member_bytes": 160492,
+            "member_sha256": "169d4066e0269f7a2237cd33a487534c00ef7b26322a4d867bb1900d15844c4b",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "source_order_numeric_utf8_dictionary_code_count_star_group_update",
+              "local_primitive_candidate_groups": "10",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q22_run1_candidate.stdout.json": {
+            "member_bytes": 168521,
+            "member_sha256": "29df5ee2625d14b46bdb33ef5c1bf1bc625f3d7d439810ea446ed37ee9a95791",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+              "local_primitive_candidate_groups": "677",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "677",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "first_pass_no_eviction",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "677",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q22_run2_candidate.stdout.json": {
+            "member_bytes": 168521,
+            "member_sha256": "42af28dffa9e3c3e86a67d17afc741cfe0159a20b2917595b4b30b8ea9faf125",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+              "local_primitive_candidate_groups": "677",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "677",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "first_pass_no_eviction",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "677",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q22_run3_candidate.stdout.json": {
+            "member_bytes": 168521,
+            "member_sha256": "b40d2cc763e704c8c6c466e8ee7bc5f6a26f4db29129bff965c799c80fbe12d9",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+              "local_primitive_candidate_groups": "677",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "677",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "first_pass_no_eviction",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "677",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q23_run1_candidate.stdout.json": {
+            "member_bytes": 172506,
+            "member_sha256": "79dfdb5dbd132699a6c533e6e724f2f6260715e6fdba32c74cc1bc7633ed4b27",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+              "local_primitive_candidate_groups": "3673",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "3673",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "first_pass_no_eviction",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "3673",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q23_run2_candidate.stdout.json": {
+            "member_bytes": 172506,
+            "member_sha256": "f31da7087d75b309df56ff68d683870f1999a5ccce8f7a37f4841649c84a7eca",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+              "local_primitive_candidate_groups": "3673",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "3673",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "first_pass_no_eviction",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "3673",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q23_run3_candidate.stdout.json": {
+            "member_bytes": 172506,
+            "member_sha256": "fb9ab80280a70b973c83c0a6460ff133b6567c1bad892cf0fdd8d84f08f26980",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_dictionary_code_count_topk_first_pass_late_measure_exact",
+              "local_primitive_candidate_groups": "3673",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "3673",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "first_pass_no_eviction",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "3673",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q31_run1_candidate.stdout.json": {
+            "member_bytes": 164576,
+            "member_sha256": "383dfd70e1e5bf555b46458acb48274fc2d3b1d9711b0ca21e22bb6dc228b71c",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "5730331",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q31_run2_candidate.stdout.json": {
+            "member_bytes": 164576,
+            "member_sha256": "5b47068c2280ba31d18d3b7b980fef4df9f00198c064d4b3299ee8a7d3f90564",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "5730331",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q31_run3_candidate.stdout.json": {
+            "member_bytes": 164576,
+            "member_sha256": "f4c7aebe2b41bad1bcbe39b14851288705a793289f3207090d14e3a30d5826b0",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "5730331",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q32_run1_candidate.stdout.json": {
+            "member_bytes": 164539,
+            "member_sha256": "f7c404939d712dc9594498b33f656de59093e2bf20348c262d95c749720df369",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "13172392",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q32_run2_candidate.stdout.json": {
+            "member_bytes": 164539,
+            "member_sha256": "87c47545594b140109c13fc6927ff927624be25d6f7dc7fa581f0665454b3bd2",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "13172392",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q32_run3_candidate.stdout.json": {
+            "member_bytes": 164539,
+            "member_sha256": "a5319246677b0c85a3df7800ee44337964f8e01f4673b47f31febf498e6bdcbe",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "13172392",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q33_run1_candidate.stdout.json": {
+            "member_bytes": 168268,
+            "member_sha256": "d0df2b222a60c8c7e4433584d7ea7aa6adf92dfd2d4023a3bd4df65cc88a2c3c",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "99997493",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q33_run2_candidate.stdout.json": {
+            "member_bytes": 168268,
+            "member_sha256": "ec22a0638b60594d66783b72f82511163fd01d8495b517a8dcaf2163ab56759b",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "99997493",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q33_run3_candidate.stdout.json": {
+            "member_bytes": 168268,
+            "member_sha256": "e5947241fdb1549433da4795f00f61e368ea472165ff4e38687fa4df149aaefb",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "numeric_pair_count_topk_late_measure_second_pass",
+              "local_primitive_candidate_groups": "99997493",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_released_before_second_pass": "false",
+              "local_primitive_numeric_pair_late_measure_near_unique_directory_updates": "false",
+              "local_primitive_retained_candidate_groups": "10"
+            }
+          },
+          "full43/q34_run1_candidate.stdout.json": {
+            "member_bytes": 176804,
+            "member_sha256": "63fa281db71137d77abe1460da84c78eed00585ff34b0ef73b128643673b73e6",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "18342019",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q34_run2_candidate.stdout.json": {
+            "member_bytes": 176804,
+            "member_sha256": "11e96de348176b80624456bbce2154d42a6679f58e72f05de074eb135cc4a3b6",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "18342019",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q34_run3_candidate.stdout.json": {
+            "member_bytes": 176804,
+            "member_sha256": "be1d41008ef54c7016eec6008844b169451922b4903a9370986af6a7ce6fec6e",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "18342019",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q35_run1_candidate.stdout.json": {
+            "member_bytes": 177519,
+            "member_sha256": "cd9652f083f7e872ee32673c5b0f427335a9047b8887c0db3c89e9bae616de9e",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "18342019",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q35_run2_candidate.stdout.json": {
+            "member_bytes": 177516,
+            "member_sha256": "dcf4c142093d8572b320e2b37539b06805a74b106795ed0eb22b7302e207a382",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "18342019",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          },
+          "full43/q35_run3_candidate.stdout.json": {
+            "member_bytes": 177519,
+            "member_sha256": "22a90a73f802464e1152c3070032f29d09164b8b31f76212249f2c8d663351f9",
+            "route_fields": {
+              "local_primitive_aggregate_update_strategy": "string_count_topk_heavy_hitter_first_pass_exact",
+              "local_primitive_candidate_groups": "18342019",
+              "local_primitive_retained_candidate_groups": "10",
+              "local_primitive_string_count_topk_heavy_hitter_candidate_groups": "640",
+              "local_primitive_string_count_topk_heavy_hitter_exact_counts_source": "complete_key_partition_topk",
+              "local_primitive_string_count_topk_heavy_hitter_second_pass": "false",
+              "local_primitive_string_count_topk_late_measure_candidate_groups": "0",
+              "local_primitive_string_count_topk_late_measure_second_pass": "false"
+            }
+          }
+        },
+        "sha256": "06f20f5da265ce80b047d37951b5dc5772daa3c15d601b9da75eff6733ab72c4"
+      },
+      "git_commit": "443a5325687fbb86599ca196dbb240f536782ab9",
+      "repository": "/Users/dylan/Documents/shardloom-local-repo",
+      "schema_version": "shardloom.c3_c6_source_inventory.v1",
+      "source_files": [
+        {
+          "line_excerpts": [
+            {
+              "end_line": 109,
+              "start_line": 108,
+              "text": "108: | **15 \u2014 C3** | **AMAC-style lookup interleaving** | Shared irregular lookup phases. Establish dependent memory stalls in an ownership-stable read-only phase; compare bounded interleaving widths on the same structure. Suite/query/workflow gate. [AMAC](https://www.vldb.org/pvldb/vol9/p252-kocberber.pdf). |\n109: | **16 \u2014 C6** | **Exact packed numeric predicates** | Expensive numeric scans still expanding data. Check existing Vortex kernels first and charge any new layout/transposition. Suite/query gate. [BitWeaving](https://15721.courses.cs.cmu.edu/spring2016/papers/li-sigmod2013.pdf). |"
+            },
+            {
+              "end_line": 157,
+              "start_line": 153,
+              "text": "153: - **CPU/provider/input (C1/C2/C3/C5/C6/C7):** schema equality alone cannot authorize\n154:   recipe reuse across encoding/validity/dictionary/resource changes. Select only\n155:   correct paths and reset mutable tuning state. Drop AMAC if bandwidth/compute\n156:   dominates; no unsafe references across table mutation. FastLanes bytes are not\n157:   BitWeaving bytes. Provider changes need compatibility/provenance review."
+            }
+          ],
+          "path": "docs/architecture/performance-candidate-intake-2026-09-26.md",
+          "sha256": "85130200635a37c960cf3d1de2e08d7ae452eadf6e9bfa020a9798ab0c7e5be4"
+        },
+        {
+          "line_excerpts": [
+            {
+              "end_line": 42,
+              "start_line": 25,
+              "text": "25: A shared byte budget issues owned reservations before allocation. Reservations\n26: are released on drop, including error and cancellation paths. Growth is checked\n27: against remaining shared capacity before publishing a larger retained state.\n28: Arithmetic overflow and over-budget requests fail explicitly. A reservation is\n29: not a general-purpose allocator: every admitted producer and stateful operator\n30: must charge owned buffers and capacity before making an enforcement claim.\n31: \n32: Queue slots, queued bytes, active input, decoded buffers, operator state, merge\n33: state, source caches, and output ownership are separate measured consumers of the\n34: same budget. Moving a buffer transfers its reservation instead of charging a\n35: second copy. Sharing a buffer retains its owner until the final reference drops.\n36: Do not release memory credits merely because a task has returned a retained result.\n37: \n38: Persistent workers pull bounded work dynamically. Logical partitions and reduction\n39: order preserve floating-point semantics independently of physical worker assignment.\n40: Task failures cancel further work and drain already submitted work before returning.\n41: Caller-owned runtime shutdown joins workers. The Vortex I/O progress service and\n42: compression workers participate in the engine's CPU budget."
+            },
+            {
+              "end_line": 51,
+              "start_line": 46,
+              "text": "46: Prepared sources retain an open source handle and source-generation identity.\n47: Replacement, truncation, mutation, and recreation invalidate prepared operations.\n48: Path or size alone does not certify immutable data. Source identity is checked at\n49: operation boundaries, and concurrent mutation fails instead of returning mixed data.\n50: Owned Vortex arrays and selection views remain executable payloads; descriptive\n51: reports cannot stand in for them. Result ownership outlives sessions when requested."
+            }
+          ],
+          "path": "docs/rfcs/0044-resident-runtime-resource-ownership.md",
+          "sha256": "9798d455930139a7b5ee29ee4486e80693cd9f6d5a79f3939f521a2f2ae3d64e"
+        },
+        {
+          "line_excerpts": [
+            {
+              "end_line": 14588,
+              "start_line": 14565,
+              "text": "14565:     let source_row_count = file.row_count();\n14566:     let mut plan = configure(file.dtype())?;\n14567:     if plan.source_order_limit == Some(0) {\n14568:         return Err(ShardLoomError::InvalidOperation(\n14569:             \"local Vortex source-order limit must be >= 1\".to_string(),\n14570:         ));\n14571:     }\n14572:     let filter_pushdown_applied = plan.filter.is_some();\n14573:     let projection_pushdown_applied = plan.projection.is_some();\n14574:     let residual_predicate = plan.residual_predicate.clone();\n14575:     let source_order_limit = plan.source_order_limit;\n14576:     let output_columns = plan\n14577:         .output_columns\n14578:         .clone()\n14579:         .unwrap_or_else(|| plan.projected_columns.clone());\n14580:     let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(\n14581:         &file,\n14582:         primitive_kind,\n14583:         filter_pushdown_applied,\n14584:         projection_pushdown_applied,\n14585:     );\n14586:     if let Some(filter) = plan.filter.as_ref() {\n14587:         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;\n14588:         embedded_layout.mark_pruning_consulted(metadata_pruned);"
+            },
+            {
+              "end_line": 14668,
+              "start_line": 14625,
+              "text": "14625:     let mut scan = file.scan().map_err(vortex_error)?;\n14626:     if let Some(filter) = plan.filter.take() {\n14627:         scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);\n14628:     }\n14629:     if let Some(projection) = plan.projection.take() {\n14630:         scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);\n14631:     }\n14632:     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());\n14633:     let residual_evaluator = residual_predicate\n14634:         .as_ref()\n14635:         .map(|predicate| {\n14636:             MaterializedPredicateEvaluator::compile(predicate, &plan.projected_columns)\n14637:         })\n14638:         .transpose()?;\n14639:     control_plane_micros =\n14640:         control_plane_micros.saturating_add(control_plane_started.elapsed().as_micros());\n14641:     let mut result_row_count = 0usize;\n14642:     let mut pre_limit_result_row_count = 0usize;\n14643:     let mut arrays_read_count = 0usize;\n14644:     let mut reader_splits = Vec::new();\n14645:     let mut encoded_kernel_inputs = Vec::new();\n14646:     let mut max_chunk_rows = 0usize;\n14647:     let mut residual_predicate_materialized = false;\n14648:     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {\n14649:         let chunk = chunk.map_err(vortex_error)?;\n14650:         let rows = chunk.len();\n14651:         let evidence_started = Instant::now();\n14652:         let split = VortexReaderBackedSplitEvidence::local_scan_chunk(\n14653:             source_uri.clone(),\n14654:             arrays_read_count,\n14655:             rows,\n14656:             chunk.dtype().to_string(),\n14657:             chunk.encoding_id().to_string(),\n14658:             chunk.nchildren(),\n14659:             chunk.nbuffers(),\n14660:         )?;\n14661:         encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(\n14662:             source_uri,\n14663:             &split.split_ref,\n14664:             &chunk,\n14665:         )?);\n14666:         reader_splits.push(split);\n14667:         evidence_collection_micros =\n14668:             evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());"
+            },
+            {
+              "end_line": 14727,
+              "start_line": 14718,
+              "text": "14718:     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;\n14719:     let evidence_started = Instant::now();\n14720:     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {\n14721:         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)\n14722:     } else {\n14723:         plan_vortex_reader_generated_prepared_batch_kernel_inputs(\n14724:             &source,\n14725:             &reader_splits,\n14726:             &encoded_kernel_inputs,\n14727:         )"
+            },
+            {
+              "end_line": 15075,
+              "start_line": 15030,
+              "text": "15030: fn encoded_kernel_input_from_vortex_array(\n15031:     source_uri: &DatasetUri,\n15032:     split_ref: &str,\n15033:     column_name: &str,\n15034:     array: &vortex::array::ArrayRef,\n15035: ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {\n15036:     let row_count = u64::try_from(array.len()).map_err(|error| {\n15037:         ShardLoomError::InvalidOperation(format!(\n15038:             \"local Vortex reader child array row count overflowed u64: {error}\"\n15039:         ))\n15040:     })?;\n15041:     if let Some(input) = constant_kernel_input_from_vortex_array(\n15042:         source_uri,\n15043:         split_ref,\n15044:         column_name,\n15045:         row_count,\n15046:         array,\n15047:     )? {\n15048:         return Ok(Some(input));\n15049:     }\n15050:     if let Some(input) =\n15051:         dictionary_kernel_input_from_vortex_array(source_uri, split_ref, column_name, array)?\n15052:     {\n15053:         return Ok(Some(input));\n15054:     }\n15055:     if let Some(input) =\n15056:         bitpacked_kernel_input_from_vortex_array(source_uri, split_ref, column_name, array)?\n15057:     {\n15058:         return Ok(Some(input));\n15059:     }\n15060:     if let Some(input) = sequence_kernel_input_from_vortex_array(\n15061:         source_uri,\n15062:         split_ref,\n15063:         column_name,\n15064:         row_count,\n15065:         array,\n15066:     )? {\n15067:         return Ok(Some(input));\n15068:     }\n15069:     if let Some(input) =\n15070:         sparse_kernel_input_from_vortex_array(source_uri, split_ref, column_name, row_count, array)?\n15071:     {\n15072:         return Ok(Some(input));\n15073:     }\n15074:     run_end_kernel_input_from_vortex_array(source_uri, split_ref, column_name, row_count, array)\n15075: }"
+            },
+            {
+              "end_line": 15334,
+              "start_line": 15246,
+              "text": "15246:     let Some(bitpacked_array) = array.as_opt::<vortex::encodings::fastlanes::BitPacked>() else {\n15247:         return Ok(None);\n15248:     };\n15249:     if !bitpacked_array.packed().is_on_host() {\n15250:         return Ok(None);\n15251:     }\n15252:     match bitpacked_array.validity().map_err(vortex_error)? {\n15253:         Validity::NonNullable | Validity::AllValid => {}\n15254:         Validity::AllInvalid | Validity::Array(_) => return Ok(None),\n15255:     }\n15256:     if bitpacked_array.patches().is_some() {\n15257:         return Ok(None);\n15258:     }\n15259: \n15260:     let values = match array.dtype() {\n15261:         vortex::array::dtype::DType::Primitive(PType::U8, _) => {\n15262:             collect_bitpacked_unsigned_values::<u8>(&bitpacked_array)?\n15263:         }\n15264:         vortex::array::dtype::DType::Primitive(PType::U16, _) => {\n15265:             collect_bitpacked_unsigned_values::<u16>(&bitpacked_array)?\n15266:         }\n15267:         vortex::array::dtype::DType::Primitive(PType::U32, _) => {\n15268:             collect_bitpacked_unsigned_values::<u32>(&bitpacked_array)?\n15269:         }\n15270:         vortex::array::dtype::DType::Primitive(PType::U64, _) => {\n15271:             collect_bitpacked_unsigned_values::<u64>(&bitpacked_array)?\n15272:         }\n15273:         _ => return Ok(None),\n15274:     };\n15275:     let row_count = u64::try_from(values.len()).map_err(|error| {\n15276:         ShardLoomError::InvalidOperation(format!(\n15277:             \"local Vortex bit-packed value count overflowed u64: {error}\"\n15278:         ))\n15279:     })?;\n15280:     if values.len() != array.len() {\n15281:         return Ok(None);\n15282:     }\n15283: \n15284:     let mut stats = SegmentStats::with_row_count(row_count);\n15285:     stats.null_count = Some(0);\n15286:     stats.min_value = values.iter().min().copied().map(StatValue::UInt64);\n15287:     stats.max_value = values.iter().max().copied().map(StatValue::UInt64);\n15288:     stats.is_constant = Some(stats.min_value == stats.max_value);\n15289:     let segment = EncodedSegment::new(\n15290:         SegmentId::new(format!(\"{split_ref}.{column_name}.bit_packed\"))?,\n15291:         ColumnRef::new(column_name)?,\n15292:         LogicalDType::UInt64,\n15293:         ShardLoomNullability::NonNullable,\n15294:         SegmentLayout::new(EncodingKind::BitPacked, LayoutKind::Flat),\n15295:         stats,\n15296:     );\n15297:     let batch = VortexEncodedValuePredicateBatch::new(\n15298:         segment,\n15299:         EncodedValueBatch::BitPackedUnsigned {\n15300:             bit_width: bitpacked_array.bit_width(),\n15301:             values,\n15302:         },\n15303:     );\n15304:     VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)\n15305: }\n15306: \n15307: #[cfg(feature = \"vortex-local-primitives\")]\n15308: fn collect_bitpacked_unsigned_values<T>(\n15309:     bitpacked_array: &vortex::array::ArrayView<'_, vortex::encodings::fastlanes::BitPacked>,\n15310: ) -> Result<Vec<u64>>\n15311: where\n15312:     T: vortex::encodings::fastlanes::unpack_iter::BitPacked + Copy + Into<u64>,\n15313: {\n15314:     use lending_iterator::prelude::LendingIterator as _;\n15315:     use vortex::encodings::fastlanes::BitPackedArrayExt as _;\n15316: \n15317:     let mut chunks = bitpacked_array\n15318:         .unpacked_chunks::<T>()\n15319:         .map_err(vortex_error)?;\n15320:     let mut values = Vec::with_capacity(bitpacked_array.as_ref().len());\n15321:     if let Some(initial) = chunks.initial() {\n15322:         values.extend(initial.iter().copied().map(Into::into));\n15323:     }\n15324:     {\n15325:         let mut full_chunks = chunks.full_chunks();\n15326:         while let Some(chunk) = full_chunks.next() {\n15327:             values.extend(chunk.iter().copied().map(Into::into));\n15328:         }\n15329:     }\n15330:     if let Some(trailer) = chunks.trailer() {\n15331:         values.extend(trailer.iter().copied().map(Into::into));\n15332:     }\n15333:     Ok(values)\n15334: }"
+            },
+            {
+              "end_line": 21186,
+              "start_line": 21153,
+              "text": "21153:         let mut exact_scan = file.scan(session).map_err(vortex_error)?;\n21154:         if let Some(filter) = pushdown_predicate.as_ref() {\n21155:             let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;\n21156:             exact_scan = exact_scan.with_filter(file.bind(&filter_expr)?);\n21157:         }\n21158:         if let Some(projection) = exact_plan.projection.take() {\n21159:             exact_scan = exact_scan.with_projection(file.bind(&projection)?);\n21160:         }\n21161:         exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());\n21162:         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {\n21163:             check_cancelled()?;\n21164:             let chunk = chunk.map_err(vortex_error)?;\n21165:             let rows = chunk.len();\n21166:             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(\n21167:                 source_uri.clone(),\n21168:                 arrays_read_count,\n21169:                 rows,\n21170:                 chunk.dtype().to_string(),\n21171:                 chunk.encoding_id().to_string(),\n21172:                 chunk.nchildren(),\n21173:                 chunk.nbuffers(),\n21174:             )?;\n21175:             encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(\n21176:                 source_uri,\n21177:                 &split.split_ref,\n21178:                 &chunk,\n21179:             )?);\n21180:             reader_splits.push(split);\n21181:             update_grouped_exact_states_from_chunk(\n21182:                 &mut exact_states,\n21183:                 &chunk,\n21184:                 &declared_columns,\n21185:                 residual_evaluator.as_ref(),\n21186:             )?;"
+            },
+            {
+              "end_line": 21260,
+              "start_line": 21251,
+              "text": "21251:     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;\n21252:     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {\n21253:         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)\n21254:     } else {\n21255:         plan_vortex_reader_generated_prepared_batch_kernel_inputs(\n21256:             &source,\n21257:             &reader_splits,\n21258:             &encoded_kernel_inputs,\n21259:         )\n21260:     };"
+            },
+            {
+              "end_line": 25860,
+              "start_line": 25821,
+              "text": "25821: #[derive(Default)]\n25822: struct AggregateStringInterner {\n25823:     ids: rustc_hash::FxHashMap<std::sync::Arc<str>, u64>,\n25824:     values: Vec<std::sync::Arc<str>>,\n25825: }\n25826: \n25827: #[cfg(feature = \"vortex-local-primitives\")]\n25828: impl AggregateStringInterner {\n25829:     fn reserve(&mut self, additional: usize, label: &str) -> Result<()> {\n25830:         reserve_hash_map_capacity(&mut self.ids, additional, label)?;\n25831:         self.values.try_reserve(additional).map_err(|error| {\n25832:             ShardLoomError::InvalidOperation(format!(\n25833:                 \"local Vortex {label} value reservation failed: {error}; no fallback execution was attempted\"\n25834:             ))\n25835:         })\n25836:     }\n25837: \n25838:     fn intern(&mut self, value: &str) -> Result<u64> {\n25839:         if let Some(id) = self.ids.get(value) {\n25840:             return Ok(*id);\n25841:         }\n25842:         let id = usize_to_u64(self.values.len())?;\n25843:         let value: std::sync::Arc<str> = std::sync::Arc::from(value);\n25844:         self.values.push(std::sync::Arc::clone(&value));\n25845:         self.ids.insert(value, id);\n25846:         Ok(id)\n25847:     }\n25848: \n25849:     fn intern_arc(&mut self, value: std::sync::Arc<str>) -> Result<u64> {\n25850:         if let Some(id) = self.ids.get(value.as_ref()) {\n25851:             return Ok(*id);\n25852:         }\n25853:         let id = usize_to_u64(self.values.len())?;\n25854:         self.values.push(std::sync::Arc::clone(&value));\n25855:         self.ids.insert(value, id);\n25856:         Ok(id)\n25857:     }\n25858: \n25859:     fn id(&self, value: &str) -> Option<u64> {\n25860:         self.ids.get(value).copied()"
+            },
+            {
+              "end_line": 44012,
+              "start_line": 43991,
+              "text": "43991:     for value_id in candidate_ids {\n43992:         signatures.insert(StringCandidateSignature::from_str(\n43993:             string_interner.value(*value_id)?,\n43994:         ));\n43995:     }\n43996:     Ok(signatures)\n43997: }\n43998: \n43999: #[cfg(feature = \"vortex-local-primitives\")]\n44000: fn string_topk_candidate_code_ids_from_values(\n44001:     values: &[std::sync::Arc<str>],\n44002:     candidate_ids: &rustc_hash::FxHashSet<u64>,\n44003:     candidate_signatures: Option<&rustc_hash::FxHashSet<StringCandidateSignature>>,\n44004:     string_interner: &AggregateStringInterner,\n44005: ) -> Vec<Option<u64>> {\n44006:     let mut ids = Vec::with_capacity(values.len());\n44007:     for value in values {\n44008:         if let Some(candidate_signatures) = candidate_signatures\n44009:             && !candidate_signatures.contains(&StringCandidateSignature::from_str(value.as_ref()))\n44010:         {\n44011:             ids.push(None);\n44012:             continue;"
+            },
+            {
+              "end_line": 44801,
+              "start_line": 44751,
+              "text": "44751:         | AggregateDirectColumnAccessor::Float64(_)\n44752:         | AggregateDirectColumnAccessor::NullableFloat64 { .. } => {\n44753:             aggregate_direct_distinct_value(accessor, row_index)\n44754:         }\n44755:     }\n44756: }\n44757: \n44758: #[cfg(feature = \"vortex-local-primitives\")]\n44759: fn aggregate_direct_distinct_value_for_group_key_existing(\n44760:     accessor: &AggregateDirectColumnAccessor,\n44761:     row_index: usize,\n44762:     string_interner: &AggregateStringInterner,\n44763: ) -> Result<Option<AggregateDistinctValue>> {\n44764:     match accessor {\n44765:         AggregateDirectColumnAccessor::Utf8Dictionary {\n44766:             row_ids,\n44767:             values,\n44768:             value_nulls,\n44769:             row_nulls,\n44770:             ..\n44771:         } => {\n44772:             let Some(value) = aggregate_utf8_dictionary_value_opt(\n44773:                 row_ids,\n44774:                 values,\n44775:                 value_nulls.as_deref(),\n44776:                 row_nulls.as_deref(),\n44777:                 row_index,\n44778:             )?\n44779:             else {\n44780:                 return Ok(Some(AggregateDistinctValue::Null));\n44781:             };\n44782:             Ok(string_interner\n44783:                 .id(value)\n44784:                 .map(AggregateDistinctValue::Utf8Interned))\n44785:         }\n44786:         AggregateDirectColumnAccessor::Materialized { values, .. } => {\n44787:             let value = values.get(row_index).ok_or_else(|| {\n44788:                 ShardLoomError::InvalidOperation(\n44789:                     \"local Vortex aggregate existing materialized group-key row index was out of bounds; no fallback execution was attempted\"\n44790:                         .to_string(),\n44791:                 )\n44792:             })?;\n44793:             Ok(aggregate_distinct_value_for_group_key_existing(\n44794:                 value,\n44795:                 string_interner,\n44796:             ))\n44797:         }\n44798:         AggregateDirectColumnAccessor::NativeNumeric(_)\n44799:         | AggregateDirectColumnAccessor::UInt64(_)\n44800:         | AggregateDirectColumnAccessor::Boolean(_)\n44801:         | AggregateDirectColumnAccessor::NullableBoolean { .. }"
+            },
+            {
+              "end_line": 49859,
+              "start_line": 49818,
+              "text": "49818:                         EncodedValueRun::new(Some(StatValue::Int64(9)), 3),\n49819:                     ]\n49820:                 );\n49821:             }\n49822:             other => panic!(\"expected run-length batch, got {other:?}\"),\n49823:         }\n49824:     }\n49825: \n49826:     #[test]\n49827:     fn reader_chunk_bitpacked_values_lower_into_encoded_kernel_inputs() {\n49828:         use vortex::array::IntoArray as _;\n49829:         use vortex::array::VortexSessionExecute as _;\n49830:         use vortex::array::arrays::PrimitiveArray;\n49831:         use vortex::encodings::fastlanes::BitPackedData;\n49832: \n49833:         let values = [0_u8, 1, 0, 1, 1]\n49834:             .into_iter()\n49835:             .collect::<PrimitiveArray>()\n49836:             .into_array();\n49837:         let mut ctx = vortex::array::legacy_session().create_execution_ctx();\n49838:         let chunk = BitPackedData::encode(&values, 1, &mut ctx)\n49839:             .expect(\"bit-packed array\")\n49840:             .as_array()\n49841:             .clone();\n49842:         let source_uri = DatasetUri::new(\"file:///tmp/bitpacked-values.vortex\").expect(\"uri\");\n49843: \n49844:         let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(\n49845:             &source_uri,\n49846:             \"split-bitpacked\",\n49847:             &chunk,\n49848:         )\n49849:         .expect(\"kernel inputs\");\n49850: \n49851:         assert_eq!(inputs.len(), 1);\n49852:         let input = inputs.first().expect(\"input\");\n49853:         assert!(input.provider_boundary.is_policy_admitted());\n49854:         assert!(input.mapping_evidence_complete());\n49855:         assert!(!input.has_forbidden_effects());\n49856:         assert_eq!(input.batch.segment.layout.encoding, EncodingKind::BitPacked);\n49857:         assert_eq!(input.batch.segment.dtype, LogicalDType::UInt64);\n49858:         assert_eq!(input.batch.segment.stats.row_count, Some(5));\n49859:         assert_eq!(input.batch.segment.stats.null_count, Some(0));"
+            },
+            {
+              "end_line": 49996,
+              "start_line": 49909,
+              "text": "49909:                 assert_eq!(base, &StatValue::UInt64(10));\n49910:                 assert_eq!(multiplier, &StatValue::UInt64(3));\n49911:                 assert_eq!(*row_count, 4);\n49912:             }\n49913:             other => panic!(\"expected sequence batch, got {other:?}\"),\n49914:         }\n49915:     }\n49916: \n49917:     #[test]\n49918:     fn reader_generated_conjunctive_filter_intersects_bitpacked_and_sequence_inputs() {\n49919:         use vortex::array::IntoArray as _;\n49920:         use vortex::array::VortexSessionExecute as _;\n49921:         use vortex::array::arrays::{PrimitiveArray, StructArray};\n49922:         use vortex::array::dtype::{FieldNames, Nullability as VortexNullability, PType};\n49923:         use vortex::array::scalar::PValue;\n49924:         use vortex::array::validity::Validity;\n49925:         use vortex::encodings::fastlanes::BitPackedData;\n49926:         use vortex::encodings::sequence::Sequence;\n49927: \n49928:         let flag_values = [0_u8, 1, 0, 1, 1]\n49929:             .into_iter()\n49930:             .collect::<PrimitiveArray>()\n49931:             .into_array();\n49932:         let mut ctx = vortex::array::legacy_session().create_execution_ctx();\n49933:         let flag = BitPackedData::encode(&flag_values, 1, &mut ctx)\n49934:             .expect(\"bit-packed flag\")\n49935:             .as_array()\n49936:             .clone();\n49937:         let value = Sequence::try_new(\n49938:             PValue::U32(4_990),\n49939:             PValue::U32(5),\n49940:             PType::U32,\n49941:             VortexNullability::NonNullable,\n49942:             5,\n49943:         )\n49944:         .expect(\"sequence value\")\n49945:         .into_array();\n49946:         let chunk = StructArray::try_new(\n49947:             FieldNames::from([\"flag\", \"value\"]),\n49948:             vec![flag, value],\n49949:             5,\n49950:             Validity::NonNullable,\n49951:         )\n49952:         .expect(\"struct chunk\")\n49953:         .into_array();\n49954:         let source_uri = DatasetUri::new(\"file:///tmp/filter-columns.vortex\").expect(\"uri\");\n49955:         let source = UniversalInputSource::from_dataset_uri(source_uri.clone()).expect(\"source\");\n49956:         let split = VortexReaderBackedSplitEvidence::local_scan_chunk(\n49957:             source_uri.clone(),\n49958:             0,\n49959:             chunk.len(),\n49960:             chunk.dtype().to_string(),\n49961:             chunk.encoding_id().to_string(),\n49962:             chunk.nchildren(),\n49963:             chunk.nbuffers(),\n49964:         )\n49965:         .expect(\"split\");\n49966:         let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(\n49967:             &source_uri,\n49968:             &split.split_ref,\n49969:             &chunk,\n49970:         )\n49971:         .expect(\"kernel inputs\");\n49972:         let predicates = vec![\n49973:             PredicateExpr::Compare {\n49974:                 column: ColumnRef::new(\"flag\").expect(\"flag column\"),\n49975:                 op: ComparisonOp::Eq,\n49976:                 value: StatValue::UInt64(1),\n49977:             },\n49978:             PredicateExpr::Compare {\n49979:                 column: ColumnRef::new(\"value\").expect(\"value column\"),\n49980:                 op: ComparisonOp::GtEq,\n49981:                 value: StatValue::UInt64(5_000),\n49982:             },\n49983:         ];\n49984: \n49985:         let bridge =\n49986:             crate::execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(\n49987:                 &predicates,\n49988:                 &source,\n49989:                 &[split],\n49990:                 &inputs,\n49991:             )\n49992:             .expect(\"bridge\");\n49993: \n49994:         assert_eq!(inputs.len(), 2);\n49995:         assert_eq!(bridge.status.as_str(), \"intersected_selection_vectors\");\n49996:         assert_eq!(bridge.intersection_count, 1);"
+            }
+          ],
+          "path": "shardloom-vortex/src/local_primitives.rs",
+          "sha256": "4536e7cacf1eab443725142d558ac64cde8dfc5113e283c359c84890bd486f1e"
+        },
+        {
+          "line_excerpts": [
+            {
+              "end_line": 1400,
+              "start_line": 1276,
+              "text": "1276: pub fn execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(\n1277:     predicates: &[PredicateExpr],\n1278:     source: &UniversalInputSource,\n1279:     reader_splits: &[VortexReaderBackedSplitEvidence],\n1280:     encoded_kernel_inputs: &[VortexReaderGeneratedEncodedKernelInput],\n1281: ) -> Result<VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport> {\n1282:     let lowering = plan_vortex_reader_generated_prepared_batch_kernel_inputs(\n1283:         source,\n1284:         reader_splits,\n1285:         encoded_kernel_inputs,\n1286:     );\n1287:     let mut diagnostics = lowering.diagnostics.clone();\n1288:     if predicates.is_empty() {\n1289:         diagnostics.push(Diagnostic::configuration_error(\n1290:             \"vortex_reader_generated_conjunctive_selection_vector_bridge\",\n1291:             \"conjunctive reader-generated filter bridge requires at least one predicate\",\n1292:             \"Attach one predicate per filter-column encoded kernel input before requesting the bridge.\",\n1293:         ));\n1294:         return Ok(\n1295:             VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport::from_parts(\n1296:                 source,\n1297:                 &lowering,\n1298:                 VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicate,\n1299:                 0,\n1300:                 VortexReaderGeneratedConjunctiveSelectionOutcome::empty(),\n1301:                 diagnostics,\n1302:             ),\n1303:         );\n1304:     }\n1305:     if !lowering.runtime_execution_allowed {\n1306:         return Ok(\n1307:             VortexReaderGeneratedConjunctiveSelectionVectorBridgeReport::from_parts(\n1308:                 source,\n1309:                 &lowering,\n1310:                 VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedPreparedBatchValidation,\n1311:                 predicates.len(),\n1312:                 VortexReaderGeneratedConjunctiveSelectionOutcome::empty(),\n1313:                 diagnostics,\n1314:             ),\n1315:         );\n1316:     }\n1317: \n1318:     let mut status =\n1319:         VortexReaderGeneratedConjunctiveSelectionVectorStatus::IntersectedSelectionVectors;\n1320:     let mut intersection_count = 0_usize;\n1321:     let mut selected_row_count = 0_u64;\n1322:     let mut selected_selection_vectors = Vec::new();\n1323:     for split in reader_splits {\n1324:         let mut split_vectors = Vec::<SelectionVector>::new();\n1325:         for predicate in predicates {\n1326:             let Some(column) = predicate.column() else {\n1327:                 diagnostics.push(Diagnostic::unsupported(\n1328:                     DiagnosticCode::NoFallbackExecution,\n1329:                     \"vortex_reader_generated_conjunctive_selection_vector_bridge\",\n1330:                     \"conjunctive reader-generated filter bridge requires column predicates\",\n1331:                     Some(\n1332:                         \"Use column-bound predicates for reader-generated filter-column batches.\"\n1333:                             .to_string(),\n1334:                     ),\n1335:                 ));\n1336:                 status =\n1337:                     VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicateInput;\n1338:                 continue;\n1339:             };\n1340:             let matching_inputs = encoded_kernel_inputs\n1341:                 .iter()\n1342:                 .filter(|input| {\n1343:                     input.split_ref == split.split_ref && input.batch.segment.column == *column\n1344:                 })\n1345:                 .collect::<Vec<_>>();\n1346:             let Some(input) = matching_inputs.first().copied() else {\n1347:                 diagnostics.push(Diagnostic::unsupported(\n1348:                     DiagnosticCode::NoFallbackExecution,\n1349:                     \"vortex_reader_generated_conjunctive_selection_vector_bridge\",\n1350:                     format!(\n1351:                         \"missing reader-generated encoded kernel input for column {} on split {}\",\n1352:                         column.as_str(),\n1353:                         split.split_ref\n1354:                     ),\n1355:                     Some(\"Provide one admitted encoded kernel input per predicate column and reader split.\".to_string()),\n1356:                 ));\n1357:                 status =\n1358:                     VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicateInput;\n1359:                 continue;\n1360:             };\n1361:             if matching_inputs.len() > 1 {\n1362:                 diagnostics.push(Diagnostic::configuration_error(\n1363:                     \"vortex_reader_generated_conjunctive_selection_vector_bridge\",\n1364:                     format!(\n1365:                         \"ambiguous reader-generated encoded kernel inputs for column {} on split {}\",\n1366:                         column.as_str(),\n1367:                         split.split_ref\n1368:                     ),\n1369:                     \"Provide exactly one encoded kernel input per predicate column and split.\",\n1370:                 ));\n1371:                 status =\n1372:                     VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedMissingPredicateInput;\n1373:                 continue;\n1374:             }\n1375:             let predicate_report = evaluate_vortex_encoded_value_predicate_batch(\n1376:                 predicate,\n1377:                 &input.batch.segment,\n1378:                 &input.batch.values,\n1379:             );\n1380:             diagnostics.extend(predicate_report.diagnostics.clone());\n1381:             let Some(selection_vector) = predicate_report\n1382:                 .segment_reports\n1383:                 .first()\n1384:                 .and_then(|report| report.selection_vector.clone())\n1385:             else {\n1386:                 diagnostics.push(Diagnostic::unsupported(\n1387:                     DiagnosticCode::NoFallbackExecution,\n1388:                     \"vortex_reader_generated_conjunctive_selection_vector_bridge\",\n1389:                     format!(\n1390:                         \"predicate {} did not emit a selection vector for split {}\",\n1391:                         predicate.summary(),\n1392:                         split.split_ref\n1393:                     ),\n1394:                     Some(\"Keep the bridge blocked until every predicate emits encoded selection-vector evidence.\".to_string()),\n1395:                 ));\n1396:                 status =\n1397:                     VortexReaderGeneratedConjunctiveSelectionVectorStatus::BlockedPredicateEvaluation;\n1398:                 continue;\n1399:             };\n1400:             split_vectors.push(selection_vector);"
+            }
+          ],
+          "path": "shardloom-vortex/src/source_backed_encoded_execution.rs",
+          "sha256": "e64b84f509a0732fb9a2915796a68598eb7b1c4a5c73b3a4420f8a7a13afae25"
+        },
+        {
+          "line_excerpts": [
+            {
+              "end_line": 421,
+              "start_line": 418,
+              "text": "418:     BitPackedUnsigned {\n419:         bit_width: u8,\n420:         values: Vec<u64>,\n421:     },"
+            },
+            {
+              "end_line": 1291,
+              "start_line": 1289,
+              "text": "1289:         EncodedValueBatch::BitPackedUnsigned { values, .. } => {\n1290:             bitpacked_unsigned_selection_vector(predicate, values, row_count)\n1291:         }"
+            },
+            {
+              "end_line": 1398,
+              "start_line": 1360,
+              "text": "1360: fn bitpacked_unsigned_selection_vector(\n1361:     predicate: &PredicateExpr,\n1362:     values: &[u64],\n1363:     row_count: u64,\n1364: ) -> std::result::Result<SelectionVector, String> {\n1365:     match predicate {\n1366:         PredicateExpr::AlwaysTrue | PredicateExpr::IsNotNull { .. } => {\n1367:             return Ok(SelectionVector::all(row_count));\n1368:         }\n1369:         PredicateExpr::AlwaysFalse | PredicateExpr::IsNull { .. } => {\n1370:             return Ok(SelectionVector::none());\n1371:         }\n1372:         PredicateExpr::Compare { .. }\n1373:         | PredicateExpr::And(_)\n1374:         | PredicateExpr::StringContains { .. }\n1375:         | PredicateExpr::InList { .. } => {}\n1376:     }\n1377:     let mut indices = Vec::with_capacity(values.len().min(4_096));\n1378:     if let Some((op, rhs)) = u64_comparison_predicate(predicate) {\n1379:         for (row_index, value) in values.iter().enumerate() {\n1380:             if compare_u64(*value, op, rhs) {\n1381:                 indices.push(\n1382:                     u64::try_from(row_index)\n1383:                         .map_err(|_| \"bit-packed row index does not fit u64\".to_string())?,\n1384:                 );\n1385:             }\n1386:         }\n1387:     } else {\n1388:         for (row_index, value) in values.iter().enumerate() {\n1389:             if predicate_matches_encoded_value(predicate, Some(&StatValue::UInt64(*value)))? {\n1390:                 indices.push(\n1391:                     u64::try_from(row_index)\n1392:                         .map_err(|_| \"bit-packed row index does not fit u64\".to_string())?,\n1393:                 );\n1394:             }\n1395:         }\n1396:     }\n1397:     Ok(selection_vector_from_indices(indices, row_count))\n1398: }"
+            },
+            {
+              "end_line": 2284,
+              "start_line": 2256,
+              "text": "2256:     #[test]\n2257:     fn encoded_value_bit_packed_predicate_emits_sparse_selection_vector() {\n2258:         let segment = segment_with_stats(\"x\", SegmentStats::with_row_count(5));\n2259:         let values = EncodedValueBatch::BitPackedUnsigned {\n2260:             bit_width: 1,\n2261:             values: vec![0, 1, 0, 1, 1],\n2262:         };\n2263:         let report = evaluate_predicate_on_encoded_values(\n2264:             &PredicateExpr::Compare {\n2265:                 column: ColumnRef::new(\"x\").unwrap(),\n2266:                 op: ComparisonOp::Eq,\n2267:                 value: StatValue::UInt64(1),\n2268:             },\n2269:             &segment,\n2270:             &values,\n2271:         );\n2272: \n2273:         assert_eq!(\n2274:             report.status,\n2275:             EncodedPredicateEvaluationStatus::SelectedIndices\n2276:         );\n2277:         assert_eq!(\n2278:             report.selection_vector,\n2279:             Some(SelectionVector::from_indices(vec![1, 3, 4]))\n2280:         );\n2281:         assert_eq!(report.selected_count, Some(3));\n2282:         assert!(report.is_side_effect_free());\n2283:         assert!(!report.has_errors());\n2284:     }"
+            }
+          ],
+          "path": "shardloom-core/src/encoded.rs",
+          "sha256": "98ab309c31162f236199a67ebe3f96b3500f03bce3020388e72d155ecf1c0dc2"
+        },
+        {
+          "line_excerpts": [
+            {
+              "end_line": 64,
+              "start_line": 33,
+              "text": "33: impl CompareKernel for BitPacked {\n34:     fn compare(\n35:         lhs: ArrayView<'_, Self>,\n36:         rhs: &ArrayRef,\n37:         operator: CompareOperator,\n38:         ctx: &mut ExecutionCtx,\n39:     ) -> VortexResult<Option<ArrayRef>> {\n40:         // Only accelerate compare-against-constant.\n41:         let Some(constant) = rhs.as_constant() else {\n42:             return Ok(None);\n43:         };\n44:         let Some(constant_prim) = constant.as_primitive_opt() else {\n45:             return Ok(None);\n46:         };\n47: \n48:         // The adaptor strips a null-constant RHS, and binary expressions require both argument\n49:         // types to match before dispatch.\n50:         let nullability = lhs.dtype().nullability() | rhs.dtype().nullability();\n51:         let lhs_ptype = lhs.dtype().as_ptype();\n52:         if constant_prim.ptype() != lhs_ptype {\n53:             return Ok(None);\n54:         }\n55: \n56:         let result = match_each_integer_ptype!(lhs_ptype, |T| {\n57:             let rhs: T = constant_prim\n58:                 .typed_value::<T>()\n59:                 .vortex_expect(\"compare adaptor strips null constants\");\n60:             compare_constant_typed::<T>(lhs, rhs, operator, nullability, ctx)?\n61:         });\n62:         Ok(Some(result))\n63:     }\n64: }"
+            },
+            {
+              "end_line": 102,
+              "start_line": 83,
+              "text": "83:     match operator {\n84:         CompareOperator::Eq => {\n85:             stream_compare_fused::<T, _>(lhs, rhs, nullability, |a, b| a.is_eq(b), ctx)\n86:         }\n87:         CompareOperator::NotEq => {\n88:             stream_compare_fused::<T, _>(lhs, rhs, nullability, |a, b| !a.is_eq(b), ctx)\n89:         }\n90:         CompareOperator::Lt => {\n91:             stream_compare_fused::<T, _>(lhs, rhs, nullability, |a, b| a.is_lt(b), ctx)\n92:         }\n93:         CompareOperator::Lte => {\n94:             stream_compare_fused::<T, _>(lhs, rhs, nullability, |a, b| a.is_le(b), ctx)\n95:         }\n96:         CompareOperator::Gt => {\n97:             stream_compare_fused::<T, _>(lhs, rhs, nullability, |a, b| a.is_gt(b), ctx)\n98:         }\n99:         CompareOperator::Gte => {\n100:             stream_compare_fused::<T, _>(lhs, rhs, nullability, |a, b| a.is_ge(b), ctx)\n101:         }\n102:     }"
+            }
+          ],
+          "path": "/Users/dylan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-fastlanes-0.85.0/src/bitpacking/compute/compare.rs",
+          "sha256": "c2652ae80a3d8bc27a42a28117b39de5c1b24352f8ea8d53c2757452d732f580"
+        }
+      ]
+    },
+    "supplemental_source_excerpts": [
+      {
+        "excerpts": [
+          {
+            "end": 51,
+            "start": 1,
+            "text": "1: //! Disjoint scopes on the caller thread; provider worker activity may overlap them.\n2: \n3: use super::{Result, ShardLoomError};\n4: \n5: #[derive(Default)]\n6: pub(super) struct AggregateFirstPassTiming {\n7:     pub scan_next_nanos: u128,\n8:     pub reader_evidence_nanos: u128,\n9:     pub accessor_nanos: u128,\n10:     pub group_update_nanos: u128,\n11:     pub finalization_nanos: u128,\n12:     pub accessor_chunks: u64,\n13:     pub accessor_rows: u64,\n14: }\n15: \n16: impl AggregateFirstPassTiming {\n17:     pub(super) fn annotate_summary(&self, summary: &mut String) -> Result<()> {\n18:         let mut payload: serde_json::Value = serde_json::from_str(summary)\n19:             .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;\n20:         let object = payload.as_object_mut().ok_or_else(|| {\n21:             ShardLoomError::InvalidOperation(\"aggregate summary must be an object\".into())\n22:         })?;\n23:         for (key, value) in [\n24:             (\"aggregate_first_pass_scan_next_nanos\", self.scan_next_nanos),\n25:             (\n26:                 \"aggregate_first_pass_reader_evidence_nanos\",\n27:                 self.reader_evidence_nanos,\n28:             ),\n29:             (\"aggregate_first_pass_accessor_nanos\", self.accessor_nanos),\n30:             (\n31:                 \"aggregate_first_pass_group_update_nanos\",\n32:                 self.group_update_nanos,\n33:             ),\n34:             (\n35:                 \"aggregate_result_finalization_nanos\",\n36:                 self.finalization_nanos,\n37:             ),\n38:             (\n39:                 \"aggregate_first_pass_accessor_chunks\",\n40:                 u128::from(self.accessor_chunks),\n41:             ),\n42:             (\n43:                 \"aggregate_first_pass_accessor_rows\",\n44:                 u128::from(self.accessor_rows),\n45:             ),\n46:         ] {\n47:             object.insert(key.into(), u64::try_from(value).unwrap_or(u64::MAX).into());\n48:         }\n49:         object.insert(\"aggregate_timing_scope\".into(),\n50:             \"disjoint_caller_elapsed_scopes_first_pass_scan_next_reader_evidence_compact_group_accessors_and_updates_plus_final_result_render_not_cpu_or_complete_wall;scan_next_includes_provider_progress;residual_row_updates_and_later_passes_not_instrumented\".into());\n51:         *summary = payload.to_string();"
+          }
+        ],
+        "path": "shardloom-vortex/src/local_primitives/aggregate_timing.rs",
+        "sha256": "12a302f56a8e92da6eabb816b059fb257d82c650aba2012fb31faca1c35a1157"
+      },
+      {
+        "excerpts": [
+          {
+            "end": 31903,
+            "start": 31864,
+            "text": "31864:     fn update_compact_direct_from_chunk_profiled(\n31865:         &mut self,\n31866:         chunk: &vortex::array::ArrayRef,\n31867:         declared_columns: &[String],\n31868:         row_indices: Option<&[usize]>,\n31869:         timing: &mut aggregate_timing::AggregateFirstPassTiming,\n31870:     ) -> Result<bool> {\n31871:         let started = Instant::now();\n31872:         let selected = self.source_order_candidate_chunk(chunk, declared_columns, row_indices)?;\n31873:         let chunk = selected.as_ref().unwrap_or(chunk);\n31874:         if selected.is_some() && chunk.is_empty() {\n31875:             timing.accessor_nanos += started.elapsed().as_nanos();\n31876:             return Ok(true);\n31877:         }\n31878:         let accessors = aggregate_direct_column_accessors_from_chunk(\n31879:             chunk,\n31880:             declared_columns,\n31881:             &mut self.native_execution_ctx,\n31882:         );\n31883:         timing.accessor_nanos += started.elapsed().as_nanos();\n31884:         let accessors = accessors?;\n31885:         self.native_numeric_accessor_work\n31886:             .add(&accessors.numeric_work)?;\n31887:         timing.accessor_chunks += 1;\n31888:         timing.accessor_rows += u64::try_from(chunk.len()).unwrap_or(u64::MAX);\n31889:         let started = Instant::now();\n31890:         let result = if self.admits_count_star_direct_updates() {\n31891:             self.observe_aggregate_accessors(declared_columns, &accessors);\n31892:             self.update_count_star_direct_from_accessors(&accessors, row_indices, chunk.len())\n31893:         } else {\n31894:             self.update_compact_direct_from_accessors(\n31895:                 &accessors,\n31896:                 declared_columns,\n31897:                 row_indices,\n31898:                 chunk.len(),\n31899:             )\n31900:         };\n31901:         timing.group_update_nanos += started.elapsed().as_nanos();\n31902:         result\n31903:     }"
+          }
+        ],
+        "path": "shardloom-vortex/src/local_primitives.rs",
+        "sha256": "4536e7cacf1eab443725142d558ac64cde8dfc5113e283c359c84890bd486f1e"
+      },
+      {
+        "excerpts": [
+          {
+            "end": 1652,
+            "start": 1551,
+            "text": "1551: #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n1552: #[derive(Debug, Clone, PartialEq)]\n1553: struct TraditionalDimensionKeyLookup {\n1554:     dense_membership: Option<Vec<bool>>,\n1555:     dense_contiguous_max_key: Option<u32>,\n1556:     key_count: usize,\n1557:     max_key: Option<u32>,\n1558: }\n1559: \n1560: #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n1561: impl TraditionalDimensionKeyLookup {\n1562:     fn from_dim_keys(keys: impl Iterator<Item = u32>) -> Self {\n1563:         let keys = keys.collect::<Vec<_>>();\n1564:         let max_key = keys.iter().copied().max();\n1565:         let dense_membership = max_key\n1566:             .filter(|key| TraditionalDenseU32GroupAccum::can_admit(*key))\n1567:             .and_then(|key| {\n1568:                 let len = usize::try_from(key).ok()?.checked_add(1)?;\n1569:                 let mut membership = vec![false; len];\n1570:                 for key in &keys {\n1571:                     let index = usize::try_from(*key).ok()?;\n1572:                     membership[index] = true;\n1573:                 }\n1574:                 Some(membership)\n1575:             });\n1576:         let dense_contiguous_max_key = max_key.filter(|_| {\n1577:             dense_membership.as_ref().is_some_and(|membership| {\n1578:                 membership.len() == keys.len() && membership.iter().all(|present| *present)\n1579:             })\n1580:         });\n1581:         Self {\n1582:             dense_membership,\n1583:             dense_contiguous_max_key,\n1584:             key_count: keys.len(),\n1585:             max_key,\n1586:         }\n1587:     }\n1588: \n1589:     fn contains(&self, key: u32) -> Option<bool> {\n1590:         if let Some(max_key) = self.dense_contiguous_max_key {\n1591:             return Some(key <= max_key);\n1592:         }\n1593:         self.dense_membership.as_ref().map(|membership| {\n1594:             usize::try_from(key)\n1595:                 .ok()\n1596:                 .and_then(|index| membership.get(index))\n1597:                 .copied()\n1598:                 .unwrap_or(false)\n1599:         })\n1600:     }\n1601: \n1602:     const fn dense_contiguous_max_key(&self) -> Option<u32> {\n1603:         self.dense_contiguous_max_key\n1604:     }\n1605: \n1606:     fn status(&self) -> &'static str {\n1607:         if self.key_count == 0 {\n1608:             \"empty_dimension_key_membership\"\n1609:         } else if self.dense_contiguous_max_key.is_some() {\n1610:             \"dense_contiguous_dimension_key_range\"\n1611:         } else if self.dense_membership.is_some() {\n1612:             \"dense_dimension_key_membership\"\n1613:         } else {\n1614:             \"sparse_hash_dimension_key_membership\"\n1615:         }\n1616:     }\n1617: }\n1618: \n1619: #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n1620: #[derive(Debug, Clone, PartialEq)]\n1621: struct TraditionalDimensionLabelState {\n1622:     dim_by_key: std::collections::HashMap<u32, String>,\n1623:     key_lookup: TraditionalDimensionKeyLookup,\n1624:     stats: TraditionalStreamingScanStats,\n1625: }\n1626: \n1627: #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n1628: impl TraditionalDimensionLabelState {\n1629:     fn new(\n1630:         dim_by_key: std::collections::HashMap<u32, String>,\n1631:         stats: TraditionalStreamingScanStats,\n1632:     ) -> Self {\n1633:         let key_lookup = TraditionalDimensionKeyLookup::from_dim_keys(dim_by_key.keys().copied());\n1634:         Self {\n1635:             dim_by_key,\n1636:             key_lookup,\n1637:             stats,\n1638:         }\n1639:     }\n1640: \n1641:     fn from_path(dim_vortex: &std::path::Path) -> Result<Self> {\n1642:         let (dim_by_key, stats) = scan_dim_label_state(dim_vortex, \"batch dimension label state\")?;\n1643:         Ok(Self::new(dim_by_key, stats))\n1644:     }\n1645: \n1646:     fn contains_dim_key(&self, key: u32) -> bool {\n1647:         self.key_lookup\n1648:             .contains(key)\n1649:             .unwrap_or_else(|| self.dim_by_key.contains_key(&key))\n1650:     }\n1651: }\n1652: "
+          },
+          {
+            "end": 3616,
+            "start": 3579,
+            "text": "3579:     fn dimension_label_state(\n3580:         &self,\n3581:     ) -> Result<Option<std::cell::Ref<'_, TraditionalDimensionLabelState>>> {\n3582:         if self.dimension_label_state_consumer_count == 0 {\n3583:             return Ok(None);\n3584:         }\n3585:         self.dimension_label_state\n3586:             .get_or_try_build(|| TraditionalDimensionLabelState::from_path(&self.dim_vortex_path))\n3587:             .map(Some)\n3588:     }\n3589: \n3590:     fn fact_metric_state(&self) -> Result<Option<std::cell::Ref<'_, TraditionalFactMetricState>>> {\n3591:         if self.fact_metric_state_consumer_count <= 1 {\n3592:             return Ok(None);\n3593:         }\n3594:         self.fact_metric_state\n3595:             .get_or_try_build(|| TraditionalFactMetricState::from_path(&self.fact_vortex_path))\n3596:             .map(Some)\n3597:     }\n3598: \n3599:     fn prewarm_reused_source_state_families(\n3600:         &self,\n3601:     ) -> Result<TraditionalSourceStateFamilyPrewarmEvidence> {\n3602:         let start = std::time::Instant::now();\n3603:         let mut eligible_family_count = 0_usize;\n3604:         let mut already_prepared_family_count = 0_usize;\n3605:         let mut prewarmed_family_count = 0_usize;\n3606:         let mut prepared_before_child_route_family_count = 0_usize;\n3607: \n3608:         if self.dimension_label_state_consumer_count > 1 {\n3609:             eligible_family_count += 1;\n3610:             if self.dimension_label_state.is_built() {\n3611:                 already_prepared_family_count += 1;\n3612:             } else {\n3613:                 let _ = self.dimension_label_state()?;\n3614:                 prewarmed_family_count += 1;\n3615:             }\n3616:             prepared_before_child_route_family_count += 1;"
+          },
+          {
+            "end": 36824,
+            "start": 36803,
+            "text": "36803: #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n36804: fn run_dimension_label_batch_source_state_scenario(\n36805:     scenario: TraditionalAnalyticsScenario,\n36806:     fact_path: &std::path::Path,\n36807:     source_state: &TraditionalVortexBatchSourceState,\n36808: ) -> Result<Option<TraditionalScenarioExecution>> {\n36809:     if !dimension_label_state_reuse_candidate(scenario) {\n36810:         return Ok(None);\n36811:     }\n36812:     let Some(dim_state) = source_state.dimension_label_state()? else {\n36813:         return Ok(None);\n36814:     };\n36815:     let execution = match scenario {\n36816:         TraditionalAnalyticsScenario::HashJoin => {\n36817:             run_streaming_hash_join_scenario_with_dim_state(fact_path, &dim_state)?\n36818:         }\n36819:         TraditionalAnalyticsScenario::JoinAggregate => {\n36820:             run_streaming_join_aggregate_scenario_with_dim_state(fact_path, &dim_state)?\n36821:         }\n36822:         _ => return Ok(None),\n36823:     };\n36824:     Ok(Some(execution))"
+          },
+          {
+            "end": 37115,
+            "start": 37076,
+            "text": "37076: fn run_streaming_hash_join_scenario_with_dim_state(\n37077:     fact_path: &std::path::Path,\n37078:     dim_state: &TraditionalDimensionLabelState,\n37079: ) -> Result<TraditionalScenarioExecution> {\n37080:     let dim_by_key = &dim_state.dim_by_key;\n37081:     let dim_stats = &dim_state.stats;\n37082:     let mut groups = TraditionalU32GroupAccumulator::default();\n37083:     let fact_stats = scan_fact_vortex_projected(\n37084:         fact_path,\n37085:         &[\"dim_key\", \"metric\"],\n37086:         None,\n37087:         |fields, chunk_rows| {\n37088:             let dim_keys = primitive_array_field(fields, \"dim_key\")?;\n37089:             let dim_keys = dim_keys.as_slice::<u32>();\n37090:             let metrics = primitive_array_field(fields, \"metric\")?;\n37091:             let metrics = metrics.as_slice::<f64>();\n37092:             if dim_keys.len() != chunk_rows || metrics.len() != chunk_rows {\n37093:                 return Err(ShardLoomError::InvalidOperation(format!(\n37094:                     \"hash join fact Vortex chunk length mismatch: chunk_rows={chunk_rows}, dim_key_len={}, metric_len={}\",\n37095:                     dim_keys.len(),\n37096:                     metrics.len()\n37097:                 )));\n37098:             }\n37099:             for (&dim_key, &metric) in dim_keys.iter().zip(metrics) {\n37100:                 if dim_state.contains_dim_key(dim_key) {\n37101:                     groups.add(dim_key, metric)?;\n37102:                 }\n37103:             }\n37104:             Ok(())\n37105:         },\n37106:     )?;\n37107: \n37108:     let residual_operator_optimization = groups\n37109:         .optimization_evidence_for_family(\n37110:             \"hash_join\",\n37111:             \"applied_residual_dense_u32_hash_join_accumulator\",\n37112:         )\n37113:         .with_dimension_membership(&dim_state.key_lookup);\n37114:     let result_json = dim_key_group_rows_json(groups.into_btree_map(), dim_by_key)?;\n37115:     let rows_materialized = result_rows_materialized(&result_json)?;"
+          },
+          {
+            "end": 37304,
+            "start": 37238,
+            "text": "37238: fn run_streaming_join_aggregate_scenario_with_dim_state(\n37239:     fact_path: &std::path::Path,\n37240:     dim_state: &TraditionalDimensionLabelState,\n37241: ) -> Result<TraditionalScenarioExecution> {\n37242:     let dim_by_key = &dim_state.dim_by_key;\n37243:     let dim_stats = &dim_state.stats;\n37244:     let mut category_interner =\n37245:         TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);\n37246:     let dense_contiguous_dim_max_key = dim_state.key_lookup.dense_contiguous_max_key();\n37247:     let fact_row_count = vortex_file_row_count(fact_path)?;\n37248:     let mut groups = if fact_row_count >= TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_ROW_THRESHOLD\n37249:         && dim_state.key_lookup.key_count >= TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_DIM_THRESHOLD\n37250:     {\n37251:         TraditionalPackedGroupAccumulator::sparse_with_capacity(\n37252:             TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_SPARSE_CAPACITY,\n37253:             \"applied_residual_sparse_packed_join_aggregate_high_cardinality_guard\",\n37254:         )\n37255:     } else {\n37256:         TraditionalPackedGroupAccumulator::default()\n37257:     };\n37258:     let fact_stats = scan_fact_vortex_projected(\n37259:         fact_path,\n37260:         &[\"dim_key\", \"category\", \"metric\"],\n37261:         Some(join_aggregate_fact_filter_expr()),\n37262:         |fields, chunk_rows| {\n37263:             let dim_keys = primitive_array_field(fields, \"dim_key\")?;\n37264:             let dim_keys = dim_keys.as_slice::<u32>();\n37265:             let categories = varbin_view_field(fields, \"category\")?;\n37266:             let metrics = primitive_array_field(fields, \"metric\")?;\n37267:             let metrics = metrics.as_slice::<f64>();\n37268:             if dim_keys.len() != chunk_rows\n37269:                 || categories.len() != chunk_rows\n37270:                 || metrics.len() != chunk_rows\n37271:             {\n37272:                 return Err(ShardLoomError::InvalidOperation(format!(\n37273:                     \"join aggregate fact Vortex chunk length mismatch: chunk_rows={chunk_rows}, dim_key_len={}, category_len={}, metric_len={}\",\n37274:                     dim_keys.len(),\n37275:                     categories.len(),\n37276:                     metrics.len()\n37277:                 )));\n37278:             }\n37279:             for (index, (&dim_key, &metric)) in dim_keys.iter().zip(metrics).enumerate() {\n37280:                 let dim_key_present = if let Some(max_key) = dense_contiguous_dim_max_key {\n37281:                     dim_key <= max_key\n37282:                 } else {\n37283:                     dim_state.contains_dim_key(dim_key)\n37284:                 };\n37285:                 if dim_key_present {\n37286:                     let category_id = intern_utf8_value_at(\n37287:                         &mut category_interner,\n37288:                         &categories,\n37289:                         \"category\",\n37290:                         index,\n37291:                     )?;\n37292:                     groups.add(dim_key, category_id, metric)?;\n37293:                 }\n37294:             }\n37295:             Ok(())\n37296:         },\n37297:     )?;\n37298: \n37299:     let residual_operator_optimization = groups\n37300:         .optimization_evidence_for_family(\n37301:             \"join_aggregate\",\n37302:             \"applied_residual_dense_packed_join_aggregate_accumulator\",\n37303:         )\n37304:         .with_dimension_membership(&dim_state.key_lookup);"
+          },
+          {
+            "end": 40407,
+            "start": 40377,
+            "text": "40377: #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n40378: fn scan_dim_label_state(\n40379:     dim_path: &std::path::Path,\n40380:     scenario: &str,\n40381: ) -> Result<(\n40382:     std::collections::HashMap<u32, String>,\n40383:     TraditionalStreamingScanStats,\n40384: )> {\n40385:     let mut dim_by_key = std::collections::HashMap::<u32, String>::new();\n40386:     let dim_stats = scan_fact_vortex_projected(\n40387:         dim_path,\n40388:         &[\"dim_key\", \"dim_label\"],\n40389:         None,\n40390:         |fields, chunk_rows| {\n40391:             let dim_keys = primitive_field::<u32>(fields, \"dim_key\")?;\n40392:             let dim_labels = utf8_field(fields, \"dim_label\")?;\n40393:             if dim_keys.len() != chunk_rows || dim_labels.len() != chunk_rows {\n40394:                 return Err(ShardLoomError::InvalidOperation(format!(\n40395:                     \"{scenario} dimension Vortex chunk length mismatch: chunk_rows={chunk_rows}, dim_key_len={}, dim_label_len={}\",\n40396:                     dim_keys.len(),\n40397:                     dim_labels.len()\n40398:                 )));\n40399:             }\n40400:             for (dim_key, dim_label) in dim_keys.into_iter().zip(dim_labels) {\n40401:                 dim_by_key.insert(dim_key, dim_label);\n40402:             }\n40403:             Ok(())\n40404:         },\n40405:     )?;\n40406:     Ok((dim_by_key, dim_stats))\n40407: }"
+          },
+          {
+            "end": 54147,
+            "start": 54114,
+            "text": "54114:     #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n54115:     #[test]\n54116:     fn dense_dimension_key_lookup_admits_compact_dimension_domains() {\n54117:         let lookup = TraditionalDimensionKeyLookup::from_dim_keys([2_u32, 4, 7].into_iter());\n54118: \n54119:         assert_eq!(lookup.status(), \"dense_dimension_key_membership\");\n54120:         assert_eq!(lookup.key_count, 3);\n54121:         assert_eq!(lookup.max_key, Some(7));\n54122:         assert_eq!(lookup.contains(2), Some(true));\n54123:         assert_eq!(lookup.contains(3), Some(false));\n54124:         assert_eq!(lookup.contains(8), Some(false));\n54125:     }\n54126: \n54127:     #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n54128:     #[test]\n54129:     fn dense_dimension_key_lookup_uses_contiguous_range_fast_path() {\n54130:         let lookup = TraditionalDimensionKeyLookup::from_dim_keys([0_u32, 1, 2, 3].into_iter());\n54131: \n54132:         assert_eq!(lookup.status(), \"dense_contiguous_dimension_key_range\");\n54133:         assert_eq!(lookup.dense_contiguous_max_key(), Some(3));\n54134:         assert_eq!(lookup.contains(2), Some(true));\n54135:         assert_eq!(lookup.contains(4), Some(false));\n54136:     }\n54137: \n54138:     #[cfg(feature = \"vortex-traditional-analytics-benchmark\")]\n54139:     #[test]\n54140:     fn dense_dimension_key_lookup_blocks_sparse_wide_domains() {\n54141:         let lookup = TraditionalDimensionKeyLookup::from_dim_keys(\n54142:             [u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap()].into_iter(),\n54143:         );\n54144: \n54145:         assert_eq!(lookup.status(), \"sparse_hash_dimension_key_membership\");\n54146:         assert_eq!(lookup.contains(2), None);\n54147:     }"
+          },
+          {
+            "end": 54412,
+            "start": 54394,
+            "text": "54394:         );\n54395:         assert_field_eq(\n54396:             &native_fields,\n54397:             \"residual_operator_sparse_rollover_used\",\n54398:             \"false\",\n54399:         );\n54400:         assert_field_eq(\n54401:             &native_fields,\n54402:             \"residual_operator_dimension_membership_status\",\n54403:             \"dense_dimension_key_membership\",\n54404:         );\n54405:         assert_field_eq(\n54406:             &native_fields,\n54407:             \"residual_operator_dimension_membership_key_count\",\n54408:             \"2\",\n54409:         );\n54410:         assert_eq!(\n54411:             native_fields\n54412:                 .get(\"provider_admission_fallback_attempted\")"
+          }
+        ],
+        "path": "shardloom-vortex/src/traditional_analytics.rs",
+        "sha256": "8039b4b248d84b21dd6e5422487cc2698a71e41225d9f1428d17c72c458a3feb"
+      }
+    ],
+    "timing_boundary": "Caller elapsed scopes; provider work can overlap. Decode/copy time is not additive to accessor time. Later-pass timings and hardware dependent-stall attribution are absent."
+  },
+  "validation": [
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 2.5257785829890054,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c3-c6-final-base-fmt.log",
+      "finished_utc": "2026-09-27T05:29:53.380758+00:00"
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 7.977129167004023,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c3-c6-final-base-workspace-clippy.log",
+      "finished_utc": "2026-09-27T05:30:01.358377+00:00"
+    },
+    {
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 12.249667333002435,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c3-c6-final-base-native-clippy.log",
+      "finished_utc": "2026-09-27T05:30:13.608367+00:00"
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 26.423942499997793,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c3-c6-final-base-workspace-tests.log",
+      "finished_utc": "2026-09-27T05:30:40.032697+00:00"
+    },
+    {
+      "name": "native-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 51.42982975000632,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c3-c6-final-base-native-tests.log",
+      "finished_utc": "2026-09-27T05:31:31.463210+00:00"
+    }
+  ],
+  "test_counts": {
+    "workspace-tests": {
+      "passed": 3425,
+      "ignored": 0
+    },
+    "native-tests": {
+      "passed": 1981,
+      "ignored": 19
+    }
+  },
+  "test_source": {
+    "path": "shardloom-vortex/src/local_primitives/packed_numeric_provider_tests.rs",
+    "sha256": "4052bc89159f88e1571dbc9f63fb1c78e992e09f27408c9f4dbc76317d5177c5"
+  },
+  "remaining_obligations": [
+    "Measure a costly ownership-stable dependent lookup before AMAC implementation",
+    "Attribute ordered FoR or other remaining numeric expansion before another packed kernel",
+    "Correct the legacy reader-generated BitPackedUnsigned expansion evidence and owner contract under PERF-01/PERF-07"
+  ],
+  "complete_query_uat": "No production runtime changed; C4 final frozen-runtime Full43 remains applicable. Prior Full43 envelopes are attribution only, not new measurements.",
+  "raw_evidence": {
+    "path": "docs/benchmarks/evidence/lookup-packed-provider-admission-2026-09-27.json.gz",
+    "compressed_bytes": 1226935,
+    "compressed_sha256": "292743f9866bf546d70e640020b39707bc3dcc0146c79ae1e2763de15d6c95d9",
+    "uncompressed_bytes": 10591145,
+    "uncompressed_sha256": "e682840d7132aa4d4092fa5a55944b1abb12d517fea8400d54dc0a6ff57657d7",
+    "members": 65
+  }
+}

@@ -36,7 +36,12 @@ C4's [compact candidate directory is retained](compact-candidate-directory-scree
 one-word code indices, read-only owned-key closure fixes and complete final
 Full43 acceptance. Final Q18 best time is 1.063 ms slower and median time
 11.357 ms slower; earlier gains remain separately recorded.
-C3 lookup-interleaving admission is next. The
+C3 [drops a new AMAC prototype at current workload admission](lookup-interleaving-admission-2026-09-27.md):
+the measured fixed-key work is small or already avoided; no runtime slowdown is
+asserted. C6 [retains the existing packed-comparison provider](packed-numeric-provider-screen-2026-09-27.md)
+with five executable provider/lowering proofs and drops duplicate kernel/layout
+work. Legacy numeric evidence expansion and ordered FoR attribution remain open.
+C2.b's finite exact-path selection screen is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

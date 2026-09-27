@@ -86,6 +86,9 @@ mod native_sort_block;
 ))]
 #[path = "local_primitive_numeric_partition_native_tests.rs"]
 mod numeric_partition_native_tests;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/packed_numeric_provider_tests.rs"]
+mod packed_numeric_provider_tests;
 #[cfg(all(
     test,
     feature = "vortex-local-primitives",
