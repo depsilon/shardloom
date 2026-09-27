@@ -44,12 +44,15 @@ generic materialized `update_row` route: it inserts owned UTF8 group keys but,
 after source-order admission closes, looked up only interned keys. The bounded
 fix first probes the same transformed owned key used at insertion, then preserves
 the existing interned-key probe for General states seeded by direct consumers.
+The owned probe is enabled only after this generic route has admitted keys;
+direct-only states preserve their earlier interner miss before later key
+expressions execute. An unknown-string/overflow fixture reproduced that
+short-circuit regression before the guard was added.
 Only the irredundant key columns are evaluated: dependent output expressions
 remain unevaluated for unretained rows. The review's dependent-offset overflow
 fixture reproduced the initial full-expression probe regression before the
 key-only correction. It does not admit new groups or strings. Failing logs are
-retained. COUNT and
-COUNT DISTINCT regressions cover this closure transition independently of the
+retained. COUNT and COUNT DISTINCT regressions cover this closure transition independently of the
 compact directory; the latter covers both owned and interned General seeds.
 Q18's comparison uses the direct candidate-directory route, so this generic
 correctness fix is not credited with its performance outcome.

@@ -317,3 +317,57 @@ fn materialized_closed_admission_skips_dependent_output_expression() {
         serde_json::json!([{"number":0, "next":1, "rows":2}])
     );
 }
+
+#[test]
+fn interned_closed_admission_skips_later_key_expression_for_unknown_string() {
+    let request = VortexSimpleAggregateRequest::grouped(
+        vec![ColumnRef::new("label").unwrap()],
+        vec![crate::VortexSimpleAggregateMeasure::new(
+            "count_distinct",
+            Some(ColumnRef::new("number").unwrap()),
+            "uniques".to_string(),
+        )],
+    )
+    .with_group_expressions(vec![
+        crate::VortexAggregateExpression::new(
+            "next".to_string(),
+            ColumnRef::new("number").unwrap(),
+            "add_offset",
+        )
+        .with_argument_offset(1),
+    ]);
+    let declared = vec!["label".to_string(), "number".to_string()];
+    let mut state =
+        GroupedAggregateStates::new(&request, Some(1), &declared, false, false).unwrap();
+    assert_eq!(state.group_key_indices.len(), 2);
+    assert!(
+        state
+            .update_general_direct_from_accessors(
+                &[
+                    strings(vec![0], &["kept"]),
+                    AggregateDirectColumnAccessor::UInt64(vec![0]),
+                ],
+                None,
+                1,
+            )
+            .unwrap()
+    );
+    state
+        .update(
+            &[
+                vec![
+                    StatValue::Utf8("absent".to_string()),
+                    StatValue::Utf8("kept".to_string()),
+                ],
+                vec![StatValue::UInt64(u64::MAX), StatValue::UInt64(0)],
+            ],
+            2,
+        )
+        .unwrap();
+    let (_, summary) = state.result_row_count_and_summary(Some(1)).unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(
+        summary["values"],
+        serde_json::json!([{"label":"kept", "next":1, "uniques":1}])
+    );
+}

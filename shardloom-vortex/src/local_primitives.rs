@@ -25536,6 +25536,7 @@ struct GroupedAggregateStates<'a> {
     source_order_numeric_utf8_dictionary_direct_updates: bool,
     source_order_candidate_filter: source_order_candidate_filter::Work,
     source_order_limited_group_admission: bool,
+    materialized_owned_group_keys: bool,
     general_direct_group_state_pre_reserved: bool,
     native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
@@ -28469,6 +28470,7 @@ impl<'a> GroupedAggregateStates<'a> {
             source_order_numeric_utf8_dictionary_direct_updates: false,
             source_order_candidate_filter: source_order_candidate_filter::Work::default(),
             source_order_limited_group_admission: false,
+            materialized_owned_group_keys: false,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
             native_numeric_accessor_work: NativeNumericAccessorWork::default(),
@@ -28492,11 +28494,15 @@ impl<'a> GroupedAggregateStates<'a> {
             // This generic path creates owned UTF8 keys, whereas native direct
             // consumers may have admitted interned keys. Probe the representation
             // used at insertion before checking a direct consumer's existing ID.
-            let owned_key = self.grouped_owned_key_for_materialized_row(columns, row_index)?;
-            if let Some(group) = self.groups.get_mut(&owned_key) {
-                group.general_states_mut()?.update_row(columns, row_index)?;
-                self.source_order_limited_group_admission = true;
-                return Ok(());
+            // A direct-only state must keep the existing interner's early miss:
+            // later key expressions need not execute for an unknown string.
+            if self.materialized_owned_group_keys {
+                let owned_key = self.grouped_owned_key_for_materialized_row(columns, row_index)?;
+                if let Some(group) = self.groups.get_mut(&owned_key) {
+                    group.general_states_mut()?.update_row(columns, row_index)?;
+                    self.source_order_limited_group_admission = true;
+                    return Ok(());
+                }
             }
             let Some(key) = self.grouped_existing_key_for_materialized_row(columns, row_index)?
             else {
@@ -28512,6 +28518,7 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.group_columns.len() == 1
             && self.update_single_group_fast_path(columns, row_index)?
         {
+            self.materialized_owned_group_keys = true;
             return Ok(());
         }
         let group_values = self
@@ -28560,6 +28567,7 @@ impl<'a> GroupedAggregateStates<'a> {
             }
         };
         entry.general_states_mut()?.update_row(columns, row_index)?;
+        self.materialized_owned_group_keys = true;
         Ok(())
     }
 
