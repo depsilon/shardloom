@@ -64,5 +64,9 @@ The [portable evidence](../benchmarks/lookup-packed-provider-admission-2026-09-2
 records source/provider identities, literal mask checks, required workspace/native
 validation and the companion C3 attribution. Reproduce the focused proof with
 `cargo test --offline -p shardloom-vortex --features release-user-surfaces packed_numeric_provider_tests`.
+Formatting, strict workspace/native Clippy, 3,425 workspace tests and 1,981 native
+tests pass (19 existing native tests ignored). The packet records the validated
+source hashes and proves that removing only the new `cfg(test)` module restores
+the C4 production source byte for byte.
 Only test modules and documentation change; the final C4 runtime's complete
 Full43 UAT remains applicable. No repeated ingest or query timing is claimed.
