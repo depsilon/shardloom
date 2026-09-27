@@ -1,0 +1,184 @@
+{
+  "schema_version": "shardloom.provider_upgrade_admission.v1",
+  "decision": "drop_086_upgrade_at_resource_contract_admission",
+  "retained_provider": "0.85.0",
+  "reviewed_providers": [
+    "0.86.0",
+    "0.86.1"
+  ],
+  "runtime_or_dependency_changes": false,
+  "upgraded_build_attempted": false,
+  "upgraded_benchmarks_run": false,
+  "performance_claim": false,
+  "source_sha256": {
+    "Cargo.toml": "2b294879ca40b0c8e39a69f2b81a05d04ee5431dcd354cbdd212810bfd9c6dda",
+    "Cargo.lock": "3cff68bfe028e3e7e0d2cd61781fae1e5a9722a9e9408643cab6ccdfc8878895",
+    "shardloom-vortex/src/owned_buffers.rs": "bf8aa500f40f7977ccbc6076572fd267e60a74595246207d0aacad51061a2d98",
+    "shardloom-vortex/src/resident_session.rs": "e0a5c90e5e03d3fa7cac5b4ceaa2c3c797ab258d12848641e892f5bffa16b98e",
+    "shardloom-vortex/src/local_primitives.rs": "125e2dfbbb5b74bfec0af682b0427a86c6c83c3d9eb240f1643bb2446f1baf53"
+  },
+  "archived_source_prefix": "local/",
+  "source_base": "cd8a3ad90e9271af1a41fc8b9f6783af9fb232dc",
+  "audit": {
+    "schema_version": 1,
+    "kind": "c1_vortex_allocator_admission_read_only_audit",
+    "repo_head": "cd4d776f9c094215a9fba700f43a534cc3781cb6",
+    "upstream_sources": {
+      "0.86.1": "https://github.com/vortex-data/vortex/tree/0.86.1",
+      "0.86.0": "https://github.com/vortex-data/vortex/tree/0.86.0",
+      "fetches": "Exact tag raw source files retained under the named external ROOT directory; no Cargo operations."
+    },
+    "source_sha256": {
+      "local_owned_buffers": "bf8aa500f40f7977ccbc6076572fd267e60a74595246207d0aacad51061a2d98",
+      "local_resident_session": "e0a5c90e5e03d3fa7cac5b4ceaa2c3c797ab258d12848641e892f5bffa16b98e",
+      "upstream_0861_array_memory": "2c160ae23dbf04d85cb5a6c1a978a76f99f4ee7b00b76b03fce4467712776ade",
+      "upstream_0861_allocator": "4444ac885588ec2ed99184a351cff6e31629b007f4f9201cfb9745c476e1a831",
+      "upstream_0861_buffer_mut": "f8b16dc89c6f1c6da2fa9c31a1d7168fc9ed320c0662c969c5fc699c86f050a6",
+      "upstream_0861_buffer": "1030c1d5cee741a31e6172ade7634f7ee78a074e78501a7332964d9437480eec",
+      "upstream_0861_executor": "67a943d796ea4d001c57ebc2777a656dd9370d67b0698c485879a272feda984f",
+      "upstream_0861_builders": "0e7b9219085cb008e4f3bb45c552f110a1cbec0ca341ef47995b5aa3943b8d8a",
+      "upstream_0861_primitive_builder": "85d188427de4fe12ef371bfb8d730f7596373cd326ab3bbf7dd12b89368bb539",
+      "upstream_0860_array_memory": "2c160ae23dbf04d85cb5a6c1a978a76f99f4ee7b00b76b03fce4467712776ade",
+      "upstream_0860_allocator": "4444ac885588ec2ed99184a351cff6e31629b007f4f9201cfb9745c476e1a831",
+      "upstream_0860_buffer_mut": "f8b16dc89c6f1c6da2fa9c31a1d7168fc9ed320c0662c969c5fc699c86f050a6"
+    },
+    "0860_vs_0861_same_bytes_for_core_surfaces": {
+      "array-memory": true,
+      "buffer-allocation": true,
+      "buffer-mut": true
+    },
+    "trace": [
+      {
+        "step": "Session and execution-context allocator",
+        "source": "vortex-array/src/memory.rs",
+        "lines": "16-75",
+        "url": "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-array/src/memory.rs#L16-L75",
+        "facts": [
+          "MemorySession stores BufferAllocatorRef; allocator() clones it and with_allocator accepts BufferAllocatorRef.",
+          "ExecutionCtx stores OnceLock<BufferAllocatorRef>; allocator() lazily initializes from session.",
+          "The same bytes are present at 0.86.0 (SHA equality in source_sha256)."
+        ]
+      },
+      {
+        "step": "Provider execution asks for allocator-backed builder",
+        "source": "vortex-array/src/executor.rs",
+        "lines": "350-399, 292-300, 541-547",
+        "url": "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-array/src/executor.rs#L350-L399",
+        "facts": [
+          "ExecutionCtx::allocator returns &BufferAllocatorRef from its session.",
+          "AppendChild and parent materialization invoke builder_with_capacity_in(..., ctx.allocator())."
+        ]
+      },
+      {
+        "step": "Builder reaches BufferMut",
+        "source": "vortex-array/src/builders/mod.rs and builders/primitive.rs",
+        "lines": "396-410; 52-61",
+        "urls": [
+          "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-array/src/builders/mod.rs#L396-L410",
+          "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-array/src/builders/primitive.rs#L52-L61"
+        ],
+        "facts": [
+          "builder_with_capacity_in dispatches primitive dtype to PrimitiveBuilder::with_capacity_in.",
+          "PrimitiveBuilder creates values with BufferMut::with_capacity_in and a LazyBitBufferBuilder using cloned allocator."
+        ]
+      },
+      {
+        "step": "BufferMut allocation reaches Allocation",
+        "source": "vortex-buffer/src/buffer_mut.rs",
+        "lines": "114-155, 472-510, 512-535",
+        "url": "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-buffer/src/buffer_mut.rs#L114-L155",
+        "facts": [
+          "with_capacity_preferred_aligned_in builds an aligned allocation layout (size plus alignment slack) then calls Allocation::allocate and returns Self.",
+          "reserve returns unit; growth path calls Allocation::grow for a custom allocator (BufferMut reserve_allocate lines 472-535)."
+        ]
+      },
+      {
+        "step": "Allocation alloc/grow failure normalization and ownership",
+        "source": "vortex-buffer/src/allocation.rs",
+        "lines": "23-45, 100-155, 238-343",
+        "url": "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-buffer/src/allocation.rs#L238-L343",
+        "facts": [
+          "BufferAllocator is a marker over allocator_api2::Allocator + Debug + Send + Sync + static; BufferAllocatorRef::new wraps a shared custom allocator.",
+          "Allocator callbacks allocate, allocate_zeroed, grow, grow_zeroed, shrink return Result<NonNull<[u8]>, AllocError>; deallocate is callback.",
+          "Allocation retains the BufferAllocatorRef through owned buffer lifetime and Drop calls allocator.deallocate.",
+          "Allocation::allocate_impl unwraps allocation failure with handle_alloc_error(layout) at lines 274-295; Allocation::grow similarly unwraps allocate/grow failure with handle_alloc_error(new_layout) at lines 321-332. Neither path returns a VortexResult/Result from BufferMut constructors/growth.",
+          "BufferAllocatorRef implements Allocator with unsafe impl and forwards allocation/grow callbacks (lines 100-155)."
+        ]
+      },
+      {
+        "step": "Fallible-looking public buffer methods",
+        "source": "vortex-buffer/src/buffer_mut.rs and buffer.rs",
+        "lines": "buffer_mut.rs 953-967; buffer.rs 626-650",
+        "urls": [
+          "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-buffer/src/buffer_mut.rs#L953-L967",
+          "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-buffer/src/buffer.rs#L626-L650"
+        ],
+        "facts": [
+          "The only public try_* methods in the fetched BufferMut file are try_extend_trusted and try_from_trusted_len_iter; their Result E is from iterator items (iter.process_results), while buffer allocation occurs through infallible constructors.",
+          "Buffer::try_into_mut returns Err(Self) when backing is non-Owned or Arc ownership cannot be extracted; it is an ownership uniqueness conversion, not an allocation-error Result."
+        ]
+      },
+      {
+        "step": "External byte wrapping / owner retention boundary",
+        "source": "vortex-buffer/src/buffer.rs",
+        "lines": "130-143, 324-347, 407-415",
+        "url": "https://github.com/vortex-data/vortex/blob/0.86.1/vortex-buffer/src/buffer.rs#L324-L347",
+        "facts": [
+          "ByteBuffer::from_bytes_aligned accepts an existing bytes::Bytes and stores it as BufferBacking::Bytes; this wraps existing bytes rather than invoking BufferAllocator for allocation.",
+          "Buffer::allocator says external buffers use the static allocator for derived buffers at lines 407-415.",
+          "ShardLoom 0.85 owner path uses Bytes::from_owner(ReservedBufferOwner { buffer, _lease }) then ByteBuffer::from_bytes_aligned; current lines owned_buffers.rs 87-95."
+        ]
+      }
+    ],
+    "current_shardloom_sites": [
+      {
+        "path": "shardloom-vortex/src/owned_buffers.rs",
+        "lines": "25-42",
+        "fact": "ReservedHostAllocator implements 0.85 HostAllocator, reserves a typed MemoryLease, calls DefaultHostAllocator, returns WritableHostBuffer."
+      },
+      {
+        "path": "shardloom-vortex/src/owned_buffers.rs",
+        "lines": "69-95",
+        "fact": "ReservedWritableBuffer implements HostBufferMut; freeze transfers lease into Bytes owner held by ByteBuffer."
+      },
+      {
+        "path": "shardloom-vortex/src/resident_session.rs",
+        "lines": "365-367",
+        "fact": "Session is configured using .with_allocator(Arc::new(ReservedHostAllocator::new(...)))."
+      },
+      {
+        "path": "shardloom-vortex/src/local_primitives.rs",
+        "lines": "40723-40729",
+        "fact": "native_numeric_execution_ctx calls session.create_execution_ctx(); 0.86.1 keeps this execution-context extension method."
+      }
+    ],
+    "available_hooks_and_limits": {
+      "provider_allocator_callbacks": "allocate/allocate_zeroed/grow/grow_zeroed/shrink/deallocate with allocator-owned state and Allocation retaining allocator ref until drop; exact API/lines at allocation.rs:100-155 and 238-343.",
+      "typed_denial_propagation": "No Vortex error-return hook was found on Allocation/BufferMut allocation or growth; Allocation discards the allocator error and invokes handle_alloc_error. BufferMut constructors and reserve are infallible in signatures. The exact behavior of global allocation-error handler is outside inspected Vortex files.",
+      "owner_hook": "Bytes/ByteBuffer external wrapping can retain a caller-supplied bytes::Bytes owner, but it is a separate existing-buffer path; no such owner parameter exists on BufferMut constructors.",
+      "missing_evidence": [
+        "No allocator_api2 crate source was fetched (dependency version declared as 0.2.21 in 0.86.1 workspace Cargo.toml); no claim about any third-party crate hooks beyond the Vortex usage signatures above.",
+        "This audit did not trace every encoding kernel allocation; the source path demonstrates the shared builder materialization route and buffer allocator failure policy."
+      ]
+    },
+    "no_decisions_or_execution": [
+      "Read-only source inspection only. No repository edits, build, tests, benchmarks, toolchain/dependency changes."
+    ]
+  },
+  "evidence_scope": "Exact tagged upstream source plus current retained-provider source/tests. Historical local audit commit label is not a required Git object; archived bytes and hashes are authoritative.",
+  "blockers": [
+    "Provider allocation/growth converts AllocError to handle_alloc_error rather than a typed recoverable VortexResult.",
+    "Custom BufferAllocator requires allocator_api2 unsafe Allocator implementation; current workspace forbids local unsafe code."
+  ],
+  "owner_hook_scope": "Existing Bytes ownership wraps already-created buffers; it does not intercept provider builder allocation or growth.",
+  "reopening": "Fallible upstream provider allocation with typed budget denial and last-buffer-owner reservation lifetime, or an explicitly approved replacement design proving the same contracts.",
+  "retained_validation": "Three owned_buffers tests passed in final C2 native acceptance; no validation of an upgraded provider is claimed.",
+  "raw_evidence": {
+    "path": "docs/benchmarks/evidence/vortex-086-upgrade-admission-2026-09-27.json.gz",
+    "compressed_bytes": 478294,
+    "compressed_sha256": "42df29120a00673edee0b4601ff0ac97eedbc84f033ee2121e166ba09df3801d",
+    "uncompressed_bytes": 4012221,
+    "uncompressed_sha256": "826385421a106fe678abfdef9c67e38184d74626ac544890af7a4558497b45e4",
+    "members": 29
+  }
+}

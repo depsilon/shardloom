@@ -1,5 +1,14 @@
 # Vortex Upstream Dependency Review
 
+## September 27, 2026 provider admission
+
+Vortex 0.86.0/0.86.1 are released and have been reviewed under C1. The workspace
+retains 0.85.0: the new buffer allocator no longer returns typed recoverable
+budget denial through the current provider boundary. See the
+[exact API/resource admission decision](../architecture/vortex-086-upgrade-admission-2026-09-27.md).
+No upgraded build or performance result is claimed. Earlier references to
+0.86.0 as a draft describe the historical intake, not current release status.
+
 ## Purpose
 
 This document is a historical dependency-review ledger for ShardLoom's upstream

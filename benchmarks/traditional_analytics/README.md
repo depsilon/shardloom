@@ -801,6 +801,8 @@ profile-generate/profile-use status, PGO artifact/training workload refs, build 
 status, portable release artifact status, benchmark-only build status,
 `build_profile_correctness_digest`, no-fallback fields, and claim gate. Supported lanes are
 `debug`, `release`, `release-lto`, `release-pgo`, and `release-native-benchmark`.
+Ordinary `release` uses portable ThinLTO with one codegen unit; `release-lto` is a
+compatible alias. Historical records retain the configuration used for their runs.
 `target-cpu=native` is applied only by `release-native-benchmark`, is benchmark-only, and is not a
 portable release setting. `release-pgo` is report-only unless `SHARDLOOM_PGO_PROFILE` points to a
 merged profile artifact. Optimized build rows are not public performance claims.

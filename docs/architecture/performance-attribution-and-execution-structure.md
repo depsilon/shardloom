@@ -578,7 +578,8 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-The default release build remains the portable release baseline. `target-cpu=native` is applied only
+The default release build uses portable ThinLTO and one codegen unit; `release-lto` remains a
+compatible profile alias. `target-cpu=native` is applied only
 by the explicit `release-native-benchmark` harness path. PGO rows need a reproducible
 instrumented-build, training-run, `llvm-profdata` merge, and profile-use rebuild sequence, plus
 training workload refs; without `SHARDLOOM_PGO_PROFILE`, `release-pgo` remains report-only.

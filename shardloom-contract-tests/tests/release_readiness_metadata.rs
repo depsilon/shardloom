@@ -189,7 +189,20 @@ fn cargo_metadata_marks_current_workspace_crates_internal() {
 
 #[test]
 fn optimized_build_profiles_preserve_portable_release_boundary() {
-    let workspace = read_repo_file("Cargo.toml");
+    let workspace = read_repo_file("Cargo.toml").replace("\r\n", "\n");
+    let release = workspace
+        .split("[profile.release]\n")
+        .nth(1)
+        .expect("explicit portable release profile")
+        .split("\n[")
+        .next()
+        .expect("release profile settings");
+    for setting in ["lto = \"thin\"", "codegen-units = 1"] {
+        assert!(
+            release.contains(setting),
+            "missing default release setting {setting}"
+        );
+    }
     for required in [
         "[profile.release-lto]",
         "inherits = \"release\"",

@@ -446,8 +446,10 @@ jobs:
           test -f target/release-dry-run-proof/transcript.json
           test -f target/golden-workflow-report.json
           test -d target/golden-workflows
-      - name: Build release user-surface example binary
+      - name: Build debug user-surface example binary
         run: cargo build -q -p shardloom-cli --features "release-user-surfaces vortex-traditional-analytics-benchmark"
+      - name: Build portable release user-surface example binary
+        run: cargo build --release -q -p shardloom-cli --features "release-user-surfaces vortex-traditional-analytics-benchmark"
       - name: Python user-surface completion gate
         run: python scripts/check_python_user_surface_completion.py
       - name: SQL/Python/DataFrame parity gate
@@ -465,7 +467,7 @@ jobs:
       - name: V1 observability/supportability gate
         run: python scripts/check_v1_observability_support.py --skip-build
       - name: V1 example replay gate
-        run: python scripts/check_v1_example_replay.py --profile-order debug,release --skip-build
+        run: python scripts/check_v1_example_replay.py --binary target/release/shardloom --profile-order release,debug --skip-build
       - name: User-surface runtime gap inventory
         run: python scripts/check_user_surface_runtime_gap_inventory.py
       - name: User-surface graduation matrix

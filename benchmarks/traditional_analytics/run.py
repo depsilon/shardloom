@@ -13550,23 +13550,7 @@ def build_profile_template(profile: str) -> dict[str, Any]:
             "portable_release_artifact": False,
             "benchmark_only_build": False,
         }
-    if profile == "release":
-        return {
-            "build_profile_kind": "portable_release_baseline",
-            "target_cpu_policy": "portable_default",
-            "target_cpu_native_enabled": False,
-            "lto_enabled": False,
-            "lto_mode": "none",
-            "codegen_units": "cargo_default_release",
-            "pgo_status": "not_configured",
-            "pgo_profile_generate_status": "not_requested",
-            "pgo_profile_use_status": "not_requested",
-            "pgo_profile_artifact_ref": "none",
-            "build_reproducibility_status": "portable_baseline",
-            "portable_release_artifact": True,
-            "benchmark_only_build": False,
-        }
-    if profile == "release-lto":
+    if profile in ("release", "release-lto"):
         return {
             "build_profile_kind": "portable_lto",
             "target_cpu_policy": "portable_default",
@@ -17594,8 +17578,8 @@ def build_profile_contract() -> dict[str, Any]:
             "benchmark-only lanes"
         ),
         "profile_boundary": {
-            "release": "portable baseline; remains the default release-style benchmark build",
-            "release-lto": "portable ThinLTO optimized local artifact lane",
+            "release": "portable ThinLTO with one codegen unit; default release build",
+            "release-lto": "compatible profile alias for the portable ThinLTO release build",
             "release-pgo": (
                 "report-only PGO lane unless SHARDLOOM_PGO_PROFILE points to a merged "
                 "profile artifact"

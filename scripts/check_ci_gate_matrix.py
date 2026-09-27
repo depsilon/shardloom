@@ -274,6 +274,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         job_id="release-user-surface",
         commands=(
             "cargo build -q -p shardloom-cli --features \"release-user-surfaces vortex-traditional-analytics-benchmark\"",
+            "cargo build --release -q -p shardloom-cli --features \"release-user-surfaces vortex-traditional-analytics-benchmark\"",
             "python scripts/check_python_user_surface_completion.py",
             "python scripts/check_sql_python_dataframe_parity.py",
             "python scripts/check_v1_front_door_runtime_scope.py",
@@ -282,7 +283,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/check_v1_local_output_sink_scope.py",
             "python scripts/check_v1_local_resource_safety.py --skip-build",
             "python scripts/check_v1_observability_support.py --skip-build",
-            "python scripts/check_v1_example_replay.py --profile-order debug,release --skip-build",
+            "python scripts/check_v1_example_replay.py --binary target/release/shardloom --profile-order release,debug --skip-build",
             "python scripts/check_user_surface_runtime_gap_inventory.py",
             "python scripts/check_user_surface_graduation_matrix.py",
             "python scripts/check_runtime_gap_family_burn_down.py",

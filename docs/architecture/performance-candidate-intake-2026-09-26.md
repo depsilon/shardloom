@@ -45,7 +45,14 @@ C2.b [retains bounded small-input COUNT selection](small-numeric-count-selection
 960 complete native screen calls establish a conservative 32,768-row bound,
 with exact/resource acceptance and all 258 Full43 results passing. Useful small
 boundary gains are retained; no Full43 speedup is attributed to the selector.
-C1's isolated provider upgrade review is next. The
+C1 [drops the released 0.86.x upgrade at resource admission](vortex-086-upgrade-admission-2026-09-27.md):
+its allocator refusal path cannot retain the current typed budget-denial contract.
+The current provider stays in place, with explicit reopening conditions.
+The [C5 compiler-profile screens](compiler-profile-screen-2026-09-27.md) retain
+portable ThinLTO (3.21% lower query total, 7.53% lower ingest) for ordinary release;
+final artifact acceptance passes. Tested PGO and native CPU configurations
+retain their small query gains in the record but are not promoted because ingest
+slows; existing explicit profiles remain available. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
