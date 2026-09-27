@@ -348,7 +348,10 @@ Constraints:
     evidence by itself.
   - Current-route follow-up: all paired Q34/Q35 calls in
     `paired43_20260926T234401225793Z` select `complete_key_partition_topk` and
-    report `string_topk_sketch_update_elided`. The current partition path avoids
+    report `string_topk_sketch_update_elided`. All 12 control/candidate envelopes,
+    their manifest hashes and extracted route fields are preserved in
+    [the route audit](../benchmarks/recipe-route-attribution-2026-09-27.json)
+    and its checked-in raw archive. The current partition path avoids
     the old sketch update, so replacing its BTreeSet has no established gain on
     these calls. A different sketch-active workload requires its own attribution;
     the historical 7% is not an additional current speedup.

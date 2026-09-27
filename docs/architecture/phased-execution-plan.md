@@ -272,7 +272,10 @@ Full43 calls pass. This supersedes the original cutoff-only drop; see
 `writer-subtree-occupancy-screen-2026-09-26.md`. R8's eager shared-producer variant
 is dropped after a complete concurrent-cohort screen; existing explicit owned
 fanout remains available. See `concurrent-source-reuse-screen-2026-09-26.md`.
-C2.a follows.
+C2.a retains block-bound numeric measure kernels in mixed exact-DISTINCT updates:
+18.34% lower best complete Q10 time in the initial screen, confirmed by the
+paired Full43 comparison, with 276 complete outputs validated. See
+`executable-block-recipes-screen-2026-09-27.md`. R5.b follows.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -309,7 +312,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R9.a: drop duplicate prepare/seal/reuse implementation after tracing one-pass streamed serialization and existing memory-generation segment reuse. See `native-fragment-reuse-audit-2026-09-26.md`.
     - [x] R9.b: retain shared-slot writer lookahead with 6.52% lower complete ingest, exact output and paired Full43 acceptance; the original 6.58% gain remains separately scoped evidence. See `writer-subtree-occupancy-screen-2026-09-26.md`.
     - [x] R8: drop eager shared-producer routing after source-read attribution and complete concurrent aggregates; retain existing explicit owned fanout. Broader streaming/decode sharing needs new attribution. See `concurrent-source-reuse-screen-2026-09-26.md`.
-    - [ ] C2.a: record admission and ship/drop for Pre-bound executable block recipes.
+    - [x] C2.a: retain block-bound numeric measure kernels in mixed exact-DISTINCT updates; complete Q10 gains, Full43 and bounded Q9 follow-up pass. See `executable-block-recipes-screen-2026-09-27.md`.
     - [ ] R5.b: record admission and ship/drop for Transfer reservation-owned pages/buffers across stages.
     - [ ] R5.c: record admission and ship/drop for Bounded read/compute/output overlap in native workflows.
     - [ ] C4: record admission and ship/drop for Compact immutable dictionary directories.
@@ -332,9 +335,9 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: after R8's evidence PR, attribute C2.a setup remaining after
-    prepared lowering; preserve physical encoding, validity, dictionary identity,
-    source generation and fresh mutable state before reusing a block recipe.
+  - Next outcome: after C2.a's PR, attribute R5.b's remaining copied owners across
+    native stages; reuse existing lifetime credits and buffer transfers, and
+    measure a complete pressured workflow before retaining another mechanism.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
