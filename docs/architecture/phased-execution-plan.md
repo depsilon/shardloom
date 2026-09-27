@@ -282,9 +282,9 @@ See `spill-key-owner-screen-2026-09-27.md`. R5.c drops a second generic overlap
 queue at bounded admission: existing provider overlap is retained and twelve
 complete native output calls pass, without an identified independent idle stage.
 See `native-sink-overlap-screen-2026-09-27.md`. C4 retains the compact chunk-code
-directory and owned-key closure fix: one-word code indices, exact retained
-prefixes, complete final Full43 and bounded Q17 follow-up pass. Final Q18 best
-time is 0.916 ms slower and median time 6.327 ms lower; prior revision gains stay
+directory and owned-key closure fix: one-word code indices and read-only owned
+probes, with complete final Full43 acceptance. Final Q18 best time is 1.063 ms
+slower and median time 11.357 ms slower; prior revision gains stay
 separately scoped. See
 `compact-candidate-directory-screen-2026-09-27.md`. C3 follows.
 The release train remains
@@ -326,7 +326,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C2.a: retain block-bound numeric measure kernels in mixed exact-DISTINCT updates; complete Q10 gains, Full43 and bounded Q9 follow-up pass. See `executable-block-recipes-screen-2026-09-27.md`.
     - [x] R5.b: retain borrowed spill predecessor ownership; half the merge-head copies, faster complete pressured calls and Full43 regression acceptance. See `spill-key-owner-screen-2026-09-27.md`.
     - [x] R5.c: drop another generic overlap queue at bounded admission; preserve existing bounded provider overlap and complete native output attribution. See `native-sink-overlap-screen-2026-09-27.md`.
-    - [x] C4: retain compact chunk-code candidate directories and exact owned-key closure updates; final Full43, bounded Q17 follow-up and native validation pass. See `compact-candidate-directory-screen-2026-09-27.md`.
+    - [x] C4: retain compact chunk-code candidate directories and read-only owned-key closure updates; final Full43 and native validation pass. See `compact-candidate-directory-screen-2026-09-27.md`.
     - [ ] C3: record admission and ship/drop for AMAC-style lookup interleaving.
     - [ ] C6: record admission and ship/drop for Exact packed numeric predicates.
     - [ ] C2.b: record admission and ship/drop for Finite cost-based selection among exact implementations.

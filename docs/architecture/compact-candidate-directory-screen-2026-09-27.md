@@ -84,18 +84,18 @@ arbitrary mixed routes or compact-to-General state conversion are supported.
 
 ## Retention evidence
 
-The latest validated frozen candidate is `fd407c2c0d77482c2c2fcef8a7a93d17dd302334`, compared
+The final frozen candidate is `7f518ee6274acbd69ce7e58c7bafbe072576773c`, compared
 with the R5.b runtime `ef8e08f3e00569b81185e4cc6899abf6c2b9547e`; R5.c changed test
 attribution only. The retained source has 99,997,497 rows and 15,682,956,116 bytes.
 All comparisons time native process startup, complete CLI output and exit.
 
 | Final Q18 evidence, six calls per binary | Control | Candidate |
 | --- | ---: | ---: |
-| Best complete call | 269.963 ms | 270.879 ms |
-| Median complete call | 288.594 ms | 282.267 ms |
+| Best complete call | 268.787 ms | 269.850 ms |
+| Median complete call | 288.538 ms | 299.895 ms |
 
-The final best comparison is 0.916 ms slower (0.34%); the median is 6.327 ms lower
-(2.19%). The earlier `443a532` revision recorded 0.90% lower best time and 0.70%
+The final best comparison is 1.063 ms slower (0.40%); the median is 11.357 ms slower
+(3.94%). The earlier `443a532` revision recorded 0.90% lower best time and 0.70%
 lower median time. Those are separate revision-specific observations. Retain the
 compact code table and correctness fixes without claiming exclusive attribution,
 a consistent latency improvement, whole-query memory reduction or production-wide
@@ -103,20 +103,26 @@ improvement. Every sample, including the first slower candidate calls, remains
 in the evidence.
 
 Final Full43 validates all 258 complete outputs; its best-of-three sums are
-70.015689 s control and 69.958898 s candidate. This is regression coverage,
-not an attributed suite speedup. The earlier Q26/Q35 timing flags do not recur.
-Q17 alone crosses the final timing screen. Six reverse-order follow-up calls
-validate complete values and clear that screen: best 2.947601 s control /
-2.873507 s candidate. The packet keeps all 1,074 outputs across superseded and
-final comparisons; no follow-up sample replaces a Full43 result.
+78.507830 s control and 77.482671 s candidate. This is regression coverage,
+not an attributed suite speedup. Q34 alone crosses the final timing screen;
+all six reverse-order follow-up calls validate complete values, but the timing
+flag persists: best 4.875415 s control / 5.560657 s candidate. All six use the
+existing owned-UTF8 complete-key partition route, with 99,997,497 worker rows,
+ten CPU slots and nine compute threads. The extra elapsed time is predominantly
+caller join wait; those overlapping worker spans do not establish an exclusive
+cause. Q34 does not execute the source-order limited directory or the closed
+owned-key probe. This remains a profiling observation under the maintainer's
+accepted concurrent-host context, not a cleared screen or a diagnosed runtime
+regression. Retention is scoped to the compact directory layout and correctness;
+no Q34 or suite speedup is claimed. The packet preserves all 1,344 outputs across
+all revisions. No follow-up sample replaces a Full43 result.
 
-Nine focused regressions, 3,425 workspace tests and 1,975 native tests pass
+Ten focused regressions, 3,425 workspace tests and 1,976 native tests pass
 (19 native tests ignored). Formatting and strict workspace/native Clippy pass.
 Static and independent PR review led to matched-only payload retention and exact
-prefix short-circuit fixtures. All 40 remote checks pass on the final runtime
-commit. The subsequent read-only probe correction requires fresh runtime
-validation and frozen Full43 acceptance before merge; those results will replace
-the final-cohort designation below without discarding these samples.
+prefix/error fixtures, followed by read-only probing without duplicate state.
+All 40 remote checks pass on the final runtime commit. The final
+evidence/documentation revision remains subject to PR review before merge.
 
 The [machine-readable evidence](../benchmarks/compact-candidate-directory-2026-09-27.json)
 links the portable raw packet with complete envelopes, source patches, binary
