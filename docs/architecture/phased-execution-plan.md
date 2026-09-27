@@ -255,6 +255,7 @@ large text-format performance tests paused. The shared all-I/O layout policy
 remains follow-up: native Vortex preparation preserves existing input layout.
 
 - [ ] `RELEASE-032` publish and verify the 0.3.2 technical-preview patch train.
+  - V1 scope classification: `required_for_v1`.
   - Scope: release packaging of the merged PERF-12/CG-21 I/O repair; no new
     implementation phase or competitive gate. CG-1 through CG-23 remain visible
     in the existing track and retain their current completion boundaries.
