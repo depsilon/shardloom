@@ -24,7 +24,10 @@ R9.b's [shared-slot lookahead is retained](writer-subtree-occupancy-screen-2026-
 with 6.52% lower complete ingest, byte-identical outputs and paired Full43
 acceptance after the maintainer rejected a cutoff-only drop. R8's eager shared
 producer is [dropped for the measured concurrent workflow](concurrent-source-reuse-screen-2026-09-26.md);
-the existing explicit owned-array API remains available. C2.a block recipes is next. The
+the existing explicit owned-array API remains available. C2.a's
+[block-bound numeric recipes are retained](executable-block-recipes-screen-2026-09-27.md)
+with 18.34% lower best complete Q10 time in the initial screen and Full43
+regression acceptance. R5.b buffer ownership transfer is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
