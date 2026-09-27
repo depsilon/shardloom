@@ -86,6 +86,9 @@ mod native_sort_block;
 ))]
 #[path = "local_primitive_numeric_partition_native_tests.rs"]
 mod numeric_partition_native_tests;
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/numeric_worker_selection_screen.rs"]
+mod numeric_worker_selection_screen;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/packed_numeric_provider_tests.rs"]
 mod packed_numeric_provider_tests;
@@ -20362,7 +20365,15 @@ fn read_lowered_vortex_simple_aggregate_scan(
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
         .transpose()?;
 
-    let mut count_workers = if residual_evaluator.is_none()
+    // The offline selection screen compares existing routes before input using
+    // the same public request and resource policy. Production admission is unchanged.
+    let worker_admission_selected = true;
+    #[cfg(test)]
+    let worker_admission_selected = aggregate_count_workers::ADMISSION_TEST_WORKERS
+        .with(std::cell::Cell::take)
+        .unwrap_or(worker_admission_selected);
+    let mut count_workers = if worker_admission_selected
+        && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
     {
         aggregate_count_workers::CountWorkers::admit(

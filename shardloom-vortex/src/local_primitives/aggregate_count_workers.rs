@@ -1233,6 +1233,9 @@ pub(super) enum SourceScanTestFault {
 
 #[cfg(test)]
 thread_local! {
+    // One-shot existing-route selection for complete public-call comparison.
+    // Consumed before admission, so the normal provider-driver restoration runs.
+    pub(super) static ADMISSION_TEST_WORKERS: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
     pub(super) static SOURCE_SCAN_TEST_FAULT: std::cell::Cell<Option<SourceScanTestFault>> = const { std::cell::Cell::new(None) };
     // Scoped to the calling test thread and consumed once. The actual worker
     // reservation fails; the pressure lease refunds before the native scan.
