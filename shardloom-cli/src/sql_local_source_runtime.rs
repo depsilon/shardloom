@@ -46951,7 +46951,7 @@ mod tests {
             (r#"{"v":1} trailing"#, LogicalDType::Int64),
             (r#"{"ignored":[1,}"#, LogicalDType::Int64),
             (r#"{"ignored":"\x"}"#, LogicalDType::Int64),
-            (r#"{}"#, LogicalDType::Int64),
+            ("{}", LogicalDType::Int64),
         ];
         for (invalid, dtype) in cases {
             let (root, mut reader) = direct_jsonl_test_reader(
