@@ -59,6 +59,8 @@ pub(super) fn prepare(
         .iter()
         .map(|field| field.name().clone())
         .collect::<Vec<_>>();
+    // Source schema identity excludes the writer's derived metadata columns.
+    let source_schema_digest = fnv64_digest(&header.join(","));
     let column_arrow_dtypes = batch
         .schema()
         .fields()
@@ -121,8 +123,6 @@ pub(super) fn prepare(
         LocalSourceProjectionPushdownStatus::TextParserColumnPruning;
     source.materialization_layout = "whole_json_typed_columns_with_batched_writer";
     source.parse_normalization = "json_adapter_to_whole_typed_columns";
-    // Like the prior JSON route, infer types without explicit schema hints.
-    let source_schema_digest = fnv64_digest(&source.header.join(","));
     finish_text_streaming_vortex_prepare(
         request,
         source,

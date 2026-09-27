@@ -21,7 +21,8 @@ complete document before the native writer begins. Keep schema-hinted JSON
 on its existing explicit adapter path.
 
 This candidate retains whole-file text/character parsing and whole typed
-columns. The writer receives slices at existing batch sizes. It is not a
+columns in chunks at the existing batch sizes, including late-null backfill.
+This preserves each Arrow string buffer's existing offset range. It is not a
 bounded-memory JSON parser or a whole-process reservation guarantee. Test
 first/late/all nulls, changing field order, duplicates, nested text, Unicode,
 numeric precision, malformed/trailing input, limits and failure atomicity.
@@ -33,7 +34,7 @@ every sample and keep useful gains without an arbitrary percentage floor.
 - Subject: existing explicit JSON compatibility input, with no new grammar.
 - Decision: `implement_shardloom_kernel` in the input adapter; reuse the current
   parser and Arrow 58.3 builders through `shardloom-vortex::universal_format_io`.
-- Provider: existing scalar dtype/append helpers, Arrow `RecordBatch` slicing,
+- Provider: existing scalar dtype/append helpers, Arrow `RecordBatch` ownership,
   Vortex 0.85 `ArrayRef::from_arrow` and the native streaming writer.
 - Boundary: decoded compatibility input to typed columns and native Vortex
   output. Vortex input is not decoded to execute this adapter.
