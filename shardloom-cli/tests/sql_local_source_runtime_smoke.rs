@@ -1462,12 +1462,22 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
         assert!(stdout.contains(&field("ingress_route", "vortex_ingest")));
         assert!(stdout.contains(&field("vortex_ingest_status", "prepared_state_created")));
         let streaming = cfg!(feature = "universal-format-io");
+        if source_format == "json" {
+            assert!(stdout.contains(&field(
+                "source_read_buffer_carry_status",
+                "read_once_buffer_carried_to_text_parser"
+            )));
+            assert!(stdout.contains(&field(
+                "source_read_mmap_eligibility_status",
+                "not_used_owned_text_buffer_default"
+            )));
+        }
         assert!(stdout.contains(&field(
             "source_state_materialization_layout",
             if !streaming {
                 "scalar_row_map"
             } else if source_format == "json" {
-                "typed_text_rows_to_streaming_arrow_record_batch_source_state"
+                "whole_json_typed_columns_with_batched_writer"
             } else {
                 "inferred_text_to_streaming_arrow_record_batch_source_state"
             }
@@ -1477,7 +1487,7 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
             if !streaming {
                 "local_text_to_scalar_rows"
             } else if source_format == "json" {
-                "text_adapter_to_typed_record_batch_stream"
+                "json_adapter_to_whole_typed_columns"
             } else {
                 "inferred_text_to_record_batch_stream"
             }

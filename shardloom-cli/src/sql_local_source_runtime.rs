@@ -10,6 +10,9 @@
 //! integrations. Local Vortex output is a scoped writer sink behind
 //! `vortex-write`, not a Vortex query-engine integration or table commit.
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+mod whole_json_typed;
+
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
@@ -3685,7 +3688,9 @@ impl VortexIngestSourceData {
     }
 
     fn source_read_buffer_carry_status(&self) -> &'static str {
-        if self.columnar_source_preserved {
+        if self.materialization_layout == "whole_json_typed_columns_with_batched_writer" {
+            "read_once_buffer_carried_to_text_parser"
+        } else if self.columnar_source_preserved {
             if self.source_fingerprint.content_performed {
                 "streamed_source_fingerprint_reader_reopens_columnar_source"
             } else {
@@ -3705,7 +3710,9 @@ impl VortexIngestSourceData {
     }
 
     fn source_read_mmap_eligibility_status(&self) -> &'static str {
-        if self.columnar_source_preserved {
+        if self.materialization_layout == "whole_json_typed_columns_with_batched_writer" {
+            "not_used_owned_text_buffer_default"
+        } else if self.columnar_source_preserved {
             "not_used_columnar_reader_owns_buffer_lifetime"
         } else {
             "not_used_owned_text_buffer_default"
@@ -7046,6 +7053,7 @@ fn layout_streaming_columnar_source_may_have_batches(source: &VortexIngestSource
         "streaming_arrow_record_batch_columnar_source_state"
             | "typed_text_rows_to_streaming_arrow_record_batch_source_state"
             | "schema_declared_text_to_streaming_arrow_record_batch_source_state"
+            | "whole_json_typed_columns_with_batched_writer"
     ) || source
         .source_stream_policy
         .contains("record_batch_stream_batch_size");
@@ -7432,6 +7440,13 @@ fn run_scalar_vortex_prepare(
     source_adapter: LocalInputAdapterSelection,
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    if source_adapter.source_format == LocalSourceFormat::Json
+        && !request.source_path.is_dir()
+        && source_schema_hints.is_empty()
+    {
+        return whole_json_typed::prepare(request, source_adapter);
+    }
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     if let Some(report) = try_run_schema_declared_text_vortex_prepare(
         request.clone(),
@@ -8093,6 +8108,24 @@ fn run_text_streaming_vortex_prepare(
         .source_dictionary_preservation_status
         .clone_from(&columnar_source.source_dictionary_preservation_status);
 
+    finish_text_streaming_vortex_prepare(
+        request,
+        prewrite_source,
+        columnar_source,
+        source_schema_digest,
+        prepare_start,
+    )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+fn finish_text_streaming_vortex_prepare(
+    request: VortexIngestRequest,
+    prewrite_source: VortexIngestSourceData,
+    columnar_source: shardloom_vortex::FlatLocalColumnarStreamSource,
+    source_schema_digest: String,
+    prepare_start: Instant,
+) -> Result<VortexIngestReport, ShardLoomError> {
     let prewrite_source_state_id = source_state_id_for_source(&prewrite_source);
     let prewrite_source_state_digest =
         source_state_digest_for_source(&prewrite_source, &source_schema_digest);
@@ -34056,6 +34089,19 @@ fn parse_json_source_content_with_plan(
     read_plan: &LocalSourceReadPlan,
     max_input_rows: Option<usize>,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let mut raw_rows = Vec::new();
+    visit_json_source_rows_with_plan(content, read_plan, |fields| {
+        raw_rows.push(fields);
+        Ok(())
+    })?;
+    materialize_flat_json_rows("JSON", raw_rows, read_plan, max_input_rows)
+}
+
+fn visit_json_source_rows_with_plan(
+    content: &str,
+    read_plan: &LocalSourceReadPlan,
+    mut visitor: impl FnMut(Vec<(String, ScalarValue)>) -> Result<(), ShardLoomError>,
+) -> Result<(), ShardLoomError> {
     let trimmed = content.trim_start_matches('\u{feff}').trim();
     if trimmed.is_empty() {
         return Err(unsupported_sql_error(
@@ -34064,7 +34110,6 @@ fn parse_json_source_content_with_plan(
     }
     let chars = trimmed.chars().collect::<Vec<_>>();
     let mut index = skip_json_ws(&chars, 0);
-    let mut raw_rows = Vec::new();
     match chars.get(index) {
         Some('{') => {
             let (fields, next_index) =
@@ -34075,7 +34120,7 @@ fn parse_json_source_content_with_plan(
                     "JSON source must contain exactly one flat object or one array of flat objects",
                 ));
             }
-            raw_rows.push(fields);
+            visitor(fields)?;
         }
         Some('[') => {
             index += 1;
@@ -34087,7 +34132,7 @@ fn parse_json_source_content_with_plan(
                 }
                 let (fields, next_index) =
                     parse_flat_json_object_at_with_plan(&chars, index, "JSON", read_plan)?;
-                raw_rows.push(fields);
+                visitor(fields)?;
                 index = skip_json_ws(&chars, next_index);
                 match chars.get(index) {
                     Some(',') => index += 1,
@@ -34114,7 +34159,7 @@ fn parse_json_source_content_with_plan(
             ));
         }
     }
-    materialize_flat_json_rows("JSON", raw_rows, read_plan, max_input_rows)
+    Ok(())
 }
 
 fn materialize_flat_json_rows(
@@ -47081,6 +47126,63 @@ mod tests {
         }
 
         fs::remove_dir_all(root).expect("remove schema declared text stream root");
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn whole_json_typed_prepare_preserves_derived_output_and_failed_overwrite() {
+        let root = vortex_ingest_reuse_test_root("whole-json-typed");
+        let source = root.join("input.json");
+        let target = root.join("prepared.vortex");
+        fs::write(&source, r#"[{"id":1,"URL":"https://example.com/a","n":null},{"URL":"https://example.org/b","id":2,"n":null}]"#).unwrap();
+        let request = vortex_ingest_reuse_request(source.clone(), target.clone(), false);
+        let report = prepared_vortex_ingest_report(run_vortex_prepare(request).unwrap());
+        assert_eq!(report.vortex_report.row_count, 2);
+        let fields = field_map(report.fields());
+        assert_field_eq(
+            &fields,
+            "source_state_projection_pushdown_status",
+            "not_requested_full_read",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_buffer_carry_status",
+            "read_once_buffer_carried_to_text_parser",
+        );
+        assert_field_eq(
+            &fields,
+            "source_read_mmap_eligibility_status",
+            "not_used_owned_text_buffer_default",
+        );
+        assert_field_eq(&fields, "source_content_fingerprint_performed", "true");
+        assert_eq!(
+            report.source.materialization_layout,
+            "whole_json_typed_columns_with_batched_writer"
+        );
+        assert!(
+            report
+                .vortex_report
+                .column_family_summary()
+                .contains("__shardloom_derived_url_domain_URL:")
+        );
+        let original = fs::read(&target).unwrap();
+        for invalid in [
+            r#"[{"id":1},{"id":2}] garbage"#,
+            r#"[{"id":1},{"id":"changed"}]"#,
+        ] {
+            fs::write(&source, invalid).unwrap();
+            assert!(
+                run_vortex_prepare(vortex_ingest_reuse_request(
+                    source.clone(),
+                    target.clone(),
+                    true
+                ))
+                .is_err()
+            );
+            assert_eq!(fs::read(&target).unwrap(), original);
+            assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

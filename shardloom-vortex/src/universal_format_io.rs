@@ -4591,6 +4591,138 @@ pub struct TextRecordBatchBuilder {
     failed: bool,
 }
 
+/// One inferred primitive column for whole-document text input.
+///
+/// Leading/missing nulls do not choose a dtype. The first non-null scalar does;
+/// later scalars must have the same dtype. A failed append invalidates the column.
+pub struct InferredTextColumnBuilder {
+    column: String,
+    context: String,
+    builder: Option<Box<dyn ArrayBuilder>>,
+    data_type: Option<DataType>,
+    rows: usize,
+    nullable: bool,
+    failed: bool,
+    batch_size: usize,
+    chunks: Vec<ArrayRef>,
+}
+
+impl InferredTextColumnBuilder {
+    /// Start a column with nulls for rows preceding its first occurrence.
+    ///
+    /// # Errors
+    /// Rejects names outside the flat text column contract.
+    pub fn new(
+        column: &str,
+        preceding_rows: usize,
+        batch_size: usize,
+        context: &str,
+    ) -> Result<Self> {
+        validate_flat_columns(&[column.to_owned()], context)?;
+        Ok(Self {
+            column: column.to_owned(),
+            context: context.to_owned(),
+            builder: None,
+            data_type: None,
+            rows: preceding_rows,
+            nullable: preceding_rows != 0,
+            failed: false,
+            batch_size: batch_size.clamp(1, PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS),
+            chunks: Vec::new(),
+        })
+    }
+
+    /// Append a scalar after duplicate fields have been resolved by the parser.
+    ///
+    /// # Errors
+    /// Rejects unsupported or changing scalar types and invalidated columns.
+    pub fn append(&mut self, value: &ScalarValue) -> Result<()> {
+        if self.failed {
+            return Err(self.invalidated_error());
+        }
+        self.failed = true;
+        if matches!(value, ScalarValue::Null) {
+            self.nullable = true;
+        } else if self.builder.is_none() {
+            let data_type = primitive_arrow_dtype(&self.column, value, &self.context)?;
+            let mut builder = make_builder(&data_type, self.batch_size.min(1024));
+            for _ in 0..self.rows / self.batch_size {
+                self.chunks
+                    .push(arrow_array::new_null_array(&data_type, self.batch_size));
+            }
+            for _ in 0..self.rows % self.batch_size {
+                append_null_to_arrow_builder(
+                    builder.as_mut(),
+                    &data_type,
+                    &self.column,
+                    &self.context,
+                )?;
+            }
+            self.builder = Some(builder);
+            self.data_type = Some(data_type);
+        }
+        if let (Some(builder), Some(data_type)) = (&mut self.builder, &self.data_type) {
+            append_scalar_to_arrow_builder(
+                builder.as_mut(),
+                data_type,
+                value,
+                &self.column,
+                &self.context,
+            )?;
+        }
+        self.rows = self.rows.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!("{} row count overflow", self.context))
+        })?;
+        if self.rows.is_multiple_of(self.batch_size)
+            && let Some(builder) = &mut self.builder
+        {
+            self.chunks.push(builder.finish());
+            // Arrow finish resets byte-builder capacities to zero. Recreate
+            // the same initial geometry so later chunks do not grow from the
+            // first value's arbitrary byte length and inflate admission bytes.
+            if let Some(data_type) = &self.data_type {
+                *builder = make_builder(data_type, self.batch_size.min(1024));
+            }
+        }
+        self.failed = false;
+        Ok(())
+    }
+
+    /// Finish a typed column, using nullable UTF8 for an all-null column.
+    ///
+    /// # Errors
+    /// Rejects any previous append failure.
+    pub fn finish(mut self) -> Result<(Field, Vec<ArrayRef>)> {
+        if self.failed {
+            return Err(self.invalidated_error());
+        }
+        let data_type = self.data_type.unwrap_or(DataType::Utf8);
+        if let Some(builder) = &mut self.builder {
+            if !builder.is_empty() {
+                self.chunks.push(builder.finish());
+            }
+        } else {
+            for start in (0..self.rows).step_by(self.batch_size) {
+                self.chunks.push(arrow_array::new_null_array(
+                    &data_type,
+                    self.batch_size.min(self.rows - start),
+                ));
+            }
+        }
+        Ok((
+            Field::new(self.column, data_type, self.nullable),
+            self.chunks,
+        ))
+    }
+
+    fn invalidated_error(&self) -> ShardLoomError {
+        ShardLoomError::InvalidOperation(format!(
+            "{} text column '{}' is invalid after a failed append",
+            self.context, self.column
+        ))
+    }
+}
+
 impl TextRecordBatchBuilder {
     /// Create builders for the primitive types admitted by text ingestion.
     ///
@@ -5978,6 +6110,79 @@ mod tests {
     type BinarySinkEncoder = fn(&[String], &[FlatSinkRow]) -> Result<Vec<u8>>;
     type TypedSinkEncoder =
         fn(&[String], &[Option<LogicalDType>], &[FlatSinkRow]) -> Result<Vec<u8>>;
+
+    #[test]
+    fn inferred_text_column_chunks_preserve_allocation_geometry() {
+        let value = ScalarValue::Utf8("x".repeat(165));
+        let mut builder = InferredTextColumnBuilder::new("text", 0, 128, "test").unwrap();
+        for _ in 0..384 {
+            builder.append(&value).unwrap();
+        }
+        let (_, chunks) = builder.finish().unwrap();
+        let mut reference = make_builder(&DataType::Utf8, 128);
+        for _ in 0..128 {
+            append_scalar_to_arrow_builder(
+                reference.as_mut(),
+                &DataType::Utf8,
+                &value,
+                "text",
+                "test",
+            )
+            .unwrap();
+        }
+        let reference = reference.finish();
+        assert_eq!(chunks.len(), 3);
+        for chunk in chunks {
+            assert_eq!(chunk.as_ref(), reference.as_ref());
+            assert_eq!(
+                chunk.get_array_memory_size(),
+                reference.get_array_memory_size()
+            );
+        }
+    }
+
+    #[test]
+    fn inferred_text_column_builder_backfills_nulls_and_invalidates_type_errors() {
+        let mut builder = InferredTextColumnBuilder::new("value", 2, 2, "test").unwrap();
+        builder.append(&ScalarValue::Null).unwrap();
+        builder.append(&ScalarValue::Int64(i64::MAX)).unwrap();
+        builder.append(&ScalarValue::Null).unwrap();
+        let (field, arrays) = builder.finish().unwrap();
+        assert_eq!(field, Field::new("value", DataType::Int64, true));
+        assert_eq!(arrays.len(), 3);
+        assert_eq!(arrays[0].as_ref(), &Int64Array::from(vec![None, None]));
+        assert_eq!(
+            arrays[1].as_ref(),
+            &Int64Array::from(vec![None, Some(i64::MAX)])
+        );
+        assert_eq!(arrays[2].as_ref(), &Int64Array::from(vec![None]));
+        let (field, arrays) = InferredTextColumnBuilder::new("empty", 3, 2, "test")
+            .unwrap()
+            .finish()
+            .unwrap();
+        assert_eq!(field, Field::new("empty", DataType::Utf8, true));
+        assert_eq!(arrays.len(), 2);
+        assert_eq!(arrays[0].null_count(), 2);
+        assert_eq!(arrays[1].null_count(), 1);
+        let mut builder = InferredTextColumnBuilder::new("value", 0, 2, "test").unwrap();
+        builder.append(&ScalarValue::Int64(1)).unwrap();
+        assert!(builder.append(&ScalarValue::Float64(1.0)).is_err());
+        assert!(
+            builder
+                .append(&ScalarValue::Int64(2))
+                .unwrap_err()
+                .to_string()
+                .contains("invalid after")
+        );
+        assert!(
+            builder
+                .finish()
+                .unwrap_err()
+                .to_string()
+                .contains("invalid after")
+        );
+        assert!(InferredTextColumnBuilder::new("__shardloom_derived_bad", 0, 2, "test").is_err());
+    }
 
     #[test]
     fn text_record_batch_builder_preserves_primitive_values_nulls_and_empty_batches() {

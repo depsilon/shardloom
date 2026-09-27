@@ -244,6 +244,26 @@ the ledger.
 
 ## Planned
 
+September 27 scope override: finish and merge the whole-file JSON C7 PR,
+then complete the explicitly authorized 0.3.1 version/publication train and stop.
+The remaining performance candidates stay queued; do not resume them after publication.
+
+- [ ] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train after the whole-file JSON PR.
+  - Queue identifier only: `RELEASE-031` records the authorized release train;
+    it adds no implementation phase or competitive gate.
+  - V1 scope classification: `required_for_v1`; existing selected package channels only.
+  - Execution checklist:
+    - [ ] Merge the accepted C7 whole-file JSON change with complete UAT and CI.
+    - [ ] Synchronize versions, release notes and source validation; merge the version PR.
+    - [ ] Verify GitHub prerelease assets, TestPyPI, PyPI and Homebrew in that order.
+    - [ ] Merge channel proofs, current install/status docs and generated website; verify deployment and stop.
+  - ShardLoom technique review: preserve the accepted portable build, Vortex-native
+    runtime and evidence-tier boundaries. Release/install proof is separate from
+    query/ingest timing; no scheduling or provider change is part of the bump.
+  - Acceptance: exact source/build identities, package installation/complete-result
+    smoke/uninstall, checksums, SBOM/provenance, selected-channel gates and CI.
+    No external-engine fallback or broader production capability claim.
+
 September 26 suggestion-intake override: 0.3.0 publication is complete in
 PR #1459. The maintainer supplied five performance packets and requested a concise
 ship/drop ordering by expected gains, ahead of the previous optimization queue.
@@ -300,9 +320,8 @@ C5.a retains portable ThinLTO (3.21% lower query total, 7.53% lower ingest) with
 ordinary release artifact acceptance passing. C5.b/C5.c preserve their measured
 query gains but decline promotion of the tested PGO/native CPU configurations after
 ingest regressions. See `compiler-profile-screen-2026-09-27.md`.
-The release train remains
-complete; this queue does not authorize a new package publication. Follow
-the ranked item below. Remaining native operator,
+The 0.3.0 release train is complete. The September 27 instruction separately
+authorizes the 0.3.1 train above after C7, then a stop. Remaining native operator,
 spill/recovery, public-call and serving obligations stay open; any prerequisite
 needed for a candidate's correctness/resource acceptance must be completed first.
 
@@ -347,9 +366,9 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C5.a: retain portable ThinLTO for ordinary release after complete paired screens, final artifact UAT and workspace/native validation.
     - [x] C5.b: drop promotion of tested PGO corpus/profile after an ingest regression; preserve small query/size gains and existing explicit tooling.
     - [x] C5.c: preserve the explicit nonportable CPU profile and measured query gain; drop automatic selection of the tested configuration after an ingest regression.
-    - [ ] C7: finish direct JSON/JSONL typed construction; see `jsonl-typed-builder-screen-2026-09-27.md`.
+    - [x] C7: retain direct JSON/JSONL typed construction; see both September 27 builder screens.
       - [x] Retain the JSONL typed builders: 14.05% lower paired complete ingest, reduced RSS, byte-identical artifacts, complete-value oracle and full applicable acceptance.
-      - [ ] Screen whole-file JSON's separate materialized construction path before closing C7.
+      - [x] Retain whole-file JSON typed construction: 31.11% lower paired complete ingest, reduced RSS, identical native bytes, complete row oracle and full applicable acceptance.
     - [ ] R2.a: record admission and ship/drop for Source-backed UTF8 dictionaries, Q29 first.
     - [ ] R3.a: record admission and ship/drop for Winner-only exact DISTINCT, Q10 first.
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
@@ -361,11 +380,12 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: C1/C5 merged in PR #1473 with all 40 checks passing. PR/merge
-    the accepted JSONL C7 change, then screen whole-file JSON before R2.a.
-    JSONL acceptance includes 129 Full43 results, byte-identical full-size Parquet
-    ingest, 456 held-out calls and pressure/cleanup checks. Preserve useful smaller
-    gains and recorded workload tradeoffs; broader PERF obligations remain open.
+  - Next outcome: JSONL merged in PR #1474 with all 40 checks passing. Merge
+    the accepted whole-file JSON follow-up, then finish the authorized 0.3.1
+    release and stop. Whole-file JSON acceptance includes 129 Full43 results,
+    byte-identical full-size Parquet ingest, 456 held-out calls and pressure/cleanup
+    checks. R2.a and the other six experiments remain queued. Preserve useful
+    smaller gains and recorded workload tradeoffs; broader PERF obligations remain open.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
@@ -2594,7 +2614,9 @@ Current autonomous execution order:
 
 The September 26 intake at the start of Planned supersedes the earlier
 release-only stop for **planning** and the earlier Q10-first optimization order.
-The 0.3.0 train is complete. The maintainer has authorized the full experiment queue.
+The 0.3.0 train is complete. The September 27 instruction now narrows execution:
+finish the whole-file JSON PR, publish/verify 0.3.1, then stop. The order below
+is the preserved backlog, not authorization to continue it after that stop.
 
 1. Follow the 29-row priority order in the
    [reviewed intake](performance-candidate-intake-2026-09-26.md): structural
