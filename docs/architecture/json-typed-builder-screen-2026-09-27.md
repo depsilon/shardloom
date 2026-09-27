@@ -77,7 +77,11 @@ Verified duplicate artifacts and the large export are removed after hashing.
 The candidate is frozen at `f950a1ddeb9e8b2b6645d5ba1458cd23a9068d21`, binary
 SHA-256 `6e14e8686ad169c51676ba88114a33e1856df82ec37e5285be8aa7c313f7ef29`.
 The control is the accepted JSONL binary `0b4ec877243d3fc26ad709dd97dddf9d03811960cccc918e9d0e924fc6592346`.
-Later changes in this unit are documentation/evidence only.
+The subsequent review correction changes two ownership-evidence strings and
+their assertions; parsing, typed construction, writing and resource admission
+are unchanged. Its [executed review checks](../benchmarks/json-typed-builder-certificate-review-2026-09-27.json)
+retain that patch and its source identity. The timings above retain their
+original binary identity.
 
 - Formatting, workspace Clippy and 3,426 workspace tests pass.
 - Native-feature Clippy and 3,512 tests pass; 22 existing manual tests remain
@@ -113,3 +117,12 @@ whole-column/batched-writer ownership. Initial provider/smoke assertion failures
 a control-profile fixture-path error and a replay field-prefix error remain in
 the evidence, with their corrected proofs. JSON numeric parsing still tries
 i64 then finite f64; this adds no exact-u64 or broader input support.
+
+GitHub review identified that the shared columnar constructor's fingerprint
+evidence described a reopened reader, although whole JSON carries its owned
+input buffer into the parser. The final correction reports
+`read_once_buffer_carried_to_text_parser` and
+`not_used_owned_text_buffer_default` for this layout. Native prepare and public
+CLI tests assert both fields alongside complete values and atomic output;
+workspace/native suites, both Clippy configurations and formatting pass again.
+Full-size performance UAT was not repeated for this evidence-string correction.

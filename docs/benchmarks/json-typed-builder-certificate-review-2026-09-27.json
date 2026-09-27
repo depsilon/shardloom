@@ -1,0 +1,199 @@
+{
+  "schema_version": "shardloom.json_typed_certificate_review.v1",
+  "status": "passed",
+  "tested_commit": "8543e096b1ad7b657cbb8311d75789388099e1d3",
+  "review_comment": "https://github.com/depsilon/shardloom/pull/1475#discussion_r4115084524",
+  "correction": "Whole-JSON read-once text buffer and mmap evidence; existing status vocabulary. Parsing, typed construction, native writing and resource admission are unchanged.",
+  "heavy_uat_source": "f950a1ddeb9e8b2b6645d5ba1458cd23a9068d21",
+  "heavy_uat_record": "docs/benchmarks/json-typed-builder-screen-2026-09-27.json",
+  "heavy_uat_repeated_for_evidence_string_change": false,
+  "performance_claim_from_this_correction": false,
+  "source_patch": "diff --git a/shardloom-cli/src/sql_local_source_runtime.rs b/shardloom-cli/src/sql_local_source_runtime.rs\nindex 210fac3c..f1c64612 100644\n--- a/shardloom-cli/src/sql_local_source_runtime.rs\n+++ b/shardloom-cli/src/sql_local_source_runtime.rs\n@@ -3688,7 +3688,9 @@ impl VortexIngestSourceData {\n     }\n \n     fn source_read_buffer_carry_status(&self) -> &'static str {\n-        if self.columnar_source_preserved {\n+        if self.materialization_layout == \"whole_json_typed_columns_with_batched_writer\" {\n+            \"read_once_buffer_carried_to_text_parser\"\n+        } else if self.columnar_source_preserved {\n             if self.source_fingerprint.content_performed {\n                 \"streamed_source_fingerprint_reader_reopens_columnar_source\"\n             } else {\n@@ -3708,7 +3710,9 @@ impl VortexIngestSourceData {\n     }\n \n     fn source_read_mmap_eligibility_status(&self) -> &'static str {\n-        if self.columnar_source_preserved {\n+        if self.materialization_layout == \"whole_json_typed_columns_with_batched_writer\" {\n+            \"not_used_owned_text_buffer_default\"\n+        } else if self.columnar_source_preserved {\n             \"not_used_columnar_reader_owns_buffer_lifetime\"\n         } else {\n             \"not_used_owned_text_buffer_default\"\n@@ -47134,11 +47138,23 @@ mod tests {\n         let request = vortex_ingest_reuse_request(source.clone(), target.clone(), false);\n         let report = prepared_vortex_ingest_report(run_vortex_prepare(request).unwrap());\n         assert_eq!(report.vortex_report.row_count, 2);\n+        let fields = field_map(report.fields());\n         assert_field_eq(\n-            &field_map(report.fields()),\n+            &fields,\n             \"source_state_projection_pushdown_status\",\n             \"not_requested_full_read\",\n         );\n+        assert_field_eq(\n+            &fields,\n+            \"source_read_buffer_carry_status\",\n+            \"read_once_buffer_carried_to_text_parser\",\n+        );\n+        assert_field_eq(\n+            &fields,\n+            \"source_read_mmap_eligibility_status\",\n+            \"not_used_owned_text_buffer_default\",\n+        );\n+        assert_field_eq(&fields, \"source_content_fingerprint_performed\", \"true\");\n         assert_eq!(\n             report.source.materialization_layout,\n             \"whole_json_typed_columns_with_batched_writer\"\ndiff --git a/shardloom-cli/tests/sql_local_source_runtime_smoke.rs b/shardloom-cli/tests/sql_local_source_runtime_smoke.rs\nindex bda4a2bb..9a44782e 100644\n--- a/shardloom-cli/tests/sql_local_source_runtime_smoke.rs\n+++ b/shardloom-cli/tests/sql_local_source_runtime_smoke.rs\n@@ -1462,6 +1462,16 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()\n         assert!(stdout.contains(&field(\"ingress_route\", \"vortex_ingest\")));\n         assert!(stdout.contains(&field(\"vortex_ingest_status\", \"prepared_state_created\")));\n         let streaming = cfg!(feature = \"universal-format-io\");\n+        if source_format == \"json\" {\n+            assert!(stdout.contains(&field(\n+                \"source_read_buffer_carry_status\",\n+                \"read_once_buffer_carried_to_text_parser\"\n+            )));\n+            assert!(stdout.contains(&field(\n+                \"source_read_mmap_eligibility_status\",\n+                \"not_used_owned_text_buffer_default\"\n+            )));\n+        }\n         assert!(stdout.contains(&field(\n             \"source_state_materialization_layout\",\n             if !streaming {\n",
+  "source_patch_sha256": "ec415e1691f4d2d2d903d679480da57e9061643f0cd60d850faf868fce8caa09",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--bin",
+        "shardloom",
+        "--features",
+        "release-user-surfaces",
+        "whole_json_typed_prepare_preserves_derived_output_and_failed_overwrite",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/dylan/Documents/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 27.10695129202213,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7j-review-focus-unit.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "74a603060941cf6335c72067d653f9ec2fd1981efe30411f908892c9c380b3c7",
+      "test_totals": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      },
+      "complete_log": "   Compiling shardloom-vortex v0.3.0 (/Users/dylan/Documents/shardloom-local-repo/shardloom-vortex)\n   Compiling shardloom-cli v0.3.0 (/Users/dylan/Documents/shardloom-local-repo/shardloom-cli)\nwarning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected\n  |\n  = note: `#[warn(linker_messages)]` on by default\n\nwarning: `shardloom-cli` (bin \"shardloom\" test) generated 1 warning\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.48s\n     Running unittests src/main.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/shardloom-ec716d947f9789bc)\n\nrunning 1 test\ntest sql_local_source_runtime::tests::whole_json_typed_prepare_preserves_derived_output_and_failed_overwrite ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 906 filtered out; finished in 0.04s\n\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--test",
+        "sql_local_source_runtime_smoke",
+        "--features",
+        "release-user-surfaces",
+        "vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/dylan/Documents/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 11.053188166988548,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7j-review-focus-public.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "3c6055146919317b3c9c3f0fc7a8a4b576e5c5a1e6d10b2e3119c98733059f06",
+      "test_totals": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      },
+      "complete_log": "   Compiling shardloom-cli v0.3.0 (/Users/dylan/Documents/shardloom-local-repo/shardloom-cli)\nwarning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected\n  |\n  = note: `#[warn(linker_messages)]` on by default\n\nwarning: `shardloom-cli` (bin \"shardloom\") generated 1 warning\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.35s\n     Running tests/sql_local_source_runtime_smoke.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/sql_local_source_runtime_smoke-cb4883be4d1acdbb)\n\nrunning 1 test\ntest vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 171 filtered out; finished in 2.38s\n\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/Users/dylan/Documents/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 3.0122040420246776,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7j-review-fmt.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/dylan/Documents/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 5.017058249999536,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7j-review-clippy.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "1f14ced47dd7e7a329574bb8b8d4b1d2781c9061541fdb23a672fbaaff0e02e7",
+      "test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/dylan/Documents/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 6.025165041995933,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7j-review-native-clippy.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "a19c0c86e9a9959a4fad811994f63a9f7e34c64ae498534a1c748bdf88b311cb",
+      "test_totals": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/dylan/Documents/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 19.08389795801486,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7j-review-tests.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "e5baab902743923bccd49903d35f8ef293cc885188c3f1c845d6975a6d737d78",
+      "test_totals": {
+        "passed": 3426,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/dylan/Documents/shardloom-local-repo",
+      "exit_code": 0,
+      "seconds": 90.37124316600966,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/c7j-review-native-tests.log",
+      "error": null,
+      "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+      "sha256": "2973f1262b452bbd6a015014e3190968ff1dfe9ba58b7f3f8558944d8340ad38",
+      "test_totals": {
+        "passed": 3512,
+        "failed": 0,
+        "ignored": 22
+      }
+    }
+  ],
+  "validation_boundary": "Focused ownership-field assertions on native prepare and public CLI complete-result route; required workspace/native suites rerun. Historical timing evidence retains its original binary identity."
+}
