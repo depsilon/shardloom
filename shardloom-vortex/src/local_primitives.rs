@@ -25537,8 +25537,6 @@ struct GroupedAggregateStates<'a> {
     source_order_candidate_filter: source_order_candidate_filter::Work,
     source_order_limited_group_admission: bool,
     materialized_owned_group_keys: bool,
-    source_order_owned_key_prefixes:
-        Option<rustc_hash::FxHashMap<(usize, AggregateDistinctValue), usize>>,
     general_direct_group_state_pre_reserved: bool,
     native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
@@ -28473,7 +28471,6 @@ impl<'a> GroupedAggregateStates<'a> {
             source_order_candidate_filter: source_order_candidate_filter::Work::default(),
             source_order_limited_group_admission: false,
             materialized_owned_group_keys: false,
-            source_order_owned_key_prefixes: None,
             general_direct_group_state_pre_reserved: false,
             aggregate_accessor_summary: std::collections::BTreeSet::new(),
             native_numeric_accessor_work: NativeNumericAccessorWork::default(),
@@ -28509,7 +28506,7 @@ impl<'a> GroupedAggregateStates<'a> {
                     return Ok(());
                 }
                 // Without interned strings, every retained key is represented in
-                // the owned prefix directory. A miss is final; retrying would
+                // the owned group table. A miss is final; retrying would
                 // unnecessarily evaluate later expressions for an excluded row.
                 if self.string_interner.values.is_empty() {
                     self.source_order_limited_group_admission = true;
@@ -34019,27 +34016,10 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn grouped_owned_key_for_materialized_row(
-        &mut self,
+        &self,
         columns: &[Vec<StatValue>],
         row_index: usize,
     ) -> Result<Option<AggregateGroupKey>> {
-        // Admission is closed. Build a directory of exact retained prefixes once,
-        // sharing owned string parts. Node zero is the root; each edge identifies
-        // a whole prefix, not a per-position domain that permits cross-products.
-        let prefixes = self.source_order_owned_key_prefixes.get_or_insert_with(|| {
-            let mut prefixes = rustc_hash::FxHashMap::default();
-            for key in self.groups.keys() {
-                let mut prefix = 0;
-                for position in 0..key.len() {
-                    if let Some(value) = key.get(position) {
-                        let next = prefixes.len() + 1;
-                        prefix = *prefixes.entry((prefix, value.clone())).or_insert(next);
-                    }
-                }
-            }
-            prefixes
-        });
-        let mut prefix = 0;
         let mut values = Vec::with_capacity(self.group_key_indices.len());
         for &index in &self.group_key_indices {
             let group_column = self.group_columns.get(index).ok_or_else(|| {
@@ -34048,19 +34028,33 @@ impl<'a> GroupedAggregateStates<'a> {
                         .to_string(),
                 )
             })?;
-            let value = aggregate_group_column_stat_value_for_materialized_row(
+            let value = match aggregate_group_column_stat_value_for_materialized_row(
                 group_column,
                 columns,
                 row_index,
-            )?;
-            let value = AggregateDistinctValue::from(&value);
-            let Some(&next) = prefixes.get(&(prefix, value.clone())) else {
-                return Ok(None);
+            ) {
+                Ok(value) => value,
+                Err(error) => {
+                    // Key expressions are pure. Check the already evaluated prefix
+                    // only on error, so rejected rows retain short-circuit semantics
+                    // without a second persistent index or a group scan per row.
+                    if !values.is_empty()
+                        && !self.groups.keys().any(|key| {
+                            values
+                                .iter()
+                                .enumerate()
+                                .all(|(position, value)| key.get(position) == Some(value))
+                        })
+                    {
+                        return Ok(None);
+                    }
+                    return Err(error);
+                }
             };
-            prefix = next;
-            values.push(value);
+            values.push(AggregateDistinctValue::from(&value));
         }
-        Ok(Some(AggregateGroupKey::from_values(values)))
+        let key = AggregateGroupKey::from_values(values);
+        Ok(self.groups.contains_key(&key).then_some(key))
     }
 
     fn grouped_existing_key_for_materialized_row(

@@ -490,3 +490,91 @@ fn owned_numeric_prefix_miss_does_not_retry_the_same_later_expression() {
         serde_json::json!([{"category":0, "next":1, "rows":2}])
     );
 }
+
+#[test]
+fn closed_owned_key_probe_is_read_only_for_wide_retained_groups() {
+    let request = VortexSimpleAggregateRequest::grouped(
+        ["category", "label", "other", "tag"]
+            .map(|name| ColumnRef::new(name).unwrap())
+            .to_vec(),
+        vec![crate::VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "rows".to_string(),
+        )],
+    )
+    .with_group_expressions(vec![
+        crate::VortexAggregateExpression::new(
+            "next".to_string(),
+            ColumnRef::new("number").unwrap(),
+            "add_offset",
+        )
+        .with_argument_offset(1),
+    ]);
+    let declared = ["category", "label", "other", "tag", "number"].map(str::to_string);
+    let retained = 512;
+    let mut state =
+        GroupedAggregateStates::new(&request, Some(retained), &declared, false, false).unwrap();
+    assert_eq!(state.group_key_indices.len(), 5);
+    let input = vec![
+        (0..512).map(StatValue::UInt64).collect(),
+        (0..512)
+            .map(|index| StatValue::Utf8(format!("kept-{index}")))
+            .collect(),
+        vec![StatValue::Utf8("shared".to_string()); retained],
+        vec![StatValue::Utf8("tag".to_string()); retained],
+        vec![StatValue::UInt64(0); retained],
+    ];
+    state.update(&input, retained).unwrap();
+    let bytes = state.estimated_group_key_storage_bytes();
+    // The shared borrow is part of the contract: probing closed admission cannot
+    // create a persistent index proportional to retained groups or key width.
+    let probe: &GroupedAggregateStates = &state;
+    for row in 0..retained {
+        assert!(
+            probe
+                .grouped_owned_key_for_materialized_row(&input, row)
+                .unwrap()
+                .is_some()
+        );
+    }
+    let mut row = vec![
+        vec![StatValue::UInt64(7)],
+        vec![StatValue::Utf8("kept-8".to_string())],
+        vec![StatValue::Utf8("shared".to_string())],
+        vec![StatValue::Utf8("tag".to_string())],
+        vec![StatValue::UInt64(u64::MAX)],
+    ];
+    assert!(
+        probe
+            .grouped_owned_key_for_materialized_row(&row, 0)
+            .unwrap()
+            .is_none()
+    );
+    row[1][0] = StatValue::Utf8("kept-7".to_string());
+    assert!(
+        probe
+            .grouped_owned_key_for_materialized_row(&row, 0)
+            .unwrap_err()
+            .to_string()
+            .contains("overflow")
+    );
+    row[4].clear();
+    assert!(
+        probe
+            .grouped_owned_key_for_materialized_row(&row, 0)
+            .unwrap_err()
+            .to_string()
+            .contains("row was missing")
+    );
+    row[1][0] = StatValue::Utf8("kept-8".to_string());
+    assert!(
+        probe
+            .grouped_owned_key_for_materialized_row(&row, 0)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(probe.estimated_group_key_storage_bytes(), bytes);
+    assert_eq!(probe.groups.len(), retained);
+    assert!(probe.string_interner.values.is_empty());
+}

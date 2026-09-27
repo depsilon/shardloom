@@ -50,13 +50,19 @@ fix first probes the same transformed owned key used at insertion, then preserve
 the existing interned-key probe for General states seeded by direct consumers.
 The owned probe is enabled only after this generic route has admitted keys;
 direct-only states preserve their earlier interner miss before later key
-expressions execute. Once admission closes, the owned route builds an exact
-retained-prefix directory with shared string owners. Unknown prefixes stop before
-later expressions execute; positions and correlations between retained key parts
-are preserved. When no alternate interned representation exists, a definitive
+expressions execute. Once admission closes, the owned route probes the existing
+group table through a shared borrow. It retains no additional prefix index. If a
+pure key expression fails, it checks the already evaluated prefix against the
+retained keys and suppresses the error only when that prefix cannot match any
+group. Positions and correlations between retained key parts are preserved;
+successful probes do not scan the groups. When no alternate interned representation exists, a definitive
 miss does not retry another lookup. Failing fixtures reproduced unknown-string,
 swapped-position, cross-group and numeric-prefix overflow cases before these
-corrections. A matching prefix still evaluates and reports a genuine overflow.
+corrections. A matching prefix still reports a genuine overflow. Review also
+identified an unreserved persistent prefix index in an intermediate revision;
+removing it avoids extra state proportional to group count and key width. A
+512-group, five-key fixture checks read-only probes and both retained and
+excluded prefixes with overflow or missing input.
 Only the irredundant key columns are evaluated: dependent output expressions
 remain unevaluated for unretained rows. The review's dependent-offset overflow
 fixture reproduced the initial full-expression probe regression before the
@@ -78,7 +84,7 @@ arbitrary mixed routes or compact-to-General state conversion are supported.
 
 ## Retention evidence
 
-The final frozen candidate is `fd407c2c0d77482c2c2fcef8a7a93d17dd302334`, compared
+The latest validated frozen candidate is `fd407c2c0d77482c2c2fcef8a7a93d17dd302334`, compared
 with the R5.b runtime `ef8e08f3e00569b81185e4cc6899abf6c2b9547e`; R5.c changed test
 attribution only. The retained source has 99,997,497 rows and 15,682,956,116 bytes.
 All comparisons time native process startup, complete CLI output and exit.
@@ -108,8 +114,9 @@ Nine focused regressions, 3,425 workspace tests and 1,975 native tests pass
 (19 native tests ignored). Formatting and strict workspace/native Clippy pass.
 Static and independent PR review led to matched-only payload retention and exact
 prefix short-circuit fixtures. All 40 remote checks pass on the final runtime
-commit. The final evidence/documentation revision remains subject to PR review
-before merge.
+commit. The subsequent read-only probe correction requires fresh runtime
+validation and frozen Full43 acceptance before merge; those results will replace
+the final-cohort designation below without discarding these samples.
 
 The [machine-readable evidence](../benchmarks/compact-candidate-directory-2026-09-27.json)
 links the portable raw packet with complete envelopes, source patches, binary
