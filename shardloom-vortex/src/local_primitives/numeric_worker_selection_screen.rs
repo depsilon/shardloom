@@ -21,6 +21,8 @@ use vortex::{
 };
 
 const CHUNK_ROWS: usize = 65_536;
+const DIRECT_MAX_ROWS: usize =
+    super::aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS as usize;
 
 struct Fixture(PathBuf);
 
@@ -262,7 +264,7 @@ fn selection(evidence: &serde_json::Value) -> serde_json::Value {
 #[test]
 fn small_count_automatic_selection_preserves_boundaries_encodings_and_nulls() {
     let root = std::env::temp_dir();
-    for rows in [1, 257, 4093, 8192, 8193] {
+    for rows in [1, 257, 4093, 8192, 8193, 32_768, 32_769] {
         let values = Distribution::NearUnique.values(rows);
         let fixture = Fixture::new(&root, &values);
         for cap in [1, 7, 128] {
@@ -272,12 +274,12 @@ fn small_count_automatic_selection_preserves_boundaries_encodings_and_nulls() {
             let (_, evidence) = complete_call_with_policy(
                 &query,
                 None,
-                rows <= 8192,
+                rows <= DIRECT_MAX_ROWS,
                 rows,
                 &expected,
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(12, 1).unwrap(),
             );
-            assert_eq!(selection(&evidence).is_string(), rows <= 8192);
+            assert_eq!(selection(&evidence).is_string(), rows <= DIRECT_MAX_ROWS);
         }
     }
     for (name, array, expected) in encoded_cases(4093) {
@@ -642,7 +644,7 @@ fn screen_three_choices(
         let mut choices = [Some(false), Some(true), None];
         choices.rotate_left((case + run) % 3);
         for (position, choice) in choices.into_iter().enumerate() {
-            let direct = choice.unwrap_or(rows <= 8192);
+            let direct = choice.unwrap_or(rows <= DIRECT_MAX_ROWS);
             let (seconds, evidence) = complete_call_with_policy(
                 &request,
                 choice,
@@ -652,7 +654,7 @@ fn screen_three_choices(
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(12, 1).unwrap(),
             );
             if choice.is_none() {
-                assert_eq!(selection(&evidence).is_string(), rows <= 8192);
+                assert_eq!(selection(&evidence).is_string(), rows <= DIRECT_MAX_ROWS);
             }
             println!(
                 "C2B_RECORD {}",
@@ -661,8 +663,42 @@ fn screen_three_choices(
                     "choice":match choice {Some(false)=>"workers",Some(true)=>"direct",None=>"automatic"},
                     "source_sha256":source_sha256,"source_bytes":source_len,
                     "memory_gb":1,"requested_parallelism":12,"evidence":evidence,
+                    "selection_max_rows":DIRECT_MAX_ROWS,
                 })
             );
         }
+    }
+}
+
+#[test]
+#[ignore = "extended-boundary release screen; guarded local root and serial execution required"]
+#[allow(clippy::assertions_on_constants)]
+fn extended_small_numeric_count_selection_screen() {
+    assert!(!cfg!(debug_assertions));
+    let root = PathBuf::from(std::env::var_os("SHARDLOOM_COUNT_SCREEN_ROOT").unwrap());
+    assert!(root.is_dir());
+    for rows in [16_381, 24_593, 32_767, 32_768, 32_769, 49_152, 65_536] {
+        for (case, distribution) in [
+            Distribution::Skewed,
+            Distribution::Uniform,
+            Distribution::NearUnique,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let values = distribution.values(rows);
+            let fixture = Fixture::new(&root, &values);
+            screen_three_choices(
+                &fixture,
+                rows,
+                &format!("{distribution:?}"),
+                case,
+                &expected_top10(&values),
+            );
+        }
+    }
+    for (case, (name, array, expected)) in encoded_cases(16_381).into_iter().enumerate() {
+        let fixture = Fixture::from_arrays(&root, vec![array]);
+        screen_three_choices(&fixture, 16_381, name, case, &expected);
     }
 }

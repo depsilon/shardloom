@@ -1297,7 +1297,7 @@ fn install_weighted_string(
     Ok(())
 }
 
-pub(super) const SMALL_NUMERIC_DIRECT_MAX_ROWS: u64 = 8192;
+pub(super) const SMALL_NUMERIC_DIRECT_MAX_ROWS: u64 = 32_768;
 
 /// The complete-call crossover screen favors the existing direct update below
 /// this conservative bound for every tested cardinality. Keep larger, filtered,
