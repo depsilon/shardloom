@@ -1,0 +1,380 @@
+{
+  "schema_version": "shardloom.concurrent_source_reuse_screen.v1",
+  "decision": "drop_eager_shared_producer_default_for_tested_workflow",
+  "runtime_change": "none; retain existing explicit owned-array API",
+  "claim_scope": "bounded warm local-source attribution and native aggregate fanout; no new runtime speedup, Full43, ingest, cold-read, decoded-sharing, RSS reduction or production-tail claim",
+  "fixture": {
+    "batch_rows": 16384,
+    "batches": 8,
+    "cache_condition": "warm local filesystem cache; fixture just written and hashed",
+    "generation": {
+      "device": 16777233,
+      "inode": 92454460,
+      "length": 845540
+    },
+    "generation_debug": "FileGeneration { len: 845540, modified: SystemTime { tv_sec: 1790470124, tv_nsec: 188286528 }, device: 16777233, inode: 92454460, changed: (1790470124, 188286528) }",
+    "max_source_bytes": 67108864,
+    "rows": 131072,
+    "source_length_bytes": 845540,
+    "source_sha256": "b45676ead6bbdee1fe3172c2da91782ac732c2036c7086b18f7a8339e8015020",
+    "writer": "Vortex 0.85.0 default strategy"
+  },
+  "runtime": {
+    "arch": "aarch64",
+    "available_parallelism": 10,
+    "completed_native_calls": 88,
+    "generation_still_valid": true,
+    "os": "macos",
+    "persistent_provider_workers": 0,
+    "release_build": true,
+    "release_user_surfaces_feature": true,
+    "serving_session_cpu_lanes_per_call": 1,
+    "serving_session_parallelism": 4,
+    "shared_source_opens": 1,
+    "vortex_version": "0.85.0"
+  },
+  "source_read_build": {
+    "commit": "0941f56a597331aff034f2cf21f28d6200a12c48",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-source-observer-0941f56a5973",
+    "sha256": "63391699cf76d72f60d34a7514aaed142805f556eee39812bcd6e5bdc4862009",
+    "bytes": 89788704,
+    "build_command": "cargo test --offline --release -p shardloom-vortex --features release-user-surfaces --lib --no-run --message-format=json",
+    "build_log": "r8-build-3.stderr",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: aarch64-apple-darwin\nrelease: 1.98.0\nLLVM version: 22.1.8\n",
+    "os": "Darwin Dylans-Air.attlocal.net 27.0.0 Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:59 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8142 arm64\n",
+    "hardware": "Apple M5\n17179869184\n",
+    "cargo_lock_sha256": "3cff68bfe028e3e7e0d2cd61781fae1e5a9722a9e9408643cab6ccdfc8878895"
+  },
+  "fanout_build": {
+    "commit": "5ec851c64e562d0cd243cd6f61fabc1f7ec6a95e",
+    "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-fanout-5ec851c64e56",
+    "sha256": "97cb8cae524e28f565a92a22b94982c765bf4d70da2f87d02292cb17e5f7642f",
+    "bytes": 89643440,
+    "build_command": "cargo test --offline --release -p shardloom-vortex --features release-user-surfaces --lib --no-run --message-format=json",
+    "build_log": "r8-build-5.stderr",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: aarch64-apple-darwin\nrelease: 1.98.0\nLLVM version: 22.1.8\n",
+    "os": "Darwin Dylans-Air.attlocal.net 27.0.0 Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:59 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8142 arm64\n",
+    "hardware": "Apple M5\n17179869184\n",
+    "cargo_lock_sha256": "3cff68bfe028e3e7e0d2cd61781fae1e5a9722a9e9408643cab6ccdfc8878895"
+  },
+  "source_read_scenarios": [
+    {
+      "callers": 1,
+      "projection_pattern": "identical_key_text",
+      "ordinary_cohort_nanos": [
+        275917,
+        203042,
+        149375
+      ],
+      "observed_cohort_nanos": [
+        229958,
+        271667,
+        172209
+      ],
+      "observed_read_bytes": [
+        841252,
+        841252,
+        841252
+      ],
+      "observed_unique_interval_bytes": [
+        841252,
+        841252,
+        841252
+      ]
+    },
+    {
+      "callers": 4,
+      "projection_pattern": "identical_key_text",
+      "ordinary_cohort_nanos": [
+        422000,
+        420167,
+        342708
+      ],
+      "observed_cohort_nanos": [
+        385292,
+        379709,
+        329334
+      ],
+      "observed_read_bytes": [
+        3365008,
+        3365008,
+        3365008
+      ],
+      "observed_unique_interval_bytes": [
+        841252,
+        841252,
+        841252
+      ]
+    },
+    {
+      "callers": 2,
+      "projection_pattern": "disjoint_key_text",
+      "ordinary_cohort_nanos": [
+        222917,
+        215792,
+        202041
+      ],
+      "observed_cohort_nanos": [
+        198041,
+        234875,
+        199500
+      ],
+      "observed_read_bytes": [
+        841252,
+        841252,
+        841252
+      ],
+      "observed_unique_interval_bytes": [
+        841252,
+        841252,
+        841252
+      ]
+    },
+    {
+      "callers": 4,
+      "projection_pattern": "two_repeated_projection_groups",
+      "ordinary_cohort_nanos": [
+        238791,
+        216125,
+        211458
+      ],
+      "observed_cohort_nanos": [
+        236959,
+        216542,
+        215584
+      ],
+      "observed_read_bytes": [
+        1682504,
+        1682504,
+        1682504
+      ],
+      "observed_unique_interval_bytes": [
+        841252,
+        841252,
+        841252
+      ]
+    }
+  ],
+  "fanout": {
+    "control_cohort_nanos": [
+      26407667,
+      22982042,
+      26734042,
+      24319958,
+      24909750
+    ],
+    "shared_producer_cohort_nanos": [
+      28485625,
+      25995166,
+      23590167,
+      25313583,
+      24503375
+    ],
+    "control_report_drop_nanos": [
+      6125,
+      7083,
+      5958,
+      6709,
+      7000
+    ],
+    "shared_producer_report_drop_nanos": [
+      12584,
+      11417,
+      9042,
+      9208,
+      11375
+    ],
+    "control_best_nanos": 22982042,
+    "shared_best_nanos": 23590167,
+    "shared_best_slower_percent": 2.646087758433291,
+    "control_median_nanos": 24909750,
+    "shared_median_nanos": 25313583,
+    "shared_median_slower_percent": 1.621184475958204,
+    "complete_paired_results_verified_including_warmup": 48,
+    "pre_admission_cancel_isolation_survivors": 3,
+    "post_cancel_reexecution_verified": true
+  },
+  "resources": {
+    "source_read_process": {
+      "returncode": 0,
+      "seconds": 1.7787566250190139,
+      "guard_failures": [],
+      "supervised_wall_seconds": 1.8068657500261907,
+      "native_peak_rss_bytes": 43696128,
+      "user_cpu_seconds": 1.143029,
+      "system_cpu_seconds": 0.046904999999999995,
+      "minor_page_faults": 3292,
+      "major_page_faults": 0,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "fanout_process": {
+      "returncode": 0,
+      "seconds": 1.0076199159957469,
+      "guard_failures": [],
+      "supervised_wall_seconds": 1.0366737910080701,
+      "native_peak_rss_bytes": 110100480,
+      "user_cpu_seconds": 1.278428,
+      "system_cpu_seconds": 0.03943,
+      "minor_page_faults": 7667,
+      "major_page_faults": 0,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "source_read_peak_reservations_cumulative": 3370832,
+    "fanout_peak_reservations_cumulative": 3368176,
+    "final_reservations_both_zero": true,
+    "owned_fixtures_removed": true,
+    "scope": "whole-screen including untimed verification; not arm-specific or whole-process enforcement"
+  },
+  "validation": [
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0,
+      "seconds": 2.44227166697965,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-fmt.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "seconds": 7.860118375014281,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-workspace-clippy.log",
+      "log_sha256": "90cec9c7dac98b5c33577ced5b49d79410a740e51eb8bae520edc0814204a576"
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--workspace",
+        "--all-targets"
+      ],
+      "returncode": 0,
+      "seconds": 25.188011999998707,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-workspace-tests.log",
+      "log_sha256": "f2148b786b42f40b02155f64b0d9cebb093065c71f5c89b25f79579f54e1a539"
+    },
+    {
+      "name": "write-only-check",
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-write",
+        "--lib",
+        "--tests"
+      ],
+      "returncode": 0,
+      "seconds": 4.7380098330031615,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-write-only-check.log",
+      "log_sha256": "456469ddaa9861209ab910ec134d385444bd772225fe9ffde9379267f7beb4aa"
+    },
+    {
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "seconds": 11.59419762500329,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-native-clippy.log",
+      "log_sha256": "5289d9ca00f15628fc6dafecdf0c4b6e81a06fffd2505e5f5fc61197963f3c64"
+    },
+    {
+      "name": "native-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets"
+      ],
+      "returncode": 0,
+      "seconds": 51.5524988330144,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-native-tests.log",
+      "log_sha256": "bed3e425d3e597e0b76d517da6484fbc66db66987c43a070c3a29cee2314bfac"
+    },
+    {
+      "name": "docs-productization",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/check_v1_docs_productization.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.036287082999479026,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-docs-productization.log",
+      "log_sha256": "1ef52507d2581d204d537ae56553caadae426dd98cae7b86a65d5bae60e23c48"
+    },
+    {
+      "name": "public-status",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/check_public_status_docs.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.17238999999244697,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-public-status.log",
+      "log_sha256": "ac6c5d01ace281f565ffa145667c3e4df17a322a2c0bf516e1148eeb6f34a70c"
+    },
+    {
+      "name": "architecture",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/check_release_architecture_tracker.py",
+        "--allow-blocked"
+      ],
+      "returncode": 0,
+      "seconds": 0.06732445899979211,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r8-validation-architecture.log",
+      "log_sha256": "ad953be84d2f69f08e3e8cc7d43045396e7027d114b28d9a8d117a681e996cb7"
+    }
+  ],
+  "additional_validation_limitation": "Strict write-only Clippy found the existing unused test helper large_source_text_vortex_write_strategy in unchanged vortex_ingest.rs; write-only cargo check succeeds. Workspace and release-user-surfaces strict Clippy pass.",
+  "raw_archive": {
+    "path": "docs/benchmarks/evidence/concurrent-source-reuse-2026-09-26.json.gz",
+    "bytes": 177534,
+    "sha256": "f4649e990f144349d5b7fd7ed5586b95d500a002b4a38804fb69d283233bd69a",
+    "uncompressed_bytes": 990053,
+    "uncompressed_sha256": "05bd2a38d5eed76a94cf8b88c4626ce911c992e990c98d2bbc1c72c9e8f554bf",
+    "member_count": 41
+  }
+}

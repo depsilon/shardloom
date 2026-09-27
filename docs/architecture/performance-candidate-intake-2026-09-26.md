@@ -22,8 +22,9 @@ a distinct measured target. R5.a is [retained under its bounded workflow memory 
 R9.a is [dropped as duplicate fragment reuse](native-fragment-reuse-audit-2026-09-26.md).
 R9.b's [shared-slot lookahead is retained](writer-subtree-occupancy-screen-2026-09-26.md)
 with 6.52% lower complete ingest, byte-identical outputs and paired Full43
-acceptance after the maintainer rejected a cutoff-only drop. R8 concurrent
-source reuse is next. The
+acceptance after the maintainer rejected a cutoff-only drop. R8's eager shared
+producer is [dropped for the measured concurrent workflow](concurrent-source-reuse-screen-2026-09-26.md);
+the existing explicit owned-array API remains available. C2.a block recipes is next. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
