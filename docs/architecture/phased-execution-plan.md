@@ -347,7 +347,9 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C5.a: retain portable ThinLTO for ordinary release after complete paired screens, final artifact UAT and workspace/native validation.
     - [x] C5.b: drop promotion of tested PGO corpus/profile after an ingest regression; preserve small query/size gains and existing explicit tooling.
     - [x] C5.c: preserve the explicit nonportable CPU profile and measured query gain; drop automatic selection of the tested configuration after an ingest regression.
-    - [ ] C7: complete the admitted JSONL typed-builder experiment and record ship/drop; see `jsonl-typed-builder-screen-2026-09-27.md`.
+    - [ ] C7: finish direct JSON/JSONL typed construction; see `jsonl-typed-builder-screen-2026-09-27.md`.
+      - [x] Retain the JSONL typed builders: 14.05% lower paired complete ingest, reduced RSS, byte-identical artifacts, complete-value oracle and full applicable acceptance.
+      - [ ] Screen whole-file JSON's separate materialized construction path before closing C7.
     - [ ] R2.a: record admission and ship/drop for Source-backed UTF8 dictionaries, Q29 first.
     - [ ] R3.a: record admission and ship/drop for Winner-only exact DISTINCT, Q10 first.
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
@@ -359,11 +361,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: C1/C5 merged in PR #1473 with all 40 checks passing. Complete
-    the admitted C7 JSONL construction experiment, then advance to R2.a. All
-    compiler screens and the ordinary release artifact have complete applicable
-    query, ingest and held-out/resource acceptance. Preserve useful smaller
-    gains and recorded workload tradeoffs.
+  - Next outcome: C1/C5 merged in PR #1473 with all 40 checks passing. PR/merge
+    the accepted JSONL C7 change, then screen whole-file JSON before R2.a.
+    JSONL acceptance includes 129 Full43 results, byte-identical full-size Parquet
+    ingest, 456 held-out calls and pressure/cleanup checks. Preserve useful smaller
+    gains and recorded workload tradeoffs; broader PERF obligations remain open.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with
