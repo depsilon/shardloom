@@ -269,7 +269,10 @@ paths; see `native-fragment-reuse-audit-2026-09-26.md`. R9.b retains one-input
 lookahead within the existing producer slot envelope: 6.52% lower complete ingest,
 byte-identical output, low-budget/cancellation acceptance and all 258 paired
 Full43 calls pass. This supersedes the original cutoff-only drop; see
-`writer-subtree-occupancy-screen-2026-09-26.md`. R8 follows.
+`writer-subtree-occupancy-screen-2026-09-26.md`. R8's eager shared-producer variant
+is dropped after a complete concurrent-cohort screen; existing explicit owned
+fanout remains available. See `concurrent-source-reuse-screen-2026-09-26.md`.
+C2.a follows.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -305,7 +308,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R5.a: retain direct owned-array handoff through the shared prepared aggregate family; 37–43% lower workflow peak RSS, exact complete results and Full43 regression acceptance. See `owned-array-handoff-screen-2026-09-26.md`.
     - [x] R9.a: drop duplicate prepare/seal/reuse implementation after tracing one-pass streamed serialization and existing memory-generation segment reuse. See `native-fragment-reuse-audit-2026-09-26.md`.
     - [x] R9.b: retain shared-slot writer lookahead with 6.52% lower complete ingest, exact output and paired Full43 acceptance; the original 6.58% gain remains separately scoped evidence. See `writer-subtree-occupancy-screen-2026-09-26.md`.
-    - [ ] R8: record admission and ship/drop for Shared scan/decode producer for concurrent queries.
+    - [x] R8: drop eager shared-producer routing after source-read attribution and complete concurrent aggregates; retain existing explicit owned fanout. Broader streaming/decode sharing needs new attribution. See `concurrent-source-reuse-screen-2026-09-26.md`.
     - [ ] C2.a: record admission and ship/drop for Pre-bound executable block recipes.
     - [ ] R5.b: record admission and ship/drop for Transfer reservation-owned pages/buffers across stages.
     - [ ] R5.c: record admission and ship/drop for Bounded read/compute/output overlap in native workflows.
@@ -323,15 +326,15 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
     - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.
     - [ ] R6.c: record admission and ship/drop for Progressive provider selection, Q23 first.
-    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first; also re-evaluate the historical indexed-heap variant dropped solely for a 10% cutoff despite about 7% combined savings, after checking current route relevance.
+    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first. The historical indexed-heap variant's cutoff-only drop is reopened only for a measured sketch-active workload: current Q34/Q35 partitions elide sketch updates.
     - [ ] R2.b: record admission and ship/drop for Bounded parallel dictionary preparation.
     - [ ] For each retained cohesive change, complete semantic/resource gates, full
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: after R9.b's PR, measure R8 repeated reads/decode through serving
-    calls before introducing a shared producer; preserve independent cancellation,
-    generation checks, reservations and bounded slow consumers.
+  - Next outcome: after R8's evidence PR, attribute C2.a setup remaining after
+    prepared lowering; preserve physical encoding, validity, dictionary identity,
+    source generation and fresh mutable state before reusing a block recipe.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

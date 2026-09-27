@@ -1328,6 +1328,10 @@ mod file_serving_tests;
 mod concurrent_serving_tests;
 
 #[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "resident_source_reuse_bench.rs"]
+mod source_reuse_bench;
+
+#[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_file_pruning_tests.rs"]
 mod file_pruning_tests;
 
