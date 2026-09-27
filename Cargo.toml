@@ -48,10 +48,12 @@ unsafe_code = "forbid"
 all = "warn"
 pedantic = "warn"
 
-[profile.release-lto]
-inherits = "release"
+[profile.release]
 lto = "thin"
 codegen-units = 1
+
+[profile.release-lto]
+inherits = "release"
 
 [profile.release-pgo]
 inherits = "release-lto"

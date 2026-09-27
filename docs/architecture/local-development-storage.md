@@ -32,6 +32,9 @@ original summaries. Per-member size/SHA-256 manifests preserve old path lookup;
 every archived byte was verified before removing its original. This recovered
 about 22 MiB of allocated log space without discarding failed-run evidence or
 raising the 256 MiB guard. The C2.b benchmark packet retains the compaction receipt.
+The C5 compiler packet additionally retains the verified compaction of 760 old
+held-out call logs into `completed-call-logs-c5-20260927.tar.xz`, recovering about
+3 MiB of allocated space with the original summary and per-member manifest kept.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

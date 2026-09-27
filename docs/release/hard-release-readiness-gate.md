@@ -891,9 +891,9 @@ python scripts\check_production_usability_gate.py
 
 The report is written to `target/production-usability-gate.json` and is consumed by this hard gate.
 
-`GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
-remain the normal `release` profile artifacts unless a separate release gate explicitly admits a
-portable optimized profile. `release-lto` is portable ThinLTO benchmark evidence, `release-pgo` is
+`GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. The C5.a admission in
+`compiler-profile-screen-2026-09-27.md` selects portable ThinLTO and one codegen unit for normal
+`release` builds. `release-lto` remains a compatible profile alias. `release-pgo` is
 benchmark-only unless a merged profile artifact is supplied through `SHARDLOOM_PGO_PROFILE`, and
 `release-native-benchmark` applies `target-cpu=native` only in the benchmark harness. Any
 `release-native-benchmark` or `target-cpu=native` build is benchmark-only and cannot satisfy public release/package evidence. PGO artifacts must record training workload refs, profile artifact refs,

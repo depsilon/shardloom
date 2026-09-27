@@ -296,7 +296,10 @@ held-out boundary/resource acceptance and all 258 Full43 results. See
 `small-numeric-count-selection-screen-2026-09-27.md`. C1 drops the released
 0.86.x upgrade at allocator-resource admission; the current typed-denial and
 buffer-credit contract stays intact. See `vortex-086-upgrade-admission-2026-09-27.md`.
-C5.a–C5.c follow under `compiler-profile-screen-2026-09-27.md`.
+C5.a retains portable ThinLTO (3.21% lower query total, 7.53% lower ingest) with
+ordinary release artifact acceptance in progress. C5.b/C5.c preserve their measured
+query gains but decline promotion of the tested PGO/native CPU configurations after
+ingest regressions. See `compiler-profile-screen-2026-09-27.md`.
 The release train remains
 complete; this queue does not authorize a new package publication. Follow
 the ranked item below. Remaining native operator,
@@ -341,9 +344,9 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C6: retain the existing native packed-comparison provider with five independent provider/lowering fixtures; drop duplicate kernel/layout work and retain reader-evidence obligations. See `packed-numeric-provider-screen-2026-09-27.md`.
     - [x] C2.b: retain bounded small-integer COUNT selection before worker admission; complete crossover, held-out/resource acceptance and Full43 pass. See `small-numeric-count-selection-screen-2026-09-27.md`.
     - [x] C1: drop the 0.86.x upgrade at resource-contract admission; preserve 0.85.0 and explicit reopening conditions. See `vortex-086-upgrade-admission-2026-09-27.md`.
-    - [ ] C5.a: record admission and ship/drop for Existing ThinLTO build.
-    - [ ] C5.b: record admission and ship/drop for Trained PGO.
-    - [ ] C5.c: record admission and ship/drop for Explicit CPU-targeted build.
+    - [ ] C5.a: retained portable ThinLTO; finish final ordinary release artifact acceptance and merge.
+    - [x] C5.b: drop promotion of tested PGO corpus/profile after an ingest regression; preserve small query/size gains and existing explicit tooling.
+    - [x] C5.c: preserve the explicit nonportable CPU profile and measured query gain; drop automatic selection of the tested configuration after an ingest regression.
     - [ ] C7: record admission and ship/drop for Direct JSON/JSONL parse into typed builders.
     - [ ] R2.a: record admission and ship/drop for Source-backed UTF8 dictionaries, Q29 first.
     - [ ] R3.a: record admission and ship/drop for Winner-only exact DISTINCT, Q10 first.
@@ -356,11 +359,10 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: C5.a compares the existing ThinLTO build with ordinary release,
-    holding source, dependencies, native artifact and policy fixed. C5.b then
-    screens trained PGO with disjoint evaluation; C5.c separates explicit native
-    CPU targeting from portable distribution. Preserve useful smaller gains and
-    complete applicable query, ingest and held-out acceptance before retention.
+  - Next outcome: finish C5.a's ordinary release artifact validation, independent
+    review and PR/merge, then profile C7 JSON/JSONL construction. All three compiler
+    screens have complete paired query, ingest and held-out/resource acceptance.
+    Preserve useful smaller gains and recorded workload tradeoffs.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

@@ -11,9 +11,10 @@ benchmark-only and report-only unless a merged local profile artifact is explici
 - `release-pgo`
 - `release-native-benchmark`
 
-The lane exists to make build configuration explicit in benchmark evidence. It does not change the
-default release artifact, does not make `target-cpu=native` portable, and does not authorize any
-performance or superiority claim.
+The lane makes build configuration explicit in benchmark evidence. The C5.a admission in
+[the compiler screen](compiler-profile-screen-2026-09-27.md) now selects portable ThinLTO and one
+codegen unit for default release builds, preserving `release-lto` as a compatible profile alias.
+This does not make `target-cpu=native` portable or authorize a superiority claim.
 
 ## Source References
 
@@ -32,8 +33,8 @@ The workspace now defines explicit `release-lto`, `release-pgo`, and
 `release-native-benchmark` Cargo profiles. The traditional analytics harness accepts those lanes via
 `--shardloom-build-profile`, records a build-profile row contract in JSON/Markdown artifacts, and
 keeps `release-native-benchmark` host-native and benchmark-only through an explicit
-`-Ctarget-cpu=native` build setting. The default `cargo build --release` path remains the portable
-baseline.
+`-Ctarget-cpu=native` build setting. The default `cargo build --release` path uses portable ThinLTO
+and one codegen unit. Historical baseline records retain their original no-LTO settings.
 
 The checked-in helper `scripts/build_shardloom_pgo.py` documents the PGO workflow and can execute it
 with `--run`. Without a `SHARDLOOM_PGO_PROFILE` merged profile artifact, `release-pgo` rows remain
@@ -48,7 +49,7 @@ for commands, the native `llvm-profdata` compatibility gate, and independent eva
 
 ## Goals
 
-- Add explicit optimized build-profile planning without changing default release behavior.
+- Keep default portable ThinLTO and the explicit experimental build profiles accurately reported.
 - Keep portable release artifacts portable.
 - Keep `target-cpu=native` benchmark-only.
 - Make PGO profile generation and use reproducible.
@@ -58,7 +59,7 @@ for commands, the native `llvm-profdata` compatibility gate, and independent eva
 
 ## Non-Goals
 
-- No replacement of the default release build.
+- No host-specific CPU target or trained PGO profile in the default release build.
 - No public performance, superiority, memory-efficiency, or Spark-replacement claim.
 - No package publication, release tag, or artifact signing change.
 - No hidden `RUSTFLAGS` in release workflows.
@@ -72,9 +73,9 @@ Cargo profile settings belong in `Cargo.toml`; rustc flags such as PGO and `targ
 need explicit `RUSTFLAGS` or wrapper scripts.
 
 ```text
-release-lto
-  Intended use: portable optimized local artifact lane.
-  Cargo profile: inherits release, enables ThinLTO, codegen-units=1.
+release / release-lto
+  Intended use: portable release build; release-lto is a compatible profile alias.
+  Cargo profile: release enables ThinLTO, codegen-units=1; release-lto inherits release.
   Native CPU: prohibited.
   Claim status: not_claim_grade until workload gates pass.
 
@@ -132,7 +133,7 @@ states, and blocked or unsupported states.
 ## Acceptance Criteria
 
 - `cargo build --profile release-lto` succeeds.
-- The default `cargo build --release` behavior remains the portable release baseline.
+- The default `cargo build --release` uses portable ThinLTO with one codegen unit.
 - `release-native-benchmark` cannot be used as a release/publication artifact.
 - PGO smoke is reproducible from documented commands and records training workload refs.
 - Benchmark harness output records the selected build profile and native/PGO/LTO status.
