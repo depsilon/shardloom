@@ -114,10 +114,26 @@ pub fn reuse_local_preparation(path: &Path, expected: &str) -> Result<u64> {
 
 /// Public preparation identities bound to the validated source and artifact generations.
 /// These digests identify local generations, not cryptographically authenticated contents.
+#[derive(Debug)]
 pub struct LocalPreparationIdentity {
     pub row_count: u64,
     pub source_digest: String,
     pub prepared_digest: String,
+    artifact: SourceIdentity,
+    source_binding: String,
+}
+
+impl LocalPreparationIdentity {
+    /// Check the held artifact and its source inventory before execution and
+    /// before publishing execution evidence. Keep this identity alive between
+    /// checks so replacement cannot silently rebind the preparation certificate.
+    /// # Errors
+    /// Rejects changed or invalidated local source and artifact generations.
+    pub fn validate_generation(&self) -> Result<()> {
+        self.artifact.validate()?;
+        validate(&self.source_binding)?;
+        self.artifact.validate()
+    }
 }
 
 fn identity_digest(bytes: &[u8]) -> Result<String> {
@@ -178,5 +194,7 @@ pub fn local_preparation_identity(path: &Path, expected: &str) -> Result<LocalPr
         row_count: file.row_count(),
         source_digest,
         prepared_digest: identity_digest(prepared_binding.to_string().as_bytes())?,
+        artifact: identity,
+        source_binding: expected.to_owned(),
     })
 }

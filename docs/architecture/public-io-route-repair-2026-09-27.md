@@ -48,7 +48,7 @@ schedule was stopped for these repairs; completed calls remain evidence.
 - Bind automatic preparation reuse to the unchanged source generation recorded
   inside its prepared artifact, and validate the reopened artifact's generation
   throughout reuse. Reject stale/unbound state and preserve unrelated user outputs.
-Generation checks detect local changes; they are not cryptographic artifact
+  Generation checks detect local changes; they are not cryptographic artifact
   authentication.
 - Keep all execution native. No external query-engine dependency or fallback.
 
@@ -155,6 +155,13 @@ creation and warm reuse. These public identities bind the validated source metad
 and artifact generation; they are explicitly distinct from content authentication
 and the detailed ingest/capillary execution identities. Reuse reason, embedded
 binding reference, digest algorithm and invalidation fields remain present.
+Both cold and reused compatibility preparations retain a held artifact generation
+through execution, including both inputs of a join. Source and artifact generations
+are checked before native dispatch and again before releasing any response envelope.
+A changed generation returns an error without the stale success or certificate.
+This response boundary does not roll back a file already published by a native
+sink; on failure that file is not certified by the public call. File generation
+checks remain local change detection rather than a filesystem snapshot.
 
 The maintainer's follow-up direction covers all I/O: use a shared optimization
 policy for native and compatibility inputs, native execution state and persisted
@@ -202,3 +209,12 @@ UTF8 values across the eight sinks and admitted fanout. Those Python routing
 checks use the frozen handoff CLI; the Rust preparation-identity and fidelity
 changes are covered by the new CLI tests. The complete-query timings above remain
 the measurements from commit `503e67ee`, before these review corrections.
+
+The generation-retention correction passes 3,432 default workspace tests and
+919 release-feature CLI tests, with default/release-feature Clippy and the same
+docs/contract checks. Adversarial cases replace source or artifact generations
+during cold/warm reuse on either join input, and check that stale envelopes are
+discarded. Output buffering also covers text/JSON errors and unwinding.
+The aggregate conformance and release-readiness inventories now track the eight
+output formats, ten write methods and 114 Python method rows; their previous
+seven/nine/113 counts rejected otherwise passing producer evidence.

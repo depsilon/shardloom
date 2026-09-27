@@ -1523,13 +1523,13 @@ def main() -> int:
             v1_local_output_sink_blockers.append(
                 "v1 local output/sink write policy contract must be ready"
             )
-        if len(v1_local_output_sink_scope.get("supported_output_formats", [])) != 7:
+        if len(v1_local_output_sink_scope.get("supported_output_formats", [])) != 8:
             v1_local_output_sink_blockers.append(
-                "v1 local output/sink format coverage must contain 7 formats"
+                "v1 local output/sink format coverage must contain 8 formats"
             )
-        if len(v1_local_output_sink_scope.get("user_write_methods", [])) != 9:
+        if len(v1_local_output_sink_scope.get("user_write_methods", [])) != 10:
             v1_local_output_sink_blockers.append(
-                "v1 local output/sink method coverage must contain 9 methods"
+                "v1 local output/sink method coverage must contain 10 methods"
             )
         if len(v1_local_output_sink_scope.get("golden_fixture_paths", [])) != 3:
             v1_local_output_sink_blockers.append(
@@ -1975,11 +1975,11 @@ def main() -> int:
                 ("source_prepared_state", "invalidation_case_count"): 9,
                 ("vortex_runtime", "primitive_route_count"): 11,
                 ("vortex_runtime", "local_file_benchmark_route_count"): 16,
-                ("local_output_sink", "supported_output_format_count"): 7,
-                ("local_output_sink", "write_method_count"): 9,
+                ("local_output_sink", "supported_output_format_count"): 8,
+                ("local_output_sink", "write_method_count"): 10,
                 ("local_output_sink", "output_route_count"): 7,
-                ("python_user_surface", "method_matrix_row_count"): 113,
-                ("python_user_surface", "method_matrix_row_list_count"): 113,
+                ("python_user_surface", "method_matrix_row_count"): 114,
+                ("python_user_surface", "method_matrix_row_list_count"): 114,
                 ("python_user_surface", "required_operation_method_count"): 13,
                 (
                     "python_user_surface",

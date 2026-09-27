@@ -45,6 +45,7 @@ impl FileGeneration {
 /// compares the path and held descriptor's device, inode, length, modification
 /// and change timestamps; it is not a content hash or a filesystem snapshot.
 /// Strong local generation admission is currently available on Unix only.
+#[derive(Debug)]
 pub struct SourceIdentity {
     path: PathBuf,
     pub(crate) file: File,

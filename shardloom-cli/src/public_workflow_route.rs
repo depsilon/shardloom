@@ -4462,7 +4462,7 @@ fn execute_local_file_prepare_once_first_query_run(
         &left_preparation,
         prepared_run.right_source.is_some(),
     );
-    if let Some(right) = &prepared_run.right_source {
+    let right_preparation = if let Some(right) = &prepared_run.right_source {
         let right_input = PublicWorkflowPreparationInput {
             source_uri: &right.source_uri,
             source_format: &right.source_format,
@@ -4482,14 +4482,44 @@ fn execute_local_file_prepare_once_first_query_run(
         extra_fields.extend(local_prepared_vortex_right_execution_attachment_fields(
             &right_preparation,
         ));
-    }
+        Some(right_preparation)
+    } else {
+        None
+    };
 
-    execute_prepared_local_native_route(
-        &prepared_run.request,
-        &native_plan,
-        format,
-        extra_fields,
-        execution_session,
+    with_prepared_source_generations(&left_preparation, right_preparation.as_ref(), || {
+        execute_prepared_local_native_route(
+            &prepared_run.request,
+            &native_plan,
+            format,
+            extra_fields,
+            execution_session,
+        )
+    })
+    .unwrap_or_else(|error| {
+        emit_error(
+            "run",
+            format,
+            "prepared source generation changed during execution",
+            &error,
+        )
+    })
+}
+
+pub(crate) fn with_prepared_source_generations<T>(
+    left: &sql_local_source_runtime::PublicWorkflowVortexPreparation,
+    right: Option<&sql_local_source_runtime::PublicWorkflowVortexPreparation>,
+    execute: impl FnOnce() -> T,
+) -> Result<T, ShardLoomError> {
+    crate::cli_output::with_validated_output(
+        || {
+            left.validate_generation()?;
+            if let Some(right) = right {
+                right.validate_generation()?;
+            }
+            Ok(())
+        },
+        execute,
     )
 }
 
@@ -5456,6 +5486,14 @@ pub(crate) fn handle_public_workflow_prepare(
     ]);
     let profile_runtime_fields =
         prepared_profile_runtime_plan_fields(&request, &preparation, max_parallelism);
+    if let Err(error) = preparation.validate_generation() {
+        return emit_error(
+            "prepare",
+            format,
+            "prepared source generation changed",
+            &error,
+        );
+    }
     fields.extend(preparation.fields);
     fields.extend(profile_runtime_fields);
     emit(

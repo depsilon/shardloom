@@ -5132,10 +5132,27 @@ enum VortexIngestOutcome {
     Prepared(Box<VortexIngestReport>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub(crate) struct PublicWorkflowVortexPreparation {
     pub(crate) target_path: PathBuf,
     pub(crate) fields: Vec<(String, String)>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    identity: Option<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>,
+}
+
+impl PublicWorkflowVortexPreparation {
+    // Keep the same call boundary in builds that cannot prepare/reuse artifacts.
+    #[cfg_attr(
+        not(all(feature = "vortex-write", feature = "universal-format-io", unix)),
+        allow(clippy::unused_self, clippy::unnecessary_wraps)
+    )]
+    pub(crate) fn validate_generation(&self) -> Result<(), ShardLoomError> {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+        if let Some(identity) = &self.identity {
+            identity.validate_generation()?;
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn handle_local_source_runtime(
@@ -5891,6 +5908,8 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         return Ok(PublicWorkflowVortexPreparation {
             target_path,
             fields: public_workflow_preparation_fields(&raw_fields),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            identity: None,
         });
     }
     let source_format_override = match source_format {
@@ -5929,7 +5948,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         return Ok(public_workflow_reused_preparation(
             target_path,
             source_fingerprint_policy,
-            &identity,
+            identity,
             binding_started.elapsed().as_millis(),
         ));
     }
@@ -5966,20 +5985,25 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         }
     };
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-    let raw_fields = {
+    let (raw_fields, identity) = {
         let mut fields = raw_fields;
-        if let Some(binding) = prepared_source_binding {
+        let identity = if let Some(binding) = prepared_source_binding {
             let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
                 &target_path,
                 &binding,
             )?;
             public_preparation_identity_fields(&mut fields, &identity, false);
-        }
-        fields
+            Some(identity)
+        } else {
+            None
+        };
+        (fields, identity)
     };
     Ok(PublicWorkflowVortexPreparation {
         target_path,
         fields: public_workflow_preparation_fields(&raw_fields),
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+        identity,
     })
 }
 
@@ -5987,7 +6011,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
 fn public_workflow_reused_preparation(
     target_path: PathBuf,
     source_fingerprint_policy: SourceFingerprintPolicy,
-    identity: &shardloom_vortex::prepared_source_binding::LocalPreparationIdentity,
+    identity: shardloom_vortex::prepared_source_binding::LocalPreparationIdentity,
     elapsed_millis: u128,
 ) -> PublicWorkflowVortexPreparation {
     let mut raw_fields = vec![
@@ -6014,10 +6038,11 @@ fn public_workflow_reused_preparation(
         ),
         ("prepare_once_millis".into(), elapsed_millis.to_string()),
     ];
-    public_preparation_identity_fields(&mut raw_fields, identity, true);
+    public_preparation_identity_fields(&mut raw_fields, &identity, true);
     PublicWorkflowVortexPreparation {
         target_path,
         fields: public_workflow_preparation_fields(&raw_fields),
+        identity: Some(identity),
     }
 }
 

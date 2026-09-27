@@ -138,6 +138,96 @@ fn assert_reused_identity(
 }
 
 #[test]
+fn public_io_preparation_generation_is_held_through_execution() {
+    let fixture = Fixture::new();
+    let stable_source = fixture.0.join("stable.csv");
+    fs::write(&stable_source, "id,text\n7,hello\n").unwrap();
+    let stable = prepare_local_source_as_vortex_for_public_workflow(
+        &stable_source,
+        stable_source.with_extension("vortex"),
+        Some("csv"),
+        false,
+        1,
+        Some(1),
+        Some("metadata_only"),
+    )
+    .unwrap();
+    for (warm, change_source, right_input) in [
+        (false, false, false),
+        (false, true, false),
+        (true, false, false),
+        (true, true, false),
+        (false, false, true),
+        (false, true, true),
+        (true, false, true),
+        (true, true, true),
+    ] {
+        let source = fixture
+            .0
+            .join(format!("source-{warm}-{change_source}-{right_input}.csv"));
+        let target = source.with_extension("vortex");
+        fs::write(&source, "id,text\n7,hello\n").unwrap();
+        let cold = prepare_local_source_as_vortex_for_public_workflow(
+            &source,
+            &target,
+            Some("csv"),
+            false,
+            1,
+            Some(1),
+            Some("metadata_only"),
+        )
+        .unwrap();
+        let preparation = if warm {
+            prepare_local_source_as_vortex_for_public_workflow(
+                &source,
+                &target,
+                Some("csv"),
+                false,
+                1,
+                Some(1),
+                Some("metadata_only"),
+            )
+            .unwrap()
+        } else {
+            cold
+        };
+        preparation.validate_generation().unwrap();
+        let (left, right) = if right_input {
+            (&stable, Some(&preparation))
+        } else {
+            (&preparation, None)
+        };
+        let result =
+            crate::public_workflow_route::with_prepared_source_generations(left, right, || {
+                // Replace atomically with equal bytes: identity must track
+                // the admitted generation, not just a valid footer/binding.
+                let changed_path = if change_source { &source } else { &target };
+                let replacement = changed_path.with_extension("replacement");
+                fs::write(&replacement, fs::read(changed_path).unwrap()).unwrap();
+                fs::rename(&replacement, changed_path).unwrap();
+                crate::cli_output::emit(
+                    "run",
+                    OutputFormat::Json,
+                    CommandStatus::Success,
+                    "must not escape".into(),
+                    String::new(),
+                    Vec::new(),
+                    preparation.fields.clone(),
+                );
+            });
+        assert!(result.is_err(), "warm={warm}, source={change_source}");
+        assert!(preparation.validate_generation().is_err());
+        let ran = std::cell::Cell::new(false);
+        assert!(
+            crate::public_workflow_route::with_prepared_source_generations(left, right, || ran
+                .set(true),)
+            .is_err()
+        );
+        assert!(!ran.get());
+    }
+}
+
+#[test]
 fn public_io_empty_binary_preparation_preserves_schema_and_reuses_binding() {
     let fixture = Fixture::new();
     let columns = vec!["id".to_string(), "text".to_string()];
