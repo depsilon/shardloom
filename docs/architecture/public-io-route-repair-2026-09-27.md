@@ -48,7 +48,7 @@ schedule was stopped for these repairs; completed calls remain evidence.
 - Bind automatic preparation reuse to the unchanged source generation recorded
   inside its prepared artifact, and validate the reopened artifact's generation
   throughout reuse. Reject stale/unbound state and preserve unrelated user outputs.
-  Generation checks detect local changes; they are not cryptographic artifact
+Generation checks detect local changes; they are not cryptographic artifact
   authentication.
 - Keep all execution native. No external query-engine dependency or fallback.
 
@@ -146,6 +146,25 @@ route, which owns preparation/reuse and native admission. Existing specialized
 provider scenarios retain their Vortex/JSONL/CSV sink scope; this repair is not a
 claim that every operator has every sink or that arbitrary SQL is supported.
 
+Declared Python schemas are applied during preparation before the shared SQL
+write route receives the prepared Vortex input, including binary sinks and fanout.
+An unlowerable declared write cannot resubmit its original source for inference.
+JSON and ORC export reports use the existing text and binary fidelity categories.
+Automatic public preparation emits the same source/prepared identities after cold
+creation and warm reuse. These public identities bind the validated source metadata
+and artifact generation; they are explicitly distinct from content authentication
+and the detailed ingest/capillary execution identities. Reuse reason, embedded
+binding reference, digest algorithm and invalidation fields remain present.
+
+The maintainer's follow-up direction covers all I/O: use a shared optimization
+policy for native and compatibility inputs, native execution state and persisted
+results, with compatibility conversion at the final sink. That policy unification
+is not implemented by this repair. Native input admission still preserves its
+existing layout, and native result persistence still uses the bounded flat writer
+without newly computing file statistics. Future work must preserve valid encoded
+owners, reuse already prepared artifacts, derive metadata from the actual result,
+and avoid an obligatory intermediate file write/read for transient results.
+
 Metadata-first execution, existing encoded aggregate kernels, Top-K and late
 payload materialization are reused. The change is producer/sink integration and
 preparation lifecycle repair, not a new PulseWeave scheduler or performance result.
@@ -174,3 +193,12 @@ all 172 cases: collection totals 104.73s and Vortex export 106.16s, compared wit
 The PR records final CI and integration acceptance. Large task-owned caches and
 both generated plain fixtures were retired after their complete lane evidence
 was preserved.
+
+The subsequent review corrections pass 3,429 default workspace tests, 915
+release-feature CLI tests, 666 Python tests (144 existing skips), default and
+release-feature Clippy, formatting and the seven docs/contract validators.
+Eighteen small real Python write/readback checks preserve declared numeric-looking
+UTF8 values across the eight sinks and admitted fanout. Those Python routing
+checks use the frozen handoff CLI; the Rust preparation-identity and fidelity
+changes are covered by the new CLI tests. The complete-query timings above remain
+the measurements from commit `503e67ee`, before these review corrections.

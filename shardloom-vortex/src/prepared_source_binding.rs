@@ -109,6 +109,30 @@ pub(crate) fn validate(binding: &str) -> Result<()> {
 /// # Errors
 /// Rejects stale source generations, invalid Vortex files, and unbound artifacts.
 pub fn reuse_local_preparation(path: &Path, expected: &str) -> Result<u64> {
+    Ok(local_preparation_identity(path, expected)?.row_count)
+}
+
+/// Public preparation identities bound to the validated source and artifact generations.
+/// These digests identify local generations, not cryptographically authenticated contents.
+pub struct LocalPreparationIdentity {
+    pub row_count: u64,
+    pub source_digest: String,
+    pub prepared_digest: String,
+}
+
+fn identity_digest(bytes: &[u8]) -> Result<String> {
+    let mut encoded = String::from("sha256:");
+    for byte in Sha256::digest(bytes) {
+        write!(encoded, "{byte:02x}").map_err(error)?;
+    }
+    Ok(encoded)
+}
+
+/// Resolve the same public identity after creation and on subsequent reuse.
+/// Only the footer and bounded source-binding metadata are read.
+/// # Errors
+/// Rejects missing bindings, changed source/artifact generations and invalid Vortex files.
+pub fn local_preparation_identity(path: &Path, expected: &str) -> Result<LocalPreparationIdentity> {
     use vortex::{
         VortexSessionDefault as _,
         file::OpenOptionsSessionExt as _,
@@ -142,5 +166,17 @@ pub fn reuse_local_preparation(path: &Path, expected: &str) -> Result<u64> {
     }
     identity.validate()?;
     validate(expected)?;
-    Ok(file.row_count())
+    let source_digest = identity_digest(expected.as_bytes())?;
+    let generation = identity.preparation_binding()?;
+    let prepared_binding = serde_json::json!({
+        "source": source_digest,
+        "artifact": generation,
+        "rows": file.row_count(),
+        "dtype": file.dtype().to_string(),
+    });
+    Ok(LocalPreparationIdentity {
+        row_count: file.row_count(),
+        source_digest,
+        prepared_digest: identity_digest(prepared_binding.to_string().as_bytes())?,
+    })
 }

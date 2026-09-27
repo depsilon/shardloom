@@ -2296,8 +2296,8 @@ fn row_export_target_report_evidence_field(
 fn native_vortex_row_export_fidelity_status(output_format: &str) -> &'static str {
     match output_format {
         "vortex" => "native_vortex_logical_types_preserved_physical_fidelity_reported",
-        "parquet" | "arrow-ipc" | "avro" => "typed_compatibility_binary_export",
-        "jsonl" | "csv" => "compatibility_text_row_export_type_metadata_not_preserved",
+        "parquet" | "arrow-ipc" | "avro" | "orc" => "typed_compatibility_binary_export",
+        "json" | "jsonl" | "csv" => "compatibility_text_row_export_type_metadata_not_preserved",
         _ => "unknown_output_format",
     }
 }
@@ -13547,6 +13547,41 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn native_vortex_row_export_fidelity_status_classifies_supported_formats() {
+        let cases = [
+            (
+                "vortex",
+                "native_vortex_logical_types_preserved_physical_fidelity_reported",
+            ),
+            ("parquet", "typed_compatibility_binary_export"),
+            ("arrow-ipc", "typed_compatibility_binary_export"),
+            ("avro", "typed_compatibility_binary_export"),
+            ("orc", "typed_compatibility_binary_export"),
+            (
+                "json",
+                "compatibility_text_row_export_type_metadata_not_preserved",
+            ),
+            (
+                "jsonl",
+                "compatibility_text_row_export_type_metadata_not_preserved",
+            ),
+            (
+                "csv",
+                "compatibility_text_row_export_type_metadata_not_preserved",
+            ),
+            ("unknown", "unknown_output_format"),
+        ];
+
+        for (output_format, expected) in cases {
+            assert_eq!(
+                super::native_vortex_row_export_fidelity_status(output_format),
+                expected,
+                "unexpected fidelity status for {output_format}"
+            );
+        }
+    }
+
     #[test]
     fn small_count_selection_survives_public_summary_without_invented_workers() {
         let payload = serde_json::json!({

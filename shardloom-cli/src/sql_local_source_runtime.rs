@@ -5922,15 +5922,14 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         let binding = prepared_source_binding
             .as_deref()
             .expect("feature-admitted binding");
-        let rows = shardloom_vortex::prepared_source_binding::reuse_local_preparation(
+        let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
             &target_path,
             binding,
         )?;
         return Ok(public_workflow_reused_preparation(
             target_path,
             source_fingerprint_policy,
-            rows,
-            binding,
+            &identity,
             binding_started.elapsed().as_millis(),
         ));
     }
@@ -5953,7 +5952,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
         max_parallelism,
         source_fingerprint_policy,
         delta: None,
-        prepared_source_binding,
+        prepared_source_binding: prepared_source_binding.clone(),
     };
     let raw_fields = match run_vortex_prepare(request)? {
         VortexIngestOutcome::Prepared(report) => {
@@ -5966,6 +5965,18 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
             report.fields()
         }
     };
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let raw_fields = {
+        let mut fields = raw_fields;
+        if let Some(binding) = prepared_source_binding {
+            let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
+                &target_path,
+                &binding,
+            )?;
+            public_preparation_identity_fields(&mut fields, &identity, false);
+        }
+        fields
+    };
     Ok(PublicWorkflowVortexPreparation {
         target_path,
         fields: public_workflow_preparation_fields(&raw_fields),
@@ -5976,11 +5987,10 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
 fn public_workflow_reused_preparation(
     target_path: PathBuf,
     source_fingerprint_policy: SourceFingerprintPolicy,
-    rows: u64,
-    binding: &str,
+    identity: &shardloom_vortex::prepared_source_binding::LocalPreparationIdentity,
     elapsed_millis: u128,
 ) -> PublicWorkflowVortexPreparation {
-    let raw_fields = vec![
+    let mut raw_fields = vec![
         ("vortex_ingest_performed".into(), "false".into()),
         (
             "vortex_ingest_status".into(),
@@ -5989,7 +5999,7 @@ fn public_workflow_reused_preparation(
         ("prepared_state_created".into(), "false".into()),
         ("prepared_state_reused".into(), "true".into()),
         ("prepared_state_reuse_hit".into(), "true".into()),
-        ("input_row_count".into(), rows.to_string()),
+        ("input_row_count".into(), identity.row_count.to_string()),
         (
             "target_vortex_path".into(),
             target_path.display().to_string(),
@@ -6002,12 +6012,76 @@ fn public_workflow_reused_preparation(
             "source_fingerprint_policy".into(),
             source_fingerprint_policy.as_str().into(),
         ),
-        ("source_state_digest".into(), fnv64_digest(binding)),
         ("prepare_once_millis".into(), elapsed_millis.to_string()),
     ];
+    public_preparation_identity_fields(&mut raw_fields, identity, true);
     PublicWorkflowVortexPreparation {
         target_path,
         fields: public_workflow_preparation_fields(&raw_fields),
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+fn public_preparation_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    identity: &shardloom_vortex::prepared_source_binding::LocalPreparationIdentity,
+    reused: bool,
+) {
+    // Public workflow identities describe the validated local generations. The
+    // detailed ingest/capillary reports retain their own execution identities.
+    for (key, value) in [
+        (
+            "source_state_id",
+            format!("source-state-local-preparation-{}", identity.source_digest),
+        ),
+        ("source_state_digest", identity.source_digest.clone()),
+        (
+            "prepared_state_id",
+            format!(
+                "vortex-prepared-state-local-generation-{}",
+                identity.prepared_digest
+            ),
+        ),
+        ("prepared_state_digest", identity.prepared_digest.clone()),
+        (
+            "prepared_state_identity_policy",
+            "validated_local_source_and_artifact_generations_v1".into(),
+        ),
+        ("prepared_state_reuse_allowed", "true".into()),
+        (
+            "prepared_state_reuse_scope",
+            "embedded_source_binding".into(),
+        ),
+        (
+            "prepared_state_reuse_manifest_path",
+            "embedded:shardloom.prepared-source.v1".into(),
+        ),
+        (
+            "prepared_state_reuse_manifest_digest",
+            identity.source_digest.clone(),
+        ),
+        (
+            "prepared_state_reuse_manifest_digest_algorithm",
+            "sha256_source_binding_not_artifact_content".into(),
+        ),
+        (
+            "prepared_state_reuse_policy",
+            "unchanged_local_source_and_artifact_generation".into(),
+        ),
+        (
+            "prepared_state_reuse_reason",
+            if reused {
+                "embedded_source_binding_matched"
+            } else {
+                "new_artifact_binding_validated"
+            }
+            .into(),
+        ),
+        ("prepared_state_invalidation_reason", "none".into()),
+        ("fallback_attempted", "false".into()),
+        ("external_engine_invoked", "false".into()),
+    ] {
+        set_cli_field(fields, key, value);
     }
 }
 
@@ -6122,6 +6196,15 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         "prepared_state_created",
         "prepared_state_reused",
         "prepared_state_reuse_hit",
+        "prepared_state_identity_policy",
+        "prepared_state_reuse_allowed",
+        "prepared_state_reuse_scope",
+        "prepared_state_reuse_manifest_path",
+        "prepared_state_reuse_manifest_digest",
+        "prepared_state_reuse_manifest_digest_algorithm",
+        "prepared_state_reuse_policy",
+        "prepared_state_reuse_reason",
+        "prepared_state_invalidation_reason",
         "input_row_count",
         "target_vortex_path",
         "prepared_artifact_ref",

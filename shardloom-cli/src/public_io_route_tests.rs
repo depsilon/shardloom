@@ -82,6 +82,7 @@ fn public_io_repeated_preparation_reuses_embedded_binding_across_inputs() {
                     && value == "true"),
                 "{format}/{policy}: unchanged prepared state was not reused"
             );
+            assert_reused_identity(&first, &second);
             assert_eq!(fs::read(&target).unwrap(), original);
         }
         let original = fs::read(&target).unwrap();
@@ -99,6 +100,40 @@ fn public_io_repeated_preparation_reuses_embedded_binding_across_inputs() {
             .is_err()
         );
         assert_eq!(fs::read(&target).unwrap(), original);
+    }
+}
+
+fn assert_reused_identity(
+    first: &PublicWorkflowVortexPreparation,
+    second: &PublicWorkflowVortexPreparation,
+) {
+    for field in [
+        "source_state_id",
+        "source_state_digest",
+        "prepared_state_id",
+        "prepared_state_digest",
+        "prepared_state_identity_policy",
+        "prepared_state_reuse_manifest_path",
+        "prepared_state_reuse_manifest_digest",
+    ] {
+        let key = format!("public_workflow_preparation_{field}");
+        let first_value = first.fields.iter().find(|(name, _)| name == &key);
+        let second_value = second.fields.iter().find(|(name, _)| name == &key);
+        assert!(first_value.is_some(), "cold {field} missing");
+        assert!(first_value == second_value, "{field} changed on reuse");
+    }
+    for field in [
+        "prepared_state_reuse_reason",
+        "prepared_state_invalidation_reason",
+    ] {
+        let key = format!("public_workflow_preparation_{field}");
+        assert!(
+            second
+                .fields
+                .iter()
+                .any(|(name, value)| name == &key && !value.is_empty()),
+            "warm {field} missing"
+        );
     }
 }
 

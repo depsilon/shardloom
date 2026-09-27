@@ -6751,7 +6751,7 @@ class LazyFrame:
                 check=check,
             )
         requested_output = _public_write_request_for_format(normalized_output_format)
-        if not self.source.schema and self._sql_local_source_statement() is not None:
+        if self._sql_local_source_statement() is not None:
             return self._public_workflow_write_report(
                 target_uri, requested_output=requested_output,
                 allow_overwrite=allow_overwrite, check=check,
@@ -6952,6 +6952,14 @@ class LazyFrame:
         output_format, output_path = normalized_outputs[0]
         requested_output = _public_write_request_for_format(output_format)
         fanout_outputs = normalized_outputs[1:]
+        if self.source.schema and self._sql_local_source_statement() is not None:
+            return self._public_workflow_write_report(
+                output_path,
+                requested_output=requested_output,
+                allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
+                check=check,
+            )
         if self.source.source_format == "vortex":
             return self._vortex_user_route_write_report(
                 output_path,
@@ -7226,7 +7234,7 @@ class LazyFrame:
         return ShardLoom's deterministic Vortex sink blocker.
         """
 
-        if not self.source.schema and self._sql_local_source_statement() is not None:
+        if self._sql_local_source_statement() is not None:
             return self._public_workflow_write_report(
                 target_uri, requested_output="write_vortex",
                 allow_overwrite=allow_overwrite, check=check,
@@ -7272,6 +7280,10 @@ class LazyFrame:
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
         check: bool = False,
     ) -> UnsupportedWorkflowOperationReport:
+        # The public SQL facade cannot infer a replacement for a declared schema.
+        # Unlowerable declared writes must remain side-effect-free blockers.
+        if self.source.schema and requested_output.startswith("write_"):
+            return self._unsupported_operation(operation, target_ref, check=check)
         execution = self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
@@ -7309,10 +7321,34 @@ class LazyFrame:
         check: bool,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> SqlLocalSourceSmokeReport:
-        statement = self._sql_local_source_statement()
+        statement = self._sql_local_source_statement(allow_native_source=True)
         if statement is None:
             raise ValueError(
                 "public workflow write facade requires an admitted local-source statement"
+            )
+        if self.source.schema and self.source.source_format != "vortex":
+            candidate = self._prepared_vortex_candidate_for_admitted_runtime()
+            if candidate is None:
+                raise ValueError("declared schema requires an admitted Vortex preparation")
+            preparation = self._prepare_vortex_candidate(
+                candidate,
+                check=check,
+                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            )
+            if preparation.envelope.status != "success":
+                return SqlLocalSourceSmokeReport(
+                    preparation.envelope, preparation_envelope=preparation.envelope
+                )
+            report = candidate.frame._public_workflow_write_report(
+                target_uri,
+                requested_output=requested_output,
+                allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
+                check=check,
+            )
+            return SqlLocalSourceSmokeReport(
+                report.envelope, preparation_envelope=preparation.envelope
             )
         execution = self.client.public_workflow_run(
             "dataframe",
@@ -8048,7 +8084,10 @@ class LazyFrame:
             _native_vortex_row_export_payload_from_primitive_shape(
                 candidate.frame._vortex_primitive_shape()
             )
-            if requested_output in {"write_json", "write_jsonl", "write_csv"}
+            if requested_output in {
+                "write_vortex", "write_parquet", "write_arrow_ipc", "write_avro",
+                "write_orc", "write_json", "write_jsonl", "write_csv",
+            }
             else None
         )
         structured_binary_payload = requested_output in {
@@ -8056,6 +8095,7 @@ class LazyFrame:
             "write_parquet",
             "write_arrow_ipc",
             "write_avro",
+            "write_orc",
         } and candidate.frame._has_structured_binary_export_shape()
         if provider_shape is None and primitive_payload is None and not structured_binary_payload:
             return None
@@ -10322,8 +10362,12 @@ class LazyFrame:
             engine_mode=self.engine_mode,
         )
 
-    def _sql_local_source_statement(self, *, default_limit: int | None = None) -> str | None:
-        if not _is_query_builder_local_source(self.source):
+    def _sql_local_source_statement(
+        self, *, default_limit: int | None = None, allow_native_source: bool = False
+    ) -> str | None:
+        if not _is_query_builder_local_source(self.source) and not (
+            allow_native_source and self.source.source_format == "vortex"
+        ):
             return None
         projection_list: tuple[str, ...] | None = None
         aggregate_list: tuple[str, ...] | None = None
