@@ -404,15 +404,17 @@ fn owned_closed_admission_skips_later_key_expression_for_unknown_strings() {
     state
         .update(
             &[
-                ["kept", "absent", "kept", "kept"]
+                ["kept", "absent", "kept", "known", "kept"]
                     .map(|s| StatValue::Utf8(s.to_string()))
                     .to_vec(),
-                ["known", "known", "unknown", "known"]
+                ["known", "known", "unknown", "kept", "known"]
                     .map(|s| StatValue::Utf8(s.to_string()))
                     .to_vec(),
-                [0, u64::MAX, u64::MAX, 0].map(StatValue::UInt64).to_vec(),
+                [0, u64::MAX, u64::MAX, u64::MAX, 0]
+                    .map(StatValue::UInt64)
+                    .to_vec(),
             ],
-            4,
+            5,
         )
         .unwrap();
     assert!(state.string_interner.values.is_empty());

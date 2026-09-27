@@ -25537,7 +25537,7 @@ struct GroupedAggregateStates<'a> {
     source_order_candidate_filter: source_order_candidate_filter::Work,
     source_order_limited_group_admission: bool,
     materialized_owned_group_keys: bool,
-    source_order_owned_group_strings: Option<rustc_hash::FxHashSet<std::sync::Arc<str>>>,
+    source_order_owned_group_strings: Option<Vec<rustc_hash::FxHashSet<std::sync::Arc<str>>>>,
     general_direct_group_state_pre_reserved: bool,
     native_numeric_accessor_work: NativeNumericAccessorWork,
     aggregate_accessor_summary: std::collections::BTreeSet<String>,
@@ -34015,22 +34015,28 @@ impl<'a> GroupedAggregateStates<'a> {
         row_index: usize,
     ) -> Result<Option<AggregateGroupKey>> {
         // Admission is closed, so this immutable membership set can share the
-        // retained key owners. Build once, only for generic-owned states: do not
-        // copy strings, grow the interner, or scan every group for every row.
+        // retained key owners. Keep domains separate by irredundant key position:
+        // a value present only in another position cannot match this key. Build
+        // once, without copying strings or scanning every group for every row.
         let owned_strings = self
             .source_order_owned_group_strings
             .get_or_insert_with(|| {
-                self.groups
-                    .keys()
-                    .flat_map(|key| (0..key.len()).filter_map(|index| key.get(index)))
-                    .filter_map(|value| match value {
-                        AggregateDistinctValue::Utf8(value) => Some(std::sync::Arc::clone(value)),
-                        _ => None,
+                (0..self.group_key_indices.len())
+                    .map(|position| {
+                        self.groups
+                            .keys()
+                            .filter_map(|key| match key.get(position) {
+                                Some(AggregateDistinctValue::Utf8(value)) => {
+                                    Some(std::sync::Arc::clone(value))
+                                }
+                                _ => None,
+                            })
+                            .collect()
                     })
                     .collect()
             });
         let mut values = Vec::with_capacity(self.group_key_indices.len());
-        for &index in &self.group_key_indices {
+        for (position, &index) in self.group_key_indices.iter().enumerate() {
             let group_column = self.group_columns.get(index).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex grouped aggregate owned materialized key index was missing; no fallback execution was attempted"
@@ -34043,7 +34049,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 row_index,
             )?;
             if let StatValue::Utf8(value) = &value
-                && !owned_strings.contains(value.as_str())
+                && !owned_strings[position].contains(value.as_str())
             {
                 return Ok(None);
             }
