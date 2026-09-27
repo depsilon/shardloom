@@ -583,7 +583,9 @@ fn run_cohort(
     }
     let output_drop_nanos = u64::try_from(drop_started.elapsed().as_nanos()).unwrap_or(u64::MAX);
     let memory_after = resident.memory().snapshot();
-    assert_eq!(memory_after.reserved_bytes, memory_before.reserved_bytes);
+    // Completed reads can precede the provider driver's final buffer cleanup.
+    // Observe this point; require zero credits only after joining session teardown.
+    assert_eq!(memory_after.denied_reservations, 0);
     json!({
         "callers": callers,
         "projection_pattern": if !disjoint {"identical_key_text"} else if callers == 2 {"disjoint_key_text"} else {"two_repeated_projection_groups"},
@@ -593,11 +595,11 @@ fn run_cohort(
         "call_wall_nanos_including_admission_drain_generation_validation": walls,
         "admission_queue_nanos": queues,
         "callback_scan_and_owned_output_nanos_excluding_outer_drain": callbacks,
-        "successful_read_event_count": completed_read_events,
-        "successful_requested_bytes": requested_bytes,
-        "unique_interval_union_bytes": unique_interval_bytes,
-        "repeated_requested_bytes_by_interval_overlap": requested_bytes.saturating_sub(unique_interval_bytes),
-        "successful_read_events": read_events,
+        "successful_read_event_count": instrumented.then_some(completed_read_events),
+        "successful_requested_bytes": instrumented.then_some(requested_bytes),
+        "unique_interval_union_bytes": instrumented.then_some(unique_interval_bytes),
+        "repeated_requested_bytes_by_interval_overlap": instrumented.then_some(requested_bytes.saturating_sub(unique_interval_bytes)),
+        "successful_read_events": instrumented.then_some(read_events),
         "output_rows_total": output_rows,
         "output_logical_buffer_bytes_total": output_bytes,
         "outputs_fully_typed_value_and_null_verified": verified,
@@ -672,7 +674,7 @@ fn concurrent_source_reuse_attribution() {
     assert_eq!(session.admission_snapshot().unwrap().active_cpu_lanes, 0);
     assert_eq!(session.io_snapshot().unwrap().active_bytes, 0);
     let snapshot = session.snapshot();
-    let identity = source.0.identity.as_ref().unwrap();
+    source.validate_generation().unwrap();
     let mut report = json!({
         "schema": "shardloom.resident_source_reuse_attribution.v1",
         "test": "concurrent_source_reuse_attribution",
@@ -682,6 +684,7 @@ fn concurrent_source_reuse_attribution() {
             "writer": "Vortex 0.85.0 default strategy",
             "cache_condition": "warm local filesystem cache; fixture just written and hashed",
             "generation": {"length": generation.len, "device": generation.device, "inode": generation.inode},
+            "generation_debug": format!("{generation:?}"),
             "max_source_bytes": MAX_SOURCE_BYTES},
         "runtime": {"os": std::env::consts::OS, "arch": std::env::consts::ARCH,
             "release_build": !cfg!(debug_assertions), "vortex_version": "0.85.0",
@@ -691,7 +694,7 @@ fn concurrent_source_reuse_attribution() {
             "persistent_provider_workers": snapshot.provider_background_workers,
             "shared_source_opens": snapshot.prepared_source_opens,
             "completed_native_calls": executions,
-            "generation_still_valid": identity.validate().is_ok()},
+            "generation_still_valid": true},
         "timing_contract": "call wall begins immediately before native admission and ends after scoped I/O drain and generation validation; cohort wall begins at bounded release gate; callback timing excludes outer drain; oracle and output drop are separately recorded",
         "read_at_contract": "instrumented values are successful Vortex positional read_at ranges after segment-source coalescing; requested bytes and interval union are not physical device I/O; uninstrumented cohorts retain the ordinary reader path",
         "scenarios_and_all_samples": records,
@@ -706,6 +709,8 @@ fn concurrent_source_reuse_attribution() {
         "session owners leaked memory credits"
     );
     report["final_session_reserved_bytes_after_teardown"] = json!(memory.snapshot().reserved_bytes);
+    assert_eq!(memory.snapshot().denied_reservations, 0);
+    report["session_denied_reservations"] = json!(memory.snapshot().denied_reservations);
     drop(memory);
     let fixture_directory = fixture.directory.clone();
     drop(fixture);
