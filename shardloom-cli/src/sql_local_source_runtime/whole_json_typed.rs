@@ -9,6 +9,7 @@ use shardloom_vortex::universal_format_io::InferredTextColumnBuilder;
 
 const CONTEXT: &str = "JSON Universal Ingest typed text RecordBatch";
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,

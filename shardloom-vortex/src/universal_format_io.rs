@@ -6078,6 +6078,45 @@ mod tests {
         fn(&[String], &[Option<LogicalDType>], &[FlatSinkRow]) -> Result<Vec<u8>>;
 
     #[test]
+    fn inferred_text_column_builder_backfills_nulls_and_invalidates_type_errors() {
+        let mut builder = InferredTextColumnBuilder::new("value", 2, "test").unwrap();
+        builder.append(&ScalarValue::Null).unwrap();
+        builder.append(&ScalarValue::Int64(i64::MAX)).unwrap();
+        builder.append(&ScalarValue::Null).unwrap();
+        let (field, array) = builder.finish().unwrap();
+        assert_eq!(field, Field::new("value", DataType::Int64, true));
+        assert_eq!(
+            array.as_ref(),
+            &Int64Array::from(vec![None, None, None, Some(i64::MAX), None])
+        );
+        let (field, array) = InferredTextColumnBuilder::new("empty", 3, "test")
+            .unwrap()
+            .finish()
+            .unwrap();
+        assert_eq!(field, Field::new("empty", DataType::Utf8, true));
+        assert_eq!(array.len(), 3);
+        assert_eq!(array.null_count(), 3);
+        let mut builder = InferredTextColumnBuilder::new("value", 0, "test").unwrap();
+        builder.append(&ScalarValue::Int64(1)).unwrap();
+        assert!(builder.append(&ScalarValue::Float64(1.0)).is_err());
+        assert!(
+            builder
+                .append(&ScalarValue::Int64(2))
+                .unwrap_err()
+                .to_string()
+                .contains("invalid after")
+        );
+        assert!(
+            builder
+                .finish()
+                .unwrap_err()
+                .to_string()
+                .contains("invalid after")
+        );
+        assert!(InferredTextColumnBuilder::new("__shardloom_derived_bad", 0, "test").is_err());
+    }
+
+    #[test]
     fn text_record_batch_builder_preserves_primitive_values_nulls_and_empty_batches() {
         let cases = [
             (DataType::Boolean, ScalarValue::Boolean(true)),

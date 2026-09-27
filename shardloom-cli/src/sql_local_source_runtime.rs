@@ -47125,6 +47125,46 @@ mod tests {
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
+    fn whole_json_typed_prepare_preserves_derived_output_and_failed_overwrite() {
+        let root = vortex_ingest_reuse_test_root("whole-json-typed");
+        let source = root.join("input.json");
+        let target = root.join("prepared.vortex");
+        fs::write(&source, r#"[{"id":1,"URL":"https://example.com/a","n":null},{"URL":"https://example.org/b","id":2,"n":null}]"#).unwrap();
+        let request = vortex_ingest_reuse_request(source.clone(), target.clone(), false);
+        let report = prepared_vortex_ingest_report(run_vortex_prepare(request).unwrap());
+        assert_eq!(report.vortex_report.row_count, 2);
+        assert_eq!(
+            report.source.materialization_layout,
+            "whole_json_typed_columns_with_batched_writer"
+        );
+        assert!(
+            report
+                .vortex_report
+                .column_family_summary()
+                .contains("__shardloom_derived_url_domain_URL:")
+        );
+        let original = fs::read(&target).unwrap();
+        for invalid in [
+            r#"[{"id":1},{"id":2}] garbage"#,
+            r#"[{"id":1},{"id":"changed"}]"#,
+        ] {
+            fs::write(&source, invalid).unwrap();
+            assert!(
+                run_vortex_prepare(vortex_ingest_reuse_request(
+                    source.clone(),
+                    target.clone(),
+                    true
+                ))
+                .is_err()
+            );
+            assert_eq!(fs::read(&target).unwrap(), original);
+            assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
     fn vortex_ingest_streaming_text_routes_preserve_hidden_derived_columns() {
         let root = vortex_ingest_reuse_test_root("streaming-derived-columns");
         let inferred_source = root.join("inferred.csv");
