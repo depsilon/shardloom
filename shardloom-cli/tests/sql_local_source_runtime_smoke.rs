@@ -1467,7 +1467,7 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
             if !streaming {
                 "scalar_row_map"
             } else if source_format == "json" {
-                "typed_text_rows_to_streaming_arrow_record_batch_source_state"
+                "whole_json_typed_columns_with_batched_writer"
             } else {
                 "inferred_text_to_streaming_arrow_record_batch_source_state"
             }
@@ -1477,7 +1477,7 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
             if !streaming {
                 "local_text_to_scalar_rows"
             } else if source_format == "json" {
-                "text_adapter_to_typed_record_batch_stream"
+                "json_adapter_to_whole_typed_columns"
             } else {
                 "inferred_text_to_record_batch_stream"
             }
