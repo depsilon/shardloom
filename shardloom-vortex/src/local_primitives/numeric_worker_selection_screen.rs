@@ -21,8 +21,9 @@ use vortex::{
 };
 
 const CHUNK_ROWS: usize = 65_536;
-const DIRECT_MAX_ROWS: usize =
-    super::aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS as usize;
+fn direct_max_rows() -> usize {
+    usize::try_from(super::aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS).unwrap()
+}
 
 struct Fixture(PathBuf);
 
@@ -274,12 +275,12 @@ fn small_count_automatic_selection_preserves_boundaries_encodings_and_nulls() {
             let (_, evidence) = complete_call_with_policy(
                 &query,
                 None,
-                rows <= DIRECT_MAX_ROWS,
+                rows <= direct_max_rows(),
                 rows,
                 &expected,
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(12, 1).unwrap(),
             );
-            assert_eq!(selection(&evidence).is_string(), rows <= DIRECT_MAX_ROWS);
+            assert_eq!(selection(&evidence).is_string(), rows <= direct_max_rows());
         }
     }
     for (name, array, expected) in encoded_cases(4093) {
@@ -644,7 +645,7 @@ fn screen_three_choices(
         let mut choices = [Some(false), Some(true), None];
         choices.rotate_left((case + run) % 3);
         for (position, choice) in choices.into_iter().enumerate() {
-            let direct = choice.unwrap_or(rows <= DIRECT_MAX_ROWS);
+            let direct = choice.unwrap_or(rows <= direct_max_rows());
             let (seconds, evidence) = complete_call_with_policy(
                 &request,
                 choice,
@@ -654,7 +655,7 @@ fn screen_three_choices(
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(12, 1).unwrap(),
             );
             if choice.is_none() {
-                assert_eq!(selection(&evidence).is_string(), rows <= DIRECT_MAX_ROWS);
+                assert_eq!(selection(&evidence).is_string(), rows <= direct_max_rows());
             }
             println!(
                 "C2B_RECORD {}",
@@ -663,7 +664,7 @@ fn screen_three_choices(
                     "choice":match choice {Some(false)=>"workers",Some(true)=>"direct",None=>"automatic"},
                     "source_sha256":source_sha256,"source_bytes":source_len,
                     "memory_gb":1,"requested_parallelism":12,"evidence":evidence,
-                    "selection_max_rows":DIRECT_MAX_ROWS,
+                    "selection_max_rows":direct_max_rows(),
                 })
             );
         }
