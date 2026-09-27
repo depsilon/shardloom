@@ -21275,6 +21275,8 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement {
             "same_prepared_source;numeric_pair_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
+        } else if small_numeric_direct_selected && !worker_admission_selected {
+            "same_prepared_source;small_numeric_count_direct_selected_before_scan;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         } else {
             "same_prepared_source;actual_aggregate_worker_admission_declined_before_scan;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         }.into();

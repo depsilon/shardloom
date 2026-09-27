@@ -482,11 +482,16 @@ fn complete_call_with_policy(
                 .unwrap()
                 > 0
         );
+        let expected_scope = if payload.get("aggregate_worker_selection").is_some() {
+            "small_numeric_count_direct_selected_before_scan"
+        } else {
+            "actual_aggregate_worker_admission_declined_before_scan"
+        };
         assert!(
             payload["aggregate_provider_cpu_scope"]
                 .as_str()
                 .unwrap()
-                .contains("actual_aggregate_worker_admission_declined_before_scan")
+                .contains(expected_scope)
         );
     } else {
         assert_eq!(

@@ -3499,6 +3499,9 @@ fn append_local_primitive_result_summary_evidence_fields(
         "aggregate_timing_scope",
         "aggregate_provider_background_workers",
         "aggregate_provider_cpu_scope",
+        "aggregate_worker_selection",
+        "aggregate_worker_selection_source_rows",
+        "aggregate_worker_selection_max_rows",
         "aggregate_workers_rows",
         "aggregate_workers_partial_entries",
         "aggregate_workers_submitted_chunks",
@@ -13482,6 +13485,34 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn small_count_selection_survives_public_summary_without_invented_workers() {
+        let payload = serde_json::json!({
+            "aggregate_worker_selection": "small_numeric_count_direct",
+            "aggregate_worker_selection_source_rows": 257,
+            "aggregate_worker_selection_max_rows": 32768,
+            "aggregate_provider_cpu_scope": "same_prepared_source;small_numeric_count_direct_selected_before_scan"
+        });
+        let summary = format!("simple aggregate values={payload}");
+        let mut fields = Vec::new();
+        super::append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+        for (key, value) in payload.as_object().unwrap() {
+            assert!(
+                fields.contains(&(
+                    format!("local_primitive_{key}"),
+                    value
+                        .as_str()
+                        .map_or_else(|| value.to_string(), str::to_owned)
+                ))
+            );
+        }
+        assert!(
+            !fields
+                .iter()
+                .any(|(key, _)| key.starts_with("local_primitive_aggregate_workers_"))
+        );
+    }
+
     #[test]
     fn exact_distinct_summary_preserves_counts_and_reservation_scope() {
         let payload = serde_json::json!({
