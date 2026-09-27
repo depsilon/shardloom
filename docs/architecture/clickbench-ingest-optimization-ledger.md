@@ -346,6 +346,12 @@ Constraints:
     The historical raw summary is no longer present at its cited local path;
     the ledger records the old result, not fresh acceptance or reproducible raw
     evidence by itself.
+  - Current-route follow-up: all paired Q34/Q35 calls in
+    `paired43_20260926T234401225793Z` select `complete_key_partition_topk` and
+    report `string_topk_sketch_update_elided`. The current partition path avoids
+    the old sketch update, so replacing its BTreeSet has no established gain on
+    these calls. A different sketch-active workload requires its own attribution;
+    the historical 7% is not an additional current speedup.
   - Reason dropped: correct and slightly faster, but below the material-gain threshold.
   - Evidence:
     `/Users/dylan/Desktop/shardloom-clickbench-100m-uat/logs/heavy_hitter_indexed_heap_20260831T124753Z/summary.json`.

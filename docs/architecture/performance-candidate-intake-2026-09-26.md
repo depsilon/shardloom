@@ -173,7 +173,11 @@ The historical indexed 4-ary heap for Q34/Q35 is reopened within R10: its ledger
 records about 7% combined complete-query savings and nine correct targeted runs,
 followed by a cutoff-only drop. Recheck current route relevance and fresh paired
 evidence; subsequent query changes mean the historical percentage cannot be
-carried forward. See the [historical decision](clickbench-ingest-optimization-ledger.md#dropped-or-not-yet-shipped-profiles).
+carried forward. The current-route audit found that all six calls per query in
+the latest paired Full43 evidence use complete-key partitions and elide sketch
+updates. Reopen that heap variant only for a measured sketch-active workload;
+R10's dense COUNT payload experiment remains separate. See the
+[historical decision](clickbench-ingest-optimization-ledger.md#dropped-or-not-yet-shipped-profiles).
 
 The September 26 review of tracked ship/drop and benchmark records found one
 other complete-operation cutoff-only drop in the requested 4–9% range: that heap

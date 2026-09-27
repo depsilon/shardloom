@@ -305,7 +305,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R5.a: retain direct owned-array handoff through the shared prepared aggregate family; 37–43% lower workflow peak RSS, exact complete results and Full43 regression acceptance. See `owned-array-handoff-screen-2026-09-26.md`.
     - [x] R9.a: drop duplicate prepare/seal/reuse implementation after tracing one-pass streamed serialization and existing memory-generation segment reuse. See `native-fragment-reuse-audit-2026-09-26.md`.
     - [x] R9.b: retain shared-slot writer lookahead with 6.52% lower complete ingest, exact output and paired Full43 acceptance; the original 6.58% gain remains separately scoped evidence. See `writer-subtree-occupancy-screen-2026-09-26.md`.
-    - [ ] R8: record admission and ship/drop for Shared scan/decode producer for concurrent queries.
+    - [ ] R8: attribute duplicated source work before shared scan/decode changes; bounded screen in `concurrent-source-reuse-screen-2026-09-26.md`.
     - [ ] C2.a: record admission and ship/drop for Pre-bound executable block recipes.
     - [ ] R5.b: record admission and ship/drop for Transfer reservation-owned pages/buffers across stages.
     - [ ] R5.c: record admission and ship/drop for Bounded read/compute/output overlap in native workflows.
@@ -323,7 +323,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
     - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.
     - [ ] R6.c: record admission and ship/drop for Progressive provider selection, Q23 first.
-    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first; also re-evaluate the historical indexed-heap variant dropped solely for a 10% cutoff despite about 7% combined savings, after checking current route relevance.
+    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first. The historical indexed-heap variant's cutoff-only drop is reopened only for a measured sketch-active workload: current Q34/Q35 partitions elide sketch updates.
     - [ ] R2.b: record admission and ship/drop for Bounded parallel dictionary preparation.
     - [ ] For each retained cohesive change, complete semantic/resource gates, full
       applicable UAT and independent review, then prepare its PR before the next set.
