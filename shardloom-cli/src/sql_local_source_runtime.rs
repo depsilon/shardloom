@@ -47134,6 +47134,11 @@ mod tests {
         let request = vortex_ingest_reuse_request(source.clone(), target.clone(), false);
         let report = prepared_vortex_ingest_report(run_vortex_prepare(request).unwrap());
         assert_eq!(report.vortex_report.row_count, 2);
+        assert_field_eq(
+            &field_map(report.fields()),
+            "source_state_projection_pushdown_status",
+            "not_requested_full_read",
+        );
         assert_eq!(
             report.source.materialization_layout,
             "whole_json_typed_columns_with_batched_writer"

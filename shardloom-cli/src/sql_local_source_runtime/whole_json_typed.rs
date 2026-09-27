@@ -5,11 +5,10 @@
 
 use super::{
     Arc, BTreeMap, ColumnarSourceScoutEvidence, Instant, LocalInputAdapterSelection,
-    LocalSourceFormat, LocalSourceProjectionPushdownStatus, LocalSourceReadPlan, RecordBatch,
-    ScalarValue, Schema, ShardLoomError, VortexIngestReport, VortexIngestRequest,
-    VortexIngestSourceData, decode_local_text_source, enforce_local_source_row_budget,
-    finish_text_streaming_vortex_prepare, fnv64_digest, fnv64_digest_bytes,
-    read_local_source_bytes_with_budget_report, text_stream_record_batch_size,
+    LocalSourceFormat, LocalSourceReadPlan, RecordBatch, ScalarValue, Schema, ShardLoomError,
+    VortexIngestReport, VortexIngestRequest, VortexIngestSourceData, decode_local_text_source,
+    enforce_local_source_row_budget, finish_text_streaming_vortex_prepare, fnv64_digest,
+    fnv64_digest_bytes, read_local_source_bytes_with_budget_report, text_stream_record_batch_size,
     unsupported_sql_error, visit_json_source_rows_with_plan,
 };
 use arrow_array::RecordBatchIterator;
@@ -120,7 +119,7 @@ pub(super) fn prepare(
     );
     source.read_plan = LocalSourceReadPlan::full("whole_json_typed_vortex_ingest_source_state");
     source.projection_pushdown_status =
-        LocalSourceProjectionPushdownStatus::TextParserColumnPruning;
+        LocalSourceFormat::Json.projection_pushdown_status(&source.read_plan);
     source.materialization_layout = "whole_json_typed_columns_with_batched_writer";
     source.parse_normalization = "json_adapter_to_whole_typed_columns";
     finish_text_streaming_vortex_prepare(
