@@ -1,0 +1,838 @@
+{
+  "schema_version": "shardloom.native_sink_overlap_admission.v1",
+  "decision": "drop_second_generic_queue_at_bounded_admission",
+  "runtime_candidate_tested": false,
+  "speedup_claim": false,
+  "scope": "warm source; existing bounded native scan/layout/output overlap retained; no identified independent idle stage; no threshold-based rejection",
+  "hardware": {
+    "cpu": "Apple M5",
+    "logical_cpus": 10,
+    "memory_bytes": 17179869184,
+    "os": "macOS 27.0 (26A428)",
+    "rust": "1.98.0",
+    "vortex": "0.85.0"
+  },
+  "timing_boundary": "public native call through validated synchronized publication and report release; fixture/request construction, oracle verification and observer output excluded",
+  "stage_scope": "caller elapsed only; provider jobs may overlap; scan_next includes provider progress, not exclusive IO; buffered-byte samples cover the existing layout counter, not all queued/provider memory",
+  "cache": "fixture creation and full source hash before series; warm source cache; no cold-cache claim",
+  "cases": [
+    {
+      "case": "project_all",
+      "requested_lanes": 1,
+      "complete_samples_ms": [
+        23.314583,
+        25.729333,
+        13.021375
+      ],
+      "median_complete_ms": 23.314583,
+      "median_caller_stage_ms": {
+        "checksum_and_commit": 3.69025,
+        "scan_next": 0.559625,
+        "serialization_completion": 0.042873,
+        "sync_and_reopen": 5.098,
+        "writer_finish": 0.126584,
+        "writer_push": 3.736455
+      }
+    },
+    {
+      "case": "project_all",
+      "requested_lanes": 4,
+      "complete_samples_ms": [
+        14.664832,
+        12.594791,
+        16.216916
+      ],
+      "median_complete_ms": 14.664832,
+      "median_caller_stage_ms": {
+        "checksum_and_commit": 3.912458,
+        "scan_next": 0.561877,
+        "serialization_completion": 0.062416,
+        "sync_and_reopen": 5.909,
+        "writer_finish": 0.119375,
+        "writer_push": 3.793416
+      }
+    },
+    {
+      "case": "filter_project_limit",
+      "requested_lanes": 1,
+      "complete_samples_ms": [
+        15.514166,
+        13.480084,
+        13.200042
+      ],
+      "median_complete_ms": 13.480084,
+      "median_caller_stage_ms": {
+        "checksum_and_commit": 4.258917,
+        "scan_next": 0.549086,
+        "serialization_completion": 1.387458,
+        "sync_and_reopen": 4.947125,
+        "writer_finish": 0.102042,
+        "writer_push": 1.793999
+      }
+    },
+    {
+      "case": "filter_project_limit",
+      "requested_lanes": 4,
+      "complete_samples_ms": [
+        11.879208,
+        13.08475,
+        14.812334
+      ],
+      "median_complete_ms": 13.08475,
+      "median_caller_stage_ms": {
+        "checksum_and_commit": 4.300709,
+        "scan_next": 0.596666,
+        "serialization_completion": 1.523336,
+        "sync_and_reopen": 4.346459,
+        "writer_finish": 0.136,
+        "writer_push": 1.612667
+      }
+    }
+  ],
+  "samples": [
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 65,
+          "serialization_completion": 64,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 64
+        },
+        "nanos": {
+          "checksum_and_commit": 6258459,
+          "scan_next": 1301838,
+          "serialization_completion": 147584,
+          "sync_and_reopen": 4233500,
+          "writer_finish": 251416,
+          "writer_push": 8859794
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "project_all",
+      "complete_nanos": 23314583,
+      "complete_values_sha256": "097cc6c24ee4930f53294bd31cf806ed36c5d1bbfc405526d3838d41cb29076e",
+      "dtype": "{shipment_sequence=u64, priority=i64, destination=utf8?}",
+      "native_array_logical_bytes": 9937500,
+      "native_arrays_submitted": 64,
+      "native_no_fallback": true,
+      "output_bytes": 9985076,
+      "output_sha256": "3d738080e0c57594d199dc54ad9d8d2fe0d3bbee93d3cdaf21d9153fc903bc82",
+      "padding_bytes": 96,
+      "parallelism": 1,
+      "peak_reserved_bytes": 10622956,
+      "public_call_nanos": 23313958,
+      "repetition": 1,
+      "report_drop_nanos": 625,
+      "rows_checked": 524288,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 65,
+          "serialization_completion": 64,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 64
+        },
+        "nanos": {
+          "checksum_and_commit": 3690250,
+          "scan_next": 559625,
+          "serialization_completion": 42873,
+          "sync_and_reopen": 16938042,
+          "writer_finish": 126584,
+          "writer_push": 3736455
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "project_all",
+      "complete_nanos": 25729333,
+      "complete_values_sha256": "097cc6c24ee4930f53294bd31cf806ed36c5d1bbfc405526d3838d41cb29076e",
+      "dtype": "{shipment_sequence=u64, priority=i64, destination=utf8?}",
+      "native_array_logical_bytes": 9937500,
+      "native_arrays_submitted": 64,
+      "native_no_fallback": true,
+      "output_bytes": 9985076,
+      "output_sha256": "3d738080e0c57594d199dc54ad9d8d2fe0d3bbee93d3cdaf21d9153fc903bc82",
+      "padding_bytes": 96,
+      "parallelism": 1,
+      "peak_reserved_bytes": 10622956,
+      "public_call_nanos": 25728708,
+      "repetition": 2,
+      "report_drop_nanos": 625,
+      "rows_checked": 524288,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 65,
+          "serialization_completion": 64,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 64
+        },
+        "nanos": {
+          "checksum_and_commit": 3661458,
+          "scan_next": 533584,
+          "serialization_completion": 42128,
+          "sync_and_reopen": 5098000,
+          "writer_finish": 119584,
+          "writer_push": 3077744
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "project_all",
+      "complete_nanos": 13021375,
+      "complete_values_sha256": "097cc6c24ee4930f53294bd31cf806ed36c5d1bbfc405526d3838d41cb29076e",
+      "dtype": "{shipment_sequence=u64, priority=i64, destination=utf8?}",
+      "native_array_logical_bytes": 9937500,
+      "native_arrays_submitted": 64,
+      "native_no_fallback": true,
+      "output_bytes": 9985076,
+      "output_sha256": "3d738080e0c57594d199dc54ad9d8d2fe0d3bbee93d3cdaf21d9153fc903bc82",
+      "padding_bytes": 96,
+      "parallelism": 1,
+      "peak_reserved_bytes": 10622956,
+      "public_call_nanos": 13020667,
+      "repetition": 3,
+      "report_drop_nanos": 708,
+      "rows_checked": 524288,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 65,
+          "serialization_completion": 64,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 64
+        },
+        "nanos": {
+          "checksum_and_commit": 3600500,
+          "scan_next": 561877,
+          "serialization_completion": 62416,
+          "sync_and_reopen": 5909000,
+          "writer_finish": 119375,
+          "writer_push": 3793416
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "project_all",
+      "complete_nanos": 14664832,
+      "complete_values_sha256": "097cc6c24ee4930f53294bd31cf806ed36c5d1bbfc405526d3838d41cb29076e",
+      "dtype": "{shipment_sequence=u64, priority=i64, destination=utf8?}",
+      "native_array_logical_bytes": 9937500,
+      "native_arrays_submitted": 64,
+      "native_no_fallback": true,
+      "output_bytes": 9985076,
+      "output_sha256": "3d738080e0c57594d199dc54ad9d8d2fe0d3bbee93d3cdaf21d9153fc903bc82",
+      "padding_bytes": 96,
+      "parallelism": 4,
+      "peak_reserved_bytes": 10622956,
+      "public_call_nanos": 14663541,
+      "repetition": 1,
+      "report_drop_nanos": 1291,
+      "rows_checked": 524288,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 65,
+          "serialization_completion": 64,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 64
+        },
+        "nanos": {
+          "checksum_and_commit": 3937875,
+          "scan_next": 581335,
+          "serialization_completion": 60834,
+          "sync_and_reopen": 3565166,
+          "writer_finish": 152666,
+          "writer_push": 3652917
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "project_all",
+      "complete_nanos": 12594791,
+      "complete_values_sha256": "097cc6c24ee4930f53294bd31cf806ed36c5d1bbfc405526d3838d41cb29076e",
+      "dtype": "{shipment_sequence=u64, priority=i64, destination=utf8?}",
+      "native_array_logical_bytes": 9937500,
+      "native_arrays_submitted": 64,
+      "native_no_fallback": true,
+      "output_bytes": 9985076,
+      "output_sha256": "3d738080e0c57594d199dc54ad9d8d2fe0d3bbee93d3cdaf21d9153fc903bc82",
+      "padding_bytes": 96,
+      "parallelism": 4,
+      "peak_reserved_bytes": 10622956,
+      "public_call_nanos": 12594208,
+      "repetition": 2,
+      "report_drop_nanos": 583,
+      "rows_checked": 524288,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 65,
+          "serialization_completion": 64,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 64
+        },
+        "nanos": {
+          "checksum_and_commit": 3912458,
+          "scan_next": 558584,
+          "serialization_completion": 63499,
+          "sync_and_reopen": 7135750,
+          "writer_finish": 110959,
+          "writer_push": 3834669
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "project_all",
+      "complete_nanos": 16216916,
+      "complete_values_sha256": "097cc6c24ee4930f53294bd31cf806ed36c5d1bbfc405526d3838d41cb29076e",
+      "dtype": "{shipment_sequence=u64, priority=i64, destination=utf8?}",
+      "native_array_logical_bytes": 9937500,
+      "native_arrays_submitted": 64,
+      "native_no_fallback": true,
+      "output_bytes": 9985076,
+      "output_sha256": "3d738080e0c57594d199dc54ad9d8d2fe0d3bbee93d3cdaf21d9153fc903bc82",
+      "padding_bytes": 96,
+      "parallelism": 4,
+      "peak_reserved_bytes": 10622956,
+      "public_call_nanos": 16216291,
+      "repetition": 3,
+      "report_drop_nanos": 625,
+      "rows_checked": 524288,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 25,
+          "serialization_completion": 25,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 25
+        },
+        "nanos": {
+          "checksum_and_commit": 4722708,
+          "scan_next": 632165,
+          "serialization_completion": 1466504,
+          "sync_and_reopen": 5905083,
+          "writer_finish": 113500,
+          "writer_push": 2011792
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "filter_project_limit",
+      "complete_nanos": 15514166,
+      "complete_values_sha256": "deba48e8b2baf2e0b0b3fff019cf9384552218a4109098c2abc06b7e1a7d0f40",
+      "dtype": "{destination=utf8?, shipment_sequence=u64}",
+      "native_array_logical_bytes": 11762670,
+      "native_arrays_submitted": 25,
+      "native_no_fallback": true,
+      "output_bytes": 11772392,
+      "output_sha256": "a3e048dc3a072c9311c450f5183e73288481b75cd8bb29e825929ae0203a7d6b",
+      "padding_bytes": 96,
+      "parallelism": 1,
+      "peak_reserved_bytes": 9102988,
+      "public_call_nanos": 15513625,
+      "repetition": 1,
+      "report_drop_nanos": 541,
+      "rows_checked": 100003,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 25,
+          "serialization_completion": 25,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 25
+        },
+        "nanos": {
+          "checksum_and_commit": 4258917,
+          "scan_next": 539291,
+          "serialization_completion": 1369793,
+          "sync_and_reopen": 4947125,
+          "writer_finish": 97041,
+          "writer_push": 1775251
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "filter_project_limit",
+      "complete_nanos": 13480084,
+      "complete_values_sha256": "deba48e8b2baf2e0b0b3fff019cf9384552218a4109098c2abc06b7e1a7d0f40",
+      "dtype": "{destination=utf8?, shipment_sequence=u64}",
+      "native_array_logical_bytes": 11762670,
+      "native_arrays_submitted": 25,
+      "native_no_fallback": true,
+      "output_bytes": 11772392,
+      "output_sha256": "a3e048dc3a072c9311c450f5183e73288481b75cd8bb29e825929ae0203a7d6b",
+      "padding_bytes": 96,
+      "parallelism": 1,
+      "peak_reserved_bytes": 9102988,
+      "public_call_nanos": 13479459,
+      "repetition": 2,
+      "report_drop_nanos": 625,
+      "rows_checked": 100003,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 25,
+          "serialization_completion": 25,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 25
+        },
+        "nanos": {
+          "checksum_and_commit": 4222833,
+          "scan_next": 549086,
+          "serialization_completion": 1387458,
+          "sync_and_reopen": 4668084,
+          "writer_finish": 102042,
+          "writer_push": 1793999
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "filter_project_limit",
+      "complete_nanos": 13200042,
+      "complete_values_sha256": "deba48e8b2baf2e0b0b3fff019cf9384552218a4109098c2abc06b7e1a7d0f40",
+      "dtype": "{destination=utf8?, shipment_sequence=u64}",
+      "native_array_logical_bytes": 11762670,
+      "native_arrays_submitted": 25,
+      "native_no_fallback": true,
+      "output_bytes": 11772392,
+      "output_sha256": "a3e048dc3a072c9311c450f5183e73288481b75cd8bb29e825929ae0203a7d6b",
+      "padding_bytes": 96,
+      "parallelism": 1,
+      "peak_reserved_bytes": 9102988,
+      "public_call_nanos": 13199458,
+      "repetition": 3,
+      "report_drop_nanos": 584,
+      "rows_checked": 100003,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 25,
+          "serialization_completion": 25,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 25
+        },
+        "nanos": {
+          "checksum_and_commit": 4253250,
+          "scan_next": 529753,
+          "serialization_completion": 1663292,
+          "sync_and_reopen": 3214208,
+          "writer_finish": 138458,
+          "writer_push": 1571456
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "filter_project_limit",
+      "complete_nanos": 11879208,
+      "complete_values_sha256": "deba48e8b2baf2e0b0b3fff019cf9384552218a4109098c2abc06b7e1a7d0f40",
+      "dtype": "{destination=utf8?, shipment_sequence=u64}",
+      "native_array_logical_bytes": 11762670,
+      "native_arrays_submitted": 25,
+      "native_no_fallback": true,
+      "output_bytes": 11772392,
+      "output_sha256": "a3e048dc3a072c9311c450f5183e73288481b75cd8bb29e825929ae0203a7d6b",
+      "padding_bytes": 96,
+      "parallelism": 4,
+      "peak_reserved_bytes": 9102988,
+      "public_call_nanos": 11878333,
+      "repetition": 1,
+      "report_drop_nanos": 875,
+      "rows_checked": 100003,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 25,
+          "serialization_completion": 25,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 25
+        },
+        "nanos": {
+          "checksum_and_commit": 4330583,
+          "scan_next": 596666,
+          "serialization_completion": 1475836,
+          "sync_and_reopen": 4346459,
+          "writer_finish": 76916,
+          "writer_push": 1612667
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "filter_project_limit",
+      "complete_nanos": 13084750,
+      "complete_values_sha256": "deba48e8b2baf2e0b0b3fff019cf9384552218a4109098c2abc06b7e1a7d0f40",
+      "dtype": "{destination=utf8?, shipment_sequence=u64}",
+      "native_array_logical_bytes": 11762670,
+      "native_arrays_submitted": 25,
+      "native_no_fallback": true,
+      "output_bytes": 11772392,
+      "output_sha256": "a3e048dc3a072c9311c450f5183e73288481b75cd8bb29e825929ae0203a7d6b",
+      "padding_bytes": 96,
+      "parallelism": 4,
+      "peak_reserved_bytes": 9102988,
+      "public_call_nanos": 13084125,
+      "repetition": 2,
+      "report_drop_nanos": 625,
+      "rows_checked": 100003,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    },
+    {
+      "caller_stage_timings": {
+        "calls": {
+          "checksum_and_commit": 1,
+          "scan_next": 25,
+          "serialization_completion": 25,
+          "sync_and_reopen": 1,
+          "writer_finish": 1,
+          "writer_push": 25
+        },
+        "nanos": {
+          "checksum_and_commit": 4300709,
+          "scan_next": 632293,
+          "serialization_completion": 1523336,
+          "sync_and_reopen": 4488291,
+          "writer_finish": 136000,
+          "writer_push": 3082581
+        },
+        "provider_buffered_bytes_at_push_peak": 0
+      },
+      "case": "filter_project_limit",
+      "complete_nanos": 14812334,
+      "complete_values_sha256": "deba48e8b2baf2e0b0b3fff019cf9384552218a4109098c2abc06b7e1a7d0f40",
+      "dtype": "{destination=utf8?, shipment_sequence=u64}",
+      "native_array_logical_bytes": 11762670,
+      "native_arrays_submitted": 25,
+      "native_no_fallback": true,
+      "output_bytes": 11772392,
+      "output_sha256": "a3e048dc3a072c9311c450f5183e73288481b75cd8bb29e825929ae0203a7d6b",
+      "padding_bytes": 96,
+      "parallelism": 4,
+      "peak_reserved_bytes": 9102988,
+      "public_call_nanos": 14811709,
+      "repetition": 3,
+      "report_drop_nanos": 625,
+      "rows_checked": 100003,
+      "source_bytes": 9977028,
+      "source_rows": 524288,
+      "source_sha256": "6eb5dc17357ab351936133e5582008fbc69deb0036cb9984f9adc6e6c957e9dc",
+      "staging_cleaned": true,
+      "writer_input_batch_bound": 3
+    }
+  ],
+  "supervised_process_receipt": {
+    "role": "control",
+    "label": "admission",
+    "build": {
+      "commit": "b8d4f7732375eb5a83108b45b1099d4848cf62e0",
+      "binary": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5c-control-test-b8d4f7732375",
+      "sha256": "eb57757aa270755d8dd3ca757a14c056451e64c0bfb1b66bf7501cacb3ad547b",
+      "bytes": 89915552,
+      "build_command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_seconds": 56.1782086250023,
+      "target_directory": "/Users/dylan/.cache/shardloom/cargo-target",
+      "source_tree_note": "clean committed observer-only baseline, native sink production behavior unchanged"
+    },
+    "command": [
+      "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5c-control-test-b8d4f7732375",
+      "--ignored",
+      "--exact",
+      "local_primitives::native_sink::tests::overlap_screen::complete_native_sink_overlap_screen",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "binary_before": {
+      "device": 16777233,
+      "inode": 92523164,
+      "size_bytes": 89915552,
+      "mtime_ns": 1790477958969237020,
+      "ctime_ns": 1790477959066232904
+    },
+    "binary_after": {
+      "device": 16777233,
+      "inode": 92523164,
+      "size_bytes": 89915552,
+      "mtime_ns": 1790477958969237020,
+      "ctime_ns": 1790477959066232904
+    },
+    "temporary": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/tmp-native-sink-overlap-20260927-control-admission",
+    "temporary_empty": true,
+    "result": {
+      "returncode": 0,
+      "seconds": 2.7818144999910146,
+      "guard_failures": [],
+      "supervised_wall_seconds": 2.8117765839851927,
+      "native_peak_rss_bytes": 124796928,
+      "user_cpu_seconds": 1.988342,
+      "system_cpu_seconds": 0.09694799999999999,
+      "minor_page_faults": 8116,
+      "major_page_faults": 0,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "logs": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/native-sink-overlap-20260927-control-admission",
+    "uat_root": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat",
+    "guard_limits": {
+      "min_free_bytes": 12884901888,
+      "reserve_bytes": 1073741824,
+      "max_workspace_bytes": 107374182400,
+      "max_log_bytes": 268435456
+    },
+    "guard_samples": [
+      {
+        "monotonic_seconds": 149055.555016333,
+        "workspace_bytes": 72171438080,
+        "log_bytes": 255913984,
+        "free_bytes": 214036533248,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149055.948418083,
+        "workspace_bytes": 72171442176,
+        "log_bytes": 255918080,
+        "free_bytes": 214036127744,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149056.4549625,
+        "workspace_bytes": 72171446272,
+        "log_bytes": 255922176,
+        "free_bytes": 214016184320,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149056.832720208,
+        "workspace_bytes": 72191410176,
+        "log_bytes": 255922176,
+        "free_bytes": 214014423040,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149057.212678166,
+        "workspace_bytes": 72191410176,
+        "log_bytes": 255922176,
+        "free_bytes": 214014021632,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149057.586032125,
+        "workspace_bytes": 72191410176,
+        "log_bytes": 255922176,
+        "free_bytes": 214013739008,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149057.963356583,
+        "workspace_bytes": 72191410176,
+        "log_bytes": 255922176,
+        "free_bytes": 214013734912,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149058.344108,
+        "workspace_bytes": 72193200128,
+        "log_bytes": 255922176,
+        "free_bytes": 214011949056,
+        "reserved_candidate_bytes": 1073741824
+      },
+      {
+        "monotonic_seconds": 149058.487447083,
+        "workspace_bytes": 72171462656,
+        "log_bytes": 255938560,
+        "free_bytes": 214033686528,
+        "reserved_candidate_bytes": 1073741824
+      }
+    ]
+  },
+  "process_metric_scope": "whole test process includes fixture, all twelve calls and verification; not per-case memory or CPU",
+  "validation": [
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 2.3692162499937695,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5c-final-fmt.log",
+      "finished_utc": "2026-09-27T03:01:07.186551+00:00"
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 0.31199508300051093,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5c-final-workspace-clippy.log",
+      "finished_utc": "2026-09-27T03:01:07.498963+00:00"
+    },
+    {
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 11.378115374973277,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5c-final-native-clippy.log",
+      "finished_utc": "2026-09-27T03:01:18.877341+00:00"
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 2.8934971670096274,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5c-final-workspace-tests.log",
+      "finished_utc": "2026-09-27T03:01:21.771081+00:00"
+    },
+    {
+      "name": "native-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 48.714221500005806,
+      "log": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r5c-final-native-tests.log",
+      "finished_utc": "2026-09-27T03:02:10.485708+00:00"
+    }
+  ],
+  "tests": {
+    "workspace-tests": {
+      "passed": 3425,
+      "ignored": 0
+    },
+    "native-tests": {
+      "passed": 1966,
+      "ignored": 19
+    }
+  },
+  "raw_evidence": {
+    "path": "docs/benchmarks/evidence/native-sink-overlap-2026-09-27.json.gz",
+    "gzip_bytes": 194891,
+    "gzip_sha256": "c820a6bff3e303e8c534b4e0238f5391bfad414353f05318fd8224750f1b0c8a",
+    "raw_bytes": 1341856,
+    "raw_sha256": "5aa068bbc0627e4cea820092db18e53e92f78ff5686a1f502acc026f6910da77",
+    "members": 30
+  }
+}
