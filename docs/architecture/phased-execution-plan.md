@@ -244,6 +244,11 @@ the ledger.
 
 ## Planned
 
+September 28 scope override: refresh the README differentiators and shardloom.io
+content together in one documentation/site PR, including stale reachable pages
+and compatibility URLs. Runtime optimization and the format benchmark queue stay
+paused; this refresh does not authorize another version or publication train.
+
 September 27 scope override: the whole-file JSON C7 change, 0.3.1 publication,
 authorized format pulse and public I/O handoff repairs are complete. Their
 closure is recorded in the [completed ledger](phased-execution-completed-ledger.md).

@@ -20,23 +20,30 @@ boundaries.
 
 ShardLoom is not an official Vortex project and is not Vortex-endorsed.
 
+[Get started](https://shardloom.io/start) · [Runtime and I/O](https://shardloom.io/field-guide/runtime-and-io) · [Architecture](https://shardloom.io/compute-engine-flow)
+
 ## What Makes ShardLoom Different
 
-ShardLoom brings compressed execution, reusable local sessions, owned native results, and
-inspectable resource decisions into one Vortex-native workflow. The capabilities below apply to
-admitted local routes; their linked evidence defines the supported shapes and remaining limits.
+ShardLoom combines encoded execution, reusable preparation, exact aggregation, and owned native
+results in one local engine. These are shipped technical-preview capabilities; each linked
+contract defines the supported operations, types, and resource limits.
 
 - **One native execution contract across Python, SQL, and CLI.** Compatibility inputs enter through
   source adapters and Vortex preparation; native Vortex inputs stay native.
   Unsupported work must emit deterministic diagnostics with no hidden external-engine execution.
-  `SourceState` and `VortexPreparedState` make the input and preparation boundaries inspectable.
-  See the [front-door contract](docs/architecture/v1-front-door-runtime-scope.md).
+  Filters, projections, aggregates, sort/Top-K, and selected join workflows reuse the same native
+  families across front doors. General joins, set operations, windows, and subqueries still have
+  [remaining native coverage gaps](docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
+  See the [front-door contract](docs/architecture/v1-front-door-runtime-scope.md) and
+  [user-surface index](docs/reference/shardloom-user-surface-index.md).
 - **Avoid data work before adding compute.** Supported routes answer from exact metadata, prune
   segments, consume encoded values, and defer payload materialization until the result needs it.
   Constant and run-end numeric reductions can work on values and repetition counts; bounded
   top-N projections retain row references and order keys before fetching final payloads.
   Runtime evidence distinguishes native dictionary access, dictionaries built from decoded UTF-8,
-  typed numeric decode, and materialized access. See the
+  typed numeric decode, and materialized access. Sparse text selections take only referenced
+  dictionary values before decoding, and reader certificates reuse the existing source envelope.
+  See the [handoff repairs](docs/architecture/public-io-route-repair-2026-09-27.md),
   [encoded numeric consumers](docs/architecture/perf-encoded-numeric-reductions-2026-09-06.md) and
   [runtime scope](docs/architecture/v1-vortex-runtime-scope.md).
 - **Exact aggregation that uses repetition and delays expensive measures.** Admitted kernels
@@ -56,7 +63,12 @@ admitted local routes; their linked evidence defines the supported shapes and re
   in ordinary `select *` output. Vortex remains the highest-fidelity persistence target;
   compatibility export reports its own fidelity and materialization boundary.
   See the [source/prepared-state scope](docs/architecture/v1-source-prepared-state-scope.md).
-- **Prepare once; execute each call with fresh state.** Resident sessions retain source handles,
+- **Reuse preparation without trusting stale data.** Automatic compatibility-input preparation
+  reuses an existing local Vortex artifact only when source, schema, and artifact identities match.
+  A held artifact generation spans execution and evidence construction; detected mutation or
+  replacement fails explicitly. Native Vortex preparation preserves its existing layout—it does
+  not automatically re-encode every input into the same optimized physical artifact.
+  Resident sessions retain source handles,
   generation identity, and prepared lowering for supported operations. Python contexts can reuse
   a local worker to avoid per-call process startup. Ordinary native aggregates retain the same
   lowering across text, numeric and nullable schemas, derived keys, transformed measures, and wide
@@ -71,6 +83,15 @@ admitted local routes; their linked evidence defines the supported shapes and re
   See the
   [result ownership contract](docs/reference/resident-native-results.md) and
   [local sink scope](docs/architecture/v1-local-output-sink-scope.md).
+- **Choose a format at the boundary.** Local I/O covers Vortex, Parquet, Arrow IPC, Avro, ORC,
+  CSV, JSON, and JSONL through the enabled adapters and writers. Completed flat aggregate and
+  sorted results reach the shared writers without rerunning the query or serializing and
+  reparsing JSON as the binary export substrate. General computed results still use bounded
+  scalar-to-native construction: 65,536 rows, 128 fields, and 8 MiB, with format-specific type
+  restrictions. Vortex preserves the most native structure; compatibility outputs report their
+  fidelity boundary. This is scoped format support, not every-operator/every-sink parity.
+  See the [0.3.2 integration contract](docs/architecture/public-io-route-repair-2026-09-27.md)
+  and [output methods and limits](docs/architecture/v1-local-output-sink-scope.md).
 - **Resource ownership follows the work.** Shared workers, bounded queues, reservations, and
   cancellation cleanup govern admitted native operations. An explicit resident serving policy
   bounds concurrent calls, CPU grants and positional I/O, with a reserved metadata lane when
@@ -80,6 +101,10 @@ admitted local routes; their linked evidence defines the supported shapes and re
   remains operator-specific, and reservations do not cover every provider allocation or establish
   a process RSS ceiling. See the [resource contract](docs/rfcs/0044-resident-runtime-resource-ownership.md)
   and [implemented spill boundary](docs/benchmarks/native-completion-boundaries-2026-09-12.md).
+  Explicit COUNT/DISTINCT spill and
+  [selected numeric sort spill](docs/reference/native-query-spill.md) have separate
+  admission, recovery, and cleanup contracts;
+  broad compound-key spill and spill-backed exports remain incomplete.
 - **PulseWeave and capillary work units make control decisions inspectable.** Typed units carry
   source ranges, projection/filter and artifact references, ownership, and execution evidence.
   PulseWeave combines `FlowInventory`, `ScarcityLedger`, `EndoPulse`, and `ProofBound` to describe
@@ -117,7 +142,9 @@ brew install depsilon/tap/shardloom
 
 Source checkout release proof is available through `python scripts/release_dry_run_proof.py --rows 64 --iterations 1`.
 
-Normal Python use starts with `sl.context()` and `ctx.read(...)`:
+Normal Python use starts with `sl.context()` and `ctx.read(...)`. For a local `orders.csv`
+with a `status` column, `run()` returns a shared execution report; its envelope contains result
+fields and readable output:
 
 ```python
 import shardloom as sl
@@ -127,12 +154,11 @@ result = (
     ctx.read("orders.csv")
        .filter(sl.col("status") == "paid")
        .limit(10)
-       .collect()
+       .run()
 )
 
-print(result.output_row_count)
-print(result.first_result_row)
-print(result.activation_summary.execution_mode)
+print(result.envelope.field_int("output_row_count"))
+print(result.envelope.human_text)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
@@ -150,7 +176,7 @@ local resource envelope is appropriate.
 SQL workflows can also bind a declared input when the query uses a logical table name:
 
 ```python
-ctx.sql("SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%'", input="hits.vortex").collect()
+ctx.sql("SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%'", input="hits.vortex").run(bounded=True)
 ```
 
 ## Core Contract

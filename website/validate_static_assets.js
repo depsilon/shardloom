@@ -15,6 +15,7 @@ const requiredFiles = [
   "field-guide/index.html",
   "field-guide/start-local-proof/index.html",
   "field-guide/python-surface/index.html",
+  "field-guide/runtime-and-io/index.html",
   "field-guide/benchmark-methodology/index.html",
   "field-guide/limitations/index.html",
   "field-guide/no-fallback/index.html",
@@ -136,6 +137,12 @@ for (const file of requiredFiles) {
 for (const file of removedWebsiteSurfaces) {
   assert(!exists(file), `Removed website surface still exists: ${file}`);
 }
+for (const route of ["about", "start", "field-guide", "benchmarks", "compute-engine-flow"]) {
+  assert(
+    read(`${route}.html`) === read(`${route}/index.html`),
+    `${route}.html must be identical to the current canonical page; legacy content must not reappear`,
+  );
+}
 for (const file of collectFiles(root)) {
   const size = fs.statSync(path.join(root, file)).size;
   assert(
@@ -205,6 +212,13 @@ for (const file of htmlFiles) {
 }
 for (const file of collectFiles(root).filter((candidate) => candidate.endsWith(".html"))) {
   const content = read(file);
+  for (const stale of [
+    "Start from a source checkout, not a package-publication claim",
+    "package publication readiness",
+    "data-route-timing-surface-dashboard",
+  ]) {
+    assert(!content.includes(stale), `${file} contains retired public content: ${stale}`);
+  }
   const isStarlight = content.includes("Starlight v") || content.includes("starlight__sidebar");
   assert(/<html\b[^>]*\blang="en"/.test(content), `${file} must declare language`);
   assert(/<title>[^<]+<\/title>/.test(content), `${file} must include a document title`);
@@ -267,6 +281,9 @@ for (const required of [
   assert(index.includes(required), `parallax home page missing ${required}`);
 }
 assert(index.includes("View on GitHub"), "home page must link to GitHub");
+for (const route of ["/start", "/about", "/field-guide", "/benchmarks"]) {
+  assert(index.includes(`href="${route}"`), `home page must expose current ${route} navigation`);
+}
 
 const benchmarks = read("benchmarks.html");
 for (const required of [
@@ -352,6 +369,15 @@ for (const required of [
 }
 
 const redirects = read("_redirects");
+const redirectTargets = new Map(
+  redirects.split("\n").filter((line) => line.trim().startsWith("/")).map((line) => line.trim().split(/\s+/).slice(0, 2)),
+);
+for (const route of ["home", "index", "telemetry", "benchmark", "flow", "compute-flow", "architecture", "use-cases", "can-i-use-this", "status", "docs", "readme"]) {
+  assert(
+    redirectTargets.get(`/${route}/`) === redirectTargets.get(`/${route}`) && redirectTargets.has(`/${route}/`),
+    `legacy /${route}/ must redirect to the same current destination as /${route}`,
+  );
+}
 for (const legacy of [
   "/architecture",
   "/architecture.html",

@@ -9,6 +9,9 @@ The Python surface is the current user-facing way to describe local ETL scenario
 
 ## Normal Package Shape
 
+Create the small CSV in the [getting-started walkthrough](/start) before running this example.
+The public `run()` report exposes a shared result envelope across admitted routes.
+
 ```python
 import shardloom as sl
 
@@ -17,12 +20,11 @@ result = (
     ctx.read("data/orders.csv")
        .filter(sl.col("status") == "paid")
        .limit(10)
-       .collect()
+       .run()
 )
 
-print(result.output_row_count)
-print(result.first_result_row)
-print(result.claim_summary.claim_gate_status)
+print(result.envelope.field_int("output_row_count"))
+print(result.envelope.human_text)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
@@ -31,6 +33,18 @@ print(result.fallback_attempted, result.external_engine_invoked)
 generated rows, and scoped local Vortex inputs are the default public examples. Parquet, Arrow
 IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
 present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
+
+## Reuse And Export
+
+Python contexts can retain a local worker to avoid per-call CLI startup. Automatic preparation
+reuses an unchanged source only when its schema and artifact identities match. Each query still
+has fresh execution state; a prepared artifact is not a cache of query results.
+
+Admitted flat results can use `write_vortex`, `write_parquet`, `write_arrow_ipc`,
+`write_avro`, `write_orc`, `write_csv`, `write_json`, and `write_jsonl` through the
+shared native result and sink contracts. Feature gates, supported types, and result limits apply.
+See [runtime and I/O](/field-guide/runtime-and-io) and the
+[user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
 
 ## Schema-Pinned Benchmark Shape
 

@@ -1,0 +1,72 @@
+---
+title: "Runtime and I/O"
+description: "Shipped native execution, preparation reuse, format support, and result limits."
+sidebar: {"label":"Runtime and I/O","order":3}
+---
+
+
+Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the same
+ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
+writers around that middle; they do not select a different query engine.
+
+## Native Execution
+
+Supported routes use exact metadata, segment pruning, encoded reductions, weighted dictionary
+aggregation, exact DISTINCT, and late payload gathering. Sparse dictionary selections decode only
+referenced values. Coverage depends on the operation, type, and physical layout.
+
+Filters, projections, aggregates, sort/Top-K, and selected provider-backed join workflows are
+available. General joins, set operations, analytic windows, and subqueries still have native
+coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
+and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
+
+## Local Formats
+
+| Format | Input | Output |
+| --- | --- | --- |
+| Vortex | Native files; admitted local manifests and partitions | Highest-fidelity native persistence |
+| Parquet | Feature-gated local reader | Feature-gated typed writer |
+| Arrow IPC / Feather | Feature-gated local reader | Feature-gated Arrow IPC writer |
+| Avro | Feature-gated local reader | Feature-gated writer; type restrictions apply |
+| ORC | Feature-gated local reader | Feature-gated writer; nested and unrepresentable unsigned values remain unsupported |
+| CSV | Local inference or declared schema; quoted multiline records | Text output with explicit materialization |
+| JSON | Local JSON input with declared ingestion semantics | One top-level JSON array |
+| JSONL / NDJSON | Local line-delimited JSON | JSONL text output |
+
+Method availability does not imply every operator can feed every sink. Consult the
+[input surface](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md)
+and [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md)
+for enabled features, schema support, and write policy. Compatibility outputs expose metadata
+loss; text formats do not preserve Vortex layouts or static types.
+
+## Preparation And Result Handoffs
+
+Automatic compatibility-input preparation can reuse a local Vortex artifact when the source,
+declared schema, and artifact identities match. Generation checks span reuse and execution;
+detected changes fail explicitly. This is local preparation reuse, not a global query-result cache.
+
+Native Vortex preparation preserves the existing layout. The shared all-I/O physical-layout
+optimization policy remains follow-up work. Reading Vortex does not make parsing, computation,
+encoding, or result delivery instantaneous.
+
+Supported owned results retain Vortex arrays, validity, and memory credits. Complete flat aggregate
+and sorted results reach the shared writers without rerunning the query or reparsing serialized
+JSON for binary export. General computed results still use bounded scalar-to-native construction:
+**65,536 rows, 128 fields, and 8 MiB**, subject to type and memory admission. This is not unbounded
+streaming or every-operator/every-sink parity. See the
+[I/O integration evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/public-io-route-repair-2026-09-27.md).
+
+## Resources And Recovery
+
+Prepared sessions retain source handles and supported lowering while calls create fresh execution
+state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
+explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
+
+COUNT/DISTINCT and selected numeric sort spill have specific admission, recovery, cancellation,
+and cleanup contracts. Broad compound-key spill and spill-backed export remain incomplete. See
+[COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
+[numeric sort spill](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),
+and [serving evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/concurrent-native-serving-2026-09-20.md).
+
+Every admitted execution preserves `fallback_attempted=false` and
+`external_engine_invoked=false`. Unsupported work returns deterministic diagnostics.

@@ -1,20 +1,26 @@
 ---
 title: "Start local proof"
-description: "Run ShardLoom from a source checkout and inspect no-fallback evidence."
+description: "Install the published technical preview and inspect native execution evidence."
 sidebar: {"label":"Start local proof","order":1}
 ---
 
 
-ShardLoom is pre-release. Start from a source checkout, not a package-publication claim.
+ShardLoom 0.3.2 is a published technical preview. Install from PyPI or Homebrew,
+then follow the [local query walkthrough](/start). GitHub pre-release and TestPyPI artifacts are
+also available; see [package installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md)
+for supported platforms and channel verification.
 
-Canonical install and support pages:
+## Install
 
-- `docs/getting-started/source-checkout-install.md`
-- `docs/getting-started/package-user-install.md`
-- `docs/getting-started/v1-supported-unsupported.md`
-- `docs/getting-started/troubleshooting-support.md`
+```sh
+python -m pip install shardloom
+# Or install the CLI with Homebrew
+brew install depsilon/tap/shardloom
+```
 
-## First Commands
+## Source Checkout
+
+For development and release validation, follow [source checkout installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md), then run:
 
 ```powershell
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
@@ -31,4 +37,8 @@ python examples\local-python-smoke\run.py --repo-root .
 
 ## Boundary
 
-This proves local technical-preview posture only. It does not prove package publication, production readiness, broad SQL/DataFrame parity, object-store runtime, or performance superiority.
+Package publication and source execution have separate evidence. Check the
+[supported surface](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/v1-supported-unsupported.md)
+and [troubleshooting guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/troubleshooting-support.md).
+Neither establishes production readiness, broad SQL/DataFrame parity, object-store runtime, or
+performance superiority.

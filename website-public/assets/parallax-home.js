@@ -494,11 +494,11 @@ $$('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
 }));
 const layerInfo=[
  ['01 / DATA','The prepared columnar payload remains the center of the artifact—not a query sidecar.'],
- ['02 / LAYOUT','Writer and layout posture describe how the prepared artifact is organized for admitted work.'],
+ ['02 / LAYOUT','Native Vortex preparation preserves the existing input layout. A shared optimization policy for every I/O format remains follow-up work.'],
  ['03 / STATISTICS','Artifact statistics can support metadata-first decisions and pruning where a route can use them.'],
  ['04 / SEGMENT MAP','Segment membership helps make the relevant parts of a prepared artifact explicit.'],
  ['05 / DICTIONARIES','Dictionary-aware paths can use native codes when the layout exposes them; evidence distinguishes those accessors.'],
- ['06 / DOMAIN INTEL','Admitted preparation may embed reusable derived helpers, such as URL/domain or date/time information.'],
+ ['06 / DOMAIN INTEL','Admitted preparation can embed derived helpers such as string lengths and time buckets. Their availability depends on the preparation route.'],
  ['07 / ROW LOCALITY','Row-position locality can help retained-row paths defer payload materialization until the final selection.']
 ];
 $$('[data-layer]').forEach(button=>button.addEventListener('click',()=>{
@@ -507,14 +507,14 @@ $$('[data-layer]').forEach(button=>button.addEventListener('click',()=>{
 
 /* Code matches the previously supplied README examples. SQL is valid Python. */
 const samples={
- python:{title:'quickstart.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = (\n    ctx.read("orders.csv")\n       .filter(sl.col("status") == "paid")\n       .limit(10)\n       .collect()\n)\n\nprint(result.output_row_count)`,note:'Example from the public README. Bring a local orders.csv with a status column. Supported operations and enabled features still apply.'},
- sql:{title:'query.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = ctx.sql(\n    "SELECT COUNT(*) FROM hits "\n    "WHERE URL LIKE '%google%'",\n    input="hits.vortex",\n).collect()\n\nprint(result.output_row_count)`,note:'Uses the README SQL binding pattern. Bring an admitted local hits.vortex artifact with a URL column. This is not a browser-side ShardLoom runtime.'},
+ python:{title:'quickstart.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = (\n    ctx.read("orders.csv")\n       .filter(sl.col("status") == "paid")\n       .limit(10)\n       .run()\n)\n\nprint(result.envelope.field_int("output_row_count"))`,note:'Example from the public README. Bring a local orders.csv with a status column. Supported operations and enabled features still apply.'},
+ sql:{title:'query.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = ctx.sql(\n    "SELECT COUNT(*) FROM hits "\n    "WHERE URL LIKE '%google%'",\n    input="hits.vortex",\n).run(bounded=True)\n\nprint(result.envelope.field_int("count"))`,note:'Uses the README SQL binding pattern. Bring an admitted local hits.vortex artifact with a URL column. This is not a browser-side ShardLoom runtime.'},
  install:{title:'terminal',code:`# Python package\npython -m pip install shardloom\n\n# Or Homebrew\nbrew install depsilon/tap/shardloom\n\n# Then follow the local getting-started guide.`,note:'Installation commands from the public README. Check repository support and platform requirements before use.'}
 };
 function escapeHTML(t){return t.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function highlight(text){
  // Tokenize the original text, then escape each token; never execute code.
- const re=/(#[^\n]*|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b(?:import|as|from)\b|\b(?:context|read|filter|col|limit|collect|sql|print)\b|\b\d+\b)/g;
+ const re=/(#[^\n]*|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b(?:import|as|from)\b|\b(?:context|read|filter|col|limit|collect|run|sql|print)\b|\b\d+\b)/g;
  let last=0,out='',m;
  while((m=re.exec(text))!==null){out+=escapeHTML(text.slice(last,m.index));const token=m[0],cls=token.startsWith('#')?'tok-comment':/^["']/.test(token)?'tok-str':/^(import|as|from)$/.test(token)?'tok-key':/^\d/.test(token)?'tok-num':'tok-fn';out+=`<span class="${cls}">${escapeHTML(token)}</span>`;last=re.lastIndex;}
  return out+escapeHTML(text.slice(last));

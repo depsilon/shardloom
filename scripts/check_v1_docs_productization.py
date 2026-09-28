@@ -98,7 +98,8 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "source-checkout-install.md",
         "package-user-install.md",
         "v1-supported-unsupported.md",
-        "package_install_commands_visible=true",
+        "python -m pip install shardloom",
+        "brew install depsilon/tap/shardloom",
     ),
     "website-src/src/content/docs/field-guide/start-local-proof.mdx": (
         "source-checkout-install.md",

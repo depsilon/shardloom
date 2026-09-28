@@ -1,25 +1,37 @@
 
 /home /
+/home/ / 301
 /index /
+/index/ / 301
 /index.html /
 /telemetry /benchmarks
+/telemetry/ /benchmarks 301
 /benchmark /benchmarks
+/benchmark/ /benchmarks 301
 /benchmarks.html /benchmarks
 /about.html /about
 /start.html /start
 /flow /compute-engine-flow
+/flow/ /compute-engine-flow 301
 /compute-flow /compute-engine-flow
+/compute-flow/ /compute-engine-flow 301
 /compute-engine-flow.html /compute-engine-flow
 /architecture /compute-engine-flow
+/architecture/ /compute-engine-flow 301
 /architecture.html /compute-engine-flow
 /field-guide.html /field-guide
 /use-cases /field-guide/python-surface
+/use-cases/ /field-guide/python-surface 301
 /use-cases/* https://github.com/depsilon/shardloom/blob/main/docs/use-cases/generated/:splat.md
 /use-cases.html /field-guide/python-surface
 /can-i-use-this /field-guide/limitations
+/can-i-use-this/ /field-guide/limitations 301
 /status /field-guide/limitations
+/status/ /field-guide/limitations 301
 /status.html /field-guide/limitations
 /docs /field-guide
+/docs/ /field-guide 301
 /docs.html /field-guide
 /readme https://github.com/depsilon/shardloom#readme
+/readme/ https://github.com/depsilon/shardloom#readme 301
 /readme.html https://github.com/depsilon/shardloom#readme

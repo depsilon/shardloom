@@ -13,9 +13,9 @@ Build shape:
 Public surface:
 
 - `/`: parallax ShardLoom homepage experience from the productionized source-of-truth HTML.
-- `/about`: concise claim-safe project overview and evidence pointers.
-- `/start`: first local proof entry point.
-- `/field-guide`: Starlight docs shell for local proof, Python route shape, benchmark methodology, limitations, and vocabulary.
+- `/about`: shipped differentiators, technical-preview support, and evidence pointers.
+- `/start`: package installation, a small CSV example, and a first local query.
+- `/field-guide`: Starlight docs for installation, Python, runtime and I/O, benchmark methodology, limitations, and vocabulary.
 - `/benchmarks`: ClickBench handoff and claim-safe public comparison posture.
 - `/compute-engine-flow`: human-readable route translation.
 
@@ -35,3 +35,8 @@ artifact rows as a public leaderboard. `npm run sync-content` copies canonical c
 into Astro import data before each build, and it keeps repository use-case records under
 `docs/use-cases/generated/` for source-of-truth evidence instead of publishing a generated use-case
 browser.
+
+Edit Field Guide content in `scripts/sync-content.mjs` or `src/data/field-guide.json`; its MDX files
+are generated. Each `.html` compatibility page must be byte-identical to its canonical directory
+page after the build. Old bookmarks must never select separate page content. Validate both
+`website/validate_static_assets.js` and `scripts/check_website_readiness.py` after regeneration.
