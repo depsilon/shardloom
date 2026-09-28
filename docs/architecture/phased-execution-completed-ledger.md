@@ -17,6 +17,36 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `RELEASE-032` publish and verify the 0.3.2 technical-preview patch train.
+  - Date: 2026-09-27 local; final deployment observed September 28 UTC. Runtime
+    repair PR #1479, version PR #1480 and publication PR #1481 each passed all
+    40 checks before merge. Released source is
+    `b06a77d9a994684ee483d43d65a8bc254dd998a6`; deployed publication records are
+    `840b1196856e4b44938ed1f04ad3530e9363b00e`.
+  - GitHub, TestPyPI, PyPI and Homebrew passed installation, complete-result
+    smoke and uninstall proofs. All eight registry distributions match their
+    Actions artifacts; Homebrew passed 25 steps and both clean source installs.
+    Exact release-source CI and 20 fresh schema/export cases passed. See
+    [publication verification](../release/v0.3.2-publication-verification.md) and
+    the [deployment observation](../release/channel-proofs/website-v0.3.2-deployment.json).
+  - Publication validation passed 260 focused tests, with two existing optional
+    skips, plus version/channel/docs/governance/site checks. Production build,
+    public pages and source-document hashes were observed before advancing the
+    final readiness flags. The architecture audit keeps its open roadmap items.
+  - Cleanup retired six completed test environments and 12 verified duplicate
+    downloads (283,996,928 logical bytes), preserving assets, transcripts,
+    original data and frozen comparison binaries. Local receipt:
+    `/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/completed-proof-cleanup.json`.
+  - V1 scope classification: `required_for_v1`. This release queue identifier
+    closes packaging of the scoped PERF-12/CG-21 repair; it adds no implementation
+    phase or competitive gate. CG-1 through CG-23 retain their current boundaries.
+    Shared Vortex-native execution, metadata-first policy, capillary/PulseWeave
+    resource handling and evidence-tier/timing-surface distinctions are preserved.
+  - Stop after the release train. The seven optimization candidates, interrupted
+    optimized-reference lane, large text-format tests and shared all-I/O layout
+    policy remain paused. No new performance, broad parity or production-runtime
+    claim follows from package or website verification.
+
 - [x] Public I/O integration and native handoff repair, with one format pulse.
   - Date: 2026-09-27. [PR #1479](https://github.com/depsilon/shardloom/pull/1479)
     merged at `6495a715a50494230303748a5484d83a375e15d4`; accepted head
@@ -41,7 +71,7 @@ phase plan first.
     logs and small outputs remain in verified archives.
   - This closes the scoped PERF-12/CG-21 repair, not general operator/sink parity
     or unified physical-layout optimization. Native Vortex admission preserves
-    existing layout. The subsequent authorized 0.3.2 train is in Planned.
+    existing layout. The subsequent authorized 0.3.2 train is completed above.
 
 - [x] `RELEASE-031` publish and verify the 0.3.1 technical-preview version train.
   - Date: 2026-09-27. This closes the accepted C7 merge (#1475), version/source

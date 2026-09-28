@@ -1,0 +1,82 @@
+{
+  "schema_version": "shardloom.public_website_deployment_observation.v1",
+  "status": "passed",
+  "release_tag": "v0.3.2",
+  "release_source_commit": "b06a77d9a994684ee483d43d65a8bc254dd998a6",
+  "publication_records_pr": "https://github.com/depsilon/shardloom/pull/1481",
+  "deployed_commit": "840b1196856e4b44938ed1f04ad3530e9363b00e",
+  "pr_merged_at": "2026-09-28T01:00:28Z",
+  "accepted_pr_head": "ec6b67417159f471d25dc259e4ed1728cdde974a",
+  "accepted_pr_check_count": 40,
+  "cloudflare": {
+    "check_run_id": 108747672557,
+    "check_name": "Workers Builds: shardloom",
+    "status": "completed",
+    "conclusion": "success",
+    "completed_at": "2026-09-28T01:01:08Z",
+    "head_sha": "840b1196856e4b44938ed1f04ad3530e9363b00e",
+    "build_id": "4f6caa9d-4556-4dd4-83af-d6cbb98b73b6",
+    "worker_version_id": "fded4910-da41-420f-8731-521ab159caad",
+    "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/4f6caa9d-4556-4dd4-83af-d6cbb98b73b6"
+  },
+  "public_browser_observation": {
+    "observed_at": "2026-09-28T01:02:03.200Z",
+    "method": "Codex in-app browser accessibility inspection",
+    "pages": [
+      {
+        "url": "https://shardloom.io/start/",
+        "title": "Start Local Proof | ShardLoom",
+        "release_text": "Selected v0.3.2 package channels are published; future package channels remain outside the selected release surface until their own proof exists.",
+        "selected_channels_visible": [
+          "GitHub prerelease",
+          "TestPyPI",
+          "PyPI",
+          "Homebrew"
+        ],
+        "install_and_source_guide_links_present": true
+      },
+      {
+        "url": "https://shardloom.io/benchmarks",
+        "title": "Benchmarks | ShardLoom",
+        "heading": "Use ClickBench as the public comparison surface.",
+        "comparison_url": "https://benchmark.clickhouse.com/",
+        "no_local_ranking_claim": true,
+        "external_engines_baselines_only": true
+      },
+      {
+        "url": "https://shardloom.io/field-guide/limitations/",
+        "title": "Limitations | ShardLoom",
+        "production_broad_parity_and_superiority_remain_unclaimed": true,
+        "unsupported_work_must_not_use_external_engine_fallback": true
+      }
+    ]
+  },
+  "public_document_checks": [
+    {
+      "path": "docs/getting-started/package-user-install.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/840b1196856e4b44938ed1f04ad3530e9363b00e/docs/getting-started/package-user-install.md",
+      "sha256": "2c76385c00d4e3d274384b3cb5889adda574f333dc5a3ffd790df84f7546813b",
+      "bytes": 5197,
+      "remote_matches_deployed_commit": true,
+      "release_032_present": true
+    },
+    {
+      "path": "docs/getting-started/source-checkout-install.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/840b1196856e4b44938ed1f04ad3530e9363b00e/docs/getting-started/source-checkout-install.md",
+      "sha256": "62ae75ba0e3f9e6f82236fee3711a35d98a622944c930050337ac6789ec6f6c1",
+      "bytes": 1932,
+      "remote_matches_deployed_commit": true
+    },
+    {
+      "path": "docs/getting-started/v1-supported-unsupported.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/840b1196856e4b44938ed1f04ad3530e9363b00e/docs/getting-started/v1-supported-unsupported.md",
+      "sha256": "358f26c0bed0738d3b7d1b36ba8676b4907e05a51b93ae8396d1e2d9f325ac8e",
+      "bytes": 20668,
+      "remote_matches_deployed_commit": true,
+      "release_032_present": true
+    }
+  ],
+  "scope": "Selected technical-preview package and public website verification, not new runtime or performance evidence. Public GitHub document bytes were retrieved at the deployed commit and compared with its Git blobs. Browser checks cover the listed public URLs; they are not a complete site crawl.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}
