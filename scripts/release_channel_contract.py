@@ -21,12 +21,16 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
 
 # The JSON field names still include v0_1_0 for schema compatibility. The
 # selected release value itself is the current proof-backed package version.
-SELECTED_PACKAGE_RELEASE_VERSION = "0.3.1"
+SELECTED_PACKAGE_RELEASE_VERSION = "0.3.2"
 SELECTED_PACKAGE_RELEASE_TAG = f"v{SELECTED_PACKAGE_RELEASE_VERSION}"
 # Approved identities observed during the publication train. Keep these keyed
 # by release so advancing the selected version cannot reuse a prior build's
 # source/run binding. PyPI's source adds only the prerequisite proof documents.
 PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
+    "0.3.2": {'testpypi': {'source_commit': 'b06a77d9a994684ee483d43d65a8bc254dd998a6',
+                  'workflow_run_id': 36357744771},
+     'pypi': {'source_commit': 'c983aad22360c17f1a1c17e6651730f4a9e6d831',
+              'workflow_run_id': 36359375442}},
     "0.3.1": {
         "testpypi": {
             "source_commit": "52a2228512341f158dfa6649b6c0985a33034460",
@@ -59,6 +63,10 @@ PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
     },
 }
 PUBLISHED_REGISTRY_DISTRIBUTIONS = {
+    "0.3.2": ('shardloom-0.3.2-cp313-cp313-macosx_26_0_arm64.whl',
+     'shardloom-0.3.2-cp313-cp313-manylinux_2_39_x86_64.whl',
+     'shardloom-0.3.2-cp313-cp313-win_amd64.whl',
+     'shardloom-0.3.2.tar.gz'),
     "0.3.1": (
         "shardloom-0.3.1-cp313-cp313-macosx_26_0_arm64.whl",
         "shardloom-0.3.1-cp313-cp313-manylinux_2_39_x86_64.whl",
@@ -83,6 +91,7 @@ PUBLISHED_REGISTRY_DISTRIBUTIONS = {
 # results/no fallback, and prints the captured JSON result. A new release must
 # approve its own program; arbitrary isolated Python is not execution evidence.
 PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
+    "0.3.2": '535d75bc9b620ac5dd4559c850409c2041dd239385797514d2604604dc671516',
     "0.3.1": "ee49b52a55770327d783e177dd6768b670d15b1bb3b8144ad1037f477900b146",
     "0.3.0": "77404a954315c308e2dbacbadd69d6a754e99ca234c82fc3a0d6c056bd074af8",
     "0.2.4": "d8f5c017d800ec0191dd058fd4b986b733c5f0379082f8e64450c7aa7353a6fb",
@@ -91,6 +100,18 @@ PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
 # command, output, recovery note and lifecycle result, including non-registry
 # channels. Updating a record requires explicit review of a new approved pin.
 PUBLISHED_CHANNEL_TRANSCRIPTS = {
+    "0.3.2": {'github_prerelease': ('github-prerelease',
+                           'shardloom.github_prerelease_channel_proof.v1',
+                           '6147f1748013726b713a4fe423e02fa3f86352ffd916d07ebb4821e937da9741'),
+     'testpypi': ('testpypi',
+                  'shardloom.python_registry_package_proof.v1',
+                  '28da148cb02574ec56847319b9cfd01502c1c2f69446ba28fc541d2ea0d0d365'),
+     'pypi': ('pypi',
+              'shardloom.python_registry_package_proof.v1',
+              '1ccfccfcd41f81d597dbc60f0c07b1c0b5873d21e081f517b5349cca3699e0ac'),
+     'homebrew_tap': ('homebrew',
+                      'shardloom.homebrew_channel_proof.v1',
+                      'fddeb426c32967eb92d3ec2c890c6fc48b0ee8bc66fdd9a303022b80183cb2db')},
     "0.3.1": {
         "github_prerelease": ("github-prerelease", "shardloom.github_prerelease_channel_proof.v1",
             "f09959f30735623180ea839a262dc589d2ba596257b02cfb23fd1bc145b6d64c"),
@@ -126,6 +147,8 @@ PUBLISHED_CHANNEL_TRANSCRIPTS = {
 # distributions against the published wheel hashes. Their immutable records bind
 # the extracted CLI hashes/sizes, source inputs, and checksum/SBOM hashes.
 PUBLISHED_REGISTRY_PROVENANCE_SHA256 = {
+    "0.3.2": {'testpypi': 'f68b130f05b77389bf480b13533a9eb56594e8a06496bd4fe90660b280a2d2dc',
+     'pypi': 'e6c4935074ac3cf8bd466cf04e48de12cb928785bdafcb6a02d815aaeb4bf272'},
     "0.3.1": {
         "testpypi": "dba35b1b4fdde2651fed14798c0e376eda2d986c6f941243c1e5a89479dca98b",
         "pypi": "f651ae27d2d5d528d6486a36f2d04227f0c323e7dd4def87fad1afd093e1e341",
