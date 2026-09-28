@@ -266,17 +266,17 @@ remains follow-up: native Vortex preparation preserves existing input layout.
   - Execution checklist:
     - [x] Merge the I/O repair with complete local and exact-head CI validation.
     - [x] Prepare synchronized source/package versions and scoped release notes.
-    - [ ] Validate and merge the version-source PR.
-    - [ ] Publish and verify GitHub release assets, then TestPyPI, PyPI and Homebrew.
+    - [x] Validate and merge the version-source PR.
+    - [x] Publish and verify GitHub release assets, then TestPyPI, PyPI and Homebrew.
     - [ ] Update proof-backed public status and verify the deployed website.
     - [ ] Retire temporary release artifacts after retaining proof and move this
       release item to the completed ledger.
   - Evidence: [release notes](../release/v0.3.2-release-notes.md), exact source CI,
     versioned artifact installation, checksums/SBOM/provenance and channel receipts.
     No repeated full-size benchmark is required for the version-only change.
-  - Boundary: published-channel status stays at 0.3.1 until new channel proofs
-    pass. Deployment readiness stays pending until the actual production site is
-    verified. Internal Rust crates remain unpublished; technical-preview access
+  - Boundary: all four 0.3.2 channel proofs passed. Deployment readiness stays
+    pending until the actual production site is verified. Internal Rust crates
+    remain unpublished; technical-preview access
     does not imply production readiness, broad parity or performance superiority.
 
 September 26 suggestion-intake override: 0.3.0 publication is complete in

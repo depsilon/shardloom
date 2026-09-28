@@ -1,0 +1,365 @@
+{
+  "schema_version": "shardloom.source_version_validation.v1",
+  "status": "passed",
+  "scope": "exact_version_CI_and_local_package_checks;pre_bump_runtime_UAT;not_channel_publication_proof",
+  "recorded_at_utc": "2026-09-27T23:08:54.540414+00:00",
+  "candidate_version": "0.3.2",
+  "tested_commit": "b06a77d9a994684ee483d43d65a8bc254dd998a6",
+  "tested_tree": "883c935df8946a7ba5757c457efcf4a9129cfbc3",
+  "source_pr": 1480,
+  "source_pr_checks_passed": 40,
+  "exact_merged_source_ci": {
+    "run_id": 36355989055,
+    "url": "https://github.com/depsilon/shardloom/actions/runs/36355989055",
+    "head_sha": "b06a77d9a994684ee483d43d65a8bc254dd998a6",
+    "conclusion": "success",
+    "infrastructure_retry": "One native-feature job remained in runner setup without executing tests; after other jobs passed, cancellation and targeted retry retained completed evidence.",
+    "jobs": [
+      {
+        "name": "Rust feature matrix (vortex_local_primitives)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.10)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python test shard (release_scripts)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "CI gate matrix contract",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust baseline (test)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python test shard (front_door_benchmark_publication)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.13)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (vortex_encoded_read_spike)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (native_vortex_tests)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (windows-latest, 3.11)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (vortex_file_io)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release user-surface evidence",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (release_user_surfaces)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (packaging_deployment)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (benchmark_extras)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (native_public_surface_tests)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (native_release_clippy)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release package and governance evidence",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python tests",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release readiness reports",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust baseline (clippy)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (macos-latest, 3.11)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python and package smoke",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.11)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Website and docs validation",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "CI work shaping plan",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (default_features)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (all_features)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (upstream_vortex)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust MSRV validation",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.12)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release runtime core evidence",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python test shard (core)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust baseline (fmt)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (no_default_features)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Dependency and security gates",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "runtime_rust_source_changes_in_version_bump": false,
+  "external_dependency_or_schema_changes_in_version_bump": false,
+  "internal_cargo_path_requirements_advanced_to_new_patch": true,
+  "local_version_evidence": {
+    "status": "local_passed_exact_version_ci_pending",
+    "source_commit": "20da7ec9cebe15fc19d045fd99824a2021e74614",
+    "source_tree": "883c935df8946a7ba5757c457efcf4a9129cfbc3",
+    "binary_sha256": "55a6039d8673678ed2fec57926bbefc74272959ef3bea1bfdd1c2c1ee59b5979",
+    "version": "0.3.2",
+    "schema_export_roundtrips": 20,
+    "fixtures_removed": true,
+    "release_tool_tests_passed": 260,
+    "release_tool_tests_skipped": 2,
+    "earlier_metadata_tested_commit": "33cd802e0adf749180741f4a7bafb958e6fec4ec",
+    "subsequent_change": "release queue classification and inclusion matrix only",
+    "superseded_failure": "public-docs-final-check.json: missing RELEASE-032 classification, repaired and rechecked in public-docs-final-check-2.json",
+    "architecture_audit_scope": "allow-blocked;134open development items;not readiness proof",
+    "full_size_benchmark_repeated": false,
+    "artifacts": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/build-release-candidate.json",
+        "sha256": "2b77ebe9b5797508918738b5b5d08944f119c733a460e6ac4a1ecb6b1be54c01",
+        "bytes": 1104
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/candidate-schema-roundtrips.json",
+        "sha256": "3c42d2561754e81ac9e1cf1ee2b75034a9fa23fced8578d5379268e7c03ebde0",
+        "bytes": 759
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/candidate-schema-roundtrips.stdout",
+        "sha256": "4f7339d060ef2d885a64ecf1153078fa750f9eadc6045640085c534df69e8314",
+        "bytes": 3859
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/verify-schema-roundtrips.py",
+        "sha256": "8d4d39c49e3a949a1611e3721fd189100478d1af44f3be48ad67132929f80346",
+        "bytes": 4993
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/format-1.json",
+        "sha256": "219402c86a4b1820fa3f77bd94477b9072e7c0e7e3122967808ef67577d5bc5c",
+        "bytes": 479
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/version-python-1.json",
+        "sha256": "3d3254e2ab4f091b0708e7fe263b0e6073dc6c21e2c34059691658f2cfab43ff",
+        "bytes": 703
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/version-sync-1.json",
+        "sha256": "a41f7fc80df1c1fda8b5e9ab54150eb7f7ddd9addbd9a7cd958bca10b5457e45",
+        "bytes": 551
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/workspace-version-source-report-check.json",
+        "sha256": "f25fcd3c9c42b07901e5dd9ec701e174098cee65d71a82e074d9230d3dcc5ce2",
+        "bytes": 688
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/public-docs-final-check-2.json",
+        "sha256": "a69ca152c2e0b6bc79e8e71381150fd7dae718fd1e4f83b064b2ae056e526eca",
+        "bytes": 657
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/contribution-check.json",
+        "sha256": "f12965809555d45c514af11e0af624ca0ee3d06238a2ed8bcc1044da46333d0f",
+        "bytes": 648
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/package-channel-static-check.json",
+        "sha256": "039d74ba3b4e4f69691a1be9e96098a8f12f7a9095bc24428c42dfe6bb67c7bb",
+        "bytes": 670
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.2-20260927/source-final/architecture-final-check.json",
+        "sha256": "b9f70cb621450441d3bfbc6563223dd026c9c764d485833b86136bcdcdc68662",
+        "bytes": 688
+      }
+    ]
+  },
+  "merged_build_evidence": {
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "-p",
+      "shardloom-cli",
+      "--bin",
+      "shardloom",
+      "--features",
+      "release-user-surfaces"
+    ],
+    "source_commit": "b06a77d9a994684ee483d43d65a8bc254dd998a6",
+    "cwd": "/Users/dylan/.codex/worktrees/ship-drop-control-20260919/shardloom-local-repo",
+    "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+    "source_tree": "883c935df8946a7ba5757c457efcf4a9129cfbc3",
+    "status": "passed",
+    "publication_attempted": false,
+    "timeout_seconds": 1800,
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "output_limit_bytes": 16777216,
+    "timed_out": false,
+    "interrupted_signal": null,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "pid": 24119,
+    "output_bytes": 62,
+    "group_absence_unproved_at_cleanup": false,
+    "returncode": 0,
+    "seconds": 0.9678702920209616,
+    "binary_sha256": "55a6039d8673678ed2fec57926bbefc74272959ef3bea1bfdd1c2c1ee59b5979",
+    "binary": "/Users/dylan/.cache/shardloom/cargo-target/release/shardloom",
+    "binary_bytes": 73536800,
+    "version": "shardloom 0.3.2"
+  },
+  "implementation_uat": {
+    "tested_commit": "b8396a17ecc23e4469a91c1b3963660a377886e4",
+    "merge_commit": "6495a715a50494230303748a5484d83a375e15d4",
+    "counts": {
+      "default_workspace": 3436,
+      "release_cli": 924,
+      "release_native": 1987,
+      "native_ignored": 22,
+      "python_passed": 668,
+      "python_skipped": 144,
+      "real_schema_roundtrips": 20
+    },
+    "counts_overlap_between_feature_configurations": true,
+    "default_workspace_tests": "3436 passed across 102 targets",
+    "checks": "default and release workspace Clippy, minimal universal-input Clippy, format, documentation checks",
+    "ci_run": 36352806783,
+    "codeql_run": 36352806815,
+    "receipts": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/format-io-20260927/pr1479-final-review-acceptance.json",
+        "sha256": "3f1bba8cdbda44cdac5dd78a9d6cb00d4e6ec08e5886a120c4c2fa5a7d55a0a2",
+        "bytes": 872
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/format-io-20260927/final-review-validation-3.json",
+        "sha256": "182e90facaac666f4adb647b45d4485d452b65edc6e5c6f7984e6c07646b4f90",
+        "bytes": 8226
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/format-io-20260927/schema-runtime-2.json",
+        "sha256": "ab80b6f9043c95704b48cf9ff3dd299093692b0af81bb487944d90abdf770b3f",
+        "bytes": 8268
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/format-io-20260927/final-review-validation-log-archives.json",
+        "sha256": "e6d4215f243cdb59846d96532fa757f182b11da5626a8626a43db40bd0b251ef",
+        "bytes": 12615
+      }
+    ]
+  },
+  "full_size_benchmark_repeated_for_version_only_change": false,
+  "local_full_rust_suites_repeated_for_version_only_change": false,
+  "validation_strategy": "Runtime changes passed full local gates and PR CI before merge; version-only source passed full exact-version PR and merged-source CI. Fresh versioned binary and 20 schema/export cases passed. Channel artifacts receive separate installation proofs.",
+  "architecture_report_mode": "allow_blocked_audit; 134 open development items; not_production_readiness",
+  "remaining_release_proofs": [
+    "GitHub_TestPyPI_PyPI_Homebrew_channel_proofs",
+    "actual_public_website_deployment"
+  ]
+}
