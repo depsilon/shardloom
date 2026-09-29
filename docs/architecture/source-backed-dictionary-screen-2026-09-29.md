@@ -271,6 +271,34 @@ asset and public-status checks pass. Local logs use the `r2a-website-*` and
 `r2a-ci-repair-*` prefixes in the performance-candidates directory. The remote
 audit and all remaining checks must pass on the final PR head before merge.
 
+### PR recovery-lock repair
+
+The native CI job failed the cancelled-recovery retry test because a directory
+lock remained held after its owning operation finished. A new regression test
+reproduces the lifetime defect with a cloned descriptor: dropping the original
+`File` does not release the lock while the clone remains open. The specific
+descriptor-inheritance event in CI is inferred; the lock-lifetime failure itself
+was reproduced deterministically before the fix.
+
+Revision `630db89578d417c323d110e0e8c02410225af9dd` gives both query workspaces
+and recovery the same scoped `DirectoryOwner`. It explicitly unlocks on owner
+drop, after cleanup, including cancellation and error exits. The guard is
+constructed only after successful lock acquisition. Inode validation, namespace
+checks, active-owner rejection and recovery-marker protection remain intact.
+The regression also proves that closing an old cloned descriptor cannot release
+a replacement owner's lock. Cancellation and retry retain an inherited-descriptor
+stand-in across all three spill namespaces; the real-child active-owner and crash
+fixtures remain in the suite.
+
+Formatting, workspace and release-surface Clippy pass. The final repair revision
+passes 3,436 workspace tests, **1,992 native tests** (22 existing ignores) and
+1,170 CLI tests. Independent read-only review found no actionable lock ownership,
+cleanup or coverage issue. Evidence is retained in `r2a-recovery-red.log`,
+`r2a-recovery-green.log`, `r2a-recovery-validation.json` and
+`r2a-recovery-independent-review.json` in the performance-candidates directory.
+The Full43 timings above describe the frozen UTF8 revision `bb47125c`; they do
+not include this subsequent recovery-only repair.
+
 ## Cleanup
 
 Retired the completed `release-lto` and `release-native-benchmark` Cargo caches

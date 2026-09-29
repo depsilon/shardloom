@@ -29,10 +29,15 @@ phase plan first.
     (92.389200 to 88.973689 seconds). All samples, medians and smaller regressions
     remain in the evidence. No process-memory, ingest or subsecond-suite claim.
   - Final formatting, default/release-surface Clippy, 3,436 workspace tests,
-    1,991 native tests and 1,170 CLI tests pass. Counts overlap; 22 pre-existing
+    1,992 native tests and 1,170 CLI tests pass on the final recovery repair.
+    Counts overlap; 22 pre-existing
     native manual/regeneration tests remain ignored. Independent source review
     found no actionable ownership, resource, exactness or coverage issue.
     Documentation/governance/tracker checks pass with broader gates left open.
+  - PR #1484 also repairs scoped directory-lock release exposed by CI, with a
+    deterministic red/green regression and independent review, and updates two
+    patched website development dependencies. Full43 performance evidence remains
+    pinned to the UTF8 runtime revision above, before the recovery-only repair.
   - Cleanup retires two completed profile caches and eight exact historical
     executables, removing 3,398,078,464 allocated bytes after identity, evidence
     and active-consumer checks. Protected inputs/control, accepted candidate,
