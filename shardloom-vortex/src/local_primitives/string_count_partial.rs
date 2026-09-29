@@ -577,7 +577,7 @@ impl StringCountMerge {
             .string_count_topk_heavy_hitter_sketch
             .as_mut()
             .ok_or_else(|| failed("pressure route lost its native sketch"))?;
-        sketch.update_lazy_utf8_value(&owned, count, &mut states.string_interner)
+        sketch.update_lazy_utf8_value(&owned.into(), count, &mut states.string_interner)
     }
 }
 

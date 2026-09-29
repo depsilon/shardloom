@@ -165,7 +165,7 @@ mod tests {
                 row_ids: ids,
                 values: values
                     .into_iter()
-                    .map(std::sync::Arc::<str>::from)
+                    .map(|value| std::sync::Arc::<str>::from(value).into())
                     .collect(),
                 value_nulls: None,
                 row_nulls: None,

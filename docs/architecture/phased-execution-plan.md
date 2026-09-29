@@ -244,6 +244,15 @@ the ledger.
 
 ## Planned
 
+September 29 scope override: the maintainer resumed the remaining ship/drop
+optimizations, requested reuse/modularization review, and authorized cleanup of
+completed UAT/test artifacts. Resume PERF-INTAKE at R2.a, followed by the other six
+unchecked candidates. Keep performance runs sequential and preserve useful
+smaller gains. The completed 0.3.2 train stays closed; this request does not reopen
+release publication, the interrupted format pulse, or large text-format tests.
+R2.a admission and ownership design are recorded in
+[the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).
+
 September 27 scope override: the whole-file JSON C7 change, 0.3.1 publication,
 authorized format pulse and public I/O handoff repairs are complete. Their
 closure is recorded in the [completed ledger](phased-execution-completed-ledger.md).
@@ -373,12 +382,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: JSONL merged in PR #1474 and whole-file JSON in PR #1475,
-    with all 40 checks passing. Perform the subsequently requested format comparison
-    after release closeout, then stop. Whole-file JSON acceptance includes 129 Full43 results,
-    byte-identical full-size Parquet ingest, 456 held-out calls and pressure/cleanup
-    checks. R2.a and the other six experiments remain queued. Preserve useful
-    smaller gains and recorded workload tradeoffs; broader PERF obligations remain open.
+  - Next outcome: screen R2.a in the shared UTF8 accessor, record its ownership,
+    exactness and complete-query evidence, then retain or remove the candidate.
+    Close the cohesive result with applicable UAT and a PR before the next set.
+    Preserve useful smaller gains and recorded workload tradeoffs; broader PERF
+    obligations remain open.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.
     SQL/Python/CLI aliases converge before these families, with

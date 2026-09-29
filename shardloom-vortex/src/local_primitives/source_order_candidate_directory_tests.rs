@@ -21,7 +21,7 @@ fn strings(codes: Vec<u32>, values: &[&str]) -> AggregateDirectColumnAccessor {
         row_ids: codes,
         values: values
             .iter()
-            .map(|value| std::sync::Arc::<str>::from(*value))
+            .map(|value| std::sync::Arc::<str>::from(*value).into())
             .collect(),
         value_nulls: None,
         row_nulls: None,
@@ -237,7 +237,7 @@ fn compact_directory_retains_only_matched_lists_for_small_later_domains() {
     let roles = state
         .source_order_numeric_utf8_group_roles_for_accessors(&initial, None)
         .unwrap();
-    let absent = [std::sync::Arc::<str>::from("absent")];
+    let absent = [std::sync::Arc::<str>::from("absent").into()];
     let directory = state
         .source_order_numeric_utf8_candidate_slots(&absent, roles)
         .unwrap()
@@ -245,9 +245,9 @@ fn compact_directory_retains_only_matched_lists_for_small_later_domains() {
     assert_eq!(directory.by_code, [usize::MAX]);
     assert_eq!(directory.by_string.capacity(), 0);
     let labels = [
-        std::sync::Arc::<str>::from("retained-7"),
-        std::sync::Arc::<str>::from("retained-7"),
-        std::sync::Arc::<str>::from("absent"),
+        std::sync::Arc::<str>::from("retained-7").into(),
+        std::sync::Arc::<str>::from("retained-7").into(),
+        std::sync::Arc::<str>::from("absent").into(),
     ];
     let directory = state
         .source_order_numeric_utf8_candidate_slots(&labels, roles)
