@@ -65591,7 +65591,7 @@ mod tests {
         )])
         .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
         let declared_columns = vec!["Referer".to_string()];
-        let values = vec![
+        let values = [
             std::sync::Arc::<str>::from("http://example.test/z"),
             std::sync::Arc::<str>::from("https://other.test/b"),
             std::sync::Arc::<str>::from("http://example.test/a"),
@@ -65735,7 +65735,7 @@ mod tests {
         )])
         .with_order_by(vec![crate::VortexAggregateOrderExpr::new("l", true)]);
         let declared_columns = vec!["Referer".to_string()];
-        let values = vec![
+        let values = [
             std::sync::Arc::<str>::from("http://example.test/z"),
             std::sync::Arc::<str>::from("https://other.test/b"),
             std::sync::Arc::<str>::from("http://example.test/a"),
