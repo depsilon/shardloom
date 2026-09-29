@@ -25745,18 +25745,19 @@ impl AggregateStringInterner {
         if let Some(id) = self.ids.get(value) {
             return Ok(*id);
         }
-        self.insert_new(std::sync::Arc::from(value))
+        let id = usize_to_u64(self.values.len())?;
+        let value: std::sync::Arc<str> = std::sync::Arc::from(value);
+        self.values.push(std::sync::Arc::clone(&value));
+        self.ids.insert(value, id);
+        Ok(id)
     }
 
     fn intern_dictionary(&mut self, value: &Utf8DictionaryValue) -> Result<u64> {
         if let Some(id) = self.ids.get(value.as_ref()) {
             return Ok(*id);
         }
-        self.insert_new(value.to_owned_arc())
-    }
-
-    fn insert_new(&mut self, value: std::sync::Arc<str>) -> Result<u64> {
         let id = usize_to_u64(self.values.len())?;
+        let value = value.to_owned_arc();
         self.values.push(std::sync::Arc::clone(&value));
         self.ids.insert(value, id);
         Ok(id)
