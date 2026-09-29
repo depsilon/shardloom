@@ -125,6 +125,9 @@ mod triple_count_tests;
 #[path = "local_primitives/triple_count_workers.rs"]
 mod triple_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/winner_distinct.rs"]
+mod winner_distinct;
+#[cfg(feature = "vortex-local-primitives")]
 use native_utf8::Utf8DictionaryValue;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_chunk_dictionary.rs"]
@@ -20296,6 +20299,16 @@ fn read_lowered_vortex_simple_aggregate_scan(
     if let Some(states) = grouped_states.as_mut() {
         states.native_execution_ctx = native_numeric_execution_ctx(session);
     }
+    let mut winner_distinct_report = grouped_states.as_mut().and_then(|states| {
+        winner_distinct::admit(
+            states,
+            file.dtype(),
+            &declared_columns,
+            source_row_count,
+            request.predicate.is_none() && plan.filter.is_none() && residual_predicate.is_none(),
+        )
+        .inspect(|_| states.winner_distinct_pass = winner_distinct::MeasurePass::Ordinary)
+    });
     let residual_evaluator = residual_predicate
         .as_ref()
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
@@ -20720,9 +20733,17 @@ fn read_lowered_vortex_simple_aggregate_scan(
     check_cancelled()?;
     let result_limit = request.source_order_limit;
     if let Some(states) = grouped_states.as_mut()
-        && states.needs_numeric_pair_late_measure_second_pass()
+        && (states.needs_numeric_pair_late_measure_second_pass()
+            || winner_distinct_report.is_some())
     {
-        states.prepare_numeric_pair_late_measure_second_pass(result_limit)?;
+        // Both families consume the same held source and projection, with the
+        // same cancellation and reader evidence boundary around the later pass.
+        let second_pass_started = Instant::now();
+        if let Some(report) = winner_distinct_report.as_mut() {
+            report.select(states)?;
+        } else {
+            states.prepare_numeric_pair_late_measure_second_pass(result_limit)?;
+        }
         let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if second_plan.projected_columns != declared_columns {
@@ -20754,9 +20775,21 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 chunk.nbuffers(),
             )?;
             reader_splits.push(split);
-            states.update_numeric_pair_late_measure_direct_from_chunk(&chunk, &declared_columns)?;
+            if winner_distinct_report.is_some() {
+                if !states.update_compact_direct_from_chunk(&chunk, &declared_columns, None)? {
+                    return Err(winner_distinct::contract_error());
+                }
+            } else {
+                states.update_numeric_pair_late_measure_direct_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                )?;
+            }
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
+        }
+        if let Some(report) = winner_distinct_report.as_mut() {
+            report.second_pass_nanos = second_pass_started.elapsed().as_nanos();
         }
     }
     let numeric_utf8_topk_needs_exact_fallback = if let Some(states) = grouped_states.as_mut()
@@ -21154,6 +21187,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     aggregate_timing.annotate_summary(&mut result_summary)?;
+    if let Some(report) = winner_distinct_report {
+        report.annotate(&mut result_summary)?;
+    }
     if let Some(workers) = count_workers.as_ref() {
         workers.annotate_summary(&mut result_summary)?;
     }
@@ -25309,6 +25345,7 @@ struct GroupedAggregateStates<'a> {
     state_template: SimpleAggregateStates,
     compact_measure_specs: Option<Vec<CompactAggregateMeasureSpec>>,
     groups: rustc_hash::FxHashMap<AggregateGroupKey, GroupedAggregateState>,
+    winner_distinct_pass: winner_distinct::MeasurePass,
     // These are completed COUNT DISTINCT values, never disguised COUNT states
     // or synthetic distinct sets. Their owner retains the final selection lease.
     finalized_distinct_counts: Option<exact_distinct_pairs::workers::ExactDistinctResult>,
@@ -28283,6 +28320,7 @@ impl<'a> GroupedAggregateStates<'a> {
             compact_measure_specs,
             groups: rustc_hash::FxHashMap::default(),
             finalized_distinct_counts: None,
+            winner_distinct_pass: winner_distinct::MeasurePass::All,
             single_numeric_count_groups: None,
             numeric_pair_compact_groups: None,
             numeric_pair_late_measure_enabled,
@@ -31916,6 +31954,9 @@ impl<'a> GroupedAggregateStates<'a> {
         chunk_rows: usize,
     ) -> Result<bool> {
         if !self.admits_general_direct_updates(accessors, row_indices) {
+            if self.winner_distinct_pass != winner_distinct::MeasurePass::All {
+                return Err(winner_distinct::contract_error());
+            }
             return Ok(false);
         }
         if self.update_grouped_count_distinct_integer_pair_preunion_from_accessors(
@@ -31987,8 +32028,36 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
-    #[allow(clippy::too_many_lines)]
     fn update_grouped_count_distinct_integer_pair_preunion_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+    ) -> Result<bool> {
+        match self.winner_distinct_pass {
+            winner_distinct::MeasurePass::All => self
+                .update_grouped_integer_measure_pass::<true, true>(
+                    accessors,
+                    row_indices,
+                    chunk_rows,
+                ),
+            winner_distinct::MeasurePass::Ordinary => self
+                .update_grouped_integer_measure_pass::<true, false>(
+                    accessors,
+                    row_indices,
+                    chunk_rows,
+                ),
+            winner_distinct::MeasurePass::Distinct => self
+                .update_grouped_integer_measure_pass::<false, true>(
+                    accessors,
+                    row_indices,
+                    chunk_rows,
+                ),
+        }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn update_grouped_integer_measure_pass<const ORDINARY: bool, const DISTINCT: bool>(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
         row_indices: Option<&[usize]>,
@@ -32001,47 +32070,74 @@ impl<'a> GroupedAggregateStates<'a> {
                 chunk_rows,
             )?
         else {
+            if !ORDINARY || !DISTINCT {
+                return Err(winner_distinct::contract_error());
+            }
             return Ok(false);
         };
         let mut chunk_pairs =
             rustc_hash::FxHashSet::<AggregateCountDistinctPairPreunionKey>::default();
-        reserve_hash_set_capacity(
-            &mut chunk_pairs,
-            chunk_rows,
-            "grouped count-distinct pair preunion",
-        )?;
+        if DISTINCT {
+            reserve_hash_set_capacity(
+                &mut chunk_pairs,
+                chunk_rows,
+                "grouped count-distinct pair preunion",
+            )?;
+        }
+        let group_capacity = if ORDINARY {
+            chunk_rows.min(65_536)
+        } else {
+            chunk_rows.min(self.groups.len())
+        };
         let mut chunk_groups = rustc_hash::FxHashMap::<
             AggregateCountDistinctPreunionGroupKey,
             SimpleAggregateStates,
         >::default();
         reserve_hash_map_capacity(
             &mut chunk_groups,
-            chunk_rows.min(65_536),
+            group_capacity,
             "grouped count-distinct pair preunion chunk-group partials",
         )?;
         let mut chunk_group_order = Vec::new();
         chunk_group_order
-            .try_reserve(chunk_rows.min(65_536))
+            .try_reserve(group_capacity)
             .map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
                     "local Vortex grouped count-distinct pair preunion chunk-group order reservation failed: {error}; no fallback execution was attempted"
                 ))
             })?;
         let mut unique_pairs = 0_u64;
-        let recipe = bound_numeric_updates::BoundNumericUpdates::bind(
-            &self.state_template,
-            accessors,
-            distinct_state_index,
-            chunk_rows,
-        );
+        let mut selected_rows = 0_usize;
+        let recipe = ORDINARY
+            .then(|| {
+                bound_numeric_updates::BoundNumericUpdates::bind(
+                    &self.state_template,
+                    accessors,
+                    distinct_state_index,
+                    chunk_rows,
+                )
+            })
+            .flatten();
         for row_index in 0..chunk_rows {
-            let pair_key = AggregateCountDistinctPairPreunionKey::from_integer_key_slices(
-                group_keys,
-                distinct_keys,
-                row_index,
-            )?;
-            let pair_inserted = chunk_pairs.insert(pair_key);
-            let group_key = pair_key.preunion_group_key();
+            let group_key = AggregateCountDistinctPreunionGroupKey {
+                bits: group_keys.bits(row_index, "count-distinct preunion group")?,
+                signed: group_keys.signed(),
+            };
+            if !ORDINARY && !self.groups.contains_key(&group_key.aggregate_group_key()) {
+                continue;
+            }
+            selected_rows += 1;
+            let pair_key = if DISTINCT {
+                Some(AggregateCountDistinctPairPreunionKey::from_bits(
+                    group_key.bits,
+                    group_key.signed,
+                    distinct_keys.bits(row_index, "count-distinct preunion value")?,
+                    distinct_keys.signed(),
+                ))
+            } else {
+                None
+            };
+            let pair_inserted = pair_key.is_some_and(|key| chunk_pairs.insert(key));
             let group_states = match chunk_groups.entry(group_key) {
                 std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
                 std::collections::hash_map::Entry::Vacant(entry) => {
@@ -32049,17 +32145,19 @@ impl<'a> GroupedAggregateStates<'a> {
                     entry.insert(self.state_template.clone())
                 }
             };
-            if let Some(recipe) = &recipe {
-                recipe.update(group_states, row_index)?;
-            } else {
-                group_states.update_direct_row_from_accessors_except_state(
-                    accessors,
-                    row_index,
-                    chunk_rows,
-                    distinct_state_index,
-                )?;
+            if ORDINARY {
+                if let Some(recipe) = &recipe {
+                    recipe.update(group_states, row_index)?;
+                } else {
+                    group_states.update_direct_row_from_accessors_except_state(
+                        accessors,
+                        row_index,
+                        chunk_rows,
+                        distinct_state_index,
+                    )?;
+                }
             }
-            if pair_inserted {
+            if pair_inserted && let Some(pair_key) = pair_key {
                 group_states.update_count_distinct_preunion_value_at(
                     distinct_state_index,
                     pair_key.distinct_value(),
@@ -32113,15 +32211,18 @@ impl<'a> GroupedAggregateStates<'a> {
                 .merge_preaggregated_from(&partial_states)?;
         }
         self.general_direct_updates = true;
-        self.general_direct_count_distinct_updates = true;
+        self.general_direct_count_distinct_updates |= DISTINCT;
         self.general_direct_group_state_pre_reserved = true;
-        self.grouped_count_distinct_pair_preunion_updates = true;
         if recipe.is_some() {
             self.bound_numeric_recipe_chunks += 1;
         }
+        if !DISTINCT {
+            return Ok(true);
+        }
+        self.grouped_count_distinct_pair_preunion_updates = true;
         self.grouped_count_distinct_pair_preunion_input_rows = self
             .grouped_count_distinct_pair_preunion_input_rows
-            .checked_add(usize_to_u64(chunk_rows)?)
+            .checked_add(usize_to_u64(selected_rows)?)
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex grouped count-distinct preunion input row count overflowed u64"
@@ -36692,7 +36793,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn aggregate_update_strategy(&self) -> &'static str {
-        if let Some(finalized) = &self.finalized_distinct_counts {
+        if self.winner_distinct_pass == winner_distinct::MeasurePass::Distinct {
+            "ordinary_group_measures_then_winner_only_exact_distinct"
+        } else if let Some(finalized) = &self.finalized_distinct_counts {
             if finalized.is_utf8() {
                 "native_utf8_group_integer_complete_pair_distinct"
             } else {
@@ -38841,31 +38944,11 @@ impl AggregateCountDistinctPairPreunionKey {
         }
     }
 
-    fn from_integer_key_slices(
-        group: AggregateDirectIntegerKeySlice<'_>,
-        distinct: AggregateDirectIntegerKeySlice<'_>,
-        row_index: usize,
-    ) -> Result<Self> {
-        Ok(Self::from_bits(
-            group.bits(row_index, "count-distinct preunion group")?,
-            group.signed(),
-            distinct.bits(row_index, "count-distinct preunion value")?,
-            distinct.signed(),
-        ))
-    }
-
     fn distinct_value(self) -> AggregateDistinctValue {
         integer_key_distinct_value(
             self.distinct_bits,
             self.key_kinds & Self::DISTINCT_SIGNED != 0,
         )
-    }
-
-    fn preunion_group_key(self) -> AggregateCountDistinctPreunionGroupKey {
-        AggregateCountDistinctPreunionGroupKey {
-            bits: self.group_bits,
-            signed: self.key_kinds & Self::GROUP_SIGNED != 0,
-        }
     }
 }
 
