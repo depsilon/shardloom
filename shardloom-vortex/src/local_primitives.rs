@@ -81,6 +81,9 @@ mod native_numeric_owner;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_sort_block.rs"]
 mod native_sort_block;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/native_utf8.rs"]
+mod native_utf8;
 #[cfg(all(
     test,
     feature = "vortex-local-primitives",
@@ -122,10 +125,10 @@ mod triple_count_tests;
 #[path = "local_primitives/triple_count_workers.rs"]
 mod triple_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+use native_utf8::Utf8DictionaryValue;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_chunk_dictionary.rs"]
 mod utf8_chunk_dictionary;
-#[cfg(feature = "vortex-local-primitives")]
-use utf8_chunk_dictionary::Utf8DictionaryValue;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/utf8_dictionary_ownership_tests.rs"]
 mod utf8_dictionary_ownership_tests;

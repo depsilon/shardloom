@@ -1,7 +1,7 @@
 # Source-backed UTF8 dictionaries — R2.a
 
-Status: positive bounded implementation screen under PERF-INTAKE; full regression
-and final validation are pending. The maintainer resumed the remaining
+Status: positive Q29 screen under PERF-INTAKE; resolving URL-worker regressions
+before retention. The maintainer resumed the remaining
 September 26 candidates after the completed 0.3.2 release train.
 
 ## Admission and reusable boundary
@@ -86,8 +86,10 @@ screen does not establish a process-memory improvement.
 
 Reuse is contained in the existing chunk dictionary and aggregate interner:
 one typed value owner admits borrowed reads or explicit independent promotion,
-one nullable entry lookup replaces duplicate Arc/string lookup implementations,
-and one insertion helper handles new persistent keys. Native DictArray values
+and one nullable entry lookup replaces duplicate Arc/string lookup implementations.
+The initial shared interner insertion helper was removed during regression
+isolation; restoring the original insertion body did not remove the slowdown.
+Native DictArray values
 retain their existing independent Arc ownership; this screen does not change
 native dictionary selection/gather policy. No new query route is introduced.
 
@@ -106,6 +108,54 @@ the passing run. No runtime budget behavior was changed to make the test pass.
 Evidence: `/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260929T212923089628Z/summary.json`,
 verified compressed complete outputs beside it, and
 `/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r2a-paired-screen.json`.
+
+## Regression isolation and shared borrowed reads
+
+The `0d102cd5` revision passes all 258 complete results in paired Full43. Best-of-three
+sums are 63.850814 seconds for control and 63.447120 seconds for the candidate;
+Q29 improves from 8.147487 to 7.032149 seconds (13.69%). This is not a 14% gain
+across the whole suite. The apparent Q17 best-time regression does not repeat in
+a focused check (2.384584 versus 2.357409 seconds). Q34/Q35 losses do repeat:
+3.490826 versus 3.857358 seconds and 3.521933 versus 3.956253 seconds respectively.
+Those workers bypass the changed chunk dictionary. Do not dismiss these losses
+as concurrent host activity or claim a cause from timing alone.
+
+Restoring the interner insertion body in `5942b941` retains the Q29 gain
+(7.896337 versus 6.701291 seconds) but leaves the URL losses. Rebuilding unchanged
+`b06a77d9` with the current toolchain/features reproduces the original unstripped
+binary exactly: SHA-256 `55a6039d8673678ed2fec57926bbefc74272959ef3bea1bfdd1c2c1ee59b5979`.
+The protected control is its stripped release artifact; absence of local symbols
+there is **not** evidence of different inlining. Applying the same strip step to
+the candidate still leaves about 6% higher best Q34/Q35 time. This rejects build
+recipe drift and the insertion helper as established explanations; compiler layout
+or scheduling effects remain unproven.
+
+The next screen shares native UTF8 ownership rules with `StringCountPartial`.
+Its canonical-row lookup, duplicate comparison, partition hashing, borrowed entry
+delivery and merge callbacks currently obtain temporary `ByteBuffer` owners.
+They need only byte slices while the partial's `VarBinViewArray` remains alive.
+Reuse a `native_utf8` helper for these reads and the chunk dictionary; acquire a
+`BufferString` only when a chunk-dictionary miss needs retention, and promote
+escaping persistent keys independently. Partition storage still copies admitted
+keys and owns its existing leases. No count, selection, cancellation or spill
+policy changes.
+
+Vortex-first check: pinned Vortex 0.85.0 already exposes borrowed
+`BinaryView::bytes`, `VarBinViewArray::views` and `buffer`. The first requires a
+pre-resolved buffer-slice directory; the shared helper uses the latter two safe
+APIs directly so these existing array owners need no extra directory allocation.
+It preserves the provider's inline/external view semantics and caller validity
+checks. Test both against upstream borrowed/owned access, including sliced views,
+empty and 12-byte inline values, multiple external buffers, nonzero offsets,
+duplicate strings, worker counts and release of partial reservations.
+
+Evidence directories under the local ClickBench `logs` directory:
+`paired43_20260929T214205054974Z` (Full43),
+`paired43_20260929T215108994162Z` (Q17),
+`paired43_20260929T215311083508Z` (Q34/Q35),
+`paired43_20260929T220827143260Z` (restored interner), and
+`paired43_20260929T221808900795Z` (matched packaging).
+Complete outputs and process receipts remain archived beside each summary.
 
 ## Cleanup
 

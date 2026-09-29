@@ -485,7 +485,7 @@ impl Partition {
                 .checked_add(count)
                 .ok_or_else(|| failed("chunk weight overflowed"))?;
             let outcome = self.update(
-                (bytes.as_slice(), hash, count),
+                (bytes, hash, count),
                 &shared.memory,
                 worker,
                 admission,

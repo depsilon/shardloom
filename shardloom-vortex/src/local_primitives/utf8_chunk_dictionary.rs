@@ -5,50 +5,13 @@
 //! directory growth. Values retain their first-seen IDs. Chunk consumers borrow
 //! native strings; escaping aggregate state explicitly promotes independent keys.
 
-use std::{hash::Hasher, sync::Arc};
+use std::hash::Hasher;
+
+use super::native_utf8::{Utf8DictionaryValue, borrowed_bytes};
 
 use rustc_hash::FxHasher;
 use shardloom_core::{Result, ShardLoomError};
 use vortex::{array::arrays::VarBinViewArray, buffer::BufferString};
-
-#[derive(Clone, Debug)]
-pub(super) enum Utf8DictionaryValue {
-    Owned(Arc<str>),
-    Source(BufferString),
-}
-
-impl Utf8DictionaryValue {
-    /// Persistent state must not pin a complete provider buffer for one key.
-    pub(super) fn to_owned_arc(&self) -> Arc<str> {
-        match self {
-            Self::Owned(value) => Arc::clone(value),
-            Self::Source(value) => Arc::from(value.as_str()),
-        }
-    }
-}
-
-impl AsRef<str> for Utf8DictionaryValue {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Owned(value) => value,
-            Self::Source(value) => value.as_str(),
-        }
-    }
-}
-
-impl std::ops::Deref for Utf8DictionaryValue {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        self.as_ref()
-    }
-}
-
-impl From<Arc<str>> for Utf8DictionaryValue {
-    fn from(value: Arc<str>) -> Self {
-        Self::Owned(value)
-    }
-}
 
 #[derive(Clone, Copy, Default)]
 struct Slot {
@@ -74,13 +37,7 @@ impl Utf8ChunkDictionary {
     ) -> Result<u32> {
         // Lookup borrows the provider bytes. Only a new value needs a retained
         // slice, avoiding an atomic owner clone on every duplicate row.
-        let view = &source.views()[row];
-        let bytes = if view.is_inlined() {
-            view.as_inlined().value()
-        } else {
-            let reference = view.as_view();
-            &source.buffer(reference.buffer_index as usize)[reference.as_range()]
-        };
+        let bytes = borrowed_bytes(source, row);
         let mut hasher = FxHasher::default();
         hasher.write(bytes);
         self.intern_hashed_with(bytes, hasher.finish(), || {
@@ -189,6 +146,7 @@ fn failed(detail: &str) -> ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
     impl Utf8ChunkDictionary {
         fn intern(&mut self, column: &str, bytes: &[u8]) -> Result<u32> {

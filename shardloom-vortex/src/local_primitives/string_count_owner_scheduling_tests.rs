@@ -130,13 +130,12 @@ fn owner_scheduling_queued_range_retains_native_owner_and_close_discards_it() {
     drop(input);
     assert!(weak.upgrade().is_some());
     assert!(source.snapshot().reserved_bytes > 0);
-    let value = weak.upgrade().unwrap().partial.entry(0).unwrap();
-    assert_eq!(
-        std::str::from_utf8(value.0.as_slice()).unwrap(),
-        "retained λ"
-    );
-    assert_eq!(value.2, 19);
-    drop(value);
+    {
+        let owner = weak.upgrade().unwrap();
+        let value = owner.partial.entry(0).unwrap();
+        assert_eq!(std::str::from_utf8(value.0).unwrap(), "retained λ");
+        assert_eq!(value.2, 19);
+    }
     queue.close(true);
     assert!(weak.upgrade().is_none());
     assert_eq!(source.snapshot().reserved_bytes, 0);
