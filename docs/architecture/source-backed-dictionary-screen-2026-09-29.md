@@ -253,6 +253,88 @@ the summary. Derived per-query observations, work counters and validation logs
 are recorded in `r2a-borrowed-full43-analysis.json`, `r2a-final-q29-work.json` and
 `r2a-final-validation.json` under the local performance-candidates directory.
 
+### Portable receipt and reproduction
+
+The checked-in [evidence bundle](../benchmarks/evidence/source-backed-dictionaries-2026-09-29.json.gz)
+contains all 258 raw measurement records, all 43 SQL statements, per-query scores,
+RSS and host-load observations, result/reference hashes, Q29 work counters and
+validation receipts. It also includes the 43 retained reference envelopes needed
+by the runner. User-local path prefixes are replaced by `{repo}`, `{local-data}`,
+`{build-cache}` and `{home}`; numeric observations and identities are unchanged.
+Original receipt hashes preserve the link to the local archive. This is a native
+regression comparison, not a newly independent correctness oracle.
+
+Hardware: Apple M5, 10 physical/logical CPU cores, 16 GiB physical RAM, local APFS
+storage, macOS 27.0 arm64 (build 26A428). Hardware details were rechecked on the
+same host after the run; the receipt records platform, CPU count, load averages
+and VM observations during each call. The declared 24 GiB query budget is not
+physical RAM or a process RSS cap. Other host work was present, cache state was
+uncontrolled, and these results are not cold-storage or production-tail evidence.
+
+The frozen query executables use `release-user-surfaces`, the repository's
+release profile (thin LTO, one codegen unit) and `strip` on the copied executable.
+The unchanged control rebuild with the current Rust 1.98.1 toolchain reproduces
+its original unstripped identity, as recorded above. To rebuild, use separate
+clean checkouts at control `b06a77d9a994684ee483d43d65a8bc254dd998a6` and
+candidate `bb47125c13adc1d65b7db13133bf9107f92aa605`, the same toolchain and
+an unsynced Cargo target directory. In each checkout run:
+
+```sh
+cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
+```
+
+Resolve `target_directory` using `cargo metadata --offline --no-deps
+--format-version 1`, copy its `release/shardloom` to a distinct control/candidate
+path, then `strip` that copy. Do not run builds or other local tests alongside
+timed operations. Exact binary hashes can depend on build environment; record
+new identities and do not substitute them into the historical receipt.
+
+The input is the R1.a artifact, SHA-256
+`31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35`.
+Its [ingest receipt](../benchmarks/derived-dictionary-preservation-2026-09-26.json)
+records the official 99,997,497-row, 112-column `hits.parquet` source hash and
+writer revision `c79aa89aea02fcfe785b60130d0033ad9d5370c2`. If the artifact is
+absent, build that writer revision and generate it once with the guarded runner:
+
+```sh
+bash scripts/run_clickbench_ingest_uat.sh \
+  --uat-root "$R2_UAT" --binary "$R2_WRITER" --source "$R2_PARQUET" \
+  --target "$R2_INPUT" --input-format parquet --memory-gb 24 --max-parallelism 4 \
+  --max-runtime-seconds 600 --max-artifact-gb 19
+```
+
+Use absolute local paths for `R2_UAT`, `R2_INPUT`, `R2_PARQUET` and the executables;
+keep the input and logs inside an unsynced `R2_UAT`. Use a new target and preserve
+the runner's residency, overlap and storage guards. In the reviewed checkout,
+extract the small checked-in references to a new local directory:
+
+```sh
+export R2_REFERENCES="$R2_UAT/r2-references"
+python3 - <<'PY'
+import gzip, json, os
+from pathlib import Path
+bundle = json.loads(gzip.decompress(Path(
+    'docs/benchmarks/evidence/source-backed-dictionaries-2026-09-29.json.gz'
+).read_bytes()))
+out = Path(os.environ['R2_REFERENCES'])
+out.mkdir(parents=True, exist_ok=False)
+for name, envelope in bundle['retained_reference_envelopes'].items():
+    (out / name).write_text(json.dumps(envelope) + '\n')
+PY
+python3 -B scripts/run_clickbench_paired_query_uat.py \
+  --control-binary "$R2_CONTROL" --control-commit b06a77d9a994684ee483d43d65a8bc254dd998a6 \
+  --candidate-binary "$R2_CANDIDATE" --candidate-commit bb47125c13adc1d65b7db13133bf9107f92aa605 \
+  --input "$R2_INPUT" --uat-root "$R2_UAT" --reference-dir "$R2_REFERENCES" \
+  --queries benchmarks/clickbench/queries.sql --memory-gb 24 --max-parallelism 12 \
+  --timeout 120 --max-workspace-gib 100 --reverse-order
+```
+
+This reproduces the recorded invocation with local paths substituted. The runner
+performs three calls per role/query, checks every complete result and no-fallback
+field, records native process time through output and exit, and archives completed
+logs losslessly. Retain every new sample; a rerun is a new cohort, not a replacement
+for the recorded observations.
+
 ### PR dependency-audit repair
 
 PR #1484's website job exposed updated advisory data for two existing transitive
