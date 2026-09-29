@@ -4,6 +4,11 @@ use std::sync::Arc;
 
 use vortex::{array::arrays::VarBinViewArray, buffer::BufferString};
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static SOURCE_PROMOTIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// Borrow a physical value while its native array remains alive. Callers handle
 /// validity and UTF8 validation, just as they do for `VarBinViewArray::bytes_at`.
 ///
@@ -33,7 +38,11 @@ impl Utf8DictionaryValue {
     pub(super) fn to_owned_arc(&self) -> Arc<str> {
         match self {
             Self::Owned(value) => Arc::clone(value),
-            Self::Source(value) => Arc::from(value.as_str()),
+            Self::Source(value) => {
+                #[cfg(test)]
+                SOURCE_PROMOTIONS.with(|count| count.set(count.get() + 1));
+                Arc::from(value.as_str())
+            }
         }
     }
 }

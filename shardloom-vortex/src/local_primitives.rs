@@ -25422,8 +25422,7 @@ struct GroupedAggregateStates<'a> {
     transformed_dictionary_direct_updates: bool,
     transformed_dictionary_compact_direct_updates: bool,
     transformed_dictionary_compact_code_pair_partials: bool,
-    transformed_dictionary_key_cache:
-        rustc_hash::FxHashMap<TransformedDictionaryKeyCacheEntry, AggregateGroupKey>,
+    transformed_dictionary_key_cache: TransformedDictionaryKeyCache,
     transformed_dictionary_key_cache_hits: u64,
     transformed_dictionary_key_cache_misses: u64,
     transformed_dictionary_key_cache_saturated: bool,
@@ -25541,16 +25540,44 @@ struct TransformedDictionaryDenseGeneralOrderCandidate {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[derive(Clone, Eq, Hash, PartialEq)]
-struct TransformedDictionaryKeyCacheEntry {
-    transform: AggregateValueTransform,
-    value: std::sync::Arc<str>,
+#[derive(Default)]
+struct TransformedDictionaryKeyCache {
+    // Separate transform namespaces allow ordinary borrowed `str` lookup in
+    // both maps. Only admitted misses need independent persistent ownership.
+    length: rustc_hash::FxHashMap<std::sync::Arc<str>, AggregateGroupKey>,
+    url_domain: rustc_hash::FxHashMap<std::sync::Arc<str>, AggregateGroupKey>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-impl TransformedDictionaryKeyCacheEntry {
-    fn new(transform: AggregateValueTransform, value: std::sync::Arc<str>) -> Self {
-        Self { transform, value }
+impl TransformedDictionaryKeyCache {
+    fn get(&self, transform: AggregateValueTransform, value: &str) -> Option<&AggregateGroupKey> {
+        match transform {
+            AggregateValueTransform::Length => self.length.get(value),
+            AggregateValueTransform::UrlDomain => self.url_domain.get(value),
+            _ => unreachable!("transformed dictionary cache admits only length and URL domain"),
+        }
+    }
+
+    fn insert(
+        &mut self,
+        transform: AggregateValueTransform,
+        value: std::sync::Arc<str>,
+        key: AggregateGroupKey,
+    ) {
+        let entries = match transform {
+            AggregateValueTransform::Length => &mut self.length,
+            AggregateValueTransform::UrlDomain => &mut self.url_domain,
+            _ => unreachable!("transformed dictionary cache admits only length and URL domain"),
+        };
+        entries.insert(value, key);
+    }
+
+    fn len(&self) -> usize {
+        self.length.len() + self.url_domain.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.length.is_empty() && self.url_domain.is_empty()
     }
 }
 
@@ -28358,7 +28385,7 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_dictionary_direct_updates: false,
             transformed_dictionary_compact_direct_updates: false,
             transformed_dictionary_compact_code_pair_partials: false,
-            transformed_dictionary_key_cache: rustc_hash::FxHashMap::default(),
+            transformed_dictionary_key_cache: TransformedDictionaryKeyCache::default(),
             transformed_dictionary_key_cache_hits: 0,
             transformed_dictionary_key_cache_misses: 0,
             transformed_dictionary_key_cache_saturated: false,
@@ -30036,9 +30063,10 @@ impl<'a> GroupedAggregateStates<'a> {
         value: &Utf8DictionaryValue,
     ) -> Result<AggregateGroupKey> {
         if self.transformed_dictionary_key_cache_admitted() {
-            let cache_key =
-                TransformedDictionaryKeyCacheEntry::new(transform, value.to_owned_arc());
-            if let Some(key) = self.transformed_dictionary_key_cache.get(&cache_key) {
+            if let Some(key) = self
+                .transformed_dictionary_key_cache
+                .get(transform, value.as_ref())
+            {
                 self.transformed_dictionary_key_cache_hits = self
                     .transformed_dictionary_key_cache_hits
                     .checked_add(1)
@@ -30063,8 +30091,11 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.transformed_dictionary_key_cache.len()
                 < self.transformed_dictionary_key_cache_cap()
             {
-                self.transformed_dictionary_key_cache
-                    .insert(cache_key, key.clone());
+                self.transformed_dictionary_key_cache.insert(
+                    transform,
+                    value.to_owned_arc(),
+                    key.clone(),
+                );
             } else {
                 self.transformed_dictionary_key_cache_saturated = true;
             }

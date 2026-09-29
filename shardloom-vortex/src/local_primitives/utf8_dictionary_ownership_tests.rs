@@ -13,6 +13,118 @@ use vortex::{
 };
 
 #[test]
+#[allow(clippy::too_many_lines)] // One cache lifetime: miss, hit, saturation, then source release.
+fn source_backed_transformed_cache_promotes_only_retained_misses() {
+    let request = VortexSimpleAggregateRequest::grouped(
+        vec![ColumnRef::new("text").unwrap()],
+        vec![crate::VortexSimpleAggregateMeasure::new(
+            "count",
+            None,
+            "n".into(),
+        )],
+    );
+    let columns = ["text".into()];
+    let mut states =
+        GroupedAggregateStates::new(&request, Some(10), &columns, false, false).unwrap();
+    states.resource_envelope.group_state_soft_item_budget = 1;
+    let text = format!("https://example.test/{}", "long-value-".repeat(32));
+    let source = VarBinViewArray::from_iter_str([text.as_str()]);
+    let value = Utf8DictionaryValue::Source(
+        vortex::buffer::BufferString::try_from(source.bytes_at(0)).unwrap(),
+    );
+    native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
+    let domain = states
+        .transformed_dictionary_group_key(AggregateValueTransform::UrlDomain, &value)
+        .unwrap();
+    let (retained, _) = states
+        .transformed_dictionary_key_cache
+        .url_domain
+        .get_key_value(value.as_ref())
+        .unwrap();
+    assert_ne!(
+        retained.as_ptr(),
+        value.as_ptr(),
+        "persistent cache keys must not retain provider slices"
+    );
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        1
+    );
+    assert_eq!(
+        domain,
+        states
+            .transformed_dictionary_group_key(AggregateValueTransform::UrlDomain, &value)
+            .unwrap()
+    );
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0,
+        "a cache hit must borrow the source string"
+    );
+    let length = states
+        .transformed_dictionary_group_key(AggregateValueTransform::Length, &value)
+        .unwrap();
+    assert_ne!(length, domain, "transform namespaces must remain distinct");
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        1
+    );
+    assert_eq!(
+        length,
+        states
+            .transformed_dictionary_group_key(AggregateValueTransform::Length, &value)
+            .unwrap()
+    );
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0
+    );
+    for index in 0..states.transformed_dictionary_key_cache_cap() {
+        let fill =
+            Utf8DictionaryValue::from(std::sync::Arc::<str>::from(format!("filler-{index}")));
+        states
+            .transformed_dictionary_group_key(AggregateValueTransform::Length, &fill)
+            .unwrap();
+    }
+    assert_eq!(
+        states.transformed_dictionary_key_cache.len(),
+        states.transformed_dictionary_key_cache_cap()
+    );
+    let uncached_source =
+        VarBinViewArray::from_iter_str(["https://different.test/long-uncached-value"]);
+    let uncached = Utf8DictionaryValue::Source(
+        vortex::buffer::BufferString::try_from(uncached_source.bytes_at(0)).unwrap(),
+    );
+    states
+        .transformed_dictionary_group_key(AggregateValueTransform::UrlDomain, &uncached)
+        .unwrap();
+    assert!(states.transformed_dictionary_key_cache_saturated);
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0,
+        "a saturated cache must not copy an unretained miss"
+    );
+    drop(value);
+    drop(source);
+    let independently_owned = Utf8DictionaryValue::from(std::sync::Arc::<str>::from(text));
+    assert_eq!(
+        domain,
+        states
+            .transformed_dictionary_group_key(
+                AggregateValueTransform::UrlDomain,
+                &independently_owned
+            )
+            .unwrap()
+    );
+    assert_eq!(
+        length,
+        states
+            .transformed_dictionary_group_key(AggregateValueTransform::Length, &independently_owned)
+            .unwrap()
+    );
+}
+
+#[test]
 fn borrowed_native_strings_match_provider_for_sliced_inline_and_multiple_buffers() {
     let first = "shared-prefix-東京-first";
     let second = "shared-prefix-東京-second";
