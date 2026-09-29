@@ -25748,13 +25748,6 @@ impl AggregateStringInterner {
         self.insert_new(std::sync::Arc::from(value))
     }
 
-    fn intern_arc(&mut self, value: std::sync::Arc<str>) -> Result<u64> {
-        if let Some(id) = self.ids.get(value.as_ref()) {
-            return Ok(*id);
-        }
-        self.insert_new(value)
-    }
-
     fn intern_dictionary(&mut self, value: &Utf8DictionaryValue) -> Result<u64> {
         if let Some(id) = self.ids.get(value.as_ref()) {
             return Ok(*id);
@@ -61979,9 +61972,11 @@ mod tests {
         let warm = std::sync::Arc::<str>::from("warm");
         let values = vec![hot.clone(), warm];
         let mut string_interner = AggregateStringInterner::default();
-        let hot_id = string_interner.intern_arc(hot).expect("intern hot");
+        let hot_id = string_interner
+            .intern_dictionary(&hot.into())
+            .expect("intern hot");
         let _warm_id = string_interner
-            .intern_arc(values[1].clone())
+            .intern_dictionary(&values[1].clone().into())
             .expect("intern warm");
         let mut candidates = rustc_hash::FxHashSet::default();
         candidates.insert(AggregateNumericUtf8InternedKey::new(
@@ -62554,9 +62549,11 @@ mod tests {
         let mut interner = AggregateStringInterner::default();
 
         let first = interner
-            .intern_arc(std::sync::Arc::clone(&hot))
+            .intern_dictionary(&std::sync::Arc::clone(&hot).into())
             .expect("first intern");
-        let second = interner.intern_arc(duplicate).expect("duplicate intern");
+        let second = interner
+            .intern_dictionary(&duplicate.into())
+            .expect("duplicate intern");
 
         assert_eq!(first, second);
         assert_eq!(interner.len(), 1);
