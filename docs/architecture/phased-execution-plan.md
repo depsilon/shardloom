@@ -246,11 +246,12 @@ the ledger.
 
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
-completed UAT/test artifacts. Resume PERF-INTAKE at R2.a, followed by the other six
-unchecked candidates. Keep performance runs sequential and preserve useful
+completed UAT/test artifacts. R2.a is retained with Full43 and ownership proof;
+continue PERF-INTAKE at R3.a, followed by the other five unchecked candidates.
+Keep performance runs sequential and preserve useful
 smaller gains. The completed 0.3.2 train stays closed; this request does not reopen
 release publication, the interrupted format pulse, or large text-format tests.
-R2.a admission and ownership design are recorded in
+R2.a admission, ownership design and acceptance are recorded in
 [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).
 
 September 27 scope override: the whole-file JSON C7 change, 0.3.1 publication,
@@ -371,7 +372,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C7: retain direct JSON/JSONL typed construction; see both September 27 builder screens.
       - [x] Retain the JSONL typed builders: 14.05% lower paired complete ingest, reduced RSS, byte-identical artifacts, complete-value oracle and full applicable acceptance.
       - [x] Retain whole-file JSON typed construction: 31.11% lower paired complete ingest, reduced RSS, identical native bytes, complete row oracle and full applicable acceptance.
-    - [ ] R2.a: record admission and ship/drop for Source-backed UTF8 dictionaries, Q29 first.
+    - [x] R2.a: retain source-backed UTF8 chunk dictionaries and shared borrowed string-count reads; final Full43 best Q29/Q34/Q35 reductions of 16.36%/12.14%/4.95%, exact results and ownership/resource checks pass. See `source-backed-dictionary-screen-2026-09-29.md`.
     - [ ] R3.a: record admission and ship/drop for Winner-only exact DISTINCT, Q10 first.
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
     - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.
@@ -382,8 +383,10 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: screen R2.a in the shared UTF8 accessor, record its ownership,
-    exactness and complete-query evidence, then retain or remove the candidate.
+  - Next outcome: screen R3.a winner-only exact DISTINCT in the shared grouped
+    aggregate family, charging the complete second pass and ordinary measures.
+    Record admission, exactness/resource and complete-query evidence, then retain
+    or remove the candidate.
     Close the cohesive result with applicable UAT and a PR before the next set.
     Preserve useful smaller gains and recorded workload tradeoffs; broader PERF
     obligations remain open.

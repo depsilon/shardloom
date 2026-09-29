@@ -1,8 +1,9 @@
 # Source-backed UTF8 dictionaries — R2.a
 
-Status: positive Q29 screen under PERF-INTAKE; resolving URL-worker regressions
-before retention. The maintainer resumed the remaining
-September 26 candidates after the completed 0.3.2 release train.
+Status: **retain** the shared source-backed dictionary and borrowed string-count
+reads. Final Full43, workspace/native/public-call validation and independent
+ownership review pass. The maintainer resumed the remaining September 26
+candidates after the completed 0.3.2 release train.
 
 ## Admission and reusable boundary
 
@@ -157,11 +158,113 @@ Evidence directories under the local ClickBench `logs` directory:
 `paired43_20260929T221808900795Z` (matched packaging).
 Complete outputs and process receipts remain archived beside each summary.
 
+## Combined borrowed-read screen
+
+Revision `bb47125c13adc1d65b7db13133bf9107f92aa605` shares the native UTF8 helper
+across dictionary lookup and string-count workers. The frozen executable uses the
+same release build and strip steps as control; SHA-256 is
+`2d729f527c5812b8900ff94587e0c94bdf7b7ee1ccb7884cc62740ec03e1b76b`.
+All 24 complete results pass in the sequential four-query screen:
+
+| Query | Control best | Candidate best | Best reduction | Control median | Candidate median |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Q17 | 4.771813 s | 4.838261 s | -1.39% | 4.840296 s | 4.972724 s |
+| Q29 | 11.683908 s | 10.314917 s | 11.72% | 12.133923 s | 14.507366 s |
+| Q34 | 7.685674 s | 6.681898 s | 13.06% | 7.885916 s | 7.606495 s |
+| Q35 | 7.513949 s | 7.108249 s | 5.40% | 7.968639 s | 7.191927 s |
+
+Both URL queries improve in every pair. Q29's median is slower in this changing
+host-load cohort; preserve it alongside the best-time improvement rather than
+discarding samples. Absolute times are higher for both roles than earlier runs.
+This screen supports the combined candidate, not an attribution of the earlier
+regression to a specific compiler or scheduling cause. Peak RSS ranges overlap;
+no process-memory reduction is claimed.
+
+The new borrowed-value oracle and 52 string-count tests pass; one existing manual
+benchmark remains ignored. Release-feature all-target Clippy passes. Independent
+read-only review of `09b8f259..bb47125c` found no actionable correctness,
+lifetime, resource or test-coverage issue; it did not execute validation. The
+final acceptance below supersedes this preliminary screen.
+
+Evidence: `paired43_20260929T223300874428Z/summary.json` under the local ClickBench
+logs directory, and `r2a-borrowed-screen-analysis.json`,
+`shardloom-r2a-bb47125c.json`, `r2a-borrowed-focused-final.log`,
+`r2a-borrowed-clippy-final.log` and `r2a-independent-review.json` under
+`/Users/dylan/LocalData/shardloom/performance-candidates-20260926`.
+
+## Final acceptance
+
+The same frozen `bb47125c` executable passes all **258 complete-result
+comparisons**: three counterbalanced observations per role for all 43 queries.
+Every parsed result also reports `fallback_attempted=false` and
+`external_engine_invoked=false`. Timing includes native process startup, complete
+CLI output and exit; it excludes the comparison harness. The sum of each query's
+best observation falls from **92.389200 to 88.973689 seconds (3.70%)**.
+
+| Query | Control best | Candidate best | Best reduction | Control median | Candidate median |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Q6 | 4.232010 s | 3.788743 s | 10.47% | 4.447039 s | 3.834961 s |
+| Q13 | 1.085695 s | 0.893367 s | 17.71% | 1.088653 s | 0.954493 s |
+| Q17 | 4.197320 s | 4.235176 s | -0.90% | 4.233673 s | 4.660645 s |
+| Q29 | 11.389133 s | 9.525375 s | 16.36% | 12.552298 s | 10.827237 s |
+| Q34 | 7.362601 s | 6.468848 s | 12.14% | 7.637906 s | 6.736073 s |
+| Q35 | 7.343670 s | 6.980206 s | 4.95% | 7.853014 s | 7.032284 s |
+
+Q29, Q34 and Q35 improve in every final pair. No query crosses both the 10% and
+150 ms best-time regression screen. Smaller losses remain in the evidence,
+including Q10 (+4.2%, 190 ms) and Q23 (+4.6%, 333 ms); the screen does not prove
+every query is faster. Preserve all samples and medians, including Q17's slower
+median. Other host processes and uncontrolled caches explain why absolute times
+cannot be compared directly across cohorts; they do not establish a cause for
+any individual timing difference. No isolated-host or subsecond-suite claim is
+made.
+
+All six Q29 executions cover the same 1,550 chunks, 81,032,736 post-scan rows and
+25,771,910 dictionary entries. Chunk-dictionary UTF8 payload copies fall from
+3,120,823,803 bytes to zero. Candidate slices retain that cumulative logical
+string length; this is neither unique source bytes nor retained buffer capacity.
+In the fastest pair, dictionary construction falls from 4.859505 to 3.380463
+seconds. Escaping aggregate keys still copy. Peak RSS ranges overlap, so this
+does not establish lower process memory or zero-decode execution.
+
+Final validation against the accepted runtime revision:
+
+- `cargo fmt --all -- --check` and
+  `cargo clippy --workspace --all-targets -- -D warnings` pass.
+- `cargo test --workspace --all-targets`: 3,436 passed, no failures or ignores.
+- `cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings` passes.
+- `cargo test -p shardloom-vortex --lib --features release-user-surfaces`:
+  1,991 passed, 22 existing ignores (21 manual benchmarks and one fixture
+  regeneration helper); no changed correctness case is ignored.
+- `cargo test -p shardloom-cli --bin shardloom --test sql_local_source_runtime_smoke --test public_workflow_route --test resident_worker --features release-user-surfaces`:
+  1,170 passed, no failures or ignores. Counts overlap across configurations.
+- Public-status documentation, contribution governance and architecture-tracker
+  validators pass. Architecture validation uses `--allow-blocked` to audit
+  tracking; it does not close the broader release or competitive gates.
+
+No input, writer or sink behavior changes, and no fresh ingest run is claimed.
+The shared helper removes temporary ownership work in two existing consumers;
+it adds no query-specific route, public API, dependency or unsafe code.
+
+Final Full43 evidence:
+`/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260929T223724665757Z/summary.json`.
+Complete outputs and process receipts are retained in the verified archive beside
+the summary. Derived per-query observations, work counters and validation logs
+are recorded in `r2a-borrowed-full43-analysis.json`, `r2a-final-q29-work.json` and
+`r2a-final-validation.json` under the local performance-candidates directory.
+
 ## Cleanup
 
-Retired only the completed `release-lto` and `release-native-benchmark` Cargo
-caches after recording binary hashes and checking for active consumers/open
-handles. This removed 2,770,919,424 allocated bytes. Frozen experiment binaries,
-current inputs, complete result references, release provenance and active build
-caches remain. Receipt:
-`/Users/dylan/LocalData/shardloom/performance-candidates-20260926/completed-profile-cleanup-20260929.json`.
+Retired the completed `release-lto` and `release-native-benchmark` Cargo caches
+(2,770,919,424 allocated bytes), then three completed test-screen executables and
+five superseded R2 executables (627,159,040 allocated bytes). Total allocated
+bytes removed: **3,398,078,464 (3.40 GB decimal)**. Exact-path identity, SHA-256,
+completed evidence and absence of process/file consumers were checked before
+removal. Protected control and accepted candidate hashes were verified afterward.
+
+Current inputs, complete result references and archives, source revisions,
+release provenance and active build caches remain. Replaying a retired executable
+requires rebuilding its recorded revision. Receipts under
+`/Users/dylan/LocalData/shardloom/performance-candidates-20260926`:
+`completed-profile-cleanup-20260929.json` and
+`completed-binary-cleanup-20260929.json`.

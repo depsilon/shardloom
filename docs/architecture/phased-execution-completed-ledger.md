@@ -17,6 +17,35 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R2.a: retain source-backed UTF8 dictionaries and shared borrowed reads.
+  - Date: 2026-09-29. Accepted runtime revision
+    `bb47125c13adc1d65b7db13133bf9107f92aa605` reuses one native byte-access and
+    explicit ownership boundary across chunk dictionaries and string-count workers.
+    Persistent keys retain independent ownership; no new query route, dependency
+    or unsafe code is introduced. See the
+    [screen and acceptance record](source-backed-dictionary-screen-2026-09-29.md).
+  - Final paired Full43 passes all 258 complete results. Best Q29/Q34/Q35 times
+    improve 16.36%/12.14%/4.95%; the sum of all 43 best times improves 3.70%
+    (92.389200 to 88.973689 seconds). All samples, medians and smaller regressions
+    remain in the evidence. No process-memory, ingest or subsecond-suite claim.
+  - Final formatting, default/release-surface Clippy, 3,436 workspace tests,
+    1,991 native tests and 1,170 CLI tests pass. Counts overlap; 22 pre-existing
+    native manual/regeneration tests remain ignored. Independent source review
+    found no actionable ownership, resource, exactness or coverage issue.
+    Documentation/governance/tracker checks pass with broader gates left open.
+  - Cleanup retires two completed profile caches and eight exact historical
+    executables, removing 3,398,078,464 allocated bytes after identity, evidence
+    and active-consumer checks. Protected inputs/control, accepted candidate,
+    complete results and release provenance remain. Both cleanup receipts are
+    linked from the acceptance record.
+  - ShardLoom technique review: preserve metadata-first execution, existing
+    selection/weighted partials and capillary/PulseWeave resource ownership;
+    remove repeated ownership work inside their shared native consumers. Timing
+    spans and source-byte counters retain their evidence-tier limitations.
+    V1 scope classification: `v1_candidate_pending_feasibility` under existing
+    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 retain their separate acceptance.
+    R3.a and the five other uncompleted intake candidates remain in Planned.
+
 - [x] `RELEASE-032` publish and verify the 0.3.2 technical-preview patch train.
   - Date: 2026-09-27 local; final deployment observed September 28 UTC. Runtime
     repair PR #1479, version PR #1480 and publication PR #1481 each passed all
