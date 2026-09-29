@@ -253,6 +253,24 @@ the summary. Derived per-query observations, work counters and validation logs
 are recorded in `r2a-borrowed-full43-analysis.json`, `r2a-final-q29-work.json` and
 `r2a-final-validation.json` under the local performance-candidates directory.
 
+### PR dependency-audit repair
+
+PR #1484's website job exposed updated advisory data for two existing transitive
+development dependencies. The lockfile moves `fast-uri` 3.1.6 to 3.1.7 and
+`undici` 8.10.0 to 8.10.2 within their existing parent version ranges. The
+registry integrity digests and BSD-3-Clause/MIT licenses were checked. The
+maintainer advisories identify these patched releases:
+[fast-uri](https://github.com/advisories/GHSA-qw65-cvwx-89v3) and
+[undici](https://github.com/advisories/GHSA-w293-vg96-wgc3).
+This is website build tooling; no Rust runtime dependency or benchmark binary
+changes. It is not a claim of an exploitable production-site path.
+
+Clean `npm ci`, `npm audit --audit-level=low` (zero advisories), `npm run build`
+(45 pages), `npm run check` (zero errors/warnings), website readiness, static
+asset and public-status checks pass. Local logs use the `r2a-website-*` and
+`r2a-ci-repair-*` prefixes in the performance-candidates directory. The remote
+audit and all remaining checks must pass on the final PR head before merge.
+
 ## Cleanup
 
 Retired the completed `release-lto` and `release-native-benchmark` Cargo caches
