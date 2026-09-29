@@ -225,7 +225,7 @@ pub(super) struct QueryRunStore {
     directory: PathBuf,
     // Independent directory descriptor: never clone it, since clones share a lock.
     // The lock survives cleanup and is released only after Drop has finished.
-    directory_owner: Option<File>,
+    directory_owner: Option<DirectoryOwner>,
     owned: Vec<PathBuf>,
     identities: std::collections::BTreeMap<PathBuf, OwnedRunIdentity>,
     marker_identity: Option<(u64, u64)>,
@@ -623,18 +623,12 @@ impl QueryRunStore {
     #[cfg(all(test, feature = "vortex-write"))]
     pub(super) fn abandon_for_recovery_test(&mut self) {
         self.failed = true;
-        if let Some(owner) = self.directory_owner.take() {
-            // Simulate loss of the owning process even if a concurrently
-            // spawned test briefly inherited this open file description.
-            owner
-                .unlock()
-                .expect("release abandoned test workspace lock");
-        }
+        drop(self.directory_owner.take());
     }
 
     fn validate_directory(&self) -> Result<()> {
         if let Some(owner) = &self.directory_owner {
-            validate_directory_owner(&self.directory, owner)?;
+            validate_directory_owner(&self.directory, &owner.file)?;
         }
         Ok(())
     }
@@ -881,14 +875,28 @@ fn file_identity(path: &Path) -> Result<(u64, u64)> {
     metadata_identity(&metadata)
 }
 
-fn lock_directory(path: &Path) -> Result<File> {
-    let owner = File::open(path).map_err(io_error)?;
-    owner.try_lock().map_err(|error| {
+/// The query/recovery scope owns the lock, even when an unrelated child briefly
+/// inherits its open file description before exec. Closing only this descriptor
+/// would leave the lock held by that child after the scope has finished.
+struct DirectoryOwner {
+    file: File,
+}
+
+impl Drop for DirectoryOwner {
+    fn drop(&mut self) {
+        let _ = self.file.unlock();
+    }
+}
+
+fn lock_directory(path: &Path) -> Result<DirectoryOwner> {
+    let file = File::open(path).map_err(io_error)?;
+    file.try_lock().map_err(|error| {
         spill_error(&format!(
             "native query workspace is active or cannot be exclusively locked: {error}"
         ))
     })?;
-    validate_directory_owner(path, &owner)?;
+    let owner = DirectoryOwner { file };
+    validate_directory_owner(path, &owner.file)?;
     Ok(owner)
 }
 
@@ -967,6 +975,12 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
     // Never clean an active query or race another cooperating recovery. Keep
     // this independent descriptor alive until every deletion has completed.
     let owner = lock_directory(&directory)?;
+    #[cfg(all(test, feature = "vortex-write", unix))]
+    AFTER_RECOVERY_LOCK.with(|hook| {
+        if let Some(hook) = hook.borrow_mut().take() {
+            hook(&owner.file);
+        }
+    });
     let marker = directory.join(OWNERSHIP_MARKER);
     let marker_identity = file_identity(&marker)?;
     let marker_metadata = fs::symlink_metadata(&marker).map_err(io_error)?;
@@ -1046,7 +1060,7 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
     }
     for (path, identity) in owned {
         policy.check_cancelled()?;
-        validate_directory_owner(&directory, &owner)?;
+        validate_directory_owner(&directory, &owner.file)?;
         match fs::symlink_metadata(&path) {
             Ok(_) if file_identity(&path)? != identity => {
                 return Err(spill_error("sort recovery run ownership changed"));
@@ -1068,7 +1082,7 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
         });
     }
     policy.check_cancelled()?;
-    validate_directory_owner(&directory, &owner)?;
+    validate_directory_owner(&directory, &owner.file)?;
     if file_identity(&marker)? != marker_identity {
         return Err(spill_error("sort recovery ownership marker changed"));
     }
@@ -1077,7 +1091,12 @@ fn recover_inner(policy: &QueryRunStorePolicy, directory: &Path) -> Result<()> {
 }
 
 #[cfg(all(test, feature = "vortex-write", unix))]
+type RecoveryLockHook = Box<dyn FnOnce(&File)>;
+
+#[cfg(all(test, feature = "vortex-write", unix))]
 thread_local! {
+    static AFTER_RECOVERY_LOCK: std::cell::RefCell<Option<RecoveryLockHook>> =
+        const { std::cell::RefCell::new(None) };
     static AFTER_RECOVERY_REMOVE: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
         const { std::cell::RefCell::new(None) };
 }
