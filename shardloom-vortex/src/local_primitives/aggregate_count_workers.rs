@@ -1255,7 +1255,7 @@ fn install_weighted_string(
             .string_count_topk_heavy_hitter_sketch
             .as_mut()
             .ok_or_else(|| failed("native pressure sketch is absent"))?
-            .update_lazy_utf8_value(&owned, count, &mut states.string_interner)?;
+            .update_lazy_utf8_value(&owned.into(), count, &mut states.string_interner)?;
     } else {
         states
             .string_interner

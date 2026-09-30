@@ -710,7 +710,9 @@ fn native_numeric_narrow_minute_dictionary_strategy_matches_renamed_reference() 
             ),
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 1, 1, 2, 2],
-                values: ["alpha", "beta", "gamma"].map(Arc::<str>::from).to_vec(),
+                values: ["alpha", "beta", "gamma"]
+                    .map(|value| Arc::<str>::from(value).into())
+                    .to_vec(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,

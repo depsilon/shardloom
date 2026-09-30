@@ -5,6 +5,7 @@
 //! Dict codes stay bound to this partial's own values. Every occupied key merges.
 
 use super::aggregate_chunk_jobs::ChunkWorkerContext;
+use super::native_utf8::borrowed_bytes;
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::MemoryLease;
 use std::{hash::Hasher as _, sync::Arc, time::Instant};
@@ -122,9 +123,9 @@ impl StringCountPartial {
                 worker.check_cancelled()?;
             }
             if self.work.native_dictionary || self.work.native_constant {
-                let bytes = self.values.bytes_at(entry.value_index);
+                let bytes = borrowed_bytes(&self.values, entry.value_index);
                 let mut hasher = rustc_hash::FxHasher::default();
-                hasher.write(bytes.as_slice());
+                hasher.write(bytes);
                 entry.hash = hasher.finish();
                 self.work.utf8_bytes_hashed = self
                     .work
@@ -161,13 +162,13 @@ impl StringCountPartial {
         Ok(ends)
     }
 
-    pub(super) fn entry(&self, index: usize) -> Result<(vortex::buffer::ByteBuffer, u64, u64)> {
+    pub(super) fn entry(&self, index: usize) -> Result<(&[u8], u64, u64)> {
         let entry = self
             .counts
             .get(index)
             .ok_or_else(|| failed("partial index is absent"))?;
         Ok((
-            self.values.bytes_at(entry.value_index),
+            borrowed_bytes(&self.values, entry.value_index),
             entry.hash,
             entry.count,
         ))
@@ -194,8 +195,8 @@ impl StringCountPartial {
         mut visit: impl FnMut(&str, u64) -> Result<()>,
     ) -> Result<()> {
         for entry in &self.counts {
-            let bytes = self.values.bytes_at(entry.value_index);
-            let value = std::str::from_utf8(bytes.as_slice())
+            let bytes = borrowed_bytes(&self.values, entry.value_index);
+            let value = std::str::from_utf8(bytes)
                 .map_err(|error| failed(&format!("invalid UTF-8 during exact merge: {error}")))?;
             visit(value, entry.count)?;
         }
@@ -577,7 +578,7 @@ impl StringCountMerge {
             .string_count_topk_heavy_hitter_sketch
             .as_mut()
             .ok_or_else(|| failed("pressure route lost its native sketch"))?;
-        sketch.update_lazy_utf8_value(&owned, count, &mut states.string_interner)
+        sketch.update_lazy_utf8_value(&owned.into(), count, &mut states.string_interner)
     }
 }
 
@@ -713,8 +714,8 @@ fn count_with_provider_error(
         let (mut counts, counts_lease) = allocate_slots(value_count, lease)?;
         let rows = u64_count(array.len())?;
         if value_count == 1 {
-            let bytes = values.bytes_at(0);
-            std::str::from_utf8(bytes.as_slice())
+            let bytes = borrowed_bytes(&values, 0);
+            std::str::from_utf8(bytes)
                 .map_err(|error| failed(&format!("constant key has invalid UTF-8: {error}")))?;
             counts[0] = CountSlot {
                 hash: 0,
@@ -803,8 +804,8 @@ fn count_with_provider_error(
         // Check referenced strings only: unused dictionary entries never acquire
         // a global identity and do not contribute to native group counts.
         for entry in &counts {
-            let bytes = values.bytes_at(entry.value_index);
-            std::str::from_utf8(bytes.as_slice()).map_err(|error| {
+            let bytes = borrowed_bytes(&values, entry.value_index);
+            std::str::from_utf8(bytes).map_err(|error| {
                 failed(&format!(
                     "native dictionary value has invalid UTF-8: {error}"
                 ))
@@ -854,15 +855,15 @@ fn count_with_provider_error(
         if row % 4096 == 0 {
             worker.check_cancelled()?;
         }
-        let bytes = values.bytes_at(row);
-        std::str::from_utf8(bytes.as_slice())
+        let bytes = borrowed_bytes(&values, row);
+        std::str::from_utf8(bytes)
             .map_err(|error| failed(&format!("canonical key has invalid UTF-8: {error}")))?;
         work.utf8_bytes_hashed = work
             .utf8_bytes_hashed
             .checked_add(u64_count(bytes.len())?)
             .ok_or_else(|| failed("hashed byte counter overflowed"))?;
         let mut hasher = rustc_hash::FxHasher::default();
-        hasher.write(bytes.as_slice());
+        hasher.write(bytes);
         let hash = hasher.finish();
         let mut bucket =
             usize::try_from(hash & hash_mask).map_err(|_| failed("hash bucket exceeds usize"))?;
@@ -881,8 +882,8 @@ fn count_with_provider_error(
                     .equality_comparisons
                     .checked_add(1)
                     .ok_or_else(|| failed("equality counter overflowed"))?;
-                let previous = values.bytes_at(slot.value_index);
-                if previous.as_slice() == bytes.as_slice() {
+                let previous = borrowed_bytes(&values, slot.value_index);
+                if previous == bytes {
                     slot.count = slot
                         .count
                         .checked_add(1)
