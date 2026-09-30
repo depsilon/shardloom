@@ -248,8 +248,9 @@ September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
 completed UAT/test artifacts. R2.a, R3.a and R3.b are retained with Full43 and ownership
 proof. R4 is dropped after a slower Q19 screen; R6.c's progressive scanner recipe
-already exists in the provider. Continue PERF-INTAKE at R10, then R2.b and the
-profiling refresh.
+already exists in the provider. R10 retains shared dense string-count pages after
+full local acceptance; complete its PR/CI, then continue at R2.b and the profiling
+refresh.
 Keep performance runs sequential and preserve useful
 smaller gains. The completed 0.3.2 train stays closed; this request does not reopen
 release publication, the interrupted format pulse, or large text-format tests.
@@ -383,7 +384,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R3.b: retain mixed-measure exact-DISTINCT workers using shared partials, bounded ordered completion and linked operation cancellation; final Q10 improves 2.95% in Full43 with lower observed RSS, and all 258 comparisons pass. See `mixed-distinct-worker-screen-2026-09-29.md`.
     - [x] R4: drop triple-key sort/reduce after all three Q19 calls are slower; retain lower RSS as a measured tradeoff, restore the hash runtime and preserve the prototype/evidence. See `triple-sort-screen-2026-09-30.md`.
     - [x] R6.c: drop the duplicate progressive scanner recipe; Vortex already carries selections through conjuncts and learns filter order. Q23's provider cost still needs exclusive attribution. See `progressive-provider-selection-audit-2026-09-30.md`.
-    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first. The historical indexed-heap variant's cutoff-only drop is reopened only for a measured sketch-active workload: current Q34/Q35 partitions elide sketch updates.
+    - [x] R10: retain shared dense string-count payload pages; Q34/Q35 Full43 best times improve 33.98%/32.39%, with all 258 complete comparisons passing. Preserve the bounded non-target follow-up and memory/collision tests. See `dense-string-count-screen-2026-09-30.md`. The historical indexed heap has no admitted sketch-active workload: current Q34/Q35 partitions elide sketch updates.
     - [ ] R2.b: record admission and ship/drop for Bounded parallel dictionary preparation.
     - [ ] For each retained cohesive change, complete semantic/resource gates, full
       applicable UAT and independent review, then prepare its PR before the next set.

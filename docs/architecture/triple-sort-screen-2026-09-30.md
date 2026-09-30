@@ -57,6 +57,11 @@ validation logs and bounded source review. SHA-256:
 Independent audit verifies all six exact results, 24 raw archive members,
 seven pinned source entries, eight portable text assets and the recomputed
 time/RSS comparisons without a mismatch.
+After that audit and the committed runtime restoration, the unused frozen
+prototype executable was retired, recovering 64,036,864 allocated bytes. Its
+receipt, source patch and complete evidence remain; reproducing the executable
+requires rebuilding the pinned source. Inputs and current accepted controls
+were verified and preserved.
 
 Reuse learned: the existing typed key builder/comparator, owned job completion,
 leased vectors and moved interner are sufficient building blocks. A new generic

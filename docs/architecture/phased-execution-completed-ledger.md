@@ -17,6 +17,24 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R10: retain shared dense single-string COUNT payload pages.
+  - Date: 2026-09-30 UTC. Runtime `a33da94f131125b4119603bc9f032c5687e8df6b`
+    reuses the compound path's stable paged records and exact leased allocation.
+    Eight-byte directories replace 32-byte sparse records while preserving full
+    equality, checked counts, ties, cancellation and pressure handoff. The
+    diagnostic identifies roughly 1 GB of avoidable directory capacity; modeled
+    peak reservations fall by roughly 1 GB in the screen, with mixed Q34 RSS.
+  - Q34/Q35 Full43 best times improve 33.98%/32.39%; all 258 complete results
+    pass, and the total falls from 55.420075 to 53.611191 seconds (3.26%). A
+    bounded 18-call follow-up does not reproduce the larger Q19/Q17 slowdown;
+    it does not replace the original negative observations. All 300 diagnostic,
+    screen, Full43 and follow-up comparisons are retained in portable evidence.
+  - Formatting, workspace/native Clippy, 3,436 workspace, 2,029 native and
+    1,520 CLI tests pass; counts overlap and 22 existing native fixtures are
+    ignored. Collision, denied-growth and refund tests cover the new layout.
+    See [the screen and acceptance record](dense-string-count-screen-2026-09-30.md).
+    PR/CI acceptance is pending. R2.b and the final profiling refresh remain.
+
 - [x] `PERF-INTAKE` R4 / R6.c: close the next two bounded candidates.
   - Date: 2026-09-30 UTC. R4's complete triple-key partition sort/reduce passes
     all six exact Q19 comparisons and 18 focused tests, but every candidate call
