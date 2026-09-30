@@ -273,38 +273,10 @@ work during PR cleanup. Follow the existing release-channel gates and publish
 sequence; keep the prior 0.3.2 artifacts immutable. Before new optimization work,
 record a finite measured candidate list with reuse boundaries and retain/drop gates.
 
-- [ ] `RELEASE-033` publish and verify the 0.3.3 optimization patch train.
-  - Source: maintainer's September 30 PR cleanup, version bump and subsequent
-    ship/drop authorization; [release notes](../release/v0.3.3-release-notes.md).
-  - Current state: runtime PR #1488 and README/site PR #1483 are merged with all
-    40 checks passing on each reviewed head; recorded artifact cleanup is complete.
-    Release source PR #1489 is merged after 40 checks and completed review;
-    exact merged-source CI passes all 36 jobs. Fresh broad source validation and
-    all 20 versioned schema/export cases pass. GitHub, TestPyPI, PyPI and Homebrew
-    0.3.3 proofs pass; the published-channel contract advances to 0.3.3. Public
-    website deployment and final closeout remain pending.
-  - V1 scope classification: `required_for_v1`; package distribution work, not a
-    production-readiness or broad operator-support claim.
-  - ShardLoom technique review: preserve shared native runtime, dynamic admission,
-    capillary bounds and metadata-first behavior; PulseWeave adds no release
-    mechanism. Timing-surface and evidence-tier separation govern all claims.
-  - Execution checklist:
-    - [x] Merge accepted runtime and README/site PRs; retire only recorded obsolete artifacts.
-    - [x] Consolidate compatible dependency updates and validate 0.3.3 source/package versions.
-    - [x] Merge source preparation with exact-head checks and completed review (PR #1489).
-    - [x] Publish and verify GitHub, TestPyPI, PyPI and Homebrew in that order.
-    - [ ] Update selected-channel proofs, public docs and deployed website; verify final readiness.
-    - [ ] Clean temporary release artifacts and superseded PRs; move this item to the completed ledger.
-  - Acceptance: channel-specific identity, install, uninstall, clean-install,
-    smoke, checksum/SBOM/provenance and rollback evidence passes for all four
-    selected channels; production site matches committed public status.
-  - Verification: broad Rust/native and package/schema tests for the consolidated
-    dependencies, exact-source CI, existing channel and public-status validators.
-    No duplicate full-size benchmark solely for version metadata.
-  - Fallback boundary: Vortex-native execution remains standalone;
-    `fallback_attempted=false` and `external_engine_invoked=false`.
-  - Next outcome: finish the publication train, then admit a finite measured
-    ship/drop packet. Paused format/text performance tests stay paused.
+`RELEASE-033` has completed four-channel publication, public website verification
+and owned-artifact cleanup; see the [publication record](../release/v0.3.3-publication-verification.md)
+and completed ledger. After the closeout merges, admit the new finite ship/drop
+packet from the refreshed profile. Paused format/text performance tests stay paused.
 
 R2.a admission, ownership design and acceptance are recorded in
 [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).

@@ -1,0 +1,84 @@
+{
+  "schema_version": "shardloom.public_website_deployment_observation.v1",
+  "status": "passed",
+  "release_tag": "v0.3.3",
+  "release_source_commit": "e15f2e66faf6d359bba944e9d295fc58ce3bf7d4",
+  "publication_records_pr": "https://github.com/depsilon/shardloom/pull/1490",
+  "deployed_commit": "0d84290dadae0d2e89d3129a7812c06c904160d9",
+  "pr_merged_at": "2026-09-30T13:13:16Z",
+  "accepted_pr_head": "92fd16b62ff7a85e9a8c9921bd3b2f07173e9547",
+  "accepted_pr_check_count": 40,
+  "cloudflare": {
+    "check_run_id": 109902937034,
+    "check_name": "Workers Builds: shardloom",
+    "status": "completed",
+    "conclusion": "success",
+    "completed_at": "2026-09-30T13:14:05Z",
+    "head_sha": "0d84290dadae0d2e89d3129a7812c06c904160d9",
+    "build_id": "2f0f7d80-dcdf-4593-a09e-eb821923bc28",
+    "worker_version_id": "90f7ac1f-1acc-424d-9c0c-d6683058b5aa",
+    "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/2f0f7d80-dcdf-4593-a09e-eb821923bc28"
+  },
+  "public_browser_observation": {
+    "observed_at": "2026-09-30T13:15:05.650Z",
+    "method": "Codex in-app browser accessibility inspection; expanded source-checkout disclosure on the start page",
+    "pages": [
+      {
+        "url": "https://shardloom.io/start/",
+        "title": "Get started | ShardLoom",
+        "release_text": "ShardLoom v0.3.3 is available as a local technical preview. Start with a package, bring a local file, and use Python, SQL, or the CLI to run admitted native operations.",
+        "selected_channels_visible": [
+          "GitHub prerelease",
+          "TestPyPI",
+          "PyPI",
+          "Homebrew"
+        ],
+        "channel_text": "The selected local/source/package v1 release track is GitHub prerelease + TestPyPI/PyPI + Homebrew; source checks and publication proofs are separate.",
+        "install_and_source_guide_links_present": true
+      },
+      {
+        "url": "https://shardloom.io/benchmarks",
+        "title": "Benchmarks | ShardLoom",
+        "heading": "Use ClickBench as the public comparison surface.",
+        "comparison_url": "https://benchmark.clickhouse.com/",
+        "no_local_ranking_claim": true,
+        "external_engines_baselines_only": true
+      },
+      {
+        "url": "https://shardloom.io/field-guide/limitations/",
+        "title": "Limitations | ShardLoom",
+        "production_broad_parity_and_superiority_remain_unclaimed": true,
+        "unsupported_work_must_not_use_external_engine_fallback": true,
+        "existing_vortex_layout_preservation_and_unfinished_all_io_optimization_visible": true
+      }
+    ]
+  },
+  "public_document_checks": [
+    {
+      "path": "docs/getting-started/package-user-install.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/0d84290dadae0d2e89d3129a7812c06c904160d9/docs/getting-started/package-user-install.md",
+      "sha256": "38c1917e05d30b17e029ee5feba2d5e3977fbc7f6af966a748ae59b1fe41104a",
+      "bytes": 5197,
+      "remote_matches_deployed_commit": true,
+      "release_033_present": true
+    },
+    {
+      "path": "docs/getting-started/source-checkout-install.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/0d84290dadae0d2e89d3129a7812c06c904160d9/docs/getting-started/source-checkout-install.md",
+      "sha256": "62ae75ba0e3f9e6f82236fee3711a35d98a622944c930050337ac6789ec6f6c1",
+      "bytes": 1932,
+      "remote_matches_deployed_commit": true
+    },
+    {
+      "path": "docs/getting-started/v1-supported-unsupported.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/0d84290dadae0d2e89d3129a7812c06c904160d9/docs/getting-started/v1-supported-unsupported.md",
+      "sha256": "46e81dc056c8cdbeeb34687ee8f85a8a8b84338eb27c3bd57965078d6fc9bc89",
+      "bytes": 20668,
+      "remote_matches_deployed_commit": true,
+      "release_033_present": true
+    }
+  ],
+  "scope": "Selected technical-preview package and public website verification, not new runtime or performance evidence. Public GitHub document bytes were retrieved at the deployed commit and compared with its Git blobs. Browser checks cover the listed public URLs; they are not a complete site crawl.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}
