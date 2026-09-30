@@ -18,20 +18,25 @@ phase plan first.
 ### Recent Completed Session Ledger
 
 - [x] `PERF-INTAKE` R2.b and final profiling: complete the 29-experiment packet.
-  - Date: 2026-09-30 UTC. Runtime `d726aaf6d041e8f87f82fe6bf17dcc4b002603a1`
+  - Date: 2026-09-30 UTC. Runtime `5ea34b1132e66523b849f5c6eb23c65b8b4d8f70`
     shares the source-backed first-seen dictionary builder and ordered consumer.
     One dictionary worker, two retained chunks and an explicit caller/provider/
     preparation CPU grant reuse existing jobs, ownership and native drivers.
     Prepared sessions with existing provider workers keep their original path.
     Pressure retires to the same serial consumer; cancellation and errors do not
     introduce replay. Native bytes are estimates, not an RSS bound.
-  - Full43 passes all 258 complete results: Q29 best improves 30.38%
-    (6.756227 → 4.703962 seconds), and the best-of-three query total falls
-    4.38% (54.016214 → 51.649986 seconds). Preserve Q34/Q35/Q37's negative
-    observations and the initial prototype's separate 1.75% positive result.
-    All 270 screen/acceptance comparisons, raw archives and source identities
-    pass independent audit. See [R2.b](dictionary-preparation-screen-2026-09-30.md).
-  - Formatting, workspace/native Clippy, 3,436 workspace tests, 2,037 native
+  - Ordinary and serving native file operations now share I/O and provider-reader
+    draining. A deterministic failing regression exposes retained buffers after
+    cancellation; the fix refunds them before return without polling or replay.
+    Metadata and in-memory calls retain their existing admission.
+  - Corrected-runtime Full43 passes all 258 complete results: Q29 best improves
+    28.62% (6.718184 → 4.795345 seconds), and the best-of-three query total falls
+    1.93% (53.998755 → 52.957013 seconds). Preserve Q19's 8.85% slower best call
+    and all other negative observations. Its larger routing/submission span is
+    an attribution target. Independent audit covers the new 258 comparisons;
+    the original 270-comparison evidence remains unchanged and separate.
+    See [R2.b](dictionary-preparation-screen-2026-09-30.md).
+  - Formatting, workspace/native Clippy, 3,436 workspace tests, 2,039 native
     tests and 1,520 CLI tests pass; counts overlap and 22 existing native manual
     fixtures remain ignored. Exact-head PR checks and merge gate delivery to main.
   - [Final profiling](performance-profile-refresh-2026-09-30.md) records all 43
@@ -42,7 +47,9 @@ phase plan first.
     [Cleanup](local-artifact-cleanup-2026-09-30.md) has retired 4,174,254,080
     allocated bytes through R10; final superseded-binary retirement is guarded
     by the R2.b merge and saved evidence. All broader PERF and CG gates remain
-    independently scoped. No release or paused format run is reopened.
+    independently scoped. A September 30 follow-up separately authorizes the next
+    release train and subsequent ship/drop packet after PR cleanup; paused format
+    and large text-input runs stay paused.
 
 - [x] `PERF-INTAKE` R10: retain shared dense single-string COUNT payload pages.
   - Date: 2026-09-30 UTC. Runtime `a33da94f131125b4119603bc9f032c5687e8df6b`

@@ -250,14 +250,25 @@ completed UAT/test artifacts. R2.a, R3.a and R3.b are retained with Full43 and o
 proof. R4 is dropped after a slower Q19 screen; R6.c's progressive scanner recipe
 already exists in the provider. R10 retains shared dense string-count pages after
 full local acceptance and PR #1487. R2.b passes full local acceptance and an
-independent audit: Q29 improves 30.38% in Full43, and the complete query total
-falls 4.38% to 51.649986 seconds. All 29 experiments now have decisions; the
+independent audit after the native lifetime correction: Q29 improves 28.62%
+in Full43, and the complete query total falls 1.93% to 52.957013 seconds.
+Q19's slower routing/submission remains an attribution target. All 29 experiments now have decisions; the
 [final profiling refresh](performance-profile-refresh-2026-09-30.md) records
 all 43 queries and the separately dated non-query evidence. Finish the final
-PR/CI/merge and guarded cleanup, then stop this finite packet.
+PR/CI/merge and guarded cleanup to close this finite packet.
+The subsequent PR review's zero-credit metadata-admission correction now passes
+focused footer, resident and cancellation tests; refresh its final runtime evidence
+before merging. The `5ea34b11` cohort remains separately identified historical evidence.
 Keep performance runs sequential and preserve useful
 smaller gains. The completed 0.3.2 train stays closed; this request does not reopen
-release publication, the interrupted format pulse, or large text-format tests.
+the interrupted format pulse or large text-format tests.
+
+September 30 follow-up: after this merge, the maintainer explicitly authorizes
+obsolete PR/branch cleanup and the next version bump/publication train, then
+resumption of ship/drop testing from the refreshed profile. Preserve useful open
+work during PR cleanup. Follow the existing release-channel gates and publish
+sequence; keep the prior 0.3.2 artifacts immutable. Before new optimization work,
+record a finite measured candidate list with reuse boundaries and retain/drop gates.
 R2.a admission, ownership design and acceptance are recorded in
 [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).
 R3.a reuses native COUNT selection and filtered mixed measures; see
@@ -2552,8 +2563,9 @@ Current autonomous execution order:
 The September 29 resumption supersedes the earlier release/format stop for the
 finite September 26 intake. All 29 decisions and the final profiling refresh
 are now recorded. Finish the R2.b PR's exact-head checks, merge and guarded
-artifact retirement, then stop. The following rules govern a subsequent
-optimization campaign; they do not automatically start one.
+artifact retirement. The September 30 follow-up then authorizes obsolete PR/branch
+cleanup, the next gated version bump/publication train, and a new finite ship/drop
+packet in that order. The rules below govern the resumed optimization campaign.
 
 1. Generate any next candidate list from the
    [refreshed profile](performance-profile-refresh-2026-09-30.md), retaining the

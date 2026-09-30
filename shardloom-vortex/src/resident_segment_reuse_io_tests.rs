@@ -517,14 +517,10 @@ fn optional_cache_table_refusal_still_executes_on_the_same_prepared_source() {
     let resident = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let prepared = resident.prepare_file(fixture.path()).unwrap();
     let memory = resident.memory();
-    // Admit the required operation owner, then leave no space for the optional
-    // cache table. Exhausting even the operation owner must fail, not bypass
-    // cancellation/drain accounting to execute the callback.
-    let operation_bytes = (size_of::<crate::resident_session::io_ownership::IoScope>()
-        + size_of::<crate::resident_session::io_ownership::ReaderOwner>())
-        as u64;
+    // Footer-only completion needs neither the optional cache nor a payload
+    // reader. Keep both behind actual segment demand, even with no spare credit.
     let held = memory
-        .reserve(memory.snapshot().limit_bytes - memory.snapshot().reserved_bytes - operation_bytes)
+        .reserve(memory.snapshot().limit_bytes - memory.snapshot().reserved_bytes)
         .unwrap();
     let mut calls = 0;
     let (rows, snapshot) = prepared

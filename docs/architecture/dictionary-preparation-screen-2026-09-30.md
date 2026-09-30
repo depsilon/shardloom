@@ -1,9 +1,9 @@
 # R2.b: bounded dictionary preparation
 
-Status: **retain candidate; merge blocked on native lifetime correction**.
-The original local performance evidence remains valid for its recorded binary;
-Linux cancellation failures require a runtime fix, fresh final UAT and exact-head CI.
-This closes the last
+Status: **retain candidate; metadata-admission review correction under validation**.
+PR #1488 gates delivery on final local acceptance and exact-head CI. The native
+lifetime defect is corrected; its recorded Full43 cohort is below. A subsequent
+review exposes unnecessary admission before metadata completion. This closes the last
 candidate in the September 26 intake before its final profiling refresh. It does
 not resume the release train or the paused format comparison.
 
@@ -87,7 +87,7 @@ formatting. All six complete Q29 results in
 5.084356/4.587235/4.544591. Best improves **31.74%**, median **31.17%**;
 every pair is faster. Observed RSS is 1.4346–1.4988 GB versus control
 1.4070–1.4341 GB: retain this modest memory tradeoff, not the first prototype's
-lower-RSS claim. The full acceptance result is below.
+lower-RSS claim. The original full acceptance result is below.
 
 Both screens include process startup, complete CLI output and exit on the same
 99,997,497-row, 112-column optimized artifact. Cache state is uncontrolled and
@@ -95,7 +95,7 @@ unrelated host work is accepted. No timing observations are replaced or combined
 across the two cohorts. Rebasing onto merged R10 changes commit ancestry only;
 the source tree is checked identical to this frozen revision.
 
-## Full acceptance
+## Original full acceptance — superseded runtime
 
 The same frozen binary passes formatting, workspace and native all-target Clippy,
 3,436 workspace tests, 2,037 native tests and 1,520 CLI tests. Counts overlap;
@@ -126,14 +126,14 @@ validation logs, the rebase proof, and the assembly script. It is 467,268 bytes,
 SHA-256 `66c7ad17b94fc59ae0ef8a9ca7318e1bb46bca17922d370f2d65b3c161a2fed7`.
 The references are retained regression oracles, not a new independent SQL oracle.
 The [query profile](../benchmarks/query-profile-2026-09-30.json) contains all 43
-queries' three samples, RSS and scoped timing spans from this same final cohort.
+queries' three samples, RSS and scoped timing spans from this original cohort.
 
 Independent audit verifies all 270 canonical results and portable envelopes,
 45 raw archives and 1,080 members, both source manifests, 24 portable text
 hashes, all six final validation exits and test counts, and every query-profile
 sample/RSS/metric. Primary review separately accepts source ordering, admission,
-owner/credit lifetime, CPU grants and cancellation/error behavior. See the
-[final profile and reuse inventory](performance-profile-refresh-2026-09-30.md).
+owner/credit lifetime and CPU grants. Linux CI subsequently exposes the native
+operation lifetime gap below; this earlier local acceptance does not cover its fix.
 
 ## PR cancellation lifetime correction
 
@@ -170,7 +170,73 @@ operators borrow the same scope and do not close it prematurely.
 The dictionary cancellation/source-error fixtures again require immediate exact
 refunds; the five-second polling workaround is removed. The deterministic
 regression covers both cancellation and error, failure before the first read,
-and a subsequent successful projection. Final native/CLI/workspace validation,
-Linux CI and a new immutable Full43 cohort remain required. The earlier frozen
-binary, 270-comparison bundle and query profile remain historical evidence and
-must not be overwritten or described as measurements of this runtime correction.
+and a subsequent successful projection. Both former Linux cancellation/source-error
+failures pass on the corrected runtime. The footer-read observer is rebound to
+the actual operation reader in a test-only follow-up; its observation retains
+the production I/O guards and records actual completed reads. The earlier frozen
+binary, 270-comparison bundle and query profile remain unchanged historical evidence.
+
+## Drain-corrected runtime acceptance — before metadata-admission review
+
+Frozen runtime `5ea34b1132e66523b849f5c6eb23c65b8b4d8f70` has binary SHA-256
+`f9712816543a5309b2267dbf2e9e5e0e2fd8893d09d2bebef7cae3aed2793f80`.
+The later `fe2eb319` observer changes are entirely test-gated; exact source and
+patch hashes prove the released runtime is unchanged. Formatting, workspace and
+native all-target Clippy, **3,436 workspace, 2,039 native and 1,520 CLI tests**
+pass. Counts overlap; 22 existing manual native fixtures remain ignored.
+
+All **258 complete results** in `paired43_20260930T080424645879Z` match the
+retained references. Q29 control calls are 6.909784/6.753171/6.718184 seconds;
+candidate calls are 4.852039/4.829850/4.795345. Every pair is faster; best improves
+**28.62%**, saving 1.922839 seconds. The sum of each query's best of three falls
+from **53.998755 to 52.957013 seconds (1.93%)**. Q29 observed RSS is
+1.521–1.539 GB versus control 1.415–1.433 GB. The dataset, CLI timing boundary,
+uncontrolled cache and accepted unrelated host concurrency are unchanged.
+
+Q19 is slower in every pair: best 4.271505 to 4.649381 seconds (**8.85%**),
+median 4.310675 to 4.654067. Its routing/submission span rises from
+0.607–0.614 to 0.947–0.981 seconds; this identifies an attribution target, not
+a proven host or compiler cause. Q15, Q17 and Q34 best calls also rise by
+0.132677, 0.103884 and 0.099316 seconds. Preserve every sample and median;
+do not splice a separate run into this score. Retain the material Q29 and overall
+gain with those tradeoffs and the independently necessary cancellation correction.
+
+The new [portable evidence](../benchmarks/evidence/dictionary-preparation-drain-2026-09-30.json.xz)
+is 535,404 bytes, SHA-256
+`c8436dc47ffcfca2bd4ba311064f475496a4b429b59b8c637d2cd2998e7fcd25`.
+It preserves this cohort, source identities and patch, validation and failed-run
+logs, the deterministic red/green regression and the test-only overlay proof.
+The [reviewed profile](../benchmarks/query-profile-2026-09-30-reviewed.json)
+records all 43 queries' samples, RSS and scoped timing spans. Independent audit
+recomputes all 258 results, 43 raw archives and 1,032 members, 14 source files,
+23 portable log hashes, binary identities, validation counts and every profile
+entry; the original 270-comparison bundle is byte-identical. Primary review
+accepts the shared ownership/drain contract and exact test-only scope. See the
+[final profile and reuse inventory](performance-profile-refresh-2026-09-30.md).
+
+## Metadata admission review
+
+PR review identifies an ordinary prepared query that has no spare live-memory
+credit but can finish entirely from retained footer statistics. A deterministic
+regression fails before reading any payload because eager I/O bookkeeping requests
+104 bytes. Footer completion and whole-file pruning must precede that admission.
+
+Pinned Vortex 0.85 provides `SegmentSource`, `FileSegmentSource` and
+`VortexFile::with_segment_source`. `FileSegmentSource::open` eagerly spawns its
+reader driver; there is no lazy admission provider in the inspected source.
+A private segment-source wrapper now constructs that same native provider on
+the first actual segment request. The shared I/O scope reserves its metadata at
+reader/read admission; serving retains its existing upfront envelope. No scan,
+decode, pruning, coalescing, scheduling or result algorithm is reimplemented.
+First-request failure remains attached to the operation without reopening or replay.
+
+The regression now passes at zero spare credit for both ordinary and cancellable
+footer completion; the disabled-statistics control fails before payload reads
+and succeeds on a fresh call after pressure is released. A second regression
+proves whole-file pruning under the same pressure. Actual read observation is
+captured on the caller and carried through lazy admission to preserve worker
+observation. All six footer fixtures, 72 resident fixtures and eight dictionary
+preparation/cancellation fixtures pass, as does native CLI/Vortex all-target Clippy.
+Seven existing resident manual fixtures remain ignored. A newly frozen runtime
+and full local/Full43 acceptance are still required; the preceding
+258-result bundle remains immutable evidence of `5ea34b11` only.

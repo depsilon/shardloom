@@ -222,7 +222,8 @@ pub(crate) struct ObservedFileReadAt {
     concurrency: usize,
 }
 
-struct OperationObservation {
+#[derive(Clone)]
+pub(super) struct OperationObservation {
     identity: Weak<SourceIdentity>,
     shared: Weak<SharedObservation>,
     hooks: Weak<ReadHooks>,
@@ -238,33 +239,39 @@ thread_local! {
 }
 
 #[allow(clippy::used_underscore_binding)] // Transfer the production reader's drop-only owner into the observed reader.
-pub(super) fn observe_operation_reader(reader: super::ResidentFileReadAt) -> Arc<dyn VortexReadAt> {
-    OPERATION_OBSERVATION.with(|current| {
-        let observation = current.borrow();
-        let Some(observation) = observation.as_ref() else {
-            return Arc::new(reader) as Arc<dyn VortexReadAt>;
-        };
-        let (Some(identity), Some(shared), Some(hooks)) = (
-            observation.identity.upgrade(),
-            observation.shared.upgrade(),
-            observation.hooks.upgrade(),
-        ) else {
-            return Arc::new(reader);
-        };
-        if !Arc::ptr_eq(&identity, &reader.identity) {
-            return Arc::new(reader);
-        }
-        Arc::new(ObservedFileReadAt {
-            identity,
-            allocator: reader.allocator,
-            handle: reader.handle,
-            shared,
-            hooks,
-            operation_scope: reader.scope,
-            _reader_owner: reader._reader_owner,
-            concurrency: reader.concurrency,
-        })
+pub(super) fn observe_operation_reader(
+    reader: super::ResidentFileReadAt,
+    observation: Option<&OperationObservation>,
+) -> Arc<dyn VortexReadAt> {
+    let Some(observation) = observation else {
+        return Arc::new(reader) as Arc<dyn VortexReadAt>;
+    };
+    let (Some(identity), Some(shared), Some(hooks)) = (
+        observation.identity.upgrade(),
+        observation.shared.upgrade(),
+        observation.hooks.upgrade(),
+    ) else {
+        return Arc::new(reader);
+    };
+    if !Arc::ptr_eq(&identity, &reader.identity) {
+        return Arc::new(reader);
+    }
+    Arc::new(ObservedFileReadAt {
+        identity,
+        allocator: reader.allocator,
+        handle: reader.handle,
+        shared,
+        hooks,
+        operation_scope: reader.scope,
+        _reader_owner: reader._reader_owner,
+        concurrency: reader.concurrency,
     })
+}
+
+pub(super) fn operation_observation() -> Option<OperationObservation> {
+    // Capture on the fixture's caller before lazy provider admission can move
+    // onto a worker. The captured registration retains only weak owners.
+    OPERATION_OBSERVATION.with(|current| current.borrow().clone())
 }
 
 #[cfg(feature = "vortex-write")]

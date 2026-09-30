@@ -49,6 +49,7 @@ struct ScopeState {
     closed: bool,
     pending: usize,
     readers: usize,
+    metadata: MemoryLease,
 }
 
 pub(super) struct IoScope {
@@ -56,7 +57,6 @@ pub(super) struct IoScope {
     waker: AtomicWaker,
     budget: Arc<IoBudget>,
     cancellation: CancellationToken,
-    _metadata: MemoryLease,
 }
 
 impl IoScope {
@@ -66,17 +66,39 @@ impl IoScope {
         cancellation: CancellationToken,
     ) -> Result<Arc<Self>> {
         let metadata = memory.reserve(size_of::<Self>() as u64)?;
-        Ok(Arc::new(Self {
+        Ok(Self::with_metadata(budget, cancellation, metadata))
+    }
+
+    /// An ordinary operation may finish from its retained footer. Reserve I/O
+    /// bookkeeping only when admitting a reader or read; no payload may bypass it.
+    pub(super) fn deferred(
+        budget: Arc<IoBudget>,
+        memory: &LiveMemoryPool,
+        cancellation: CancellationToken,
+    ) -> Result<Arc<Self>> {
+        Ok(Self::with_metadata(
+            budget,
+            cancellation,
+            memory.reserve(0)?,
+        ))
+    }
+
+    fn with_metadata(
+        budget: Arc<IoBudget>,
+        cancellation: CancellationToken,
+        metadata: MemoryLease,
+    ) -> Arc<Self> {
+        Arc::new(Self {
             state: Mutex::new(ScopeState {
                 closed: false,
                 pending: 0,
                 readers: 0,
+                metadata,
             }),
             waker: AtomicWaker::new(),
             budget,
             cancellation,
-            _metadata: metadata,
-        }))
+        })
     }
 
     pub(super) fn admit(self: &Arc<Self>, length: usize) -> Result<ReadJob> {
@@ -100,6 +122,7 @@ impl IoScope {
                 "native I/O is closed or exceeds its shared request/byte envelope",
             ));
         }
+        scope.metadata.resize(size_of::<Self>() as u64)?;
         scope.pending += 1;
         total.active_requests += 1;
         total.active_bytes += bytes;
@@ -126,6 +149,7 @@ impl IoScope {
         if state.closed {
             return Err(resident_error("native I/O scope is closed"));
         }
+        state.metadata.resize(size_of::<Self>() as u64)?;
         state.readers += 1;
         Ok(Arc::new(ReaderOwner {
             scope: Arc::clone(self),
