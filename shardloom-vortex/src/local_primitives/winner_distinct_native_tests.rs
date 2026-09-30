@@ -352,7 +352,7 @@ fn winner_distinct_native_source_replacement_between_passes_cannot_publish() {
     let replacement = fixture.dir.join("replacement.vortex");
     fs::copy(&fixture.path, &replacement).unwrap();
     let request = query(&fixture.path, 1, 2);
-    let session = ResidentVortexSession::new(64 << 20, 2).unwrap();
+    let session = ResidentVortexSession::for_external_cpu_pool(64 << 20, 2).unwrap();
     let memory = session.memory().clone();
     let prepared = prepare_aggregate_in_session(&request, policy(), &session).unwrap();
     let retained = memory.snapshot().reserved_bytes;
@@ -364,6 +364,44 @@ fn winner_distinct_native_source_replacement_between_passes_cannot_publish() {
     assert!(AFTER_COUNT_TEST_HOOK.with(|hook| hook.borrow().is_none()));
     assert_eq!(session.snapshot().completed_executions, 0);
     assert_eq!(memory.snapshot().reserved_bytes, retained);
+    drop(prepared);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn winner_distinct_native_mixed_worker_source_denial_refunds_and_prepared_recovers() {
+    use runtime::aggregate_count_workers::{SOURCE_SCAN_TEST_FAULT, SourceScanTestFault};
+    struct ClearFault;
+    impl Drop for ClearFault {
+        fn drop(&mut self) {
+            SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(None));
+        }
+    }
+    let _clear = ClearFault;
+    let fixture = Fixture::new();
+    let request = query(&fixture.path, 1, 2);
+    let session = ResidentVortexSession::for_external_cpu_pool(64 << 20, 2).unwrap();
+    let memory = session.memory().clone();
+    let prepared = prepare_aggregate_in_session(&request, policy(), &session).unwrap();
+    let retained = memory.snapshot().reserved_bytes;
+    SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(Some(SourceScanTestFault::OwnedDenial)));
+    let error = prepared
+        .execute_owned()
+        .err()
+        .expect("source pressure must propagate without replay");
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error}"
+    );
+    assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
+    assert_eq!(session.snapshot().completed_executions, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    let fresh = prepared.execute().unwrap();
+    let work = payload(&fresh.report);
+    assert_eq!(work["values"], fixture.expected(1, 2));
+    assert_mixed_workers(&work);
+    assert_eq!(session.snapshot().completed_executions, 1);
     drop(prepared);
     drop(session);
     assert_eq!(memory.snapshot().reserved_bytes, 0);

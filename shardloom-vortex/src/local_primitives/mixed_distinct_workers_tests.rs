@@ -130,6 +130,15 @@ fn mixed_distinct_workers_preserve_every_row_and_chunk_fold_with_pressure_retire
             workers.finish(&mut state).unwrap();
             assert_eq!(values(&mut state), values(&mut serial));
             assert_eq!(workers.retired(), pressure_after.is_some());
+            let mut summary = "{}".to_owned();
+            workers.annotate_summary(&mut summary).unwrap();
+            let work: serde_json::Value = serde_json::from_str(&summary).unwrap();
+            let jobs = &work["aggregate_mixed_distinct_workers"];
+            assert_eq!(
+                jobs["submitted_chunks"],
+                pressure_after.unwrap_or(chunks.len())
+            );
+            assert_eq!(jobs["submitted_chunks"], jobs["completed_chunks"]);
             drop(workers);
             drop(pressure);
             assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -155,16 +164,59 @@ fn mixed_distinct_workers_cancel_and_invalid_proof_fail_without_replaying() {
         )
         .unwrap()
         .unwrap();
-        let input = chunk(&[(i64::MIN, 1, 2, 3), (-1, 4, 5, 6), (0, 7, 8, 9)]);
+        let mut rows = vec![(i64::MIN, 1, 2, 3), (-1, 4, 5, 6)];
+        if !cancel {
+            rows.push((0, 7, 8, 9));
+        }
+        let input = chunk(&rows);
         assert!(workers.submit(&input, &mut state).unwrap());
         if cancel {
             workers.cancel();
         }
-        assert!(workers.finish(&mut state).is_err());
-        assert!(state.groups.is_empty());
+        let error = workers.finish(&mut state).unwrap_err();
+        if cancel {
+            assert!(error.to_string().contains("cancel"), "{error}");
+        } else {
+            assert!(error.to_string().contains("winner-key bound"), "{error}");
+            assert!(state.groups.is_empty());
+        }
         drop(workers);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
+}
+
+#[test]
+fn mixed_distinct_workers_capacity_model_accepts_maximum_chunk_unique_pairs() {
+    let columns = columns();
+    let request = request();
+    let memory = LiveMemoryPool::new(128 << 20).unwrap();
+    let mut state = GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let report = proof(&state, &columns);
+    let mut workers = MixedDistinctWorkers::admit(
+        &state,
+        &report,
+        &columns,
+        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        &memory,
+    )
+    .unwrap()
+    .unwrap();
+    let rows = (0..262_144)
+        .map(|index| (if index % 2 == 0 { i64::MIN } else { -1 }, 1, 2, index))
+        .collect::<Vec<_>>();
+    let input = chunk(&rows);
+    assert!(workers.submit(&input, &mut state).unwrap());
+    workers.finish(&mut state).unwrap();
+    assert!(!workers.retired());
+    assert_eq!(
+        values(&mut state),
+        serde_json::json!([
+            {"bucket": i64::MIN, "total":131072.0, "n":131072, "mean":2.0, "unique":131072},
+            {"bucket": -1, "total":131072.0, "n":131072, "mean":2.0, "unique":131072}
+        ])
+    );
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]
