@@ -270,6 +270,36 @@ resumption of ship/drop testing from the refreshed profile. Preserve useful open
 work during PR cleanup. Follow the existing release-channel gates and publish
 sequence; keep the prior 0.3.2 artifacts immutable. Before new optimization work,
 record a finite measured candidate list with reuse boundaries and retain/drop gates.
+
+- [ ] `RELEASE-033` publish and verify the 0.3.3 optimization patch train.
+  - Source: maintainer's September 30 PR cleanup, version bump and subsequent
+    ship/drop authorization; [release notes](../release/v0.3.3-release-notes.md).
+  - Current state: final runtime and README/site acceptance are recorded; exact-head
+    merge gates remain. Release source consolidates the compatible dependency intake.
+    Published-channel selection stays at proof-backed 0.3.2 until new proofs exist.
+  - V1 scope classification: `required_for_v1`; package distribution work, not a
+    production-readiness or broad operator-support claim.
+  - ShardLoom technique review: preserve shared native runtime, dynamic admission,
+    capillary bounds and metadata-first behavior; PulseWeave adds no release
+    mechanism. Timing-surface and evidence-tier separation govern all claims.
+  - Execution checklist:
+    - [ ] Merge accepted runtime and README/site PRs; retire only recorded obsolete artifacts.
+    - [ ] Consolidate compatible dependency updates and validate 0.3.3 source/package versions.
+    - [ ] Merge source preparation with exact-head checks and completed review.
+    - [ ] Publish and verify GitHub, TestPyPI, PyPI and Homebrew in that order.
+    - [ ] Update selected-channel proofs, public docs and deployed website; verify final readiness.
+    - [ ] Clean temporary release artifacts and superseded PRs; move this item to the completed ledger.
+  - Acceptance: channel-specific identity, install, uninstall, clean-install,
+    smoke, checksum/SBOM/provenance and rollback evidence passes for all four
+    selected channels; production site matches committed public status.
+  - Verification: broad Rust/native and package/schema tests for the consolidated
+    dependencies, exact-source CI, existing channel and public-status validators.
+    No duplicate full-size benchmark solely for version metadata.
+  - Fallback boundary: Vortex-native execution remains standalone;
+    `fallback_attempted=false` and `external_engine_invoked=false`.
+  - Next outcome: finish the publication train, then admit a finite measured
+    ship/drop packet. Paused format/text performance tests stay paused.
+
 R2.a admission, ownership design and acceptance are recorded in
 [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).
 R3.a reuses native COUNT selection and filtered mixed measures; see
