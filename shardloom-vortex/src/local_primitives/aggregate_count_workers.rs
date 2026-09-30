@@ -63,6 +63,7 @@ pub(super) enum CountWorkers {
     Compound(super::compound_count_workers::CompoundWorkers),
     ExactDistinct(super::exact_distinct_pairs::workers::ExactDistinctWorkers),
     MixedDistinct(super::mixed_distinct_workers::MixedDistinctWorkers),
+    DictionaryPrepare(super::dictionary_prepare_workers::DictionaryPrepareWorkers),
 }
 
 impl CountWorkers {
@@ -114,6 +115,7 @@ impl CountWorkers {
             Self::Compound(workers) => workers.before_next(states),
             Self::ExactDistinct(workers) => workers.before_next(states),
             Self::MixedDistinct(workers) => workers.before_next(states),
+            Self::DictionaryPrepare(workers) => workers.before_next(states),
         }
     }
     pub(super) fn submit(
@@ -128,6 +130,7 @@ impl CountWorkers {
             Self::Compound(workers) => workers.submit(chunk, states),
             Self::ExactDistinct(workers) => workers.submit(chunk, states),
             Self::MixedDistinct(workers) => workers.submit(chunk, states),
+            Self::DictionaryPrepare(workers) => workers.submit(chunk, states),
         }
     }
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
@@ -137,6 +140,7 @@ impl CountWorkers {
             Self::Single(workers) => workers.finish(states),
             Self::Compound(workers) => workers.finish(states),
             Self::MixedDistinct(workers) => workers.finish(states),
+            Self::DictionaryPrepare(workers) => workers.finish(states),
             Self::ExactDistinct(workers) => {
                 workers.finish(states)?;
                 states.finalized_distinct_counts = workers.take_exact_result();
@@ -152,13 +156,17 @@ impl CountWorkers {
             Self::Compound(workers) => workers.annotate_summary(summary),
             Self::ExactDistinct(workers) => workers.annotate_summary(summary),
             Self::MixedDistinct(workers) => workers.annotate_summary(summary),
+            Self::DictionaryPrepare(workers) => workers.annotate_summary(summary),
         }
     }
     pub(super) fn has_active_partitions(&self) -> bool {
         match self {
             // Pair/triple state has no certified bounded serial/spill destination.
             // It must fail and release owners on source pressure, never replay.
-            Self::PairPartitions(_) | Self::Triple(_) | Self::MixedDistinct(_) => false,
+            Self::PairPartitions(_)
+            | Self::Triple(_)
+            | Self::MixedDistinct(_)
+            | Self::DictionaryPrepare(_) => false,
             Self::Single(workers) => workers.has_active_partitions(),
             Self::Compound(workers) => workers.has_active_partitions(),
             Self::ExactDistinct(workers) => workers.has_active_partitions(),
@@ -172,6 +180,7 @@ impl CountWorkers {
             Self::Compound(workers) => workers.cancel_for_source_replay(),
             Self::ExactDistinct(workers) => workers.cancel_for_source_replay(),
             Self::MixedDistinct(workers) => workers.cancel(),
+            Self::DictionaryPrepare(workers) => workers.cancel(),
         }
     }
     #[cfg(test)]
@@ -189,6 +198,7 @@ impl CountWorkers {
             Self::Compound(workers) => workers.has_committed_groups(),
             Self::ExactDistinct(workers) => workers.has_committed_groups(),
             Self::MixedDistinct(workers) => workers.has_committed_groups(),
+            Self::DictionaryPrepare(workers) => workers.has_committed_groups(),
         };
         if chunks == 0 || !committed {
             return None;
@@ -215,6 +225,7 @@ impl CountWorkers {
         match self {
             Self::PairPartitions(workers) => workers.provider_restore_requested(),
             Self::MixedDistinct(workers) => workers.retired(),
+            Self::DictionaryPrepare(workers) => workers.retired(),
             _ => false,
         }
     }
@@ -223,6 +234,9 @@ impl CountWorkers {
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if super::dictionary_prepare_workers::request_may_be_admitted(request) {
+        return true;
+    }
     if super::mixed_distinct_workers::request_may_be_admitted(request) {
         return true;
     }
