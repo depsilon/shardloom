@@ -62,7 +62,12 @@ complete native identity, row oracle and full applicable acceptance close C7.
 The September 27 scope override is to merge this PR, complete the authorized
 0.3.1 version/publication train, then perform the subsequently requested
 [plain-Vortex format comparison](plain-vortex-format-comparison-2026-09-27.md)
-and stop with the seven query experiments queued. The
+and stop with the seven query experiments queued. That historical stop was
+superseded by the September 29 request to resume the remaining candidates.
+R2.a now [retains source-backed dictionaries and shared borrowed reads](source-backed-dictionary-screen-2026-09-29.md).
+R3.a [retains complete COUNT selection before integer mixed measures](winner-only-distinct-screen-2026-09-29.md),
+with 29.05% lower final Q10 best time and all 258 Full43 results passing.
+R3.b, R4, R6.c, R10 and R2.b remain undecided. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

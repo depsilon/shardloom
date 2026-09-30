@@ -246,13 +246,15 @@ the ledger.
 
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
-completed UAT/test artifacts. R2.a is retained with Full43 and ownership proof;
-continue PERF-INTAKE at R3.a, followed by the other five unchecked candidates.
+completed UAT/test artifacts. R2.a and R3.a are retained with Full43 and ownership
+proof; continue PERF-INTAKE at R3.b, followed by the other four unchecked candidates.
 Keep performance runs sequential and preserve useful
 smaller gains. The completed 0.3.2 train stays closed; this request does not reopen
 release publication, the interrupted format pulse, or large text-format tests.
 R2.a admission, ownership design and acceptance are recorded in
 [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).
+R3.a reuses native COUNT selection and filtered mixed measures; see
+[the winner-only DISTINCT screen](winner-only-distinct-screen-2026-09-29.md).
 
 September 27 scope override: the whole-file JSON C7 change, 0.3.1 publication,
 authorized format pulse and public I/O handoff repairs are complete. Their
@@ -373,7 +375,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
       - [x] Retain the JSONL typed builders: 14.05% lower paired complete ingest, reduced RSS, byte-identical artifacts, complete-value oracle and full applicable acceptance.
       - [x] Retain whole-file JSON typed construction: 31.11% lower paired complete ingest, reduced RSS, identical native bytes, complete row oracle and full applicable acceptance.
     - [x] R2.a: retain source-backed UTF8 chunk dictionaries, shared borrowed string-count reads and lazy independent-owner reuse; final Full43 best Q29/Q34/Q35 reductions of 12.60%/22.22%/10.61% and 5.32% lower query total, with exact results and ownership/resource checks. See `source-backed-dictionary-screen-2026-09-29.md`.
-    - [ ] R3.a: record admission and ship/drop for Winner-only exact DISTINCT, Q10 first.
+    - [x] R3.a: retain complete COUNT selection followed by selected-key native filtering and unchanged integer mixed measures. Final Q10 is 29.05% faster with lower observed RSS; Full43 passes all 258 comparisons. See `winner-only-distinct-screen-2026-09-29.md`.
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
     - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.
     - [ ] R6.c: record admission and ship/drop for Progressive provider selection, Q23 first.
@@ -383,10 +385,11 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: screen R3.a winner-only exact DISTINCT in the shared grouped
-    aggregate family, charging the complete second pass and ordinary measures.
-    Record admission, exactness/resource and complete-query evidence, then retain
-    or remove the candidate.
+  - Next outcome: screen R3.b mixed-measure exact-DISTINCT workers against the
+    retained R3.a baseline, reusing existing bounded ordered jobs and shared
+    mixed-measure consumers where their ownership/merge contracts admit it.
+    Charge complete execution, preserve ordinary contributions and exact pairs,
+    and record admission, resource and complete-query ship/drop evidence.
     Close the cohesive result with applicable UAT and a PR before the next set.
     Preserve useful smaller gains and recorded workload tradeoffs; broader PERF
     obligations remain open.

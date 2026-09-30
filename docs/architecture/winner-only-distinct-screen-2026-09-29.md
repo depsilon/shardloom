@@ -1,104 +1,251 @@
 # Winner-only exact DISTINCT — R3.a
 
-Status: **prototype admission**. No retain decision yet. This is the
-next PERF-INTAKE item after R2.a. Its comparison baseline includes the scoped
-query/recovery lock repair in PR #1484; that repair does not change aggregation.
+Status: **retain; local acceptance complete, PR integration pending**.
 
-## Measured opportunity
+This packet describes candidate `22f7acd22e8c06c651f835bb817e25edcad5d5f5`
+against the accepted R2 runtime,
+`d1a53815846abe1cbcc5574d6cfc616f7e99e694`. R3.a closes its PERF-INTAKE
+ship/drop screen. The earlier `34c30199` focused/adverse and Full43 results below
+are screens; final acceptance includes the subsequent floating-admission repair.
 
-R2.a Full43 records Q10 at 4.720184 seconds best, including a 4.202439-second
-group-update caller span and a 0.370499-second accessor span. The mixed numeric
-family already uses exact pair preunion, chunk-local groups and block-bound
-ordinary-measure kernels. These are reusable components, not new candidates.
+## Final design
 
-A complete all-group execution returns 9,040 groups and 17,996,642 global exact
-group/value pairs. The ten COUNT-selected groups contain 42,451,524 of 99,997,497
-rows (42.45%) and 6,928,232 pairs (38.50%). Their complete mixed results match the
-retained Q10 reference. The 21,922,971 earlier pair counter is chunk-local and
-must not be used as the global denominator.
+[The shared implementation](../../shardloom-vortex/src/local_primitives/winner_distinct.rs)
+admits an unfiltered source of at least 1,000,000 rows, one nonnullable identity
+integer group key and DISTINCT argument, one DISTINCT measure, and identity
+COUNT(*)/SUM/AVG measures. SUM/AVG inputs must be nonnullable integer columns.
+Selection must be COUNT(*) descending, optionally followed by the same group key
+ascending. OFFSET plus LIMIT must fit 1–128 keys. HAVING, spill, group expressions
+and argument offsets are excluded.
 
-A three-pair screen using existing public calls first computes SUM/COUNT/AVG
-winners, then exact DISTINCT for those freshly selected keys. It preserves all
-values but loses: best complete control 3.616690 seconds versus 3.810418 seconds
-for both calls and their composition (5.36% slower). The ordinary-only call
-spends about 2.448 seconds updating groups and bypasses the already-shipped
-block-bound kernels. This screen is insufficient to drop their reuse.
+1. Project only the grouping key and use the existing native single-integer
+   COUNT consumer. Read four spatial ranges of 65,536 rows. These 262,144 rows
+   estimate cost only: decline when the retained-key row share is at least 70%.
+2. Discard the sample count map and reset its row total. Run a complete key-only
+   COUNT pass; require its total to equal the held source row count. Select
+   OFFSET plus LIMIT keys with the existing capillary selector and complete
+   integer-key tie comparator. Samples never establish winner membership.
+3. Convert the selected keys directly to signed/unsigned integer IN values.
+   Apply the normal Vortex bound IN filter and original projection, then run
+   all original mixed measures for those keys. Verify the selected row weight
+   against the complete counts. Apply OFFSET only during original finalization.
 
-## Shared prototype contract
+The original mixed-measure kernels are unchanged from merged base
+`fe2da1df41328a4e8aa370188e9b45865169f08a`: source review found the entire
+`local_primitives.rs` suffix from `SimpleAggregateStates` through EOF
+byte-identical. SUM/AVG contributions still include every selected row,
+independently of DISTINCT pair deduplication.
 
-The first shared ordinary/DISTINCT-pass prototype preserved all six paired Q10
-results, with best 3.794010 to 3.312719 seconds (12.69% lower). One candidate
-sample was slower. Its all-row SUM/AVG work is avoidable because only COUNT(*)
-selects winners. A second admission screen using the unchanged R2 final binary
-computes COUNT-only winners and then all original measures for those keys. All
-six complete results pass: control best/median 3.412807/3.494983 seconds versus
-2.453370/2.454249 seconds for both native calls plus composition (28.11% lower
-best). Every pair improves; peak child RSS is 672–679 MB versus 1,080–1,088 MB.
-These are admission screens, not shipped single-call performance.
+All scans retain the same source, session, runtime and cancellation scope.
+Prepared generation validation encloses the complete operation. A cost decline
+leaves the original complete aggregate plan in place; execution errors propagate.
+Vortex 0.85.0 supplies the native projection, row-range and filter operations.
+Input, execution and output remain Vortex-native, with no external-engine
+fallback or new scan abstraction.
 
-Refinement: reuse the existing single-integer COUNT state and comparator for a
-key-only preliminary scan, then feed its exact winners through existing Vortex
-IN/projection pushdown into the unchanged mixed-measure aggregate kernels. No
-separate ordinary/DISTINCT update loop is needed. Retain OFFSET plus LIMIT keys,
-apply OFFSET only to the final result, and preserve the complete key tie order.
-The same held source, session, cancellation and provider owners span both scans.
-Report auxiliary reads, count work, selected row weight and policy rejection.
-A bounded spatial cost screen must reject high winner coverage and excessive
-auxiliary state before completing the preliminary scan; its threshold remains
-provisional until adverse-workload timing. A rejected cost screen uses the
-original native plan; an execution error remains an error. The first native
-prefix-screen candidate correctly declined Q10, but its prefix estimated 79.87%
-winner coverage against the known full-input 42.45%. This cost false negative
-motivates four 65,536-row ranges spread across the source, using the existing
-`ScanBuilder::with_row_range` provider. Samples decide cost only; their counts
-are discarded before the complete exact COUNT pass. Spatial sampling is still
-a heuristic and provides no distribution-independent performance guarantee.
+The final review found that the earlier `34c30199` admission of floating measures
+could hide an overflow in a losing group. A native regression reproduces that
+failure before repair. Floating SUM/AVG now keep the original complete native
+aggregate, preserving its non-finite-input and overflow errors. Integer SUM/AVG
+remain admitted: even the largest 64-bit integer magnitude accumulated for the
+largest representable source row count is finite in the existing f64 state.
+The repair does not change the mixed-measure update kernels. All eight focused
+tests pass after the repair; the final broad gates below include this repair.
 
-Vortex-first decision: `use_vortex_native_provider` for the existing 0.85.0
-`ScanBuilder::with_projection`/`with_filter` and bound IN expression; ShardLoom's
-existing exact COUNT, capillary comparator and mixed aggregate consumer supply
-the reduction. No new array/scan abstraction, query engine or decoded Arrow
-boundary. Reader splits and summary evidence include both passes.
+## Bounds and diagnostics
 
-The superseded first prototype reused the typed integer pair/chunk-group loop with explicit ordinary,
-DISTINCT and combined measure passes. Every input row contributes to ordinary
-measures, independently of pair deduplication. Select winners with the existing
-aggregate ordering and complete-key tie comparator. Only then compute exact
-DISTINCT for retained keys, preserving OFFSET plus LIMIT semantics. Do not copy
-the kernels, introduce a benchmark-name route, cache answers or invoke another
-engine.
+The auxiliary map may retain at most 65,536 keys before another chunk. A chunk
+over 262,144 rows declines before updating; after each accepted chunk, exceeding
+65,536 groups declines before another update. Since one row adds at most one
+key, the temporary map contains at most **327,680 keys**
+(`MAX_COUNT_GROUPS + MAX_CHUNK_ROWS`). The map is dropped before measure state
+is populated.
 
-Admission requires a nonnullable identity integer grouping key and DISTINCT
-argument, one DISTINCT measure, ordinary COUNT(*)/SUM/AVG measures, COUNT(*)
-descending winner selection, a finite small result window, and no HAVING or
-residual predicate. Admission is a semantic proof, not a universal cost proof;
-measure adverse low-cardinality and high-winner-share cases before retention.
-All scans use the existing held source/generation, provider, cancellation and
-result ownership boundaries. Charge the complete rescan, decode, membership,
-state and finalization work. No new whole-query memory bound is claimed from the
-general aggregate state's existing observational accounting.
+This is a key-count bound, not a hash-table capacity, allocation-byte or process
+RSS bound. General aggregate accounting remains observational; no new
+whole-query memory bound is claimed. Spatial sampling is a cost heuristic with
+no distribution-independent performance guarantee.
 
-ShardLoom technique review: reuse metadata-first lowering, block-bound kernels,
-exact complete keys and capillary winner selection. Dynamic cost admission must
-be justified by the measured crossover; do not add a scheduler or duplicate
-worker family. R3.b's mixed-measure worker extension remains separately decidable.
-Vortex-first review: the current native scan, projection and integer owners
-already provide the required source surfaces. The change belongs in ShardLoom's
-shared aggregate consumer, with Vortex-native inputs and outputs preserved.
+`aggregate_winner_distinct` distinguishes decline from complete-count proof and
+records sampled/count/retained/measure row weights, key limits, projection and
+separate auxiliary timings. Reader evidence includes auxiliary scans. The
+existing first-pass timing fields describe the subsequent mixed-measure scan;
+neither those fields nor the auxiliary caller timers represent complete wall
+time or CPU time.
 
-## Decision evidence
+## Focused evidence
 
-First test exact values across renamed/reordered columns, multiple chunks,
-duplicate pairs with differing ordinary measures, ties/OFFSET, signed extremes,
-empty/null/unsupported admission, cancellation and resource refusal. Compare
-complete Q10 calls sequentially against the frozen repaired R2 baseline, retaining
-all samples and medians. Keep a useful smaller gain if it survives complete-query
-and resource checks; remove the prototype if it does not. For retention, finish
-full applicable query UAT, workspace/native/public-call validation and review.
+Local receipts named below are under
+`/Users/dylan/LocalData/shardloom/performance-candidates-20260926`.
 
-Admission evidence is retained under
-`/Users/dylan/LocalData/shardloom/performance-candidates-20260926` in
-`r3a-current-q10-attribution.json`, `r3a-global-winner-share.json` and
-`r3a-existing-two-pass-screen.json`. Complete outputs are archived in their
-referenced guarded UAT directories. These are measured admissions, not a new
-single-query implementation or independent correctness oracle.
+`r3a-count-spatial-q10-analysis.json` records six exact complete-result/archive
+comparisons across three counterbalanced pairs. Q10 best time changes from
+**3.522130375 to 2.406216417 seconds (31.6829% lower)**; median changes from
+**3.554403875 to 2.415877791 seconds**. Every pair improves. Peak child RSS is
+approximately **1.07–1.08 GB to 0.67–0.68 GB** (decimal GB). The paired runner
+measures complete native child processes through output and exit; OS cache state
+is uncontrolled. These are focused Q10 observations.
+
+The frozen candidate identity is in
+`shardloom-r3a-count-spatial-34c30199.json`; its stripped executable SHA-256 is
+`1e4788044be25c69cd739cf666270966491807c1cc179ecdc959f8fcea0707bf`.
+The analysis references
+`paired43_20260930T011313739555Z/summary.json` under the local UAT logs.
+
+Historical admission cohorts explain the selected design:
+
+| Cohort | Best-time reduction | Observation / local receipt |
+| --- | ---: | --- |
+| Public SUM-first calls | −5.36% | Slower complete composition; `r3a-existing-two-pass-screen.json`. |
+| Original shared measure-pass prototype | +12.69% | One pair was slower; `r3a-prototype-q10-analysis.json`. |
+| Public COUNT-first calls | +28.11% | Every pair improved; `r3a-count-first-screen.json`. |
+| Native prefix cost screen | Declined Q10 | Estimated 79.87% winner coverage versus complete 42.45%; `r3a-count-prefix-q10-analysis.json` and `r3a-global-winner-share.json`. |
+
+These are separate admission cohorts with their own controls and execution
+boundaries. Their percentages do not establish incremental gains between
+revisions. The historical measure-pass prototype is superseded by the COUNT-only
+design above.
+
+## Adverse and pre-repair Full43 evidence
+
+The `34c30199` adverse screen compares three SQL variants to each variant's first
+complete control result. All **18 outputs match strictly**, including ordinary
+measures and exact DISTINCT. The modified group columns remain integer columns.
+
+| Variant | Control best | Candidate best | Candidate decision |
+| --- | ---: | ---: | --- |
+| Group by MobilePhone | 3.120423 s | 3.119908 s | Decline high sample winner share |
+| Group by AdvEngineID | 2.955211 s | 2.968221 s | Decline high sample winner share |
+| COUNT descending, RegionID ascending, LIMIT 3 OFFSET 2 | 3.670297 s | 2.180501 s | Complete COUNT followed by selected measures |
+
+Both declined cases stay within 0.5% of control at best; medians are recorded
+alongside every sample. The OFFSET variant improves 40.59% at best and retains
+approximately 0.55 GB peak RSS versus 1.07–1.08 GB. These comparisons are not a
+distribution-independent cost guarantee. Receipts: `r3a-adverse-screen.json`,
+`r3a-adverse-screen-resumed.json` and `r3a-adverse-analysis.json`.
+
+The first adverse attempt stopped at the 256 MiB log guard after ten recorded
+results. Lossless archival of completed historical logs restored headroom;
+the remaining eight calls then ran with the same source and binary identities.
+The interrupted attempt and its extra uncounted call logs remain archived.
+
+The first Full43 cohort, also before the floating-admission repair, passes all
+258 complete result comparisons and archive checks. Q10 improves from 3.663904
+to 2.403372 seconds (34.40%), but the sum of query bests is flat:
+67.750055 versus 67.811620 seconds. Q35 is flagged for follow-up, from 6.554376
+to 7.569942 seconds (15.49% slower); no cause is established from that timing.
+This cohort is retained separately from final repaired-runtime acceptance:
+`paired43_20260930T013601231767Z/summary.json` and
+`r3a-final-full43-analysis.json`.
+
+## Existing proof and limits
+
+[Unit fixtures](../../shardloom-vortex/src/local_primitives/winner_distinct_tests.rs)
+cover reordered columns, duplicate DISTINCT pairs with differing ordinary
+measures, signed extremes, ties/OFFSET, admission rejection and row-weight checks.
+[Native fixtures](../../shardloom-vortex/src/local_primitives/winner_distinct_native_tests.rs)
+use 1,048,576 rows across sixteen chunks and an independent complete-value oracle.
+They exercise ordinary/prepared execution, fresh reexecution, owned export after
+source deletion, cost decline, cancellation and source replacement between passes,
+reservation release, and owned-output refusal followed by recovery.
+The losing-floating-group fixture additionally proves preservation of the
+original non-finite SUM error after integer-only admission. The final source
+review confirms ordered provider splits, stable surviving-row order and
+unchanged chunk-partial accumulation for admitted integer measures; its scope
+is value arithmetic, not universal equality of resource or work-counter errors.
+
+`r3a-source-invariant-review.json` records source hashes and verification of the
+seven design invariants at `34c30199`; that review ran no tests or benchmarks.
+No native fixture explicitly crosses the auxiliary chunk/group thresholds.
+The pressure fixture checks owned-output refusal/recovery, not injected pressure
+inside the COUNT prepass. Coverage descriptions here identify assertions, not
+final validation results.
+
+## Reproduction
+
+Use the [R2 input, reference and build recipe](source-backed-dictionary-screen-2026-09-29.md)
+with separate clean checkouts at R2 `d1a53815846abe1cbcc5574d6cfc616f7e99e694`
+and candidate `22f7acd22e8c06c651f835bb817e25edcad5d5f5`.
+Build `release-user-surfaces` with the same toolchain/profile, resolve the Cargo
+target directory, and strip distinct frozen copies. Record their new identities.
+Set `R3_CONTROL` and `R3_CANDIDATE` to those absolute executable paths; retain
+the R2 recipe's `R2_INPUT`, `R2_UAT` and `R2_REFERENCES`. The unchanged input
+SHA-256 is `31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35`.
+
+Run the existing guarded paired runner sequentially, without concurrent builds
+or tests:
+
+```sh
+python3 -B scripts/run_clickbench_paired_query_uat.py \
+  --control-binary "$R3_CONTROL" --control-commit d1a53815846abe1cbcc5574d6cfc616f7e99e694 \
+  --candidate-binary "$R3_CANDIDATE" --candidate-commit 22f7acd22e8c06c651f835bb817e25edcad5d5f5 \
+  --input "$R2_INPUT" --uat-root "$R2_UAT" --reference-dir "$R2_REFERENCES" \
+  --queries benchmarks/clickbench/queries.sql --query-ids 10 \
+  --memory-gb 24 --max-parallelism 12 --timeout 120 \
+  --max-workspace-gib 100 --reverse-order
+```
+
+This is the focused reproduction recipe for the repaired runtime. The earlier
+focused observations used `34c30199`. Omit `--query-ids 10` for Full43. Preserve
+all samples, complete comparisons, identities and resource observations.
+
+## Final acceptance
+
+The final integer-only runtime passes all **258 complete Full43 comparisons**.
+Q10 best changes from **4.381091 to 3.108368 seconds (29.05% lower)** and median
+from **4.481784 to 3.218940 seconds**. Every Q10 pair improves. Peak child RSS
+ranges from 1.063–1.078 GB for control and 0.665–0.680 GB for candidate. The
+complete COUNT selects 10 of 9,040 groups; mixed measures visit 42,451,524 of
+99,997,497 source rows. No group membership is inferred from sampling.
+
+The sum of all 43 query bests changes from **66.507349 to 65.177969 seconds
+(2.00% lower)** in `paired43_20260930T015704489072Z`. This is a separate cohort
+from the flat pre-repair Full43, not an incremental percentage to combine with
+it. Q35's earlier slowdown does not recur: final best is 4.198459 versus
+3.935819 seconds. Q15 flags 1.810864 versus 2.062160 seconds in final Full43;
+six targeted calls with the same executables then pass, with best 1.446355
+versus 1.420025 seconds and median 1.446592 versus 1.421493 seconds. Its filtered
+compound grouping is outside R3.a admission. Neither slowdown is established
+as a repeatable candidate regression; their cause is not attributed. Every
+sample, including the adverse observations, remains recorded.
+
+Final validation passes formatting, workspace and release-surface Clippy,
+3,436 workspace tests, 2,020 native all-target tests and 1,520 CLI all-target
+tests. Counts overlap across configurations; 22 pre-existing native manual or
+regeneration tests remain ignored. The native overflow regression fails before
+the integer gate and passes afterward. Source review verifies unchanged mixed
+kernels, ordered surviving rows, complete-count selection, source ownership and
+error propagation, within the proof limits above.
+
+The [portable evidence bundle](../benchmarks/evidence/winner-only-distinct-2026-09-29.json.xz)
+contains complete envelopes, all cohort samples, archive/member identities,
+test logs, admission screens, source review and reproduction harnesses. It links
+the retained full-size reference envelopes in the R2 bundle. Its final binary
+SHA-256 is `f4bcaa6c7320553859932dc04e038e9313a68eead62f3055416e326cc629a50d`.
+Local receipts are `r3a-integer-final-validation.json`,
+`r3a-integer-final-full43-analysis.json`, `r3a-q15-followup-analysis.json` and
+`r3a-ship-decision.json`.
+
+Retain the integer-only shared-consumer design. This is scoped native-query
+evidence, not an ingest, cold-storage, production fairness or subsecond-suite
+claim. R3.b must separately prove any benefit from mixed-measure workers against
+this new baseline; no duplicate worker family is authorized by this result.
+
+## Local artifact cleanup
+
+After final acceptance and portable evidence verification, the three superseded
+R3.a executables (`7556758d`, `3b779619`, `34c30199`) were retired. Exact SHA-256,
+generation, unique-file and active-consumer checks preceded removal; receipts,
+test logs and complete result archives remain. This removed **191,782,912
+allocated bytes**. The final R3.a candidate, R2 baseline, released control and
+source/reference data remain protected. Receipt:
+`r3a-superseded-binary-cleanup-20260929.json` in the local receipt directory.
+
+Completed and interrupted historical logs were separately archived losslessly,
+with per-member length/hash checks before original removal. Their two receipts,
+`completed-log-compaction-r3a-20260929.json` and
+`interrupted-log-compaction-r3a-20260929.json`, record **8,830,976 net allocated
+log bytes** removed after archive/manifests, excluding receipt overhead. Failed
+attempts and their summaries remain available. These are file-allocation counts,
+not measured APFS free-space changes. No active input, build cache, source file
+or worktree was deleted by this cleanup.
