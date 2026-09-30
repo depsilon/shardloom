@@ -73,6 +73,8 @@ mod lazy_layout_metadata_tests;
 #[path = "local_primitives/mixed_distinct_partial.rs"]
 mod mixed_distinct_partial;
 #[cfg(feature = "vortex-local-primitives")]
+mod mixed_distinct_workers;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
 #[cfg(feature = "vortex-local-primitives")]
@@ -20398,6 +20400,36 @@ fn read_lowered_vortex_simple_aggregate_scan(
         filter_pushdown_applied = true;
         embedded_layout = file.embedded_layout(request.kind, true, projection_pushdown_applied);
     }
+    if worker_admission_selected
+        && count_workers.is_none()
+        && residual_evaluator.is_none()
+        && let (Some(states), Some(memory), Some(proof)) = (
+            grouped_states.as_ref(),
+            worker_memory,
+            winner_distinct_report.as_ref(),
+        )
+        && proof.selected_group_bound().is_some()
+    {
+        // The complete COUNT pass used provider progress. Transfer this same
+        // runtime's CPU ownership before starting the selected-measure jobs.
+        drop(provider_drivers.take());
+        count_workers = mixed_distinct_workers::MixedDistinctWorkers::admit(
+            states,
+            proof,
+            &declared_columns,
+            policy,
+            memory,
+        )?
+        .map(aggregate_count_workers::CountWorkers::MixedDistinct);
+        if count_workers.is_some() {
+            provider_background_workers = 0;
+        } else {
+            let (drivers, count) =
+                runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
+            provider_drivers = Some(drivers);
+            provider_background_workers = count;
+        }
+    }
     if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
@@ -21216,7 +21248,10 @@ fn read_lowered_vortex_simple_aggregate_scan(
             summary["aggregate_worker_selection_max_rows"] =
                 aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS.into();
         }
-        summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement {
+        summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement
+            && matches!(count_workers, Some(aggregate_count_workers::CountWorkers::MixedDistinct(_))) {
+            "same_prepared_source;mixed_distinct_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
+        } else if provider_resume_after_pair_retirement {
             "same_prepared_source;numeric_pair_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         } else if small_numeric_direct_selected && !worker_admission_selected {
             "same_prepared_source;small_numeric_count_direct_selected_before_scan;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"

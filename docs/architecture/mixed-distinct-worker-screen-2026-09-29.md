@@ -1,6 +1,6 @@
 # Mixed-measure exact DISTINCT workers — R3.b
 
-Status: **admission/design; no candidate performance claim**.
+Status: **prototype; no candidate performance claim**.
 
 The control is retained R3.a runtime
 `22f7acd22e8c06c651f835bb817e25edcad5d5f5`, frozen separately from the build
@@ -16,7 +16,8 @@ global merge.
 Extract the existing mixed chunk preunion builder and merge into a private
 reusable helper. Ordinary measures still consume every row. Exact DISTINCT
 still consumes every new complete group/value pair. Serial callers continue
-using the same helper; workers may prepare independent chunk partials and
+using the same helper. The caller prepares native accessors, workers build
+independent chunk partials, and
 the caller must merge them in original chunk order. Preserve the existing
 row loop, chunk boundaries, signedness and floating-state fold order.
 
@@ -59,5 +60,5 @@ public source formats or external execution providers.
   Clippy, documentation checks and a cohesive PR before the next candidate.
 
 R3.a's portable bundle remains historical evidence for its own runtime source.
-It is not validation of this unimplemented worker proposal. CG-1 through CG-23
+It is not validation of this worker candidate. CG-1 through CG-23
 and the existing no-fallback, Vortex-native and release boundaries are unchanged.

@@ -1,4 +1,6 @@
 use super::*;
+#[path = "mixed_distinct_workers_tests.rs"]
+mod mixed_workers;
 use crate::local_primitives::{AggregateDirectColumnAccessor, aggregate_direct_column_accessor};
 use crate::{VortexAggregateOrderExpr, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest};
 use shardloom_core::ColumnRef;

@@ -202,6 +202,7 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
     let ordinary = runtime::execute_vortex_local_primitive_with_policy(&request, policy()).unwrap();
     let work = payload(&ordinary);
     assert_eq!(work["values"], expected);
+    assert_mixed_workers(&work);
     assert_eq!(
         work["aggregate_winner_distinct"]["decision"],
         "complete_count_then_selected_measures"
@@ -215,7 +216,21 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
         3 * (ROWS / 16)
     );
     assert_eq!(ordinary.rows_selected, Some(ROWS as u64));
-    let session = ResidentVortexSession::new(64 << 20, 2).unwrap();
+    // A caller-supplied session with provider workers preserves its existing
+    // serial aggregate path; never add a second concurrent CPU pool.
+    let provider_session = ResidentVortexSession::new(64 << 20, 2).unwrap();
+    let provider_prepared =
+        prepare_aggregate_in_session(&request, policy(), &provider_session).unwrap();
+    let provider_work = payload(&provider_prepared.execute().unwrap().report);
+    assert_eq!(provider_work["values"], expected);
+    assert!(
+        provider_work
+            .get("aggregate_mixed_distinct_workers")
+            .is_none()
+    );
+    drop(provider_prepared);
+    drop(provider_session);
+    let session = ResidentVortexSession::for_external_cpu_pool(64 << 20, 2).unwrap();
     let memory = session.memory().clone();
     let prepared = prepare_aggregate_in_session(&request, policy(), &session).unwrap();
     for completed in 1..=2 {
@@ -224,6 +239,7 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
         assert!(!executed.native_io_certificate.fallback_attempted);
         assert_eq!(executed.runtime.completed_executions, completed);
         assert_eq!(payload(&executed.report)["values"], expected);
+        assert_mixed_workers(&payload(&executed.report));
     }
     let completed = prepared.execute_owned().unwrap();
     assert_eq!(rendered(&completed.result), expected);
@@ -247,6 +263,18 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
+fn assert_mixed_workers(work: &serde_json::Value) {
+    let jobs = &work["aggregate_mixed_distinct_workers"];
+    assert!(jobs["submitted_chunks"].as_u64().unwrap() > 0);
+    assert_eq!(jobs["submitted_chunks"], jobs["completed_chunks"]);
+    assert_eq!(
+        jobs["rows"],
+        work["aggregate_winner_distinct"]["measure_rows"]
+    );
+    assert_eq!(jobs["retired_to_same_serial_consumer"], false);
+    assert!(jobs["peak_outstanding_chunks"].as_u64().unwrap() <= 2);
+}
+
 #[test]
 fn winner_distinct_native_cost_decline_preserves_the_original_complete_aggregate() {
     let fixture = Fixture::new();
@@ -258,6 +286,7 @@ fn winner_distinct_native_cost_decline_preserves_the_original_complete_aggregate
     assert_eq!(decision["decision"], "declined_high_sample_winner_share");
     assert_eq!(decision["count_rows"], SAMPLE_ROWS);
     assert_eq!(decision["measure_rows"], ROWS);
+    assert!(work.get("aggregate_mixed_distinct_workers").is_none());
 }
 
 #[test]

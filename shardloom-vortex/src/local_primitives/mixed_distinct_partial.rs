@@ -25,6 +25,54 @@ fn failed(reason: &str) -> ShardLoomError {
 }
 
 impl MixedDistinctPartial {
+    /// Conservative capacity model for the admitted integer-only retained
+    /// collections. Hash tables need buckets and control bytes beyond their
+    /// advertised entry capacity; two buckets per entry plus the control tail
+    /// covers the pinned implementation. This is not an allocator/RSS meter.
+    pub(super) fn retained_capacity_bytes(&self) -> Result<u64> {
+        fn table(capacity: usize, entry: usize) -> Option<usize> {
+            capacity
+                .checked_mul(2)?
+                .checked_mul(entry.checked_add(1)?)?
+                .checked_add(16)
+        }
+        let bytes = table(
+            self.chunk_groups.capacity(),
+            size_of::<(
+                AggregateCountDistinctPreunionGroupKey,
+                SimpleAggregateStates,
+            )>(),
+        )
+        .and_then(|bytes| {
+            self.chunk_group_order
+                .capacity()
+                .checked_mul(size_of::<AggregateCountDistinctPreunionGroupKey>())
+                .and_then(|order| bytes.checked_add(order))
+        })
+        .and_then(|bytes| bytes.checked_add(size_of::<Self>()))
+        .ok_or_else(|| failed("group capacity overflow"))?;
+        let bytes = self
+            .chunk_groups
+            .values()
+            .try_fold(bytes, |bytes, states| {
+                let bytes = states
+                    .states
+                    .capacity()
+                    .checked_mul(size_of::<super::SimpleAggregateState>())
+                    .and_then(|extra| bytes.checked_add(extra))?;
+                states.states.iter().try_fold(bytes, |bytes, state| {
+                    bytes
+                        .checked_add(state.alias.capacity())?
+                        .checked_add(table(
+                            state.distinct_values.capacity(),
+                            size_of::<super::AggregateDistinctValue>(),
+                        )?)
+                })
+            })
+            .ok_or_else(|| failed("state capacity overflow"))?;
+        u64::try_from(bytes).map_err(|_| failed("capacity exceeds u64"))
+    }
+
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub(super) fn build(
         state_template: &SimpleAggregateStates,
