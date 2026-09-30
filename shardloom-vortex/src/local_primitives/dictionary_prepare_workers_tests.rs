@@ -118,21 +118,62 @@ fn provider_lane(parallelism: usize) -> bool {
     parallelism >= 3 && std::thread::available_parallelism().unwrap().get() >= 3
 }
 
-fn assert_native_io_credits_return(memory: &LiveMemoryPool) {
+fn assert_native_io_credits_return(memory: &LiveMemoryPool, expected: u64) {
     // Ordinary sessions do not synchronously join upstream blocking I/O. A
     // cancelled read keeps its buffer charged until its closure/result drops;
     // ResidentWorkerGroup joins CPU drivers, not that separate I/O pool. The
-    // immediate post-error assertion still verifies dictionary-job refunds.
+    // worker-only cancellation fixture separately requires immediate refunds.
     let started = std::time::Instant::now();
     let initial = memory.snapshot().reserved_bytes;
-    while memory.snapshot().reserved_bytes != 0 {
+    while memory.snapshot().reserved_bytes != expected {
         assert!(
             started.elapsed() < std::time::Duration::from_secs(5),
-            "native I/O credits did not return: initial={initial}, current={:?}",
+            "native I/O credits did not return: initial={initial}, expected={expected}, current={:?}",
             memory.snapshot()
         );
         std::thread::yield_now();
     }
+    assert_eq!(memory.snapshot().reserved_bytes, expected);
+}
+
+#[test]
+fn dictionary_preparation_active_worker_cancel_refunds_immediately_without_native_io() {
+    let _clear = ClearHooks;
+    let columns = vec!["Referer".to_owned()];
+    let request = request();
+    let input = chunk(
+        &(0..1024)
+            .map(|row| format!("http://{}.test/{row}", row % 2))
+            .collect::<Vec<_>>(),
+    );
+    let memory = LiveMemoryPool::new(MEMORY).unwrap();
+    let mut state = GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let operation = CancellationToken::default();
+    let cancellation = operation.clone();
+    let observed = Arc::new(AtomicBool::new(false));
+    let worker_observed = Arc::clone(&observed);
+    WORKER_START_TEST_HOOK.with(|hook| {
+        *hook.borrow_mut() = Some(Box::new(move |worker| {
+            cancellation.cancel();
+            worker_observed.store(worker.check_cancelled().is_err(), Ordering::Release);
+        }));
+    });
+    let mut workers = DictionaryPrepareWorkers::admit(
+        &state,
+        input.dtype(),
+        &columns,
+        policy(2),
+        &memory,
+        Some(&operation),
+    )
+    .unwrap()
+    .unwrap();
+    assert!(workers.submit(&input, &mut state).unwrap());
+    let error = workers.finish(&mut state).unwrap_err();
+    assert!(error.to_string().contains("cancel"), "{error}");
+    assert!(operation.is_cancelled());
+    assert!(observed.load(Ordering::Acquire));
+    drop(workers);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
@@ -558,7 +599,7 @@ fn native_cancel(parallelism: usize) {
     assert!(error.to_string().contains("cancel"), "{error}");
     assert!(observed.load(Ordering::Acquire));
     assert_eq!(session.snapshot().completed_executions, 0);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_native_io_credits_return(&memory, baseline);
     let fresh = CancellationToken::default();
     let result = prepared.execute_cancellable(&fresh).unwrap();
     assert_eq!(payload(&result.report)["values"], fixture.expected);
@@ -566,7 +607,7 @@ fn native_cancel(parallelism: usize) {
     drop(result);
     drop(prepared);
     drop(session);
-    assert_native_io_credits_return(&memory);
+    assert_native_io_credits_return(&memory, 0);
 }
 
 #[test]
@@ -598,13 +639,13 @@ fn dictionary_preparation_native_committed_source_failures_do_not_replay() {
         );
         assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
         assert_eq!(session.snapshot().completed_executions, 0);
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_native_io_credits_return(&memory, baseline);
         assert_eq!(
             payload(&prepared.execute().unwrap().report)["values"],
             fixture.expected
         );
         drop(prepared);
         drop(session);
-        assert_native_io_credits_return(&memory);
+        assert_native_io_credits_return(&memory, 0);
     }
 }

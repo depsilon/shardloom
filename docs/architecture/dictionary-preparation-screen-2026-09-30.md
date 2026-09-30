@@ -143,8 +143,13 @@ sessions do not synchronously join the upstream blocking-I/O pool; running reads
 retain charged buffers until their closure/result owners drop. CPU-driver join
 does not certify that separate I/O boundary.
 
-The two fixtures now require final zero reservations within a bounded five-second
-teardown wait, while retaining the immediate dictionary-job refund assertions.
-Seven focused fixtures and native all-target Clippy pass locally; exact-head CI
-must pass before merge. This changes only the `cfg(test)` fixture file. The
-measured release runtime, binary and immutable performance evidence are unchanged.
+A bounded final-teardown wait lets the cancellation fixture pass in the next
+Linux run. That run also observes the same 177,400-byte I/O owner immediately
+after the injected source error, before the final teardown. File-backed error
+and final-teardown checks therefore require the exact expected reservation total
+within five seconds. A separate in-memory active-worker cancellation fixture
+requires immediate zero credits after the worker is joined and dropped, with
+no native I/O owner that could mask a failed worker refund. Existing direct
+pressure/refund checks remain immediate. Exact-head CI must pass before merge.
+This changes only the `cfg(test)` fixture file. The measured release runtime,
+binary and immutable performance evidence are unchanged.
