@@ -187,9 +187,6 @@ fn vacant_slot_is_invalidated_by_new_hash_mask_but_survives_byte_growth() {
         .unwrap();
     assert_eq!(result["new"], 8);
     assert_eq!(result[&"outlined-new-key".repeat(4096)], 18);
-    let evidence = partitions.evidence().unwrap();
-    assert!(evidence.lookup_probes > evidence.lookup_record_reads);
-    assert_eq!(evidence.lookup_tag_rejections, 0);
     drop(partitions);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

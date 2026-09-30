@@ -1145,15 +1145,6 @@ impl SingleCountWorkers {
                 ("partition_reconcile_work_nanos", evidence.reconcile_nanos),
                 ("partition_arrange_work_nanos", evidence.arrange_nanos),
                 ("partition_selection_work_nanos", evidence.selection_nanos),
-                ("partition_lookup_probes", evidence.lookup_probes),
-                (
-                    "partition_lookup_record_reads",
-                    evidence.lookup_record_reads,
-                ),
-                (
-                    "partition_lookup_tag_rejections",
-                    evidence.lookup_tag_rejections,
-                ),
                 (
                     "partition_equality_comparisons",
                     evidence.equality_comparisons,

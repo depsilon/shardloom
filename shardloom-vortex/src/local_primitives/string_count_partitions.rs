@@ -43,9 +43,6 @@ struct Partition {
     slots_lease: MemoryLease,
     bytes_lease: MemoryLease,
     selection_lease: Option<MemoryLease>,
-    lookup_probes: u64,
-    lookup_record_reads: u64,
-    lookup_tag_rejections: u64,
     // Actual copy sites, enabled only in the paired experiment/test binary.
     #[cfg(test)]
     benchmark_payload_bytes_copied: u64,
@@ -71,9 +68,6 @@ pub(super) struct PartitionEvidence {
     pub selection_nanos: u64,
     pub equality_comparisons: u64,
     pub comparison_publish_calls: u64,
-    pub lookup_probes: u64,
-    pub lookup_record_reads: u64,
-    pub lookup_tag_rejections: u64,
     pub entry_credit_claim_calls: u64,
     pub entry_credit_granted_entries: u64,
     pub entry_credit_return_calls: u64,
@@ -156,9 +150,6 @@ impl StringCountPartitions {
                 slots_lease: memory.reserve(0)?,
                 bytes_lease: memory.reserve(0)?,
                 selection_lease: Some(lease.split(selection_bytes / PARTITIONS as u64)?),
-                lookup_probes: 0,
-                lookup_record_reads: 0,
-                lookup_tag_rejections: 0,
                 #[cfg(test)]
                 benchmark_payload_bytes_copied: 0,
             }));
@@ -202,21 +193,6 @@ impl StringCountPartitions {
         if credits.reserved != 0 {
             return Err(failed("entry credits remain outstanding at final evidence"));
         }
-        let mut lookup = [0_u64; 3];
-        for partition in &self.partitions {
-            let partition = partition
-                .lock()
-                .map_err(|_| failed("partition lock poisoned"))?;
-            for (total, value) in lookup.iter_mut().zip([
-                partition.lookup_probes,
-                partition.lookup_record_reads,
-                partition.lookup_tag_rejections,
-            ]) {
-                *total = total
-                    .checked_add(value)
-                    .ok_or_else(|| failed("lookup work overflowed"))?;
-            }
-        }
         Ok(PartitionEvidence {
             groups: credits.committed,
             rows: self.committed_rows.load(Ordering::Acquire),
@@ -226,9 +202,6 @@ impl StringCountPartitions {
             selection_nanos: self.selection_nanos.load(Ordering::Acquire),
             equality_comparisons: self.equality_comparisons.load(Ordering::Acquire),
             comparison_publish_calls: self.comparison_publish_calls.load(Ordering::Acquire),
-            lookup_probes: lookup[0],
-            lookup_record_reads: lookup[1],
-            lookup_tag_rejections: lookup[2],
             entry_credit_claim_calls: credits.claim_calls,
             entry_credit_granted_entries: credits.granted_entries,
             entry_credit_return_calls: credits.return_calls,
@@ -692,21 +665,13 @@ impl Partition {
         Ok(true)
     }
 
-    fn find(&mut self, value: &[u8], hash: u64, comparisons: &mut u64) -> Result<usize> {
+    fn find(&self, value: &[u8], hash: u64, comparisons: &mut u64) -> Result<usize> {
         let mut bucket = hash_bucket(hash, self.slots.len())?;
         loop {
-            self.lookup_probes = self
-                .lookup_probes
-                .checked_add(1)
-                .ok_or_else(|| failed("lookup probe count overflowed"))?;
             let ordinal = self.slots[bucket];
             if ordinal == 0 {
                 return Ok(bucket);
             }
-            self.lookup_record_reads = self
-                .lookup_record_reads
-                .checked_add(1)
-                .ok_or_else(|| failed("lookup record read count overflowed"))?;
             let slot = self.records[ordinal - 1];
             if slot.hash == hash {
                 *comparisons = comparisons
