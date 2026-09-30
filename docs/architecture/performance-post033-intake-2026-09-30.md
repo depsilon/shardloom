@@ -229,8 +229,59 @@ reference logs. Local machine path prefixes are replaced; original byte hashes
 and separate portable-text hashes are recorded. Complete query values are
 verified unchanged by that replacement. Binaries and full data payloads remain
 local; the bundle is regression evidence, not a fresh independent SQL oracle.
-P033-1 and P033-3 pass local acceptance; remote review, CI and merge are the next
-gate. P033-4 through P033-7 remain required and unimplemented.
+P033-1 and P033-3 passed review and all 40 remote checks. PR #1492 merged at
+`b4f439d3fe44919deee860aa1dbfe27058ea00b4`; its tree matches the reviewed head.
+
+## Query attribution and remaining admission
+
+Seven sequential instrumented complete calls on that merged runtime reproduce
+the retained complete Q23/Q19/Q6/Q28/Q29/Q34/Q35 values exactly. All 42 raw file
+hashes, 2,420 cited stack lines and 21 exited native/supervisor/collector PIDs
+were verified. `query-attribution-primary-acceptance.json` records acceptance.
+Samples are stack residence, including waits, not exclusive CPU percentages or
+a speed comparison. A bounded footer inventory confirms 817 chunks and 112
+fields in the current artifact; flat text layouts do not establish array codec
+identity or repeated decoding.
+
+- **P033-4 DROP at admission.** Q23 shows real Zstd decompression and view
+  construction in both provider predicate work and accessor canonicalization.
+  The samples lack array identity and cannot establish an avoidable duplicate
+  transition. Pinned Vortex 0.85 already propagates progressive selection; its
+  exposed scan metrics report I/O/selectivity, not per-array decode reuse.
+  Its Zstd reduction rules expose slice/cast adaptation, not a certified shared
+  decoded-result cache. A replacement scanner or unproved cache is outside this
+  hypothesis. This decision does not claim that all decode work is necessary.
+- **P033-5 DROP at admission.** Existing `Utf8ChunkDictionary` already borrows
+  duplicate keys, retains source-backed owners on first insertion, and caches
+  hashes for growth. Global binding uses exact borrowed lookup and promotes
+  ownership only on a new global key. Exact preunion/union is already retained.
+  The observed construction/binding work does not identify a further reusable
+  transition with unchanged key/epoch semantics; those existing wins receive
+  no duplicate credit, and the dropped triple-sort replacement stays dropped.
+- **P033-6 prototype admitted.** Q28 still visits numeric type/accessor dispatch
+  from compact measure updates. Its URL length is already a native derived
+  numeric column. Bind current native numeric owners and validity once per block,
+  using the existing bound-measure pattern, while retaining measure order,
+  null/overflow behavior, source-order admission and unbound native paths.
+- **P033-7 prototype admitted for work admission.** Q34/Q35 execute the existing
+  single-string complete-key partitions with nine count workers, 20 maximum
+  outstanding chunks, and no pressure handoff/retry in these calls. Their
+  canonical count loop validates every row before lookup, although 99,997,497
+  rows produce 29,104,999 local partial entries. Validate a key before its first
+  insertion and reuse that proof only after complete byte equality. Preserve
+  dictionary/constant paths, invalid-input errors, leases, cancellation and
+  partition ownership. Q29's bounded dictionary jobs retain their owners through
+  consumption; no additional queue/thread tuning is admitted by these samples.
+
+The provider decision for these two prototypes is `implement_shardloom_kernel`:
+they update existing ShardLoom aggregate states from already admitted Vortex
+primitive/VarBinView owners. Vortex provides those representations and decode
+operations; it does not own ShardLoom's compact grouped state or complete-key
+count partitions. No new decoding boundary, provider, scheduler, external
+engine, or persistence format is introduced. Semantic tests and matched complete
+query screens determine retain/drop, followed by broad acceptance for retained
+code. P033-7's independent small prototype is screened before P033-6; its result
+will not be counted toward Q28's measured gain.
 
 ## Comparison and completion gates
 

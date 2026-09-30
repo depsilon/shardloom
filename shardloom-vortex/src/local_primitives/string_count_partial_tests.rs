@@ -152,6 +152,83 @@ fn all_unique_keys_and_hash_bucket_collisions_preserve_exact_string_equality() {
 }
 
 #[test]
+fn duplicate_unicode_keys_with_same_bucket_keep_complete_byte_equality() {
+    let mut buckets = BTreeMap::<u64, Vec<String>>::new();
+    let mask = u64::try_from(hash_slot_count(6).unwrap() - 1).unwrap();
+    let keys = (0..4096)
+        .find_map(|index| {
+            let key = format!("outlined repeated key 東京 {index}");
+            let mut hasher = rustc_hash::FxHasher::default();
+            hasher.write(key.as_bytes());
+            let bucket = buckets.entry(hasher.finish() & mask).or_default();
+            bucket.push(key);
+            (bucket.len() == 3).then(|| bucket.clone())
+        })
+        .unwrap();
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let mut lease = memory.reserve(0).unwrap();
+    let rows = [&keys[0], &keys[1], &keys[0], &keys[2], &keys[1], &keys[0]];
+    let refs = rows.map(String::as_str);
+    let partial = run_count(
+        strings(&refs),
+        vortex::array::legacy_session().create_execution_ctx(),
+        &ChunkWorkerContext::Inline(CancellationToken::default()),
+        &mut lease,
+    )
+    .unwrap();
+    assert_eq!(partial.work.rows, 6);
+    assert_eq!(partial.work.partial_entries, 3);
+    assert_eq!(
+        counts(&partial),
+        BTreeMap::from([
+            (keys[0].clone(), 3),
+            (keys[1].clone(), 2),
+            (keys[2].clone(), 1)
+        ])
+    );
+    drop((partial, lease));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn invalid_canonical_utf8_is_rejected_before_publishing_first_or_later_key() {
+    for rows in [
+        vec![&[0xff_u8][..]],
+        vec![&b"valid"[..], &b"valid"[..], &[0xff_u8][..]],
+        vec![
+            &b"long outlined valid key"[..],
+            &b"long outlined valid key\xff"[..],
+        ],
+    ] {
+        // Buffer handles permit testing the consumer's defensive boundary
+        // without the UTF-8 builder rejecting the fixture first in debug mode.
+        let binary = VarBinViewArray::from_iter_bin(rows);
+        let array = VarBinViewArray::new_handle(
+            binary.views_handle().clone(),
+            binary.data_buffers().to_vec().into(),
+            DType::Utf8(Nullability::NonNullable),
+            Validity::NonNullable,
+        )
+        .into_array();
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let mut lease = memory.reserve(0).unwrap();
+        let error = run_count(
+            array,
+            vortex::array::legacy_session().create_execution_ctx(),
+            &ChunkWorkerContext::Inline(CancellationToken::default()),
+            &mut lease,
+        )
+        .err()
+        .expect("malformed UTF-8 must not acquire a key")
+        .to_string();
+        assert!(error.contains("canonical key has invalid UTF-8"), "{error}");
+        assert!(error.contains("no fallback execution was attempted"));
+        drop(lease);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn nullable_admission_pressure_and_cancellation_fail_without_retained_state() {
     let memory = LiveMemoryPool::new(128).unwrap();
     let worker = ChunkWorkerContext::Inline(CancellationToken::default());

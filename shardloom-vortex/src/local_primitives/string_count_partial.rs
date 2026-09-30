@@ -856,8 +856,6 @@ fn count_with_provider_error(
             worker.check_cancelled()?;
         }
         let bytes = borrowed_bytes(&values, row);
-        std::str::from_utf8(bytes)
-            .map_err(|error| failed(&format!("canonical key has invalid UTF-8: {error}")))?;
         work.utf8_bytes_hashed = work
             .utf8_bytes_hashed
             .checked_add(u64_count(bytes.len())?)
@@ -870,6 +868,12 @@ fn count_with_provider_error(
         loop {
             let slot = &mut counts[bucket];
             if slot.count == 0 {
+                // An occupied key was validated before insertion. Complete byte
+                // equality below lets duplicate rows reuse that proof; a hash
+                // or bucket collision alone never establishes valid UTF-8.
+                std::str::from_utf8(bytes).map_err(|error| {
+                    failed(&format!("canonical key has invalid UTF-8: {error}"))
+                })?;
                 *slot = CountSlot {
                     hash,
                     value_index: row,

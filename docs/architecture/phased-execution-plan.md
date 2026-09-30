@@ -292,8 +292,11 @@ now active. Paused format/text performance tests stay paused.
     against their own baselines, with byte-identical artifacts. Final source
     preserves non-text statistics and lean derived metadata. Broad tests and
     264 exact query comparisons pass; the original Q34 slowdown and reversed-order
-    follow-up remain visible. The retained ingest batch awaits reviewed merge.
-    Source, dictionary, measure and admission hypotheses retain their own gates.
+    follow-up remain visible. PR #1492 merged the retained ingest batch after
+    review and all 40 remote checks. Seven exact query attribution calls are
+    accepted; P033-4/5 are dropped at admission without duplicating provider or
+    dictionary machinery. P033-6 bound measures and P033-7 first-insertion UTF-8
+    validation are admitted to separate matched screens and acceptance gates.
   - ShardLoom technique review: preserve metadata-first execution, PulseWeave and
     capillary ownership bounds, dynamic shared admission, timing-surface separation
     and evidence-tier controls. Reuse existing Vortex providers and shared runtime
