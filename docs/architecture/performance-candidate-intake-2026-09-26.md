@@ -78,11 +78,13 @@ after source verification; Q23 provider attribution remains open. R10
 Full43 Q34/Q35 improve 33.98%/32.39%, the total falls 3.26%, and all 258 complete
 comparisons pass. Its negative observations and bounded follow-up are retained.
 R10 merged as PR #1487. R2.b's [bounded dictionary preparation](dictionary-preparation-screen-2026-09-30.md)
-passes full local acceptance and independent audit after the native I/O lifetime
-correction: Q29 improves 28.62% in Full43, the total falls 1.93% to 52.957013
-seconds, and all 258 complete comparisons pass. Q19's 8.85% slower best call and
-larger routing/submission span remain recorded for attribution. Ordinary and
-serving operations reuse one I/O/reader drain contract; the original cohort remains separate.
+passes final local acceptance after native I/O lifetime and metadata-admission
+corrections: Q29 improves 29.67% in Full43, the total falls 2.72% to 53.171336
+seconds, and all 258 complete comparisons pass. Q35's 13.75% slower best call
+remains recorded; a six-call reversed-order follow-up is still 4.36% slower by
+best and 0.70% by median. Ordinary and serving operations reuse one I/O/reader
+drain contract; metadata completion defers payload/worker admission. Original
+and interrupted cohorts remain separate. Independent artifact audit passes.
 All **29 experiments have decisions**. The
 [final profiling refresh](performance-profile-refresh-2026-09-30.md) records
 all 43 queries and separately dated ingest, storage, public-call and serving evidence.

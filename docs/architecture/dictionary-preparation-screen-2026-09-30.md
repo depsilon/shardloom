@@ -1,9 +1,9 @@
 # R2.b: bounded dictionary preparation
 
-Status: **retain candidate; metadata-admission review correction under validation**.
-PR #1488 gates delivery on final local acceptance and exact-head CI. The native
-lifetime defect is corrected; its recorded Full43 cohort is below. A subsequent
-review exposes unnecessary admission before metadata completion. This closes the last
+Status: **retain; final runtime acceptance recorded, PR checks gate delivery**.
+Independent artifact audit passes; PR #1488 gates delivery on exact-head CI. The native
+lifetime defect and both metadata-admission review findings are corrected, with
+the final Full43 cohort below. This closes the last
 candidate in the September 26 intake before its final profiling refresh. It does
 not resume the paused format comparison. The subsequent maintainer instruction
 authorizes PR cleanup, a new release train, then another finite ship/drop packet.
@@ -258,4 +258,49 @@ owned results at CPU grants two and three, with no worker/scan/read evidence and
 exact empty output. All nine dictionary fixtures pass. The initial post-fix
 fixture incorrectly expected serialized values inside the owned-result report;
 the corrected assertion checks that result's actual row count instead.
-Freeze and validate this final source before replacing the current profile.
+The final source is frozen and validated below.
+
+## Final runtime acceptance
+
+Runtime `93ee6b39fd09ce657adf078a711206a89ccb2ab9`, binary SHA-256
+`e3351a1192b3de6de7a0db8db9afa7aa8a78d53b245336aee7c3b19eb01096d9`,
+passes formatting, workspace/native Clippy, 3,436 workspace, 2,042 native and
+1,520 CLI tests. Counts overlap; 22 existing native manual fixtures remain ignored.
+All **258 complete results** in `paired43_20260930T090652016000Z` match the
+retained references, with complete source/binary identity checks.
+
+Q29 control calls are 6.881406/6.923241/6.862137 seconds; candidate calls are
+4.881108/4.884071/4.825826. Every pair is faster; best improves **29.67%**, saving
+**2.036311 seconds**. Observed RSS rises from 1.421–1.425 GB to 1.515–1.539 GB.
+The complete best-of-three query total falls **2.72%**, from **54.660584 to
+53.171336 seconds**. The two-chunk window, one preparation worker and explicitly
+shared provider progress remain the retained scope.
+
+Negative observations remain visible. Q35 best is 13.75% slower (2.653529 →
+3.018286 seconds), Q34 is 6.56% slower, Q23 is 2.68% slower and Q19 is 0.77%
+slower. Q35's worker spans increase across canonicalization, counting, waiting
+and reconciliation; overlapping elapsed timers do not identify an exclusive CPU
+cost or establish a host/compiler cause. One reversed-order follow-up,
+`paired43_20260930T091424341506Z`, passes all six complete results: Q35 best is
+4.36% slower (2.696266 → 2.813690), and median 0.70% slower (2.824452 →
+2.844280). The larger gap does not repeat, but the smaller remaining slowdown
+is accepted alongside the material target and suite gain. Do not substitute
+follow-up calls into the Full43 score. Further attribution belongs to the next
+finite packet, not repeated screening until a favorable sample appears.
+
+The [final portable evidence](../benchmarks/evidence/dictionary-preparation-admission-2026-09-30.json.xz)
+is 705,392 bytes, SHA-256
+`538df1c6826486efb44146f500947576d31c66695fb38dc5cbc9f8cf857a2cbc`.
+It preserves all **264 complete comparisons**, the separate interrupted
+metadata-admission cohort (203 saved records, 204 exact raw outputs), original
+archive/member hashes, references, final source manifest/patch, binary/build
+identity, focused red/green and broad validation logs, and the verified log
+compaction receipt. The earlier 270- and 258-comparison bundles are unchanged.
+The [final query profile](../benchmarks/query-profile-2026-09-30-final.json)
+contains all 43 queries, with 23 below one second in this cohort.
+
+Independent audit reconstructs all 264 complete-cohort analysis rows, timing/RSS
+samples and work counters from the raw summaries and archived stdout. It checks
+all complete values, the 204 interrupted outputs, source/binary identities,
+28 portable log records, validation totals and eight losslessly archived reports.
+Primary acceptance retains the change with the Q35 slowdown explicitly recorded.
