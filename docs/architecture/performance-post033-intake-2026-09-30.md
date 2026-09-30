@@ -7,8 +7,16 @@ This is a finite follow-up under PERF-03/04/05/08/09/10/12, not a new implementa
 phase or permission to reopen the 29 completed experiments unchanged.
 
 All seven experiments are decided: **retain P033-1/3/6/7; drop P033-2/4/5**.
-The ingest pair merged in PR #1492. The query pair passes the final local gates
-below and closes the remaining implementation work in this packet.
+The ingest pair merged in PR #1492. The query pair merged in PR #1493 at
+`65c4e7b3935d1db38d3a1defc13642e1ce0aabbb` after all 40 checks passed;
+the merged tree matches the reviewed and tested runtime.
+
+Afterward, the maintainer requested a fresh complete workflow and recording of
+its controls. The [latest end-to-end observation](../benchmarks/current-runtime-e2e-2026-09-30.md)
+measures 65.806017 seconds for ingest and 55.251837 seconds for one Full43 pass,
+with 136.696318 seconds observed workflow wall time including harness checks.
+It is a separate current-runtime observation, preserving every earlier paired
+cohort and its tradeoffs below.
 
 ## Starting evidence and order
 

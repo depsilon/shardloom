@@ -5,6 +5,13 @@ This is the historical profile before the 0.3.3 release train. The subsequent
 decisions and links the new Full43 inventory. These original measurements remain
 unchanged and must not be combined with the later cohort.
 
+The latest separately authorized
+[current-runtime end-to-end observation](../benchmarks/current-runtime-e2e-2026-09-30.md)
+records 65.806017 seconds for fresh ingest and 55.251837 seconds for one pass
+through all 43 queries. It preserves the concurrent-process observations and
+distinct native, workflow and full-verification clocks; it does not replace
+the paired comparisons below.
+
 All **29 intake experiments have a retain/drop decision**. The last retained
 change reuses bounded dictionary preparation and native provider progress.
 [R2.b's final acceptance](dictionary-preparation-screen-2026-09-30.md) passes

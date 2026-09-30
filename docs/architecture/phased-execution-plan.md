@@ -276,8 +276,12 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
 `RELEASE-033` has completed four-channel publication, public website verification
 and owned-artifact cleanup; see the [publication record](../release/v0.3.3-publication-verification.md)
 and completed ledger. `PERF-POST033` now has all seven decisions: retain
-P033-1/3/6/7 and drop P033-2/4/5. PR #1492 merged the ingest pair; the query
-pair's cohesive change carries all local acceptance and closure evidence.
+P033-1/3/6/7 and drop P033-2/4/5. PR #1492 merged the ingest pair; PR #1493
+merged the query pair after all 40 checks passed. The maintainer-requested
+[current-runtime observation](../benchmarks/current-runtime-e2e-2026-09-30.md)
+records a fresh complete ingest and one Full43 pass with host-load controls:
+65.806017 seconds ingest, 55.251837 seconds native queries and 136.696318
+seconds supervised workflow wall time. It is separate from the paired cohorts.
 See the [completed ledger](phased-execution-completed-ledger.md),
 [candidate decisions](performance-post033-intake-2026-09-30.md) and
 [final query inventory](../benchmarks/query-profile-post033-2026-09-30.json).
@@ -2589,7 +2593,8 @@ retained and three dropped candidates. The rules below govern a separately
 admitted continuation, rather than automatically restarting exhausted experiments.
 
 1. Ground any separately admitted next candidate list in the
-   [post-release measurements](performance-post033-intake-2026-09-30.md) and
+   [current-runtime observation and controls](../benchmarks/current-runtime-e2e-2026-09-30.md),
+   [post-release paired measurements](performance-post033-intake-2026-09-30.md) and
    [Full43 inventory](../benchmarks/query-profile-post033-2026-09-30.json), retaining the
    [29 completed decisions](performance-candidate-intake-2026-09-26.md).
    Rank potential avoided work and breadth of benefit; R/C labels are not
@@ -2604,6 +2609,9 @@ admitted continuation, rather than automatically restarting exhausted experiment
    fastest-valid-run rule for query comparisons, retain all samples and full
    outputs, and use throughput/tail distributions for serving. Native CLI timing,
    public transport overhead, ingest, storage and composition remain separate.
+   Use the [observation procedure](local-development-storage.md#current-runtime-observation-procedure)
+   for source freezing, host-load evidence, complete-result checks and distinct
+   native/workflow clocks. Preserve single-pass and comparative cohort identities.
 4. Retained implementations receive cohesive PRs after complete applicable UAT,
    broad checks and review; failed prototypes are removed with evidence preserved.
    The completed packet's profiling refresh supplies the starting evidence;
