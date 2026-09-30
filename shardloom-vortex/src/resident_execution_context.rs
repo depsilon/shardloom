@@ -204,6 +204,8 @@ impl NativeExecutionContext<'_> {
             scope: Some(Arc::clone(scope)),
             _reader_owner: Some(scope.retain_reader(&self.owner.memory)?),
         };
+        #[cfg(all(test, unix, feature = "vortex-write"))]
+        let reader = super::read_observer::observe_operation_reader(reader);
         let metrics = RequestMetrics::new(
             &vortex::metrics::DefaultMetricsRegistry::default(),
             Vec::new(),

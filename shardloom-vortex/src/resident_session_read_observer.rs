@@ -9,7 +9,7 @@
 
 use std::{
     path::Path,
-    sync::{Arc, Condvar, Mutex, MutexGuard},
+    sync::{Arc, Condvar, Mutex, MutexGuard, Weak},
     time::{Duration, Instant},
 };
 
@@ -198,6 +198,7 @@ struct ReadCompletion {
     // Field order releases a cancelled result's payload before its job guard.
     result: VortexResult<BufferHandle>,
     _job: ReadJob,
+    _operation_job: Option<super::io_ownership::ReadJob>,
 }
 
 #[derive(Default)]
@@ -216,6 +217,54 @@ pub(crate) struct ObservedFileReadAt {
     handle: Handle,
     shared: Arc<SharedObservation>,
     hooks: Arc<ReadHooks>,
+    operation_scope: Option<Arc<super::io_ownership::IoScope>>,
+    _reader_owner: Option<Arc<super::io_ownership::ReaderOwner>>,
+    concurrency: usize,
+}
+
+struct OperationObservation {
+    identity: Weak<SourceIdentity>,
+    shared: Weak<SharedObservation>,
+    hooks: Weak<ReadHooks>,
+}
+
+thread_local! {
+    // The footer fixture prepares and executes on one caller. Weak references
+    // neither retain a source generation nor leak observation state between
+    // fixtures; pointer identity prevents observing a different prepared file.
+    static OPERATION_OBSERVATION: std::cell::RefCell<Option<OperationObservation>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+
+#[allow(clippy::used_underscore_binding)] // Transfer the production reader's drop-only owner into the observed reader.
+pub(super) fn observe_operation_reader(reader: super::ResidentFileReadAt) -> Arc<dyn VortexReadAt> {
+    OPERATION_OBSERVATION.with(|current| {
+        let observation = current.borrow();
+        let Some(observation) = observation.as_ref() else {
+            return Arc::new(reader) as Arc<dyn VortexReadAt>;
+        };
+        let (Some(identity), Some(shared), Some(hooks)) = (
+            observation.identity.upgrade(),
+            observation.shared.upgrade(),
+            observation.hooks.upgrade(),
+        ) else {
+            return Arc::new(reader);
+        };
+        if !Arc::ptr_eq(&identity, &reader.identity) {
+            return Arc::new(reader);
+        }
+        Arc::new(ObservedFileReadAt {
+            identity,
+            allocator: reader.allocator,
+            handle: reader.handle,
+            shared,
+            hooks,
+            operation_scope: reader.scope,
+            _reader_owner: reader._reader_owner,
+            concurrency: reader.concurrency,
+        })
+    })
 }
 
 #[cfg(feature = "vortex-write")]
@@ -261,6 +310,13 @@ impl super::ResidentVortexSession {
             identity: Some(Arc::clone(&observer.identity)),
             runtime: Arc::clone(&self.0),
         }));
+        OPERATION_OBSERVATION.with(|current| {
+            *current.borrow_mut() = Some(OperationObservation {
+                identity: Arc::downgrade(&observer.identity),
+                shared: Arc::downgrade(&observer.shared),
+                hooks: Arc::downgrade(&observer.hooks),
+            });
+        });
         Ok((source, observer))
     }
 }
@@ -305,6 +361,9 @@ impl ObservedFileReadAt {
                 idle: Condvar::new(),
             }),
             hooks: Arc::new(ReadHooks::default()),
+            operation_scope: None,
+            _reader_owner: None,
+            concurrency: limits.max_in_flight,
         })
     }
 
@@ -436,7 +495,7 @@ impl VortexReadAt for ObservedFileReadAt {
     }
 
     fn concurrency(&self) -> usize {
-        self.shared.limits.max_in_flight
+        self.concurrency
     }
 
     fn size(&self) -> BoxFuture<'static, VortexResult<u64>> {
@@ -459,14 +518,28 @@ impl VortexReadAt for ObservedFileReadAt {
     ) -> BoxFuture<'static, VortexResult<BufferHandle>> {
         let reader = self.clone();
         async move {
+            let operation_job = reader
+                .operation_scope
+                .as_ref()
+                .map(|scope| scope.admit(length))
+                .transpose()
+                .map_err(|error| vortex_err!("{error}"))?;
             let job = reader
                 .shared
                 .admit(offset, length, reader.identity.generation.len)?;
             let handle = reader.handle.clone();
             let completion = handle
                 .spawn_blocking(move || {
-                    let result = reader.read_blocking(&job, offset, length, alignment);
-                    ReadCompletion { result, _job: job }
+                    let result = operation_job
+                        .as_ref()
+                        .map_or(Ok(()), super::io_ownership::ReadJob::check_cancelled)
+                        .map_err(|error| vortex_err!("{error}"))
+                        .and_then(|()| reader.read_blocking(&job, offset, length, alignment));
+                    ReadCompletion {
+                        result,
+                        _job: job,
+                        _operation_job: operation_job,
+                    }
                 })
                 .await;
             completion.result
