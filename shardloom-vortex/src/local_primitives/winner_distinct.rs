@@ -23,6 +23,12 @@ const SAMPLE_ROWS: u64 = 262_144;
 const MAX_CHUNK_ROWS: usize = 262_144;
 const MAX_COUNT_GROUPS: usize = 65_536;
 
+#[cfg(test)]
+thread_local! {
+    static AFTER_COUNT_TEST_HOOK: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native winner-only DISTINCT {reason}; no fallback execution was attempted"
@@ -175,85 +181,114 @@ impl Report {
         )?;
         states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&self.columns)?;
-        let mut plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
+        let plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if plan.projected_columns != self.columns {
             return Err(failed("count projection changed column order"));
         }
-        let mut scan = file.scan(session).map_err(vortex_error)?;
-        if let Some(projection) = plan.projection.take() {
-            scan = scan.with_projection(file.bind(&projection)?);
-        }
-        let mut scan = scan
-            .with_concurrency(policy.scan_concurrency_per_worker())
-            .into_array_iter(runtime)
-            .map_err(vortex_error)?;
+        let projection = plan
+            .projection
+            .as_ref()
+            .map(|projection| file.bind(projection))
+            .transpose()?;
         self.decision = "complete_count_then_selected_measures";
-        loop {
-            check_cancelled()?;
-            let scan_started = Instant::now();
-            let chunk = scan.next();
-            self.count_timing.scan_next_nanos += scan_started.elapsed().as_nanos();
-            let Some(chunk) = chunk else {
-                break;
-            };
-            let chunk = match chunk {
-                Ok(chunk) => chunk,
-                Err(error) => {
-                    // Preserve the enclosing prepared-source retry decision.
-                    if let Some(retry) = uncached_retry.as_mut() {
-                        retry(&error);
-                    }
-                    return Err(vortex_error(error));
-                }
-            };
-            check_cancelled()?;
-            let rows = chunk.len();
-            reader_splits.push(VortexReaderBackedSplitEvidence::local_scan_chunk(
-                source_uri.clone(),
-                reader_splits.len(),
-                rows,
-                chunk.dtype().to_string(),
-                chunk.encoding_id().to_string(),
-                chunk.nchildren(),
-                chunk.nbuffers(),
-            )?);
-            *max_chunk_rows = (*max_chunk_rows).max(rows);
-            if rows > MAX_CHUNK_ROWS {
-                self.decision = "declined_auxiliary_chunk_bound";
-                break;
-            }
-            if !states.update_compact_direct_from_chunk_profiled(
-                &chunk,
-                &self.columns,
-                None,
-                &mut self.count_timing,
-            )? {
-                return Err(failed("lost the admitted numeric COUNT contract"));
-            }
-            self.count_rows = self
-                .count_rows
-                .checked_add(super::usize_to_u64(rows)?)
-                .ok_or_else(|| failed("count row total overflowed"))?;
-            let Some(groups) = states.single_numeric_count_groups.as_ref() else {
-                if rows == 0 {
-                    continue;
-                }
-                return Err(failed("numeric COUNT state is missing"));
-            };
-            self.candidate_groups = groups.len();
-            if groups.len() > MAX_COUNT_GROUPS {
-                self.decision = "declined_auxiliary_group_bound";
-                break;
-            }
-            if self.sample_rows == 0 && self.count_rows >= SAMPLE_ROWS {
+        // A leading prefix can be clustered. Spatial samples inform cost only;
+        // only the later complete COUNT pass can certify winner membership.
+        'passes: for range in sample_ranges(self.source_rows)
+            .into_iter()
+            .map(Some)
+            .chain([None])
+        {
+            if range.is_none() {
                 self.sample_rows = self.count_rows;
-                self.sample_retained_rows = selected(groups, self.retained_cap)
-                    .iter()
-                    .map(|candidate| candidate.count)
-                    .sum();
+                if self.sample_rows != SAMPLE_ROWS {
+                    return Err(failed(
+                        "sample ranges did not produce their exact row weight",
+                    ));
+                }
+                self.sample_retained_rows = selected(
+                    states
+                        .single_numeric_count_groups
+                        .as_ref()
+                        .ok_or_else(|| failed("sample count state is missing"))?,
+                    self.retained_cap,
+                )
+                .iter()
+                .map(|candidate| candidate.count)
+                .sum();
                 if high_winner_share(self.sample_retained_rows, self.sample_rows) {
                     self.decision = "declined_high_sample_winner_share";
                     break;
+                }
+                drop(states.single_numeric_count_groups.take());
+                self.count_rows = 0;
+            }
+            let mut scan = file.scan(session).map_err(vortex_error)?;
+            if let Some(projection) = &projection {
+                scan = scan.with_projection(projection.clone());
+            }
+            if let Some(range) = range {
+                scan = scan.with_row_range(range);
+            }
+            let mut scan = scan
+                .with_concurrency(policy.scan_concurrency_per_worker())
+                .into_array_iter(runtime)
+                .map_err(vortex_error)?;
+            loop {
+                check_cancelled()?;
+                let scan_started = Instant::now();
+                let chunk = scan.next();
+                self.count_timing.scan_next_nanos += scan_started.elapsed().as_nanos();
+                let Some(chunk) = chunk else {
+                    break;
+                };
+                let chunk = match chunk {
+                    Ok(chunk) => chunk,
+                    Err(error) => {
+                        // Preserve the enclosing prepared-source retry decision.
+                        if let Some(retry) = uncached_retry.as_mut() {
+                            retry(&error);
+                        }
+                        return Err(vortex_error(error));
+                    }
+                };
+                check_cancelled()?;
+                let rows = chunk.len();
+                reader_splits.push(VortexReaderBackedSplitEvidence::local_scan_chunk(
+                    source_uri.clone(),
+                    reader_splits.len(),
+                    rows,
+                    chunk.dtype().to_string(),
+                    chunk.encoding_id().to_string(),
+                    chunk.nchildren(),
+                    chunk.nbuffers(),
+                )?);
+                *max_chunk_rows = (*max_chunk_rows).max(rows);
+                if rows > MAX_CHUNK_ROWS {
+                    self.decision = "declined_auxiliary_chunk_bound";
+                    break 'passes;
+                }
+                if !states.update_compact_direct_from_chunk_profiled(
+                    &chunk,
+                    &self.columns,
+                    None,
+                    &mut self.count_timing,
+                )? {
+                    return Err(failed("lost the admitted numeric COUNT contract"));
+                }
+                self.count_rows = self
+                    .count_rows
+                    .checked_add(super::usize_to_u64(rows)?)
+                    .ok_or_else(|| failed("count row total overflowed"))?;
+                let Some(groups) = states.single_numeric_count_groups.as_ref() else {
+                    if rows == 0 {
+                        continue;
+                    }
+                    return Err(failed("numeric COUNT state is missing"));
+                };
+                self.candidate_groups = groups.len();
+                if groups.len() > MAX_COUNT_GROUPS {
+                    self.decision = "declined_auxiliary_group_bound";
+                    break 'passes;
                 }
             }
         }
@@ -267,6 +302,16 @@ impl Report {
         if self.decision == "complete_count_then_selected_measures" {
             self.finish_counts(&counts)?;
         }
+        drop(counts);
+        #[cfg(test)]
+        if self.filter.is_some() {
+            AFTER_COUNT_TEST_HOOK.with(|hook| {
+                if let Some(hook) = hook.borrow_mut().take() {
+                    hook();
+                }
+            });
+        }
+        check_cancelled()?;
         self.count_pass_nanos = started.elapsed().as_nanos();
         Ok(())
     }
@@ -312,10 +357,15 @@ impl Report {
         let object = value
             .as_object_mut()
             .ok_or_else(|| failed("summary is not an object"))?;
+        if let Some(serde_json::Value::String(scope)) = object.get_mut("aggregate_timing_scope") {
+            scope.push_str(";winner_count_sampling_and_selection_scans_have_separate_timers;legacy_first_pass_fields_measure_the_following_mixed_measure_scan");
+        }
         object.insert("aggregate_winner_distinct".into(), serde_json::json!({
             "decision": self.decision,
-            "strategy": "shared_numeric_count_then_native_in_filter_and_unchanged_mixed_measures",
-            "proof": "complete_count_star_order_then_complete_key_ties_distinct_cannot_affect_selection",
+            "strategy": if self.filter.is_some() { "shared_numeric_count_then_native_in_filter_and_unchanged_mixed_measures" }
+                else { "original_mixed_measures_after_bounded_count_screen" },
+            "proof": if self.filter.is_some() { "complete_count_star_order_then_complete_key_ties_distinct_cannot_affect_selection" }
+                else { "sample_for_cost_only_original_complete_aggregate_preserved" },
             "candidate_groups": self.candidate_groups,
             "retained_groups": self.retained_groups,
             "retained_cap": self.retained_cap,
@@ -332,9 +382,11 @@ impl Report {
             "count_accessor_chunks": self.count_timing.accessor_chunks,
             "count_accessor_rows": self.count_timing.accessor_rows,
             "count_columns": self.columns,
-            "max_auxiliary_groups": MAX_COUNT_GROUPS,
+            "auxiliary_group_admission_limit": MAX_COUNT_GROUPS,
+            "max_transient_auxiliary_groups": MAX_COUNT_GROUPS + MAX_CHUNK_ROWS,
             "max_auxiliary_chunk_rows": MAX_CHUNK_ROWS,
             "sample_winner_share_limit_percent": 70,
+            "sample_ranges": sample_ranges(self.source_rows).iter().map(|range| [range.start, range.end]).collect::<Vec<_>>(),
             "scope": "auxiliary_count_pass_in_addition_to_existing_measure_pass_timers_not_cpu_or_complete_wall",
         }));
         *summary = value.to_string();
@@ -363,6 +415,17 @@ fn selected(
 
 fn high_winner_share(retained: u64, rows: u64) -> bool {
     u128::from(retained) * 10 >= u128::from(rows) * 7
+}
+
+fn sample_ranges(rows: u64) -> Vec<std::ops::Range<u64>> {
+    let width = (SAMPLE_ROWS / 4).min(rows / 4);
+    let last_start = rows - width;
+    (0..4)
+        .map(|index| {
+            let start = (last_start / 3) * index + (last_start % 3) * index / 3;
+            start..start + width
+        })
+        .collect()
 }
 
 #[cfg(test)]

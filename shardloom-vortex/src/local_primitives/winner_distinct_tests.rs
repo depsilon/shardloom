@@ -235,4 +235,21 @@ fn winner_distinct_empty_state_and_weight_checks_are_exact() {
     assert!(high_winner_share(70, 100));
     assert!(!high_winner_share(69, 100));
     assert!(high_winner_share(u64::MAX, u64::MAX));
+    for rows in [1_000_000, 99_997_497, u64::MAX] {
+        let ranges = sample_ranges(rows);
+        assert_eq!(ranges[0].start, 0);
+        assert_eq!(ranges[3].end, rows);
+        assert!(ranges.windows(2).all(|pair| pair[0].end <= pair[1].start));
+        assert_eq!(
+            ranges
+                .iter()
+                .map(|range| range.end - range.start)
+                .sum::<u64>(),
+            SAMPLE_ROWS
+        );
+    }
 }
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[path = "winner_distinct_native_tests.rs"]
+mod native;

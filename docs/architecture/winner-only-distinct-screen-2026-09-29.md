@@ -43,10 +43,16 @@ separate ordinary/DISTINCT update loop is needed. Retain OFFSET plus LIMIT keys,
 apply OFFSET only to the final result, and preserve the complete key tie order.
 The same held source, session, cancellation and provider owners span both scans.
 Report auxiliary reads, count work, selected row weight and policy rejection.
-A bounded prefix cost screen must reject high winner coverage and excessive
+A bounded spatial cost screen must reject high winner coverage and excessive
 auxiliary state before completing the preliminary scan; its threshold remains
 provisional until adverse-workload timing. A rejected cost screen uses the
-original native plan; an execution error remains an error.
+original native plan; an execution error remains an error. The first native
+prefix-screen candidate correctly declined Q10, but its prefix estimated 79.87%
+winner coverage against the known full-input 42.45%. This cost false negative
+motivates four 65,536-row ranges spread across the source, using the existing
+`ScanBuilder::with_row_range` provider. Samples decide cost only; their counts
+are discarded before the complete exact COUNT pass. Spatial sampling is still
+a heuristic and provides no distribution-independent performance guarantee.
 
 Vortex-first decision: `use_vortex_native_provider` for the existing 0.85.0
 `ScanBuilder::with_projection`/`with_filter` and bound IN expression; ShardLoom's
