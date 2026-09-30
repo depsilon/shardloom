@@ -37,7 +37,10 @@ fn accessor<T: NativePType>(values: Vec<T>) -> AggregateDirectColumnAccessor {
 
 fn assert_state_equal(actual: &GroupedAggregateStates<'_>, expected: &GroupedAggregateStates<'_>) {
     assert_eq!(actual.groups.len(), expected.groups.len());
-    assert!(actual.group_order == expected.group_order);
+    assert!(
+        actual.group_order.eq(&expected.group_order),
+        "group order changed"
+    );
     assert_eq!(
         actual.source_order_limited_group_admission,
         expected.source_order_limited_group_admission

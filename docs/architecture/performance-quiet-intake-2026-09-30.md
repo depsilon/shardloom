@@ -177,6 +177,29 @@ empty string, repeated values across chunks, cancellation and allocation denial
 need explicit fixtures. Do not produce grouped output rows or maintain occurrence
 counts merely to obtain one cardinality.
 
+The admitted prototype uses a single identity UTF8 COUNT(DISTINCT) measure with
+no grouping, predicate, spill, or source-order limit. The existing chunk job
+window owns one caller and the remaining admitted CPU lanes; provider drivers
+are restored before scanning if admission declines. Each chunk retains its
+native canonical owner. Workers build the existing source-backed dictionary for
+canonical rows; its entries are already referenced and nonnull. Native
+dictionaries retain their codes and mark only referenced nonnull values. Both
+representations union values into 64 content-hash partitions.
+Partitions retain independent bytes only on an exact global miss, with full
+hash and byte equality. Directory, dense record, byte arena, task and metadata
+capacity are reserved from the shared live pool, including replacement peaks.
+No occurrence counts or grouped output are constructed. Cancellation drains
+jobs; post-admission failures abort the operation. Final cardinality is a checked
+sum after all jobs finish, and the ordinary scalar result/HAVING surface consumes
+that value. This is an in-memory path, with no new spill behavior.
+
+Existing Q6 receipts already separate provider execution and chunk dictionary
+construction. The one-second sampled stack also contains independent string
+promotion and global set insertion. Used-code marking has no separate sampled
+frame or clock, so its cost is unresolved rather than assumed negligible. The
+prototype covers the complete dictionary/mark/union unit; it does not claim that
+finalization alone or any one of those stages accounts for the prospective gain.
+
 ### 5. Dense directory: keep the screens separate
 
 In [`string_count_partitions.rs`](../../shardloom-vortex/src/local_primitives/string_count_partitions.rs),

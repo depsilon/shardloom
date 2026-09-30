@@ -241,6 +241,9 @@ impl CountWorkers {
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if super::scalar_distinct_workers::request_may_be_admitted(request) {
+        return true;
+    }
     if super::dictionary_prepare_workers::request_may_be_admitted(request) {
         return true;
     }
