@@ -17,6 +17,33 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R2.b and final profiling: complete the 29-experiment packet.
+  - Date: 2026-09-30 UTC. Runtime `d726aaf6d041e8f87f82fe6bf17dcc4b002603a1`
+    shares the source-backed first-seen dictionary builder and ordered consumer.
+    One dictionary worker, two retained chunks and an explicit caller/provider/
+    preparation CPU grant reuse existing jobs, ownership and native drivers.
+    Prepared sessions with existing provider workers keep their original path.
+    Pressure retires to the same serial consumer; cancellation and errors do not
+    introduce replay. Native bytes are estimates, not an RSS bound.
+  - Full43 passes all 258 complete results: Q29 best improves 30.38%
+    (6.756227 → 4.703962 seconds), and the best-of-three query total falls
+    4.38% (54.016214 → 51.649986 seconds). Preserve Q34/Q35/Q37's negative
+    observations and the initial prototype's separate 1.75% positive result.
+    All 270 screen/acceptance comparisons, raw archives and source identities
+    pass independent audit. See [R2.b](dictionary-preparation-screen-2026-09-30.md).
+  - Formatting, workspace/native Clippy, 3,436 workspace tests, 2,037 native
+    tests and 1,520 CLI tests pass; counts overlap and 22 existing native manual
+    fixtures remain ignored. Exact-head PR checks and merge gate delivery to main.
+  - [Final profiling](performance-profile-refresh-2026-09-30.md) records all 43
+    query samples and RSS, with 23 queries below one second, plus the dates and
+    limitations of non-query evidence. It identifies shared components and new
+    attribution opportunities without starting another campaign. The
+    [intake](performance-candidate-intake-2026-09-26.md) retains all 29 decisions.
+    [Cleanup](local-artifact-cleanup-2026-09-30.md) has retired 4,174,254,080
+    allocated bytes through R10; final superseded-binary retirement is guarded
+    by the R2.b merge and saved evidence. All broader PERF and CG gates remain
+    independently scoped. No release or paused format run is reopened.
+
 - [x] `PERF-INTAKE` R10: retain shared dense single-string COUNT payload pages.
   - Date: 2026-09-30 UTC. Runtime `a33da94f131125b4119603bc9f032c5687e8df6b`
     reuses the compound path's stable paged records and exact leased allocation.
@@ -33,7 +60,8 @@ phase plan first.
     1,520 CLI tests pass; counts overlap and 22 existing native fixtures are
     ignored. Collision, denied-growth and refund tests cover the new layout.
     See [the screen and acceptance record](dense-string-count-screen-2026-09-30.md).
-    PR/CI acceptance is pending. R2.b and the final profiling refresh remain.
+    Merged as PR #1487 after independent audit and all 40 exact-head checks.
+    R2.b and the final profiling refresh remain.
 
 - [x] `PERF-INTAKE` R4 / R6.c: close the next two bounded candidates.
   - Date: 2026-09-30 UTC. R4's complete triple-key partition sort/reduce passes

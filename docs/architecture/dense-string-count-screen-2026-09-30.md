@@ -1,6 +1,7 @@
 # R10: dense single-string COUNT payloads
 
-Status: **retain** after full local acceptance; PR/CI acceptance is pending.
+Status: **retain**, merged in [PR #1487](https://github.com/depsilon/shardloom/pull/1487)
+after full local acceptance, independent evidence audit and all 40 exact-head CI checks.
 Current PERF-INTAKE /
 PERF-03/04/06; CG-1 through CG-23 and V1 candidate scope remain unchanged.
 
@@ -130,8 +131,8 @@ An independent mechanical audit verifies all 300 complete values/hashes, 50
 archives and 1,200 members, 13 source files and two declared deletions, 21 portable
 text records and the documented metrics. Primary review owns semantic acceptance;
 the retained references are regression oracles, not a new independent SQL oracle.
-Temporary capacity counters are absent from the accepted runtime. R2.b remains
-the next candidate after this PR lands; the release and format pulse stay closed.
+Temporary capacity counters are absent from the accepted runtime. R2.b is the
+remaining candidate; the release and format pulse stay closed.
 
 PR review also updates both ignored string-state benchmark fingerprints to include
 the shared dense-page helper. This changes test-only source identity, not the
