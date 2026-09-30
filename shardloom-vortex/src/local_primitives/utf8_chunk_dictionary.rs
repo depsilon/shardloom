@@ -29,6 +29,33 @@ pub(super) struct Utf8ChunkDictionary {
 }
 
 impl Utf8ChunkDictionary {
+    /// Exact worst-case capacities are admitted before a worker allocates. A
+    /// chunk can introduce at most one new value per row, so no growth occurs.
+    pub(super) fn with_row_capacity(rows: usize) -> Result<Self> {
+        let capacity = row_slot_capacity(rows)?;
+        let mut slots = exact_row_vec(capacity)?;
+        slots.resize(capacity, Slot::default());
+        Ok(Self {
+            slots,
+            values: exact_row_vec(rows)?,
+            copied_bytes: 0,
+            source_backed_bytes: 0,
+        })
+    }
+
+    pub(super) fn bounded_capacity_bytes(rows: usize) -> Result<u64> {
+        row_slot_capacity(rows)?
+            .checked_mul(size_of::<Slot>())
+            .and_then(|slots| {
+                rows.checked_mul(
+                    size_of::<Utf8DictionaryValue>() + size_of::<u32>() + size_of::<bool>(),
+                )
+                .and_then(|values| slots.checked_add(values))
+            })
+            .and_then(|bytes| u64::try_from(bytes).ok())
+            .ok_or_else(|| failed("bounded metadata size overflow"))
+    }
+
     pub(super) fn intern_source(
         &mut self,
         column: &str,
@@ -124,6 +151,27 @@ impl Utf8ChunkDictionary {
     }
 }
 
+fn row_slot_capacity(rows: usize) -> Result<usize> {
+    u32::try_from(rows).map_err(|_| failed("exceeded u32 rows"))?;
+    rows.checked_mul(4)
+        .and_then(|n| n.checked_add(2))
+        .map(|n| n / 3)
+        .and_then(usize::checked_next_power_of_two)
+        .map(|n| n.max(16))
+        .ok_or_else(|| failed("bounded directory capacity overflow"))
+}
+
+pub(super) fn exact_row_vec<T>(capacity: usize) -> Result<Vec<T>> {
+    let mut values = Vec::new();
+    values
+        .try_reserve_exact(capacity)
+        .map_err(|_| failed("could not allocate bounded directory"))?;
+    if values.capacity() > capacity {
+        return Err(failed("allocator exceeded bounded directory capacity"));
+    }
+    Ok(values)
+}
+
 fn invalid_utf8(column: &str, error: impl std::fmt::Display) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "local Vortex aggregate direct UTF-8 column '{column}' had invalid UTF-8: {error}; no fallback execution was attempted"
@@ -162,6 +210,42 @@ mod tests {
                     .map_err(|error| invalid_utf8(column, error))
             })
         }
+    }
+
+    #[test]
+    fn bounded_capacity_keeps_first_seen_ids_and_never_grows_under_collisions() {
+        for rows in [0, 1, 12, 13, 16, 24, 25, 1024] {
+            let mut bounded = Utf8ChunkDictionary::with_row_capacity(rows).unwrap();
+            let mut serial = Utf8ChunkDictionary::default();
+            let capacities = (bounded.slots.capacity(), bounded.values.capacity());
+            let values = (0..rows).map(|i| format!("東京\0{i}")).collect::<Vec<_>>();
+            for value in values.iter().chain(values.iter().rev()) {
+                assert_eq!(
+                    bounded.intern_hashed("text", value.as_bytes(), 0).unwrap(),
+                    serial.intern_hashed("text", value.as_bytes(), 0).unwrap()
+                );
+                assert_eq!(
+                    (bounded.slots.capacity(), bounded.values.capacity()),
+                    capacities
+                );
+            }
+            assert_eq!(
+                Utf8ChunkDictionary::bounded_capacity_bytes(rows).unwrap(),
+                (capacities.0 * size_of::<Slot>()
+                    + capacities.1 * size_of::<Utf8DictionaryValue>()
+                    + rows * (size_of::<u32>() + size_of::<bool>())) as u64
+            );
+            assert_eq!(
+                bounded
+                    .into_values()
+                    .0
+                    .iter()
+                    .map(AsRef::as_ref)
+                    .collect::<Vec<&str>>(),
+                values
+            );
+        }
+        assert!(Utf8ChunkDictionary::bounded_capacity_bytes(usize::MAX).is_err());
     }
 
     #[test]

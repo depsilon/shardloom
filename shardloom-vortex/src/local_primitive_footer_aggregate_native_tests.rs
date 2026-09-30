@@ -8,7 +8,7 @@ use crate::{
     resident_session::read_observer::{ObservedFileReadAt, ReadObservationLimits},
 };
 use serde_json::{Value, json};
-use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri};
+use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
 use std::{
     fs,
     path::PathBuf,
@@ -324,6 +324,101 @@ fn footer_aggregate_native_complete_scalar_values_avoid_actual_post_prepare_read
             drop(observer);
             assert_eq!(memory.snapshot().reserved_bytes, 0);
         }
+    }
+}
+
+#[test]
+fn footer_aggregate_native_metadata_completion_needs_no_payload_io_credit() {
+    let fixture = Fixture::new(65_536, false);
+    for parallelism in [1, 2] {
+        for profile in ["complete", "disabled"] {
+            let request = fixture.request(profile);
+            let (prepared, observer) = observed_prepare(&request, parallelism);
+            let memory = prepared.session.memory().clone();
+            let baseline = memory.snapshot().reserved_bytes;
+            let held = memory
+                .reserve(memory.snapshot().limit_bytes - baseline)
+                .unwrap();
+            let before = observer.snapshot().unwrap();
+            for cancellable in [false, true] {
+                let result = if cancellable {
+                    prepared.execute_cancellable(
+                        &shardloom_exec::compute_pool::CancellationToken::default(),
+                    )
+                } else {
+                    prepared.execute()
+                };
+                if profile == "complete" {
+                    let result = result.unwrap();
+                    assert_metadata(&result.report, fixture.signed.len(), 7);
+                    assert_eq!(payload(&result.report)["values"], fixture.oracle());
+                } else {
+                    assert!(
+                        result
+                            .err()
+                            .unwrap()
+                            .to_string()
+                            .contains("memory reservation denied")
+                    );
+                }
+                assert_eq!(
+                    memory.snapshot().reserved_bytes,
+                    memory.snapshot().limit_bytes
+                );
+                assert_eq!(observer.snapshot().unwrap(), before);
+            }
+            drop(held);
+            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+            let result = prepared.execute().unwrap();
+            assert_eq!(payload(&result.report)["values"], fixture.oracle());
+            if profile == "disabled" {
+                assert!(
+                    observer.snapshot().unwrap().completed_read_bytes > before.completed_read_bytes
+                );
+            }
+            drop(result);
+            drop(prepared);
+            observer.close_and_drain(DRAIN).unwrap();
+            drop(observer);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn footer_aggregate_native_pruned_completion_needs_no_payload_io_credit() {
+    let fixture = Fixture::new(65_536, false);
+    for parallelism in [1, 2] {
+        let mut request = fixture.request("complete");
+        request.predicate = Some(PredicateExpr::Compare {
+            column: ColumnRef::new(SIGNED).unwrap(),
+            op: ComparisonOp::Gt,
+            value: StatValue::Int64(i64::MAX),
+        });
+        let (prepared, observer) = observed_prepare(&request, parallelism);
+        let memory = prepared.session.memory().clone();
+        let baseline = memory.snapshot().reserved_bytes;
+        let held = memory
+            .reserve(memory.snapshot().limit_bytes - baseline)
+            .unwrap();
+        let before = observer.snapshot().unwrap();
+        let result = prepared.execute().unwrap();
+        assert!(result.native_io_certificate.is_certified());
+        assert!(!result.report.upstream_scan_called && !result.report.data_read);
+        assert_eq!(
+            payload(&result.report)["values"],
+            json!({"all_rows":0,"signed_present":0,"signed_low":null,"signed_high":null,
+                "unsigned_present":0,"unsigned_low":null,"unsigned_high":null})
+        );
+        assert_eq!(observer.snapshot().unwrap(), before);
+        assert_eq!(
+            memory.snapshot().reserved_bytes,
+            memory.snapshot().limit_bytes
+        );
+        drop((result, held, prepared));
+        observer.close_and_drain(DRAIN).unwrap();
+        drop(observer);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
 

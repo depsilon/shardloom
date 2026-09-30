@@ -8,8 +8,9 @@ use vortex::io::runtime::BlockingRuntime;
 pub(super) trait AggregateScanRuntime: BlockingRuntime {
     type ProviderDrivers;
 
-    /// Call only after the caller-only aggregate pool was not admitted, or was
-    /// cancelled and joined for replay. A runtime already driven by a resident
+    /// Call after aggregate admission declines/retires, or for the dictionary
+    /// preparation family's explicit shared CPU grant (one driver plus its
+    /// caller/worker pair). A runtime already driven by a resident
     /// provider pool must never receive `worker_memory` at the scan entrypoint.
     fn provider_drivers(&self, requested: usize) -> Result<(Self::ProviderDrivers, usize)>;
 }
