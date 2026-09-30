@@ -1,7 +1,8 @@
 # R2.b: bounded dictionary preparation
 
-Status: **retain** after full local acceptance and independent evidence audit.
-Exact-head PR checks and merge gate availability on main.
+Status: **retain candidate; merge blocked on native lifetime correction**.
+The original local performance evidence remains valid for its recorded binary;
+Linux cancellation failures require a runtime fix, fresh final UAT and exact-head CI.
 This closes the last
 candidate in the September 26 intake before its final profiling refresh. It does
 not resume the release train or the paused format comparison.
@@ -134,7 +135,7 @@ sample/RSS/metric. Primary review separately accepts source ordering, admission,
 owner/credit lifetime, CPU grants and cancellation/error behavior. See the
 [final profile and reuse inventory](performance-profile-refresh-2026-09-30.md).
 
-## PR fixture teardown boundary
+## PR cancellation lifetime correction
 
 The initial Linux native-suite run fails two final zero-reservation assertions
 after cancellation/source-error recovery; both see 177,400 bytes still live.
@@ -143,13 +144,33 @@ sessions do not synchronously join the upstream blocking-I/O pool; running reads
 retain charged buffers until their closure/result owners drop. CPU-driver join
 does not certify that separate I/O boundary.
 
-A bounded final-teardown wait lets the cancellation fixture pass in the next
-Linux run. That run also observes the same 177,400-byte I/O owner immediately
-after the injected source error, before the final teardown. File-backed error
-and final-teardown checks therefore require the exact expected reservation total
-within five seconds. A separate in-memory active-worker cancellation fixture
-requires immediate zero credits after the worker is joined and dropped, with
-no native I/O owner that could mask a failed worker refund. Existing direct
-pressure/refund checks remain immediate. Exact-head CI must pass before merge.
-This changes only the `cfg(test)` fixture file. The measured release runtime,
-binary and immutable performance evidence are unchanged.
+A final-teardown wait initially lets cancellation pass, but a third Linux run
+still retains 177,400 bytes after five seconds in both native fixtures. Waiting
+outside the current-thread runtime does not drive destruction of cancelled
+provider futures. The worker-only fixture refunds immediately. This is a native
+operation lifetime defect, not sufficient evidence of scheduling variation.
+
+A deterministic P1 fixture reproduces the missing drain locally: after the
+operation fails, a cancelled provider completion still retains its charged
+buffer (39,164 bytes versus a 34,812-byte prepared-source baseline). Reusing
+`IoScope` drives that completion before return. A read-count-only drain also
+leaves the operation's reader queued for destruction; the dictionary fixtures
+then expose a 96-byte scope owner. Track that reader as well as its read jobs.
+The existing held descriptor and parsed footer create a fresh native segment
+source and layout-reader tree for each operation. No pathname reopen, answer
+cache, Arrow conversion, or external execution provider is added.
+
+Ordinary file execution initializes the shared scope lazily; metadata and owned
+in-memory execution keep their existing admission. Reader concurrency and the
+live allocator remain its resource limits. Serving retains its explicit shared
+request/byte envelope. The scope closes on success, error and cancellation, then
+drives pending reads and reader destruction before releasing admission. Nested
+operators borrow the same scope and do not close it prematurely.
+
+The dictionary cancellation/source-error fixtures again require immediate exact
+refunds; the five-second polling workaround is removed. The deterministic
+regression covers both cancellation and error, failure before the first read,
+and a subsequent successful projection. Final native/CLI/workspace validation,
+Linux CI and a new immutable Full43 cohort remain required. The earlier frozen
+binary, 270-comparison bundle and query profile remain historical evidence and
+must not be overwritten or described as measurements of this runtime correction.

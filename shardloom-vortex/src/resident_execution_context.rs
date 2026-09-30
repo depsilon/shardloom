@@ -1,14 +1,16 @@
 //! A borrowed operation boundary; nested operators use this grant directly.
 
 use super::{
-    CallClass, RuntimeOwner, SourceIdentity, io_ownership::IoScope, resident_error,
+    CallClass, RuntimeOwner, SourceIdentity,
+    io_ownership::{IoBudget, IoScope},
+    resident_error,
     serving_admission::Permit,
 };
 use shardloom_core::Result;
 use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     borrow::Cow,
-    sync::{Arc, MutexGuard},
+    sync::{Arc, MutexGuard, OnceLock},
     time::{Duration, Instant},
 };
 use vortex::{
@@ -41,7 +43,7 @@ pub struct NativeExecutionContext<'a> {
     owner: &'a RuntimeOwner,
     class: CallClass,
     cancellation: CancellationToken,
-    io: Option<Arc<IoScope>>,
+    io: OnceLock<Arc<IoScope>>,
     admitted: Instant,
     gate: Gate<'a>,
 }
@@ -77,7 +79,7 @@ impl RuntimeOwner {
             owner: self,
             class,
             cancellation,
-            io,
+            io: io.map_or_else(OnceLock::new, OnceLock::from),
             admitted,
             gate,
         })
@@ -155,11 +157,11 @@ impl NativeExecutionContext<'_> {
     }
 
     pub(super) fn io_scope(&self) -> Option<Arc<IoScope>> {
-        self.io.clone()
+        self.io.get().cloned()
     }
 
     pub(super) fn drain_io(&self) {
-        if let Some(scope) = &self.io {
+        if let Some(scope) = self.io.get() {
             scope.close_and_drain(&self.owner.runtime);
         }
     }
@@ -168,10 +170,29 @@ impl NativeExecutionContext<'_> {
         &self,
         file: &'a VortexFile,
         identity: Option<&Arc<SourceIdentity>>,
-    ) -> Cow<'a, VortexFile> {
-        let (Some(scope), Some(identity)) = (&self.io, identity) else {
-            return Cow::Borrowed(file);
+    ) -> Result<Cow<'a, VortexFile>> {
+        let Some(identity) = identity else {
+            return Ok(Cow::Borrowed(file));
         };
+        self.check_general_execution()?;
+        if self.io.get().is_none() {
+            // Ordinary calls need the same cancellation/drain boundary as
+            // serving calls. Allocate it only for file execution: metadata and
+            // retained in-memory results do not acquire an unused I/O owner.
+            // Their reader concurrency and live allocator remain the limits;
+            // this private budget adds lifetime tracking, not a serving policy.
+            let budget = self
+                .owner
+                .io_budget
+                .clone()
+                .unwrap_or_else(|| IoBudget::new(usize::MAX, u64::MAX));
+            let scope = IoScope::new(budget, &self.owner.memory, self.cancellation.clone())?;
+            let _ = self.io.set(scope);
+        }
+        let scope = self
+            .io
+            .get()
+            .ok_or_else(|| resident_error("native file execution has no I/O owner"))?;
         // Keep the held descriptor, parsed footer and user metadata. A fresh
         // provider reader tree gives this operation an exact I/O lifetime; it
         // does not reopen the file or cache an answer. Batch readers are unchanged.
@@ -181,6 +202,7 @@ impl NativeExecutionContext<'_> {
             handle: self.owner.runtime.handle(),
             concurrency: self.cpu_lanes(),
             scope: Some(Arc::clone(scope)),
+            _reader_owner: Some(scope.retain_reader(&self.owner.memory)?),
         };
         let metrics = RequestMetrics::new(
             &vortex::metrics::DefaultMetricsRegistry::default(),
@@ -192,7 +214,10 @@ impl NativeExecutionContext<'_> {
             self.owner.runtime.handle(),
             metrics,
         );
-        Cow::Owned(file.clone().with_segment_source(Arc::new(source)))
+        let source: Arc<dyn vortex::layout::segments::SegmentSource> = Arc::new(source);
+        #[cfg(all(test, unix, feature = "vortex-write"))]
+        let source = super::file_pruning_tests::observe_operation_segments(source);
+        Ok(Cow::Owned(file.clone().with_segment_source(source)))
     }
 }
 

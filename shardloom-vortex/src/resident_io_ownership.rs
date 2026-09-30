@@ -1,4 +1,4 @@
-//! Serving I/O permits survive cancellation of the waiting native future.
+//! Native I/O permits survive cancellation of the waiting provider future.
 
 use super::{native_error, resident_error};
 use futures::task::AtomicWaker;
@@ -48,6 +48,7 @@ impl IoBudget {
 struct ScopeState {
     closed: bool,
     pending: usize,
+    readers: usize,
 }
 
 pub(super) struct IoScope {
@@ -69,6 +70,7 @@ impl IoScope {
             state: Mutex::new(ScopeState {
                 closed: false,
                 pending: 0,
+                readers: 0,
             }),
             waker: AtomicWaker::new(),
             budget,
@@ -83,19 +85,19 @@ impl IoScope {
         let mut scope = self
             .state
             .lock()
-            .map_err(|_| resident_error("serving I/O scope poisoned"))?;
+            .map_err(|_| resident_error("native I/O scope poisoned"))?;
         let mut total = self
             .budget
             .state
             .lock()
-            .map_err(|_| resident_error("serving I/O budget poisoned"))?;
+            .map_err(|_| resident_error("native I/O budget poisoned"))?;
         if scope.closed
             || total.active_requests == self.budget.max_requests
             || bytes > self.budget.max_bytes.saturating_sub(total.active_bytes)
         {
             total.rejected_requests += 1;
             return Err(resident_error(
-                "serving I/O is closed or exceeds its shared request/byte envelope",
+                "native I/O is closed or exceeds its shared request/byte envelope",
             ));
         }
         scope.pending += 1;
@@ -109,6 +111,28 @@ impl IoScope {
         })
     }
 
+    /// Track the operation's provider reader as well as its blocking reads.
+    /// Dropping a native scan schedules asynchronous provider destruction; a
+    /// zero read count alone does not mean that cancelled driver has drained.
+    pub(super) fn retain_reader(
+        self: &Arc<Self>,
+        memory: &LiveMemoryPool,
+    ) -> Result<Arc<ReaderOwner>> {
+        let metadata = memory.reserve(size_of::<ReaderOwner>() as u64)?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| resident_error("native I/O scope poisoned"))?;
+        if state.closed {
+            return Err(resident_error("native I/O scope is closed"));
+        }
+        state.readers += 1;
+        Ok(Arc::new(ReaderOwner {
+            scope: Arc::clone(self),
+            _metadata: metadata,
+        }))
+    }
+
     /// Closing prevents late provider work from registering reads. The caller
     /// drives provider cleanup until actual blocking completions release their
     /// guards. Running OS reads are cooperative and cannot be interrupted.
@@ -119,18 +143,34 @@ impl IoScope {
             .closed = true;
         runtime.block_on(futures::future::poll_fn(|cx| {
             self.waker.register(cx.waker());
-            if self
+            let state = self
                 .state
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .pending
-                == 0
-            {
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if state.pending == 0 && state.readers == 0 {
                 Poll::Ready(())
             } else {
                 Poll::Pending
             }
         }));
+    }
+}
+
+pub(super) struct ReaderOwner {
+    scope: Arc<IoScope>,
+    _metadata: MemoryLease,
+}
+
+impl Drop for ReaderOwner {
+    fn drop(&mut self) {
+        let mut state = self
+            .scope
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.readers -= 1;
+        drop(state);
+        self.scope.waker.wake();
     }
 }
 

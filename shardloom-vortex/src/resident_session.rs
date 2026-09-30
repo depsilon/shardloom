@@ -539,6 +539,7 @@ impl PreparedVortexSource {
     /// Drive native work under one source generation, allocator, and admission
     /// gate. Callers drain borrowed work inside the closure and expose output
     /// only after this method's final generation validation succeeds.
+    /// Completed arrays may escape; native file/reader/scan owners must not.
     #[cfg(all(
         any(feature = "vortex-write", feature = "vortex-local-primitives"),
         unix
@@ -571,9 +572,7 @@ impl PreparedVortexSource {
         let result = self.with_admitted_native_execution(&context, execute)?;
         context.drain_io();
         context.check_cancelled()?;
-        if source.runtime.serving.is_some() {
-            source.validate()?;
-        }
+        source.validate()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
     }
@@ -597,7 +596,7 @@ impl PreparedVortexSource {
         }
         context.check_cancelled()?;
         self.0.validate()?;
-        let file = context.file_view(&self.0.file, self.0.identity.as_ref());
+        let file = context.file_view(&self.0.file, self.0.identity.as_ref())?;
         let result = execute(&file, context)?;
         context.check_cancelled()?;
         self.0.validate()?;
@@ -639,7 +638,7 @@ impl PreparedVortexSource {
             .saturating_sub(1 + source.runtime.provider_background_workers);
         let workers =
             ResidentWorkerGroup::new(&source.runtime.runtime, additional).map_err(native_error)?;
-        let file = context.file_view(&source.file, source.identity.as_ref());
+        let file = context.file_view(&source.file, source.identity.as_ref())?;
         let result = execute(&file, &source.runtime.session, &source.runtime.runtime)?;
         drop(file);
         drop(workers);
@@ -717,9 +716,7 @@ impl PreparedVortexSource {
         )?;
         context.drain_io();
         context.check_cancelled()?;
-        if source.runtime.serving.is_some() {
-            source.validate()?;
-        }
+        source.validate()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
     }
@@ -745,7 +742,7 @@ impl PreparedVortexSource {
             .validate_execution_context(context)?;
         let source = &self.0;
         source.validate()?;
-        let operation_file = context.file_view(&source.file, source.identity.as_ref());
+        let operation_file = context.file_view(&source.file, source.identity.as_ref())?;
         let additional = if restore_provider_drivers {
             context
                 .cpu_lanes()
@@ -1063,7 +1060,7 @@ impl PreparedVortexProjection {
         let workers =
             ResidentWorkerGroup::new(&runtime.runtime, additional).map_err(native_error)?;
         source.validate()?;
-        let file = context.file_view(&source.file, source.identity.as_ref());
+        let file = context.file_view(&source.file, source.identity.as_ref())?;
         let scan = file
             .scan()
             .map_err(native_error)?
@@ -1215,6 +1212,7 @@ impl SourceIdentity {
             handle,
             concurrency,
             scope,
+            _reader_owner: None,
         })
     }
 }
@@ -1226,6 +1224,7 @@ struct ResidentFileReadAt {
     handle: Handle,
     concurrency: usize,
     scope: Option<Arc<io_ownership::IoScope>>,
+    _reader_owner: Option<Arc<io_ownership::ReaderOwner>>,
 }
 
 impl VortexReadAt for ResidentFileReadAt {

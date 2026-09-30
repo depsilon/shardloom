@@ -119,20 +119,9 @@ fn provider_lane(parallelism: usize) -> bool {
 }
 
 fn assert_native_io_credits_return(memory: &LiveMemoryPool, expected: u64) {
-    // Ordinary sessions do not synchronously join upstream blocking I/O. A
-    // cancelled read keeps its buffer charged until its closure/result drops;
-    // ResidentWorkerGroup joins CPU drivers, not that separate I/O pool. The
-    // worker-only cancellation fixture separately requires immediate refunds.
-    let started = std::time::Instant::now();
-    let initial = memory.snapshot().reserved_bytes;
-    while memory.snapshot().reserved_bytes != expected {
-        assert!(
-            started.elapsed() < std::time::Duration::from_secs(5),
-            "native I/O credits did not return: initial={initial}, expected={expected}, current={:?}",
-            memory.snapshot()
-        );
-        std::thread::yield_now();
-    }
+    // The ordinary native operation now drives its I/O drain before returning,
+    // including failure and cancellation. No result owner remains in these
+    // fixtures, so waiting outside the runtime would conceal a lifetime defect.
     assert_eq!(memory.snapshot().reserved_bytes, expected);
 }
 
