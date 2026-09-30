@@ -1,6 +1,6 @@
 //! Native UTF8 reads borrow; chunk retention and persistent keys own explicitly.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use vortex::{array::arrays::VarBinViewArray, buffer::BufferString};
 
@@ -30,19 +30,32 @@ pub(super) fn borrowed_bytes(source: &VarBinViewArray, row: usize) -> &[u8] {
 #[derive(Clone, Debug)]
 pub(super) enum Utf8DictionaryValue {
     Owned(Arc<str>),
-    Source(BufferString),
+    Source {
+        value: BufferString,
+        independent: OnceLock<Arc<str>>,
+    },
 }
 
 impl Utf8DictionaryValue {
+    pub(super) fn source(value: BufferString) -> Self {
+        Self::Source {
+            value,
+            independent: OnceLock::new(),
+        }
+    }
+
     /// Persistent state must not pin a complete provider buffer for one key.
+    /// Repeated consumers of this dictionary entry share one independent copy,
+    /// including duplicate DISTINCT rows and simultaneous MIN/MAX adoption.
+    /// The cached Arc lives only as long as this entry or an escaping consumer.
     pub(super) fn to_owned_arc(&self) -> Arc<str> {
         match self {
             Self::Owned(value) => Arc::clone(value),
-            Self::Source(value) => {
+            Self::Source { value, independent } => Arc::clone(independent.get_or_init(|| {
                 #[cfg(test)]
                 SOURCE_PROMOTIONS.with(|count| count.set(count.get() + 1));
                 Arc::from(value.as_str())
-            }
+            })),
         }
     }
 }
@@ -51,7 +64,7 @@ impl AsRef<str> for Utf8DictionaryValue {
     fn as_ref(&self) -> &str {
         match self {
             Self::Owned(value) => value,
-            Self::Source(value) => value.as_str(),
+            Self::Source { value, .. } => value.as_str(),
         }
     }
 }

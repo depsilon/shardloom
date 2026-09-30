@@ -42,7 +42,7 @@ impl Utf8ChunkDictionary {
         hasher.write(bytes);
         self.intern_hashed_with(bytes, hasher.finish(), || {
             BufferString::try_from(source.bytes_at(row))
-                .map(Utf8DictionaryValue::Source)
+                .map(Utf8DictionaryValue::source)
                 .map_err(|error| invalid_utf8(column, error))
         })
     }
@@ -72,7 +72,7 @@ impl Utf8ChunkDictionary {
             .map_err(|_| failed("could not allocate value directory"))?;
         match &value {
             Utf8DictionaryValue::Owned(_) => self.copied_bytes += value.len() as u64,
-            Utf8DictionaryValue::Source(_) => self.source_backed_bytes += value.len() as u64,
+            Utf8DictionaryValue::Source { .. } => self.source_backed_bytes += value.len() as u64,
         }
         self.values.push(value);
         self.slots[bucket] = Slot {
@@ -176,7 +176,7 @@ mod tests {
             assert_eq!(
                 dictionary
                     .intern_hashed_with(&bytes, 0, || {
-                        Ok(Utf8DictionaryValue::Source(
+                        Ok(Utf8DictionaryValue::source(
                             BufferString::try_from(bytes.clone()).unwrap(),
                         ))
                     })
@@ -205,7 +205,7 @@ mod tests {
         let mut dictionary = Utf8ChunkDictionary::default();
         let value = BufferString::from("valid");
         dictionary
-            .intern_hashed_with(b"valid", 0, || Ok(Utf8DictionaryValue::Source(value)))
+            .intern_hashed_with(b"valid", 0, || Ok(Utf8DictionaryValue::source(value)))
             .unwrap();
         assert_eq!(
             dictionary
@@ -218,7 +218,7 @@ mod tests {
             dictionary
                 .intern_hashed_with(&invalid, 0, || {
                     BufferString::try_from(invalid.clone())
-                        .map(Utf8DictionaryValue::Source)
+                        .map(Utf8DictionaryValue::source)
                         .map_err(|error| invalid_utf8("text", error))
                 })
                 .unwrap_err()

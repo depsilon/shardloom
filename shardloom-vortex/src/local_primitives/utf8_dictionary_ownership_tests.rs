@@ -13,6 +13,143 @@ use vortex::{
 };
 
 #[test]
+fn source_dictionary_distinct_consumers_reuse_lazy_independent_promotions() {
+    let expected = [
+        "one-long-value",
+        "two-long-value",
+        "one-long-value",
+        "three-long-value",
+    ];
+    let input = VarBinViewArray::from_iter_str(expected).into_array();
+    let accessor = aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+        "renamed",
+        &input,
+        &mut native_numeric_accessor::Utf8AccessorWork::default(),
+    )
+    .unwrap()
+    .unwrap();
+    let AggregateDirectColumnAccessor::Utf8Dictionary { values, .. } = &accessor else {
+        panic!("dictionary");
+    };
+    native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
+    let mut first = SimpleAggregateState::new(
+        SimpleAggregateFunction::CountDistinct,
+        Some(0),
+        "n".into(),
+        None,
+        AggregateValueTransform::Identity,
+    );
+    for row in 0..expected.len() {
+        first
+            .update_direct_row_from_accessors(std::slice::from_ref(&accessor), row, expected.len())
+            .unwrap();
+    }
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        3
+    );
+    assert_eq!(first.count, 4);
+    assert_eq!(first.distinct_values.len(), 3);
+    let mut second = AggregateDistinctSet::default();
+    aggregate_direct_count_distinct_insert_utf8_dictionary_values(
+        vec![true; values.len()],
+        values,
+        &mut second,
+    )
+    .unwrap();
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0
+    );
+    for value in values {
+        let first_owner = value.to_owned_arc();
+        let cloned_value = value.clone();
+        let second_owner = cloned_value.to_owned_arc();
+        assert!(std::sync::Arc::ptr_eq(&first_owner, &second_owner));
+        assert_ne!(first_owner.as_ptr(), value.as_ptr());
+    }
+    drop(accessor);
+    drop(input);
+    assert_eq!(first.distinct_values, second);
+    for value in expected {
+        assert!(second.contains(&AggregateDistinctValue::Utf8(std::sync::Arc::from(value))));
+    }
+}
+
+#[test]
+fn dense_utf8_extrema_share_one_promotion_and_keep_independent_owners() {
+    let expected = [
+        "https://example.test/middle-long-value",
+        "https://example.test/aaa-long-value",
+        "https://example.test/zzz-long-value",
+    ];
+    for (needs_utf8_min, needs_utf8_max) in
+        [(false, false), (true, false), (false, true), (true, true)]
+    {
+        let source = VarBinViewArray::from_iter_str(expected);
+        let values = (0..expected.len())
+            .map(|row| {
+                Utf8DictionaryValue::source(
+                    vortex::buffer::BufferString::try_from(source.bytes_at(row)).unwrap(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let plan = TransformedDictionaryDenseGeneralPlan {
+            needs_utf8_min,
+            needs_utf8_max,
+            ..Default::default()
+        };
+        let mut state = TransformedDictionaryDenseGeneralState::default();
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
+        state
+            .update_weighted_utf8_dictionary_value(plan, &values[0], 0)
+            .unwrap();
+        assert_eq!(
+            native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+            0
+        );
+        assert_eq!(state.row_count, 0);
+        state
+            .update_weighted_utf8_dictionary_value(plan, &values[0], 2)
+            .unwrap();
+        assert_eq!(
+            native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+            usize::from(needs_utf8_min || needs_utf8_max),
+            "both extrema must share one independently owned payload"
+        );
+        if let (Some(min), Some(max)) = (&state.min_utf8, &state.max_utf8) {
+            assert!(std::sync::Arc::ptr_eq(min, max));
+            assert_ne!(min.as_ptr(), values[0].as_ptr());
+        }
+        for (index, weight, promotions) in [
+            (0, 3, 0),
+            (1, 4, usize::from(needs_utf8_min)),
+            (2, 5, usize::from(needs_utf8_max)),
+            (0, 1, 0),
+        ] {
+            state
+                .update_weighted_utf8_dictionary_value(plan, &values[index], weight)
+                .unwrap();
+            assert_eq!(
+                native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+                promotions
+            );
+        }
+        drop(values);
+        drop(source);
+        assert_eq!(state.row_count, 15);
+        assert_eq!(
+            state.min_utf8.as_deref(),
+            needs_utf8_min.then_some(expected[1])
+        );
+        assert_eq!(
+            state.max_utf8.as_deref(),
+            needs_utf8_max.then_some(expected[2])
+        );
+    }
+}
+
+#[test]
 #[allow(clippy::too_many_lines)] // One cache lifetime: miss, hit, saturation, then source release.
 fn source_backed_transformed_cache_promotes_only_retained_misses() {
     let request = VortexSimpleAggregateRequest::grouped(
@@ -29,7 +166,7 @@ fn source_backed_transformed_cache_promotes_only_retained_misses() {
     states.resource_envelope.group_state_soft_item_budget = 1;
     let text = format!("https://example.test/{}", "long-value-".repeat(32));
     let source = VarBinViewArray::from_iter_str([text.as_str()]);
-    let value = Utf8DictionaryValue::Source(
+    let value = Utf8DictionaryValue::source(
         vortex::buffer::BufferString::try_from(source.bytes_at(0)).unwrap(),
     );
     native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
@@ -67,7 +204,8 @@ fn source_backed_transformed_cache_promotes_only_retained_misses() {
     assert_ne!(length, domain, "transform namespaces must remain distinct");
     assert_eq!(
         native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
-        1
+        0,
+        "independent transform keys can share the entry's already-owned payload"
     );
     assert_eq!(
         length,
@@ -92,7 +230,7 @@ fn source_backed_transformed_cache_promotes_only_retained_misses() {
     );
     let uncached_source =
         VarBinViewArray::from_iter_str(["https://different.test/long-uncached-value"]);
-    let uncached = Utf8DictionaryValue::Source(
+    let uncached = Utf8DictionaryValue::source(
         vortex::buffer::BufferString::try_from(uncached_source.bytes_at(0)).unwrap(),
     );
     states

@@ -192,7 +192,7 @@ logs directory, and `r2a-borrowed-screen-analysis.json`,
 `r2a-borrowed-clippy-final.log` and `r2a-independent-review.json` under
 `/Users/dylan/LocalData/shardloom/performance-candidates-20260926`.
 
-## Final acceptance
+## UTF8 acceptance before PR repairs
 
 The same frozen `bb47125c` executable passes all **258 complete-result
 comparisons**: three counterbalanced observations per role for all 43 queries.
@@ -352,6 +352,54 @@ Clean `npm ci`, `npm audit --audit-level=low` (zero advisories), `npm run build`
 asset and public-status checks pass. Local logs use the `r2a-website-*` and
 `r2a-ci-repair-*` prefixes in the performance-candidates directory. The remote
 audit and all remaining checks must pass on the final PR head before merge.
+
+### PR transformed-key cache repair
+
+Review found that the transformed-key cache promoted a source-backed string
+before checking membership. Unlike an owned `Arc` clone, this copies the payload
+on every hit and on misses after saturation. Revision
+`eff4258355fe9f1044174c8ea97fe56589caa92c` looks up borrowed strings in distinct
+Length and URL-domain maps, then promotes only an inserted miss. The maps share
+the same combined entry cap; counters and returned keys preserve their existing
+meaning. Persistent cache entries still own independent strings.
+
+A test-only promotion counter reproduces the old extra copy and proves no
+promotion on a hit or saturated miss. The fixture also checks independent
+pointers, transform namespace separation, the combined cap and readable keys
+after source release. All 11 focused transformed-key tests pass, release-surface
+Clippy passes, and independent source review verifies the ownership and capacity
+invariants. The initial fixture compilation and Clippy corrections are retained
+alongside the red/green logs; no passing evidence is inferred from those failures.
+Validation of `eff42583` passes: 3,436 workspace, 1,993 native (22 existing
+ignores) and 1,170 CLI tests, with formatting and both Clippy configurations.
+Its Full43 passes all 258 complete comparisons. The best-per-query sum is
+72.972761 versus 69.079324 seconds (5.34% lower), with Q29/Q34/Q35 best
+reductions of 13.36%/11.03%/14.92%. No query crosses both 10% and 150 ms
+best-time regression. Medians and all samples remain recorded, including Q10's
+slower median. This cohort is separate from the earlier `bb47125c` measurement;
+it does not establish an incremental speedup attributable to the cache repair.
+Local receipts: `r2a-cache-final-validation.json` and
+`paired43_20260929T235451813958Z/summary.json`.
+
+### PR escaping-owner reuse
+
+The next review found two independent promotions when one value initializes
+both UTF8 MIN and MAX. Auditing all promotion sites also found repeated Source
+copies before per-row DISTINCT deduplication. The shared ownership boundary now
+lazily caches one independent `Arc<str>` per dictionary entry in a `OnceLock`.
+Repeated consumers clone that owner; borrowed reads and unused values still
+avoid promotion. Persistent state never stores a provider slice. This also
+restores sharing across distinct sets and initialized dictionary-entry clones.
+It does not promise inter-chunk deduplication or zero persistent-key copying.
+
+The MIN/MAX fixture fails against the previous code with two promotions instead
+of one. Five ownership fixtures pass after the repair: all MIN/MAX combinations,
+zero weight, unchanged/new extrema, repeated DISTINCT rows, another DISTINCT
+consumer, initialized clones, transformed-cache hit/saturation, sliced providers,
+and provider reservation release while independent keys remain readable.
+Evidence: `r2a-minmax-red.log` and `r2a-escape-green.log`. The added per-entry
+slot and temporary retention of promoted payloads require a fresh cost screen;
+the `eff42583` Full43 above predates this final ownership repair.
 
 ### PR recovery-lock repair
 
