@@ -211,8 +211,8 @@ fn mixed_distinct_workers_capacity_model_accepts_maximum_chunk_unique_pairs() {
     assert_eq!(
         values(&mut state),
         serde_json::json!([
-            {"bucket": i64::MIN, "total":131072.0, "n":131072, "mean":2.0, "unique":131072},
-            {"bucket": -1, "total":131072.0, "n":131072, "mean":2.0, "unique":131072}
+            {"bucket": i64::MIN, "total":131_072.0, "n":131_072, "mean":2.0, "unique":131_072},
+            {"bucket": -1, "total":131_072.0, "n":131_072, "mean":2.0, "unique":131_072}
         ])
     );
     drop(workers);
