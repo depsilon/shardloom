@@ -34,6 +34,9 @@ mod bound_numeric_updates;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/bounded_numeric_reduction_experiment.rs"]
 mod bounded_numeric_reduction_experiment;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/compact_numeric_block.rs"]
+mod compact_numeric_block;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/compact_string_state.rs"]
 mod compact_string_state;
@@ -25553,6 +25556,8 @@ struct GroupedAggregateStates<'a> {
     grouped_count_distinct_pair_preunion_chunk_group_partials: bool,
     grouped_count_distinct_pair_preunion_chunk_groups: u64,
     bound_numeric_recipe_chunks: u64,
+    compact_numeric_block_chunks: u64,
+    compact_numeric_block_input_rows: u64,
     string_count_topk_heavy_hitter_direct_updates: bool,
     string_count_distinct_topk_heavy_hitter_direct_updates: bool,
     chunk_dictionary_direct_updates: bool,
@@ -26729,16 +26734,21 @@ impl GroupedAggregateState {
         row_index: usize,
         bound: Option<&bound_numeric_updates::BoundCompactNumericUpdates<'_>>,
     ) -> Result<()> {
+        let measures = self.compact_measures_mut()?;
+        match bound {
+            Some(bound) => bound.update(measures, row_index),
+            None => measures.update_from_direct_row(specs, accessors, row_index),
+        }
+    }
+
+    fn compact_measures_mut(&mut self) -> Result<&mut CompactAggregateMeasures> {
         let Self::CompactMeasures { measures, .. } = self else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex grouped aggregate compact measure state was missing; no fallback execution was attempted"
                     .to_string(),
             ));
         };
-        match bound {
-            Some(bound) => bound.update(measures, row_index),
-            None => measures.update_from_direct_row(specs, accessors, row_index),
-        }
+        Ok(measures)
     }
 
     fn update_compact_measures_from_transformed_dictionary_plan(
@@ -28500,6 +28510,8 @@ impl<'a> GroupedAggregateStates<'a> {
             grouped_count_distinct_pair_preunion_chunk_group_partials: false,
             grouped_count_distinct_pair_preunion_chunk_groups: 0,
             bound_numeric_recipe_chunks: 0,
+            compact_numeric_block_chunks: 0,
+            compact_numeric_block_input_rows: 0,
             string_count_topk_heavy_hitter_direct_updates: false,
             string_count_distinct_topk_heavy_hitter_direct_updates: false,
             chunk_dictionary_direct_updates: false,
@@ -32014,6 +32026,10 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.compact_measure_specs.is_none() {
             return Ok(false);
         }
+        if compact_numeric_block::update(self, accessors, row_indices, chunk_rows)? {
+            self.compact_measure_direct_updates = true;
+            return Ok(true);
+        }
         let bound = self.compact_measure_specs.as_deref().and_then(|specs| {
             bound_numeric_updates::BoundCompactNumericUpdates::bind(specs, accessors, chunk_rows)
         });
@@ -33747,6 +33763,17 @@ impl<'a> GroupedAggregateStates<'a> {
         row_index: usize,
         bound: Option<&bound_numeric_updates::BoundCompactNumericUpdates<'_>>,
     ) -> Result<()> {
+        self.update_compact_measure_direct_row_with(accessors, row_index, |group, specs| {
+            group.update_compact_measures_from_direct_row(specs, accessors, row_index, bound)
+        })
+    }
+
+    fn update_compact_measure_direct_row_with(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+        update: impl FnOnce(&mut GroupedAggregateState, &[CompactAggregateMeasureSpec]) -> Result<()>,
+    ) -> Result<()> {
         if self.source_order_group_admission_closed() {
             let Some(key) = self.grouped_existing_key_for_direct_row(accessors, row_index)? else {
                 self.source_order_limited_group_admission = true;
@@ -33759,8 +33786,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 )
             })?;
             if let Some(group) = self.groups.get_mut(&key) {
-                group
-                    .update_compact_measures_from_direct_row(specs, accessors, row_index, bound)?;
+                update(group, specs)?;
             }
             self.source_order_limited_group_admission = true;
             return Ok(());
@@ -33790,7 +33816,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 ))
             }
         };
-        group.update_compact_measures_from_direct_row(specs, accessors, row_index, bound)
+        update(group, specs)
     }
 
     fn source_order_group_admission_limit(&self) -> Option<usize> {
@@ -34146,8 +34172,28 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok((rows, payload.to_string()))
     }
 
-    #[allow(clippy::too_many_lines)]
     fn result_row_count_and_payload(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<(usize, serde_json::Value)> {
+        let (rows, mut payload) = self.result_row_count_and_payload_inner(limit)?;
+        if self.compact_numeric_block_chunks != 0 {
+            json_object_insert_u64(
+                &mut payload,
+                "aggregate_compact_numeric_block_chunks",
+                self.compact_numeric_block_chunks,
+            )?;
+            json_object_insert_u64(
+                &mut payload,
+                "aggregate_compact_numeric_block_input_rows",
+                self.compact_numeric_block_input_rows,
+            )?;
+        }
+        Ok((rows, payload))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn result_row_count_and_payload_inner(
         &self,
         limit: Option<usize>,
     ) -> Result<(usize, serde_json::Value)> {
