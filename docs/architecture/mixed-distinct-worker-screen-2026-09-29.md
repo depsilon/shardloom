@@ -1,6 +1,6 @@
 # Mixed-measure exact DISTINCT workers — R3.b
 
-Status: **retain; local acceptance complete, PR integration pending**.
+Status: **retain; PR #1486 review follow-up validation pending**.
 
 The control is retained R3.a runtime
 `22f7acd22e8c06c651f835bb817e25edcad5d5f5`, frozen separately from the build
@@ -24,6 +24,15 @@ It reuses `AggregateChunkJobs` for bounded task admission, ordered completion,
 cancellation and error propagation, and `Budgeted::into_parts` for an owned
 completion callback that holds the existing lease and window permit through
 merge; do not introduce a second queue or ownership protocol.
+
+PR review found that the initial worker queue's private cancellation token did
+not observe the public operation token. The follow-up uses the existing linked
+child token and `AggregateChunkJobs::with_cancellation`. Running workers now
+observe operation cancellation at their periodic checkpoints; stage retirement
+and cleanup cannot cancel the caller's token. A native prepared-call test first
+reproduced the missing link, then passed with the fix, including reservation
+refund and a fresh successful call. All 14 focused tests pass. Revised-runtime
+acceptance is tracked separately from the original observations below.
 
 Initial worker admission requires an active R3.a complete-count proof and at
 most 128 retained keys, integer nonnullable measures and no spill/residual
@@ -125,7 +134,9 @@ cold-storage, format-pulse, production-fairness or subsecond-suite claim is made
   include independent expected values. There is no new full-size external-engine
   correctness oracle, allocator-wide audit or production fairness certification.
 
-The final follow-up changes tests only; the timed runtime source is unchanged.
+The original acceptance follow-up changed tests only. The later cancellation
+repair changes runtime token ownership and requires its own acceptance record;
+the original timed source and observations above remain immutable.
 The [portable evidence bundle](../benchmarks/evidence/mixed-distinct-workers-2026-09-29.json.xz)
 contains both complete cohorts, all 264 strict value comparisons, archive/member
 identities, runtime/test provenance, build and test logs, source review and the
@@ -137,3 +148,9 @@ acceptance. Broader compound DISTINCT/spill transitions, memory attribution and
 unsupported operator families are not completed by this candidate. R4, R6.c,
 R10 and R2.b remain undecided; the completed 0.3.2 train and paused format pulse
 stay closed.
+
+The PR's website CI also exposed the newly listed
+[fast-uri advisory GHSA-hrr3-gc8f-f4qj](https://github.com/advisories/GHSA-hrr3-gc8f-f4qj).
+Its lockfile-only patch updates the existing BSD-3-Clause transitive package
+from 3.1.7 to the compatible fixed 3.1.8 release. It changes no Rust dependency
+or engine execution path; the website audit/build/type gates remain required.

@@ -99,10 +99,17 @@ fn mixed_distinct_workers_preserve_every_row_and_chunk_fold_with_pressure_retire
             let mut state =
                 GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
             let report = proof(&state, &columns);
-            let mut workers =
-                MixedDistinctWorkers::admit(&state, &report, &columns, policy, &memory)
-                    .unwrap()
-                    .unwrap();
+            let operation = shardloom_exec::compute_pool::CancellationToken::default();
+            let mut workers = MixedDistinctWorkers::admit(
+                &state,
+                &report,
+                &columns,
+                policy,
+                &memory,
+                Some(&operation),
+            )
+            .unwrap()
+            .unwrap();
             let mut pressure = None;
             for (index, input) in chunks.iter().enumerate() {
                 if pressure_after == Some(index) {
@@ -141,6 +148,7 @@ fn mixed_distinct_workers_preserve_every_row_and_chunk_fold_with_pressure_retire
             assert_eq!(jobs["submitted_chunks"], jobs["completed_chunks"]);
             drop(workers);
             drop(pressure);
+            assert!(!operation.is_cancelled());
             assert_eq!(memory.snapshot().reserved_bytes, 0);
         }
     }
@@ -161,6 +169,7 @@ fn mixed_distinct_workers_cancel_and_invalid_proof_fail_without_replaying() {
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -198,6 +207,7 @@ fn mixed_distinct_workers_capacity_model_accepts_maximum_chunk_unique_pairs() {
         &columns,
         VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();

@@ -20419,6 +20419,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             &declared_columns,
             policy,
             memory,
+            cancellation,
         )?
         .map(aggregate_count_workers::CountWorkers::MixedDistinct);
         if count_workers.is_some() {

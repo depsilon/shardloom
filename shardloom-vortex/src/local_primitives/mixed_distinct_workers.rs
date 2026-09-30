@@ -13,12 +13,23 @@ use super::{
 };
 use crate::VortexSimpleAggregateRequest;
 use shardloom_core::{Result, ShardLoomError};
-use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{LiveMemoryPool, MemoryLease},
+};
 use std::{sync::Arc, time::Instant};
 use vortex::array::ArrayRef;
 
 const MAX_ROWS: usize = 262_144;
 const MAX_MEASURES: usize = 8;
+
+#[cfg(test)]
+type WorkerStartHook = Box<dyn FnOnce(&super::aggregate_chunk_jobs::ChunkWorkerContext) + Send>;
+#[cfg(test)]
+thread_local! {
+    pub(super) static WORKER_START_TEST_HOOK: std::cell::RefCell<Option<WorkerStartHook>> =
+        const { std::cell::RefCell::new(None) };
+}
 
 struct Recipe {
     request: VortexSimpleAggregateRequest,
@@ -113,6 +124,7 @@ impl MixedDistinctWorkers {
         columns: &[String],
         policy: VortexLocalPrimitiveExecutionPolicy,
         memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
     ) -> Result<Option<Self>> {
         let Some(groups) = proof.selected_group_bound() else {
             return Ok(None);
@@ -182,11 +194,17 @@ impl MixedDistinctWorkers {
             return Ok(None);
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::new(
+            jobs: AggregateChunkJobs::with_cancellation(
                 parallelism,
                 parallelism.min(8),
                 memory.snapshot().limit_bytes,
                 memory.clone(),
+                // Observe the operation while keeping retirement/error cleanup
+                // local to this stage; dropping successful jobs must not cancel
+                // a caller-owned prepared execution token.
+                cancellation.map_or_else(CancellationToken::default, |parent| {
+                    CancellationToken::from_shared_flag_with_parent(Arc::default(), parent)
+                }),
             )?,
             recipe: Arc::new(Recipe {
                 request: states.request.clone(),
@@ -274,8 +292,14 @@ impl MixedDistinctWorkers {
         }
         let recipe = Arc::clone(&self.recipe);
         let rows = chunk.len();
+        #[cfg(test)]
+        let start_hook = WORKER_START_TEST_HOOK.with(|hook| hook.borrow_mut().take());
         let outcome = self.jobs.try_submit(bytes, move |worker, _lease| {
             worker.check_cancelled()?;
+            #[cfg(test)]
+            if let Some(hook) = start_hook {
+                hook(worker);
+            }
             let started = Instant::now();
             let local = GroupedAggregateStates::new_with_resource_envelope(
                 &recipe.request,
