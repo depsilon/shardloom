@@ -8750,6 +8750,8 @@ fn columnar_stream_source_prefers_lean_source_native_embedded_metadata(
             "parquet_arrow_reader_requested_dictionary_preservation_for_string_derived_columns",
         ) || source.source_dictionary_preservation_status.contains(
             "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard",
+        ) || source.source_dictionary_preservation_status.contains(
+            "parquet_arrow_reader_uses_utf8_view_for_large_olap_text_zstd_artifact_size_guard",
         );
     medium_or_larger && source_native_lean_text_metadata_available
 }
@@ -45749,7 +45751,39 @@ mod tests {
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
     fn large_plain_utf8_parquet_guard_uses_lean_runtime_metadata_profile() {
-        use arrow_array::{ArrayRef, Int64Array, RecordBatch, RecordBatchReader, StringArray};
+        large_utf8_parquet_guard_prepared_batch(false);
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn large_utf8_view_parquet_guard_uses_same_lean_runtime_metadata() {
+        use arrow_array::{StringArray, StringViewArray};
+
+        let plain = large_utf8_parquet_guard_prepared_batch(false);
+        let views = large_utf8_parquet_guard_prepared_batch(true);
+        assert_eq!(plain.num_rows(), views.num_rows());
+        assert_eq!(plain.num_columns(), views.num_columns());
+        for (expected, actual) in plain.columns().iter().zip(views.columns()) {
+            if let Some(expected) = expected.as_any().downcast_ref::<StringArray>() {
+                let actual = actual
+                    .as_any()
+                    .downcast_ref::<StringViewArray>()
+                    .expect("string views");
+                assert_eq!(
+                    expected.iter().collect::<Vec<_>>(),
+                    actual.iter().collect::<Vec<_>>()
+                );
+            } else {
+                assert_eq!(expected.to_data(), actual.to_data());
+            }
+        }
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn large_utf8_parquet_guard_prepared_batch(use_views: bool) -> arrow_array::RecordBatch {
+        use arrow_array::{
+            ArrayRef, Int64Array, RecordBatch, RecordBatchReader, StringArray, StringViewArray,
+        };
         use arrow_schema::{DataType, Field, Schema, SchemaRef};
         use std::collections::VecDeque;
         use std::sync::Arc;
@@ -45773,25 +45807,41 @@ mod tests {
             }
         }
 
+        let text_type = if use_views {
+            DataType::Utf8View
+        } else {
+            DataType::Utf8
+        };
+        let text_array = |values: Vec<Option<&str>>| -> ArrayRef {
+            if use_views {
+                Arc::new(StringViewArray::from(values))
+            } else {
+                Arc::new(StringArray::from(values))
+            }
+        };
         let schema = Arc::new(Schema::new(vec![
-            Field::new("URL", DataType::Utf8, true),
-            Field::new("SearchPhrase", DataType::Utf8, true),
-            Field::new("Title", DataType::Utf8, true),
+            Field::new("URL", text_type.clone(), true),
+            Field::new("SearchPhrase", text_type.clone(), true),
+            Field::new("Title", text_type, true),
             Field::new("EventTime", DataType::Int64, false),
         ]));
         let batch = RecordBatch::try_new(
             Arc::clone(&schema),
             vec![
-                Arc::new(StringArray::from(vec![
+                text_array(vec![
                     Some("https://www.google.com/a"),
                     Some("https://docs.rs/b"),
-                ])) as ArrayRef,
-                Arc::new(StringArray::from(vec![Some("rust"), Some("shardloom")])) as ArrayRef,
-                Arc::new(StringArray::from(vec![
+                    None,
+                    Some("https://example.com/日本語"),
+                ]),
+                text_array(vec![Some("rust"), Some("shardloom"), None, Some("日本語")]),
+                text_array(vec![
                     Some("Google title"),
                     Some("Other title"),
-                ])) as ArrayRef,
-                Arc::new(Int64Array::from(vec![60_i64, 121])) as ArrayRef,
+                    None,
+                    Some("Longer UTF-8 title 日本語"),
+                ]),
+                Arc::new(Int64Array::from(vec![60_i64, 121, 180, 241])) as ArrayRef,
             ],
         )
         .expect("record batch");
@@ -45830,12 +45880,14 @@ mod tests {
             source_stream_batch_size:
                 shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
             source_stream_unit_count_hint: Some(1),
-            source_stream_unit_row_ranges: Some(vec![(0, 2)]),
+            source_stream_unit_row_ranges: Some(vec![(0, 4)]),
             source_stream_unit_hint_kind: "test_plain_utf8_large_parquet_guard".to_string(),
             source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
-            source_dictionary_preservation_status:
+            source_dictionary_preservation_status: if use_views {
+                "parquet_arrow_reader_uses_utf8_view_for_large_olap_text_zstd_artifact_size_guard"
+            } else {
                 "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard"
-                    .to_string(),
+            }.to_string(),
             ingest_executor_status: "serial_pull_reader".to_string(),
             ingest_executor_kind: "test_plain_utf8_large_parquet_reader".to_string(),
             ingest_executor_requested_parallelism: 1,
@@ -45873,15 +45925,10 @@ mod tests {
         assert!(names.contains(&"__shardloom_derived_extract_minute_EventTime".to_string()));
         assert!(names.contains(&"__shardloom_derived_date_trunc_minute_EventTime".to_string()));
         assert!(!names.contains(&"__shardloom_derived_utf8_len_Title".to_string()));
-        assert_eq!(
-            source
-                .reader
-                .next()
-                .expect("batch")
-                .expect("batch ok")
-                .num_columns(),
-            9
-        );
+        let batch = source.reader.next().expect("batch").expect("batch ok");
+        assert_eq!(batch.num_columns(), 9);
+        assert_eq!(batch.num_rows(), 4);
+        batch
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

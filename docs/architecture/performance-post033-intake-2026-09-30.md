@@ -41,7 +41,7 @@ native-Python-binding sweep is authorized by this packet.
 - Release source: `e15f2e66faf6d359bba944e9d295fc58ce3bf7d4` (0.3.3).
 - Frozen unstripped binary SHA-256:
   `5ebd38bea243a12cc2b6934fb226d536dff047ca76f85ee7db218bf847efc4e3`.
-- Resident Parquet: 99,997,497 rows, 112 columns, 14,779,976,446 bytes;
+- Resident Parquet: 99,997,497 rows, 105 source columns, 14,779,976,446 bytes;
   SHA-256 `a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f`.
 - Retained optimized Vortex: 15,682,956,116 bytes;
   SHA-256 `31cc61cfc347cf19a0328c196d59cd1eb431679311294cdc92263fef31062b35`.
@@ -154,6 +154,22 @@ intake copies and charges every referenced buffer. Tests cover dictionary/plain
 Parquet pages, ordered serial/parallel reads, UTF-8/null/long values, sliced
 multi-buffer views, last-owner credit release and partial-allocation denial.
 Final complete artifacts and performance still determine retain/drop.
+
+The first P033-3 candidate (`e89ab9e0`) failed the complete-artifact check.
+Its native call completed in 67.161519 seconds, but the output contains 111
+columns instead of the control's 112 (105 source columns plus seven derived
+columns). The CLI selected metadata policy from the source status string and
+recognized only the old plain-UTF-8 marker. The new view marker therefore lost
+five lean text-derived columns and selected four additional time-derived columns.
+That call is invalid as performance evidence; its 15,551,050,829-byte artifact,
+raw output and failed receipt are preserved for diagnosis.
+
+This concrete metadata-routing regression admits the packet's one candidate
+revision. Recognize both physical string representations in the existing lean
+metadata policy. The regression fixture compares all source and derived values
+for offset strings and views, including null and non-ASCII values; it reproduces
+the missing metadata before the correction. Repeat the frozen comparison with
+new receipt names and the original complete artifact as the equality oracle.
 
 ## Comparison and completion gates
 
