@@ -1,7 +1,7 @@
 # Recorded artifact cleanup — September 30
 
-The resumed ship/drop work has retired **4,214,980,608 allocated bytes** through
-R10 and the final R2.b log compaction. This is the sum of the inspected files' allocated blocks, including earlier
+The resumed ship/drop work has retired **4,535,181,312 allocated bytes** through
+R10, final R2.b log compaction and post-merge binary retirement. This is the sum of the inspected files' allocated blocks, including earlier
 binary/cache retirement and net log compaction; it is not a measurement of APFS
 free-space change and is separate from the September 26 cleanup.
 
@@ -17,7 +17,7 @@ differences from the measured R10 runtime are two test-only fingerprint addition
 the guard verifies those exact additions rather than ignoring arbitrary source
 changes. Dry-run and applied receipts are preserved.
 
-R2.b's final `93ee6b39` candidate, its earlier candidates and R10 comparison control, the released 0.3.2 binary,
+R2.b's final `93ee6b39` candidate, the released 0.3.2 binary,
 retained input artifacts, all 43 result references, source manifests/patches,
 compressed raw logs and validation receipts remain. No new full-size ingest or
 format-comparison payload was generated. No in-use or protected worktree was
@@ -34,17 +34,20 @@ active/open consumers were checked before removing the loose copies. Raw call
 archives and input artifacts were unchanged. This lossless compaction recovered
 **40,726,528 allocated bytes** after archive/index overhead; the guard was not raised.
 
-Final R2.b retirement is prepared for exactly five superseded executables:
+Final R2.b retirement removed exactly five superseded executables:
 `6be7bc02` (initial dictionary screen), `a33da94f` (R10 comparison control), and
 `d726aaf6` (original dictionary/provider runtime), `5ea34b11` (drain-corrected
 runtime), and `5ec7a893` (interrupted metadata-admission cohort). Their portable evidence and
-build receipts remain. Removal is gated on PR #1488's merge, all 40 exact-head
+build receipts remain. Removal followed PR #1488's merge, all 40 exact-head
 checks, the corrected runtime's 258-result independent audit, final validation,
 and unchanged runtime sources between the measured and merged source. The
-guard rechecks identity, open handles and evidence before each removal, preserving
-`93ee6b39`, released 0.3.2 and every retained input. These planned removals are
-not included in the total above. The applied `r2b-recorded-binary-cleanup.json`
-receipt will record the actual allocated bytes and cumulative total after merge.
+guard rechecked identity, open handles and evidence before each removal, preserving
+`93ee6b39`, released 0.3.2 and every retained input. The applied
+`r2b-recorded-binary-cleanup.json` records **320,200,704 allocated bytes** removed,
+included in the total above. The merge source is
+`c4b328798ce18dcb9ee7f6220f3f7b360c4b354e` with no runtime-source difference
+from the accepted measured build. Completed managed worktrees protected by a
+pinned task remain intact; cleanup did not bypass that protection.
 
 Local receipts: `closed-metadata-compaction-r2b-20260930.json`,
 `r10-cleanup-dry-run.json`, `r10-recorded-binary-cleanup.json`,

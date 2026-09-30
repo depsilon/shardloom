@@ -255,10 +255,12 @@ improves 29.67% in Full43, and the complete query total falls 2.72% to 53.171336
 seconds. Q35's slower calls remain recorded, including one separate reversed-order
 follow-up. All 29 experiments now have decisions; the
 [final profiling refresh](performance-profile-refresh-2026-09-30.md) records
-all 43 queries and the separately dated non-query evidence. Finish the final
-PR/CI/merge and guarded cleanup to close this finite packet.
+all 43 queries and the separately dated non-query evidence. PR #1488 merged at
+`c4b328798ce18dcb9ee7f6220f3f7b360c4b354e` after all 40 checks and completed
+review passed. Guarded retirement of five superseded executables is complete,
+closing this finite packet.
 The final bundle includes 258 Full43 and six follow-up comparisons. Independent
-artifact audit passes; exact-head CI gates merge. Earlier complete cohorts and the
+artifact audit passes. Earlier complete cohorts and the
 storage-guard-interrupted `5ec7a893` cohort remain separately identified evidence.
 Keep performance runs sequential and preserve useful
 smaller gains. The completed 0.3.2 train stays closed; this request does not reopen
@@ -274,8 +276,9 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
 - [ ] `RELEASE-033` publish and verify the 0.3.3 optimization patch train.
   - Source: maintainer's September 30 PR cleanup, version bump and subsequent
     ship/drop authorization; [release notes](../release/v0.3.3-release-notes.md).
-  - Current state: final runtime and README/site acceptance are recorded; exact-head
-    merge gates remain. Release source consolidates the compatible dependency intake.
+  - Current state: runtime PR #1488 is merged and its artifact cleanup is complete.
+    README/site PR #1483 includes a verified Homebrew CLI path and awaits final CI
+    and review. Release source consolidates the compatible dependency intake.
     Published-channel selection stays at proof-backed 0.3.2 until new proofs exist.
   - V1 scope classification: `required_for_v1`; package distribution work, not a
     production-readiness or broad operator-support claim.
@@ -2597,8 +2600,8 @@ Current autonomous execution order:
 
 The September 29 resumption supersedes the earlier release/format stop for the
 finite September 26 intake. All 29 decisions and the final profiling refresh
-are now recorded. Finish the R2.b PR's exact-head checks, merge and guarded
-artifact retirement. The September 30 follow-up then authorizes obsolete PR/branch
+are now recorded; R2.b is merged and its guarded artifact retirement is complete.
+The September 30 follow-up authorizes obsolete PR/branch
 cleanup, the next gated version bump/publication train, and a new finite ship/drop
 packet in that order. The rules below govern the resumed optimization campaign.
 
