@@ -118,6 +118,24 @@ fn provider_lane(parallelism: usize) -> bool {
     parallelism >= 3 && std::thread::available_parallelism().unwrap().get() >= 3
 }
 
+fn assert_native_io_credits_return(memory: &LiveMemoryPool) {
+    // Ordinary sessions do not synchronously join upstream blocking I/O. A
+    // cancelled read keeps its buffer charged until its closure/result drops;
+    // ResidentWorkerGroup joins CPU drivers, not that separate I/O pool. The
+    // immediate post-error assertion still verifies dictionary-job refunds.
+    let started = std::time::Instant::now();
+    let initial = memory.snapshot().reserved_bytes;
+    while memory.snapshot().reserved_bytes != 0 {
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "native I/O credits did not return: initial={initial}, current={:?}",
+            memory.snapshot()
+        );
+        std::thread::yield_now();
+    }
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 fn assert_workers(work: &serde_json::Value, parallelism: usize) {
     let jobs = &work["aggregate_dictionary_preparation_workers"];
     assert!(jobs["submitted_chunks"].as_u64().unwrap() > 0);
@@ -545,9 +563,10 @@ fn native_cancel(parallelism: usize) {
     let result = prepared.execute_cancellable(&fresh).unwrap();
     assert_eq!(payload(&result.report)["values"], fixture.expected);
     assert!(!fresh.is_cancelled());
+    drop(result);
     drop(prepared);
     drop(session);
-    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    assert_native_io_credits_return(&memory);
 }
 
 #[test]
@@ -586,6 +605,6 @@ fn dictionary_preparation_native_committed_source_failures_do_not_replay() {
         );
         drop(prepared);
         drop(session);
-        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert_native_io_credits_return(&memory);
     }
 }

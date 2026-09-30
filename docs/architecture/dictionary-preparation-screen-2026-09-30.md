@@ -133,3 +133,18 @@ hashes, all six final validation exits and test counts, and every query-profile
 sample/RSS/metric. Primary review separately accepts source ordering, admission,
 owner/credit lifetime, CPU grants and cancellation/error behavior. See the
 [final profile and reuse inventory](performance-profile-refresh-2026-09-30.md).
+
+## PR fixture teardown boundary
+
+The initial Linux native-suite run fails two final zero-reservation assertions
+after cancellation/source-error recovery; both see 177,400 bytes still live.
+Their immediate post-error baseline checks and fresh-query values pass. Ordinary
+sessions do not synchronously join the upstream blocking-I/O pool; running reads
+retain charged buffers until their closure/result owners drop. CPU-driver join
+does not certify that separate I/O boundary.
+
+The two fixtures now require final zero reservations within a bounded five-second
+teardown wait, while retaining the immediate dictionary-job refund assertions.
+Seven focused fixtures and native all-target Clippy pass locally; exact-head CI
+must pass before merge. This changes only the `cfg(test)` fixture file. The
+measured release runtime, binary and immutable performance evidence are unchanged.
