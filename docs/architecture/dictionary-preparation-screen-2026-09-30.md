@@ -1,7 +1,8 @@
 # R2.b: bounded dictionary preparation
 
-Status: **retain; final runtime acceptance recorded, PR checks gate delivery**.
-Independent artifact audit passes; PR #1488 gates delivery on exact-head CI. The native
+Status: **retain; merged in PR #1488** at
+`c4b328798ce18dcb9ee7f6220f3f7b360c4b354e` after all 40 exact-head checks and
+the completed review passed. Independent artifact audit passes. The native
 lifetime defect and both metadata-admission review findings are corrected, with
 the final Full43 cohort below. This closes the last
 candidate in the September 26 intake before its final profiling refresh. It does

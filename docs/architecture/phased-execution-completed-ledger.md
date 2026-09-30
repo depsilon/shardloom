@@ -41,15 +41,16 @@ phase plan first.
     See [R2.b](dictionary-preparation-screen-2026-09-30.md).
   - Formatting, workspace/native Clippy, 3,436 workspace tests, 2,042 native
     tests and 1,520 CLI tests pass; counts overlap and 22 existing native manual
-    fixtures remain ignored. Exact-head PR checks and merge gate delivery to main.
+    fixtures remain ignored. All 40 exact-head checks and completed review pass;
+    PR #1488 merged at `c4b328798ce18dcb9ee7f6220f3f7b360c4b354e`.
   - [Final profiling](performance-profile-refresh-2026-09-30.md) records all 43
     query samples and RSS, with 23 queries below one second, plus the dates and
     limitations of non-query evidence. It identifies shared components and new
     attribution opportunities without starting another campaign. The
     [intake](performance-candidate-intake-2026-09-26.md) retains all 29 decisions.
-    [Cleanup](local-artifact-cleanup-2026-09-30.md) has retired 4,214,980,608
-    allocated bytes through R10 and lossless closed-report compaction; final superseded-binary retirement is guarded
-    by the R2.b merge and saved evidence. All broader PERF and CG gates remain
+    [Cleanup](local-artifact-cleanup-2026-09-30.md) has retired 4,535,181,312
+    allocated bytes, including 320,200,704 bytes from five final superseded
+    executables after the guarded R2.b merge and evidence checks. All broader PERF and CG gates remain
     independently scoped. A September 30 follow-up separately authorizes the next
     release train and subsequent ship/drop packet after PR cleanup; paused format
     and large text-input runs stay paused.
