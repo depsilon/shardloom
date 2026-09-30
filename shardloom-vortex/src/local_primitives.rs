@@ -20332,6 +20332,10 @@ fn read_lowered_vortex_simple_aggregate_scan(
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
         .transpose()?;
 
+    // Metadata completion and whole-input pruning require no workers or native
+    // provider progress. Use the same decision for admission and the scan.
+    let input_scan_required =
+        !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none();
     // Select before input; an execution failure never triggers another route.
     let small_numeric_direct_selected = worker_memory.is_some()
         && request.predicate.is_none()
@@ -20351,6 +20355,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     let worker_admission_selected = aggregate_count_workers::ADMISSION_TEST_WORKERS
         .with(std::cell::Cell::take)
         .unwrap_or(worker_admission_selected);
+    let worker_admission_selected = input_scan_required && worker_admission_selected;
     let mut count_workers = if worker_admission_selected
         && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
@@ -20394,10 +20399,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             // total budget of three (caller + dictionary + native progress).
             let (drivers, count) = runtime.provider_drivers(provider_parallelism)?;
             (Some(drivers), count)
-        } else if worker_memory.is_some()
-            && count_workers.is_none()
-            && metadata_completion.is_none()
-        {
+        } else if worker_memory.is_some() && count_workers.is_none() && input_scan_required {
             let (drivers, count) =
                 runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
             (Some(drivers), count)
@@ -20471,7 +20473,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             provider_background_workers = count;
         }
     }
-    if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
+    if input_scan_required {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan(session).map_err(vortex_error)?;

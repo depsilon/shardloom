@@ -23,6 +23,7 @@ use vortex::{
     array::{
         IntoArray as _,
         arrays::{StructArray, VarBinViewArray},
+        expr::stats::Stat,
         validity::Validity,
     },
     file::WriteOptionsSessionExt as _,
@@ -370,6 +371,10 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::with_statistics(Vec::new())
+    }
+
+    fn with_statistics(statistics: Vec<Stat>) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let dir = std::env::temp_dir().join(format!(
             "shardloom-dictionary-preparation-{}-{}",
@@ -407,7 +412,7 @@ impl Fixture {
             .with_strategy(native_flat_layout::SequentialNativeFlatLayout::strategy(
                 chunks.len(),
             ))
-            .with_file_statistics(Vec::new())
+            .with_file_statistics(statistics)
             .blocking(&runtime)
             .writer(&mut file, chunks[0].dtype().clone());
         for input in chunks {
@@ -506,6 +511,56 @@ fn dictionary_preparation_native_ordinary_prepared_owned_values_and_owner_lifeti
         drop(owned);
         drop(json);
         drop(executed);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn dictionary_preparation_native_pruned_input_starts_no_workers() {
+    let fixture = Fixture::with_statistics(vec![Stat::Min, Stat::Max, Stat::NullCount]);
+    let mut query = query(&fixture.path);
+    query.predicate = Some(PredicateExpr::Compare {
+        column: ColumnRef::new("Referer").unwrap(),
+        op: ComparisonOp::Lt,
+        value: StatValue::Utf8(String::new()),
+    });
+    let assert_pruned = |report: &VortexLocalPrimitiveExecutionReport| {
+        assert!(report.embedded_layout.metadata_pruned_entire_input);
+        assert!(!report.upstream_scan_called && !report.data_read);
+        assert_eq!(report.arrays_read_count, 0);
+        let work = payload(report);
+        assert!(work["aggregate_dictionary_preparation_workers"].is_null());
+        assert!(work["aggregate_provider_background_workers"].is_null());
+    };
+    for parallelism in [2, 3] {
+        let report =
+            execute_vortex_local_primitive_with_policy(&query, policy(parallelism)).unwrap();
+        assert_pruned(&report);
+        assert_eq!(payload(&report)["values"], serde_json::json!([]));
+        let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism).unwrap();
+        let prepared = prepare_aggregate_in_session(&query, policy(parallelism), &session).unwrap();
+        let memory = session.memory().clone();
+        let baseline = memory.snapshot().reserved_bytes;
+        for pressure in [false, true] {
+            let held = pressure.then(|| {
+                memory
+                    .reserve(memory.snapshot().limit_bytes - baseline)
+                    .unwrap()
+            });
+            let executed = prepared.execute().unwrap();
+            assert!(executed.native_io_certificate.is_certified());
+            assert_pruned(&executed.report);
+            assert_eq!(payload(&executed.report)["values"], serde_json::json!([]));
+            assert_eq!(executed.runtime.provider_background_workers, 0);
+            drop(executed);
+            drop(held);
+            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        }
+        let owned = prepared.execute_owned().unwrap();
+        assert_pruned(&owned.execution.report);
+        assert_eq!(owned.execution.runtime.provider_background_workers, 0);
+        assert_eq!(owned.result.row_count(), 0);
+        drop((owned, prepared, session));
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }

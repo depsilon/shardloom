@@ -5,7 +5,8 @@ PR #1488 gates delivery on final local acceptance and exact-head CI. The native
 lifetime defect is corrected; its recorded Full43 cohort is below. A subsequent
 review exposes unnecessary admission before metadata completion. This closes the last
 candidate in the September 26 intake before its final profiling refresh. It does
-not resume the release train or the paused format comparison.
+not resume the paused format comparison. The subsequent maintainer instruction
+authorizes PR cleanup, a new release train, then another finite ship/drop packet.
 
 The retained R10 Q29 cohort spends 2.348–2.370 seconds building first-seen UTF8
 dictionaries, 2.254–2.266 seconds in the provider, and 1.813–1.830 seconds in
@@ -240,3 +241,21 @@ preparation/cancellation fixtures pass, as does native CLI/Vortex all-target Cli
 Seven existing resident manual fixtures remain ignored. A newly frozen runtime
 and full local/Full43 acceptance are still required; the preceding
 258-result bundle remains immutable evidence of `5ea34b11` only.
+
+The `5ec7a893` revision passes formatting, workspace Clippy, 3,436 workspace,
+2,041 native and 1,520 CLI tests (overlapping counts; 22 existing native ignores).
+Its paired cohort `paired43_20260930T084415032165Z` stops at Q34 when accumulated
+logs exceed the storage guard. Preserve its partial records as interrupted
+evidence; they do not establish a complete-suite total. Compact closed logs
+losslessly before further UAT without raising the guard.
+
+A second review reproduces unnecessary dictionary worker admission after
+whole-input metadata pruning. One shared `input_scan_required` decision now
+gates count/dictionary worker admission, provider restoration and scanning. It
+preserves the existing route for an actual scan, including an empty source.
+The native regression covers ordinary, prepared, zero-spare-credit prepared and
+owned results at CPU grants two and three, with no worker/scan/read evidence and
+exact empty output. All nine dictionary fixtures pass. The initial post-fix
+fixture incorrectly expected serialized values inside the owned-result report;
+the corrected assertion checks that result's actual row count instead.
+Freeze and validate this final source before replacing the current profile.
