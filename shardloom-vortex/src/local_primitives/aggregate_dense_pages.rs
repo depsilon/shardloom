@@ -1,15 +1,14 @@
-//! Dense payloads for the compound reducer's private index directories.
+//! Leased dense payloads for native aggregate index directories.
 //! Ordinals stay stable; only the small first page can move during growth.
 
-use super::{allocate, failed};
-use shardloom_core::Result;
+use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::ops::{Index, IndexMut};
 
 const PAGE_ITEMS: usize = 1024;
 
 #[cfg(test)]
-#[path = "compound_pages_tests.rs"]
+#[path = "aggregate_dense_pages_tests.rs"]
 mod tests;
 
 struct Page<T> {
@@ -33,7 +32,11 @@ impl<T: Copy> DensePages<T> {
     }
 
     /// Admit all capacity before the caller interns or publishes a record.
-    pub(super) fn reserve_one(&mut self, memory: &LiveMemoryPool) -> Result<bool> {
+    pub(super) fn reserve_one(
+        &mut self,
+        memory: &LiveMemoryPool,
+        failed: fn(&str) -> ShardLoomError,
+    ) -> Result<bool> {
         self.len
             .checked_add(1)
             .ok_or_else(|| failed("dense ordinal overflowed"))?;
@@ -46,7 +49,7 @@ impl<T: Copy> DensePages<T> {
         }
         if self.pages.len() == 1 && self.pages[0].values.capacity() < PAGE_ITEMS {
             let capacity = self.pages[0].values.capacity() * 2;
-            let Some((mut values, lease)) = allocate::<T>(capacity, memory)? else {
+            let Some((mut values, lease)) = allocate::<T>(capacity, memory, failed)? else {
                 return Ok(false);
             };
             values.extend_from_slice(&self.pages[0].values);
@@ -63,7 +66,7 @@ impl<T: Copy> DensePages<T> {
                 .max(1)
                 .checked_mul(2)
                 .ok_or_else(|| failed("dense page metadata capacity overflowed"))?;
-            let Some((mut pages, lease)) = allocate::<Page<T>>(capacity, memory)? else {
+            let Some((mut pages, lease)) = allocate::<Page<T>>(capacity, memory, failed)? else {
                 return Ok(false);
             };
             pages.append(&mut self.pages);
@@ -75,7 +78,7 @@ impl<T: Copy> DensePages<T> {
         } else {
             PAGE_ITEMS
         };
-        let Some((values, lease)) = allocate::<T>(capacity, memory)? else {
+        let Some((values, lease)) = allocate::<T>(capacity, memory, failed)? else {
             return Ok(false);
         };
         self.pages.push(Page {
@@ -95,6 +98,16 @@ impl<T: Copy> DensePages<T> {
 
     pub(super) fn len(&self) -> usize {
         self.len
+    }
+
+    #[cfg(test)]
+    pub(super) fn reserved_bytes(&self) -> u64 {
+        self.metadata.bytes()
+            + self
+                .pages
+                .iter()
+                .map(|page| (page.values.capacity() * size_of::<T>()) as u64)
+                .sum::<u64>()
     }
 
     pub(super) fn iter(&self) -> impl Iterator<Item = &T> {
@@ -119,4 +132,25 @@ impl<T> IndexMut<usize> for DensePages<T> {
     fn index_mut(&mut self, index: usize) -> &mut T {
         &mut self.pages[index / PAGE_ITEMS].values[index % PAGE_ITEMS]
     }
+}
+
+/// Retain the old owner's lease while admitting and allocating its replacement.
+/// Each caller supplies its established diagnostic family.
+pub(super) fn allocate<T>(
+    capacity: usize,
+    memory: &LiveMemoryPool,
+    failed: fn(&str) -> ShardLoomError,
+) -> Result<Option<(Vec<T>, MemoryLease)>> {
+    let bytes = capacity
+        .checked_mul(size_of::<T>())
+        .and_then(|bytes| u64::try_from(bytes).ok())
+        .ok_or_else(|| failed("partition capacity overflowed"))?;
+    let Ok(lease) = memory.reserve(bytes) else {
+        return Ok(None);
+    };
+    let mut values = Vec::new();
+    if values.try_reserve_exact(capacity).is_err() || values.capacity() > capacity {
+        return Ok(None);
+    }
+    Ok(Some((values, lease)))
 }

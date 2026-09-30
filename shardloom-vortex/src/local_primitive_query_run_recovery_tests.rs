@@ -60,6 +60,22 @@ impl Drop for ChildOwner {
 }
 
 #[test]
+fn directory_owner_releases_lock_while_inherited_descriptor_remains_open() {
+    let workspace = Workspace::new();
+    let owner = lock_directory(&workspace.0).unwrap();
+    let inherited = owner.file.try_clone().unwrap();
+    assert!(lock_directory(&workspace.0).is_err());
+    drop(owner);
+    let replacement = lock_directory(&workspace.0)
+        .expect("finished ownership must release the lock before inherited descriptors close");
+    drop(inherited);
+    assert!(lock_directory(&workspace.0).is_err());
+    drop(replacement);
+    drop(lock_directory(&workspace.0).unwrap());
+    workspace.assert_empty();
+}
+
+#[test]
 fn all_namespaces_reject_live_recovery_and_clean_after_process_exit() {
     for namespace in ["sort", "distinct", "count"] {
         let workspace = Workspace::new();
@@ -137,7 +153,13 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         let directory = store.directory().to_path_buf();
         // A concurrent fork can briefly retain the same open file description
         // until exec. Model it deterministically without relying on scheduling.
-        let inherited_owner = store.directory_owner.as_ref().unwrap().try_clone().unwrap();
+        let inherited_owner = store
+            .directory_owner
+            .as_ref()
+            .unwrap()
+            .file
+            .try_clone()
+            .unwrap();
         store.abandon_for_recovery_test();
         let marker = fs::read(directory.join(OWNERSHIP_MARKER)).unwrap();
         let sort = crate::VortexSortSpillPolicy::new(&workspace.0, 32 << 20, 4 << 20).unwrap();
@@ -145,6 +167,13 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
             crate::VortexAggregateSpillPolicy::new(&workspace.0, 32 << 20, 4 << 20).unwrap();
         let stale_sort = sort.clone();
         let stale_aggregate = aggregate.clone();
+        let inherited_recovery = std::rc::Rc::new(std::cell::RefCell::new(None));
+        let retained = std::rc::Rc::clone(&inherited_recovery);
+        AFTER_RECOVERY_LOCK.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move |owner| {
+                *retained.borrow_mut() = Some(owner.try_clone().unwrap());
+            }));
+        });
         AFTER_RECOVERY_REMOVE.with(|hook| {
             *hook.borrow_mut() = Some(Box::new(move || {
                 stale_sort.cancel();
@@ -166,6 +195,8 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
             "{namespace}: {error}"
         );
         assert!(AFTER_RECOVERY_REMOVE.with(|hook| hook.borrow().is_none()));
+        assert!(AFTER_RECOVERY_LOCK.with(|hook| hook.borrow().is_none()));
+        assert!(inherited_recovery.borrow().is_some());
         // One run was removed, while the marker and remaining run are retained.
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 2);
         assert_eq!(fs::read(directory.join(OWNERSHIP_MARKER)).unwrap(), marker);
@@ -181,6 +212,7 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         sort.cancel();
         aggregate.cancel();
         cleanup(&renewed_sort, &renewed_aggregate).unwrap();
+        drop(inherited_recovery);
         drop(inherited_owner);
         drop(store);
         drop(work);

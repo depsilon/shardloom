@@ -44,6 +44,7 @@ pub(super) struct Utf8AccessorWork {
     pub rows: u64,
     pub entries: u64,
     pub copied_bytes: u64,
+    pub source_backed_bytes: u64,
     pub provider_nanos: u128,
     pub dictionary_nanos: u128,
 }
@@ -77,6 +78,7 @@ impl NativeNumericAccessorWork {
         self.utf8.rows += other.utf8.rows;
         self.utf8.entries += other.utf8.entries;
         self.utf8.copied_bytes += other.utf8.copied_bytes;
+        self.utf8.source_backed_bytes += other.utf8.source_backed_bytes;
         self.utf8.provider_nanos += other.utf8.provider_nanos;
         self.utf8.dictionary_nanos += other.utf8.dictionary_nanos;
         for (total, increment) in [
@@ -122,9 +124,10 @@ impl NativeNumericAccessorWork {
                 "accessor_rows": self.utf8.rows,
                 "dictionary_entries": self.utf8.entries,
                 "copied_utf8_bytes": self.utf8.copied_bytes,
+                "source_backed_utf8_bytes": self.utf8.source_backed_bytes,
                 "provider_execute_nanos": u64::try_from(self.utf8.provider_nanos).unwrap_or(u64::MAX),
                 "dictionary_build_nanos": u64::try_from(self.utf8.dictionary_nanos).unwrap_or(u64::MAX),
-                "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;not_CPU_or_unique_source_reads",
+                "scope": "disjoint_caller_elapsed_within_utf8_chunk_accessor;provider_includes_deferred_IO_decompression_filter_and_canonicalization;accessor_rows_counted_per_column_after_native_scan_before_residual_selection;dictionary_bytes_exclude_allocator_overhead;source_backed_bytes_are_cumulative_logical_string_lengths_not_retained_buffer_sizes;escaping_aggregate_key_copies_excluded;not_CPU_or_unique_source_reads_or_RSS_bound",
             }));
         }
         object.insert("aggregate_native_numeric_accessor".into(), serde_json::json!({

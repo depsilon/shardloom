@@ -4,6 +4,7 @@
 
 use super::{
     aggregate_chunk_jobs::ChunkWorkerContext,
+    aggregate_dense_pages::DensePages,
     string_count_partial::{StringCountPartial, StringCountPartialWork},
 };
 use shardloom_core::{Result, ShardLoomError};
@@ -34,7 +35,9 @@ struct Slot {
 }
 
 struct Partition {
-    slots: Vec<Slot>,
+    // Zero means empty; nonzero ordinals refer to stable dense records + 1.
+    slots: Vec<usize>,
+    records: DensePages<Slot>,
     bytes: Vec<u8>,
     groups: usize,
     slots_lease: MemoryLease,
@@ -141,6 +144,7 @@ impl StringCountPartitions {
         for _ in 0..PARTITIONS {
             partitions.push(Mutex::new(Partition {
                 slots: Vec::new(),
+                records: DensePages::new(memory)?,
                 bytes: Vec::new(),
                 groups: 0,
                 slots_lease: memory.reserve(0)?,
@@ -330,7 +334,7 @@ impl StringCountPartitions {
             let mut partition = partition
                 .lock()
                 .map_err(|_| failed("partition lock poisoned"))?;
-            for slot in &partition.slots {
+            for slot in partition.records.iter() {
                 if slot.count != 0 {
                     let value =
                         std::str::from_utf8(&partition.bytes[slot.offset..slot.offset + slot.len])
@@ -339,6 +343,7 @@ impl StringCountPartitions {
                 }
             }
             partition.slots = Vec::new();
+            partition.records.release()?;
             partition.bytes = Vec::new();
             partition.groups = 0;
             partition.slots_lease.resize(0)?;
@@ -354,6 +359,7 @@ impl StringCountPartitions {
                 .lock()
                 .map_err(|_| failed("partition lock poisoned"))?;
             partition.slots = Vec::new();
+            partition.records.release()?;
             partition.bytes = Vec::new();
             partition.groups = 0;
             partition.slots_lease.resize(0)?;
@@ -391,7 +397,7 @@ impl StringCountPartitions {
         {
             return Err(failed("selection capacity exceeded its reservation"));
         }
-        for (index, slot) in partition.slots.iter().enumerate() {
+        for (index, slot) in partition.records.iter().enumerate() {
             if index % 4096 == 0 {
                 worker.check_cancelled()?;
             }
@@ -450,7 +456,7 @@ impl StringCountPartitions {
             .lock()
             .map_err(|_| failed("partition lock poisoned"))?;
         for &index in &selection.indices {
-            let slot = partition.slots[index];
+            let slot = partition.records[index];
             let value = std::str::from_utf8(&partition.bytes[slot.offset..slot.offset + slot.len])
                 .map_err(|error| failed(&format!("selected UTF-8 invalid: {error}")))?;
             visit(value, slot.count)?;
@@ -485,7 +491,7 @@ impl Partition {
                 .checked_add(count)
                 .ok_or_else(|| failed("chunk weight overflowed"))?;
             let outcome = self.update(
-                (bytes.as_slice(), hash, count),
+                (bytes, hash, count),
                 &shared.memory,
                 worker,
                 admission,
@@ -501,8 +507,8 @@ impl Partition {
     }
 
     fn worse(&self, left: usize, right: usize) -> bool {
-        let left = self.slots[left];
-        let right = self.slots[right];
+        let left = self.records[left];
+        let right = self.records[right];
         left.count < right.count
             || (left.count == right.count
                 && self.bytes[left.offset..left.offset + left.len]
@@ -519,8 +525,9 @@ impl Partition {
     ) -> Result<Update> {
         if !self.slots.is_empty() {
             let index = self.find(value, hash, comparisons)?;
-            if self.slots[index].count != 0 {
-                self.slots[index].count = self.slots[index]
+            if self.slots[index] != 0 {
+                let record = &mut self.records[self.slots[index] - 1];
+                record.count = record
                     .count
                     .checked_add(count)
                     .ok_or_else(|| failed("complete-key count overflowed u64"))?;
@@ -565,11 +572,11 @@ impl Partition {
                 .max(8)
                 .checked_mul(2)
                 .ok_or_else(|| failed("partition table size overflowed"))?;
-            let Some((mut slots, lease)) = allocate::<Slot>(capacity, memory)? else {
+            let Some((mut slots, lease)) = allocate::<usize>(capacity, memory)? else {
                 return Ok(false);
             };
-            slots.resize(capacity, Slot::default());
-            for (index, slot) in self.slots.iter().copied().enumerate() {
+            slots.resize(capacity, 0);
+            for (index, slot) in self.records.iter().copied().enumerate() {
                 if index % 4096 == 0 {
                     worker.check_cancelled()?;
                 }
@@ -577,13 +584,16 @@ impl Partition {
                     continue;
                 }
                 let mut bucket = hash_bucket(slot.hash, capacity)?;
-                while slots[bucket].count != 0 {
+                while slots[bucket] != 0 {
                     bucket = (bucket + 1) & (capacity - 1);
                 }
-                slots[bucket] = slot;
+                slots[bucket] = index + 1;
             }
             self.slots = slots;
             self.slots_lease = lease;
+        }
+        if !self.records.reserve_one(memory, failed)? {
+            return Ok(false);
         }
         let needed = self
             .bytes
@@ -616,15 +626,18 @@ impl Partition {
             self.bytes_lease = lease;
         }
         let mut bucket = hash_bucket(hash, self.slots.len())?;
-        while self.slots[bucket].count != 0 {
+        while self.slots[bucket] != 0 {
             bucket = (bucket + 1) & (self.slots.len() - 1);
         }
-        self.slots[bucket] = Slot {
+        // Every fallible capacity operation finished before publishing the key.
+        let ordinal = self.records.len();
+        self.records.push(Slot {
             hash,
             offset: self.bytes.len(),
             len: value.len(),
             count,
-        };
+        });
+        self.slots[bucket] = ordinal + 1;
         self.bytes.extend_from_slice(value);
         #[cfg(test)]
         {
@@ -643,10 +656,11 @@ impl Partition {
     fn find(&self, value: &[u8], hash: u64, comparisons: &mut u64) -> Result<usize> {
         let mut bucket = hash_bucket(hash, self.slots.len())?;
         loop {
-            let slot = self.slots[bucket];
-            if slot.count == 0 {
+            let ordinal = self.slots[bucket];
+            if ordinal == 0 {
                 return Ok(bucket);
             }
+            let slot = self.records[ordinal - 1];
             if slot.hash == hash {
                 *comparisons = comparisons
                     .checked_add(1)
@@ -666,18 +680,9 @@ fn hash_bucket(hash: u64, capacity: usize) -> Result<usize> {
 }
 
 fn allocate<T>(capacity: usize, memory: &LiveMemoryPool) -> Result<Option<(Vec<T>, MemoryLease)>> {
-    let bytes = capacity
-        .checked_mul(size_of::<T>())
-        .and_then(|bytes| u64::try_from(bytes).ok())
-        .ok_or_else(|| failed("owned partition capacity overflowed"))?;
-    let Ok(lease) = memory.reserve(bytes) else {
-        return Ok(None);
-    };
-    let mut values = Vec::new();
-    if values.try_reserve_exact(capacity).is_err() || values.capacity() > capacity {
-        return Ok(None);
-    }
-    Ok(Some((values, lease)))
+    super::aggregate_dense_pages::allocate(capacity, memory, |reason| {
+        failed(&format!("owned {reason}"))
+    })
 }
 
 fn elapsed(counter: &AtomicU64, started: Instant) -> Result<()> {

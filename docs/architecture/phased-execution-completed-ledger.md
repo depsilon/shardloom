@@ -17,6 +17,141 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R10: retain shared dense single-string COUNT payload pages.
+  - Date: 2026-09-30 UTC. Runtime `a33da94f131125b4119603bc9f032c5687e8df6b`
+    reuses the compound path's stable paged records and exact leased allocation.
+    Eight-byte directories replace 32-byte sparse records while preserving full
+    equality, checked counts, ties, cancellation and pressure handoff. The
+    diagnostic identifies roughly 1 GB of avoidable directory capacity; modeled
+    peak reservations fall by roughly 1 GB in the screen, with mixed Q34 RSS.
+  - Q34/Q35 Full43 best times improve 33.98%/32.39%; all 258 complete results
+    pass, and the total falls from 55.420075 to 53.611191 seconds (3.26%). A
+    bounded 18-call follow-up does not reproduce the larger Q19/Q17 slowdown;
+    it does not replace the original negative observations. All 300 diagnostic,
+    screen, Full43 and follow-up comparisons are retained in portable evidence.
+  - Formatting, workspace/native Clippy, 3,436 workspace, 2,029 native and
+    1,520 CLI tests pass; counts overlap and 22 existing native fixtures are
+    ignored. Collision, denied-growth and refund tests cover the new layout.
+    See [the screen and acceptance record](dense-string-count-screen-2026-09-30.md).
+    PR/CI acceptance is pending. R2.b and the final profiling refresh remain.
+
+- [x] `PERF-INTAKE` R4 / R6.c: close the next two bounded candidates.
+  - Date: 2026-09-30 UTC. R4's complete triple-key partition sort/reduce passes
+    all six exact Q19 comparisons and 18 focused tests, but every candidate call
+    is slower: best 4.122425 to 4.403890 seconds (+6.83%). Observed RSS falls
+    14–17%; modeled peak reservations increase. The memory gate also requires
+    no time regression. Restore the original hash runtime; preserve the complete
+    prototype patch, samples, source identities and independently audited
+    portable evidence. See [R4](triple-sort-screen-2026-09-30.md).
+  - R6.c's progressive filtering and selectivity ordering already exist in the
+    pinned Vortex provider. Drop a duplicate scanner implementation. The saved
+    Q23 provider span remains 4.09–4.22 seconds with its exclusive costs unresolved;
+    no repeated-decompression or new speedup claim is made. See
+    [R6.c](progressive-provider-selection-audit-2026-09-30.md).
+  - No runtime change survives either decision. R10 and R2.b remain Planned,
+    followed by the profiling refresh. PERF and CG-1 through CG-23 retain their
+    independent gates and V1 candidate scope.
+
+- [x] `PERF-INTAKE` R3.b: retain shared mixed-measure exact DISTINCT workers.
+  - Date: 2026-09-29 local; evidence September 30 UTC. Runtime
+    `dff85c33763ac773c51ca1dd5e61a675cef6e20f` shares one chunk builder/consuming
+    merge between serial and worker execution, reusing `AggregateChunkJobs` and
+    `Budgeted::into_parts` to keep leases and queue slots through ordered merge.
+    Admission needs R3.a's completed COUNT proof and existing integer accessor
+    contract. See the [screen and acceptance record](mixed-distinct-worker-screen-2026-09-29.md).
+  - Final focused Q10 best improves 1.74%; Full43 Q10 best improves 2.95%
+    (2.316603 to 2.248188 seconds), with every Full43 pair faster and lower
+    observed RSS. All 258 Full43 complete results pass; the 43-query total is
+    0.48% lower (55.541869 to 55.276440 seconds). The slower first focused
+    candidate observation and original pre-review 4.41% Q10 cohort remain
+    separately recorded. No material suite-wide or ingest benefit is claimed.
+  - Formatting, workspace/native Clippy, 3,436 workspace, 2,027 native all-target
+    and 1,520 CLI all-target tests pass. Counts overlap; 22 existing native
+    manual/regeneration tests remain ignored. Fourteen focused tests, including
+    the running-worker operation-cancellation red/green, establish actual ordinary/prepared worker
+    use, ordinary/DISTINCT values, ordered folding, maximum chunk capacity,
+    pressure retirement, cancellation, source-denial recovery and ownership.
+    Review connected the existing worker child-token mechanism to the public
+    operation token, preserving healthy caller-token lifetime during cleanup.
+    Reservations exclude upstream source/provider and global aggregate allocations;
+    no process RSS bound or production fairness claim is made.
+  - V1 scope classification: `v1_candidate_pending_feasibility` under existing
+    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 remain independently gated.
+    PR #1486 merged at `4ae717a7d67d1d8ffe7aa384c5c96bc48413be44` after all
+    40 checks and independent audit of 264 final complete comparisons passed.
+    Cleanup retired three superseded binaries (191,832,064 allocated bytes)
+    after identity/evidence/active-consumer checks. Evidence, inputs, the current
+    dff85c33 control and released 0.3.2 executable remain available.
+
+- [x] `PERF-INTAKE` R3.a: retain winner-only integer exact DISTINCT.
+  - Date: 2026-09-29 local; final evidence September 30 UTC. Runtime
+    `22f7acd22e8c06c651f835bb817e25edcad5d5f5` reuses the native single-key COUNT
+    consumer, capillary selection, Vortex projection/filter and original mixed
+    aggregate kernels. Complete COUNT proves winners; spatial sampling estimates
+    cost only. Floating SUM/AVG remain on the complete aggregate after a losing
+    group's overflow exposed an unsafe initial admission. See the
+    [screen and acceptance record](winner-only-distinct-screen-2026-09-29.md).
+  - Final Full43 passes all 258 comparisons. Q10 best improves 29.05%
+    (4.381091 to 3.108368 seconds), with every pair faster and lower observed
+    child RSS. The sum of all 43 bests improves 2.00% (66.507349 to 65.177969
+    seconds). Earlier flat totals and Q35/Q15 slowdown observations remain in
+    portable evidence; the slowdowns did not recur in their follow-up cohorts.
+    No host-load cause, ingest benefit or all-query speedup is asserted.
+  - Formatting, workspace/release-surface Clippy, 3,436 workspace tests, 2,020
+    native all-target tests and 1,520 CLI all-target tests pass. Counts overlap;
+    22 pre-existing native manual/regeneration tests remain ignored. Complete
+    native fixtures cover independent expected values, prepared reuse, owned
+    output, cancellation, generation replacement and resource recovery. The
+    overflow regression has red/green proof. Auxiliary key-count bounds do not
+    establish byte/RSS enforcement or production fairness.
+  - Cleanup retires three superseded R3.a binaries (191,782,912 allocated bytes)
+    after identity/evidence/active-consumer checks. Lossless archive verification
+    permits retirement of old raw logs, recovering 8,830,976 net allocated log
+    bytes; failed evidence, inputs and the accepted baseline/candidate remain.
+  - ShardLoom technique review: keep metadata-first policy, shared encoded
+    consumers, late measures and capillary/PulseWeave ownership; compose those
+    boundaries instead of retaining the prototype's duplicate measure pass.
+    Timing spans retain their caller/CPU limitations. V1 scope classification:
+    `v1_candidate_pending_feasibility` under existing PERF-INTAKE/PERF-02/03;
+    CG-1 through CG-23 retain their separate acceptance. R3.b, R4, R6.c, R10
+    and R2.b remain in Planned.
+
+- [x] `PERF-INTAKE` R2.a: retain source-backed UTF8 dictionaries and shared borrowed reads.
+  - Date: 2026-09-29. Accepted runtime revision
+    `d1a53815846abe1cbcc5574d6cfc616f7e99e694` reuses one native byte-access and
+    explicit ownership boundary across chunk dictionaries and string-count workers.
+    Persistent keys share lazily promoted independent owners; no new query route, dependency
+    or unsafe code is introduced. See the
+    [screen and acceptance record](source-backed-dictionary-screen-2026-09-29.md).
+  - Final paired Full43 passes all 258 complete results. Best Q29/Q34/Q35 times
+    improve 12.60%/22.22%/10.61%; the sum of all 43 best times improves 5.32%
+    (68.725433 to 65.066953 seconds). All samples, medians and smaller regressions
+    remain in the evidence. No process-memory, ingest or subsecond-suite claim.
+  - Final formatting, default/release-surface Clippy, 3,436 workspace tests,
+    1,995 native tests and 1,170 CLI tests pass on the final runtime repair.
+    Counts overlap; 22 pre-existing
+    native manual/regeneration tests remain ignored. Independent source review
+    found no actionable ownership, resource, exactness or coverage issue.
+    Documentation/governance/tracker checks pass with broader gates left open.
+  - PR #1484 also repairs scoped directory-lock release exposed by CI, with a
+    deterministic red/green regression and independent review, and updates two
+    patched website development dependencies. Review also removes promotion on
+    transformed-cache hits/saturated misses and repeated promotion in MIN/MAX and
+    DISTINCT consumers. Final Full43 includes all runtime repairs; earlier
+    cohorts remain separate, portable evidence.
+  - Cleanup retires two completed profile caches and eight exact historical
+    executables, removing 3,398,078,464 allocated bytes after identity, evidence
+    and active-consumer checks. Protected inputs/control, accepted candidate,
+    complete results and release provenance remain. Both cleanup receipts are
+    linked from the acceptance record.
+  - ShardLoom technique review: preserve metadata-first execution, existing
+    selection/weighted partials and capillary/PulseWeave resource ownership;
+    remove repeated ownership work inside their shared native consumers. Timing
+    spans and source-byte counters retain their evidence-tier limitations.
+    V1 scope classification: `v1_candidate_pending_feasibility` under existing
+    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 retain their separate acceptance.
+    R3.a and the five other uncompleted intake candidates remain in Planned.
+
 - [x] `RELEASE-032` publish and verify the 0.3.2 technical-preview patch train.
   - Date: 2026-09-27 local; final deployment observed September 28 UTC. Runtime
     repair PR #1479, version PR #1480 and publication PR #1481 each passed all

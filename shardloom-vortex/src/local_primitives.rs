@@ -7,6 +7,9 @@ mod aggregate_chunk_jobs;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_count_workers.rs"]
 mod aggregate_count_workers;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/aggregate_dense_pages.rs"]
+mod aggregate_dense_pages;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitive_aggregate_empty_tests.rs"]
 mod aggregate_empty_tests;
@@ -70,6 +73,11 @@ mod footer_aggregate;
 #[path = "local_primitives/lazy_layout_metadata_tests.rs"]
 mod lazy_layout_metadata_tests;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/mixed_distinct_partial.rs"]
+mod mixed_distinct_partial;
+#[cfg(feature = "vortex-local-primitives")]
+mod mixed_distinct_workers;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
 #[cfg(feature = "vortex-local-primitives")]
@@ -81,6 +89,9 @@ mod native_numeric_owner;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_sort_block.rs"]
 mod native_sort_block;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/native_utf8.rs"]
+mod native_utf8;
 #[cfg(all(
     test,
     feature = "vortex-local-primitives",
@@ -122,8 +133,16 @@ mod triple_count_tests;
 #[path = "local_primitives/triple_count_workers.rs"]
 mod triple_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/winner_distinct.rs"]
+mod winner_distinct;
+#[cfg(feature = "vortex-local-primitives")]
+use native_utf8::Utf8DictionaryValue;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_chunk_dictionary.rs"]
 mod utf8_chunk_dictionary;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/utf8_dictionary_ownership_tests.rs"]
+mod utf8_dictionary_ownership_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_distinct_output.rs"]
 mod utf8_distinct_output;
@@ -10274,7 +10293,7 @@ where
 #[cfg(feature = "vortex-local-primitives")]
 fn fast_utf8_dictionary_compare_count_from_accessor(
     row_ids: &[u32],
-    dictionary_values: &[std::sync::Arc<str>],
+    dictionary_values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     column: &str,
@@ -10326,7 +10345,7 @@ fn fast_utf8_dictionary_compare_count_from_accessor(
 #[cfg(feature = "vortex-local-primitives")]
 fn utf8_dictionary_compare_match_flags(
     row_ids: &[u32],
-    dictionary_values: &[std::sync::Arc<str>],
+    dictionary_values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     column: &str,
@@ -10367,7 +10386,7 @@ fn utf8_dictionary_compare_match_flags(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn utf8_dictionary_compare_value_match_flags(
-    dictionary_values: &[std::sync::Arc<str>],
+    dictionary_values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     column: &str,
     op: ComparisonOp,
@@ -10704,7 +10723,7 @@ fn coerce_compare_rhs_f64(
 #[cfg(feature = "vortex-local-primitives")]
 fn fast_utf8_dictionary_compare_row_indices_from_accessor(
     row_ids: &[u32],
-    dictionary_values: &[std::sync::Arc<str>],
+    dictionary_values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     column: &str,
@@ -11215,7 +11234,7 @@ fn float_in_list_contains(values: &[f64], candidate: f64) -> bool {
 #[cfg(feature = "vortex-local-primitives")]
 fn fast_utf8_dictionary_in_list_count_from_accessor(
     row_ids: &[u32],
-    dictionary_values: &[std::sync::Arc<str>],
+    dictionary_values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     column: &str,
@@ -11288,7 +11307,7 @@ fn fast_utf8_dictionary_in_list_count_from_accessor(
 #[cfg(feature = "vortex-local-primitives")]
 fn utf8_dictionary_in_list_match_flags(
     row_ids_len: usize,
-    dictionary_values: &[std::sync::Arc<str>],
+    dictionary_values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     column: &str,
@@ -11575,7 +11594,7 @@ where
 #[cfg(feature = "vortex-local-primitives")]
 fn fast_utf8_dictionary_in_list_row_indices_from_accessor(
     row_ids: &[u32],
-    dictionary_values: &[std::sync::Arc<str>],
+    dictionary_values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     column: &str,
@@ -13013,7 +13032,7 @@ fn fast_utf8_contains_row_indices_from_dictionary_array(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn utf8_dictionary_value_match_flags(
-    values: &[std::sync::Arc<str>],
+    values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     needle: &str,
     negated: bool,
@@ -20179,7 +20198,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     } else {
         plan.projected_columns.clone()
     };
-    let filter_pushdown_applied = plan.filter.is_some();
+    let mut filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
     let mut embedded_layout = file.embedded_layout(
         request.kind,
@@ -20288,6 +20307,15 @@ fn read_lowered_vortex_simple_aggregate_scan(
     if let Some(states) = grouped_states.as_mut() {
         states.native_execution_ctx = native_numeric_execution_ctx(session);
     }
+    let mut winner_distinct_report = grouped_states.as_ref().and_then(|states| {
+        winner_distinct::admit(
+            states,
+            file.dtype(),
+            &declared_columns,
+            source_row_count,
+            request.predicate.is_none() && plan.filter.is_none() && residual_predicate.is_none(),
+        )
+    });
     let residual_evaluator = residual_predicate
         .as_ref()
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
@@ -20351,11 +20379,66 @@ fn read_lowered_vortex_simple_aggregate_scan(
     let mut reader_splits = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
+    if let Some(report) = winner_distinct_report.as_mut() {
+        report.prepare(
+            file,
+            source_uri,
+            request,
+            policy,
+            session,
+            runtime,
+            &check_cancelled,
+            &mut uncached_retry,
+            &mut reader_splits,
+            &mut max_chunk_rows,
+        )?;
+        arrays_read_count = reader_splits.len();
+    }
+    let winner_filter = winner_distinct_report
+        .as_ref()
+        .and_then(|report| report.filter.as_ref())
+        .map(|filter| predicate_to_vortex_expr(filter, file.dtype(), request.kind))
+        .transpose()?;
+    if winner_filter.is_some() {
+        filter_pushdown_applied = true;
+        embedded_layout = file.embedded_layout(request.kind, true, projection_pushdown_applied);
+    }
+    if worker_admission_selected
+        && count_workers.is_none()
+        && residual_evaluator.is_none()
+        && let (Some(states), Some(memory), Some(proof)) = (
+            grouped_states.as_ref(),
+            worker_memory,
+            winner_distinct_report.as_ref(),
+        )
+        && proof.selected_group_bound().is_some()
+    {
+        // The complete COUNT pass used provider progress. Transfer this same
+        // runtime's CPU ownership before starting the selected-measure jobs.
+        drop(provider_drivers.take());
+        count_workers = mixed_distinct_workers::MixedDistinctWorkers::admit(
+            states,
+            proof,
+            &declared_columns,
+            policy,
+            memory,
+            cancellation,
+        )?
+        .map(aggregate_count_workers::CountWorkers::MixedDistinct);
+        if count_workers.is_some() {
+            provider_background_workers = 0;
+        } else {
+            let (drivers, count) =
+                runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
+            provider_drivers = Some(drivers);
+            provider_background_workers = count;
+        }
+    }
     if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan(session).map_err(vortex_error)?;
-        if let Some(filter) = plan.filter.as_ref() {
+        if let Some(filter) = winner_filter.as_ref().or(plan.filter.as_ref()) {
             scan = scan.with_filter(file.bind(filter)?);
         }
         if let Some(projection) = plan.projection.as_ref() {
@@ -21096,6 +21179,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         grouped_states = Some(exact_states);
     }
+    if let Some(report) = winner_distinct_report.as_mut() {
+        report.measure_rows = usize_to_u64(pre_limit_result_row_count)?;
+        if report.filter.is_some() {
+            report.verify_measure_rows()?;
+            pre_limit_result_row_count = usize::try_from(source_row_count).map_err(vortex_error)?;
+        }
+    }
     let finalization_started = Instant::now();
     let numeric_accessor_work = grouped_states
         .as_ref()
@@ -21146,6 +21236,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     aggregate_timing.annotate_summary(&mut result_summary)?;
+    if let Some(report) = winner_distinct_report {
+        report.annotate(&mut result_summary)?;
+    }
     if let Some(workers) = count_workers.as_ref() {
         workers.annotate_summary(&mut result_summary)?;
     }
@@ -21159,7 +21252,10 @@ fn read_lowered_vortex_simple_aggregate_scan(
             summary["aggregate_worker_selection_max_rows"] =
                 aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS.into();
         }
-        summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement {
+        summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement
+            && matches!(count_workers, Some(aggregate_count_workers::CountWorkers::MixedDistinct(_))) {
+            "same_prepared_source;mixed_distinct_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
+        } else if provider_resume_after_pair_retirement {
             "same_prepared_source;numeric_pair_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         } else if small_numeric_direct_selected && !worker_admission_selected {
             "same_prepared_source;small_numeric_count_direct_selected_before_scan;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
@@ -25414,8 +25510,7 @@ struct GroupedAggregateStates<'a> {
     transformed_dictionary_direct_updates: bool,
     transformed_dictionary_compact_direct_updates: bool,
     transformed_dictionary_compact_code_pair_partials: bool,
-    transformed_dictionary_key_cache:
-        rustc_hash::FxHashMap<TransformedDictionaryKeyCacheEntry, AggregateGroupKey>,
+    transformed_dictionary_key_cache: TransformedDictionaryKeyCache,
     transformed_dictionary_key_cache_hits: u64,
     transformed_dictionary_key_cache_misses: u64,
     transformed_dictionary_key_cache_saturated: bool,
@@ -25533,16 +25628,44 @@ struct TransformedDictionaryDenseGeneralOrderCandidate {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[derive(Clone, Eq, Hash, PartialEq)]
-struct TransformedDictionaryKeyCacheEntry {
-    transform: AggregateValueTransform,
-    value: std::sync::Arc<str>,
+#[derive(Default)]
+struct TransformedDictionaryKeyCache {
+    // Separate transform namespaces allow ordinary borrowed `str` lookup in
+    // both maps. Only admitted misses need independent persistent ownership.
+    length: rustc_hash::FxHashMap<std::sync::Arc<str>, AggregateGroupKey>,
+    url_domain: rustc_hash::FxHashMap<std::sync::Arc<str>, AggregateGroupKey>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-impl TransformedDictionaryKeyCacheEntry {
-    fn new(transform: AggregateValueTransform, value: std::sync::Arc<str>) -> Self {
-        Self { transform, value }
+impl TransformedDictionaryKeyCache {
+    fn get(&self, transform: AggregateValueTransform, value: &str) -> Option<&AggregateGroupKey> {
+        match transform {
+            AggregateValueTransform::Length => self.length.get(value),
+            AggregateValueTransform::UrlDomain => self.url_domain.get(value),
+            _ => unreachable!("transformed dictionary cache admits only length and URL domain"),
+        }
+    }
+
+    fn insert(
+        &mut self,
+        transform: AggregateValueTransform,
+        value: std::sync::Arc<str>,
+        key: AggregateGroupKey,
+    ) {
+        let entries = match transform {
+            AggregateValueTransform::Length => &mut self.length,
+            AggregateValueTransform::UrlDomain => &mut self.url_domain,
+            _ => unreachable!("transformed dictionary cache admits only length and URL domain"),
+        };
+        entries.insert(value, key);
+    }
+
+    fn len(&self) -> usize {
+        self.length.len() + self.url_domain.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.length.is_empty() && self.url_domain.is_empty()
     }
 }
 
@@ -25747,11 +25870,12 @@ impl AggregateStringInterner {
         Ok(id)
     }
 
-    fn intern_arc(&mut self, value: std::sync::Arc<str>) -> Result<u64> {
+    fn intern_dictionary(&mut self, value: &Utf8DictionaryValue) -> Result<u64> {
         if let Some(id) = self.ids.get(value.as_ref()) {
             return Ok(*id);
         }
         let id = usize_to_u64(self.values.len())?;
+        let value = value.to_owned_arc();
         self.values.push(std::sync::Arc::clone(&value));
         self.ids.insert(value, id);
         Ok(id)
@@ -26134,7 +26258,7 @@ impl StringCountTopKHeavyHitterSketch {
 
     fn update_lazy_utf8_value(
         &mut self,
-        value: &std::sync::Arc<str>,
+        value: &Utf8DictionaryValue,
         weight: u64,
         string_interner: &mut AggregateStringInterner,
     ) -> Result<()> {
@@ -26151,7 +26275,7 @@ impl StringCountTopKHeavyHitterSketch {
         loop {
             self.remove_expired_and_forget(string_interner)?;
             if self.slots.len() < self.capacity {
-                let value_id = string_interner.intern_arc(std::sync::Arc::clone(value))?;
+                let value_id = string_interner.intern_dictionary(value)?;
                 let id = self.next_id;
                 self.next_id = self.next_id.checked_add(1).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
@@ -26294,7 +26418,7 @@ impl StringCountTopKHeavyHitterSketch {
 
     fn update_exact_mirror_lazy_utf8_value(
         &mut self,
-        value: &std::sync::Arc<str>,
+        value: &Utf8DictionaryValue,
         weight: u64,
         string_interner: &mut AggregateStringInterner,
     ) -> Result<()> {
@@ -26312,7 +26436,7 @@ impl StringCountTopKHeavyHitterSketch {
             self.exact_counts_mirror_disabled = true;
             return Ok(());
         }
-        let value_id = string_interner.intern_arc(std::sync::Arc::clone(value))?;
+        let value_id = string_interner.intern_dictionary(value)?;
         self.update_exact_mirror_id(value_id, weight)
     }
 
@@ -27491,7 +27615,7 @@ impl TransformedDictionaryDenseGeneralState {
     fn update_weighted_utf8_dictionary_value(
         &mut self,
         plan: TransformedDictionaryDenseGeneralPlan,
-        value: &std::sync::Arc<str>,
+        value: &Utf8DictionaryValue,
         weight: u64,
     ) -> Result<()> {
         if weight == 0 {
@@ -27530,13 +27654,13 @@ impl TransformedDictionaryDenseGeneralState {
         if plan.needs_utf8_min {
             match self.min_utf8.as_ref() {
                 Some(current) if current.as_ref() <= value.as_ref() => {}
-                Some(_) | None => self.min_utf8 = Some(std::sync::Arc::clone(value)),
+                Some(_) | None => self.min_utf8 = Some(value.to_owned_arc()),
             }
         }
         if plan.needs_utf8_max {
             match self.max_utf8.as_ref() {
                 Some(current) if current.as_ref() >= value.as_ref() => {}
-                Some(_) | None => self.max_utf8 = Some(std::sync::Arc::clone(value)),
+                Some(_) | None => self.max_utf8 = Some(value.to_owned_arc()),
             }
         }
         Ok(())
@@ -28349,7 +28473,7 @@ impl<'a> GroupedAggregateStates<'a> {
             transformed_dictionary_direct_updates: false,
             transformed_dictionary_compact_direct_updates: false,
             transformed_dictionary_compact_code_pair_partials: false,
-            transformed_dictionary_key_cache: rustc_hash::FxHashMap::default(),
+            transformed_dictionary_key_cache: TransformedDictionaryKeyCache::default(),
             transformed_dictionary_key_cache_hits: 0,
             transformed_dictionary_key_cache_misses: 0,
             transformed_dictionary_key_cache_saturated: false,
@@ -29052,7 +29176,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &mut self,
         numeric_accessor: &AggregateDirectColumnAccessor,
         row_ids: &[u32],
-        dictionary_values: &[std::sync::Arc<str>],
+        dictionary_values: &[Utf8DictionaryValue],
         roles: NumericUtf8GroupRoles,
         start_row: usize,
     ) -> Result<()> {
@@ -29214,7 +29338,7 @@ impl<'a> GroupedAggregateStates<'a> {
 
     fn source_order_numeric_utf8_candidate_slots(
         &self,
-        dictionary_values: &[std::sync::Arc<str>],
+        dictionary_values: &[Utf8DictionaryValue],
         roles: NumericUtf8GroupRoles,
     ) -> Result<Option<SourceOrderNumericUtf8CandidateSlots>> {
         let mut candidates_by_string_id = rustc_hash::FxHashMap::<u64, usize>::default();
@@ -29827,8 +29951,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 continue;
             }
             let key = AggregateGroupKey::single(AggregateDistinctValue::Utf8Interned(
-                self.string_interner
-                    .intern_arc(std::sync::Arc::clone(value))?,
+                self.string_interner.intern_dictionary(value)?,
             ));
             let record_source_order = self.request.order_by.is_empty();
             let group = match self.groups.entry(key) {
@@ -30025,12 +30148,13 @@ impl<'a> GroupedAggregateStates<'a> {
     fn transformed_dictionary_group_key(
         &mut self,
         transform: AggregateValueTransform,
-        value: &std::sync::Arc<str>,
+        value: &Utf8DictionaryValue,
     ) -> Result<AggregateGroupKey> {
         if self.transformed_dictionary_key_cache_admitted() {
-            let cache_key =
-                TransformedDictionaryKeyCacheEntry::new(transform, std::sync::Arc::clone(value));
-            if let Some(key) = self.transformed_dictionary_key_cache.get(&cache_key) {
+            if let Some(key) = self
+                .transformed_dictionary_key_cache
+                .get(transform, value.as_ref())
+            {
                 self.transformed_dictionary_key_cache_hits = self
                     .transformed_dictionary_key_cache_hits
                     .checked_add(1)
@@ -30055,8 +30179,11 @@ impl<'a> GroupedAggregateStates<'a> {
             if self.transformed_dictionary_key_cache.len()
                 < self.transformed_dictionary_key_cache_cap()
             {
-                self.transformed_dictionary_key_cache
-                    .insert(cache_key, key.clone());
+                self.transformed_dictionary_key_cache.insert(
+                    transform,
+                    value.to_owned_arc(),
+                    key.clone(),
+                );
             } else {
                 self.transformed_dictionary_key_cache_saturated = true;
             }
@@ -30299,9 +30426,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let mut ids = vec![u64::MAX; values.len()];
         for ((value, count), id) in values.iter().zip(counts).zip(&mut ids) {
             if *count != 0 {
-                *id = self
-                    .string_interner
-                    .intern_arc(std::sync::Arc::clone(value))?;
+                *id = self.string_interner.intern_dictionary(value)?;
             }
         }
         Ok(Some(ids))
@@ -30862,7 +30987,7 @@ impl<'a> GroupedAggregateStates<'a> {
     fn update_string_count_topk_count_only_exact_from_dictionary(
         &mut self,
         row_ids: &[u32],
-        values: &[std::sync::Arc<str>],
+        values: &[Utf8DictionaryValue],
         candidate_ids: &rustc_hash::FxHashSet<u64>,
         row_indices: Option<&[usize]>,
     ) -> Result<()> {
@@ -31950,13 +32075,31 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
-    #[allow(clippy::too_many_lines)]
     fn update_grouped_count_distinct_integer_pair_preunion_from_accessors(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
         row_indices: Option<&[usize]>,
         chunk_rows: usize,
     ) -> Result<bool> {
+        let Some(partial) =
+            self.prepare_mixed_distinct_partial(accessors, row_indices, chunk_rows, None, &|| {
+                Ok(())
+            })?
+        else {
+            return Ok(false);
+        };
+        partial.merge_into(self)?;
+        Ok(true)
+    }
+
+    fn prepare_mixed_distinct_partial(
+        &self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+        group_limit: Option<usize>,
+        check_cancelled: &impl Fn() -> Result<()>,
+    ) -> Result<Option<mixed_distinct_partial::MixedDistinctPartial>> {
         let Some((distinct_state_index, group_keys, distinct_keys)) = self
             .grouped_count_distinct_integer_pair_preunion_inputs_for_accessors(
                 accessors,
@@ -31964,153 +32107,19 @@ impl<'a> GroupedAggregateStates<'a> {
                 chunk_rows,
             )?
         else {
-            return Ok(false);
+            return Ok(None);
         };
-        let mut chunk_pairs =
-            rustc_hash::FxHashSet::<AggregateCountDistinctPairPreunionKey>::default();
-        reserve_hash_set_capacity(
-            &mut chunk_pairs,
-            chunk_rows,
-            "grouped count-distinct pair preunion",
-        )?;
-        let mut chunk_groups = rustc_hash::FxHashMap::<
-            AggregateCountDistinctPreunionGroupKey,
-            SimpleAggregateStates,
-        >::default();
-        reserve_hash_map_capacity(
-            &mut chunk_groups,
-            chunk_rows.min(65_536),
-            "grouped count-distinct pair preunion chunk-group partials",
-        )?;
-        let mut chunk_group_order = Vec::new();
-        chunk_group_order
-            .try_reserve(chunk_rows.min(65_536))
-            .map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "local Vortex grouped count-distinct pair preunion chunk-group order reservation failed: {error}; no fallback execution was attempted"
-                ))
-            })?;
-        let mut unique_pairs = 0_u64;
-        let recipe = bound_numeric_updates::BoundNumericUpdates::bind(
+        mixed_distinct_partial::MixedDistinctPartial::build(
             &self.state_template,
-            accessors,
             distinct_state_index,
+            group_keys,
+            distinct_keys,
+            accessors,
             chunk_rows,
-        );
-        for row_index in 0..chunk_rows {
-            let pair_key = AggregateCountDistinctPairPreunionKey::from_integer_key_slices(
-                group_keys,
-                distinct_keys,
-                row_index,
-            )?;
-            let pair_inserted = chunk_pairs.insert(pair_key);
-            let group_key = pair_key.preunion_group_key();
-            let group_states = match chunk_groups.entry(group_key) {
-                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    chunk_group_order.push(group_key);
-                    entry.insert(self.state_template.clone())
-                }
-            };
-            if let Some(recipe) = &recipe {
-                recipe.update(group_states, row_index)?;
-            } else {
-                group_states.update_direct_row_from_accessors_except_state(
-                    accessors,
-                    row_index,
-                    chunk_rows,
-                    distinct_state_index,
-                )?;
-            }
-            if pair_inserted {
-                group_states.update_count_distinct_preunion_value_at(
-                    distinct_state_index,
-                    pair_key.distinct_value(),
-                )?;
-                unique_pairs = unique_pairs.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex grouped count-distinct preunion unique-pair count overflowed u64"
-                            .to_string(),
-                    )
-                })?;
-            }
-        }
-        let chunk_group_count = chunk_groups.len();
-        reserve_hash_map_capacity(
-            &mut self.groups,
-            chunk_group_count,
-            "grouped count-distinct pair preunion aggregate",
-        )?;
-        if self.request.order_by.is_empty() {
-            self.group_order
-                .try_reserve(chunk_group_count)
-                .map_err(|error| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "local Vortex grouped count-distinct pair preunion source-order reservation failed: {error}; no fallback execution was attempted"
-                    ))
-                })?;
-        }
-        let record_source_order = self.request.order_by.is_empty();
-        for group_key in chunk_group_order {
-            let partial_states = chunk_groups.remove(&group_key).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct pair preunion chunk partial was missing; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
-            let aggregate_group_key = group_key.aggregate_group_key();
-            let group = match self.groups.entry(aggregate_group_key) {
-                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    if record_source_order {
-                        self.group_order.push(entry.key().clone());
-                    }
-                    entry.insert(GroupedAggregateState::new_general(
-                        vec![group_key.stat_value()],
-                        self.state_template.clone(),
-                    ))
-                }
-            };
-            group
-                .general_states_mut()?
-                .merge_preaggregated_from(&partial_states)?;
-        }
-        self.general_direct_updates = true;
-        self.general_direct_count_distinct_updates = true;
-        self.general_direct_group_state_pre_reserved = true;
-        self.grouped_count_distinct_pair_preunion_updates = true;
-        if recipe.is_some() {
-            self.bound_numeric_recipe_chunks += 1;
-        }
-        self.grouped_count_distinct_pair_preunion_input_rows = self
-            .grouped_count_distinct_pair_preunion_input_rows
-            .checked_add(usize_to_u64(chunk_rows)?)
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct preunion input row count overflowed u64"
-                        .to_string(),
-                )
-            })?;
-        self.grouped_count_distinct_pair_preunion_unique_pairs = self
-            .grouped_count_distinct_pair_preunion_unique_pairs
-            .checked_add(unique_pairs)
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct preunion unique-pair counter overflowed u64"
-                        .to_string(),
-                )
-            })?;
-        self.grouped_count_distinct_pair_preunion_chunk_group_partials = true;
-        self.grouped_count_distinct_pair_preunion_chunk_groups = self
-            .grouped_count_distinct_pair_preunion_chunk_groups
-            .checked_add(usize_to_u64(chunk_group_count)?)
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct preunion chunk-group counter overflowed u64"
-                        .to_string(),
-                )
-            })?;
-        Ok(true)
+            group_limit,
+            check_cancelled,
+        )
+        .map(Some)
     }
 
     fn grouped_count_distinct_integer_pair_preunion_inputs_for_accessors<'b>(
@@ -32478,7 +32487,7 @@ impl<'a> GroupedAggregateStates<'a> {
     fn update_dense_general_direct_from_transformed_dictionary_values(
         &mut self,
         plan: TransformedDictionaryDenseGeneralPlan,
-        group_values: &[std::sync::Arc<str>],
+        group_values: &[Utf8DictionaryValue],
         counts: &[u64],
     ) -> Result<()> {
         if let Some(groups) = self.transformed_dictionary_dense_general_groups.as_mut() {
@@ -32515,7 +32524,7 @@ impl<'a> GroupedAggregateStates<'a> {
     fn update_dense_general_direct_from_transformed_dictionary_chunk_partials(
         &mut self,
         plan: TransformedDictionaryDenseGeneralPlan,
-        group_values: &[std::sync::Arc<str>],
+        group_values: &[Utf8DictionaryValue],
         counts: &[u64],
     ) -> Result<()> {
         let active_values = counts.iter().filter(|count| **count > 0).count();
@@ -38425,7 +38434,7 @@ fn replay_string_count_topk_sketch_from_exact_counts(
 #[cfg(feature = "vortex-local-primitives")]
 fn update_string_count_topk_sketch_from_values(
     sketch: &mut StringCountTopKHeavyHitterSketch,
-    values: &[std::sync::Arc<str>],
+    values: &[Utf8DictionaryValue],
     counts: &[u64],
     string_interner: &mut AggregateStringInterner,
     mut total_weight: u64,
@@ -39634,13 +39643,13 @@ fn json_object_insert_u64(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-type NumericUtf8ExactDictionaryInputs<'a> = (&'a [u32], &'a [std::sync::Arc<str>]);
+type NumericUtf8ExactDictionaryInputs<'a> = (&'a [u32], &'a [Utf8DictionaryValue]);
 
 #[cfg(feature = "vortex-local-primitives")]
 type SourceOrderNumericUtf8DirectInputs<'a> = (
     &'a AggregateDirectColumnAccessor,
     &'a [u32],
-    &'a [std::sync::Arc<str>],
+    &'a [Utf8DictionaryValue],
 );
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -39813,7 +39822,7 @@ fn numeric_utf8_candidate_parts_by_utf8_id(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn numeric_utf8_candidate_parts_by_dictionary_code<'a>(
-    values: &[std::sync::Arc<str>],
+    values: &[Utf8DictionaryValue],
     string_interner: &AggregateStringInterner,
     candidate_parts_by_utf8_id: &'a NumericUtf8CandidatePartsByUtf8Id,
 ) -> Vec<Option<NumericUtf8CandidateDictionaryCodeRef<'a>>> {
@@ -40307,7 +40316,7 @@ enum AggregateDirectColumnAccessor {
     },
     Utf8Dictionary {
         row_ids: Vec<u32>,
-        values: Vec<std::sync::Arc<str>>,
+        values: Vec<Utf8DictionaryValue>,
         value_nulls: Option<Vec<bool>>,
         row_nulls: Option<Vec<bool>>,
         source: AggregateUtf8DictionarySource,
@@ -40411,7 +40420,7 @@ fn dictionary_group_code_key_for_row(
 #[cfg(feature = "vortex-local-primitives")]
 fn dictionary_group_code_key_to_aggregate_group_key(
     code_key: DictionaryGroupCodeKey,
-    values: &[std::sync::Arc<str>],
+    values: &[Utf8DictionaryValue],
     string_interner: &mut AggregateStringInterner,
 ) -> Result<AggregateGroupKey> {
     match code_key {
@@ -40429,9 +40438,7 @@ fn dictionary_group_code_key_to_aggregate_group_key(
                 )
             })?;
             Ok(AggregateGroupKey::single(
-                AggregateDistinctValue::Utf8Interned(
-                    string_interner.intern_arc(std::sync::Arc::clone(value))?,
-                ),
+                AggregateDistinctValue::Utf8Interned(string_interner.intern_dictionary(value)?),
             ))
         }
     }
@@ -41513,7 +41520,7 @@ fn aggregate_direct_count_distinct_update_materialized(
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_direct_count_distinct_update_utf8_dictionary(
     row_ids: &[u32],
-    values: &[std::sync::Arc<str>],
+    values: &[Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     row_indices: Option<&[usize]>,
@@ -41619,14 +41626,14 @@ fn aggregate_direct_count_distinct_mark_utf8_dictionary_code(
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_direct_count_distinct_insert_utf8_dictionary_values(
     used_codes: Vec<bool>,
-    values: &[std::sync::Arc<str>],
+    values: &[Utf8DictionaryValue],
     distinct_values: &mut AggregateDistinctSet,
 ) -> Result<()> {
     let used_count = used_codes.iter().filter(|used| **used).count();
     reserve_hash_set_capacity(distinct_values, used_count, "UTF-8 dictionary distinct")?;
     for (used, value) in used_codes.into_iter().zip(values) {
         if used {
-            distinct_values.insert(AggregateDistinctValue::Utf8(std::sync::Arc::clone(value)));
+            distinct_values.insert(AggregateDistinctValue::Utf8(value.to_owned_arc()));
         }
     }
     Ok(())
@@ -42268,12 +42275,12 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
             row_ids.push(0);
             continue;
         }
-        let bytes = utf8.bytes_at(row_index);
-        let id = dictionary.intern(column, bytes.as_slice())?;
+        let id = dictionary.intern_source(column, &utf8, row_index)?;
         row_ids.push(id);
     }
-    let (values, copied_bytes) = dictionary.into_values();
+    let (values, copied_bytes, source_backed_bytes) = dictionary.into_values();
     work.copied_bytes += copied_bytes;
+    work.source_backed_bytes += source_backed_bytes;
     work.calls += 1;
     work.rows += utf8.len() as u64;
     work.entries += values.len() as u64;
@@ -42607,9 +42614,8 @@ fn aggregate_direct_utf8_dictionary_accessor(
                 std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?,
             )
         };
-        // Promote each retained value directly to its owned representation;
-        // avoid the previous String -> Arc<str> intermediate copy.
-        values.push(value);
+        // Native DictArray values retain their existing independent ownership.
+        values.push(value.into());
         value_null_flags.push(is_null);
         has_null_value |= is_null;
     }
@@ -43113,7 +43119,7 @@ fn aggregate_direct_stat_value(
             value_nulls,
             row_nulls,
             ..
-        } => aggregate_utf8_dictionary_arc_value_opt(
+        } => aggregate_utf8_dictionary_entry_opt(
             row_ids,
             values,
             value_nulls.as_deref(),
@@ -43287,7 +43293,7 @@ fn aggregate_direct_utf8_length_value(
             value_nulls,
             row_nulls,
             ..
-        } => aggregate_utf8_dictionary_arc_value_opt(
+        } => aggregate_utf8_dictionary_entry_opt(
             row_ids,
             values,
             value_nulls.as_deref(),
@@ -43668,7 +43674,7 @@ fn aggregate_direct_interned_utf8_key(
             value_nulls,
             row_nulls,
             ..
-        } => string_interner.intern_arc(aggregate_utf8_dictionary_value_arc(
+        } => string_interner.intern_dictionary(aggregate_utf8_dictionary_entry(
             row_ids,
             values,
             value_nulls.as_deref(),
@@ -43728,7 +43734,7 @@ fn aggregate_direct_utf8_dictionary_interner_ids(
     string_interner.reserve(values.len(), "numeric-minute-string dictionary interner")?;
     values
         .iter()
-        .map(|value| string_interner.intern_arc(std::sync::Arc::clone(value)))
+        .map(|value| string_interner.intern_dictionary(value))
         .collect::<Result<Vec<_>>>()
         .map(Some)
 }
@@ -43934,7 +43940,7 @@ fn string_candidate_signatures_from_ids(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn string_topk_candidate_code_ids_from_values(
-    values: &[std::sync::Arc<str>],
+    values: &[Utf8DictionaryValue],
     candidate_ids: &rustc_hash::FxHashSet<u64>,
     candidate_signatures: Option<&rustc_hash::FxHashSet<StringCandidateSignature>>,
     string_interner: &AggregateStringInterner,
@@ -44032,7 +44038,7 @@ fn dictionary_value_counts_for_rows(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn transformed_dictionary_dense_general_should_use_chunk_partials(
-    group_values: &[std::sync::Arc<str>],
+    group_values: &[Utf8DictionaryValue],
     counts: &[u64],
 ) -> bool {
     if group_values.len() < TRANSFORMED_DICTIONARY_DENSE_GENERAL_CHUNK_PARTIAL_MIN_SAMPLE {
@@ -44252,107 +44258,54 @@ fn dictionary_value_counts_and_null_count_for_mask(
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_utf8_dictionary_value<'a>(
     row_ids: &[u32],
-    values: &'a [std::sync::Arc<str>],
+    values: &'a [Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     row_index: usize,
 ) -> Result<&'a str> {
-    aggregate_utf8_dictionary_value_opt(row_ids, values, value_nulls, row_nulls, row_index)?
+    aggregate_utf8_dictionary_entry(row_ids, values, value_nulls, row_nulls, row_index)
+        .map(AsRef::as_ref)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_utf8_dictionary_entry<'a>(
+    row_ids: &[u32],
+    values: &'a [Utf8DictionaryValue],
+    value_nulls: Option<&[bool]>,
+    row_nulls: Option<&[bool]>,
+    row_index: usize,
+) -> Result<&'a Utf8DictionaryValue> {
+    aggregate_utf8_dictionary_entry_opt(row_ids, values, value_nulls, row_nulls, row_index)?
         .ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex aggregate direct UTF-8 dictionary value was null where a concrete string was required; no fallback execution was attempted"
                     .to_string(),
             )
         })
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-fn aggregate_utf8_dictionary_value_arc(
-    row_ids: &[u32],
-    values: &[std::sync::Arc<str>],
-    value_nulls: Option<&[bool]>,
-    row_nulls: Option<&[bool]>,
-    row_index: usize,
-) -> Result<std::sync::Arc<str>> {
-    aggregate_utf8_dictionary_value_arc_opt(row_ids, values, value_nulls, row_nulls, row_index)?
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "local Vortex aggregate direct UTF-8 dictionary value was null where a concrete string was required; no fallback execution was attempted"
-                    .to_string(),
-            )
-        })
-}
-
-#[cfg(feature = "vortex-local-primitives")]
-fn aggregate_utf8_dictionary_value_arc_opt(
-    row_ids: &[u32],
-    values: &[std::sync::Arc<str>],
-    value_nulls: Option<&[bool]>,
-    row_nulls: Option<&[bool]>,
-    row_index: usize,
-) -> Result<Option<std::sync::Arc<str>>> {
-    if row_nulls
-        .and_then(|nulls| nulls.get(row_index))
-        .copied()
-        .unwrap_or(false)
-    {
-        return Ok(None);
-    }
-    let id = row_ids.get(row_index).copied().ok_or_else(|| {
-        ShardLoomError::InvalidOperation(
-            "local Vortex aggregate direct UTF-8 dictionary row index was out of bounds; no fallback execution was attempted"
-                .to_string(),
-        )
-    })?;
-    let value_index = usize::try_from(id).map_err(|_| {
-        ShardLoomError::InvalidOperation(
-            "local Vortex aggregate direct UTF-8 dictionary id exceeded usize; no fallback execution was attempted"
-                .to_string(),
-        )
-    })?;
-    if value_nulls
-        .and_then(|nulls| nulls.get(value_index))
-        .copied()
-        .unwrap_or(false)
-    {
-        return Ok(None);
-    }
-    values.get(value_index).cloned().map(Some).ok_or_else(|| {
-        ShardLoomError::InvalidOperation(
-            "local Vortex aggregate direct UTF-8 dictionary value was missing; no fallback execution was attempted"
-                .to_string(),
-        )
-    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_utf8_dictionary_value_opt<'a>(
     row_ids: &[u32],
-    values: &'a [std::sync::Arc<str>],
+    values: &'a [Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     row_index: usize,
 ) -> Result<Option<&'a str>> {
     Ok(
-        aggregate_utf8_dictionary_arc_value_opt(
-            row_ids,
-            values,
-            value_nulls,
-            row_nulls,
-            row_index,
-        )?
-        .map(AsRef::as_ref),
+        aggregate_utf8_dictionary_entry_opt(row_ids, values, value_nulls, row_nulls, row_index)?
+            .map(AsRef::as_ref),
     )
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn aggregate_utf8_dictionary_arc_value_opt<'a>(
+fn aggregate_utf8_dictionary_entry_opt<'a>(
     row_ids: &[u32],
-    values: &'a [std::sync::Arc<str>],
+    values: &'a [Utf8DictionaryValue],
     value_nulls: Option<&[bool]>,
     row_nulls: Option<&[bool]>,
     row_index: usize,
-) -> Result<Option<&'a std::sync::Arc<str>>> {
+) -> Result<Option<&'a Utf8DictionaryValue>> {
     if row_nulls
         .and_then(|nulls| nulls.get(row_index))
         .copied()
@@ -44579,7 +44532,7 @@ fn aggregate_direct_distinct_value(
             value_nulls,
             row_nulls,
             ..
-        } => aggregate_utf8_dictionary_arc_value_opt(
+        } => aggregate_utf8_dictionary_entry_opt(
             row_ids,
             values,
             value_nulls.as_deref(),
@@ -44588,7 +44541,7 @@ fn aggregate_direct_distinct_value(
         )
         .map(|value| {
             value.map_or(AggregateDistinctValue::Null, |value| {
-                AggregateDistinctValue::Utf8(std::sync::Arc::clone(value))
+                AggregateDistinctValue::Utf8(value.to_owned_arc())
             })
         }),
         AggregateDirectColumnAccessor::Materialized { values, .. } => values
@@ -49281,7 +49234,10 @@ mod tests {
                 std::sync::Arc::<str>::from("https://google.test/a"),
                 std::sync::Arc::<str>::from("https://example.test/b"),
                 std::sync::Arc::<str>::from("https://news.google.test/c"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary,
@@ -49513,7 +49469,10 @@ mod tests {
                 std::sync::Arc::<str>::from("https://example.test/b"),
                 std::sync::Arc::<str>::from("https://news.google.test/c"),
                 std::sync::Arc::<str>::from("https://unused.google.test/d"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary,
@@ -50599,7 +50558,7 @@ mod tests {
             row_ids: vec![0, 1, 2, 0, 2],
             values: ["alpha", "beta", "gamma"]
                 .into_iter()
-                .map(std::sync::Arc::<str>::from)
+                .map(|value| std::sync::Arc::<str>::from(value).into())
                 .collect(),
             value_nulls: Some(vec![false, true, false]),
             row_nulls: Some(vec![false, false, true, false, false]),
@@ -50626,7 +50585,7 @@ mod tests {
             row_ids: vec![0, 0, 1, 2, 2, 2],
             values: ["alpha", "beta", "gamma"]
                 .into_iter()
-                .map(std::sync::Arc::<str>::from)
+                .map(|value| std::sync::Arc::<str>::from(value).into())
                 .collect(),
             value_nulls: None,
             row_nulls: None,
@@ -50733,7 +50692,7 @@ mod tests {
             row_ids: vec![0, 1, 2, 0, 2],
             values: ["alpha", "beta", "gamma"]
                 .into_iter()
-                .map(std::sync::Arc::<str>::from)
+                .map(|value| std::sync::Arc::<str>::from(value).into())
                 .collect(),
             value_nulls: Some(vec![false, true, false]),
             row_nulls: Some(vec![false, false, true, false, false]),
@@ -50770,7 +50729,7 @@ mod tests {
             row_ids: vec![0, 1, 2, 0],
             values: ["alpha", "beta", "gamma"]
                 .into_iter()
-                .map(std::sync::Arc::<str>::from)
+                .map(|value| std::sync::Arc::<str>::from(value).into())
                 .collect(),
             value_nulls: None,
             row_nulls: Some(vec![false, true, false, false]),
@@ -50804,7 +50763,7 @@ mod tests {
             row_ids: vec![0, 0, 1, 2, 2, 2],
             values: ["alpha", "beta", "gamma"]
                 .into_iter()
-                .map(std::sync::Arc::<str>::from)
+                .map(|value| std::sync::Arc::<str>::from(value).into())
                 .collect(),
             value_nulls: None,
             row_nulls: None,
@@ -50886,7 +50845,7 @@ mod tests {
             row_ids: vec![0, 1, 2, 0],
             values: ["alpha", "", "gamma"]
                 .into_iter()
-                .map(std::sync::Arc::<str>::from)
+                .map(|value| std::sync::Arc::<str>::from(value).into())
                 .collect(),
             value_nulls: Some(vec![false, true, false]),
             row_nulls: Some(vec![false, false, true, false]),
@@ -57956,7 +57915,10 @@ mod tests {
                 std::sync::Arc::clone(&alpha),
                 std::sync::Arc::clone(&unused),
                 std::sync::Arc::clone(&beta),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -58008,7 +57970,10 @@ mod tests {
                 std::sync::Arc::<str>::from("alpha"),
                 std::sync::Arc::<str>::from("null-value"),
                 std::sync::Arc::<str>::from("beta"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: Some(vec![false, true, false]),
             row_nulls: Some(vec![false, false, true, false]),
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -59725,7 +59690,10 @@ mod tests {
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("warm"),
                 std::sync::Arc::<str>::from("cold"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60020,7 +59988,10 @@ mod tests {
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("warm"),
                 std::sync::Arc::<str>::from("cold"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60031,7 +60002,10 @@ mod tests {
                 std::sync::Arc::<str>::from("warm"),
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("cold"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60195,7 +60169,10 @@ mod tests {
             values: vec![
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("cold"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60248,7 +60225,10 @@ mod tests {
             values: vec![
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("warm"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60260,7 +60240,10 @@ mod tests {
                 std::sync::Arc::<str>::from("warm"),
                 std::sync::Arc::<str>::from("cold"),
                 std::sync::Arc::<str>::from("cool"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60353,7 +60336,10 @@ mod tests {
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("warm"),
                 std::sync::Arc::<str>::from("cold"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60433,7 +60419,10 @@ mod tests {
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
                     std::sync::Arc::<str>::from("cold"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60445,7 +60434,10 @@ mod tests {
                     std::sync::Arc::<str>::from("b.example"),
                     std::sync::Arc::<str>::from("c.example"),
                     std::sync::Arc::<str>::from("d.example"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60649,7 +60641,10 @@ mod tests {
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
                     std::sync::Arc::<str>::from("cold"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60661,7 +60656,10 @@ mod tests {
                     std::sync::Arc::<str>::from("b.example"),
                     std::sync::Arc::<str>::from("c.example"),
                     std::sync::Arc::<str>::from("d.example"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60803,7 +60801,10 @@ mod tests {
                 values: vec![
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60813,7 +60814,10 @@ mod tests {
                 values: vec![
                     std::sync::Arc::<str>::from("a.example"),
                     std::sync::Arc::<str>::from("b.example"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60822,14 +60826,20 @@ mod tests {
         let candidate_free_chunk = vec![
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 0],
-                values: vec![std::sync::Arc::<str>::from("cold")],
+                values: vec![std::sync::Arc::<str>::from("cold")]
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
             },
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 0],
-                values: vec![std::sync::Arc::<str>::from("z.example")],
+                values: vec![std::sync::Arc::<str>::from("z.example")]
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -60918,14 +60928,20 @@ mod tests {
             values: vec![
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("warm"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
         }];
         let candidate_free_chunk = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids: vec![0, 0, 0, 0],
-            values: vec![std::sync::Arc::<str>::from("cold")],
+            values: vec![std::sync::Arc::<str>::from("cold")]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61014,7 +61030,10 @@ mod tests {
                 std::sync::Arc::<str>::from("hot"),
                 std::sync::Arc::<str>::from("warm"),
                 std::sync::Arc::<str>::from("cold"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61442,7 +61461,10 @@ mod tests {
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
                     std::sync::Arc::<str>::from("cold"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61586,7 +61608,10 @@ mod tests {
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
                     std::sync::Arc::<str>::from("cold"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61703,7 +61728,10 @@ mod tests {
                 values: vec![
                     std::sync::Arc::<str>::from("alpha"),
                     std::sync::Arc::<str>::from("beta"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61806,7 +61834,10 @@ mod tests {
         let accessors = vec![
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 0],
-                values: vec![std::sync::Arc::<str>::from("hot")],
+                values: vec![std::sync::Arc::<str>::from("hot")]
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61855,7 +61886,10 @@ mod tests {
                 values: vec![
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61865,7 +61899,10 @@ mod tests {
         let candidate_free_chunk = vec![
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 0, 0],
-                values: vec![std::sync::Arc::<str>::from("cold")],
+                values: vec![std::sync::Arc::<str>::from("cold")]
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -61942,9 +61979,11 @@ mod tests {
         let warm = std::sync::Arc::<str>::from("warm");
         let values = vec![hot.clone(), warm];
         let mut string_interner = AggregateStringInterner::default();
-        let hot_id = string_interner.intern_arc(hot).expect("intern hot");
+        let hot_id = string_interner
+            .intern_dictionary(&hot.into())
+            .expect("intern hot");
         let _warm_id = string_interner
-            .intern_arc(values[1].clone())
+            .intern_dictionary(&values[1].clone().into())
             .expect("intern warm");
         let mut candidates = rustc_hash::FxHashSet::default();
         candidates.insert(AggregateNumericUtf8InternedKey::new(
@@ -61960,7 +61999,7 @@ mod tests {
         assert_eq!(candidate_parts_by_utf8_id.len(), 1);
         assert!(candidate_parts_by_utf8_id.contains_key(&hot_id));
         let candidate_numeric_by_code = numeric_utf8_candidate_parts_by_dictionary_code(
-            &values,
+            &values.into_iter().map(Into::into).collect::<Vec<_>>(),
             &string_interner,
             &candidate_parts_by_utf8_id,
         );
@@ -61999,7 +62038,10 @@ mod tests {
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
                     std::sync::Arc::<str>::from("cold"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -62158,7 +62200,10 @@ mod tests {
                 values: vec![
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -62168,7 +62213,10 @@ mod tests {
             AggregateDirectColumnAccessor::Int64(vec![9, 9, 9, 9]),
             AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids: vec![0, 0, 0, 0],
-                values: vec![std::sync::Arc::<str>::from("cold")],
+                values: vec![std::sync::Arc::<str>::from("cold")]
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -62274,7 +62322,10 @@ mod tests {
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
                     std::sync::Arc::<str>::from("cold"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -62409,7 +62460,10 @@ mod tests {
                 values: vec![
                     std::sync::Arc::<str>::from("hot"),
                     std::sync::Arc::<str>::from("warm"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -62476,7 +62530,10 @@ mod tests {
         let warm = std::sync::Arc::<str>::from("warm");
         let accessor = AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids: vec![0, 0, 1],
-            values: vec![hot.clone(), warm],
+            values: vec![hot.clone(), warm]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -62499,9 +62556,11 @@ mod tests {
         let mut interner = AggregateStringInterner::default();
 
         let first = interner
-            .intern_arc(std::sync::Arc::clone(&hot))
+            .intern_dictionary(&std::sync::Arc::clone(&hot).into())
             .expect("first intern");
-        let second = interner.intern_arc(duplicate).expect("duplicate intern");
+        let second = interner
+            .intern_dictionary(&duplicate.into())
+            .expect("duplicate intern");
 
         assert_eq!(first, second);
         assert_eq!(interner.len(), 1);
@@ -62517,10 +62576,10 @@ mod tests {
         let mut sketch = StringCountTopKHeavyHitterSketch::new(1);
 
         sketch
-            .update_lazy_utf8_value(&hot, 100, &mut interner)
+            .update_lazy_utf8_value(&hot.clone().into(), 100, &mut interner)
             .expect("hot update");
         sketch
-            .update_lazy_utf8_value(&cold, 1, &mut interner)
+            .update_lazy_utf8_value(&cold.clone().into(), 1, &mut interner)
             .expect("cold update");
 
         assert!(interner.id("hot").is_some());
@@ -62553,7 +62612,10 @@ mod tests {
                 values: vec![
                     std::sync::Arc::<str>::from("alpha"),
                     std::sync::Arc::<str>::from("beta"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
@@ -62760,7 +62822,10 @@ mod tests {
                     std::sync::Arc::<str>::from("alpha"),
                     std::sync::Arc::<str>::from("beta"),
                     std::sync::Arc::<str>::from("gamma"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -62923,7 +62988,10 @@ mod tests {
                     std::sync::Arc::<str>::from("alpha"),
                     std::sync::Arc::<str>::from("beta"),
                     std::sync::Arc::<str>::from("gamma"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -63671,7 +63739,10 @@ mod tests {
                     std::sync::Arc::<str>::from("beta"),
                     std::sync::Arc::<str>::from("gamma"),
                     std::sync::Arc::<str>::from("delta"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -64043,7 +64114,7 @@ mod tests {
         let row_ids = (0..200).map(|index| index as u32).collect::<Vec<_>>();
         let direct_accessors = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids,
-            values,
+            values: values.into_iter().map(Into::into).collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -64114,7 +64185,10 @@ mod tests {
             values: vec![
                 std::sync::Arc::<str>::from("http://example.test/a"),
                 std::sync::Arc::<str>::from("http://example.test/b"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -64172,7 +64246,10 @@ mod tests {
             values: vec![
                 std::sync::Arc::<str>::from("http://example.test/a"),
                 std::sync::Arc::<str>::from("http://example.test/b"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -64750,7 +64827,10 @@ mod tests {
                 std::sync::Arc::<str>::from("http://example.test/a"),
                 std::sync::Arc::<str>::from("https://other.test/b"),
                 std::sync::Arc::<str>::from("http://example.test/c"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -64892,7 +64972,10 @@ mod tests {
                 std::sync::Arc::<str>::from("http://example.test/a"),
                 std::sync::Arc::<str>::from("https://other.test/b"),
                 std::sync::Arc::<str>::from("http://example.test/c"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -64959,7 +65042,10 @@ mod tests {
                 std::sync::Arc::<str>::from("http://example.test/a"),
                 std::sync::Arc::<str>::from("https://other.test/b"),
                 std::sync::Arc::<str>::from("http://example.test/c"),
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65040,7 +65126,10 @@ mod tests {
                     std::sync::Arc::<str>::from("http://example.test/a"),
                     std::sync::Arc::<str>::from("https://other.test/b"),
                     std::sync::Arc::<str>::from("www.example.test/c"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65051,7 +65140,10 @@ mod tests {
                     std::sync::Arc::<str>::from("a"),
                     std::sync::Arc::<str>::from("abcd"),
                     std::sync::Arc::<str>::from("abcdefgh"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65158,7 +65250,10 @@ mod tests {
                     std::sync::Arc::<str>::from("example.test"),
                     std::sync::Arc::<str>::from("other.test"),
                     std::sync::Arc::<str>::from("example.test"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65265,7 +65360,10 @@ mod tests {
                     std::sync::Arc::<str>::from("example.test"),
                     std::sync::Arc::<str>::from("other.test"),
                     std::sync::Arc::<str>::from("docs.test"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65346,7 +65444,10 @@ mod tests {
             let accessors = vec![
                 AggregateDirectColumnAccessor::Utf8Dictionary {
                     row_ids: vec![0],
-                    values: vec![std::sync::Arc::<str>::from("example.test")],
+                    values: vec![std::sync::Arc::<str>::from("example.test")]
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
                     value_nulls: None,
                     row_nulls: None,
                     source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65409,7 +65510,10 @@ mod tests {
                     std::sync::Arc::<str>::from("http://example.test/a"),
                     std::sync::Arc::<str>::from("https://other.test/b"),
                     std::sync::Arc::<str>::from("www.example.test/c"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65420,7 +65524,10 @@ mod tests {
                     std::sync::Arc::<str>::from("a"),
                     std::sync::Arc::<str>::from("abcd"),
                     std::sync::Arc::<str>::from("abcdefgh"),
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 value_nulls: None,
                 row_nulls: None,
                 source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65491,7 +65598,7 @@ mod tests {
         )])
         .with_order_by(vec![crate::VortexAggregateOrderExpr::new("c", true)]);
         let declared_columns = vec!["Referer".to_string()];
-        let values = vec![
+        let values = [
             std::sync::Arc::<str>::from("http://example.test/z"),
             std::sync::Arc::<str>::from("https://other.test/b"),
             std::sync::Arc::<str>::from("http://example.test/a"),
@@ -65502,7 +65609,7 @@ mod tests {
                 .expect("states");
         let accessors = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids: vec![0, 2, 0, 1, 2, 3],
-            values: values.clone(),
+            values: values.iter().cloned().map(Into::into).collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65635,7 +65742,7 @@ mod tests {
         )])
         .with_order_by(vec![crate::VortexAggregateOrderExpr::new("l", true)]);
         let declared_columns = vec!["Referer".to_string()];
-        let values = vec![
+        let values = [
             std::sync::Arc::<str>::from("http://example.test/z"),
             std::sync::Arc::<str>::from("https://other.test/b"),
             std::sync::Arc::<str>::from("http://example.test/a"),
@@ -65646,7 +65753,7 @@ mod tests {
                 .expect("states");
         let accessors = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids: vec![0, 2, 0, 1, 2, 3],
-            values: values.clone(),
+            values: values.iter().cloned().map(Into::into).collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,
@@ -65780,7 +65887,7 @@ mod tests {
                 .expect("states");
         let accessors = vec![AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids,
-            values,
+            values: values.into_iter().map(Into::into).collect(),
             value_nulls: None,
             row_nulls: None,
             source: AggregateUtf8DictionarySource::VortexDictArray,

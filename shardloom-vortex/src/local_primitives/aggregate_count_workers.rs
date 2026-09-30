@@ -62,6 +62,7 @@ pub(super) enum CountWorkers {
     Single(SingleCountWorkers),
     Compound(super::compound_count_workers::CompoundWorkers),
     ExactDistinct(super::exact_distinct_pairs::workers::ExactDistinctWorkers),
+    MixedDistinct(super::mixed_distinct_workers::MixedDistinctWorkers),
 }
 
 impl CountWorkers {
@@ -112,6 +113,7 @@ impl CountWorkers {
             Self::Single(workers) => workers.before_next(states),
             Self::Compound(workers) => workers.before_next(states),
             Self::ExactDistinct(workers) => workers.before_next(states),
+            Self::MixedDistinct(workers) => workers.before_next(states),
         }
     }
     pub(super) fn submit(
@@ -125,6 +127,7 @@ impl CountWorkers {
             Self::Single(workers) => workers.submit(chunk, states),
             Self::Compound(workers) => workers.submit(chunk, states),
             Self::ExactDistinct(workers) => workers.submit(chunk, states),
+            Self::MixedDistinct(workers) => workers.submit(chunk, states),
         }
     }
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
@@ -133,6 +136,7 @@ impl CountWorkers {
             Self::Triple(workers) => workers.finish(states),
             Self::Single(workers) => workers.finish(states),
             Self::Compound(workers) => workers.finish(states),
+            Self::MixedDistinct(workers) => workers.finish(states),
             Self::ExactDistinct(workers) => {
                 workers.finish(states)?;
                 states.finalized_distinct_counts = workers.take_exact_result();
@@ -147,13 +151,14 @@ impl CountWorkers {
             Self::Single(workers) => workers.annotate_summary(summary),
             Self::Compound(workers) => workers.annotate_summary(summary),
             Self::ExactDistinct(workers) => workers.annotate_summary(summary),
+            Self::MixedDistinct(workers) => workers.annotate_summary(summary),
         }
     }
     pub(super) fn has_active_partitions(&self) -> bool {
         match self {
             // Pair/triple state has no certified bounded serial/spill destination.
             // It must fail and release owners on source pressure, never replay.
-            Self::PairPartitions(_) | Self::Triple(_) => false,
+            Self::PairPartitions(_) | Self::Triple(_) | Self::MixedDistinct(_) => false,
             Self::Single(workers) => workers.has_active_partitions(),
             Self::Compound(workers) => workers.has_active_partitions(),
             Self::ExactDistinct(workers) => workers.has_active_partitions(),
@@ -166,6 +171,7 @@ impl CountWorkers {
             Self::Single(workers) => workers.cancel_for_source_replay(),
             Self::Compound(workers) => workers.cancel_for_source_replay(),
             Self::ExactDistinct(workers) => workers.cancel_for_source_replay(),
+            Self::MixedDistinct(workers) => workers.cancel(),
         }
     }
     #[cfg(test)]
@@ -182,6 +188,7 @@ impl CountWorkers {
             Self::Single(workers) => return workers.inject_scan_fault_for_test(memory, chunks),
             Self::Compound(workers) => workers.has_committed_groups(),
             Self::ExactDistinct(workers) => workers.has_committed_groups(),
+            Self::MixedDistinct(workers) => workers.has_committed_groups(),
         };
         if chunks == 0 || !committed {
             return None;
@@ -205,13 +212,20 @@ impl CountWorkers {
     /// True only after this family's job pool has been retired. Other families
     /// retain their existing CPU ownership and never request this transition.
     pub(super) fn provider_restore_requested(&self) -> bool {
-        matches!(self, Self::PairPartitions(workers) if workers.provider_restore_requested())
+        match self {
+            Self::PairPartitions(workers) => workers.provider_restore_requested(),
+            Self::MixedDistinct(workers) => workers.retired(),
+            _ => false,
+        }
     }
 }
 
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if super::mixed_distinct_workers::request_may_be_admitted(request) {
+        return true;
+    }
     if super::pair_partition_workers::request_may_be_admitted(request) {
         return true;
     }
@@ -1255,7 +1269,7 @@ fn install_weighted_string(
             .string_count_topk_heavy_hitter_sketch
             .as_mut()
             .ok_or_else(|| failed("native pressure sketch is absent"))?
-            .update_lazy_utf8_value(&owned, count, &mut states.string_interner)?;
+            .update_lazy_utf8_value(&owned.into(), count, &mut states.string_interner)?;
     } else {
         states
             .string_interner

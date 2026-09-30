@@ -4,6 +4,7 @@
 
 use super::{
     aggregate_chunk_jobs::ChunkWorkerContext,
+    aggregate_dense_pages::DensePages,
     compound_count_partial::{self, CompoundPartial, Key, Work, failed},
     string_count_entry_credits::{Claim, EntryBlock, EntryCredits},
 };
@@ -18,9 +19,6 @@ use std::{
 };
 
 pub(super) const PARTITIONS: usize = 64;
-#[path = "compound_pages.rs"]
-mod pages;
-use pages::DensePages;
 #[path = "compound_distinct_partition_output.rs"]
 pub(super) mod distinct_output;
 #[cfg(test)]
@@ -551,7 +549,7 @@ impl Partition {
             self.group_slots = slots;
             self.groups_lease = lease;
         }
-        if !self.groups.reserve_one(&shared.memory)? {
+        if !self.groups.reserve_one(&shared.memory, failed)? {
             return Ok(false);
         }
         let Some((offset, len)) = self.intern(bytes, shared, worker)? else {
@@ -619,7 +617,7 @@ impl Partition {
             self.text_slots = slots;
             self.text_lease = lease;
         }
-        if !self.text.reserve_one(&shared.memory)? {
+        if !self.text.reserve_one(&shared.memory, failed)? {
             return Ok(None);
         }
         let needed = self
@@ -673,18 +671,7 @@ impl Partition {
     }
 }
 fn allocate<T>(capacity: usize, memory: &LiveMemoryPool) -> Result<Option<(Vec<T>, MemoryLease)>> {
-    let bytes = capacity
-        .checked_mul(size_of::<T>())
-        .and_then(|bytes| u64::try_from(bytes).ok())
-        .ok_or_else(|| failed("partition capacity overflowed"))?;
-    let Ok(lease) = memory.reserve(bytes) else {
-        return Ok(None);
-    };
-    let mut values = Vec::new();
-    if values.try_reserve_exact(capacity).is_err() || values.capacity() > capacity {
-        return Ok(None);
-    }
-    Ok(Some((values, lease)))
+    super::aggregate_dense_pages::allocate(capacity, memory, failed)
 }
 fn add(counter: &AtomicU64, value: u64) -> Result<()> {
     counter

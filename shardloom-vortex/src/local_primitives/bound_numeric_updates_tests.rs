@@ -253,7 +253,10 @@ fn bound_numeric_updates_rejects_unsupported_state_recipes() {
 
     let text = AggregateDirectColumnAccessor::Utf8Dictionary {
         row_ids: vec![0, 0],
-        values: vec![std::sync::Arc::<str>::from("x")],
+        values: vec![std::sync::Arc::<str>::from("x")]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
         value_nulls: None,
         row_nulls: None,
         source: AggregateUtf8DictionarySource::VortexDictArray,
