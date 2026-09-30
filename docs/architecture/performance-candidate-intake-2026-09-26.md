@@ -70,7 +70,14 @@ with 29.05% lower final Q10 best time and all 258 Full43 results passing.
 R3.b [retains shared mixed DISTINCT partial workers](mixed-distinct-worker-screen-2026-09-29.md),
 with 2.95% lower final Full43 Q10 best time and all 258 comparisons passing after
 the cancellation review fix; the suite total is 0.48% lower. Original measurements remain scoped separately.
-R4, R6.c, R10 and R2.b remain undecided. The
+R4 [drops triple-key sort/reduce](triple-sort-screen-2026-09-30.md): every Q19
+pair is slower, despite 14–17% lower observed RSS. R6.c
+[drops the duplicate progressive scanner recipe](progressive-provider-selection-audit-2026-09-30.md)
+after source verification; Q23 provider attribution remains open. R10
+[retains shared dense string-count pages](dense-string-count-screen-2026-09-30.md):
+Full43 Q34/Q35 improve 33.98%/32.39%, the total falls 3.26%, and all 258 complete
+comparisons pass. Its negative observations and bounded follow-up are retained.
+R2.b remains undecided. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

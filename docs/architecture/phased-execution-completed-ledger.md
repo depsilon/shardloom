@@ -17,6 +17,41 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R10: retain shared dense single-string COUNT payload pages.
+  - Date: 2026-09-30 UTC. Runtime `a33da94f131125b4119603bc9f032c5687e8df6b`
+    reuses the compound path's stable paged records and exact leased allocation.
+    Eight-byte directories replace 32-byte sparse records while preserving full
+    equality, checked counts, ties, cancellation and pressure handoff. The
+    diagnostic identifies roughly 1 GB of avoidable directory capacity; modeled
+    peak reservations fall by roughly 1 GB in the screen, with mixed Q34 RSS.
+  - Q34/Q35 Full43 best times improve 33.98%/32.39%; all 258 complete results
+    pass, and the total falls from 55.420075 to 53.611191 seconds (3.26%). A
+    bounded 18-call follow-up does not reproduce the larger Q19/Q17 slowdown;
+    it does not replace the original negative observations. All 300 diagnostic,
+    screen, Full43 and follow-up comparisons are retained in portable evidence.
+  - Formatting, workspace/native Clippy, 3,436 workspace, 2,029 native and
+    1,520 CLI tests pass; counts overlap and 22 existing native fixtures are
+    ignored. Collision, denied-growth and refund tests cover the new layout.
+    See [the screen and acceptance record](dense-string-count-screen-2026-09-30.md).
+    PR/CI acceptance is pending. R2.b and the final profiling refresh remain.
+
+- [x] `PERF-INTAKE` R4 / R6.c: close the next two bounded candidates.
+  - Date: 2026-09-30 UTC. R4's complete triple-key partition sort/reduce passes
+    all six exact Q19 comparisons and 18 focused tests, but every candidate call
+    is slower: best 4.122425 to 4.403890 seconds (+6.83%). Observed RSS falls
+    14–17%; modeled peak reservations increase. The memory gate also requires
+    no time regression. Restore the original hash runtime; preserve the complete
+    prototype patch, samples, source identities and independently audited
+    portable evidence. See [R4](triple-sort-screen-2026-09-30.md).
+  - R6.c's progressive filtering and selectivity ordering already exist in the
+    pinned Vortex provider. Drop a duplicate scanner implementation. The saved
+    Q23 provider span remains 4.09–4.22 seconds with its exclusive costs unresolved;
+    no repeated-decompression or new speedup claim is made. See
+    [R6.c](progressive-provider-selection-audit-2026-09-30.md).
+  - No runtime change survives either decision. R10 and R2.b remain Planned,
+    followed by the profiling refresh. PERF and CG-1 through CG-23 retain their
+    independent gates and V1 candidate scope.
+
 - [x] `PERF-INTAKE` R3.b: retain shared mixed-measure exact DISTINCT workers.
   - Date: 2026-09-29 local; evidence September 30 UTC. Runtime
     `dff85c33763ac773c51ca1dd5e61a675cef6e20f` shares one chunk builder/consuming
@@ -41,9 +76,12 @@ phase plan first.
     Reservations exclude upstream source/provider and global aggregate allocations;
     no process RSS bound or production fairness claim is made.
   - V1 scope classification: `v1_candidate_pending_feasibility` under existing
-    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 remain independently gated. R4,
-    R6.c, R10 and R2.b remain in Planned. The previous R3.a PR #1485 is merged;
-    this result closes through its own cohesive PR before the next implementation.
+    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 remain independently gated.
+    PR #1486 merged at `4ae717a7d67d1d8ffe7aa384c5c96bc48413be44` after all
+    40 checks and independent audit of 264 final complete comparisons passed.
+    Cleanup retired three superseded binaries (191,832,064 allocated bytes)
+    after identity/evidence/active-consumer checks. Evidence, inputs, the current
+    dff85c33 control and released 0.3.2 executable remain available.
 
 - [x] `PERF-INTAKE` R3.a: retain winner-only integer exact DISTINCT.
   - Date: 2026-09-29 local; final evidence September 30 UTC. Runtime

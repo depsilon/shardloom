@@ -247,7 +247,10 @@ the ledger.
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
 completed UAT/test artifacts. R2.a, R3.a and R3.b are retained with Full43 and ownership
-proof; continue PERF-INTAKE at R4, followed by the other three unchecked candidates.
+proof. R4 is dropped after a slower Q19 screen; R6.c's progressive scanner recipe
+already exists in the provider. R10 retains shared dense string-count pages after
+full local acceptance; complete its PR/CI, then continue at R2.b and the profiling
+refresh.
 Keep performance runs sequential and preserve useful
 smaller gains. The completed 0.3.2 train stays closed; this request does not reopen
 release publication, the interrupted format pulse, or large text-format tests.
@@ -379,21 +382,21 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] R2.a: retain source-backed UTF8 chunk dictionaries, shared borrowed string-count reads and lazy independent-owner reuse; final Full43 best Q29/Q34/Q35 reductions of 12.60%/22.22%/10.61% and 5.32% lower query total, with exact results and ownership/resource checks. See `source-backed-dictionary-screen-2026-09-29.md`.
     - [x] R3.a: retain complete COUNT selection followed by selected-key native filtering and unchanged integer mixed measures. Final Q10 is 29.05% faster with lower observed RSS; Full43 passes all 258 comparisons. See `winner-only-distinct-screen-2026-09-29.md`.
     - [x] R3.b: retain mixed-measure exact-DISTINCT workers using shared partials, bounded ordered completion and linked operation cancellation; final Q10 improves 2.95% in Full43 with lower observed RSS, and all 258 comparisons pass. See `mixed-distinct-worker-screen-2026-09-29.md`.
-    - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.
-    - [ ] R6.c: record admission and ship/drop for Progressive provider selection, Q23 first.
-    - [ ] R10: record admission and ship/drop for Dense single-string COUNT payloads, Q34/Q35 first. The historical indexed-heap variant's cutoff-only drop is reopened only for a measured sketch-active workload: current Q34/Q35 partitions elide sketch updates.
+    - [x] R4: drop triple-key sort/reduce after all three Q19 calls are slower; retain lower RSS as a measured tradeoff, restore the hash runtime and preserve the prototype/evidence. See `triple-sort-screen-2026-09-30.md`.
+    - [x] R6.c: drop the duplicate progressive scanner recipe; Vortex already carries selections through conjuncts and learns filter order. Q23's provider cost still needs exclusive attribution. See `progressive-provider-selection-audit-2026-09-30.md`.
+    - [x] R10: retain shared dense string-count payload pages; Q34/Q35 Full43 best times improve 33.98%/32.39%, with all 258 complete comparisons passing. Preserve the bounded non-target follow-up and memory/collision tests. See `dense-string-count-screen-2026-09-30.md`. The historical indexed heap has no admitted sketch-active workload: current Q34/Q35 partitions elide sketch updates.
     - [ ] R2.b: record admission and ship/drop for Bounded parallel dictionary preparation.
     - [ ] For each retained cohesive change, complete semantic/resource gates, full
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: screen R4 sort/reduce within the existing Q19 complete-key
-    partitions against the retained baseline. Reuse bounded jobs, typed keys,
-    the producer string domain and complete-key selection where their ownership
-    contracts admit it. Charge input/sort scratch, preserve all duplicate weights,
-    and record resource and complete-query ship/drop evidence.
-    Close the cohesive result with applicable UAT and a PR before the next set.
-    Preserve useful smaller gains and recorded workload tradeoffs; broader PERF
+  - Next outcome: finish R10's pending PR/CI acceptance, then decide R2.b using
+    the remaining measured dictionary-preparation cost. Reuse the existing
+    dictionary builder, bounded jobs and source-order aggregate consumer; preserve
+    floating update order, owner lifetimes, cancellation and pressure behavior.
+    Record the complete-query ship/drop result, close any retained runtime with
+    applicable UAT and its PR, then refresh profiling and retire recorded temporary
+    artifacts. Preserve useful smaller gains and workload tradeoffs; broader PERF
     obligations remain open.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.

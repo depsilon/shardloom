@@ -1,3 +1,4 @@
+use super::super::compound_count_partial::failed;
 use super::*;
 
 #[test]
@@ -5,7 +6,7 @@ fn dense_ordinals_survive_first_page_growth_and_multiple_pages() {
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
     let mut values = DensePages::new(&memory).unwrap();
     for i in 0..(PAGE_ITEMS * 3 + 17) {
-        assert!(values.reserve_one(&memory).unwrap());
+        assert!(values.reserve_one(&memory, failed).unwrap());
         values.push(i as u64);
         assert_eq!(values[i], i as u64);
     }
@@ -38,19 +39,19 @@ fn dense_capacity_denials_preserve_payloads_and_release_every_owner() {
         let memory = LiveMemoryPool::new(1 << 20).unwrap();
         let mut values = DensePages::new(&memory).unwrap();
         for i in 0..len {
-            assert!(values.reserve_one(&memory).unwrap());
+            assert!(values.reserve_one(&memory, failed).unwrap());
             values.push(i as u64);
         }
         let before = memory.snapshot().reserved_bytes;
         let held = memory.reserve((1 << 20) - before - remaining).unwrap();
-        assert!(!values.reserve_one(&memory).unwrap());
+        assert!(!values.reserve_one(&memory, failed).unwrap());
         assert_eq!(values.len(), len);
         assert_eq!(
             values.iter().copied().collect::<Vec<_>>(),
             (0..len as u64).collect::<Vec<_>>()
         );
         drop(held);
-        assert!(values.reserve_one(&memory).unwrap());
+        assert!(values.reserve_one(&memory, failed).unwrap());
         values.push(len as u64);
         assert_eq!(values[len], len as u64);
         drop(values);

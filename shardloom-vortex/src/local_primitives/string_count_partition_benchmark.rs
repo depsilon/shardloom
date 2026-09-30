@@ -5,7 +5,7 @@ use super::super::{
     aggregate_chunk_jobs::ChunkWorkerContext,
     compact_string_state::benchmark::{RetainedRun, WeightedText, nanos},
 };
-use super::{Slot, StringCountPartial, StringCountPartitions, failed};
+use super::{StringCountPartial, StringCountPartitions, failed};
 use shardloom_core::Result;
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::LiveMemoryPool};
 use std::{collections::BTreeMap, time::Instant};
@@ -44,9 +44,10 @@ pub(in super::super) fn run(input: &[WeightedText<'_>], memory_bytes: u64) -> Re
             .ok_or_else(|| failed("benchmark copy sum overflowed"))?;
         table_owned_bytes = table_owned_bytes
             .checked_add(partition.slots_lease.bytes())
+            .and_then(|bytes| bytes.checked_add(partition.records.reserved_bytes()))
             .and_then(|bytes| bytes.checked_add(partition.bytes_lease.bytes()))
             .ok_or_else(|| failed("benchmark table capacity sum overflowed"))?;
-        for slot in &partition.slots {
+        for slot in partition.records.iter() {
             if slot.count == 0 {
                 continue;
             }
@@ -82,7 +83,9 @@ pub(in super::super) fn run(input: &[WeightedText<'_>], memory_bytes: u64) -> Re
         owned_bytes: snapshot.reserved_bytes,
         peak_owned_bytes: snapshot.peak_reserved_bytes,
         table_owned_bytes,
-        slot_bytes: size_of::<Slot>(),
+        // Directory width; separately owned dense records are included in
+        // table_owned_bytes through their page and metadata reservations.
+        slot_bytes: size_of::<usize>(),
         probes: None,
         equality_comparisons: evidence.equality_comparisons,
         payload_bytes_copied,

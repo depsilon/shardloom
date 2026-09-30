@@ -24,6 +24,7 @@ fn source_sha() -> String {
         include_bytes!("string_count_owner_scheduling.rs").as_slice(),
         include_bytes!("string_count_owner_scheduling_benchmark.rs").as_slice(),
         include_bytes!("string_count_partitions.rs").as_slice(),
+        include_bytes!("aggregate_dense_pages.rs").as_slice(),
         include_bytes!("string_count_partial.rs").as_slice(),
         include_bytes!("string_count_entry_credits.rs").as_slice(),
         include_bytes!("../../../shardloom-exec/src/compute_pool.rs").as_slice(),

@@ -69,6 +69,138 @@ fn admission(partitions: &StringCountPartitions, requested: usize) -> EntryAdmis
 }
 
 #[test]
+fn dense_string_records_keep_exact_collisions_across_page_and_directory_growth() {
+    let memory = LiveMemoryPool::new(8 << 20).unwrap();
+    let partitions = StringCountPartitions::try_new(&memory, 3000, 7)
+        .unwrap()
+        .unwrap();
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let expected = (0..2065_u64)
+        .map(|i| (format!("東京-{i:04}"), i + 1))
+        .collect::<BTreeMap<_, _>>();
+    let inputs = expected.iter().collect::<Vec<_>>();
+    for batch in inputs.chunks(127) {
+        let mut admission = admission(&partitions, batch.len());
+        let mut p = partitions.partitions[0].lock().unwrap();
+        for &(text, count) in batch {
+            assert_eq!(
+                p.update(
+                    (text.as_bytes(), 0, *count),
+                    &memory,
+                    &worker,
+                    &mut admission,
+                    &mut 0
+                )
+                .unwrap(),
+                Update::Applied
+            );
+        }
+        assert_eq!(p.records.len(), p.groups);
+    }
+    assert_eq!(partitions.group_count(), expected.len());
+    let mut actual = BTreeMap::new();
+    partitions
+        .replay_and_release(|text, count| {
+            assert!(actual.insert(text.to_owned(), count).is_none());
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(actual, expected);
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn dense_string_growth_denial_does_not_publish_or_lose_a_key() {
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let mut directory_denied = false;
+    let mut page_denied = false;
+    for available in [0, 511, 512, 1024, 1279, 1280, 2048, 16384] {
+        let memory = LiveMemoryPool::new(2 << 20).unwrap();
+        let partitions = StringCountPartitions::try_new(&memory, 100, 3)
+            .unwrap()
+            .unwrap();
+        let mut expected = (0..16)
+            .map(|i| (format!("seed-{i}"), 1_u64))
+            .collect::<BTreeMap<_, _>>();
+        let mut seed_credit = admission(&partitions, 16);
+        {
+            let mut p = partitions.partitions[0].lock().unwrap();
+            for text in expected.keys() {
+                assert_eq!(
+                    p.update(
+                        (text.as_bytes(), 0, 1),
+                        &memory,
+                        &worker,
+                        &mut seed_credit,
+                        &mut 0
+                    )
+                    .unwrap(),
+                    Update::Applied
+                );
+            }
+        }
+        drop(seed_credit);
+        let text = "λ".repeat(4096);
+        let before = memory.snapshot().reserved_bytes;
+        let held = memory.reserve((2 << 20) - before - available).unwrap();
+        let mut credit = admission(&partitions, 1);
+        {
+            let mut p = partitions.partitions[0].lock().unwrap();
+            let pages_before = p.records.reserved_bytes();
+            let outcome = p
+                .update(
+                    (text.as_bytes(), 0, 7),
+                    &memory,
+                    &worker,
+                    &mut credit,
+                    &mut 0,
+                )
+                .unwrap();
+            if outcome == Update::Pressure {
+                directory_denied |= p.slots.len() > 32;
+                page_denied |= p.records.reserved_bytes() > pages_before;
+                assert_eq!(p.records.len(), 16);
+                assert_eq!(p.groups, 16);
+                drop(held);
+                assert_eq!(
+                    p.update(
+                        (text.as_bytes(), 0, 7),
+                        &memory,
+                        &worker,
+                        &mut credit,
+                        &mut 0
+                    )
+                    .unwrap(),
+                    Update::Applied
+                );
+            } else {
+                assert_eq!(outcome, Update::Applied);
+                drop(held);
+            }
+        }
+        drop(credit);
+        expected.insert(text, 7);
+        let mut actual = BTreeMap::new();
+        partitions
+            .replay_and_release(|text, count| {
+                assert!(actual.insert(text.to_owned(), count).is_none());
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(actual, expected);
+        assert_eq!(partitions.group_count(), 17);
+        assert_eq!(
+            partitions.evidence().unwrap().entry_credit_reserved_entries,
+            0
+        );
+        drop(partitions);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+    assert!(directory_denied && page_denied);
+}
+
+#[test]
 fn complete_keys_find_winner_outside_every_chunk_topk_at_all_worker_counts() {
     for workers in [1, 2, 4, 8, 12] {
         let memory = LiveMemoryPool::new(8 << 20).unwrap();
@@ -195,11 +327,14 @@ fn full_hash_collisions_compare_bytes_and_count_overflow_preserves_previous_valu
     );
     assert_eq!(comparisons, 7);
     let index = partition.find(b"alpha", 0, &mut comparisons).unwrap();
-    assert_eq!(partition.slots[index].count, 14);
+    assert_eq!(partition.records[partition.slots[index] - 1].count, 14);
     let index = partition.find(b"beta", 0, &mut comparisons).unwrap();
-    assert_eq!(partition.slots[index].count, 7);
+    assert_eq!(partition.records[partition.slots[index] - 1].count, 7);
     let index = partition.find(b"max", 0, &mut comparisons).unwrap();
-    assert_eq!(partition.slots[index].count, u64::MAX);
+    assert_eq!(
+        partition.records[partition.slots[index] - 1].count,
+        u64::MAX
+    );
     assert_eq!(comparisons, 13);
     drop(partition);
     drop(admission);
@@ -335,7 +470,7 @@ fn byte_pressure_keeps_committed_table_and_cancellation_releases_owned_storage()
         Update::Pressure
     );
     assert_eq!(partition.groups, 1);
-    assert_eq!(partition.slots[0].count, 3);
+    assert_eq!(partition.records[partition.slots[0] - 1].count, 3);
     drop((blocker, partition));
     drop(admission);
     assert_eq!(partitions.group_count(), 1);
