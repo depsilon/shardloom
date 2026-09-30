@@ -67,7 +67,9 @@ superseded by the September 29 request to resume the remaining candidates.
 R2.a now [retains source-backed dictionaries and shared borrowed reads](source-backed-dictionary-screen-2026-09-29.md).
 R3.a [retains complete COUNT selection before integer mixed measures](winner-only-distinct-screen-2026-09-29.md),
 with 29.05% lower final Q10 best time and all 258 Full43 results passing.
-R3.b, R4, R6.c, R10 and R2.b remain undecided. The
+R3.b [retains shared mixed DISTINCT partial workers](mixed-distinct-worker-screen-2026-09-29.md),
+with 4.41% lower Full43 Q10 best time and all 258 comparisons passing; the suite total is flat.
+R4, R6.c, R10 and R2.b remain undecided. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 

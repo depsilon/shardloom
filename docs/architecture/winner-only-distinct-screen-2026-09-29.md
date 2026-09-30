@@ -1,6 +1,7 @@
 # Winner-only exact DISTINCT — R3.a
 
-Status: **retain; local acceptance complete, PR integration pending**.
+Status: **retained and merged**. [PR #1485](https://github.com/depsilon/shardloom/pull/1485)
+merged as `3fd7584dedff339883f0316184f4e83aedaa6057` after all 40 checks passed.
 
 This packet describes candidate `22f7acd22e8c06c651f835bb817e25edcad5d5f5`
 against the accepted R2 runtime,
