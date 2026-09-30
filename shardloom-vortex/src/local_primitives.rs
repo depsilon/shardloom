@@ -26727,6 +26727,7 @@ impl GroupedAggregateState {
         specs: &[CompactAggregateMeasureSpec],
         accessors: &[AggregateDirectColumnAccessor],
         row_index: usize,
+        bound: Option<&bound_numeric_updates::BoundCompactNumericUpdates<'_>>,
     ) -> Result<()> {
         let Self::CompactMeasures { measures, .. } = self else {
             return Err(ShardLoomError::InvalidOperation(
@@ -26734,7 +26735,10 @@ impl GroupedAggregateState {
                     .to_string(),
             ));
         };
-        measures.update_from_direct_row(specs, accessors, row_index)
+        match bound {
+            Some(bound) => bound.update(measures, row_index),
+            None => measures.update_from_direct_row(specs, accessors, row_index),
+        }
     }
 
     fn update_compact_measures_from_transformed_dictionary_plan(
@@ -26968,18 +26972,10 @@ impl CompactAggregateMeasures {
                         )?
                         .is_some()
                         {
-                            value.count = value.count.checked_add(1).ok_or_else(|| {
-                                ShardLoomError::InvalidOperation(
-                                    "local Vortex compact aggregate count overflowed u64".to_string(),
-                                )
-                            })?;
+                            value.increment_count()?;
                         }
                     } else {
-                        value.count = value.count.checked_add(1).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "local Vortex compact aggregate count overflowed u64".to_string(),
-                            )
-                        })?;
+                        value.increment_count()?;
                     }
                 }
                 SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
@@ -26988,19 +26984,7 @@ impl CompactAggregateMeasures {
                     else {
                         continue;
                     };
-                    value.count = value.count.checked_add(1).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "local Vortex compact numeric aggregate count overflowed u64"
-                                .to_string(),
-                        )
-                    })?;
-                    value.sum += numeric;
-                    if !value.sum.is_finite() {
-                        return Err(ShardLoomError::InvalidOperation(
-                            "local Vortex compact numeric aggregate sum became non-finite; no fallback execution was attempted"
-                                .to_string(),
-                        ));
-                    }
+                    value.add_numeric(numeric)?;
                 }
                 SimpleAggregateFunction::CountDistinct
                 | SimpleAggregateFunction::Min
@@ -32030,15 +32014,18 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.compact_measure_specs.is_none() {
             return Ok(false);
         }
+        let bound = self.compact_measure_specs.as_deref().and_then(|specs| {
+            bound_numeric_updates::BoundCompactNumericUpdates::bind(specs, accessors, chunk_rows)
+        });
         match row_indices {
             Some(row_indices) => {
                 for &row_index in row_indices {
-                    self.update_compact_measure_direct_row(accessors, row_index)?;
+                    self.update_compact_measure_direct_row(accessors, row_index, bound.as_ref())?;
                 }
             }
             None => {
                 for row_index in 0..chunk_rows {
-                    self.update_compact_measure_direct_row(accessors, row_index)?;
+                    self.update_compact_measure_direct_row(accessors, row_index, bound.as_ref())?;
                 }
             }
         }
@@ -33758,6 +33745,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
         row_index: usize,
+        bound: Option<&bound_numeric_updates::BoundCompactNumericUpdates<'_>>,
     ) -> Result<()> {
         if self.source_order_group_admission_closed() {
             let Some(key) = self.grouped_existing_key_for_direct_row(accessors, row_index)? else {
@@ -33771,7 +33759,8 @@ impl<'a> GroupedAggregateStates<'a> {
                 )
             })?;
             if let Some(group) = self.groups.get_mut(&key) {
-                group.update_compact_measures_from_direct_row(specs, accessors, row_index)?;
+                group
+                    .update_compact_measures_from_direct_row(specs, accessors, row_index, bound)?;
             }
             self.source_order_limited_group_admission = true;
             return Ok(());
@@ -33801,7 +33790,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 ))
             }
         };
-        group.update_compact_measures_from_direct_row(specs, accessors, row_index)
+        group.update_compact_measures_from_direct_row(specs, accessors, row_index, bound)
     }
 
     fn source_order_group_admission_limit(&self) -> Option<usize> {

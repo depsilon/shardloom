@@ -25,8 +25,8 @@ retained change, re-evaluate the remaining cost before the next dependent test.
 | P033-1 | Avoid unused text pre-compression statistics through the existing Vortex `CompressingStrategy` configuration. | Both released-binary samples show the extra pass; the selected Zstd output discards these source statistics. File pruning statistics are accumulated separately. | **RETAIN:** initial best complete ingest time falls 8.456%. Final source includes the non-text passthrough correction and passes complete artifact equality, broad tests and Full43 acceptance below. |
 | P033-2 | Avoid redundant text-buffer compaction before the existing Zstd provider gathers length-prefixed values. | Released-binary attribution records 0.010031 seconds over 22,876 calls, with identical input/output byte estimates. Upstream compaction already has cheap no-op checks. | **DROP at admission:** negligible observed work. Keep the existing compaction and its sparse/null/sliced/shared-buffer behavior; no runtime prototype. |
 | P033-3 | Preserve string views across the Parquet-to-Vortex handoff using the existing reader schema hint and Arrow/Vortex adapters. | P033-1 still records 16.089–16.153 summed seconds in Arrow conversion and 4.912–4.919 seconds in text canonicalization. Pinned Parquet 58.3 and Vortex 0.85 support the same UTF-8 logical type through string views. | **RETAIN after one correction:** best complete ingest time falls 4.504% against P033-1, with lower observed RSS and byte-identical output. The original metadata-routing failure and invalid timing remain preserved. |
-| P033-4 | Remove repeated decoding/materialization inside the shared native provider boundary, motivated by Q23. | Q23 is 4.444 s; its 4.205–4.625 s provider spans overlap accessor time. Obtain stack/counter attribution to a specific avoidable transition. | No duplicate scanner: provider selection propagation and conjunction ordering already exist. Retain only an exact, shared improvement to the observed transition with complete Q23 and regression results. |
-| P033-5 | Reuse source-backed dictionaries and bound metadata through compound grouping and exact union, motivated by Q19/Q6. | Q19 is 4.381 s and Q6 3.256 s. Separate dictionary construction, binding and union work; verify full key/epoch ownership and budget lifetimes. | Extend existing builders/owned jobs only when semantics match. Existing preunion gets no duplicate credit; the slower triple-sort replacement stays dropped. |
+| P033-4 | Remove repeated decoding/materialization inside the shared native provider boundary, motivated by Q23. | Q23 is 4.444 s; its 4.205–4.625 s provider spans overlap accessor time. New samples show codec work without array identity proving duplicate execution. | **DROP at admission:** no specific reusable transition established. Existing progressive selection stays; no duplicate scanner or unproved cache. |
+| P033-5 | Reuse source-backed dictionaries and bound metadata through compound grouping and exact union, motivated by Q19/Q6. | Q19 is 4.381 s and Q6 3.256 s. New source/stack inventory confirms the proposed source ownership, cached hashes, miss-only promotion and preunion are already present. | **DROP at admission:** existing mechanisms receive no duplicate credit; no further matching reuse boundary established. The slower triple-sort replacement stays dropped. |
 | P033-6 | Reuse bound string-length/measure kernels in grouped accumulation, motivated by Q28. | Q28 is 2.279 s; caller-update spans are 2.182–2.214 s. Attribute repeated accessor work versus required aggregate updates. | Retain a shared measure-path improvement with exact aggregates, overflow/null behavior, HAVING and complete outputs. Avoid a query-number-specific route. |
 | P033-7 | Adjust measured ownership/work admission in existing dictionary/count completion, motivated by Q29 and Q34/Q35. | Q29 is 4.826 s; Q34/Q35 approach 5 GiB RSS. Preserve Q35's original +13.75% observation and separate +4.36% best/+0.70% median follow-up. Attribute active work, waiting, reconciliation and live owners. | Change only an identified contention or lifetime boundary under the existing CPU grant and ordered jobs. More threads or a generic queue is not an admitted fix. Require complete results and report both local wins and regressions. |
 
@@ -282,6 +282,57 @@ engine, or persistence format is introduced. Semantic tests and matched complete
 query screens determine retain/drop, followed by broad acceptance for retained
 code. P033-7's independent small prototype is screened before P033-6; its result
 will not be counted toward Q28's measured gain.
+
+## P033-7 count-completion screens
+
+The frozen count prototype is `3148ad056e79304b248f3ec34f7ba6721e711116`;
+the control remains the merged ingest runtime `2f5a99fb`. It changes only
+validation placement inside the existing canonical count loop. Twelve focused
+tests pass, including malformed first/later/outlined UTF-8 keys, duplicate keys
+with hash-bucket collisions, dictionary/constant paths, cancellation, pressure,
+worker counts and lease release.
+
+| Cohort / query | Control seconds, runs 1/2/3 | Candidate seconds, runs 1/2/3 | Best-time reduction |
+| --- | --- | --- | ---: |
+| Initial Q34 | 3.671914 / 4.630470 / 3.411177 | 4.609571 / 3.789386 / 3.324016 | 2.555% |
+| Initial Q35 | 3.697170 / 3.349759 / 3.717516 | 3.808414 / 3.656863 / 3.481641 | -3.937% |
+| Reversed Q34 | 3.162290 / 3.131932 / 3.204449 | 3.328272 / 3.100246 / 2.927497 | 6.527% |
+| Reversed Q35 | 3.543138 / 3.486391 / 3.293819 | 2.981946 / 2.950431 / 3.172416 | 10.425% |
+
+The first cohort has mixed complete wall time: Q34's median is slower and Q35's
+best is slower. One reversed-order follow-up was declared before execution.
+Its medians are lower for both queries, with one slower Q34 pair still retained.
+Total user+system CPU is lower in all twelve matched pairs across both cohorts;
+the count-work spans also fall, while partial entries remain 29,104,999 per call.
+All 24 complete returned values match the retained reference exactly, all 96
+archived members pass hash verification, and all native PIDs have exited.
+
+RSS is not improved consistently: the reversed cohort's candidate peaks reach
+5,112,643,584 bytes versus 5,032,443,904 for its controls across both queries.
+The change leaves the existing memory admission, worker count and queue window
+intact; faster local counting can change how simultaneous owners overlap.
+That explanation is an inference, not measured allocation attribution. Retain
+the small shared change for broad acceptance based on avoided validation,
+repeated CPU reduction and the complete follow-up calls, without a memory-win
+or uniform wall-time claim. Both cohorts and every negative observation remain
+in `query-count-screen-1/2` receipts and strict analyses.
+
+P033-6's prototype binds numeric types and validity at block entry, reusing
+the ordinary bound-measure implementation. Compact COUNT and SUM/AVG preserve
+their own error ordering: a non-finite sum is rejected after its count and sum
+update, while COUNT of a non-null NaN remains valid. Six new semantic tests and
+the nine existing ordinary-measure tests pass, including all primitive widths,
+nulls, empty/rebound blocks, sparse/repeated row selections, overflow, measure
+order beyond four inline states, source-order limits and HAVING. Performance
+acceptance remains pending.
+
+After the ingest merge and portable evidence acceptance, the diagnosed first
+P033-3 payload was retired. Its full SHA-256 and file generation matched the
+failed-call receipt before removal; all five protected source/reference/control
+generations remained unchanged. `failed-ingest-payload-cleanup.json` records
+15,551,053,824 allocated bytes removed. The original failed receipt and raw logs
+remain in the immutable ingest bundle; recreating that obsolete layout requires
+its recorded source and configuration.
 
 ## Comparison and completion gates
 
