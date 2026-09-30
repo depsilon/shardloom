@@ -14,7 +14,7 @@ use vortex::mask::Mask;
 use super::{
     NativeNumericOwner, SortRowCandidate, StatValue, VortexSortTiePolicy,
     compare_sort_row_candidates, compare_sort_stat_values, logical_field_from_native_array,
-    retain_sort_top_window, vortex_error,
+    native_utf8::borrowed_bytes, retain_sort_top_window, vortex_error,
 };
 
 enum Column {
@@ -67,7 +67,7 @@ impl Column {
         // later rejected by Top-K. A cutoff must not hide malformed UTF8.
         for row in 0..utf8.len() {
             if valid.value(row) {
-                std::str::from_utf8(utf8.bytes_at(row).as_slice())
+                std::str::from_utf8(borrowed_bytes(&utf8, row))
                     .map_err(|_| failed("invalid UTF8 in a valid sort value"))?;
             }
         }
@@ -81,7 +81,7 @@ impl Column {
                 Ok(compare_sort_stat_values(&StatValue::Null, right))
             }
             Self::Utf8(values, _) => Ok(match right {
-                StatValue::Utf8(right) => values.bytes_at(row).as_slice().cmp(right.as_bytes()),
+                StatValue::Utf8(right) => borrowed_bytes(values, row).cmp(right.as_bytes()),
                 // Existing ordering ranks UTF8 after null, bool and numeric.
                 _ => Ordering::Greater,
             }),
@@ -93,7 +93,7 @@ impl Column {
             Self::Integer(owner) => owner.stat_value(row),
             Self::Utf8(_, valid) if !valid.value(row) => Ok(StatValue::Null),
             Self::Utf8(values, _) => Ok(StatValue::Utf8(
-                std::str::from_utf8(values.bytes_at(row).as_slice())
+                std::str::from_utf8(borrowed_bytes(values, row))
                     .map_err(|_| failed("invalid UTF8 in a valid sort value"))?
                     .to_owned(),
             )),

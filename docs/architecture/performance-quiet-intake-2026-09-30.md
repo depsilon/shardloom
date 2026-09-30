@@ -18,8 +18,9 @@ CPU/RSS observation and actual owner topology is retained. A useful gain below a
 historical numerical target is eligible for retention when exact output,
 repeatability, implementation cost and resource tradeoffs support it.
 
-Each query prototype receives three calls per role and target in alternating
-control/candidate, candidate/control, control/candidate order. Targets are
+Each query prototype receives three calls per role and target using the existing
+paired runner's alternating order at both the pair and query boundaries. Odd
+query IDs start control/candidate; even IDs start candidate/control. Targets are
 Q26/Q27 for borrowed sort reads, Q28 first for the compact numeric kernel,
 Q6 for scalar DISTINCT, and Q34/Q35 for each single-string directory screen.
 Q17 and renamed/null/skew/collision fixtures enter acceptance where shared
@@ -224,9 +225,20 @@ profilers and native workloads serial. Preserve every sample, slower observation
 complete output and raw receipt. Do not repeat the whole baseline campaign.
 
 For ingest, compare P4/P6/P8 through the same public prepare route and verify
-complete artifact byte equality, all source/derived fields, statistics and
-provenance before retiring each run-owned duplicate. Record topology, wall/CPU,
-RSS and cache context. Keep the original P4 observation labeled P4.
+complete artifact byte equality before retiring each run-owned duplicate.
+The first P6 call exposed an additional existing grant effect: the public
+workflow divides its source batch byte budget by `max_parallelism`, yielding
+131,072-row batches at P4 and 65,536-row batches at P6/P8 on this source. The
+original byte check stopped and preserved the changed artifact; its failure
+receipt remains intact. All 99,997,497 rows and all 112 source/derived columns
+then passed a complete native value comparison, with exact schema, whole-file
+statistics and embedded provenance bytes. Physical layout and directory bytes
+are different. The continuation admits an already verified complete hash or
+the same full-value/metadata proof for a new hash. It retains one changed-layout
+artifact for a separate paired Full43 comparison using the unchanged executable.
+Record topology, coupled source batching/prefetch, wall/CPU, RSS and cache
+context. Keep the original P4 observation labeled P4. This remains a resource
+configuration comparison, not an isolated provider-thread or software speedup.
 
 For query candidates, use focused quiet paired comparisons against an unchanged
 control, then complete Full43 acceptance for a cohesive retained implementation.
