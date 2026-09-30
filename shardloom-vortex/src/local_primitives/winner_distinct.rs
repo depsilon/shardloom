@@ -101,7 +101,10 @@ pub(super) fn admit(
                                 columns
                                     .get(column)
                                     .and_then(|name| fields.field(name.as_str())),
-                                Some(DType::Primitive(_, Nullability::NonNullable))
+                                // A losing floating group may contain NaN or
+                                // overflow its SUM; pruning it would hide an
+                                // error from the original complete aggregate.
+                                Some(DType::Primitive(kind, Nullability::NonNullable)) if kind.is_int()
                             )
                         }
                         _ => false,

@@ -44,6 +44,9 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::build(false)
+    }
+    fn build(overflowing_float: bool) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let dir = std::env::temp_dir().join(format!(
             "shardloom-winner-distinct-{}-{}",
@@ -77,6 +80,27 @@ impl Fixture {
                 state.2 += w;
                 state.3.insert(id);
             }
+            // The final key loses a small COUNT window. Its floating SUM must
+            // still report overflow even when none of its results are returned.
+            let metric = if overflowing_float {
+                PrimitiveArray::new(
+                    metric
+                        .iter()
+                        .enumerate()
+                        .map(|(index, value)| {
+                            if index % 16 == 15 {
+                                f64::MAX
+                            } else {
+                                f64::from(i32::try_from(*value).unwrap())
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                    Validity::NonNullable,
+                )
+                .into_array()
+            } else {
+                PrimitiveArray::new(metric, Validity::NonNullable).into_array()
+            };
             chunks.push(
                 StructArray::new(
                     ["identity", "width", "bucket", "measure"].into(),
@@ -84,7 +108,7 @@ impl Fixture {
                         PrimitiveArray::new(identity, Validity::NonNullable).into_array(),
                         PrimitiveArray::new(width, Validity::NonNullable).into_array(),
                         PrimitiveArray::new(bucket, Validity::NonNullable).into_array(),
-                        PrimitiveArray::new(metric, Validity::NonNullable).into_array(),
+                        metric,
                     ],
                     65_536,
                     Validity::NonNullable,
@@ -234,6 +258,15 @@ fn winner_distinct_native_cost_decline_preserves_the_original_complete_aggregate
     assert_eq!(decision["decision"], "declined_high_sample_winner_share");
     assert_eq!(decision["count_rows"], SAMPLE_ROWS);
     assert_eq!(decision["measure_rows"], ROWS);
+}
+
+#[test]
+fn winner_distinct_native_losing_float_group_cannot_hide_overflow() {
+    let fixture = Fixture::build(true);
+    let request = query(&fixture.path, 0, 1);
+    let error = runtime::execute_vortex_local_primitive_with_policy(&request, policy())
+        .expect_err("a losing floating SUM group must preserve its overflow error");
+    assert!(error.to_string().contains("non-finite"), "{error}");
 }
 
 #[test]

@@ -35,10 +35,14 @@ fn columns() -> Vec<String> {
 }
 
 fn dtype(nullable: Option<usize>) -> DType {
+    dtype_with_primitives(nullable, [PType::U64, PType::U64, PType::I64, PType::I64])
+}
+
+fn dtype_with_primitives(nullable: Option<usize>, primitives: [PType; 4]) -> DType {
     DType::Struct(
         StructFields::new(
             FieldNames::from(["identity", "width", "bucket", "measure"]),
-            [PType::U64, PType::U64, PType::I64, PType::I64]
+            primitives
                 .into_iter()
                 .enumerate()
                 .map(|(index, kind)| {
@@ -202,6 +206,19 @@ fn winner_distinct_admission_requires_selection_independent_of_distinct() {
             1_000_000,
             true
         ));
+    }
+    for kind in [PType::F32, PType::F64] {
+        for column in [1, 3] {
+            let mut primitives = [PType::U64, PType::U64, PType::I64, PType::I64];
+            primitives[column] = kind;
+            assert!(!test(
+                &request,
+                Some(10),
+                &dtype_with_primitives(None, primitives),
+                1_000_000,
+                true
+            ));
+        }
     }
     for limit in [None, Some(0), Some(129)] {
         assert!(!test(&request, limit, &dtype(None), 1_000_000, true));
