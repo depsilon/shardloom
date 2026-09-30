@@ -229,6 +229,13 @@ impl CountWorkers {
             _ => false,
         }
     }
+
+    pub(super) fn provider_overlap_parallelism(&self) -> Option<usize> {
+        match self {
+            Self::DictionaryPrepare(workers) => workers.provider_parallelism(),
+            _ => None,
+        }
+    }
 }
 
 /// A source-shape precheck only. Schema and existing physical state gates below

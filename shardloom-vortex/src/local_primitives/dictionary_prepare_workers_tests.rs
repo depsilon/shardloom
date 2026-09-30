@@ -114,12 +114,32 @@ fn state_values(states: &mut GroupedAggregateStates<'_>) -> serde_json::Value {
     let (_, summary) = states.result_row_count_and_summary(Some(2)).unwrap();
     serde_json::from_str::<serde_json::Value>(&summary).unwrap()["values"].clone()
 }
-fn assert_workers(work: &serde_json::Value) {
+fn provider_lane(parallelism: usize) -> bool {
+    parallelism >= 3 && std::thread::available_parallelism().unwrap().get() >= 3
+}
+
+fn assert_workers(work: &serde_json::Value, parallelism: usize) {
     let jobs = &work["aggregate_dictionary_preparation_workers"];
     assert!(jobs["submitted_chunks"].as_u64().unwrap() > 0);
     assert_eq!(jobs["submitted_chunks"], jobs["completed_chunks"]);
     assert!(jobs["peak_outstanding_chunks"].as_u64().unwrap() <= 2);
-    assert_eq!(jobs["cpu_ceiling"], 2);
+    assert_eq!(
+        jobs["cpu_ceiling"],
+        2 + usize::from(provider_lane(parallelism))
+    );
+    assert_eq!(
+        jobs["provider_background_worker_grant"],
+        usize::from(provider_lane(parallelism))
+    );
+    if provider_lane(parallelism) {
+        assert_eq!(work["aggregate_provider_background_workers"], 1);
+        assert!(
+            work["aggregate_provider_cpu_scope"]
+                .as_str()
+                .unwrap()
+                .contains("shared_three_lane_CPU_grant")
+        );
+    }
     assert_eq!(jobs["retired_to_same_serial_consumer"], false);
 }
 
@@ -379,29 +399,33 @@ impl Drop for ClearHooks {
 fn dictionary_preparation_native_ordinary_prepared_owned_values_and_owner_lifetime() {
     let fixture = Fixture::new();
     let query = query(&fixture.path);
-    for parallelism in [1, 2] {
+    for parallelism in [1, 2, 3] {
         let report =
             execute_vortex_local_primitive_with_policy(&query, policy(parallelism)).unwrap();
         let work = payload(&report);
         assert_eq!(work["values"], fixture.expected);
-        if parallelism == 2 {
-            assert_workers(&work);
+        if parallelism > 1 {
+            assert_workers(&work, parallelism);
         }
     }
-    for external in [false, true] {
+    for (external, parallelism) in [(false, 2), (true, 2), (false, 3), (true, 3)] {
         let session = if external {
-            ResidentVortexSession::for_external_cpu_pool(MEMORY, 2)
+            ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism)
         } else {
-            ResidentVortexSession::new(MEMORY, 2)
+            ResidentVortexSession::new(MEMORY, parallelism)
         }
         .unwrap();
         let memory = session.memory().clone();
-        let prepared = prepare_aggregate_in_session(&query, policy(2), &session).unwrap();
+        let prepared = prepare_aggregate_in_session(&query, policy(parallelism), &session).unwrap();
         let executed = prepared.execute().unwrap();
         let work = payload(&executed.report);
         assert_eq!(work["values"], fixture.expected);
         if external {
-            assert_workers(&work);
+            assert_workers(&work, parallelism);
+            assert_eq!(
+                executed.runtime.provider_background_workers,
+                usize::from(provider_lane(parallelism))
+            );
         } else {
             assert!(
                 work.get("aggregate_dictionary_preparation_workers")
@@ -440,12 +464,18 @@ fn dictionary_preparation_native_ordinary_prepared_owned_values_and_owner_lifeti
 
 #[test]
 fn dictionary_preparation_native_pressure_restores_provider_only_after_pool_retirement() {
+    for parallelism in [2, 3] {
+        native_pressure(parallelism);
+    }
+}
+
+fn native_pressure(parallelism: usize) {
     let _clear = ClearHooks;
     let fixture = Fixture::new();
-    let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, 2).unwrap();
+    let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism).unwrap();
     let memory = session.memory().clone();
     let prepared =
-        prepare_aggregate_in_session(&query(&fixture.path), policy(2), &session).unwrap();
+        prepare_aggregate_in_session(&query(&fixture.path), policy(parallelism), &session).unwrap();
     dictionary_prepare_workers::SUBMIT_TEST_PRESSURE.with(|flag| flag.set(true));
     let result = prepared.execute().unwrap();
     let work = payload(&result.report);
@@ -464,7 +494,11 @@ fn dictionary_preparation_native_pressure_restores_provider_only_after_pool_reti
         work["aggregate_provider_cpu_scope"]
             .as_str()
             .unwrap()
-            .contains("dictionary_preparation_workers_retired_before_provider_resume")
+            .contains(if provider_lane(parallelism) {
+                "dictionary_worker_joined_before_serial_consumer;existing_provider_driver_retained"
+            } else {
+                "dictionary_preparation_workers_retired_before_provider_resume"
+            })
     );
     assert!(work["aggregate_workers_partition_source_replays"].is_null());
     assert_eq!(prepared.snapshot().prepared_source_opens, 1);
@@ -476,12 +510,18 @@ fn dictionary_preparation_native_pressure_restores_provider_only_after_pool_reti
 
 #[test]
 fn dictionary_preparation_native_active_worker_observes_operation_cancel_and_recovers() {
+    for parallelism in [2, 3] {
+        native_cancel(parallelism);
+    }
+}
+
+fn native_cancel(parallelism: usize) {
     let _clear = ClearHooks;
     let fixture = Fixture::new();
-    let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, 2).unwrap();
+    let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism).unwrap();
     let memory = session.memory().clone();
     let prepared =
-        prepare_aggregate_in_session(&query(&fixture.path), policy(2), &session).unwrap();
+        prepare_aggregate_in_session(&query(&fixture.path), policy(parallelism), &session).unwrap();
     let baseline = memory.snapshot().reserved_bytes;
     let cancellation = CancellationToken::default();
     let operation = cancellation.clone();
@@ -515,14 +555,17 @@ fn dictionary_preparation_native_committed_source_failures_do_not_replay() {
     use aggregate_count_workers::{SOURCE_SCAN_TEST_FAULT, SourceScanTestFault};
     let _clear = ClearHooks;
     let fixture = Fixture::new();
-    for fault in [
-        SourceScanTestFault::OwnedDenial,
-        SourceScanTestFault::CorruptionWithConcurrentDenial,
+    for (parallelism, fault) in [
+        (2, SourceScanTestFault::OwnedDenial),
+        (2, SourceScanTestFault::CorruptionWithConcurrentDenial),
+        (3, SourceScanTestFault::OwnedDenial),
+        (3, SourceScanTestFault::CorruptionWithConcurrentDenial),
     ] {
-        let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, 2).unwrap();
+        let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism).unwrap();
         let memory = session.memory().clone();
         let prepared =
-            prepare_aggregate_in_session(&query(&fixture.path), policy(2), &session).unwrap();
+            prepare_aggregate_in_session(&query(&fixture.path), policy(parallelism), &session)
+                .unwrap();
         let baseline = memory.snapshot().reserved_bytes;
         SOURCE_SCAN_TEST_FAULT.with(|value| value.set(Some(fault)));
         let error = prepared

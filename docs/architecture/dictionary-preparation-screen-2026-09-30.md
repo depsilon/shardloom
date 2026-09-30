@@ -47,3 +47,28 @@ typed source denial without a new worker replay. Existing cache-attempt policy i
 unchanged. Initial fixture pressure was insufficient after its older task drained;
 the corrected fixture grows the next chunk and proves retirement. A test-only
 missing import and semicolon were corrected before freezing the candidate.
+
+## First screen and provider-progress revision
+
+Frozen `6be7bc02` passes all six Q29 comparisons. Control calls are
+6.792158/6.661381/6.657522 seconds; candidate calls are
+7.119073/6.548870/6.541147. Best improves 1.75% and median 1.69%; observed RSS
+falls from 1.420–1.430 GB to 1.326–1.343 GB. Preserve the slower first candidate.
+All 1,550 jobs complete, with two outstanding chunks, zero UTF8 payload copies,
+and no retirement; peak task reservation is 21,760,417 bytes.
+
+Dictionary work falls to 1.953–1.963 seconds, with only 4.4–4.8 ms caller join
+wait. However, caller scan progress grows from 52–59 ms to 2.270–2.289 seconds
+when the original provider drivers are removed. This is a measured new cost,
+not a reason to discard the positive first result.
+
+Admit one revision: for a CPU grant and host capacity of at least three, explicitly
+partition three lanes into one caller, one dictionary worker and one native
+provider driver. Reuse the existing runtime/driver lifetime without adding a
+second full-size pool. P2 retains the first candidate's caller/worker split;
+sessions with an existing provider pool still decline this worker family. The
+provider driver remains owned through completion, errors and cancellation. If
+dictionary preparation retires, it joins its worker before serial consumption;
+the existing provider driver may remain. Summary evidence must report the actual
+provider count and distinguish shared-budget overlap from restoration after
+retirement. Test P2/P3 exact results, pressure and cancellation before re-screening.

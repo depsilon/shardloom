@@ -54,6 +54,7 @@ pub(super) struct DictionaryPrepareWorkers {
     dictionary_nanos: u128,
     consume_nanos: u128,
     peak_task_bytes: u64,
+    provider_progress: bool,
     _metadata: MemoryLease,
 }
 
@@ -155,6 +156,7 @@ impl DictionaryPrepareWorkers {
             dictionary_nanos: 0,
             consume_nanos: 0,
             peak_task_bytes: 0,
+            provider_progress: parallelism >= 3,
             _metadata: lease,
         }))
     }
@@ -332,6 +334,11 @@ impl DictionaryPrepareWorkers {
     pub(super) fn retired(&self) -> bool {
         !self.active
     }
+    /// One native provider lane shares the same three-lane admission: caller,
+    /// dictionary worker, provider. `provider_drivers` counts caller + drivers.
+    pub(super) fn provider_parallelism(&self) -> Option<usize> {
+        self.provider_progress.then_some(2)
+    }
     pub(super) fn cancel(&self) {
         self.jobs.cancel();
     }
@@ -355,7 +362,8 @@ impl DictionaryPrepareWorkers {
         }
         object.insert("aggregate_dictionary_preparation_workers".into(), serde_json::json!({
             "rows": self.rows, "submitted_chunks": self.jobs.submitted(), "completed_chunks": self.jobs.joined(),
-            "peak_outstanding_chunks": self.jobs.peak_outstanding(), "cpu_ceiling": 2, "max_chunk_rows": MAX_ROWS,
+            "peak_outstanding_chunks": self.jobs.peak_outstanding(), "cpu_ceiling": 2 + usize::from(self.provider_progress), "max_chunk_rows": MAX_ROWS,
+            "dictionary_background_workers": 1, "provider_background_worker_grant": usize::from(self.provider_progress),
             "retired_to_same_serial_consumer": !self.active, "peak_task_reservation_bytes": self.peak_task_bytes,
             "provider_caller_nanos": u64::try_from(self.provider_nanos).unwrap_or(u64::MAX),
             "dictionary_worker_nanos": u64::try_from(self.dictionary_nanos).unwrap_or(u64::MAX),

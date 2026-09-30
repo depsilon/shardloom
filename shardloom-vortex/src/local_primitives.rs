@@ -20386,7 +20386,18 @@ fn read_lowered_vortex_simple_aggregate_scan(
     // this SAME runtime before scanning; no input has been processed or replayed.
     // `worker_memory` is supplied only by a caller-only aggregate session.
     let (mut provider_drivers, mut provider_background_workers) =
-        if worker_memory.is_some() && count_workers.is_none() && metadata_completion.is_none() {
+        if let Some(provider_parallelism) = count_workers
+            .as_ref()
+            .and_then(aggregate_count_workers::CountWorkers::provider_overlap_parallelism)
+        {
+            // The dictionary family explicitly grants one provider lane in a
+            // total budget of three (caller + dictionary + native progress).
+            let (drivers, count) = runtime.provider_drivers(provider_parallelism)?;
+            (Some(drivers), count)
+        } else if worker_memory.is_some()
+            && count_workers.is_none()
+            && metadata_completion.is_none()
+        {
             let (drivers, count) =
                 runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
             (Some(drivers), count)
@@ -21278,7 +21289,14 @@ fn read_lowered_vortex_simple_aggregate_scan(
             summary["aggregate_worker_selection_max_rows"] =
                 aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS.into();
         }
-        summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement
+        summary["aggregate_provider_cpu_scope"] = if let Some(aggregate_count_workers::CountWorkers::DictionaryPrepare(workers)) = count_workers.as_ref()
+            && workers.provider_parallelism().is_some() {
+            if workers.retired() {
+                "same_prepared_source;dictionary_worker_joined_before_serial_consumer;existing_provider_driver_retained;shared_three_lane_CPU_grant;no_source_reopen_or_replay"
+            } else {
+                "same_prepared_source;one_caller_one_dictionary_worker_one_provider_driver;shared_three_lane_CPU_grant;no_source_reopen_or_replay"
+            }
+        } else if provider_resume_after_pair_retirement
             && matches!(count_workers, Some(aggregate_count_workers::CountWorkers::MixedDistinct(_))) {
             "same_prepared_source;mixed_distinct_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         } else if provider_resume_after_pair_retirement
