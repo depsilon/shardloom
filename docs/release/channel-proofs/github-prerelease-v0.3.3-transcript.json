@@ -1,0 +1,676 @@
+{
+  "asset_count": 12,
+  "asset_names": [
+    "asset-manifest.json",
+    "checksums.sha256",
+    "github-prerelease-release-notes.md",
+    "shardloom",
+    "shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl",
+    "shardloom-0.3.3.tar.gz",
+    "shardloom-cli-binary.cdx.json",
+    "shardloom-e15f2e66faf6-source.tar.gz",
+    "shardloom-python-artifacts.cdx.json",
+    "shardloom-rust-workspace.cdx.json",
+    "supply-chain-release-evidence.json",
+    "workflow-policy-snapshot.json"
+  ],
+  "assets": {
+    "asset-manifest.json": {
+      "generation": [
+        16777233,
+        94160739,
+        5043,
+        1790767073725908254,
+        1790767073725908254
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/asset-manifest.json",
+      "sha256": "52b316ba236f5bcf075ff5f26e53cc9035cc169638912726df83692ea1a03c77",
+      "size_bytes": 5043
+    },
+    "checksums.sha256": {
+      "generation": [
+        16777233,
+        94160740,
+        1122,
+        1790767073737422466,
+        1790767073737422466
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/checksums.sha256",
+      "sha256": "cbb05744e60baf93871b1c274f1f860e6f65f1eb3d1fa3a88d6067a70cd0c935",
+      "size_bytes": 1122
+    },
+    "github-prerelease-release-notes.md": {
+      "generation": [
+        16777233,
+        94160741,
+        5255,
+        1790767073763755890,
+        1790767073763755890
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/github-prerelease-release-notes.md",
+      "sha256": "7b31fea82728d46f136517a6fbbc921e4ed306b2d8c272816ab3f40e6a083542",
+      "size_bytes": 5255
+    },
+    "shardloom": {
+      "generation": [
+        16777233,
+        94160742,
+        63820120,
+        1790767074785929930,
+        1790767074785929930
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom",
+      "sha256": "3e252b051462d48f4108200e96b6bb5a31747df83071776eff901eca26075533",
+      "size_bytes": 63820120
+    },
+    "shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl": {
+      "generation": [
+        16777233,
+        94160743,
+        22662736,
+        1790767074211180725,
+        1790767074211180725
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl",
+      "sha256": "9eb2907904b0bc96a71bb54cee32fea71fedbba7a78b403fbd3988ec2f695b2a",
+      "size_bytes": 22662736
+    },
+    "shardloom-0.3.3.tar.gz": {
+      "generation": [
+        16777233,
+        94160744,
+        22955441,
+        1790767074514386478,
+        1790767074514386478
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom-0.3.3.tar.gz",
+      "sha256": "1ec282e353fe3af2df14ee052da94981bad21805495b8d4477bc606b93812667",
+      "size_bytes": 22955441
+    },
+    "shardloom-cli-binary.cdx.json": {
+      "generation": [
+        16777233,
+        94160745,
+        845,
+        1790767074166879754,
+        1790767074166879754
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom-cli-binary.cdx.json",
+      "sha256": "f5e943349a1a2b5d58fc04be626e6dc6ccc559208b2a99c55121730e1c51fbe6",
+      "size_bytes": 845
+    },
+    "shardloom-e15f2e66faf6-source.tar.gz": {
+      "generation": [
+        16777233,
+        94160746,
+        115250981,
+        1790767077369993539,
+        1790767077369993539
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom-e15f2e66faf6-source.tar.gz",
+      "sha256": "5c5055c40f3056cc2e01eeff8325cda2258051beaf1b109d3de944be8d17bb2d",
+      "size_bytes": 115250981
+    },
+    "shardloom-python-artifacts.cdx.json": {
+      "generation": [
+        16777233,
+        94160747,
+        837,
+        1790767074429834662,
+        1790767074429834662
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom-python-artifacts.cdx.json",
+      "sha256": "e32f46d0bc71ed0502bcc7548f8a586bf175d4d6874666854b1b52d49f064cce",
+      "size_bytes": 837
+    },
+    "shardloom-rust-workspace.cdx.json": {
+      "generation": [
+        16777233,
+        94160748,
+        54011,
+        1790767074474137716,
+        1790767074474137716
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom-rust-workspace.cdx.json",
+      "sha256": "e5db4fcde06b075a64368e78873597daeb6995bfd40e286fbd4a6c82b614b689",
+      "size_bytes": 54011
+    },
+    "supply-chain-release-evidence.json": {
+      "generation": [
+        16777233,
+        94160749,
+        5328,
+        1790767074665982771,
+        1790767074665982771
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/supply-chain-release-evidence.json",
+      "sha256": "843770179ab7be28aa06b44f21d64fccc482e6dff218ea2792cf6ac21c509cc1",
+      "size_bytes": 5328
+    },
+    "workflow-policy-snapshot.json": {
+      "generation": [
+        16777233,
+        94160750,
+        1442,
+        1790767074687968861,
+        1790767074687968861
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/workflow-policy-snapshot.json",
+      "sha256": "de4561e01bd4676b0824d4245c8ee3c875555cefd7fc7529cdc83e6f559105bd",
+      "size_bytes": 1442
+    }
+  },
+  "blockers": [],
+  "bundled_cli_supplemental_proof": {
+    "external_cli_override": false,
+    "result": {
+      "bundled_cli": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/lib/python3.12/site-packages/shardloom/bin/macos-aarch64/shardloom",
+      "cli_sha256": "3e252b051462d48f4108200e96b6bb5a31747df83071776eff901eca26075533",
+      "exact_results": [
+        [
+          {
+            "amount": 15,
+            "id": 2,
+            "label": "beta"
+          },
+          {
+            "amount": 27,
+            "id": 3,
+            "label": "gamma"
+          }
+        ],
+        [
+          {
+            "amount": 15,
+            "id": 2,
+            "label": "beta"
+          },
+          {
+            "amount": 27,
+            "id": 3,
+            "label": "gamma"
+          }
+        ],
+        [
+          {
+            "amount": 15,
+            "id": 2,
+            "label": "beta"
+          },
+          {
+            "amount": 27,
+            "id": 3,
+            "label": "gamma"
+          }
+        ]
+      ],
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "package_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/lib/python3.12/site-packages/shardloom/__init__.py",
+      "repeated_sql_executions": 2,
+      "unsupported_blocker": "cg21.workflow.to_pandas.decoded_dataframe_unsupported",
+      "version": "0.3.3"
+    },
+    "source_python_path_override": false,
+    "status": "passed",
+    "wheel_metadata": "Wheel-Version: 1.0\nGenerator: setuptools (84.0.0)\nRoot-Is-Purelib: false\nTag: cp312-cp312-macosx_27_0_arm64\n\n"
+  },
+  "bundled_wheel_complete_values_status": "passed",
+  "channel_id": "github_prerelease",
+  "checksum_checked_assets": [
+    "github-prerelease-release-notes.md",
+    "shardloom",
+    "shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl",
+    "shardloom-0.3.3.tar.gz",
+    "shardloom-cli-binary.cdx.json",
+    "shardloom-e15f2e66faf6-source.tar.gz",
+    "shardloom-python-artifacts.cdx.json",
+    "shardloom-rust-workspace.cdx.json",
+    "workflow-policy-snapshot.json"
+  ],
+  "checksum_mismatch": [],
+  "checksum_missing": [],
+  "clean_download_dir": "target/github-package-proof-v0.3.3/downloads",
+  "cli_smoke_stdout": "{\"schema_version\":\"shardloom.output.v2\",\"command\":\"status\",\"status\":\"success\",\"summary\":\"engine status\",\"human_text\":\"ShardLoom workspace initialized (native Vortex-first execution facade)\\nfallback execution: disabled\",\"fallback\":{\"attempted\":false,\"allowed\":false,\"engine\":null,\"reason\":\"ShardLoom prohibits Spark, DataFusion, DuckDB, Polars, Velox, and other fallback execution engines.\"},\"diagnostics\":[],\"result\":{\"fields\":[{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"}]},\"result_refs\":[],\"artifacts\":[],\"artifact_refs\":[],\"certificates\":[],\"policy\":{\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]},\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"status_capabilities\"},{\"key\":\"cli_binary_version\",\"value\":\"0.3.3\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"}]},\"capability_snapshot\":{\"fields\":[]},\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"cli_binary_version\",\"value\":\"0.3.3\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"},{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]}\n",
+  "cli_version_stdout": "shardloom 0.3.3\n",
+  "completed_at_utc": "2026-09-30T11:18:01Z",
+  "display_name": "GitHub pre-release",
+  "download_command": "/opt/homebrew/bin/gh release download v0.3.3 --repo depsilon/shardloom --pattern * --dir /Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads",
+  "driver": {
+    "generation": [
+      16777233,
+      94120796,
+      22884,
+      1790761915394365921,
+      1790761915394365921
+    ],
+    "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/proof-tools/verify_github_033.py",
+    "sha256": "3b9688d9fad12d6df2b7efee11577da420d90789e749d30b31e46a639052ae9b",
+    "size_bytes": 22884
+  },
+  "external_cli_override": false,
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "github_asset_mismatch": [],
+  "install_transcript_status": "passed",
+  "manifest_verification_status": "passed",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_upload_attempted_by_this_tool": false,
+  "proof_status": "passed",
+  "provenance_signing_scope": "not_signed_local_dry_run",
+  "provenance_verification_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "release_published_at": "2026-09-30T11:17:17Z",
+  "release_tag": "v0.3.3",
+  "release_url": "https://github.com/depsilon/shardloom/releases/tag/v0.3.3",
+  "schema_version": "shardloom.github_prerelease_channel_proof.v1",
+  "secrets_required": false,
+  "signed_annotated_tag_present": false,
+  "signed_annotated_tag_required_for_this_release": false,
+  "smoke_check_status": "passed",
+  "source_archive_sha256": "5c5055c40f3056cc2e01eeff8325cda2258051beaf1b109d3de944be8d17bb2d",
+  "source_python_path_override": false,
+  "steps": [
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/usr/bin/git",
+        "-C",
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "rev-parse",
+        "HEAD"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 12.1663,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "local_source_commit",
+      "output_bytes": 41,
+      "output_limit_bytes": 2097152,
+      "pid": 28516,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.011805666028521955,
+      "stderr": "",
+      "stdout": "e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/gh",
+        "release",
+        "view",
+        "v0.3.3",
+        "--repo",
+        "depsilon/shardloom",
+        "--json",
+        "tagName,isPrerelease,isDraft,name,publishedAt,url,targetCommitish,assets"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 300.1687,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "release_view",
+      "output_bytes": 6304,
+      "output_limit_bytes": 2097152,
+      "pid": 28517,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.29955758299911395,
+      "stderr": "",
+      "stdout": "{\"assets\":[{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741280\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:52b316ba236f5bcf075ff5f26e53cc9035cc169638912726df83692ea1a03c77\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWg\",\"label\":\"\",\"name\":\"asset-manifest.json\",\"size\":5043,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:09Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/asset-manifest.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741282\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:cbb05744e60baf93871b1c274f1f860e6f65f1eb3d1fa3a88d6067a70cd0c935\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWi\",\"label\":\"\",\"name\":\"checksums.sha256\",\"size\":1122,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:09Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/checksums.sha256\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741279\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:7b31fea82728d46f136517a6fbbc921e4ed306b2d8c272816ab3f40e6a083542\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWf\",\"label\":\"\",\"name\":\"github-prerelease-release-notes.md\",\"size\":5255,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:09Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/github-prerelease-release-notes.md\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741286\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:3e252b051462d48f4108200e96b6bb5a31747df83071776eff901eca26075533\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWm\",\"label\":\"\",\"name\":\"shardloom\",\"size\":63820120,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:15Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741278\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:9eb2907904b0bc96a71bb54cee32fea71fedbba7a78b403fbd3988ec2f695b2a\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWe\",\"label\":\"\",\"name\":\"shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl\",\"size\":22662736,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:11Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741298\",\"contentType\":\"application/x-gtar\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:1ec282e353fe3af2df14ee052da94981bad21805495b8d4477bc606b93812667\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWy\",\"label\":\"\",\"name\":\"shardloom-0.3.3.tar.gz\",\"size\":22955441,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:11Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-0.3.3.tar.gz\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741305\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:10Z\",\"digest\":\"sha256:f5e943349a1a2b5d58fc04be626e6dc6ccc559208b2a99c55121730e1c51fbe6\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpW5\",\"label\":\"\",\"name\":\"shardloom-cli-binary.cdx.json\",\"size\":845,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:10Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-cli-binary.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741304\",\"contentType\":\"application/x-gtar\",\"createdAt\":\"2026-09-30T11:17:10Z\",\"digest\":\"sha256:5c5055c40f3056cc2e01eeff8325cda2258051beaf1b109d3de944be8d17bb2d\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpW4\",\"label\":\"\",\"name\":\"shardloom-e15f2e66faf6-source.tar.gz\",\"size\":115250981,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:16Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-e15f2e66faf6-source.tar.gz\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741320\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:10Z\",\"digest\":\"sha256:e32f46d0bc71ed0502bcc7548f8a586bf175d4d6874666854b1b52d49f064cce\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXI\",\"label\":\"\",\"name\":\"shardloom-python-artifacts.cdx.json\",\"size\":837,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:10Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-python-artifacts.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741334\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:11Z\",\"digest\":\"sha256:e5db4fcde06b075a64368e78873597daeb6995bfd40e286fbd4a6c82b614b689\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXW\",\"label\":\"\",\"name\":\"shardloom-rust-workspace.cdx.json\",\"size\":54011,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:11Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-rust-workspace.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741339\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:11Z\",\"digest\":\"sha256:843770179ab7be28aa06b44f21d64fccc482e6dff218ea2792cf6ac21c509cc1\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXb\",\"label\":\"\",\"name\":\"supply-chain-release-evidence.json\",\"size\":5328,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:12Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/supply-chain-release-evidence.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741348\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:12Z\",\"digest\":\"sha256:de4561e01bd4676b0824d4245c8ee3c875555cefd7fc7529cdc83e6f559105bd\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXk\",\"label\":\"\",\"name\":\"workflow-policy-snapshot.json\",\"size\":1442,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:12Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/workflow-policy-snapshot.json\"}],\"isDraft\":false,\"isPrerelease\":true,\"name\":\"ShardLoom v0.3.3\",\"publishedAt\":\"2026-09-30T11:17:17Z\",\"tagName\":\"v0.3.3\",\"targetCommitish\":\"e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"url\":\"https://github.com/depsilon/shardloom/releases/tag/v0.3.3\"}\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/gh",
+        "api",
+        "repos/depsilon/shardloom/git/ref/tags/v0.3.3"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 338.2718,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "tag_reference",
+      "output_bytes": 337,
+      "output_limit_bytes": 2097152,
+      "pid": 28521,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.33710291603347287,
+      "stderr": "",
+      "stdout": "{\"ref\":\"refs/tags/v0.3.3\",\"node_id\":\"REF_kwDOSScs_bByZWZzL3RhZ3MvdjAuMy4z\",\"url\":\"https://api.github.com/repos/depsilon/shardloom/git/refs/tags/v0.3.3\",\"object\":{\"sha\":\"e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"type\":\"commit\",\"url\":\"https://api.github.com/repos/depsilon/shardloom/git/commits/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\"}}",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/gh",
+        "api",
+        "repos/depsilon/shardloom/commits/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 597.578,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "tag_commit_verification",
+      "output_bytes": 39697,
+      "output_limit_bytes": 2097152,
+      "pid": 28524,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.596761749999132,
+      "stderr": "",
+      "stdout": "{\"sha\":\"e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"node_id\":\"C_kwDOSScs_doAKGUxNWYyZTY2ZmFmNmQzNTliYmE5NDRlOWQyOTVmYzU4Y2UzYmY3ZDQ\",\"commit\":{\"author\":{\"name\":\"Dylan Heinrich\",\"email\":\"djheinrich@pm.me\",\"date\":\"2026-09-30T10:50:16Z\"},\"committer\":{\"name\":\"GitHub\",\"email\":\"noreply@github.com\",\"date\":\"2026-09-30T10:50:16Z\"},\"message\":\"Prepare 0.3.3 optimization release and consolidate compatible dependency updates (#1489)\\n\\n* Prepare 0.3.3 optimization release and consolidate compatible dependency updates\\n\\n* Record optimization merge and guarded artifact retirement\\n\\n* Record completed pre-publication merge and version validation gates\\n\\n---------\\n\\nCo-authored-by: Dylan Heinrich <dylan@Dylans-Air.attlocal.net>\",\"tree\":{\"sha\":\"97a97692ea56e2d666d39a3afa6ca0520413186a\",\"url\":\"https://api.github.com/repos/depsilon/shardloom/git/trees/97a97692ea56e2d666d39a3afa6ca0520413186a\"},\"url\":\"https://api.github.com/repos/depsilon/shardloom/git/commits/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"comment_count\":0,\"verification\":{\"verified\":true,\"reason\":\"valid\",\"signature\":\"-----BEGIN PGP SIGNATURE-----\\n\\nwsFcBAABCAAQBQJqvOloCRC1aQ7uu5UhlAAAEpkQAJqnUSVETHcqbG0tTxXZIFK9\\nOMfTadtuFvAOvzSb62hrQv1cUQ56yHcH+9Q3G3pZ5NSfw/JFcVKyDYXet4X+HrD/\\nb4Q+9UFpQ99a3wfw0nvh6vMw+8Z5coFrnkL+xiJbVARqIXKAjxF3YVgWIJMVVrd5\\nA5AYNxpfGAsxWYDq45RSLhfTnodURcpJqupHuZb/jHI4wM+KEr69u7bUWw3AO2tC\\nmjZYK5a8z9am1enmIP1nc+r+1bYehH7Zed8O/3ukNbzH+XEBCZYZt1dmuFkto9iZ\\n5jYPb5UrUwmBhEusZw5v0jwfSbF52zc6AHeV5LpA1vTG4FpVYJLOTVD62nRKVlON\\nQv0hf69YVPXkKJMHkKgfz7Xx96KaSFNJGN3tiUqU+jP3gcw78eSMkYYF8HFglZoC\\nhyrq23w0AbHS2updKZu3KmxYXOXDU6PKytthedkdJVWndBZUJYBsfU1FtGQKNb3E\\nariiLQFYJRDCAsHCnrmJVPgL67CvkOC89kmOSfkXJWzsAvS6tZDh0gz2cEBjPGT5\\n1m6f38/mcum/00ulZd/JXtYaTAVU15VWfWCKagqwLgo22/ojRTRU56Ok/5u0D7oi\\nq83Uy1gze+ZEUPldiHSOmoWG2Swn4VRUS3xz87rt9K7uk5CHaDsg0VQ0nw+fTbI9\\ngc50qfT7zhqAjyki1uZv\\n=kMci\\n-----END PGP SIGNATURE-----\\n\",\"payload\":\"tree 97a97692ea56e2d666d39a3afa6ca0520413186a\\nparent 9454f76d30ed572f008563d2bdcb6c9b1ac89014\\nauthor Dylan Heinrich <djheinrich@pm.me> 1790765416 -0500\\ncommitter GitHub <noreply@github.com> 1790765416 -0500\\n\\nPrepare 0.3.3 optimization release and consolidate compatible dependency updates (#1489)\\n\\n* Prepare 0.3.3 optimization release and consolidate compatible dependency updates\\n\\n* Record optimization merge and guarded artifact retirement\\n\\n* Record completed pre-publication merge and version validation gates\\n\\n---------\\n\\nCo-authored-by: Dylan Heinrich <dylan@Dylans-Air.attlocal.net>\",\"verified_at\":\"2026-09-30T10:50:17Z\"}},\"url\":\"https://api.github.com/repos/depsilon/shardloom/commits/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"html_url\":\"https://github.com/depsilon/shardloom/commit/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"comments_url\":\"https://api.github.com/repos/depsilon/shardloom/commits/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/comments\",\"author\":{\"login\":\"depsilon\",\"id\":281185078,\"node_id\":\"U_kgDOEMKLNg\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/281185078?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/depsilon\",\"html_url\":\"https://github.com/depsilon\",\"followers_url\":\"https://api.github.com/users/depsilon/followers\",\"following_url\":\"https://api.github.com/users/depsilon/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/depsilon/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/depsilon/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/depsilon/subscriptions\",\"organizations_url\":\"https://api.github.com/users/depsilon/orgs\",\"repos_url\":\"https://api.github.com/users/depsilon/repos\",\"events_url\":\"https://api.github.com/users/depsilon/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/depsilon/received_events\",\"type\":\"User\",\"user_view_type\":\"public\",\"site_admin\":false},\"committer\":{\"login\":\"web-flow\",\"id\":19864447,\"node_id\":\"MDQ6VXNlcjE5ODY0NDQ3\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/19864447?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/web-flow\",\"html_url\":\"https://github.com/web-flow\",\"followers_url\":\"https://api.github.com/users/web-flow/followers\",\"following_url\":\"https://api.github.com/users/web-flow/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/web-flow/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/web-flow/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/web-flow/subscriptions\",\"organizations_url\":\"https://api.github.com/users/web-flow/orgs\",\"repos_url\":\"https://api.github.com/users/web-flow/repos\",\"events_url\":\"https://api.github.com/users/web-flow/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/web-flow/received_events\",\"type\":\"User\",\"user_view_type\":\"public\",\"site_admin\":false},\"parents\":[{\"sha\":\"9454f76d30ed572f008563d2bdcb6c9b1ac89014\",\"url\":\"https://api.github.com/repos/depsilon/shardloom/commits/9454f76d30ed572f008563d2bdcb6c9b1ac89014\",\"html_url\":\"https://github.com/depsilon/shardloom/commit/9454f76d30ed572f008563d2bdcb6c9b1ac89014\"}],\"stats\":{\"total\":245,\"additions\":198,\"deletions\":47},\"files\":[{\"sha\":\"59ec8d83cd40622738247aa19dc1dbc76515e947\",\"filename\":\".github/workflows/codeql-analysis.yml\",\"status\":\"modified\",\"additions\":2,\"deletions\":2,\"changes\":4,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/.github%2Fworkflows%2Fcodeql-analysis.yml\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/.github%2Fworkflows%2Fcodeql-analysis.yml\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/.github%2Fworkflows%2Fcodeql-analysis.yml?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -29,10 +29,10 @@ jobs:\\n       - name: Checkout\\n         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1\\n       - name: Initialize CodeQL\\n-        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # github/codeql-action/init@v4\\n+        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # github/codeql-action/init@v4\\n         with:\\n           languages: ${{ matrix.language }}\\n           build-mode: ${{ matrix.build-mode }}\\n           config-file: ./.github/codeql/codeql-config.yml\\n       - name: Perform CodeQL Analysis\\n-        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # github/codeql-action/analyze@v4\\n+        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # github/codeql-action/analyze@v4\"},{\"sha\":\"02757839a9e8357e0b3d071fce2c4533d6bfb2c4\",\"filename\":\".github/workflows/scorecard.yml\",\"status\":\"modified\",\"additions\":1,\"deletions\":1,\"changes\":2,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/.github%2Fworkflows%2Fscorecard.yml\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/.github%2Fworkflows%2Fscorecard.yml\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/.github%2Fworkflows%2Fscorecard.yml?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -27,6 +27,6 @@ jobs:\\n           results_format: sarif\\n           publish_results: false\\n       - name: Upload Scorecard SARIF\\n-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # github/codeql-action/upload-sarif@v4\\n+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # github/codeql-action/upload-sarif@v4\\n         with:\\n           sarif_file: scorecard-results.sarif\"},{\"sha\":\"55d917d3f520626fe117bb67c6327a20102384d2\",\"filename\":\"Cargo.lock\",\"status\":\"modified\",\"additions\":15,\"deletions\":15,\"changes\":30,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/Cargo.lock\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/Cargo.lock\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/Cargo.lock?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -638,9 +638,9 @@ checksum = \\\"1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b\\\"\\n \\n [[package]]\\n name = \\\"bytes\\\"\\n-version = \\\"1.11.1\\\"\\n+version = \\\"1.12.1\\\"\\n source = \\\"registry+https://github.com/rust-lang/crates.io-index\\\"\\n-checksum = \\\"1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33\\\"\\n+checksum = \\\"fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04\\\"\\n \\n [[package]]\\n name = \\\"cc\\\"\\n@@ -2534,32 +2534,32 @@ checksum = \\\"1bc711410fbe7399f390ca1c3b60ad0f53f80e95c5eb935e52268a0e2cd49acc\\\"\\n \\n [[package]]\\n name = \\\"serde\\\"\\n-version = \\\"1.0.228\\\"\\n+version = \\\"1.0.229\\\"\\n source = \\\"registry+https://github.com/rust-lang/crates.io-index\\\"\\n-checksum = \\\"9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e\\\"\\n+checksum = \\\"4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba\\\"\\n dependencies = [\\n  \\\"serde_core\\\",\\n  \\\"serde_derive\\\",\\n ]\\n \\n [[package]]\\n name = \\\"serde_core\\\"\\n-version = \\\"1.0.228\\\"\\n+version = \\\"1.0.229\\\"\\n source = \\\"registry+https://github.com/rust-lang/crates.io-index\\\"\\n-checksum = \\\"41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad\\\"\\n+checksum = \\\"67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48\\\"\\n dependencies = [\\n  \\\"serde_derive\\\",\\n ]\\n \\n [[package]]\\n name = \\\"serde_derive\\\"\\n-version = \\\"1.0.228\\\"\\n+version = \\\"1.0.229\\\"\\n source = \\\"registry+https://github.com/rust-lang/crates.io-index\\\"\\n-checksum = \\\"d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79\\\"\\n+checksum = \\\"e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348\\\"\\n dependencies = [\\n  \\\"proc-macro2\\\",\\n  \\\"quote\\\",\\n- \\\"syn 2.0.117\\\",\\n+ \\\"syn 3.0.4\\\",\\n ]\\n \\n [[package]]\\n@@ -2588,7 +2588,7 @@ dependencies = [\\n \\n [[package]]\\n name = \\\"shardloom-cli\\\"\\n-version = \\\"0.3.2\\\"\\n+version = \\\"0.3.3\\\"\\n dependencies = [\\n  \\\"arrow-array\\\",\\n  \\\"arrow-avro\\\",\\n@@ -2609,7 +2609,7 @@ dependencies = [\\n \\n [[package]]\\n name = \\\"shardloom-contract-tests\\\"\\n-version = \\\"0.3.2\\\"\\n+version = \\\"0.3.3\\\"\\n dependencies = [\\n  \\\"shardloom-core\\\",\\n  \\\"shardloom-exec\\\",\\n@@ -2619,30 +2619,30 @@ dependencies = [\\n \\n [[package]]\\n name = \\\"shardloom-core\\\"\\n-version = \\\"0.3.2\\\"\\n+version = \\\"0.3.3\\\"\\n dependencies = [\\n  \\\"regex\\\",\\n  \\\"sha2\\\",\\n ]\\n \\n [[package]]\\n name = \\\"shardloom-exec\\\"\\n-version = \\\"0.3.2\\\"\\n+version = \\\"0.3.3\\\"\\n dependencies = [\\n  \\\"shardloom-core\\\",\\n  \\\"shardloom-plan\\\",\\n ]\\n \\n [[package]]\\n name = \\\"shardloom-plan\\\"\\n-version = \\\"0.3.2\\\"\\n+version = \\\"0.3.3\\\"\\n dependencies = [\\n  \\\"shardloom-core\\\",\\n ]\\n \\n [[package]]\\n name = \\\"shardloom-vortex\\\"\\n-version = \\\"0.3.2\\\"\\n+version = \\\"0.3.3\\\"\\n dependencies = [\\n  \\\"arrow-array\\\",\\n  \\\"arrow-avro\\\",\"},{\"sha\":\"1e6fe7b8c260ec329100e93226b638eb5f3f6b0e\",\"filename\":\"Cargo.toml\",\"status\":\"modified\",\"additions\":5,\"deletions\":5,\"changes\":10,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/Cargo.toml\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/Cargo.toml\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/Cargo.toml?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -10,7 +10,7 @@ members = [\\n resolver = \\\"2\\\"\\n \\n [workspace.package]\\n-version = \\\"0.3.2\\\"\\n+version = \\\"0.3.3\\\"\\n edition = \\\"2024\\\"\\n description = \\\"Pre-release Vortex-first no-fallback local compute engine with evidence-certified workflows.\\\"\\n license = \\\"Apache-2.0\\\"\\n@@ -34,10 +34,10 @@ regex = \\\"1.13.1\\\"\\n rustc-hash = \\\"2.1.3\\\"\\n serde_json = \\\"1.0.151\\\"\\n sha2 = \\\"0.11\\\"\\n-shardloom-core = { version = \\\"0.3.2\\\", path = \\\"shardloom-core\\\" }\\n-shardloom-exec = { version = \\\"0.3.2\\\", path = \\\"shardloom-exec\\\" }\\n-shardloom-plan = { version = \\\"0.3.2\\\", path = \\\"shardloom-plan\\\" }\\n-shardloom-vortex = { version = \\\"0.3.2\\\", path = \\\"shardloom-vortex\\\" }\\n+shardloom-core = { version = \\\"0.3.3\\\", path = \\\"shardloom-core\\\" }\\n+shardloom-exec = { version = \\\"0.3.3\\\", path = \\\"shardloom-exec\\\" }\\n+shardloom-plan = { version = \\\"0.3.3\\\", path = \\\"shardloom-plan\\\" }\\n+shardloom-vortex = { version = \\\"0.3.3\\\", path = \\\"shardloom-vortex\\\" }\\n vortex = \\\"0.85\\\"\\n vortex-zstd = \\\"0.85\\\"\\n \"},{\"sha\":\"3afff82be2c30a6c5238df2d3359555ed6f52c48\",\"filename\":\"docs/architecture/dictionary-preparation-screen-2026-09-30.md\",\"status\":\"modified\",\"additions\":3,\"deletions\":2,\"changes\":5,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Fdictionary-preparation-screen-2026-09-30.md\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Fdictionary-preparation-screen-2026-09-30.md\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/docs%2Farchitecture%2Fdictionary-preparation-screen-2026-09-30.md?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -1,7 +1,8 @@\\n # R2.b: bounded dictionary preparation\\n \\n-Status: **retain; final runtime acceptance recorded, PR checks gate delivery**.\\n-Independent artifact audit passes; PR #1488 gates delivery on exact-head CI. The native\\n+Status: **retain; merged in PR #1488** at\\n+`c4b328798ce18dcb9ee7f6220f3f7b360c4b354e` after all 40 exact-head checks and\\n+the completed review passed. Independent artifact audit passes. The native\\n lifetime defect and both metadata-admission review findings are corrected, with\\n the final Full43 cohort below. This closes the last\\n candidate in the September 26 intake before its final profiling refresh. It does\"},{\"sha\":\"eb3b94a5060bc3f980c4ed807093083c71f5e06e\",\"filename\":\"docs/architecture/local-artifact-cleanup-2026-09-30.md\",\"status\":\"modified\",\"additions\":12,\"deletions\":9,\"changes\":21,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Flocal-artifact-cleanup-2026-09-30.md\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Flocal-artifact-cleanup-2026-09-30.md\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/docs%2Farchitecture%2Flocal-artifact-cleanup-2026-09-30.md?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -1,7 +1,7 @@\\n # Recorded artifact cleanup \u2014 September 30\\n \\n-The resumed ship/drop work has retired **4,214,980,608 allocated bytes** through\\n-R10 and the final R2.b log compaction. This is the sum of the inspected files' allocated blocks, including earlier\\n+The resumed ship/drop work has retired **4,535,181,312 allocated bytes** through\\n+R10, final R2.b log compaction and post-merge binary retirement. This is the sum of the inspected files' allocated blocks, including earlier\\n binary/cache retirement and net log compaction; it is not a measurement of APFS\\n free-space change and is separate from the September 26 cleanup.\\n \\n@@ -17,7 +17,7 @@ differences from the measured R10 runtime are two test-only fingerprint addition\\n the guard verifies those exact additions rather than ignoring arbitrary source\\n changes. Dry-run and applied receipts are preserved.\\n \\n-R2.b's final `93ee6b39` candidate, its earlier candidates and R10 comparison control, the released 0.3.2 binary,\\n+R2.b's final `93ee6b39` candidate, the released 0.3.2 binary,\\n retained input artifacts, all 43 result references, source manifests/patches,\\n compressed raw logs and validation receipts remain. No new full-size ingest or\\n format-comparison payload was generated. No in-use or protected worktree was\\n@@ -34,17 +34,20 @@ active/open consumers were checked before removing the loose copies. Raw call\\n archives and input artifacts were unchanged. This lossless compaction recovered\\n **40,726,528 allocated bytes** after archive/index overhead; the guard was not raised.\\n \\n-Final R2.b retirement is prepared for exactly five superseded executables:\\n+Final R2.b retirement removed exactly five superseded executables:\\n `6be7bc02` (initial dictionary screen), `a33da94f` (R10 comparison control), and\\n `d726aaf6` (original dictionary/provider runtime), `5ea34b11` (drain-corrected\\n runtime), and `5ec7a893` (interrupted metadata-admission cohort). Their portable evidence and\\n-build receipts remain. Removal is gated on PR #1488's merge, all 40 exact-head\\n+build receipts remain. Removal followed PR #1488's merge, all 40 exact-head\\n checks, the corrected runtime's 258-result independent audit, final validation,\\n and unchanged runtime sources between the measured and merged source. The\\n-guard rechecks identity, open handles and evidence before each removal, preserving\\n-`93ee6b39`, released 0.3.2 and every retained input. These planned removals are\\n-not included in the total above. The applied `r2b-recorded-binary-cleanup.json`\\n-receipt will record the actual allocated bytes and cumulative total after merge.\\n+guard rechecked identity, open handles and evidence before each removal, preserving\\n+`93ee6b39`, released 0.3.2 and every retained input. The applied\\n+`r2b-recorded-binary-cleanup.json` records **320,200,704 allocated bytes** removed,\\n+included in the total above. The merge source is\\n+`c4b328798ce18dcb9ee7f6220f3f7b360c4b354e` with no runtime-source difference\\n+from the accepted measured build. Completed managed worktrees protected by a\\n+pinned task remain intact; cleanup did not bypass that protection.\\n \\n Local receipts: `closed-metadata-compaction-r2b-20260930.json`,\\n `r10-cleanup-dry-run.json`, `r10-recorded-binary-cleanup.json`,\"},{\"sha\":\"7bea716380d60a7ba01c4f45089b6905fb903bba\",\"filename\":\"docs/architecture/phased-execution-completed-ledger.md\",\"status\":\"modified\",\"additions\":5,\"deletions\":4,\"changes\":9,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Fphased-execution-completed-ledger.md\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Fphased-execution-completed-ledger.md\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/docs%2Farchitecture%2Fphased-execution-completed-ledger.md?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -41,15 +41,16 @@ phase plan first.\\n     See [R2.b](dictionary-preparation-screen-2026-09-30.md).\\n   - Formatting, workspace/native Clippy, 3,436 workspace tests, 2,042 native\\n     tests and 1,520 CLI tests pass; counts overlap and 22 existing native manual\\n-    fixtures remain ignored. Exact-head PR checks and merge gate delivery to main.\\n+    fixtures remain ignored. All 40 exact-head checks and completed review pass;\\n+    PR #1488 merged at `c4b328798ce18dcb9ee7f6220f3f7b360c4b354e`.\\n   - [Final profiling](performance-profile-refresh-2026-09-30.md) records all 43\\n     query samples and RSS, with 23 queries below one second, plus the dates and\\n     limitations of non-query evidence. It identifies shared components and new\\n     attribution opportunities without starting another campaign. The\\n     [intake](performance-candidate-intake-2026-09-26.md) retains all 29 decisions.\\n-    [Cleanup](local-artifact-cleanup-2026-09-30.md) has retired 4,214,980,608\\n-    allocated bytes through R10 and lossless closed-report compaction; final superseded-binary retirement is guarded\\n-    by the R2.b merge and saved evidence. All broader PERF and CG gates remain\\n+    [Cleanup](local-artifact-cleanup-2026-09-30.md) has retired 4,535,181,312\\n+    allocated bytes, including 320,200,704 bytes from five final superseded\\n+    executables after the guarded R2.b merge and evidence checks. All broader PERF and CG gates remain\\n     independently scoped. A September 30 follow-up separately authorizes the next\\n     release train and subsequent ship/drop packet after PR cleanup; paused format\\n     and large text-input runs stay paused.\"},{\"sha\":\"da0d12b394c9a0750acb705bbb1e025f789d7a07\",\"filename\":\"docs/architecture/phased-execution-plan.md\",\"status\":\"modified\",\"additions\":39,\"deletions\":5,\"changes\":44,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Fphased-execution-plan.md\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Farchitecture%2Fphased-execution-plan.md\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/docs%2Farchitecture%2Fphased-execution-plan.md?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -255,10 +255,12 @@ improves 29.67% in Full43, and the complete query total falls 2.72% to 53.171336\\n seconds. Q35's slower calls remain recorded, including one separate reversed-order\\n follow-up. All 29 experiments now have decisions; the\\n [final profiling refresh](performance-profile-refresh-2026-09-30.md) records\\n-all 43 queries and the separately dated non-query evidence. Finish the final\\n-PR/CI/merge and guarded cleanup to close this finite packet.\\n+all 43 queries and the separately dated non-query evidence. PR #1488 merged at\\n+`c4b328798ce18dcb9ee7f6220f3f7b360c4b354e` after all 40 checks and completed\\n+review passed. Guarded retirement of five superseded executables is complete,\\n+closing this finite packet.\\n The final bundle includes 258 Full43 and six follow-up comparisons. Independent\\n-artifact audit passes; exact-head CI gates merge. Earlier complete cohorts and the\\n+artifact audit passes. Earlier complete cohorts and the\\n storage-guard-interrupted `5ec7a893` cohort remain separately identified evidence.\\n Keep performance runs sequential and preserve useful\\n smaller gains. The completed 0.3.2 train stays closed; this request does not reopen\\n@@ -270,6 +272,38 @@ resumption of ship/drop testing from the refreshed profile. Preserve useful open\\n work during PR cleanup. Follow the existing release-channel gates and publish\\n sequence; keep the prior 0.3.2 artifacts immutable. Before new optimization work,\\n record a finite measured candidate list with reuse boundaries and retain/drop gates.\\n+\\n+- [ ] `RELEASE-033` publish and verify the 0.3.3 optimization patch train.\\n+  - Source: maintainer's September 30 PR cleanup, version bump and subsequent\\n+    ship/drop authorization; [release notes](../release/v0.3.3-release-notes.md).\\n+  - Current state: runtime PR #1488 and README/site PR #1483 are merged with all\\n+    40 checks passing on each reviewed head; recorded artifact cleanup is complete.\\n+    Release source consolidates the compatible dependency intake. Fresh broad\\n+    source validation and all 20 versioned schema/export cases pass.\\n+    Published-channel selection stays at proof-backed 0.3.2 until new proofs exist.\\n+  - V1 scope classification: `required_for_v1`; package distribution work, not a\\n+    production-readiness or broad operator-support claim.\\n+  - ShardLoom technique review: preserve shared native runtime, dynamic admission,\\n+    capillary bounds and metadata-first behavior; PulseWeave adds no release\\n+    mechanism. Timing-surface and evidence-tier separation govern all claims.\\n+  - Execution checklist:\\n+    - [x] Merge accepted runtime and README/site PRs; retire only recorded obsolete artifacts.\\n+    - [x] Consolidate compatible dependency updates and validate 0.3.3 source/package versions.\\n+    - [ ] Merge source preparation with exact-head checks and completed review.\\n+    - [ ] Publish and verify GitHub, TestPyPI, PyPI and Homebrew in that order.\\n+    - [ ] Update selected-channel proofs, public docs and deployed website; verify final readiness.\\n+    - [ ] Clean temporary release artifacts and superseded PRs; move this item to the completed ledger.\\n+  - Acceptance: channel-specific identity, install, uninstall, clean-install,\\n+    smoke, checksum/SBOM/provenance and rollback evidence passes for all four\\n+    selected channels; production site matches committed public status.\\n+  - Verification: broad Rust/native and package/schema tests for the consolidated\\n+    dependencies, exact-source CI, existing channel and public-status validators.\\n+    No duplicate full-size benchmark solely for version metadata.\\n+  - Fallback boundary: Vortex-native execution remains standalone;\\n+    `fallback_attempted=false` and `external_engine_invoked=false`.\\n+  - Next outcome: finish the publication train, then admit a finite measured\\n+    ship/drop packet. Paused format/text performance tests stay paused.\\n+\\n R2.a admission, ownership design and acceptance are recorded in\\n [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).\\n R3.a reuses native COUNT selection and filtered mixed measures; see\\n@@ -2567,8 +2601,8 @@ Current autonomous execution order:\\n \\n The September 29 resumption supersedes the earlier release/format stop for the\\n finite September 26 intake. All 29 decisions and the final profiling refresh\\n-are now recorded. Finish the R2.b PR's exact-head checks, merge and guarded\\n-artifact retirement. The September 30 follow-up then authorizes obsolete PR/branch\\n+are now recorded; R2.b is merged and its guarded artifact retirement is complete.\\n+The September 30 follow-up authorizes obsolete PR/branch\\n cleanup, the next gated version bump/publication train, and a new finite ship/drop\\n packet in that order. The rules below govern the resumed optimization campaign.\\n \"},{\"sha\":\"979935c3c92ade97ed08efff37a76321004cee73\",\"filename\":\"docs/release/v0.3.3-dependency-intake.md\",\"status\":\"added\",\"additions\":32,\"deletions\":0,\"changes\":32,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Frelease%2Fv0.3.3-dependency-intake.md\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Frelease%2Fv0.3.3-dependency-intake.md\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/docs%2Frelease%2Fv0.3.3-dependency-intake.md?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -0,0 +1,32 @@\\n+<!-- SPDX-License-Identifier: Apache-2.0 -->\\n+\\n+# 0.3.3 dependency intake and PR cleanup\\n+\\n+The maintainer requested PR cleanup followed by a version/publication train.\\n+Three compatible updates are consolidated into the release-source change rather\\n+than merged as separate dependency PRs. Each original head passed all 40 checks;\\n+the combined release source still requires its own source and native validation.\\n+No runtime query-engine dependency, execution fallback or new permission is added.\\n+\\n+| Original PR | Decision | Exact change and rationale |\\n+| --- | --- | --- |\\n+| [1434](https://github.com/depsilon/shardloom/pull/1434) | Include; close after consolidated merge | bytes 1.11.1 to 1.12.1. Existing buffer dependency, MIT. The upstream patch fixes panic handling during allocation. |\\n+| [1441](https://github.com/depsilon/shardloom/pull/1441) | Include; close after consolidated merge | serde, serde_core and serde_derive 1.0.228 to 1.0.229, MIT OR Apache-2.0. Derive now uses the already-locked syn 3.0.4; serialization/native tests must pass with this graph. |\\n+| [1442](https://github.com/depsilon/shardloom/pull/1442) | Include; close after consolidated merge | CodeQL init, analyze and SARIF upload advance together to the immutable v4 commit `1c5b675653bb5c22dbe9b12b556ec555138e09fd`. Existing workflow permissions and triggers stay unchanged. |\\n+| [1431](https://github.com/depsilon/shardloom/pull/1431) | Closed; defer compatible graph migration | Arrow/Parquet 60 and ORC 0.9 failed nine native/package/release checks and do not match the current Vortex 0.85 Arrow 58 graph. Do not create duplicate major graphs to satisfy the bot update. |\\n+| [1450](https://github.com/depsilon/shardloom/pull/1450) | Closed; retain Vortex 0.85 | Vortex 0.86.1 failed native compatibility checks and does not preserve the existing typed allocator-denial contract. The earlier [C1 admission decision](../architecture/vortex-086-upgrade-admission-2026-09-27.md) records the concrete gate; no unchanged retest or performance claim is made. |\\n+\\n+Reviewed source heads are `6a8595cb2710d7fd6b6fd04a44533ca24cc3e018`\\n+(bytes), `6b4b787870ef332eb4b7396d2b8a40162716f046` (serde),\\n+`7532d8264e78fcb16383a4cabcb54eebe642e15d` (CodeQL),\\n+`5cb160d055869c791c1114f51b6e496883f66d49` (format graph), and\\n+`a779c75f3b848816e9e870a4428d785fc77a9a81` (Vortex).\\n+\\n+Upstream references: [bytes 1.12.1](https://github.com/tokio-rs/bytes/releases/tag/v1.12.1),\\n+[bytes manifest](https://github.com/tokio-rs/bytes/blob/v1.12.1/Cargo.toml),\\n+[serde 1.0.229](https://github.com/serde-rs/serde/releases/tag/v1.0.229),\\n+[serde manifest](https://github.com/serde-rs/serde/blob/v1.0.229/serde/Cargo.toml),\\n+and [CodeQL action commit](https://github.com/github/codeql-action/commit/1c5b675653bb5c22dbe9b12b556ec555138e09fd).\\n+The lockfile checksums remain registry-provided identities. The release dependency\\n+audit verifies the combined graph's provenance, license and forbidden-fallback\\n+inventory; an individual green bot PR is not a substitute for that audit.\"},{\"sha\":\"b23c69b4bccbbba84b3422ab48ec4ad6078647ba\",\"filename\":\"docs/release/v0.3.3-release-notes.md\",\"status\":\"added\",\"additions\":79,\"deletions\":0,\"changes\":79,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Frelease%2Fv0.3.3-release-notes.md\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Frelease%2Fv0.3.3-release-notes.md\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/docs%2Frelease%2Fv0.3.3-release-notes.md?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -0,0 +1,79 @@\\n+<!-- SPDX-License-Identifier: Apache-2.0 -->\\n+\\n+# ShardLoom v0.3.3\\n+\\n+Status: source preparation for a technical-preview release. Publication requires\\n+new GitHub, TestPyPI, PyPI and Homebrew proofs in that order. The selected\\n+published-channel contract remains v0.3.2 until those proofs are complete.\\n+\\n+This patch reduces string-aggregation work in the shared Vortex-native runtime\\n+and closes native reader lifetime and metadata-only admission gaps. SQL, Python,\\n+DataFrame and CLI surfaces reuse those execution families without external\\n+query-engine fallback.\\n+\\n+## Included changes\\n+\\n+- Input-backed string dictionaries and borrowed count lookup avoid copying\\n+  dictionary text merely to inspect or count it. Escaping aggregate state retains\\n+  an explicit owner; exact equality and null semantics remain unchanged.\\n+- Certified complete-count partitions restrict eligible exact DISTINCT work to\\n+  winning groups. Mixed-measure workers share existing chunk partials and bounded\\n+  owned completion, while ineligible plans keep their existing native route.\\n+- Compact string-count pages share the same consumer across serial and worker\\n+  execution, reducing state and merge work for admitted single-string counts.\\n+- Bounded dictionary preparation overlaps with existing native provider progress\\n+  for admitted URL-domain grouping. Ordered consumption, capacity admission,\\n+  cancellation and prepared-session reuse remain explicit.\\n+- Operation completion drains native readers and cancelled I/O. Footer-only and\\n+  fully pruned work defers payload-owner admission and avoids unnecessary worker\\n+  startup, including prepared calls with no spare memory credit.\\n+- README, website and runtime guide describe the implemented ownership,\\n+  preparation, aggregation and output contracts. Compatibility URLs lead to\\n+  current pages, and executable examples use the current public result envelope.\\n+\\n+## Validation and timing\\n+\\n+The final pre-release runtime source `93ee6b39` passed formatting, workspace\\n+Clippy, 3,436 workspace tests, 2,042 native tests and 1,520 release-feature CLI\\n+tests. The native suite retains 22 existing ignored cases. Counts overlap across\\n+feature configurations. The paired Full43 run passed all 258 complete-result\\n+comparisons; a separate Q35 follow-up passed six more. Independent evidence\\n+reconstruction checked source, binary, timing, full outputs and archive identities.\\n+\\n+In that final dictionary-preparation comparison, Q29's best of three complete CLI\\n+calls fell from 6.862137s to 4.825826s (29.67%). The sum of all 43 queries' best\\n+calls fell from 54.660584s to 53.171336s (2.72%). Q35 was slower: 13.75% in that\\n+cohort and 4.36% in a separate reversed-order follow-up. The follow-up does not\\n+replace any sample in the Full43 total. These are workload-specific development\\n+measurements against the immediately preceding optimization build, not a measured\\n+0.3.2-to-0.3.3 package comparison or a production claim. See the\\n+[final profile](../architecture/performance-profile-refresh-2026-09-30.md) and\\n+[dictionary preparation record](../architecture/dictionary-preparation-screen-2026-09-30.md).\\n+\\n+The source preparation also consolidates compatible dependency updates. It\\n+therefore requires fresh broad source, native-feature, package and schema/export\\n+checks, followed by exact-source CI and separate installation proof for each\\n+published channel. Earlier runtime measurements are not relabelled as measurements\\n+of those updated dependencies.\\n+\\n+## Compatibility and boundaries\\n+\\n+CLI, Python, website package metadata and the internal Rust workspace advance\\n+together to 0.3.3. Internal Rust crates remain unpublished. Machine-readable\\n+schema versions and public operator admission do not change. The dependency\\n+intake advances bytes, serde and the pinned CodeQL action; Vortex and the\\n+Arrow/Parquet/ORC graph stay at the previously admitted versions. See the\\n+[intake decisions](v0.3.3-dependency-intake.md).\\n+\\n+The existing output bounds, format-specific limitations, spill support and\\n+deterministic unsupported diagnostics remain in force. These changes do not\\n+establish every-operator/every-sink parity, broad spill recovery or production\\n+serving fairness. Native Vortex preparation still preserves the input layout;\\n+this patch does not make every I/O path produce the same optimized layout.\\n+The interrupted format pulse and large text-format performance tests stay paused.\\n+\\n+Package access remains a technical preview, without production-readiness,\\n+competitive-superiority, broad SQL/DataFrame, object-store, lakehouse or Foundry\\n+claims. After all release channels and the deployed site pass verification, the\\n+authorized ship/drop campaign resumes from a new finite candidate packet using\\n+the refreshed profile.\"},{\"sha\":\"eed4d7f2701896fdb46233b320e0ee36555c22da\",\"filename\":\"docs/release/v1-inclusion-scope-matrix.md\",\"status\":\"modified\",\"additions\":1,\"deletions\":0,\"changes\":1,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Frelease%2Fv1-inclusion-scope-matrix.md\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/docs%2Frelease%2Fv1-inclusion-scope-matrix.md\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/docs%2Frelease%2Fv1-inclusion-scope-matrix.md?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -38,6 +38,7 @@ dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier\\n \\n | Phase item | Classification | Support gate posture | Feasibility status | Unsupported boundary | Technique review |\\n | --- | --- | --- | --- | --- | --- |\\n+| `RELEASE-033` | `required_for_v1` | `planned` | Authorized optimization patch train with consolidated dependencies, exact-source validation and fresh four-channel/public-site proof; `docs/release/v0.3.3-release-notes.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |\\n | `RELEASE-032` | `required_for_v1` | `completed` | Four selected channels and the merged public website verified; release queue identifier only; `docs/release/v0.3.2-publication-verification.md`; `docs/release/channel-proofs/website-v0.3.2-deployment.json` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |\\n | `RELEASE-031` | `required_for_v1` | `completed` | Four selected channels and the merged public website verified; release queue identifier only; `docs/release/v0.3.1-publication-verification.md`; `docs/release/channel-proofs/website-v0.3.1-deployment.json` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |\\n | `PERF-INTAKE` | `v1_candidate_pending_feasibility` | `feasibility_required` | `ranked_experiments_pending_per_candidate_gates`; queue identifier under existing `PERF-01`\u2013`PERF-13`, with no new implementation phase or deferral of required native families; R1.a retained under its storage gate; `docs/architecture/performance-candidate-intake-2026-09-26.md`; `docs/architecture/derived-dictionary-preservation-2026-09-26.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |\"},{\"sha\":\"48356aaefaea670fce1c3ea850d577b83728c9dc\",\"filename\":\"python/src/shardloom/_version.py\",\"status\":\"modified\",\"additions\":1,\"deletions\":1,\"changes\":2,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/python%2Fsrc%2Fshardloom%2F_version.py\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/python%2Fsrc%2Fshardloom%2F_version.py\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/python%2Fsrc%2Fshardloom%2F_version.py?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -3,4 +3,4 @@\\n This file is derived from root Cargo.toml by scripts/sync_workspace_package_versions.py.\\n \\\"\\\"\\\"\\n \\n-__version__ = \\\"0.3.2\\\"\\n+__version__ = \\\"0.3.3\\\"\"},{\"sha\":\"fb8d73c35d40d139f98c49d4fb35fb6ea51e75e2\",\"filename\":\"website-src/package-lock.json\",\"status\":\"modified\",\"additions\":2,\"deletions\":2,\"changes\":4,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/website-src%2Fpackage-lock.json\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/website-src%2Fpackage-lock.json\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/website-src%2Fpackage-lock.json?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -1,12 +1,12 @@\\n {\\n   \\\"name\\\": \\\"shardloom-website\\\",\\n-  \\\"version\\\": \\\"0.3.2\\\",\\n+  \\\"version\\\": \\\"0.3.3\\\",\\n   \\\"lockfileVersion\\\": 3,\\n   \\\"requires\\\": true,\\n   \\\"packages\\\": {\\n     \\\"\\\": {\\n       \\\"name\\\": \\\"shardloom-website\\\",\\n-      \\\"version\\\": \\\"0.3.2\\\",\\n+      \\\"version\\\": \\\"0.3.3\\\",\\n       \\\"devDependencies\\\": {\\n         \\\"@astrojs/check\\\": \\\"^0.9.10\\\",\\n         \\\"@astrojs/mdx\\\": \\\"^7.0.8\\\",\"},{\"sha\":\"cbb7f1681180036ad036142cf5857092efc11015\",\"filename\":\"website-src/package.json\",\"status\":\"modified\",\"additions\":1,\"deletions\":1,\"changes\":2,\"blob_url\":\"https://github.com/depsilon/shardloom/blob/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/website-src%2Fpackage.json\",\"raw_url\":\"https://github.com/depsilon/shardloom/raw/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4/website-src%2Fpackage.json\",\"contents_url\":\"https://api.github.com/repos/depsilon/shardloom/contents/website-src%2Fpackage.json?ref=e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"patch\":\"@@ -1,6 +1,6 @@\\n {\\n   \\\"name\\\": \\\"shardloom-website\\\",\\n-  \\\"version\\\": \\\"0.3.2\\\",\\n+  \\\"version\\\": \\\"0.3.3\\\",\\n   \\\"private\\\": true,\\n   \\\"type\\\": \\\"module\\\",\\n   \\\"description\\\": \\\"Astro/Starlight static website source for shardloom.io.\\\",\"}]}",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/gh",
+        "release",
+        "download",
+        "v0.3.3",
+        "--repo",
+        "depsilon/shardloom",
+        "--pattern",
+        "*",
+        "--dir",
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 4276.4733,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "download_all_release_assets",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 28533,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 4.275858625012916,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false,
+      "timeout_seconds": 600
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/install/shardloom",
+        "--version"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 509.5542,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "downloaded_cli_version",
+      "output_bytes": 16,
+      "output_limit_bytes": 2097152,
+      "pid": 28552,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.5090631670318544,
+      "stderr": "",
+      "stdout": "shardloom 0.3.3\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/install/shardloom",
+        "status",
+        "--format",
+        "json"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 14.7231,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "downloaded_cli_status",
+      "output_bytes": 1240,
+      "output_limit_bytes": 2097152,
+      "pid": 28554,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.014372667006682605,
+      "stderr": "",
+      "stdout": "{\"schema_version\":\"shardloom.output.v2\",\"command\":\"status\",\"status\":\"success\",\"summary\":\"engine status\",\"human_text\":\"ShardLoom workspace initialized (native Vortex-first execution facade)\\nfallback execution: disabled\",\"fallback\":{\"attempted\":false,\"allowed\":false,\"engine\":null,\"reason\":\"ShardLoom prohibits Spark, DataFusion, DuckDB, Polars, Velox, and other fallback execution engines.\"},\"diagnostics\":[],\"result\":{\"fields\":[{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"}]},\"result_refs\":[],\"artifacts\":[],\"artifact_refs\":[],\"certificates\":[],\"policy\":{\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]},\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"status_capabilities\"},{\"key\":\"cli_binary_version\",\"value\":\"0.3.3\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"}]},\"capability_snapshot\":{\"fields\":[]},\"fields\":[{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"},{\"key\":\"cli_binary_version\",\"value\":\"0.3.3\"},{\"key\":\"protocol_version\",\"value\":\"shardloom.output.v2\"},{\"key\":\"platform_os\",\"value\":\"macos\"},{\"key\":\"platform_arch\",\"value\":\"aarch64\"},{\"key\":\"runtime_discovery_side_effect_free\",\"value\":\"true\"}]}\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-I",
+        "-m",
+        "venv",
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 934.091,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "create_clean_venv",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 28555,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.9338347500306554,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/bin/python",
+        "-I",
+        "-c",
+        "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 27.6891,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "confirm_clean_environment",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 28559,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.027533916989341378,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/bin/python",
+        "-I",
+        "-m",
+        "pip",
+        "--isolated",
+        "install",
+        "--no-cache-dir",
+        "--no-index",
+        "--no-deps",
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/downloads/shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 433.17,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "install_verified_wheel",
+      "output_bytes": 153,
+      "output_limit_bytes": 2097152,
+      "pid": 28560,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.4329416659893468,
+      "stderr": "",
+      "stdout": "Processing ./downloads/shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.3.3\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/bin/python",
+        "-I",
+        "-c",
+        "\nimport hashlib, importlib.metadata, json, sys\nfrom pathlib import Path\nimport shardloom as sl\nfrom shardloom import ShardLoomClient\nsite = Path(sl.__file__).resolve()\nassert site.is_relative_to(Path(sys.prefix).resolve()) and '/site-packages/' in str(site), site\nassert importlib.metadata.version('shardloom') == '0.3.3'\nclient = ShardLoomClient.from_env()\nsmoke = client.smoke_check()\nbinary = Path(smoke.resolved_cli_path).resolve()\nassert binary.is_relative_to(site.parent / 'bin'), binary\nassert smoke.cli_version == '0.3.3' and not smoke.fallback_attempted\nassert hashlib.sha256(binary.read_bytes()).hexdigest() == sys.argv[1]\nctx = sl.context(client=client)\nsource = Path('orders.csv').resolve()\nsource.write_text('id,label,amount\\n1,alpha,8\\n2,beta,15\\n3,gamma,27\\n')\nexpected = [{'id': 2, 'label': 'beta', 'amount': 15}, {'id': 3, 'label': 'gamma', 'amount': 27}]\nworkflows = [ctx.read(source).filter(sl.col('amount') >= 10).select('id', 'label', 'amount').limit(2)]\nworkflows += [ctx.sql(f\"SELECT id, label, amount FROM '{source}' WHERE amount >= 10 LIMIT 2\") for _ in range(2)]\nresults = []\nfor workflow in workflows:\n    result = workflow.collect()\n    assert result.runtime_execution and result.rows_projected == 2\n    assert not result.fallback_attempted and not result.external_engine_invoked\n    values = json.loads(result.envelope.human_text.split(' values=', 1)[1])['values']\n    assert values == expected and all(type(r[k]) is int for r in values for k in ('id', 'amount')), values\n    results.append(values)\nunsupported = ctx.read(source).select('id').to_pandas()\nassert unsupported.blocker_id == 'cg21.workflow.to_pandas.decoded_dataframe_unsupported'\nassert not unsupported.runtime_execution and not unsupported.fallback_attempted and not unsupported.external_engine_invoked\nprint(json.dumps({'package_path': str(site), 'bundled_cli': str(binary), 'version': smoke.cli_version,\n                  'cli_sha256': sys.argv[1], 'exact_results': results, 'repeated_sql_executions': 2,\n                  'unsupported_blocker': unsupported.blocker_id, 'fallback_attempted': False,\n                  'external_engine_invoked': False}))\n",
+        "3e252b051462d48f4108200e96b6bb5a31747df83071776eff901eca26075533"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 734.2342,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "bundled_cli_typed_dataframe_repeated_sql",
+      "output_bytes": 945,
+      "output_limit_bytes": 2097152,
+      "pid": 28562,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.7339725829660892,
+      "stderr": "",
+      "stdout": "{\"package_path\": \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/lib/python3.12/site-packages/shardloom/__init__.py\", \"bundled_cli\": \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/lib/python3.12/site-packages/shardloom/bin/macos-aarch64/shardloom\", \"version\": \"0.3.3\", \"cli_sha256\": \"3e252b051462d48f4108200e96b6bb5a31747df83071776eff901eca26075533\", \"exact_results\": [[{\"id\": 2, \"label\": \"beta\", \"amount\": 15}, {\"id\": 3, \"label\": \"gamma\", \"amount\": 27}], [{\"id\": 2, \"label\": \"beta\", \"amount\": 15}, {\"id\": 3, \"label\": \"gamma\", \"amount\": 27}], [{\"id\": 2, \"label\": \"beta\", \"amount\": 15}, {\"id\": 3, \"label\": \"gamma\", \"amount\": 27}]], \"repeated_sql_executions\": 2, \"unsupported_blocker\": \"cg21.workflow.to_pandas.decoded_dataframe_unsupported\", \"fallback_attempted\": false, \"external_engine_invoked\": false}\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/bin/python",
+        "-I",
+        "-m",
+        "pip",
+        "--isolated",
+        "uninstall",
+        "-y",
+        "shardloom"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 224.6993,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall_verified_wheel",
+      "output_bytes": 118,
+      "output_limit_bytes": 2097152,
+      "pid": 28567,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.22424299997510388,
+      "stderr": "",
+      "stdout": "Found existing installation: shardloom 0.3.3\nUninstalling shardloom-0.3.3:\n  Successfully uninstalled shardloom-0.3.3\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/target/github-package-proof-v0.3.3/venv/bin/python",
+        "-I",
+        "-c",
+        "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 39.162,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "verify_wheel_uninstalled",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 28569,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.03890537499682978,
+      "stderr": "",
+      "stdout": "",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/gh",
+        "release",
+        "view",
+        "v0.3.3",
+        "--repo",
+        "depsilon/shardloom",
+        "--json",
+        "tagName,isPrerelease,isDraft,name,publishedAt,url,targetCommitish,assets"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 360.626,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "release_view_after_smoke",
+      "output_bytes": 6304,
+      "output_limit_bytes": 2097152,
+      "pid": 28570,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.3599260830087587,
+      "stderr": "",
+      "stdout": "{\"assets\":[{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741280\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:52b316ba236f5bcf075ff5f26e53cc9035cc169638912726df83692ea1a03c77\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWg\",\"label\":\"\",\"name\":\"asset-manifest.json\",\"size\":5043,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:09Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/asset-manifest.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741282\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:cbb05744e60baf93871b1c274f1f860e6f65f1eb3d1fa3a88d6067a70cd0c935\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWi\",\"label\":\"\",\"name\":\"checksums.sha256\",\"size\":1122,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:09Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/checksums.sha256\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741279\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:7b31fea82728d46f136517a6fbbc921e4ed306b2d8c272816ab3f40e6a083542\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWf\",\"label\":\"\",\"name\":\"github-prerelease-release-notes.md\",\"size\":5255,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:09Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/github-prerelease-release-notes.md\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741286\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:3e252b051462d48f4108200e96b6bb5a31747df83071776eff901eca26075533\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWm\",\"label\":\"\",\"name\":\"shardloom\",\"size\":63820120,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:15Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741278\",\"contentType\":\"application/octet-stream\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:9eb2907904b0bc96a71bb54cee32fea71fedbba7a78b403fbd3988ec2f695b2a\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWe\",\"label\":\"\",\"name\":\"shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl\",\"size\":22662736,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:11Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-0.3.3-cp312-cp312-macosx_27_0_arm64.whl\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741298\",\"contentType\":\"application/x-gtar\",\"createdAt\":\"2026-09-30T11:17:09Z\",\"digest\":\"sha256:1ec282e353fe3af2df14ee052da94981bad21805495b8d4477bc606b93812667\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpWy\",\"label\":\"\",\"name\":\"shardloom-0.3.3.tar.gz\",\"size\":22955441,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:11Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-0.3.3.tar.gz\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741305\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:10Z\",\"digest\":\"sha256:f5e943349a1a2b5d58fc04be626e6dc6ccc559208b2a99c55121730e1c51fbe6\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpW5\",\"label\":\"\",\"name\":\"shardloom-cli-binary.cdx.json\",\"size\":845,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:10Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-cli-binary.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741304\",\"contentType\":\"application/x-gtar\",\"createdAt\":\"2026-09-30T11:17:10Z\",\"digest\":\"sha256:5c5055c40f3056cc2e01eeff8325cda2258051beaf1b109d3de944be8d17bb2d\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpW4\",\"label\":\"\",\"name\":\"shardloom-e15f2e66faf6-source.tar.gz\",\"size\":115250981,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:16Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-e15f2e66faf6-source.tar.gz\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741320\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:10Z\",\"digest\":\"sha256:e32f46d0bc71ed0502bcc7548f8a586bf175d4d6874666854b1b52d49f064cce\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXI\",\"label\":\"\",\"name\":\"shardloom-python-artifacts.cdx.json\",\"size\":837,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:10Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-python-artifacts.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741334\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:11Z\",\"digest\":\"sha256:e5db4fcde06b075a64368e78873597daeb6995bfd40e286fbd4a6c82b614b689\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXW\",\"label\":\"\",\"name\":\"shardloom-rust-workspace.cdx.json\",\"size\":54011,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:11Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/shardloom-rust-workspace.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741339\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:11Z\",\"digest\":\"sha256:843770179ab7be28aa06b44f21d64fccc482e6dff218ea2792cf6ac21c509cc1\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXb\",\"label\":\"\",\"name\":\"supply-chain-release-evidence.json\",\"size\":5328,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:12Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/supply-chain-release-evidence.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/600741348\",\"contentType\":\"application/json\",\"createdAt\":\"2026-09-30T11:17:12Z\",\"digest\":\"sha256:de4561e01bd4676b0824d4245c8ee3c875555cefd7fc7529cdc83e6f559105bd\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4jzpXk\",\"label\":\"\",\"name\":\"workflow-policy-snapshot.json\",\"size\":1442,\"state\":\"uploaded\",\"updatedAt\":\"2026-09-30T11:17:12Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.3.3/workflow-policy-snapshot.json\"}],\"isDraft\":false,\"isPrerelease\":true,\"name\":\"ShardLoom v0.3.3\",\"publishedAt\":\"2026-09-30T11:17:17Z\",\"tagName\":\"v0.3.3\",\"targetCommitish\":\"e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"url\":\"https://github.com/depsilon/shardloom/releases/tag/v0.3.3\"}\n",
+      "timed_out": false,
+      "timeout_seconds": 120
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/bin/gh",
+        "api",
+        "repos/depsilon/shardloom/git/ref/tags/v0.3.3"
+      ],
+      "direct_child_reaped": true,
+      "elapsed_millis": 340.7967,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "tag_reference_after_smoke",
+      "output_bytes": 337,
+      "output_limit_bytes": 2097152,
+      "pid": 28574,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.340070707956329,
+      "stderr": "",
+      "stdout": "{\"ref\":\"refs/tags/v0.3.3\",\"node_id\":\"REF_kwDOSScs_bByZWZzL3RhZ3MvdjAuMy4z\",\"url\":\"https://api.github.com/repos/depsilon/shardloom/git/refs/tags/v0.3.3\",\"object\":{\"sha\":\"e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\",\"type\":\"commit\",\"url\":\"https://api.github.com/repos/depsilon/shardloom/git/commits/e15f2e66faf6d359bba944e9d295fc58ce3bf7d4\"}}",
+      "timed_out": false,
+      "timeout_seconds": 120
+    }
+  ],
+  "supervisor": {
+    "generation": [
+      16777233,
+      89406795,
+      8431,
+      1789246837532150184,
+      1789246837532150184
+    ],
+    "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+    "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "size_bytes": 8431
+  },
+  "tag_created_by_this_tool": false,
+  "tag_provenance_status": "accepted_v0.3.3_lightweight_tag_on_github_verified_merge_commit_signing_unavailable",
+  "tag_ref_type": "commit",
+  "target_commit": "e15f2e66faf6d359bba944e9d295fc58ce3bf7d4",
+  "target_commit_verification_reason": "valid",
+  "target_commit_verified": true,
+  "uninstall_transcript_status": "passed"
+}
