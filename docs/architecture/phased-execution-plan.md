@@ -278,6 +278,42 @@ and owned-artifact cleanup; see the [publication record](../release/v0.3.3-publi
 and completed ledger. After the closeout merges, admit the new finite ship/drop
 packet from the refreshed profile. Paused format/text performance tests stay paused.
 
+- [ ] `PERF-POST033` decide the seven post-release performance experiments.
+  - Source: maintainer's authorized ship/drop continuation after release;
+    [finite candidate packet](performance-post033-intake-2026-09-30.md) and the
+    [refreshed profile](performance-profile-refresh-2026-09-30.md).
+  - V1 scope classification: `v1_candidate_pending_feasibility`; a queue identifier
+    under PERF-03/04/05/08/09/10/12, not a new phase or deferral of required work.
+  - Current state: 0.3.3 closeout PR #1491 merged with 40 checks, source-tree and
+    deployment acceptance. All 29 prior experiments remain decided. New writer,
+    source, dictionary, measure and admission hypotheses await scoped attribution.
+  - ShardLoom technique review: preserve metadata-first execution, PulseWeave and
+    capillary ownership bounds, dynamic shared admission, timing-surface separation
+    and evidence-tier controls. Reuse existing Vortex providers and shared runtime
+    families; no new query-specific or format-specific execution stacks.
+  - Execution checklist:
+    - [x] Freeze the seven hypotheses, original measurements, reuse boundaries and gates.
+    - [ ] Record released-binary ingest attribution and complete artifact equivalence.
+    - [ ] Decide P033-1/2/3 writer statistics, compaction and source-view handoff.
+    - [ ] Decide P033-4/5/6/7 provider, dictionary, measure and ownership/admission work.
+    - [ ] Validate and merge retained changes; preserve drop and regression evidence.
+    - [ ] Refresh affected profiles, retire only verified obsolete artifacts and move this packet to the ledger.
+  - Next outcome: one guarded full-size Parquet attribution run, then a bounded
+    implementation or evidence-backed drop for the first admitted hypothesis.
+  - User-visible surface: shared native ingest/query paths behind CLI/SQL/Python;
+    exact existing no-fallback route evidence remains required.
+  - Acceptance: every candidate has a decision with complete results and frozen
+    comparison evidence. Useful smaller gains remain eligible. No repeated full
+    suites before a cohesive retained implementation is ready.
+  - Verification: packet-specific focused tests, sequential complete-call screens,
+    required broad Rust/native/public gates and Full43 for retained runtime changes;
+    full persisted values/schema/statistics for storage changes.
+  - Non-goals and claim boundary: paused format/text pulse, broad codec/topology/PGO
+    sweeps, new package publication and whole-gate/production/superiority claims.
+  - Fallback boundary: `fallback_attempted=false`, `external_engine_invoked=false`;
+    unsupported execution remains explicit, with Vortex-native input/output.
+  - Ledger rule: move completed detail to the completed ledger after decisions and merge.
+
 R2.a admission, ownership design and acceptance are recorded in
 [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).
 R3.a reuses native COUNT selection and filtered mixed measures; see
