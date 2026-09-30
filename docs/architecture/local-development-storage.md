@@ -101,7 +101,55 @@ Writes can overshoot between samples. They do not impose a limit on iCloud,
 other applications, other workspaces, or commands that bypass the runner.
 No automated deletion of old runs, cloud files, or user data is performed.
 
-## Verification
+## Current runtime observation procedure
+
+The latest complete current-main observation is recorded in
+[the September 30 report](../benchmarks/current-runtime-e2e-2026-09-30.md):
+65.806017 seconds native ingest, 55.251837 seconds for one Full43 pass,
+121.057854 seconds combined native work, and 136.696318 seconds actual
+supervised workflow wall time. Keep this single observation separate from the
+earlier paired cohorts. It measures merged main after the 0.3.3 release, not
+the published package binaries.
+
+For a future authorized observation:
+
+1. Freeze the exact revision, build receipt/features, executable SHA-256 and
+   source-file hashes. Resolve build outputs with Cargo metadata if rebuilding.
+   Freeze the complete query file, resident input identity/hash and all 43
+   reference results. Record hardware, physical RAM and policy settings separately.
+2. Give the run a unique manifest, log and target name in local-only storage.
+   Admit it through the existing storage limits. Run public preparation through
+   `run_clickbench_ingest_uat.sh`, then acquire the same exclusive UAT lock for
+   the sequential query pass. Reject overlapping native builds/tests/queries
+   with the workload guard before and during execution. Keep process-group
+   deadlines and cleanup evidence. Do not raise storage ceilings for a rerun.
+3. Capture host load and process CPU/RSS observations before and during the
+   run without recording unrelated command arguments. Keep ordinary host
+   activity visible and do not describe sampled process CPU as exclusive
+   attribution. Record profiler/build overlap or other disturbances explicitly.
+4. Time each complete public native process, including startup, full output
+   and exit. Also time the actual workflow. Declare the exact treatment of
+   input hashing, validation, archiving and final output hashing. Use one call
+   per query for a single-pass observation; retain the existing symmetric
+   fastest-valid-run rule only for explicitly paired comparative cohorts.
+5. Validate every complete result and record no-fallback certificates. Preserve
+   raw output, timing, PID, result/reference hashes and every sample. Record
+   source prehashing and newly written-input cache effects; do not infer a
+   cold-cache run. Compare the complete generated Vortex hash before retiring
+   an identical duplicate and verify all owned processes/locks are gone.
+6. Add a new immutable report and portable evidence packet, then update the
+   phase/profile pointers. Keep historical samples intact. Retire only exact
+   superseded artifacts with saved identity/hash, open-handle checks and an
+   explicit retained replacement or regeneration record.
+
+The portable packet linked from the report includes the executed driver and
+guard helpers. Its local paths use placeholders; any replay must bind them to
+resident local inputs and a new run identity. Do not run the historical driver
+against its already completed paths. The
+[cleanup record](local-artifact-cleanup-2026-09-30.md#current-runtime-follow-up)
+identifies the current retained reference and superseded-file disposition.
+
+## Storage guard verification
 
 ```sh
 python3 -B -m unittest discover -s scripts -p test_local_uat_storage.py -v

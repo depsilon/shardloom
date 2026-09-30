@@ -37,6 +37,34 @@ Use this skill for tasks involving:
 - Avoid cherry-picked results.
 - Include correctness validation for benchmark queries.
 
+## Local end-to-end observations
+
+- Freeze the source revision, build command/features, executable hash, workload,
+  input generation and complete reference results before timing. A reused binary
+  needs source-file equality with the requested revision, including Cargo files.
+- Keep native builds, tests, profilers and timed workloads sequential under the
+  shared workload guard and UAT lock. Record host load and process CPU/RSS samples
+  around and during the run; ordinary desktop activity is observation context,
+  not proof of an idle host or the cause of a timing change.
+- Report native ingest, the sum of complete native query processes, and actual
+  supervised workflow wall time separately. State whether hashing, validation,
+  archiving and cleanup fall inside each clock. A sum of process times must not
+  be labeled elapsed end-to-end time.
+- Label a single sequential Full43 pass as one observation. Preserve every
+  sample in comparative cohorts and apply their frozen symmetric scoring rule;
+  never replace a paired cohort with a faster later single pass.
+- Record physical RAM separately from memory admission policy, measured peak RSS,
+  and any enforced limit. State prehash/cache effects and uncontrolled cache state.
+- Preserve complete raw outputs, native timing/PID records, host observations,
+  exact result checks and original/portable hashes before compacting logs or
+  retiring verified duplicate payloads. Retained result equality is regression
+  evidence; identify a fresh independent correctness oracle separately.
+
+The [local procedure](../architecture/local-development-storage.md#current-runtime-observation-procedure)
+and [September 30 observation](../benchmarks/current-runtime-e2e-2026-09-30.md)
+provide the applied protocol and immutable evidence. These observations do not
+change official benchmark, release-distribution or competitive-gate claims.
+
 ## Required checks
 
 A benchmark PR should include:

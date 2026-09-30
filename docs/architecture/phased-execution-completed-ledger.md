@@ -19,6 +19,15 @@ phase plan first.
 
 - [x] `PERF-POST033` decide the seven post-release performance experiments.
   - Date: 2026-09-30 UTC. Retain P033-1/3/6/7; drop P033-2/4/5 at admission.
+    PR #1493 merged the final query pair at `65c4e7b3` after all 40 checks passed.
+    The subsequent maintainer-requested
+    [current-runtime observation](../benchmarks/current-runtime-e2e-2026-09-30.md)
+    records 65.806017 seconds native ingest, 55.251837 seconds for one Full43
+    pass, and 136.696318 seconds supervised workflow wall time. All 43 complete
+    results and the complete generated artifact match the retained references.
+    Its host-load/clock controls now live in the benchmarking skill and local
+    storage procedure; the [cleanup record](local-artifact-cleanup-2026-09-30.md#current-runtime-follow-up)
+    preserves exact superseded-artifact dispositions. No further sweep is admitted.
     The [candidate record](performance-post033-intake-2026-09-30.md) preserves
     all hypotheses, corrected failures, original samples and tradeoffs.
   - PR #1492 merged unused text-statistics avoidance and the Parquet string-view
@@ -42,9 +51,11 @@ phase plan first.
     portable packets preserve ingest and query acceptance, raw results, failures,
     source manifests and cleanup proof. The [new query inventory](../benchmarks/query-profile-post033-2026-09-30.json)
     preserves all 43 samples, CPU, RSS and stage spans from the final cohort.
-  - Cleanup retires only the verified failed first Parquet-view payload,
-    recovering 15,551,053,824 allocated bytes; protected inputs, references and
-    frozen controls remain. V1 scope classification: `documentation_only` for
+  - Initial cleanup retired the verified failed first Parquet-view payload,
+    recovering 15,551,053,824 allocated bytes. The subsequent current-runtime
+    follow-up retired four superseded binaries and the redundant older Vortex
+    reference, recording another 15,976,919,040 allocated bytes with complete
+    evidence and a byte-exact reconstruction record. V1 scope classification: `documentation_only` for
     this completed experiment ledger; implemented native behavior stays under
     existing PERF-03/04/05/08/09/10/12 owners. Dynamic/capillary/PulseWeave,
     metadata-first, timing-surface and evidence-tier contracts are preserved.
