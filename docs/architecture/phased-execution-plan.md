@@ -390,12 +390,13 @@ needed for a candidate's correctness/resource acceptance must be completed first
       applicable UAT and independent review, then prepare its PR before the next set.
     - [ ] Remove failed prototypes, preserve evidence, refresh overall profiling after
       the packet is exhausted, and move completed decisions to the completed ledger.
-  - Next outcome: measure simultaneous live directory capacity, occupied records,
-    arenas and growth overlap for Q34/Q35 before reusing the existing compound
-    dense pages in single-string COUNT partitions. Preserve exact keys, counts,
-    pressure handoff, cancellation and ownership; record complete-query time/RSS.
-    Close the cohesive result with applicable UAT and a PR before the next set.
-    Preserve useful smaller gains and recorded workload tradeoffs; broader PERF
+  - Next outcome: finish R10's pending PR/CI acceptance, then decide R2.b using
+    the remaining measured dictionary-preparation cost. Reuse the existing
+    dictionary builder, bounded jobs and source-order aggregate consumer; preserve
+    floating update order, owner lifetimes, cancellation and pressure behavior.
+    Record the complete-query ship/drop result, close any retained runtime with
+    applicable UAT and its PR, then refresh profiling and retire recorded temporary
+    artifacts. Preserve useful smaller gains and workload tradeoffs; broader PERF
     obligations remain open.
   - Implementation scope: existing `shardloom-vortex` preparation, native accessors,
     partitions, result/source boundaries and writer; shared planner/admission as needed.

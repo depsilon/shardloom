@@ -126,5 +126,9 @@ The [portable evidence](../benchmarks/evidence/dense-string-count-2026-09-30.jso
 contains 300 strict complete comparisons: 12 diagnostic, 12 screen, 258 Full43
 and 18 follow-up. It preserves raw member identities, complete sanitized result
 envelopes, source manifests/patches, all validation logs and the assembly script.
+An independent mechanical audit verifies all 300 complete values/hashes, 50
+archives and 1,200 members, 13 source files and two declared deletions, 21 portable
+text records and the documented metrics. Primary review owns semantic acceptance;
+the retained references are regression oracles, not a new independent SQL oracle.
 Temporary capacity counters are absent from the accepted runtime. R2.b remains
 the next candidate after this PR lands; the release and format pulse stay closed.
