@@ -287,9 +287,12 @@ now active. Paused format/text performance tests stay paused.
   - Current state: 0.3.3 closeout PR #1491 merged with 40 checks, source-tree and
     deployment acceptance. All 29 prior experiments remain decided. Released-binary
     ingest attribution is accepted after exact native payload/footer comparison;
-    P033-2 compaction is dropped. P033-1's initial four-call screen lowers best
-    complete ingest time 8.456% with byte-identical artifacts; it is retained
-    pending final-source acceptance. P033-3 source views are now in prototype.
+    P033-2 compaction is dropped. P033-1 and P033-3 pass local acceptance: separate
+    four-call screens lower best complete ingest time 8.456% and another 4.504%
+    against their own baselines, with byte-identical artifacts. Final source
+    preserves non-text statistics and lean derived metadata. Broad tests and
+    264 exact query comparisons pass; the original Q34 slowdown and reversed-order
+    follow-up remain visible. The retained ingest batch awaits reviewed merge.
     Source, dictionary, measure and admission hypotheses retain their own gates.
   - ShardLoom technique review: preserve metadata-first execution, PulseWeave and
     capillary ownership bounds, dynamic shared admission, timing-surface separation
@@ -298,13 +301,12 @@ now active. Paused format/text performance tests stay paused.
   - Execution checklist:
     - [x] Freeze the seven hypotheses, original measurements, reuse boundaries and gates.
     - [x] Record released-binary ingest attribution and complete artifact equivalence.
-    - [ ] Decide P033-1/2/3 writer statistics, compaction and source-view handoff.
+    - [x] Decide P033-1/2/3 writer statistics, compaction and source-view handoff.
     - [ ] Decide P033-4/5/6/7 provider, dictionary, measure and ownership/admission work.
     - [ ] Validate and merge retained changes; preserve drop and regression evidence.
     - [ ] Refresh affected profiles, retire only verified obsolete artifacts and move this packet to the ledger.
-  - Next outcome: complete P033-3's sequential ingest screen against P033-1,
-    including the reviewed non-text statistics correction, then broad acceptance
-    of the retained ingest batch before query-side attribution.
+  - Next outcome: review and merge the retained ingest batch and its immutable
+    evidence, then attribute P033-4/5/6/7's remaining query-side work.
   - User-visible surface: shared native ingest/query paths behind CLI/SQL/Python;
     exact existing no-fallback route evidence remains required.
   - Acceptance: every candidate has a decision with complete results and frozen

@@ -22,9 +22,9 @@ retained change, re-evaluate the remaining cost before the next dependent test.
 
 | ID | Experiment and shared boundary | Admission evidence | Retain/drop decision |
 | --- | --- | --- | --- |
-| P033-1 | Avoid unused text pre-compression statistics through the existing Vortex `CompressingStrategy` configuration. | Both released-binary samples show the extra pass; the selected Zstd output discards these source statistics. File pruning statistics are accumulated separately. | **Retain for final acceptance:** the initial four-call screen lowers best complete ingest time by 8.456% with byte-identical output. A subsequent non-text passthrough correction preserves the provider's original statistics; final-source acceptance remains required. |
+| P033-1 | Avoid unused text pre-compression statistics through the existing Vortex `CompressingStrategy` configuration. | Both released-binary samples show the extra pass; the selected Zstd output discards these source statistics. File pruning statistics are accumulated separately. | **RETAIN:** initial best complete ingest time falls 8.456%. Final source includes the non-text passthrough correction and passes complete artifact equality, broad tests and Full43 acceptance below. |
 | P033-2 | Avoid redundant text-buffer compaction before the existing Zstd provider gathers length-prefixed values. | Released-binary attribution records 0.010031 seconds over 22,876 calls, with identical input/output byte estimates. Upstream compaction already has cheap no-op checks. | **DROP at admission:** negligible observed work. Keep the existing compaction and its sparse/null/sliced/shared-buffer behavior; no runtime prototype. |
-| P033-3 | Preserve string views across the Parquet-to-Vortex handoff using the existing reader schema hint and Arrow/Vortex adapters. | P033-1 still records 16.089–16.153 summed seconds in Arrow conversion and 4.912–4.919 seconds in text canonicalization. Pinned Parquet 58.3 and Vortex 0.85 support the same UTF-8 logical type through string views. | **Prototype admitted:** request `Utf8View` for large-source offset strings, retaining the existing dictionary policy and copied-buffer admission. Measure against P033-1; the dropped source-dictionary variants stay dropped. |
+| P033-3 | Preserve string views across the Parquet-to-Vortex handoff using the existing reader schema hint and Arrow/Vortex adapters. | P033-1 still records 16.089–16.153 summed seconds in Arrow conversion and 4.912–4.919 seconds in text canonicalization. Pinned Parquet 58.3 and Vortex 0.85 support the same UTF-8 logical type through string views. | **RETAIN after one correction:** best complete ingest time falls 4.504% against P033-1, with lower observed RSS and byte-identical output. The original metadata-routing failure and invalid timing remain preserved. |
 | P033-4 | Remove repeated decoding/materialization inside the shared native provider boundary, motivated by Q23. | Q23 is 4.444 s; its 4.205–4.625 s provider spans overlap accessor time. Obtain stack/counter attribution to a specific avoidable transition. | No duplicate scanner: provider selection propagation and conjunction ordering already exist. Retain only an exact, shared improvement to the observed transition with complete Q23 and regression results. |
 | P033-5 | Reuse source-backed dictionaries and bound metadata through compound grouping and exact union, motivated by Q19/Q6. | Q19 is 4.381 s and Q6 3.256 s. Separate dictionary construction, binding and union work; verify full key/epoch ownership and budget lifetimes. | Extend existing builders/owned jobs only when semantics match. Existing preunion gets no duplicate credit; the slower triple-sort replacement stays dropped. |
 | P033-6 | Reuse bound string-length/measure kernels in grouped accumulation, motivated by Q28. | Q28 is 2.279 s; caller-update spans are 2.182–2.214 s. Attribute repeated accessor work versus required aggregate updates. | Retain a shared measure-path improvement with exact aggregates, overflow/null behavior, HAVING and complete outputs. Avoid a query-number-specific route. |
@@ -170,6 +170,67 @@ metadata policy. The regression fixture compares all source and derived values
 for offset strings and views, including null and non-ASCII values; it reproduces
 the missing metadata before the correction. Repeat the frozen comparison with
 new receipt names and the original complete artifact as the equality oracle.
+
+## Retained ingest batch acceptance
+
+The corrected source is `2f5a99fb31f1c54ae0cc7128c5a4a43b52d58e56`, with
+frozen binary SHA-256
+`8bec33a5eaf2eeff44598933ad42838f70b542e78689f29d7c039cda55f1e071`.
+The control is P033-1's frozen binary, so this cohort measures the additional
+string-view change. The non-text statistics correction is included; the public
+prepare route selects UTF-8 fields for this dataset's text strategy.
+
+| Sample | Native wall seconds | User + system CPU seconds | Peak RSS bytes |
+| --- | ---: | ---: | ---: |
+| Control 1 | 73.068434 | 183.115115 | 3,096,264,704 |
+| Candidate 1 | 69.777290 | 174.417266 | 1,986,478,080 |
+| Candidate 2 | 72.336568 | 181.089121 | 2,165,637,120 |
+| Control 2 | 75.193775 | 190.675153 | 2,997,518,336 |
+
+Best complete ingest time falls 4.504%; medians are 74.131105 and 71.056929
+seconds (4.147% lower). Both candidate RSS observations are lower. All four
+calls produce exactly the complete 15,682,956,489-byte public-prepared artifact,
+including its 112 columns, pruning statistics and provenance. All owned process
+groups drained and the four duplicates were removed only after identity checks.
+Do not add or compound these results with the earlier 8.456% screen into a
+measured overall gain: the cohorts have separate baselines and host observations.
+
+The stage evidence retains a tradeoff. Summed Arrow-conversion spans rise from
+16.439/17.808 to 20.425/21.663 seconds, while text canonicalization falls from
+4.963/5.150 seconds to 0.000876/0.001267 seconds. The complete call and observed
+RSS improve; Arrow conversion itself does not. These overlapping spans are not
+exclusive CPU time. Numeric/text output byte counts and dictionary-preservation
+calls are unchanged.
+
+Final-source formatting and workspace Clippy passed, as did 3,436 workspace
+tests, 2,048 native Vortex tests and 1,521 native CLI tests. The 22 pre-existing
+ignored native tests remain ignored. Native all-target Clippy passed for the
+affected Vortex and CLI code. Red/green fixtures cover discarded versus persisted
+statistics, view-buffer ownership and the metadata-routing correction.
+
+The released 0.3.3 binary and final candidate also completed Full43: all 258
+complete outputs match the retained reference's canonical JSON SHA-256 exactly,
+without float tolerance. All 43 archives and 1,032 raw members were verified.
+The sum of query best times is effectively flat, 56.537951 versus 56.496367
+seconds. Every sample and slower observation is retained. Q34's original best
+time is 8.696% slower and all three original pairs are slower; one predeclared
+reversed-order follow-up gives exact outputs for six more calls and is faster
+in all three pairs (5.290% lower best, 5.406% lower median). That gap did not
+repeat; neither cohort establishes a query speedup from this ingest change.
+All 264 recorded native PIDs were absent at final acceptance.
+
+The [portable evidence bundle](../benchmarks/evidence/post033-native-ingest-2026-09-30.json.xz)
+is 952,136 bytes, SHA-256
+`970ec474dab9f7012d01026ca21ec8facb9699d0add2f873ed2df4dee39c6b16`.
+It contains all 11 completed ingest calls and their 99 raw log files, the original
+failures and two stack samples, build/test receipts, frozen-source manifest and
+patch, both query cohorts with 1,056 archived members, and 43 complete retained
+reference logs. Local machine path prefixes are replaced; original byte hashes
+and separate portable-text hashes are recorded. Complete query values are
+verified unchanged by that replacement. Binaries and full data payloads remain
+local; the bundle is regression evidence, not a fresh independent SQL oracle.
+P033-1 and P033-3 pass local acceptance; remote review, CI and merge are the next
+gate. P033-4 through P033-7 remain required and unimplemented.
 
 ## Comparison and completion gates
 
