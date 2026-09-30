@@ -275,51 +275,15 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
 
 `RELEASE-033` has completed four-channel publication, public website verification
 and owned-artifact cleanup; see the [publication record](../release/v0.3.3-publication-verification.md)
-and completed ledger. The finite ship/drop packet from the refreshed profile is
-now active. Paused format/text performance tests stay paused.
-
-- [ ] `PERF-POST033` decide the seven post-release performance experiments.
-  - Source: maintainer's authorized ship/drop continuation after release;
-    [finite candidate packet](performance-post033-intake-2026-09-30.md) and the
-    [refreshed profile](performance-profile-refresh-2026-09-30.md).
-  - V1 scope classification: `v1_candidate_pending_feasibility`; a queue identifier
-    under PERF-03/04/05/08/09/10/12, not a new phase or deferral of required work.
-  - Current state: 0.3.3 closeout PR #1491 merged with 40 checks, source-tree and
-    deployment acceptance. All 29 prior experiments remain decided. Released-binary
-    ingest attribution is accepted after exact native payload/footer comparison;
-    P033-2 compaction is dropped. P033-1 and P033-3 pass local acceptance: separate
-    four-call screens lower best complete ingest time 8.456% and another 4.504%
-    against their own baselines, with byte-identical artifacts. Final source
-    preserves non-text statistics and lean derived metadata. Broad tests and
-    264 exact query comparisons pass; the original Q34 slowdown and reversed-order
-    follow-up remain visible. The retained ingest batch awaits reviewed merge.
-    Source, dictionary, measure and admission hypotheses retain their own gates.
-  - ShardLoom technique review: preserve metadata-first execution, PulseWeave and
-    capillary ownership bounds, dynamic shared admission, timing-surface separation
-    and evidence-tier controls. Reuse existing Vortex providers and shared runtime
-    families; no new query-specific or format-specific execution stacks.
-  - Execution checklist:
-    - [x] Freeze the seven hypotheses, original measurements, reuse boundaries and gates.
-    - [x] Record released-binary ingest attribution and complete artifact equivalence.
-    - [x] Decide P033-1/2/3 writer statistics, compaction and source-view handoff.
-    - [ ] Decide P033-4/5/6/7 provider, dictionary, measure and ownership/admission work.
-    - [ ] Validate and merge retained changes; preserve drop and regression evidence.
-    - [ ] Refresh affected profiles, retire only verified obsolete artifacts and move this packet to the ledger.
-  - Next outcome: review and merge the retained ingest batch and its immutable
-    evidence, then attribute P033-4/5/6/7's remaining query-side work.
-  - User-visible surface: shared native ingest/query paths behind CLI/SQL/Python;
-    exact existing no-fallback route evidence remains required.
-  - Acceptance: every candidate has a decision with complete results and frozen
-    comparison evidence. Useful smaller gains remain eligible. No repeated full
-    suites before a cohesive retained implementation is ready.
-  - Verification: packet-specific focused tests, sequential complete-call screens,
-    required broad Rust/native/public gates and Full43 for retained runtime changes;
-    full persisted values/schema/statistics for storage changes.
-  - Non-goals and claim boundary: paused format/text pulse, broad codec/topology/PGO
-    sweeps, new package publication and whole-gate/production/superiority claims.
-  - Fallback boundary: `fallback_attempted=false`, `external_engine_invoked=false`;
-    unsupported execution remains explicit, with Vortex-native input/output.
-  - Ledger rule: move completed detail to the completed ledger after decisions and merge.
+and completed ledger. `PERF-POST033` now has all seven decisions: retain
+P033-1/3/6/7 and drop P033-2/4/5. PR #1492 merged the ingest pair; the query
+pair's cohesive change carries all local acceptance and closure evidence.
+See the [completed ledger](phased-execution-completed-ledger.md),
+[candidate decisions](performance-post033-intake-2026-09-30.md) and
+[final query inventory](../benchmarks/query-profile-post033-2026-09-30.json).
+The finite packet is exhausted; its completion does not admit another sweep.
+Broader PERF owners and CG-1 through CG-23 retain their own open gates.
+Paused format/text performance tests stay paused.
 
 R2.a admission, ownership design and acceptance are recorded in
 [the source-backed dictionary screen](source-backed-dictionary-screen-2026-09-29.md).
@@ -2619,12 +2583,14 @@ Current autonomous execution order:
 The September 29 resumption supersedes the earlier release/format stop for the
 finite September 26 intake. All 29 decisions and the final profiling refresh
 are now recorded; R2.b is merged and its guarded artifact retirement is complete.
-The September 30 follow-up authorizes obsolete PR/branch
-cleanup, the next gated version bump/publication train, and a new finite ship/drop
-packet in that order. The rules below govern the resumed optimization campaign.
+The September 30 follow-up's obsolete PR/branch cleanup, gated 0.3.3 publication
+and seven-candidate ship/drop packet are recorded. The finite packet has four
+retained and three dropped candidates. The rules below govern a separately
+admitted continuation, rather than automatically restarting exhausted experiments.
 
-1. Generate any next candidate list from the
-   [refreshed profile](performance-profile-refresh-2026-09-30.md), retaining the
+1. Ground any separately admitted next candidate list in the
+   [post-release measurements](performance-post033-intake-2026-09-30.md) and
+   [Full43 inventory](../benchmarks/query-profile-post033-2026-09-30.json), retaining the
    [29 completed decisions](performance-candidate-intake-2026-09-26.md).
    Rank potential avoided work and breadth of benefit; R/C labels are not
    priorities. Attribute cost before implementation and do not restart a dropped

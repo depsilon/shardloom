@@ -168,6 +168,37 @@ impl NativeNumericOwner {
     fn bind_numeric_update_typed<T: Numeric, const ALL_VALID: bool>(
         &self,
     ) -> super::bound_numeric_updates::RowKernel<'_> {
+        self.bind_typed_row_update::<T, ALL_VALID, _>(
+            super::SimpleAggregateState::update_direct_numeric_value,
+        )
+    }
+
+    pub(super) fn bind_compact_numeric_update(
+        &self,
+        count_only: bool,
+    ) -> super::bound_numeric_updates::RowKernel<'_, super::CompactAggregateMeasureValue> {
+        numeric_dispatch!(self, bind_compact_numeric_update_typed, count_only)
+    }
+
+    fn bind_compact_numeric_update_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        count_only: bool,
+    ) -> super::bound_numeric_updates::RowKernel<'_, super::CompactAggregateMeasureValue> {
+        if count_only {
+            self.bind_typed_row_update::<T, ALL_VALID, _>(|state, _| {
+                super::CompactAggregateMeasureValue::increment_count(state)
+            })
+        } else {
+            self.bind_typed_row_update::<T, ALL_VALID, _>(
+                super::CompactAggregateMeasureValue::add_numeric,
+            )
+        }
+    }
+
+    fn bind_typed_row_update<T: Numeric, const ALL_VALID: bool, State: 'static>(
+        &self,
+        update: impl Fn(&mut State, f64) -> Result<()> + 'static,
+    ) -> super::bound_numeric_updates::RowKernel<'_, State> {
         let values = self.primitive.as_slice::<T>();
         let valid = &self.valid;
         Box::new(move |state, row| {
@@ -175,7 +206,7 @@ impl NativeNumericOwner {
                 .get(row)
                 .ok_or_else(|| failed("native typed row index was out of bounds"))?;
             if ALL_VALID || valid.value(row) {
-                state.update_direct_numeric_value(value.widen().numeric())?;
+                update(state, value.widen().numeric())?;
             }
             Ok(())
         })

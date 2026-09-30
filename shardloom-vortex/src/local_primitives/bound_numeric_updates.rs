@@ -1,12 +1,14 @@
-//! Block-local ordinary-measure kernels for the existing exact pair preunion.
+//! Block-local measure kernels for exact pair preunion and compact grouping.
 //! Each recipe borrows current native owners; no cross-block data or state is cached.
 
 use super::{
-    AggregateDirectColumnAccessor, AggregateValueTransform, Result, SimpleAggregateFunction,
-    SimpleAggregateState, SimpleAggregateStates,
+    AggregateDirectColumnAccessor, AggregateValueTransform, CompactAggregateMeasureSpec,
+    CompactAggregateMeasureValue, CompactAggregateMeasures, Result, ShardLoomError,
+    SimpleAggregateFunction, SimpleAggregateState, SimpleAggregateStates,
 };
 
-pub(super) type RowKernel<'a> = Box<dyn Fn(&mut SimpleAggregateState, usize) -> Result<()> + 'a>;
+pub(super) type RowKernel<'a, State = SimpleAggregateState> =
+    Box<dyn Fn(&mut State, usize) -> Result<()> + 'a>;
 
 pub(super) struct BoundNumericUpdates<'a> {
     kernels: Vec<(usize, RowKernel<'a>)>,
@@ -82,6 +84,93 @@ impl<'a> BoundNumericUpdates<'a> {
     }
 }
 
+pub(super) struct BoundCompactNumericUpdates<'a> {
+    kernels: Vec<RowKernel<'a, CompactAggregateMeasureValue>>,
+}
+
+impl<'a> BoundCompactNumericUpdates<'a> {
+    pub(super) fn bind(
+        specs: &[CompactAggregateMeasureSpec],
+        accessors: &'a [AggregateDirectColumnAccessor],
+        chunk_rows: usize,
+    ) -> Option<Self> {
+        // Validate the entire shape before allocating. Each recipe borrows only
+        // this block's native owners, including their original-width validity.
+        if specs.is_empty()
+            || !specs.iter().all(|spec| {
+                matches!(spec.value_transform, AggregateValueTransform::Identity)
+                    && match (spec.function, spec.column_index) {
+                        (SimpleAggregateFunction::Count, None) => true,
+                        (
+                            SimpleAggregateFunction::Count
+                            | SimpleAggregateFunction::Sum
+                            | SimpleAggregateFunction::Avg,
+                            Some(column),
+                        ) => matches!(accessors.get(column), Some(AggregateDirectColumnAccessor::NativeNumeric(owner)) if owner.len() == chunk_rows),
+                        _ => false,
+                    }
+            })
+        {
+            return None;
+        }
+        let mut kernels: Vec<RowKernel<'a, CompactAggregateMeasureValue>> =
+            Vec::with_capacity(specs.len());
+        for spec in specs {
+            let kernel: RowKernel<'a, CompactAggregateMeasureValue> = if let Some(column) =
+                spec.column_index
+            {
+                let AggregateDirectColumnAccessor::NativeNumeric(owner) = &accessors[column] else {
+                    unreachable!("complete native measure shape was admitted above")
+                };
+                owner.bind_compact_numeric_update(spec.function == SimpleAggregateFunction::Count)
+            } else {
+                Box::new(|state, _row| state.increment_count())
+            };
+            kernels.push(kernel);
+        }
+        Some(Self { kernels })
+    }
+
+    pub(super) fn update(&self, measures: &mut CompactAggregateMeasures, row: usize) -> Result<()> {
+        debug_assert_eq!(self.kernels.len(), measures.values().len());
+        for (kernel, value) in self.kernels.iter().zip(measures.values_mut()) {
+            kernel(value, row)?;
+        }
+        Ok(())
+    }
+}
+
+impl CompactAggregateMeasureValue {
+    pub(super) fn increment_count(&mut self) -> Result<()> {
+        self.count = self.count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex compact aggregate count overflowed u64".to_string(),
+            )
+        })?;
+        Ok(())
+    }
+
+    pub(super) fn add_numeric(&mut self, numeric: f64) -> Result<()> {
+        self.count = self.count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex compact numeric aggregate count overflowed u64".to_string(),
+            )
+        })?;
+        self.sum += numeric;
+        if !self.sum.is_finite() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex compact numeric aggregate sum became non-finite; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 #[path = "bound_numeric_updates_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "bound_compact_numeric_updates_tests.rs"]
+mod compact_tests;
