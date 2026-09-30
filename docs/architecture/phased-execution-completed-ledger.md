@@ -17,6 +17,39 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R3.a: retain winner-only integer exact DISTINCT.
+  - Date: 2026-09-29 local; final evidence September 30 UTC. Runtime
+    `22f7acd22e8c06c651f835bb817e25edcad5d5f5` reuses the native single-key COUNT
+    consumer, capillary selection, Vortex projection/filter and original mixed
+    aggregate kernels. Complete COUNT proves winners; spatial sampling estimates
+    cost only. Floating SUM/AVG remain on the complete aggregate after a losing
+    group's overflow exposed an unsafe initial admission. See the
+    [screen and acceptance record](winner-only-distinct-screen-2026-09-29.md).
+  - Final Full43 passes all 258 comparisons. Q10 best improves 29.05%
+    (4.381091 to 3.108368 seconds), with every pair faster and lower observed
+    child RSS. The sum of all 43 bests improves 2.00% (66.507349 to 65.177969
+    seconds). Earlier flat totals and Q35/Q15 slowdown observations remain in
+    portable evidence; the slowdowns did not recur in their follow-up cohorts.
+    No host-load cause, ingest benefit or all-query speedup is asserted.
+  - Formatting, workspace/release-surface Clippy, 3,436 workspace tests, 2,020
+    native all-target tests and 1,520 CLI all-target tests pass. Counts overlap;
+    22 pre-existing native manual/regeneration tests remain ignored. Complete
+    native fixtures cover independent expected values, prepared reuse, owned
+    output, cancellation, generation replacement and resource recovery. The
+    overflow regression has red/green proof. Auxiliary key-count bounds do not
+    establish byte/RSS enforcement or production fairness.
+  - Cleanup retires three superseded R3.a binaries (191,782,912 allocated bytes)
+    after identity/evidence/active-consumer checks. Lossless archive verification
+    permits retirement of old raw logs, recovering 8,830,976 net allocated log
+    bytes; failed evidence, inputs and the accepted baseline/candidate remain.
+  - ShardLoom technique review: keep metadata-first policy, shared encoded
+    consumers, late measures and capillary/PulseWeave ownership; compose those
+    boundaries instead of retaining the prototype's duplicate measure pass.
+    Timing spans retain their caller/CPU limitations. V1 scope classification:
+    `v1_candidate_pending_feasibility` under existing PERF-INTAKE/PERF-02/03;
+    CG-1 through CG-23 retain their separate acceptance. R3.b, R4, R6.c, R10
+    and R2.b remain in Planned.
+
 - [x] `PERF-INTAKE` R2.a: retain source-backed UTF8 dictionaries and shared borrowed reads.
   - Date: 2026-09-29. Accepted runtime revision
     `d1a53815846abe1cbcc5574d6cfc616f7e99e694` reuses one native byte-access and

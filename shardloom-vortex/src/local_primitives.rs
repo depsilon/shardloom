@@ -125,6 +125,9 @@ mod triple_count_tests;
 #[path = "local_primitives/triple_count_workers.rs"]
 mod triple_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/winner_distinct.rs"]
+mod winner_distinct;
+#[cfg(feature = "vortex-local-primitives")]
 use native_utf8::Utf8DictionaryValue;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/utf8_chunk_dictionary.rs"]
@@ -20187,7 +20190,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     } else {
         plan.projected_columns.clone()
     };
-    let filter_pushdown_applied = plan.filter.is_some();
+    let mut filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
     let mut embedded_layout = file.embedded_layout(
         request.kind,
@@ -20296,6 +20299,15 @@ fn read_lowered_vortex_simple_aggregate_scan(
     if let Some(states) = grouped_states.as_mut() {
         states.native_execution_ctx = native_numeric_execution_ctx(session);
     }
+    let mut winner_distinct_report = grouped_states.as_ref().and_then(|states| {
+        winner_distinct::admit(
+            states,
+            file.dtype(),
+            &declared_columns,
+            source_row_count,
+            request.predicate.is_none() && plan.filter.is_none() && residual_predicate.is_none(),
+        )
+    });
     let residual_evaluator = residual_predicate
         .as_ref()
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
@@ -20359,11 +20371,35 @@ fn read_lowered_vortex_simple_aggregate_scan(
     let mut reader_splits = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
+    if let Some(report) = winner_distinct_report.as_mut() {
+        report.prepare(
+            file,
+            source_uri,
+            request,
+            policy,
+            session,
+            runtime,
+            &check_cancelled,
+            &mut uncached_retry,
+            &mut reader_splits,
+            &mut max_chunk_rows,
+        )?;
+        arrays_read_count = reader_splits.len();
+    }
+    let winner_filter = winner_distinct_report
+        .as_ref()
+        .and_then(|report| report.filter.as_ref())
+        .map(|filter| predicate_to_vortex_expr(filter, file.dtype(), request.kind))
+        .transpose()?;
+    if winner_filter.is_some() {
+        filter_pushdown_applied = true;
+        embedded_layout = file.embedded_layout(request.kind, true, projection_pushdown_applied);
+    }
     if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan(session).map_err(vortex_error)?;
-        if let Some(filter) = plan.filter.as_ref() {
+        if let Some(filter) = winner_filter.as_ref().or(plan.filter.as_ref()) {
             scan = scan.with_filter(file.bind(filter)?);
         }
         if let Some(projection) = plan.projection.as_ref() {
@@ -21104,6 +21140,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         grouped_states = Some(exact_states);
     }
+    if let Some(report) = winner_distinct_report.as_mut() {
+        report.measure_rows = usize_to_u64(pre_limit_result_row_count)?;
+        if report.filter.is_some() {
+            report.verify_measure_rows()?;
+            pre_limit_result_row_count = usize::try_from(source_row_count).map_err(vortex_error)?;
+        }
+    }
     let finalization_started = Instant::now();
     let numeric_accessor_work = grouped_states
         .as_ref()
@@ -21154,6 +21197,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     aggregate_timing.annotate_summary(&mut result_summary)?;
+    if let Some(report) = winner_distinct_report {
+        report.annotate(&mut result_summary)?;
+    }
     if let Some(workers) = count_workers.as_ref() {
         workers.annotate_summary(&mut result_summary)?;
     }
