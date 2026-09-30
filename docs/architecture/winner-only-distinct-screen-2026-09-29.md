@@ -1,6 +1,6 @@
 # Winner-only exact DISTINCT — R3.a
 
-Status: **prototype admission**. No speedup or retain decision yet. This is the
+Status: **prototype admission**. No retain decision yet. This is the
 next PERF-INTAKE item after R2.a. Its comparison baseline includes the scoped
 query/recovery lock repair in PR #1484; that repair does not change aggregation.
 
@@ -26,7 +26,35 @@ block-bound kernels. This screen is insufficient to drop their reuse.
 
 ## Shared prototype contract
 
-Reuse the existing typed integer pair/chunk-group loop with explicit ordinary,
+The first shared ordinary/DISTINCT-pass prototype preserved all six paired Q10
+results, with best 3.794010 to 3.312719 seconds (12.69% lower). One candidate
+sample was slower. Its all-row SUM/AVG work is avoidable because only COUNT(*)
+selects winners. A second admission screen using the unchanged R2 final binary
+computes COUNT-only winners and then all original measures for those keys. All
+six complete results pass: control best/median 3.412807/3.494983 seconds versus
+2.453370/2.454249 seconds for both native calls plus composition (28.11% lower
+best). Every pair improves; peak child RSS is 672–679 MB versus 1,080–1,088 MB.
+These are admission screens, not shipped single-call performance.
+
+Refinement: reuse the existing single-integer COUNT state and comparator for a
+key-only preliminary scan, then feed its exact winners through existing Vortex
+IN/projection pushdown into the unchanged mixed-measure aggregate kernels. No
+separate ordinary/DISTINCT update loop is needed. Retain OFFSET plus LIMIT keys,
+apply OFFSET only to the final result, and preserve the complete key tie order.
+The same held source, session, cancellation and provider owners span both scans.
+Report auxiliary reads, count work, selected row weight and policy rejection.
+A bounded prefix cost screen must reject high winner coverage and excessive
+auxiliary state before completing the preliminary scan; its threshold remains
+provisional until adverse-workload timing. A rejected cost screen uses the
+original native plan; an execution error remains an error.
+
+Vortex-first decision: `use_vortex_native_provider` for the existing 0.85.0
+`ScanBuilder::with_projection`/`with_filter` and bound IN expression; ShardLoom's
+existing exact COUNT, capillary comparator and mixed aggregate consumer supply
+the reduction. No new array/scan abstraction, query engine or decoded Arrow
+boundary. Reader splits and summary evidence include both passes.
+
+The superseded first prototype reused the typed integer pair/chunk-group loop with explicit ordinary,
 DISTINCT and combined measure passes. Every input row contributes to ordinary
 measures, independently of pair deduplication. Select winners with the existing
 aggregate ordering and complete-key tie comparator. Only then compute exact

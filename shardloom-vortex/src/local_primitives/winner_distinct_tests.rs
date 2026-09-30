@@ -109,13 +109,21 @@ fn winner_distinct_preserves_every_ordinary_row_across_chunks_ties_and_offsets()
         let mut state =
             GroupedAggregateStates::new(&request, Some(limit), &columns, false, false).unwrap();
         let mut report = admit(&state, &dtype(None), &columns, 1_000_000, true).unwrap();
-        state.winner_distinct_pass = MeasurePass::Ordinary;
+        let count_request = report.count_request.clone();
+        let count_columns = report.columns.clone();
+        let mut count_state = GroupedAggregateStates::new(
+            &count_request,
+            Some(report.retained_cap),
+            &count_columns,
+            false,
+            false,
+        )
+        .unwrap();
         for rows in &chunks {
             assert!(
-                state
-                    .update_compact_direct_from_accessors(
-                        &accessors(rows),
-                        &columns,
+                count_state
+                    .update_count_star_direct_from_accessors(
+                        &[accessors(rows).swap_remove(2)],
                         None,
                         rows.len()
                     )
@@ -123,20 +131,37 @@ fn winner_distinct_preserves_every_ordinary_row_across_chunks_ties_and_offsets()
             );
         }
         assert_eq!(state.count_distinct_state_entries().unwrap(), 0);
-        assert_eq!(state.bound_numeric_recipe_chunks, 2);
-        report.select(&mut state).unwrap();
+        assert_eq!(state.bound_numeric_recipe_chunks, 0);
+        report.source_rows = 9;
+        report.count_rows = 9;
+        report
+            .finish_counts(count_state.single_numeric_count_groups.as_ref().unwrap())
+            .unwrap();
+        let Some(PredicateExpr::InList { values, .. }) = report.filter.as_ref() else {
+            panic!("selection must produce native IN keys");
+        };
         for rows in &chunks {
+            let rows = rows
+                .iter()
+                .copied()
+                .filter(|row| values.contains(&StatValue::Int64(row.0)))
+                .collect::<Vec<_>>();
+            if rows.is_empty() {
+                continue;
+            }
             assert!(
                 state
                     .update_compact_direct_from_accessors(
-                        &accessors(rows),
+                        &accessors(&rows),
                         &columns,
                         None,
                         rows.len()
                     )
                     .unwrap()
             );
+            report.measure_rows += u64::try_from(rows.len()).unwrap();
         }
+        report.verify_measure_rows().unwrap();
         let (_, mut summary) = state.result_row_count_and_summary(Some(limit)).unwrap();
         report.annotate(&mut summary).unwrap();
         let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
@@ -147,10 +172,10 @@ fn winner_distinct_preserves_every_ordinary_row_across_chunks_ties_and_offsets()
             serde_json::json!({"bucket": i64::MAX, "n": 1, "total": 8.0, "mean": 80.0, "unique": 1}),
         ].into_iter().skip(offset).take(limit).collect::<Vec<_>>();
         assert_eq!(payload["values"], serde_json::json!(expected));
-        assert_eq!(payload["aggregate_winner_distinct_candidate_groups"], 4);
+        assert_eq!(payload["aggregate_winner_distinct"]["candidate_groups"], 4);
         assert_eq!(
             state.bound_numeric_recipe_chunks, 2,
-            "second pass must not update ordinary measures"
+            "only the selected rows enter the existing block-bound mixed kernels"
         );
         assert!(state.count_distinct_state_entries().unwrap() <= 7);
     }
@@ -194,24 +219,20 @@ fn winner_distinct_admission_requires_selection_independent_of_distinct() {
 }
 
 #[test]
-fn winner_distinct_empty_state_is_exact_and_selected_rows_cannot_bypass_contract() {
+fn winner_distinct_empty_state_and_weight_checks_are_exact() {
     let request = request();
     let columns = columns();
-    let mut states =
-        GroupedAggregateStates::new(&request, Some(10), &columns, false, false).unwrap();
+    let states = GroupedAggregateStates::new(&request, Some(10), &columns, false, false).unwrap();
     let mut report = admit(&states, &dtype(None), &columns, 1_000_000, true).unwrap();
-    states.winner_distinct_pass = MeasurePass::Ordinary;
-    report.select(&mut states).unwrap();
+    assert!(report.finish_counts(&FxHashMap::default()).is_err());
+    report.source_rows = 0;
+    report.finish_counts(&FxHashMap::default()).unwrap();
     let (rows, _) = states.result_row_count_and_summary(Some(10)).unwrap();
     assert_eq!(rows, 0);
-    let rows = [(1, 2, 3, 4)];
-    assert!(
-        states
-            .update_grouped_count_distinct_integer_pair_preunion_from_accessors(
-                &accessors(&rows),
-                Some(&[0]),
-                1
-            )
-            .is_err()
-    );
+    report.verify_measure_rows().unwrap();
+    report.measure_rows = 1;
+    assert!(report.verify_measure_rows().is_err());
+    assert!(high_winner_share(70, 100));
+    assert!(!high_winner_share(69, 100));
+    assert!(high_winner_share(u64::MAX, u64::MAX));
 }
