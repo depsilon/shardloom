@@ -40,6 +40,10 @@ struct Partition {
     slots_lease: MemoryLease,
     bytes_lease: MemoryLease,
     selection_lease: Option<MemoryLease>,
+    // Temporary R10 attribution: preserve the drained snapshot after release.
+    retired_storage: [u64; 4],
+    growth_overlap_peak: u64,
+    growths: u64,
     // Actual copy sites, enabled only in the paired experiment/test binary.
     #[cfg(test)]
     benchmark_payload_bytes_copied: u64,
@@ -72,6 +76,7 @@ pub(super) struct PartitionEvidence {
     pub entry_credit_wait_calls: u64,
     pub entry_credit_reserved_entries: usize,
     pub entry_credit_block_entries: usize,
+    pub storage: [u64; 6],
 }
 
 pub(super) struct StringCountPartitions {
@@ -146,6 +151,9 @@ impl StringCountPartitions {
                 slots_lease: memory.reserve(0)?,
                 bytes_lease: memory.reserve(0)?,
                 selection_lease: Some(lease.split(selection_bytes / PARTITIONS as u64)?),
+                retired_storage: [0; 4],
+                growth_overlap_peak: 0,
+                growths: 0,
                 #[cfg(test)]
                 benchmark_payload_bytes_copied: 0,
             }));
@@ -189,7 +197,28 @@ impl StringCountPartitions {
         if credits.reserved != 0 {
             return Err(failed("entry credits remain outstanding at final evidence"));
         }
+        let mut storage = [0_u64; 6];
+        for partition in &self.partitions {
+            let partition = partition
+                .lock()
+                .map_err(|_| failed("partition lock poisoned"))?;
+            let live = if partition.slots.is_empty() {
+                partition.retired_storage
+            } else {
+                partition.storage_snapshot()?
+            };
+            for (total, value) in storage[..4].iter_mut().zip(live) {
+                *total = total
+                    .checked_add(value)
+                    .ok_or_else(|| failed("storage sum overflowed"))?;
+            }
+            storage[4] = storage[4].max(partition.growth_overlap_peak);
+            storage[5] = storage[5]
+                .checked_add(partition.growths)
+                .ok_or_else(|| failed("growth sum overflowed"))?;
+        }
         Ok(PartitionEvidence {
+            storage,
             groups: credits.committed,
             rows: self.committed_rows.load(Ordering::Acquire),
             lock_wait_nanos: self.lock_wait_nanos.load(Ordering::Acquire),
@@ -338,6 +367,7 @@ impl StringCountPartitions {
                     visit(value, slot.count)?;
                 }
             }
+            partition.retired_storage = partition.storage_snapshot()?;
             partition.slots = Vec::new();
             partition.bytes = Vec::new();
             partition.groups = 0;
@@ -353,6 +383,7 @@ impl StringCountPartitions {
             let mut partition = partition
                 .lock()
                 .map_err(|_| failed("partition lock poisoned"))?;
+            partition.retired_storage = partition.storage_snapshot()?;
             partition.slots = Vec::new();
             partition.bytes = Vec::new();
             partition.groups = 0;
@@ -460,6 +491,36 @@ impl StringCountPartitions {
 }
 
 impl Partition {
+    fn storage_snapshot(&self) -> Result<[u64; 4]> {
+        let size = |count: usize, width: usize| {
+            count
+                .checked_mul(width)
+                .and_then(|v| u64::try_from(v).ok())
+                .ok_or_else(|| failed("storage size overflowed"))
+        };
+        Ok([
+            size(self.slots.capacity(), size_of::<Slot>())?,
+            size(self.groups, size_of::<Slot>())?,
+            size(self.bytes.len(), 1)?,
+            size(self.bytes.capacity(), 1)?,
+        ])
+    }
+
+    fn record_growth(&mut self, replacement: u64) -> Result<()> {
+        self.growth_overlap_peak = self.growth_overlap_peak.max(
+            self.slots_lease
+                .bytes()
+                .checked_add(self.bytes_lease.bytes())
+                .and_then(|n| n.checked_add(replacement))
+                .ok_or_else(|| failed("growth overlap overflowed"))?,
+        );
+        self.growths = self
+            .growths
+            .checked_add(1)
+            .ok_or_else(|| failed("growth count overflowed"))?;
+        Ok(())
+    }
+
     fn reconcile(
         &mut self,
         partial: &StringCountPartial,
@@ -568,6 +629,7 @@ impl Partition {
             let Some((mut slots, lease)) = allocate::<Slot>(capacity, memory)? else {
                 return Ok(false);
             };
+            self.record_growth(lease.bytes())?;
             slots.resize(capacity, Slot::default());
             for (index, slot) in self.slots.iter().copied().enumerate() {
                 if index % 4096 == 0 {
@@ -601,6 +663,7 @@ impl Partition {
             let Some((mut bytes, lease)) = allocate::<u8>(capacity, memory)? else {
                 return Ok(false);
             };
+            self.record_growth(lease.bytes())?;
             bytes.extend_from_slice(&self.bytes);
             #[cfg(test)]
             {

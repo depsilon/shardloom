@@ -69,6 +69,31 @@ fn admission(partitions: &StringCountPartitions, requested: usize) -> EntryAdmis
 }
 
 #[test]
+fn drained_storage_snapshot_survives_release_without_changing_weights() {
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let partitions = StringCountPartitions::try_new(&memory, 10, 1)
+        .unwrap()
+        .unwrap();
+    let input = strings(&["alpha", "beta", "gamma", "alpha"]);
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let receipt = reduce(&partitions, partial(&input, &memory), &worker, &memory).unwrap();
+    assert!(receipt.deferred.is_none());
+    let before = partitions.evidence().unwrap();
+    assert_eq!((before.groups, before.rows), (3, 4));
+    assert_eq!(before.storage[1], 3 * 32);
+    assert_eq!(before.storage[2], 14);
+    assert!(before.storage[0] >= before.storage[1]);
+    assert!(before.storage[3] >= before.storage[2]);
+    assert!(before.storage[4] > 0 && before.storage[5] > 0);
+    partitions.release_storage().unwrap();
+    let after = partitions.evidence().unwrap();
+    assert_eq!(before.storage, after.storage);
+    assert_eq!((after.groups, after.rows), (3, 4));
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn complete_keys_find_winner_outside_every_chunk_topk_at_all_worker_counts() {
     for workers in [1, 2, 4, 8, 12] {
         let memory = LiveMemoryPool::new(8 << 20).unwrap();
