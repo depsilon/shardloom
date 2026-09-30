@@ -132,3 +132,8 @@ text records and the documented metrics. Primary review owns semantic acceptance
 the retained references are regression oracles, not a new independent SQL oracle.
 Temporary capacity counters are absent from the accepted runtime. R2.b remains
 the next candidate after this PR lands; the release and format pulse stay closed.
+
+PR review also updates both ignored string-state benchmark fingerprints to include
+the shared dense-page helper. This changes test-only source identity, not the
+frozen release implementation or any recorded timing. The Full43 source manifest
+already includes that helper; historical evidence remains immutable.

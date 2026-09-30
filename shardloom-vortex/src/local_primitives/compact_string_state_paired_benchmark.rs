@@ -87,6 +87,7 @@ fn source_identity() -> String {
     let mut digest = Sha256::new();
     for source in [
         include_bytes!("string_count_partitions.rs").as_slice(),
+        include_bytes!("aggregate_dense_pages.rs").as_slice(),
         include_bytes!("string_count_partial.rs").as_slice(),
         include_bytes!("string_count_entry_credits.rs").as_slice(),
         include_bytes!("string_count_partition_benchmark.rs").as_slice(),
