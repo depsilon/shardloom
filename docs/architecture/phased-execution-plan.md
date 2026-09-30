@@ -276,9 +276,10 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
 - [ ] `RELEASE-033` publish and verify the 0.3.3 optimization patch train.
   - Source: maintainer's September 30 PR cleanup, version bump and subsequent
     ship/drop authorization; [release notes](../release/v0.3.3-release-notes.md).
-  - Current state: runtime PR #1488 is merged and its artifact cleanup is complete.
-    README/site PR #1483 includes a verified Homebrew CLI path and awaits final CI
-    and review. Release source consolidates the compatible dependency intake.
+  - Current state: runtime PR #1488 and README/site PR #1483 are merged with all
+    40 checks passing on each reviewed head; recorded artifact cleanup is complete.
+    Release source consolidates the compatible dependency intake. Fresh broad
+    source validation and all 20 versioned schema/export cases pass.
     Published-channel selection stays at proof-backed 0.3.2 until new proofs exist.
   - V1 scope classification: `required_for_v1`; package distribution work, not a
     production-readiness or broad operator-support claim.
@@ -286,8 +287,8 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
     capillary bounds and metadata-first behavior; PulseWeave adds no release
     mechanism. Timing-surface and evidence-tier separation govern all claims.
   - Execution checklist:
-    - [ ] Merge accepted runtime and README/site PRs; retire only recorded obsolete artifacts.
-    - [ ] Consolidate compatible dependency updates and validate 0.3.3 source/package versions.
+    - [x] Merge accepted runtime and README/site PRs; retire only recorded obsolete artifacts.
+    - [x] Consolidate compatible dependency updates and validate 0.3.3 source/package versions.
     - [ ] Merge source preparation with exact-head checks and completed review.
     - [ ] Publish and verify GitHub, TestPyPI, PyPI and Homebrew in that order.
     - [ ] Update selected-channel proofs, public docs and deployed website; verify final readiness.
