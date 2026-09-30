@@ -289,7 +289,7 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
   - Execution checklist:
     - [x] Merge accepted runtime and README/site PRs; retire only recorded obsolete artifacts.
     - [x] Consolidate compatible dependency updates and validate 0.3.3 source/package versions.
-    - [ ] Merge source preparation with exact-head checks and completed review.
+    - [x] Merge source preparation with exact-head checks and completed review (PR #1489).
     - [ ] Publish and verify GitHub, TestPyPI, PyPI and Homebrew in that order.
     - [ ] Update selected-channel proofs, public docs and deployed website; verify final readiness.
     - [ ] Clean temporary release artifacts and superseded PRs; move this item to the completed ledger.

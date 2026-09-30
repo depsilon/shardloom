@@ -1,0 +1,494 @@
+{
+  "schema_version": "shardloom.source_version_validation.v1",
+  "status": "passed",
+  "scope": "consolidated_dependency_source_validation_and_exact_source_CI;pre_bump_runtime_UAT;not_channel_publication_proof",
+  "recorded_at_utc": "2026-09-30T11:18:47.080259+00:00",
+  "candidate_version": "0.3.3",
+  "tested_commit": "e15f2e66faf6d359bba944e9d295fc58ce3bf7d4",
+  "tested_tree": "97a97692ea56e2d666d39a3afa6ca0520413186a",
+  "source_pr": 1489,
+  "source_pr_head": "ecab067564001e3ed477cc10f81be89823aab880",
+  "source_pr_checks_passed": 40,
+  "exact_merged_source_ci": {
+    "run_id": 36704841546,
+    "url": "https://github.com/depsilon/shardloom/actions/runs/36704841546",
+    "head_sha": "e15f2e66faf6d359bba944e9d295fc58ce3bf7d4",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Python and package smoke",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (vortex_file_io)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust MSRV validation",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (native_vortex_tests)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "CI work shaping plan",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (packaging_deployment)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python test shard (core)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.11)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python test shard (front_door_benchmark_publication)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (native_release_clippy)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust baseline (clippy)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "CI gate matrix contract",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (vortex_encoded_read_spike)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (release_user_surfaces)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (benchmark_extras)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust baseline (test)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release runtime core evidence",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python test shard (release_scripts)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (native_public_surface_tests)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (default_features)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.12)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.10)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (macos-latest, 3.11)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (windows-latest, 3.11)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust baseline (fmt)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (vortex_local_primitives)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python compatibility (ubuntu-latest, 3.13)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Website and docs validation",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Dependency and security gates",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (no_default_features)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (upstream_vortex)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Rust feature matrix (all_features)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python tests",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release user-surface evidence",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release package and governance evidence",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Release readiness reports",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "runtime_rust_source_changes_in_version_bump": false,
+  "external_dependency_changes_in_version_bump": true,
+  "schema_version_changes_in_version_bump": false,
+  "internal_cargo_path_requirements_advanced_to_new_patch": true,
+  "local_version_evidence": {
+    "status": "passed",
+    "recorded_at_utc": "2026-09-30T10:20:17.036594+00:00",
+    "version": "0.3.3",
+    "fresh_broad_validation_source": "6461d5418f7e297237f0b29612481dce0e767678",
+    "portable_candidate_source": "a17a1cb0e1c20a755ec8c801b3a10d73117af8e7",
+    "portable_candidate_tree": "621c5f3b3e51b2ea93b473c54d04c6a9d885e7c5",
+    "native_package_and_dependency_inputs_identical": true,
+    "intervening_docs_only_paths": [
+      "docs/architecture/dictionary-preparation-screen-2026-09-30.md",
+      "docs/architecture/local-artifact-cleanup-2026-09-30.md",
+      "docs/architecture/phased-execution-completed-ledger.md",
+      "docs/architecture/phased-execution-plan.md",
+      "website-src/src/pages/start.astro",
+      "website/start.html",
+      "website/start/index.html"
+    ],
+    "schema_export_cases": 20,
+    "formats": [
+      "vortex",
+      "parquet",
+      "arrow-ipc",
+      "avro",
+      "orc",
+      "json",
+      "jsonl",
+      "csv"
+    ],
+    "counts": {
+      "workspace_tests": 3436,
+      "native_tests": 2042,
+      "native_ignored": 22,
+      "cli_tests": 1520,
+      "release_tool_tests_passed": 260,
+      "release_tool_tests_skipped": 2
+    },
+    "counts_overlap": true,
+    "full_size_benchmark_repeated": false,
+    "artifacts": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/source-checks-complete.json",
+        "bytes": 586,
+        "sha256": "d4ff093ee955c6b4c45dc41de600996ea9c00b99799a80c2b4fa66281b2dc3ca"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/build-release-candidate-2.json",
+        "bytes": 1101,
+        "sha256": "6c04313808e4a9b241260ab693bf3fa903be0b6bf9488919a43ba258e0a2365c"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/candidate-schema-roundtrips.json",
+        "bytes": 818,
+        "sha256": "d5f66e1cc4cd1d5986d4c082ec17e6fd3b6575582eb5d7d25babc0ab7b05c72b"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/candidate-schema-roundtrips.stdout",
+        "bytes": 3859,
+        "sha256": "11db1f2e3d5e377f2bee7cafb171f3f68f01ed969cd3cdc60892ba863d19d7bd"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/start-cli-proof.json",
+        "bytes": 191012,
+        "sha256": "015be88ddafe93faab2fe267d11bdaa344fe046502ae51f7812b414f9c8f4a0b"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/start-cli-browser-check.json",
+        "bytes": 293,
+        "sha256": "ab451e15f8b5f7e8b5f8be441c7d5940fc490227960a087e48a8537397659938"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/pr1483-final-review-acceptance.json",
+        "bytes": 1279,
+        "sha256": "e8a44006a8c02209b6373c1279bb4edc4dc07855f66b3041555e49b1567598e1"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/format-1.json",
+        "bytes": 478,
+        "sha256": "19f3941e235e9aed988c86e2937ca59a63ff791a80a6b9b339d85a44c3afa82d"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/format-1.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/version-sync-1.json",
+        "bytes": 594,
+        "sha256": "9cbe75eda4846bc642312936e36f93b0e169b1ca02ce0d3e8a49ad0e902ff665"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/version-sync-1.log",
+        "bytes": 55,
+        "sha256": "fc7178045c935550c1aaf2900e133610950f00f6ea29cf9e2d7d04463225ff71"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/public-docs-1.json",
+        "bytes": 687,
+        "sha256": "7693440227eb456f81420baab9831b26cd5179fe8eadd243a62cfd5a1b10bf16"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/public-docs-1.log",
+        "bytes": 93,
+        "sha256": "d121953c8612987ea2d378f774559ebb08e9cc6c7f770f6425385ba8fd6be215"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/workspace-clippy-1.json",
+        "bytes": 546,
+        "sha256": "bc9d58bceb22f65bbfc0c1e77619c2c28aa15975a71bed17152ae9e7c0e3372f"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/workspace-clippy-1.log",
+        "bytes": 1632,
+        "sha256": "6c161920571a9bda3b9927b3844d0c57da60fe7208a8bf2a55563bd7720bed9c"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/workspace-tests-1.json",
+        "bytes": 506,
+        "sha256": "cfdb8dd50804c79dc36bb9dd34a50a186086d4dfeb41cc4fb7d5edc8e37ebe98"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/workspace-tests-1.log",
+        "bytes": 493936,
+        "sha256": "970ef49416910164676f754dc3753ab8d2f2cba108b6b0d540ef391ac1c7486a"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/native-clippy-1.json",
+        "bytes": 589,
+        "sha256": "caa8b241690ab3f6cfbb46decb6dcc817cc3cca97a5f4b8bf189c285c3318302"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/native-clippy-1.log",
+        "bytes": 2768,
+        "sha256": "674ce8d72bc045e2d293a9c248d6cd2d8a9be20dd76a52dea4d91749b9a2e323"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/native-tests-1.json",
+        "bytes": 566,
+        "sha256": "a6efb46e121a51fe3d4578b7486248856113eae517f41dac79f23c114d38cc6b"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/native-tests-1.log",
+        "bytes": 224001,
+        "sha256": "93762ecfb14264c5068041f97b2ccff921ff49f98666a0b67d099fb2377fb0f9"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/cli-tests-1.json",
+        "bytes": 559,
+        "sha256": "35d11e82409d21b4c61990eceba80a83bde5a1eeb2d9c9f7555547f5fa1c9ed2"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/cli-tests-1.log",
+        "bytes": 544773,
+        "sha256": "42d584cfe2f15d93dff37bb068102f4f5d57f7c14388cd9c9c8ee4a29db9ebdb"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/release-python-1.json",
+        "bytes": 747,
+        "sha256": "477c77c54575cfb48c99d1a0cbae6c41ba97fbdcbfe849e76a1a5f3009c6628e"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/release-python-1.log",
+        "bytes": 744,
+        "sha256": "601d1d89c3b6091b0135ed1379d50cffafd62cc6df8fda82b62970c9acc1d2b4"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/workspace-version-1.json",
+        "bytes": 705,
+        "sha256": "5311051c090791345e5a20c4ad09e35b4e62597a7d761f1ef67d133f358f27ba"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/workspace-version-1.log",
+        "bytes": 107,
+        "sha256": "eec38b6e350ea903ee9076527d8f82edbf7a2c1b6a7a88466d2f8767117be4ea"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/contribution-1.json",
+        "bytes": 694,
+        "sha256": "9822cf0727db3dbdaf24b728f846b777904ac33a4f6136aa14d018b05157fbe8"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/contribution-1.log",
+        "bytes": 94,
+        "sha256": "d5ed5ec6dc7ee54ec49930fb33fc9e6eb3aaa32183a7210fd1bc49e9defb984d"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/package-channel-static-1.json",
+        "bytes": 716,
+        "sha256": "124bca6cc11de0cc6451c8f0832695a3224723583bc156629f7b29fc16699faa"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/package-channel-static-1.log",
+        "bytes": 104,
+        "sha256": "33591b7d3b6829a89ad31d4edecc89e36300ff57942ba8ae70cf87cf497e50e0"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/architecture-1.json",
+        "bytes": 722,
+        "sha256": "717aa19d27d5d10f9676fe8c05bf0c89fa3e74a677e0f90a42d56addea6db368"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/source-final/architecture-1.log",
+        "bytes": 94,
+        "sha256": "1cff7e91fdd569ccf074c31d40e3c9ee957df1ad94087820c9a6516495e90a36"
+      }
+    ]
+  },
+  "merged_build_evidence": {
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "-p",
+      "shardloom-cli",
+      "--bin",
+      "shardloom",
+      "--features",
+      "release-user-surfaces"
+    ],
+    "source_commit": "e15f2e66faf6d359bba944e9d295fc58ce3bf7d4",
+    "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+    "cargo_target": "/Users/dylan/.cache/shardloom/cargo-target",
+    "source_tree": "97a97692ea56e2d666d39a3afa6ca0520413186a",
+    "status": "passed",
+    "publication_attempted": false,
+    "timeout_seconds": 1800,
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "output_limit_bytes": 16777216,
+    "timed_out": false,
+    "interrupted_signal": null,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "pid": 26622,
+    "output_bytes": 323,
+    "group_absence_unproved_at_cleanup": false,
+    "returncode": 0,
+    "seconds": 459.1944362919894,
+    "binary_sha256": "5ebd38bea243a12cc2b6934fb226d536dff047ca76f85ee7db218bf847efc4e3",
+    "binary": "/Users/dylan/.cache/shardloom/cargo-target/release/shardloom",
+    "binary_bytes": 73488192,
+    "version": "shardloom 0.3.3"
+  },
+  "implementation_uat": {
+    "tested_commit": "93ee6b39fd09ce657adf078a711206a89ccb2ab9",
+    "merge_commit": "c4b328798ce18dcb9ee7f6220f3f7b360c4b354e",
+    "counts": {
+      "default_workspace": 3436,
+      "release_native": 2042,
+      "native_ignored": 22,
+      "release_cli": 1520,
+      "full43_complete_comparisons": 258,
+      "separate_q35_followup_comparisons": 6
+    },
+    "counts_overlap_between_feature_configurations": true,
+    "receipts": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r2b-admission-primary-acceptance.json",
+        "sha256": "0df366af3542578eba62618463426584a5e3146199f12481849b1b6e5b1bdfc8",
+        "bytes": 1203
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r2b-pruned-final-validation.json",
+        "sha256": "09a18df8590870aa58651bd51e1e261b7126cb1b269f7a237832fc37c3a45815",
+        "bytes": 6486
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r2b-admission-independent-audit.json",
+        "sha256": "27055d6938044c01ecf0fea627495aa75f986b6a0c3d09816fe820d7efddf5a7",
+        "bytes": 2964
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r2b-final-review-acceptance.json",
+        "sha256": "933c1186c50719fa203e56f286019b440216c11c2117c62276ce56a119da4a80",
+        "bytes": 15285
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/performance-candidates-20260926/r2b-merge-receipt.json",
+        "sha256": "7f1cabb6e569f50ddb8cf9ce6d0c49d65acc050a4e5fa91b10bedcf4d75f4a67",
+        "bytes": 150
+      }
+    ]
+  },
+  "full_size_benchmark_repeated_for_release_step": false,
+  "local_full_rust_suites_repeated_for_dependency_intake": true,
+  "validation_strategy": "Consolidated dependency graph passed fresh broad local Rust/native and release-tool checks. Versioned portable candidate passed complete schema/export cases. Exact-source PR and merged-source CI gate publication; each channel receives independent artifact/install proof. Pre-release timings keep their original source identity.",
+  "architecture_report_mode": "allow_blocked_audit;not_production_readiness",
+  "remaining_release_proofs": [
+    "GitHub_TestPyPI_PyPI_Homebrew_channel_proofs",
+    "actual_public_website_deployment"
+  ]
+}

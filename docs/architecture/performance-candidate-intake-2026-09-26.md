@@ -88,7 +88,8 @@ and interrupted cohorts remain separate. Independent artifact audit passes.
 All **29 experiments have decisions**. The
 [final profiling refresh](performance-profile-refresh-2026-09-30.md) records
 all 43 queries and separately dated ingest, storage, public-call and serving evidence.
-The final R2.b PR still requires normal exact-head CI and merge before main includes it. The
+The final R2.b PR #1488 merged at `c4b328798ce18dcb9ee7f6220f3f7b360c4b354e`
+after all 40 checks and completed review passed. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
