@@ -111,6 +111,90 @@ fn dense_string_records_keep_exact_collisions_across_page_and_directory_growth()
 }
 
 #[test]
+fn vacant_slot_is_invalidated_by_new_hash_mask_but_survives_byte_growth() {
+    let memory = LiveMemoryPool::new(2 << 20).unwrap();
+    let partitions = StringCountPartitions::try_new(&memory, 32, 16)
+        .unwrap()
+        .unwrap();
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let mut credit = admission(&partitions, 16);
+    {
+        let mut p = partitions.partitions[0].lock().unwrap();
+        for i in 0..8 {
+            assert_eq!(
+                p.update(
+                    (format!("seed-{i}").as_bytes(), 16, 1),
+                    &memory,
+                    &worker,
+                    &mut credit,
+                    &mut 0
+                )
+                .unwrap(),
+                Update::Applied
+            );
+        }
+        assert_eq!(p.slots.len(), 16);
+        let old_vacant = p.find(b"new", 16, &mut 0).unwrap();
+        assert_eq!(old_vacant, 8);
+        assert_eq!(
+            p.update((b"new", 16, 3), &memory, &worker, &mut credit, &mut 0)
+                .unwrap(),
+            Update::Applied
+        );
+        assert_eq!(p.slots.len(), 32);
+        assert_eq!(p.slots[old_vacant], 0);
+        assert_eq!(
+            p.update((b"new", 16, 5), &memory, &worker, &mut credit, &mut 0)
+                .unwrap(),
+            Update::Applied
+        );
+        assert_eq!(p.groups, 9);
+        let long = "outlined-new-key".repeat(4096);
+        let before = (p.slots.len(), p.bytes.capacity());
+        assert_eq!(
+            p.update(
+                (long.as_bytes(), 16, 7),
+                &memory,
+                &worker,
+                &mut credit,
+                &mut 0
+            )
+            .unwrap(),
+            Update::Applied
+        );
+        assert_eq!(p.slots.len(), before.0);
+        assert!(p.bytes.capacity() > before.1);
+        assert_eq!(
+            p.update(
+                (long.as_bytes(), 16, 11),
+                &memory,
+                &worker,
+                &mut credit,
+                &mut 0
+            )
+            .unwrap(),
+            Update::Applied
+        );
+        assert_eq!(p.groups, 10);
+    }
+    drop(credit);
+    let mut result = BTreeMap::new();
+    partitions
+        .replay_and_release(|value, count| {
+            result.insert(value.to_owned(), count);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(result["new"], 8);
+    assert_eq!(result[&"outlined-new-key".repeat(4096)], 18);
+    let evidence = partitions.evidence().unwrap();
+    assert!(evidence.lookup_probes > evidence.lookup_record_reads);
+    assert_eq!(evidence.lookup_tag_rejections, 0);
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn dense_string_growth_denial_does_not_publish_or_lose_a_key() {
     let worker = ChunkWorkerContext::Inline(CancellationToken::default());
     let mut directory_denied = false;
