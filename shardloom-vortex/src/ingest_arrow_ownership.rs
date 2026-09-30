@@ -227,6 +227,85 @@ mod tests {
     }
 
     #[test]
+    fn string_views_preserve_sliced_values_and_buffer_credit_until_last_owner() {
+        use arrow_array::builder::StringViewBuilder;
+        use vortex::array::{
+            VortexSessionExecute as _,
+            arrays::{Struct, struct_::StructArrayExt as _},
+            dtype::{DType, Nullability},
+            scalar::Scalar,
+        };
+
+        let values = [
+            Some("prefix outside slice"),
+            Some("λ"),
+            None,
+            Some("first outlined value in its own buffer"),
+            Some("second outlined value in a different buffer"),
+            Some("tail outside slice"),
+        ];
+        let mut builder = StringViewBuilder::new().with_fixed_block_size(32);
+        builder.extend(values);
+        let array = builder.finish();
+        assert!(array.data_buffers().len() > 1);
+        let input = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "text",
+                DataType::Utf8View,
+                true,
+            )])),
+            vec![Arc::new(array)],
+        )
+        .unwrap()
+        .slice(1, 4);
+        let expected = input.clone();
+        let bytes = batch_copy_allocation_bytes(&input).unwrap();
+        let memory = LiveMemoryPool::new(bytes).unwrap();
+        let copied =
+            copy_batch(input.clone(), &ReservedHostAllocator::new(memory.clone())).unwrap();
+        assert_eq!(copied, expected);
+        for (original, retained) in input
+            .column(0)
+            .to_data()
+            .buffers()
+            .iter()
+            .zip(copied.column(0).to_data().buffers())
+        {
+            assert_ne!(original.as_ptr(), retained.as_ptr());
+        }
+        assert_eq!(memory.snapshot().reserved_bytes, bytes);
+        let session = vortex::session::VortexSession::default();
+        let schema = copied.schema();
+        let native = session
+            .arrow()
+            .from_arrow_record_batch(copied, schema.as_ref())
+            .unwrap();
+        let structure = native.as_::<Struct>();
+        let column = structure.unmasked_field(0);
+        assert_eq!(column.dtype(), &DType::Utf8(Nullability::Nullable));
+        let mut ctx = session.create_execution_ctx();
+        for (row, value) in values[1..5].iter().enumerate() {
+            let expected = value.map_or_else(
+                || Scalar::null(column.dtype().clone()),
+                |value| Scalar::utf8(value, Nullability::Nullable),
+            );
+            assert_eq!(column.execute_scalar(row, &mut ctx).unwrap(), expected);
+        }
+        let slice = native.slice(2..3).unwrap();
+        drop(native);
+        assert!(memory.snapshot().reserved_bytes > 0);
+        assert!(memory.snapshot().reserved_bytes <= bytes);
+        drop(slice);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+        // Reject after copying some buffers, then prove partial ownership drains.
+        let denied = LiveMemoryPool::new(bytes - 1).unwrap();
+        assert!(copy_batch(input, &ReservedHostAllocator::new(denied.clone())).is_err());
+        assert!(denied.snapshot().peak_reserved_bytes > 0);
+        assert_eq!(denied.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
     fn positive_custom_capacity_does_not_retain_a_large_hidden_owner() {
         use std::sync::atomic::{AtomicBool, Ordering};
 

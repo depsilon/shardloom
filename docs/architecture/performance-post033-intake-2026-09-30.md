@@ -22,9 +22,9 @@ retained change, re-evaluate the remaining cost before the next dependent test.
 
 | ID | Experiment and shared boundary | Admission evidence | Retain/drop decision |
 | --- | --- | --- | --- |
-| P033-1 | Avoid unused text pre-compression statistics through the existing Vortex `CompressingStrategy` configuration. | Current large-source text writer requests the provider's default `Stat::all()`; the numeric writer already suppresses its extra pass. Attribute the text pass and establish which persisted/file statistics and codec decisions consume it. | Prototype only if removable work is observed. Retain on lower complete ingest cost with complete values and required metadata preserved; do not remove useful statistics to manufacture a gain. |
+| P033-1 | Avoid unused text pre-compression statistics through the existing Vortex `CompressingStrategy` configuration. | Both released-binary samples show the extra pass; the selected Zstd output discards these source statistics. File pruning statistics are accumulated separately. | **Retain for final acceptance:** the initial four-call screen lowers best complete ingest time by 8.456% with byte-identical output. A subsequent non-text passthrough correction preserves the provider's original statistics; final-source acceptance remains required. |
 | P033-2 | Avoid redundant text-buffer compaction before the existing Zstd provider gathers length-prefixed values. | Released-binary attribution records 0.010031 seconds over 22,876 calls, with identical input/output byte estimates. Upstream compaction already has cheap no-op checks. | **DROP at admission:** negligible observed work. Keep the existing compaction and its sparse/null/sliced/shared-buffer behavior; no runtime prototype. |
-| P033-3 | Preserve string views across the Parquet-to-Vortex handoff using the existing reader schema hint and Arrow/Vortex adapters. | Attribute source decode versus view construction and confirm a remaining offset-string conversion. Preserve the source schema, dictionary decisions, generation checks and memory admission. | Test only if current conversion/copy work is material and the provider supports the same logical types. This is a different mechanism from the dropped source-dictionary variants; those stay dropped. |
+| P033-3 | Preserve string views across the Parquet-to-Vortex handoff using the existing reader schema hint and Arrow/Vortex adapters. | P033-1 still records 16.089–16.153 summed seconds in Arrow conversion and 4.912–4.919 seconds in text canonicalization. Pinned Parquet 58.3 and Vortex 0.85 support the same UTF-8 logical type through string views. | **Prototype admitted:** request `Utf8View` for large-source offset strings, retaining the existing dictionary policy and copied-buffer admission. Measure against P033-1; the dropped source-dictionary variants stay dropped. |
 | P033-4 | Remove repeated decoding/materialization inside the shared native provider boundary, motivated by Q23. | Q23 is 4.444 s; its 4.205–4.625 s provider spans overlap accessor time. Obtain stack/counter attribution to a specific avoidable transition. | No duplicate scanner: provider selection propagation and conjunction ordering already exist. Retain only an exact, shared improvement to the observed transition with complete Q23 and regression results. |
 | P033-5 | Reuse source-backed dictionaries and bound metadata through compound grouping and exact union, motivated by Q19/Q6. | Q19 is 4.381 s and Q6 3.256 s. Separate dictionary construction, binding and union work; verify full key/epoch ownership and budget lifetimes. | Extend existing builders/owned jobs only when semantics match. Existing preunion gets no duplicate credit; the slower triple-sort replacement stays dropped. |
 | P033-6 | Reuse bound string-length/measure kernels in grouped accumulation, motivated by Q28. | Q28 is 2.279 s; caller-update spans are 2.182–2.214 s. Attribute repeated accessor work versus required aggregate updates. | Retain a shared measure-path improvement with exact aggregates, overflow/null behavior, HAVING and complete outputs. Avoid a query-number-specific route. |
@@ -110,6 +110,50 @@ Parquet reader still supplies offset strings. Reassess its remaining conversion
 work after P033-1; removing duplicate conversions and changing the source view
 handoff must not receive duplicate credit. Stage spans and nested sample counts
 are not additive CPU shares.
+
+## P033-1 initial screen and P033-3 admission
+
+Four sequential complete public prepare calls ran in control/candidate/candidate/
+control order with the same policy and no stack collectors. The frozen control
+is the released binary above; candidate source is `1d3a6c68`, binary SHA-256
+`9c34e3a4b9c3a7d8941bf22d093e4130574a4b0c757ef5783b9187bfff40227e`.
+
+| Sample | Native wall seconds | User + system CPU seconds | Peak RSS bytes |
+| --- | ---: | ---: | ---: |
+| Control 1 | 78.945102 | 194.551153 | 2,938,880,000 |
+| Candidate 1 | 72.269194 | 181.162550 | 2,909,929,472 |
+| Candidate 2 | 72.294363 | 182.055482 | 2,903,441,408 |
+| Control 2 | 81.144828 | 199.668139 | 2,909,732,864 |
+
+Best complete time falls 8.456%; medians are 80.044965 and 72.281779 seconds.
+Each output has all 99,997,497 rows and exactly matches the complete current
+public prepare artifact's SHA-256 above, including provenance. Each owned
+process group drained before the verified duplicate was removed. Raw logs,
+per-call receipts and pre-removal identities remain in `text-stats-screen.json`
+and its referenced local files. Input/output hashing is outside the native
+clock; cache state is uncontrolled and unrelated host activity was accepted.
+These are local ingest observations, not an official benchmark or superiority
+claim. The executed driver's preflight failure handling has an audit limitation:
+errors before manifest creation would lack a cohort receipt. This successful
+cohort retains all four calls; the next driver must record preflight failures.
+
+Review then identified the strategy's caller-selected non-text passthrough.
+Unlike compressed UTF-8, a passed-through array persists its original source
+statistics. A new regression test fails with absent sortedness and passes after
+restoring the provider's full statistics only in that branch; it also checks
+native values and file min/max/sum/null count. The frozen measurements above
+predate that correction and are initial mechanism evidence. Final-source
+acceptance must include the correction.
+
+For P033-3, the remaining conversion spans justify testing the existing source
+view handoff. Only top-level `Utf8`/`LargeUtf8` physical Arrow representations
+change at the existing large-source threshold; field/schema metadata,
+nullability, other types and small-source dictionary hints are preserved.
+The `vortex::arrow` provider imports the views into native `VarBinView`; existing
+intake copies and charges every referenced buffer. Tests cover dictionary/plain
+Parquet pages, ordered serial/parallel reads, UTF-8/null/long values, sliced
+multi-buffer views, last-owner credit release and partial-allocation denial.
+Final complete artifacts and performance still determine retain/drop.
 
 ## Comparison and completion gates
 

@@ -1357,10 +1357,13 @@ fn parquet_dictionary_schema_plan(
     row_count_hint: Option<usize>,
 ) -> ParquetDictionarySchemaPlan {
     if row_count_hint.is_some_and(|rows| rows >= PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD) {
+        let schema_hint = parquet_string_view_schema_hint(schema.as_ref());
         return ParquetDictionarySchemaPlan {
-            stream_schema: Arc::clone(schema),
-            schema_hint: None,
-            dictionary_preservation_status: "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard",
+            stream_schema: schema_hint
+                .as_ref()
+                .map_or_else(|| Arc::clone(schema), Arc::clone),
+            schema_hint,
+            dictionary_preservation_status: "parquet_arrow_reader_uses_utf8_view_for_large_olap_text_zstd_artifact_size_guard",
         };
     }
     let schema_hint = parquet_dictionary_preserving_schema_hint(schema.as_ref());
@@ -1378,6 +1381,30 @@ fn parquet_dictionary_schema_plan(
         dictionary_preservation_status,
     }
 }
+
+fn parquet_string_view_schema_hint(schema: &Schema) -> Option<SchemaRef> {
+    let mut changed = false;
+    let fields = schema
+        .fields()
+        .iter()
+        .map(|field| {
+            if matches!(field.data_type(), DataType::Utf8 | DataType::LargeUtf8) {
+                changed = true;
+                // Preserve the logical string, nullability and field metadata.
+                // Vortex imports these views directly into VarBinView arrays;
+                // intake still copies and charges every referenced Arrow buffer.
+                Arc::new(field.as_ref().clone().with_data_type(DataType::Utf8View))
+            } else {
+                Arc::clone(field)
+            }
+        })
+        .collect::<Vec<_>>();
+    changed.then(|| Arc::new(Schema::new(fields).with_metadata(schema.metadata().clone())))
+}
+
+#[cfg(test)]
+#[path = "universal_format_io_parquet_view_tests.rs"]
+mod parquet_view_tests;
 
 fn parquet_dictionary_preserving_schema_hint(schema: &Schema) -> Option<SchemaRef> {
     let mut changed = false;
@@ -8184,7 +8211,7 @@ mod tests {
     }
 
     #[test]
-    fn parquet_large_olap_stream_uses_plain_utf8_for_writer_text_compression() {
+    fn parquet_large_olap_stream_uses_string_views_for_writer_text_compression() {
         let schema = Arc::new(Schema::new(vec![
             Field::new("URL", DataType::Utf8, true),
             Field::new("PlainNote", DataType::Utf8, true),
@@ -8195,11 +8222,16 @@ mod tests {
             Some(PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD),
         );
 
-        assert!(plan.schema_hint.is_none());
-        assert_eq!(plan.stream_schema.as_ref(), schema.as_ref());
+        assert!(plan.schema_hint.is_some());
+        assert!(
+            plan.stream_schema
+                .fields()
+                .iter()
+                .all(|field| { field.data_type() == &DataType::Utf8View && field.is_nullable() })
+        );
         assert_eq!(
             plan.dictionary_preservation_status,
-            "parquet_arrow_reader_uses_plain_utf8_for_large_olap_text_zstd_artifact_size_guard"
+            "parquet_arrow_reader_uses_utf8_view_for_large_olap_text_zstd_artifact_size_guard"
         );
     }
 

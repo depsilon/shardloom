@@ -5,7 +5,7 @@ use super::*;
 use vortex::{
     array::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
-        arrays::{VarBinArray, VarBinViewArray},
+        arrays::{PrimitiveArray, VarBinArray, VarBinViewArray},
         dtype::{DType, Nullability},
         expr::stats::Stat,
         iter::ArrayIteratorAdapter,
@@ -61,6 +61,51 @@ fn selected_text_codec_does_not_compute_discarded_sortedness() {
             .get(Stat::IsStrictSorted)
             .is_absent()
     );
+}
+
+#[test]
+fn selected_text_codec_preserves_non_text_passthrough_statistics() {
+    let values = [3_i64, 1, 2];
+    let input = PrimitiveArray::from_iter(values).into_array();
+    let context = LocalVortexWriteContext::open();
+    let file = write_text(&input, &context);
+    assert_eq!(
+        input.statistics().to_owned().get(Stat::IsSorted).as_exact(),
+        Scalar::from(false).into_value(),
+        "passthrough arrays keep the provider's original pre-compression statistics",
+    );
+    assert_eq!(file.dtype(), input.dtype());
+    assert_eq!(file.row_count(), 3);
+    let stats = &file.footer().statistics().unwrap().stats_sets()[0];
+    for (stat, expected) in [(Stat::Min, 1_i64), (Stat::Max, 3), (Stat::Sum, 6)] {
+        assert_eq!(
+            stats.get(stat).as_exact(),
+            Scalar::from(expected).into_value()
+        );
+    }
+    assert_eq!(
+        stats.get(Stat::NullCount).as_exact(),
+        Scalar::from(0_u64).into_value(),
+    );
+    let mut execution = context.session.create_execution_ctx();
+    let mut seen = 0;
+    for array in file
+        .scan()
+        .unwrap()
+        .with_ordered(true)
+        .into_array_iter(&context.runtime)
+        .unwrap()
+    {
+        let array = array.unwrap();
+        for row in 0..array.len() {
+            assert_eq!(
+                array.execute_scalar(row, &mut execution).unwrap(),
+                Scalar::from(values[seen]),
+            );
+            seen += 1;
+        }
+    }
+    assert_eq!(seen, values.len());
 }
 
 #[test]

@@ -14207,6 +14207,12 @@ fn large_source_fast_zstd_text_leaf_strategy(
     let compressor = move |chunk: &vortex::array::ArrayRef,
                            ctx: &mut vortex::array::ExecutionCtx| {
         if !chunk.dtype().is_utf8() {
+            // A caller-selected non-text field is passed through unchanged,
+            // so its original provider statistics remain persisted and useful.
+            chunk.statistics().compute_all(
+                &vortex::array::expr::stats::Stat::all().collect::<Vec<_>>(),
+                ctx,
+            )?;
             return Ok(chunk.clone());
         }
         let compression_start = Instant::now();

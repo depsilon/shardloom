@@ -275,8 +275,8 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
 
 `RELEASE-033` has completed four-channel publication, public website verification
 and owned-artifact cleanup; see the [publication record](../release/v0.3.3-publication-verification.md)
-and completed ledger. After the closeout merges, admit the new finite ship/drop
-packet from the refreshed profile. Paused format/text performance tests stay paused.
+and completed ledger. The finite ship/drop packet from the refreshed profile is
+now active. Paused format/text performance tests stay paused.
 
 - [ ] `PERF-POST033` decide the seven post-release performance experiments.
   - Source: maintainer's authorized ship/drop continuation after release;
@@ -287,7 +287,9 @@ packet from the refreshed profile. Paused format/text performance tests stay pau
   - Current state: 0.3.3 closeout PR #1491 merged with 40 checks, source-tree and
     deployment acceptance. All 29 prior experiments remain decided. Released-binary
     ingest attribution is accepted after exact native payload/footer comparison;
-    P033-2 compaction is dropped and P033-1 unused text statistics is in prototype.
+    P033-2 compaction is dropped. P033-1's initial four-call screen lowers best
+    complete ingest time 8.456% with byte-identical artifacts; it is retained
+    pending final-source acceptance. P033-3 source views are now in prototype.
     Source, dictionary, measure and admission hypotheses retain their own gates.
   - ShardLoom technique review: preserve metadata-first execution, PulseWeave and
     capillary ownership bounds, dynamic shared admission, timing-surface separation
@@ -300,8 +302,9 @@ packet from the refreshed profile. Paused format/text performance tests stay pau
     - [ ] Decide P033-4/5/6/7 provider, dictionary, measure and ownership/admission work.
     - [ ] Validate and merge retained changes; preserve drop and regression evidence.
     - [ ] Refresh affected profiles, retire only verified obsolete artifacts and move this packet to the ledger.
-  - Next outcome: focused P033-1 semantic checks and a matched sequential ingest
-    screen, then re-evaluate P033-3 source-view handoff against the remaining cost.
+  - Next outcome: complete P033-3's sequential ingest screen against P033-1,
+    including the reviewed non-text statistics correction, then broad acceptance
+    of the retained ingest batch before query-side attribution.
   - User-visible surface: shared native ingest/query paths behind CLI/SQL/Python;
     exact existing no-fallback route evidence remains required.
   - Acceptance: every candidate has a decision with complete results and frozen
