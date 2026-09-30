@@ -34,6 +34,8 @@ struct ClearHook;
 impl Drop for ClearHook {
     fn drop(&mut self) {
         AFTER_COUNT_TEST_HOOK.with(|hook| drop(hook.borrow_mut().take()));
+        runtime::mixed_distinct_workers::WORKER_START_TEST_HOOK
+            .with(|hook| drop(hook.borrow_mut().take()));
     }
 }
 
@@ -202,6 +204,7 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
     let ordinary = runtime::execute_vortex_local_primitive_with_policy(&request, policy()).unwrap();
     let work = payload(&ordinary);
     assert_eq!(work["values"], expected);
+    assert_mixed_workers(&work);
     assert_eq!(
         work["aggregate_winner_distinct"]["decision"],
         "complete_count_then_selected_measures"
@@ -215,7 +218,21 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
         3 * (ROWS / 16)
     );
     assert_eq!(ordinary.rows_selected, Some(ROWS as u64));
-    let session = ResidentVortexSession::new(64 << 20, 2).unwrap();
+    // A caller-supplied session with provider workers preserves its existing
+    // serial aggregate path; never add a second concurrent CPU pool.
+    let provider_session = ResidentVortexSession::new(64 << 20, 2).unwrap();
+    let provider_prepared =
+        prepare_aggregate_in_session(&request, policy(), &provider_session).unwrap();
+    let provider_work = payload(&provider_prepared.execute().unwrap().report);
+    assert_eq!(provider_work["values"], expected);
+    assert!(
+        provider_work
+            .get("aggregate_mixed_distinct_workers")
+            .is_none()
+    );
+    drop(provider_prepared);
+    drop(provider_session);
+    let session = ResidentVortexSession::for_external_cpu_pool(64 << 20, 2).unwrap();
     let memory = session.memory().clone();
     let prepared = prepare_aggregate_in_session(&request, policy(), &session).unwrap();
     for completed in 1..=2 {
@@ -224,6 +241,7 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
         assert!(!executed.native_io_certificate.fallback_attempted);
         assert_eq!(executed.runtime.completed_executions, completed);
         assert_eq!(payload(&executed.report)["values"], expected);
+        assert_mixed_workers(&payload(&executed.report));
     }
     let completed = prepared.execute_owned().unwrap();
     assert_eq!(rendered(&completed.result), expected);
@@ -247,6 +265,18 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
+fn assert_mixed_workers(work: &serde_json::Value) {
+    let jobs = &work["aggregate_mixed_distinct_workers"];
+    assert!(jobs["submitted_chunks"].as_u64().unwrap() > 0);
+    assert_eq!(jobs["submitted_chunks"], jobs["completed_chunks"]);
+    assert_eq!(
+        jobs["rows"],
+        work["aggregate_winner_distinct"]["measure_rows"]
+    );
+    assert_eq!(jobs["retired_to_same_serial_consumer"], false);
+    assert!(jobs["peak_outstanding_chunks"].as_u64().unwrap() <= 2);
+}
+
 #[test]
 fn winner_distinct_native_cost_decline_preserves_the_original_complete_aggregate() {
     let fixture = Fixture::new();
@@ -258,6 +288,7 @@ fn winner_distinct_native_cost_decline_preserves_the_original_complete_aggregate
     assert_eq!(decision["decision"], "declined_high_sample_winner_share");
     assert_eq!(decision["count_rows"], SAMPLE_ROWS);
     assert_eq!(decision["measure_rows"], ROWS);
+    assert!(work.get("aggregate_mixed_distinct_workers").is_none());
 }
 
 #[test]
@@ -317,13 +348,59 @@ fn winner_distinct_native_cancel_between_passes_refund_and_fresh_execution() {
 }
 
 #[test]
+fn winner_distinct_native_running_worker_observes_operation_cancel_and_recovers() {
+    use runtime::mixed_distinct_workers::WORKER_START_TEST_HOOK;
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    let _clear = ClearHook;
+    let fixture = Fixture::new();
+    let request = query(&fixture.path, 1, 2);
+    let session = ResidentVortexSession::for_external_cpu_pool(64 << 20, 2).unwrap();
+    let memory = session.memory().clone();
+    let prepared = prepare_aggregate_in_session(&request, policy(), &session).unwrap();
+    let retained = memory.snapshot().reserved_bytes;
+    let cancellation = CancellationToken::default();
+    let operation = cancellation.clone();
+    let observed = Arc::new(AtomicBool::new(false));
+    let worker_observed = Arc::clone(&observed);
+    // Cancel only after a real worker has entered its submitted job. Inspect
+    // that worker's checkpoint, independently of the caller's final check.
+    WORKER_START_TEST_HOOK.with(|hook| {
+        *hook.borrow_mut() = Some(Box::new(move |worker| {
+            operation.cancel();
+            worker_observed.store(worker.check_cancelled().is_err(), Ordering::Release);
+        }));
+    });
+    let error = prepared
+        .execute_cancellable(&cancellation)
+        .err()
+        .expect("operation cancellation must stop the admitted workers");
+    assert!(error.to_string().contains("cancel"), "{error}");
+    assert!(observed.load(Ordering::Acquire));
+    assert!(WORKER_START_TEST_HOOK.with(|hook| hook.borrow().is_none()));
+    assert_eq!(session.snapshot().completed_executions, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    let fresh_token = CancellationToken::default();
+    let fresh = prepared.execute_cancellable(&fresh_token).unwrap();
+    let work = payload(&fresh.report);
+    assert_eq!(work["values"], fixture.expected(1, 2));
+    assert_mixed_workers(&work);
+    assert!(!fresh_token.is_cancelled());
+    assert_eq!(session.snapshot().completed_executions, 1);
+    drop(prepared);
+    drop(session);
+    assert!(!fresh_token.is_cancelled());
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn winner_distinct_native_source_replacement_between_passes_cannot_publish() {
     let _clear = ClearHook;
     let fixture = Fixture::new();
     let replacement = fixture.dir.join("replacement.vortex");
     fs::copy(&fixture.path, &replacement).unwrap();
     let request = query(&fixture.path, 1, 2);
-    let session = ResidentVortexSession::new(64 << 20, 2).unwrap();
+    let session = ResidentVortexSession::for_external_cpu_pool(64 << 20, 2).unwrap();
     let memory = session.memory().clone();
     let prepared = prepare_aggregate_in_session(&request, policy(), &session).unwrap();
     let retained = memory.snapshot().reserved_bytes;
@@ -335,6 +412,44 @@ fn winner_distinct_native_source_replacement_between_passes_cannot_publish() {
     assert!(AFTER_COUNT_TEST_HOOK.with(|hook| hook.borrow().is_none()));
     assert_eq!(session.snapshot().completed_executions, 0);
     assert_eq!(memory.snapshot().reserved_bytes, retained);
+    drop(prepared);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn winner_distinct_native_mixed_worker_source_denial_refunds_and_prepared_recovers() {
+    use runtime::aggregate_count_workers::{SOURCE_SCAN_TEST_FAULT, SourceScanTestFault};
+    struct ClearFault;
+    impl Drop for ClearFault {
+        fn drop(&mut self) {
+            SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(None));
+        }
+    }
+    let _clear = ClearFault;
+    let fixture = Fixture::new();
+    let request = query(&fixture.path, 1, 2);
+    let session = ResidentVortexSession::for_external_cpu_pool(64 << 20, 2).unwrap();
+    let memory = session.memory().clone();
+    let prepared = prepare_aggregate_in_session(&request, policy(), &session).unwrap();
+    let retained = memory.snapshot().reserved_bytes;
+    SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(Some(SourceScanTestFault::OwnedDenial)));
+    let error = prepared
+        .execute_owned()
+        .err()
+        .expect("source pressure must propagate without replay");
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error}"
+    );
+    assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
+    assert_eq!(session.snapshot().completed_executions, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    let fresh = prepared.execute().unwrap();
+    let work = payload(&fresh.report);
+    assert_eq!(work["values"], fixture.expected(1, 2));
+    assert_mixed_workers(&work);
+    assert_eq!(session.snapshot().completed_executions, 1);
     drop(prepared);
     drop(session);
     assert_eq!(memory.snapshot().reserved_bytes, 0);

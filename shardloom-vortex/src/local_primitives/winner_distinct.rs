@@ -159,6 +159,12 @@ pub(super) struct Report {
 }
 
 impl Report {
+    /// Available only after complete COUNT selection installed its exact filter.
+    pub(super) fn selected_group_bound(&self) -> Option<usize> {
+        (self.filter.is_some() && (1..=128).contains(&self.retained_groups))
+            .then_some(self.retained_groups)
+    }
+
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub(super) fn prepare(
         &mut self,

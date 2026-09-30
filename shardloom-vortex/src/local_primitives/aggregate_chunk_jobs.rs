@@ -93,6 +93,26 @@ impl<T> CompletedChunk<T> {
         }
         result
     }
+
+    /// Move a partial into the ordered merge without releasing its reservation
+    /// or window slot. The callback must finish consuming the partial here;
+    /// any surviving state needs its own existing destination ownership.
+    pub(super) fn consume_owned<R>(self, merge: impl FnOnce(T) -> Result<R>) -> Result<R> {
+        let Self {
+            result,
+            cancellation,
+            _permit: permit,
+            ..
+        } = self;
+        let (value, lease) = result.into_parts();
+        let result = merge(value);
+        if result.is_err() {
+            cancellation.cancel();
+        }
+        drop(lease);
+        drop(permit);
+        result
+    }
 }
 
 pub(super) struct AggregateChunkJobs<T> {

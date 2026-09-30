@@ -17,6 +17,34 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R3.b: retain shared mixed-measure exact DISTINCT workers.
+  - Date: 2026-09-29 local; evidence September 30 UTC. Runtime
+    `dff85c33763ac773c51ca1dd5e61a675cef6e20f` shares one chunk builder/consuming
+    merge between serial and worker execution, reusing `AggregateChunkJobs` and
+    `Budgeted::into_parts` to keep leases and queue slots through ordered merge.
+    Admission needs R3.a's completed COUNT proof and existing integer accessor
+    contract. See the [screen and acceptance record](mixed-distinct-worker-screen-2026-09-29.md).
+  - Final focused Q10 best improves 1.74%; Full43 Q10 best improves 2.95%
+    (2.316603 to 2.248188 seconds), with every Full43 pair faster and lower
+    observed RSS. All 258 Full43 complete results pass; the 43-query total is
+    0.48% lower (55.541869 to 55.276440 seconds). The slower first focused
+    candidate observation and original pre-review 4.41% Q10 cohort remain
+    separately recorded. No material suite-wide or ingest benefit is claimed.
+  - Formatting, workspace/native Clippy, 3,436 workspace, 2,027 native all-target
+    and 1,520 CLI all-target tests pass. Counts overlap; 22 existing native
+    manual/regeneration tests remain ignored. Fourteen focused tests, including
+    the running-worker operation-cancellation red/green, establish actual ordinary/prepared worker
+    use, ordinary/DISTINCT values, ordered folding, maximum chunk capacity,
+    pressure retirement, cancellation, source-denial recovery and ownership.
+    Review connected the existing worker child-token mechanism to the public
+    operation token, preserving healthy caller-token lifetime during cleanup.
+    Reservations exclude upstream source/provider and global aggregate allocations;
+    no process RSS bound or production fairness claim is made.
+  - V1 scope classification: `v1_candidate_pending_feasibility` under existing
+    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 remain independently gated. R4,
+    R6.c, R10 and R2.b remain in Planned. The previous R3.a PR #1485 is merged;
+    this result closes through its own cohesive PR before the next implementation.
+
 - [x] `PERF-INTAKE` R3.a: retain winner-only integer exact DISTINCT.
   - Date: 2026-09-29 local; final evidence September 30 UTC. Runtime
     `22f7acd22e8c06c651f835bb817e25edcad5d5f5` reuses the native single-key COUNT
