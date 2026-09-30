@@ -13,7 +13,8 @@ The [September 30 profile](performance-profile-refresh-2026-09-30.md) records
 CLI calls. That runtime predates release dependency consolidation. The last
 matched full-size ingest screen is September 27: 87.708583 to 81.104577 seconds,
 with byte-identical 15,682,956,116-byte artifacts. Later unpaired observations
-are separate evidence. There is no new released-binary ingest measurement yet.
+are separate evidence. The released-binary attribution below is instrumented
+and is not a paired speed comparison.
 
 Order prioritizes potential avoided work and breadth. These are hypotheses with
 an admission step, not diagnosed bottlenecks or promised gains. After each
@@ -22,7 +23,7 @@ retained change, re-evaluate the remaining cost before the next dependent test.
 | ID | Experiment and shared boundary | Admission evidence | Retain/drop decision |
 | --- | --- | --- | --- |
 | P033-1 | Avoid unused text pre-compression statistics through the existing Vortex `CompressingStrategy` configuration. | Current large-source text writer requests the provider's default `Stat::all()`; the numeric writer already suppresses its extra pass. Attribute the text pass and establish which persisted/file statistics and codec decisions consume it. | Prototype only if removable work is observed. Retain on lower complete ingest cost with complete values and required metadata preserved; do not remove useful statistics to manufacture a gain. |
-| P033-2 | Avoid redundant text-buffer compaction before the existing Zstd provider gathers length-prefixed values. | Record `text_compact` spans and bytes, sampled stacks, and actual owner/buffer geometry. Upstream compaction already has cheap no-op checks; source shape alone is insufficient. | Drop at admission if the pass does negligible work. Otherwise compare the existing and direct-owned-input compressor paths, including sparse/null/sliced/shared buffers and peak memory. |
+| P033-2 | Avoid redundant text-buffer compaction before the existing Zstd provider gathers length-prefixed values. | Released-binary attribution records 0.010031 seconds over 22,876 calls, with identical input/output byte estimates. Upstream compaction already has cheap no-op checks. | **DROP at admission:** negligible observed work. Keep the existing compaction and its sparse/null/sliced/shared-buffer behavior; no runtime prototype. |
 | P033-3 | Preserve string views across the Parquet-to-Vortex handoff using the existing reader schema hint and Arrow/Vortex adapters. | Attribute source decode versus view construction and confirm a remaining offset-string conversion. Preserve the source schema, dictionary decisions, generation checks and memory admission. | Test only if current conversion/copy work is material and the provider supports the same logical types. This is a different mechanism from the dropped source-dictionary variants; those stay dropped. |
 | P033-4 | Remove repeated decoding/materialization inside the shared native provider boundary, motivated by Q23. | Q23 is 4.444 s; its 4.205–4.625 s provider spans overlap accessor time. Obtain stack/counter attribution to a specific avoidable transition. | No duplicate scanner: provider selection propagation and conjunction ordering already exist. Retain only an exact, shared improvement to the observed transition with complete Q23 and regression results. |
 | P033-5 | Reuse source-backed dictionaries and bound metadata through compound grouping and exact union, motivated by Q19/Q6. | Q19 is 4.381 s and Q6 3.256 s. Separate dictionary construction, binding and union work; verify full key/epoch ownership and budget lifetimes. | Extend existing builders/owned jobs only when semantics match. Existing preunion gets no duplicate credit; the slower triple-sort replacement stays dropped. |
@@ -65,6 +66,50 @@ native-Python-binding sweep is authorized by this packet.
   `/Users/dylan/LocalData/shardloom/performance-candidates-20260930/`.
   Remove only the exact run-owned duplicate after verified equality; preserve
   the source, retained reference, release binaries and all evidence.
+
+## Attribution result and first decisions
+
+The September 30 released binary completed the guarded 99,997,497-row public
+prepare call in 81.895060 seconds, including the two stack collectors. Native
+CPU counters were 182.817570 user seconds and 10.238828 system seconds; peak RSS
+was 3,047,440,384 bytes. All native row-count and no-fallback checks passed.
+This is attribution evidence, not a speedup relative to the September 27 runs.
+
+The initial driver's exact-file assertion failed and its failure receipt is
+preserved. The new artifact is 373 bytes larger. A complete byte comparison
+against the pinned Vortex 0.85 footer schema establishes:
+
+- All 15,668,951,852 bytes before the footer are identical.
+- DType (5,264 bytes), layout (11,428,296 bytes), file statistics (7,256 bytes)
+  and segment directory/registries (2,563,280 bytes) are identical.
+- The current public prepare route adds the 285-byte
+  `shardloom.prepared-source.v1` provenance record. Its postscript adds 88 bytes
+  and relocates those four footer sections by 285 bytes. This accounts for the
+  entire difference; file versions are identical and there are no unexplained
+  gaps or overlapping regions.
+
+This proves unchanged persisted values and native data metadata by exact
+representation equality; it is not a new independent decoded-value oracle.
+The full new SHA-256 is
+`5a6e7d7b521b891e522f32398ef2582367e814791ab537f354003ecd2f7a488d`.
+The failed initial receipt, raw samples, bounded comparison script and separate
+acceptance evidence are retained in the local packet directory above.
+
+P033-1 is admitted to a bounded prototype. Both samples contain the provider's
+`CompressingStrategy -> compute_all -> is_sorted -> varbin_to_canonical`
+chain. Source inspection shows the selected text Zstd constructor creates new
+array parts without inheriting those statistics. File pruning statistics are
+computed upstream of the layout strategy; numeric and dictionary-code
+compressors already suppress their extra pre-compression statistics. Use the
+existing `with_stats` configuration, then verify unchanged complete artifacts,
+file statistics, nulls, empty inputs and UTF-8 values before retaining it.
+
+P033-2 is dropped as recorded above. P033-3 remains a separate candidate:
+Arrow conversion recorded 16.820817 summed elapsed seconds and the large-source
+Parquet reader still supplies offset strings. Reassess its remaining conversion
+work after P033-1; removing duplicate conversions and changing the source view
+handoff must not receive duplicate credit. Stage spans and nested sample counts
+are not additive CPU shares.
 
 ## Comparison and completion gates
 

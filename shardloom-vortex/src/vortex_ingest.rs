@@ -62,6 +62,10 @@ use stage_timing::{IngestStageTimings, Stage};
 #[path = "vortex_ingest_numeric_encoding.rs"]
 mod numeric_encoding;
 
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "vortex_ingest_text_stats_tests.rs"]
+mod text_stats_tests;
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use crate::universal_format_io::{
     FlatLocalColumnarSource, FlatLocalColumnarStreamSource, SourceIdentity,
@@ -14259,6 +14263,10 @@ fn large_source_fast_zstd_text_leaf_strategy(
     let chunked = ChunkedLayoutStrategy::new(FlatLayoutStrategy::default());
     std::sync::Arc::new(
         CompressingStrategy::new(chunked, compressor)
+            // This fixed Zstd codec neither selects from nor inherits source
+            // statistics. File pruning statistics are accumulated before the
+            // layout writer; avoid rebuilding temporary views for unused stats.
+            .with_stats(&[])
             .with_concurrency(compression_concurrency.max(1)),
     )
 }
