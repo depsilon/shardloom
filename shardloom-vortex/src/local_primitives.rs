@@ -70,6 +70,9 @@ mod footer_aggregate;
 #[path = "local_primitives/lazy_layout_metadata_tests.rs"]
 mod lazy_layout_metadata_tests;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/mixed_distinct_partial.rs"]
+mod mixed_distinct_partial;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
 #[cfg(feature = "vortex-local-primitives")]
@@ -32033,13 +32036,31 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
-    #[allow(clippy::too_many_lines)]
     fn update_grouped_count_distinct_integer_pair_preunion_from_accessors(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
         row_indices: Option<&[usize]>,
         chunk_rows: usize,
     ) -> Result<bool> {
+        let Some(partial) =
+            self.prepare_mixed_distinct_partial(accessors, row_indices, chunk_rows, None, &|| {
+                Ok(())
+            })?
+        else {
+            return Ok(false);
+        };
+        partial.merge_into(self)?;
+        Ok(true)
+    }
+
+    fn prepare_mixed_distinct_partial(
+        &self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+        group_limit: Option<usize>,
+        check_cancelled: &impl Fn() -> Result<()>,
+    ) -> Result<Option<mixed_distinct_partial::MixedDistinctPartial>> {
         let Some((distinct_state_index, group_keys, distinct_keys)) = self
             .grouped_count_distinct_integer_pair_preunion_inputs_for_accessors(
                 accessors,
@@ -32047,153 +32068,19 @@ impl<'a> GroupedAggregateStates<'a> {
                 chunk_rows,
             )?
         else {
-            return Ok(false);
+            return Ok(None);
         };
-        let mut chunk_pairs =
-            rustc_hash::FxHashSet::<AggregateCountDistinctPairPreunionKey>::default();
-        reserve_hash_set_capacity(
-            &mut chunk_pairs,
-            chunk_rows,
-            "grouped count-distinct pair preunion",
-        )?;
-        let mut chunk_groups = rustc_hash::FxHashMap::<
-            AggregateCountDistinctPreunionGroupKey,
-            SimpleAggregateStates,
-        >::default();
-        reserve_hash_map_capacity(
-            &mut chunk_groups,
-            chunk_rows.min(65_536),
-            "grouped count-distinct pair preunion chunk-group partials",
-        )?;
-        let mut chunk_group_order = Vec::new();
-        chunk_group_order
-            .try_reserve(chunk_rows.min(65_536))
-            .map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "local Vortex grouped count-distinct pair preunion chunk-group order reservation failed: {error}; no fallback execution was attempted"
-                ))
-            })?;
-        let mut unique_pairs = 0_u64;
-        let recipe = bound_numeric_updates::BoundNumericUpdates::bind(
+        mixed_distinct_partial::MixedDistinctPartial::build(
             &self.state_template,
-            accessors,
             distinct_state_index,
+            group_keys,
+            distinct_keys,
+            accessors,
             chunk_rows,
-        );
-        for row_index in 0..chunk_rows {
-            let pair_key = AggregateCountDistinctPairPreunionKey::from_integer_key_slices(
-                group_keys,
-                distinct_keys,
-                row_index,
-            )?;
-            let pair_inserted = chunk_pairs.insert(pair_key);
-            let group_key = pair_key.preunion_group_key();
-            let group_states = match chunk_groups.entry(group_key) {
-                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    chunk_group_order.push(group_key);
-                    entry.insert(self.state_template.clone())
-                }
-            };
-            if let Some(recipe) = &recipe {
-                recipe.update(group_states, row_index)?;
-            } else {
-                group_states.update_direct_row_from_accessors_except_state(
-                    accessors,
-                    row_index,
-                    chunk_rows,
-                    distinct_state_index,
-                )?;
-            }
-            if pair_inserted {
-                group_states.update_count_distinct_preunion_value_at(
-                    distinct_state_index,
-                    pair_key.distinct_value(),
-                )?;
-                unique_pairs = unique_pairs.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex grouped count-distinct preunion unique-pair count overflowed u64"
-                            .to_string(),
-                    )
-                })?;
-            }
-        }
-        let chunk_group_count = chunk_groups.len();
-        reserve_hash_map_capacity(
-            &mut self.groups,
-            chunk_group_count,
-            "grouped count-distinct pair preunion aggregate",
-        )?;
-        if self.request.order_by.is_empty() {
-            self.group_order
-                .try_reserve(chunk_group_count)
-                .map_err(|error| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "local Vortex grouped count-distinct pair preunion source-order reservation failed: {error}; no fallback execution was attempted"
-                    ))
-                })?;
-        }
-        let record_source_order = self.request.order_by.is_empty();
-        for group_key in chunk_group_order {
-            let partial_states = chunk_groups.remove(&group_key).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct pair preunion chunk partial was missing; no fallback execution was attempted"
-                        .to_string(),
-                )
-            })?;
-            let aggregate_group_key = group_key.aggregate_group_key();
-            let group = match self.groups.entry(aggregate_group_key) {
-                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    if record_source_order {
-                        self.group_order.push(entry.key().clone());
-                    }
-                    entry.insert(GroupedAggregateState::new_general(
-                        vec![group_key.stat_value()],
-                        self.state_template.clone(),
-                    ))
-                }
-            };
-            group
-                .general_states_mut()?
-                .merge_preaggregated_from(&partial_states)?;
-        }
-        self.general_direct_updates = true;
-        self.general_direct_count_distinct_updates = true;
-        self.general_direct_group_state_pre_reserved = true;
-        self.grouped_count_distinct_pair_preunion_updates = true;
-        if recipe.is_some() {
-            self.bound_numeric_recipe_chunks += 1;
-        }
-        self.grouped_count_distinct_pair_preunion_input_rows = self
-            .grouped_count_distinct_pair_preunion_input_rows
-            .checked_add(usize_to_u64(chunk_rows)?)
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct preunion input row count overflowed u64"
-                        .to_string(),
-                )
-            })?;
-        self.grouped_count_distinct_pair_preunion_unique_pairs = self
-            .grouped_count_distinct_pair_preunion_unique_pairs
-            .checked_add(unique_pairs)
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct preunion unique-pair counter overflowed u64"
-                        .to_string(),
-                )
-            })?;
-        self.grouped_count_distinct_pair_preunion_chunk_group_partials = true;
-        self.grouped_count_distinct_pair_preunion_chunk_groups = self
-            .grouped_count_distinct_pair_preunion_chunk_groups
-            .checked_add(usize_to_u64(chunk_group_count)?)
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex grouped count-distinct preunion chunk-group counter overflowed u64"
-                        .to_string(),
-                )
-            })?;
-        Ok(true)
+            group_limit,
+            check_cancelled,
+        )
+        .map(Some)
     }
 
     fn grouped_count_distinct_integer_pair_preunion_inputs_for_accessors<'b>(

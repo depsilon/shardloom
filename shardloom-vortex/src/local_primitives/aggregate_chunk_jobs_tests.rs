@@ -1,6 +1,53 @@
 use super::*;
 use std::sync::{Barrier, mpsc};
 
+#[test]
+fn owned_completion_retains_lease_and_window_through_success_and_error_merge() {
+    struct OwnedPartial {
+        memory: LiveMemoryPool,
+        dropped: Arc<std::sync::atomic::AtomicBool>,
+    }
+    impl Drop for OwnedPartial {
+        fn drop(&mut self) {
+            assert_eq!(self.memory.snapshot().reserved_bytes, 40);
+            self.dropped.store(true, Ordering::Release);
+        }
+    }
+    for parallelism in [1, 3] {
+        for fail_merge in [false, true] {
+            let memory = LiveMemoryPool::new(128).unwrap();
+            let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let owned = OwnedPartial {
+                memory: memory.clone(),
+                dropped: Arc::clone(&dropped),
+            };
+            let mut jobs = AggregateChunkJobs::new(parallelism, 1, 128, memory.clone()).unwrap();
+            jobs.submit(40, move |_, _| Ok(owned)).unwrap();
+            let completed = jobs.join_next().unwrap().unwrap();
+            assert_eq!(completed.ordinal(), 0);
+            let result = completed.consume_owned(|partial| {
+                assert!(jobs.is_full());
+                assert_eq!(jobs.outstanding(), 1);
+                drop(partial);
+                assert!(dropped.load(Ordering::Acquire));
+                assert_eq!(memory.snapshot().reserved_bytes, 40);
+                assert_eq!(jobs.outstanding(), 1);
+                if fail_merge {
+                    Err(failed("owned merge fixture"))
+                } else {
+                    Ok(())
+                }
+            });
+            assert_eq!(result.is_err(), fail_merge);
+            assert_eq!(jobs.check_cancelled().is_err(), fail_merge);
+            assert_eq!(jobs.outstanding(), 0);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            drop(jobs);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
 #[cfg(all(feature = "vortex-write", unix))]
 #[test]
 fn shared_cancellation_interrupts_owned_worker_join_and_retirement_keeps_success_live() {
