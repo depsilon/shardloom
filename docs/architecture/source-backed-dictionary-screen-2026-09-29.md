@@ -5,6 +5,55 @@ reads. Final Full43, workspace/native/public-call validation and independent
 ownership review pass. The maintainer resumed the remaining September 26
 candidates after the completed 0.3.2 release train.
 
+## Final runtime acceptance after review repairs
+
+Accepted runtime `d1a53815846abe1cbcc5574d6cfc616f7e99e694` includes shared
+borrowed reads, source-backed dictionaries, borrowed transformed-cache lookup,
+lazy independent-owner reuse and the scoped recovery-lock repair. Its frozen
+stripped executable SHA-256 is
+`f509454538b34143316918b4c19b03c1a0b599d42c5c2cfa612062ff42624512`.
+All **258 complete results** pass against the same released control and input.
+Archive/member hashes, complete reference comparisons, no-fallback fields and
+the runner's scores were independently rechecked after completion.
+
+The sum of all 43 best-of-three times falls from **68.725433 to 65.066953 seconds
+(5.32%)**. This is a paired native-process cohort; do not combine absolute times
+or infer incremental gains from earlier cohorts under different host load.
+
+| Query | Control best | Candidate best | Best reduction | Control median | Candidate median |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Q6 | 3.417748 s | 3.287590 s | 3.81% | 3.422840 s | 3.312416 s |
+| Q13 | 0.717673 s | 0.604230 s | 15.81% | 0.719151 s | 0.677323 s |
+| Q29 | 8.533673 s | 7.458488 s | 12.60% | 8.561305 s | 7.498568 s |
+| Q34 | 5.958479 s | 4.634228 s | 22.22% | 6.180500 s | 4.712765 s |
+| Q35 | 5.259311 s | 4.701359 s | 10.61% | 5.352920 s | 5.044698 s |
+
+Q29/Q34/Q35 improve in every pair. No query crosses both 10% and 150 ms best-time
+regression. The largest absolute loss is Q10: 40.858 ms (1.13%); its median also
+rises, from 3.618425 to 3.657462 seconds. All observations, including losses and
+RSS, remain in the [final evidence bundle](../benchmarks/evidence/source-backed-dictionaries-final-2026-09-29.json.gz).
+Q29 still processes 1,550 chunks, 81,032,736 accessor rows and 25,771,910 entries.
+Chunk-dictionary payload copies fall from 3,120,823,803 bytes to zero; escaping
+keys still copy on first promotion. No whole-process memory reduction is claimed:
+Q29 RSS is lower in this cohort, while Q34/Q35 ranges overlap and include higher
+candidate observations. The lazy owner's slot/retention cost is included.
+
+Formatting and workspace/release-surface Clippy pass, with **3,436 workspace,
+1,995 native and 1,170 CLI tests** passing. Counts overlap; 22 existing native
+manual/regeneration fixtures remain ignored. Five ownership tests cover the
+shared repair. The additional fresh-source cache-hit fixture strengthens the
+test without changing runtime code. Independent ownership review found no
+actionable defect; uninitialized cloned entries have separate promotion slots.
+
+The final bundle contains both post-review cohorts in full, including raw
+records, scores, host/RSS observations, Q29 counters, validation and source
+manifests. The earlier bundle retains the reference envelopes. The recipe below
+targets final candidate `d1a53815846abe1cbcc5574d6cfc616f7e99e694`, using the
+same input and references as earlier cohorts. Local final summary:
+`paired43_20260930T001602679898Z/summary.json`; validation and analysis use the
+`r2a-escape-final-` prefix. These timings were collected September 29 local time
+(September 30 UTC). The following sections preserve the earlier screens.
+
 ## Admission and reusable boundary
 
 Three fresh Q29 executions of the protected 0.3.2 binary pass complete-value
@@ -184,7 +233,8 @@ The new borrowed-value oracle and 52 string-count tests pass; one existing manua
 benchmark remains ignored. Release-feature all-target Clippy passes. Independent
 read-only review of `09b8f259..bb47125c` found no actionable correctness,
 lifetime, resource or test-coverage issue; it did not execute validation. The
-final acceptance below supersedes this preliminary screen.
+following cohort supersedes this preliminary screen; the acceptance at the top
+includes subsequent review repairs.
 
 Evidence: `paired43_20260929T223300874428Z/summary.json` under the local ClickBench
 logs directory, and `r2a-borrowed-screen-analysis.json`,
@@ -246,7 +296,7 @@ No input, writer or sink behavior changes, and no fresh ingest run is claimed.
 The shared helper removes temporary ownership work in two existing consumers;
 it adds no query-specific route, public API, dependency or unsafe code.
 
-Final Full43 evidence:
+Historical UTF8 Full43 evidence:
 `/Users/dylan/LocalData/shardloom/clickbench-100m-uat/logs/paired43_20260929T223724665757Z/summary.json`.
 Complete outputs and process receipts are retained in the verified archive beside
 the summary. Derived per-query observations, work counters and validation logs
@@ -276,7 +326,7 @@ release profile (thin LTO, one codegen unit) and `strip` on the copied executabl
 The unchanged control rebuild with the current Rust 1.98.1 toolchain reproduces
 its original unstripped identity, as recorded above. To rebuild, use separate
 clean checkouts at control `b06a77d9a994684ee483d43d65a8bc254dd998a6` and
-candidate `bb47125c13adc1d65b7db13133bf9107f92aa605`, the same toolchain and
+final candidate `d1a53815846abe1cbcc5574d6cfc616f7e99e694`, the same toolchain and
 an unsynced Cargo target directory. In each checkout run:
 
 ```sh
@@ -323,7 +373,7 @@ for name, envelope in bundle['retained_reference_envelopes'].items():
 PY
 python3 -B scripts/run_clickbench_paired_query_uat.py \
   --control-binary "$R2_CONTROL" --control-commit b06a77d9a994684ee483d43d65a8bc254dd998a6 \
-  --candidate-binary "$R2_CANDIDATE" --candidate-commit bb47125c13adc1d65b7db13133bf9107f92aa605 \
+  --candidate-binary "$R2_CANDIDATE" --candidate-commit d1a53815846abe1cbcc5574d6cfc616f7e99e694 \
   --input "$R2_INPUT" --uat-root "$R2_UAT" --reference-dir "$R2_REFERENCES" \
   --queries benchmarks/clickbench/queries.sql --memory-gb 24 --max-parallelism 12 \
   --timeout 120 --max-workspace-gib 100 --reverse-order
@@ -398,8 +448,9 @@ zero weight, unchanged/new extrema, repeated DISTINCT rows, another DISTINCT
 consumer, initialized clones, transformed-cache hit/saturation, sliced providers,
 and provider reservation release while independent keys remain readable.
 Evidence: `r2a-minmax-red.log` and `r2a-escape-green.log`. The added per-entry
-slot and temporary retention of promoted payloads require a fresh cost screen;
-the `eff42583` Full43 above predates this final ownership repair.
+slot and temporary retention of promoted payloads are covered by the final
+`d1a53815` Full43 acceptance at the top. The earlier `eff42583` cohort remains
+separate evidence.
 
 ### PR recovery-lock repair
 

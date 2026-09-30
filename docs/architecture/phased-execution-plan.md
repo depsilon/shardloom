@@ -372,7 +372,7 @@ needed for a candidate's correctness/resource acceptance must be completed first
     - [x] C7: retain direct JSON/JSONL typed construction; see both September 27 builder screens.
       - [x] Retain the JSONL typed builders: 14.05% lower paired complete ingest, reduced RSS, byte-identical artifacts, complete-value oracle and full applicable acceptance.
       - [x] Retain whole-file JSON typed construction: 31.11% lower paired complete ingest, reduced RSS, identical native bytes, complete row oracle and full applicable acceptance.
-    - [x] R2.a: retain source-backed UTF8 chunk dictionaries and shared borrowed string-count reads; final Full43 best Q29/Q34/Q35 reductions of 16.36%/12.14%/4.95%, exact results and ownership/resource checks pass. See `source-backed-dictionary-screen-2026-09-29.md`.
+    - [x] R2.a: retain source-backed UTF8 chunk dictionaries, shared borrowed string-count reads and lazy independent-owner reuse; final Full43 best Q29/Q34/Q35 reductions of 12.60%/22.22%/10.61% and 5.32% lower query total, with exact results and ownership/resource checks. See `source-backed-dictionary-screen-2026-09-29.md`.
     - [ ] R3.a: record admission and ship/drop for Winner-only exact DISTINCT, Q10 first.
     - [ ] R3.b: record admission and ship/drop for Mixed-measure exact-DISTINCT workers.
     - [ ] R4: record admission and ship/drop for Sort/reduce in existing triple-key partitions, Q19 first.

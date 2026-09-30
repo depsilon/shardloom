@@ -187,10 +187,15 @@ fn source_backed_transformed_cache_promotes_only_retained_misses() {
         native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
         1
     );
+    // A fresh equal source has no cached promotion, so this also detects
+    // accidental ownership promotion before the borrowed membership check.
+    let fresh_hit = Utf8DictionaryValue::source(
+        vortex::buffer::BufferString::try_from(source.bytes_at(0)).unwrap(),
+    );
     assert_eq!(
         domain,
         states
-            .transformed_dictionary_group_key(AggregateValueTransform::UrlDomain, &value)
+            .transformed_dictionary_group_key(AggregateValueTransform::UrlDomain, &fresh_hit)
             .unwrap()
     );
     assert_eq!(
@@ -210,7 +215,7 @@ fn source_backed_transformed_cache_promotes_only_retained_misses() {
     assert_eq!(
         length,
         states
-            .transformed_dictionary_group_key(AggregateValueTransform::Length, &value)
+            .transformed_dictionary_group_key(AggregateValueTransform::Length, &fresh_hit)
             .unwrap()
     );
     assert_eq!(
@@ -243,6 +248,7 @@ fn source_backed_transformed_cache_promotes_only_retained_misses() {
         "a saturated cache must not copy an unretained miss"
     );
     drop(value);
+    drop(fresh_hit);
     drop(source);
     let independently_owned = Utf8DictionaryValue::from(std::sync::Arc::<str>::from(text));
     assert_eq!(

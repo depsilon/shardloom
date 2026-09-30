@@ -19,25 +19,27 @@ phase plan first.
 
 - [x] `PERF-INTAKE` R2.a: retain source-backed UTF8 dictionaries and shared borrowed reads.
   - Date: 2026-09-29. Accepted runtime revision
-    `bb47125c13adc1d65b7db13133bf9107f92aa605` reuses one native byte-access and
+    `d1a53815846abe1cbcc5574d6cfc616f7e99e694` reuses one native byte-access and
     explicit ownership boundary across chunk dictionaries and string-count workers.
-    Persistent keys retain independent ownership; no new query route, dependency
+    Persistent keys share lazily promoted independent owners; no new query route, dependency
     or unsafe code is introduced. See the
     [screen and acceptance record](source-backed-dictionary-screen-2026-09-29.md).
   - Final paired Full43 passes all 258 complete results. Best Q29/Q34/Q35 times
-    improve 16.36%/12.14%/4.95%; the sum of all 43 best times improves 3.70%
-    (92.389200 to 88.973689 seconds). All samples, medians and smaller regressions
+    improve 12.60%/22.22%/10.61%; the sum of all 43 best times improves 5.32%
+    (68.725433 to 65.066953 seconds). All samples, medians and smaller regressions
     remain in the evidence. No process-memory, ingest or subsecond-suite claim.
   - Final formatting, default/release-surface Clippy, 3,436 workspace tests,
-    1,992 native tests and 1,170 CLI tests pass on the final recovery repair.
+    1,995 native tests and 1,170 CLI tests pass on the final runtime repair.
     Counts overlap; 22 pre-existing
     native manual/regeneration tests remain ignored. Independent source review
     found no actionable ownership, resource, exactness or coverage issue.
     Documentation/governance/tracker checks pass with broader gates left open.
   - PR #1484 also repairs scoped directory-lock release exposed by CI, with a
     deterministic red/green regression and independent review, and updates two
-    patched website development dependencies. Full43 performance evidence remains
-    pinned to the UTF8 runtime revision above, before the recovery-only repair.
+    patched website development dependencies. Review also removes promotion on
+    transformed-cache hits/saturated misses and repeated promotion in MIN/MAX and
+    DISTINCT consumers. Final Full43 includes all runtime repairs; earlier
+    cohorts remain separate, portable evidence.
   - Cleanup retires two completed profile caches and eight exact historical
     executables, removing 3,398,078,464 allocated bytes after identity, evidence
     and active-consumer checks. Protected inputs/control, accepted candidate,
