@@ -1,6 +1,6 @@
 # Mixed-measure exact DISTINCT workers — R3.b
 
-Status: **retain; PR #1486 review follow-up validation pending**.
+Status: **retain; reviewed runtime accepted, PR #1486 integration pending**.
 
 The control is retained R3.a runtime
 `22f7acd22e8c06c651f835bb817e25edcad5d5f5`, frozen separately from the build
@@ -73,7 +73,38 @@ R3.a's portable bundle remains historical evidence for its own runtime source.
 It is not validation of this worker candidate. CG-1 through CG-23
 and the existing no-fallback, Vortex-native and release boundaries are unchanged.
 
-## Measured acceptance
+## Final reviewed-runtime acceptance
+
+The cancellation-linked runtime is `dff85c33763ac773c51ca1dd5e61a675cef6e20f`,
+frozen binary SHA-256
+`f2b0fb728093cdee69aa0ad127d8d4d75be564c4c442e64ad8d849ab5c94009c`.
+It uses the same R3.a control, input, guarded methodology and complete references
+as the original cohort below. The final Full43 cohort is
+`paired43_20260930T035437075429Z`; all 258 complete results match, with no
+regression flags.
+
+Q10 best improves **2.95%**, from **2.316603 to 2.248188 seconds**. Its medians
+are 2.321387 and 2.276794 seconds. All three matched pairs are faster and lower
+in peak RSS: candidate 638,992,384–646,184,960 bytes versus control
+668,467,200–685,785,088 bytes. The suite total is 55.541869 to 55.276440 seconds
+(0.48% lower), retaining a scoped Q10 improvement without a material suite-wide claim.
+
+The preceding focused cohort `paired43_20260930T035127271099Z` passes all six
+results: best 2.267940 to 2.228492 seconds (1.74% lower). Its slower first candidate
+call, 2.812323 versus 2.294617 seconds, remains in the record. All original and
+review-follow-up observations are preserved rather than combined into a new best.
+
+This final source passes formatting, workspace and native Clippy, 3,436 workspace,
+2,027 native and 1,520 CLI all-target tests. Counts overlap; 22 pre-existing
+manual/regeneration native tests remain ignored. The 14 focused tests include
+the new running-worker cancellation red/green, healthy token lifetime, pressure
+retirement, refund and prepared recovery. The
+[review-follow-up evidence bundle](../benchmarks/evidence/mixed-distinct-workers-review-2026-09-30.json.xz)
+contains all 264 new comparisons, source manifest/diff, validation logs and the
+original bundle's independent audit. It has SHA-256
+`3f97f9df139cac1accc97d7f47c6da38cfb281bf2f4ce3272776644c2a7fa594`.
+
+## Original pre-review measurements
 
 The frozen candidate is `c557814b9a34fbd03a3f58779a8360e0b3662c4b`, binary SHA-256
 `d5b4d1d4825f05a547f9cc873237be0a371310bb6d1deb13f5cc108f5d0fcca0`.
@@ -136,7 +167,8 @@ cold-storage, format-pulse, production-fairness or subsecond-suite claim is made
 
 The original acceptance follow-up changed tests only. The later cancellation
 repair changes runtime token ownership and requires its own acceptance record;
-the original timed source and observations above remain immutable.
+the final acceptance above covers it. The original timed source and observations
+remain immutable.
 The [portable evidence bundle](../benchmarks/evidence/mixed-distinct-workers-2026-09-29.json.xz)
 contains both complete cohorts, all 264 strict value comparisons, archive/member
 identities, runtime/test provenance, build and test logs, source review and the

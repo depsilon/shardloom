@@ -19,22 +19,25 @@ phase plan first.
 
 - [x] `PERF-INTAKE` R3.b: retain shared mixed-measure exact DISTINCT workers.
   - Date: 2026-09-29 local; evidence September 30 UTC. Runtime
-    `c557814b9a34fbd03a3f58779a8360e0b3662c4b` shares one chunk builder/consuming
+    `dff85c33763ac773c51ca1dd5e61a675cef6e20f` shares one chunk builder/consuming
     merge between serial and worker execution, reusing `AggregateChunkJobs` and
     `Budgeted::into_parts` to keep leases and queue slots through ordered merge.
     Admission needs R3.a's completed COUNT proof and existing integer accessor
     contract. See the [screen and acceptance record](mixed-distinct-worker-screen-2026-09-29.md).
-  - Focused Q10 best improves 4.70%; Full43 Q10 best improves 4.41%
-    (2.310866 to 2.209022 seconds), with every Full43 pair faster and lower
+  - Final focused Q10 best improves 1.74%; Full43 Q10 best improves 2.95%
+    (2.316603 to 2.248188 seconds), with every Full43 pair faster and lower
     observed RSS. All 258 Full43 complete results pass; the 43-query total is
-    effectively flat (54.969086 to 54.949360 seconds). The slower first focused
-    candidate observation remains recorded. No suite-wide or ingest benefit claimed.
-  - Formatting, workspace/native Clippy, 3,436 workspace, 2,024 native all-target
+    0.48% lower (55.541869 to 55.276440 seconds). The slower first focused
+    candidate observation and original pre-review 4.41% Q10 cohort remain
+    separately recorded. No material suite-wide or ingest benefit is claimed.
+  - Formatting, workspace/native Clippy, 3,436 workspace, 2,027 native all-target
     and 1,520 CLI all-target tests pass. Counts overlap; 22 existing native
-    manual/regeneration tests remain ignored. Thirteen focused tests, including
-    test-only follow-up coverage, establish actual ordinary/prepared worker
+    manual/regeneration tests remain ignored. Fourteen focused tests, including
+    the running-worker operation-cancellation red/green, establish actual ordinary/prepared worker
     use, ordinary/DISTINCT values, ordered folding, maximum chunk capacity,
     pressure retirement, cancellation, source-denial recovery and ownership.
+    Review connected the existing worker child-token mechanism to the public
+    operation token, preserving healthy caller-token lifetime during cleanup.
     Reservations exclude upstream source/provider and global aggregate allocations;
     no process RSS bound or production fairness claim is made.
   - V1 scope classification: `v1_candidate_pending_feasibility` under existing
