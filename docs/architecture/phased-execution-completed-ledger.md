@@ -17,6 +17,40 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-POST033` decide the seven post-release performance experiments.
+  - Date: 2026-09-30 UTC. Retain P033-1/3/6/7; drop P033-2/4/5 at admission.
+    The [candidate record](performance-post033-intake-2026-09-30.md) preserves
+    all hypotheses, corrected failures, original samples and tradeoffs.
+  - PR #1492 merged unused text-statistics avoidance and the Parquet string-view
+    handoff. Separate four-call screens lower best complete ingest times 8.456%
+    and 4.504% against their own controls, with byte-identical complete artifacts.
+    Do not combine these incremental cohorts into a measured overall gain.
+  - Query source `8385055894ba8c74bd4501ecbd833ae650a07895` reuses block-bound
+    numeric/validity kernels for compact grouped measures and validates each new
+    exact string-count key once. It adds no provider, scanner, queue or owner
+    lifetime. Thirty targeted and 258 Full43 complete outputs match exactly;
+    seven instrumented attribution calls remain separate evidence.
+  - Q28 best improves 7.935% in its screen and 8.233% in Full43. The count change
+    lowers count-work spans in all 18 matched pairs and CPU in 17, while complete
+    wall time and RSS remain mixed. Preserve Full43 Q34's 2.199% slower best and
+    Q35's slower median. The Full43 best-time sum is effectively flat (0.692%
+    lower), with substantial within-cohort variability and all negative samples
+    retained. No uniform or general superiority claim follows.
+  - Formatting, workspace/native Clippy, 3,436 workspace tests, 2,056 native
+    Vortex tests and 1,521 native CLI tests pass on the frozen source graph;
+    counts overlap and 22 existing native tests remain ignored. Two immutable
+    portable packets preserve ingest and query acceptance, raw results, failures,
+    source manifests and cleanup proof. The [new query inventory](../benchmarks/query-profile-post033-2026-09-30.json)
+    preserves all 43 samples, CPU, RSS and stage spans from the final cohort.
+  - Cleanup retires only the verified failed first Parquet-view payload,
+    recovering 15,551,053,824 allocated bytes; protected inputs, references and
+    frozen controls remain. V1 scope classification: `documentation_only` for
+    this completed experiment ledger; implemented native behavior stays under
+    existing PERF-03/04/05/08/09/10/12 owners. Dynamic/capillary/PulseWeave,
+    metadata-first, timing-surface and evidence-tier contracts are preserved.
+    No fallback or new publication is admitted. CG-1 through CG-23 and broader
+    production gates remain independently scoped; paused format/text runs stay paused.
+
 - [x] `RELEASE-033` publish and verify the 0.3.3 optimization patch train.
   - Date: 2026-09-30 UTC. Runtime PR #1488, README/site PR #1483, source PR #1489
     and publication PR #1490 merged after 40 checks and completed review on each

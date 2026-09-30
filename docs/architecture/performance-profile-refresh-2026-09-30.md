@@ -1,5 +1,10 @@
 # Performance profile after the September 26 intake
 
+This is the historical profile before the 0.3.3 release train. The subsequent
+[seven-candidate packet](performance-post033-intake-2026-09-30.md) records its
+decisions and links the new Full43 inventory. These original measurements remain
+unchanged and must not be combined with the later cohort.
+
 All **29 intake experiments have a retain/drop decision**. The last retained
 change reuses bounded dictionary preparation and native provider progress.
 [R2.b's final acceptance](dictionary-preparation-screen-2026-09-30.md) passes
@@ -8,7 +13,7 @@ The maintainer subsequently authorized PR cleanup, a new release train, then
 a new finite ship/drop packet. The format pulse remains paused; broader PERF
 obligations and CG-1 through CG-23 retain their own acceptance gates.
 
-## Current query measurements
+## Pre-release query measurements
 
 The final runtime's paired cohort is `paired43_20260930T090652016000Z`.
 Summing each query's best of three complete calls gives **54.660584 seconds for

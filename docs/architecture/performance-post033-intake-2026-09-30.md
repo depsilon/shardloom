@@ -6,6 +6,10 @@ four selected package channels and the production website passed verification.
 This is a finite follow-up under PERF-03/04/05/08/09/10/12, not a new implementation
 phase or permission to reopen the 29 completed experiments unchanged.
 
+All seven experiments are decided: **retain P033-1/3/6/7; drop P033-2/4/5**.
+The ingest pair merged in PR #1492. The query pair passes the final local gates
+below and closes the remaining implementation work in this packet.
+
 ## Starting evidence and order
 
 The [September 30 profile](performance-profile-refresh-2026-09-30.md) records
@@ -27,8 +31,8 @@ retained change, re-evaluate the remaining cost before the next dependent test.
 | P033-3 | Preserve string views across the Parquet-to-Vortex handoff using the existing reader schema hint and Arrow/Vortex adapters. | P033-1 still records 16.089–16.153 summed seconds in Arrow conversion and 4.912–4.919 seconds in text canonicalization. Pinned Parquet 58.3 and Vortex 0.85 support the same UTF-8 logical type through string views. | **RETAIN after one correction:** best complete ingest time falls 4.504% against P033-1, with lower observed RSS and byte-identical output. The original metadata-routing failure and invalid timing remain preserved. |
 | P033-4 | Remove repeated decoding/materialization inside the shared native provider boundary, motivated by Q23. | Q23 is 4.444 s; its 4.205–4.625 s provider spans overlap accessor time. New samples show codec work without array identity proving duplicate execution. | **DROP at admission:** no specific reusable transition established. Existing progressive selection stays; no duplicate scanner or unproved cache. |
 | P033-5 | Reuse source-backed dictionaries and bound metadata through compound grouping and exact union, motivated by Q19/Q6. | Q19 is 4.381 s and Q6 3.256 s. New source/stack inventory confirms the proposed source ownership, cached hashes, miss-only promotion and preunion are already present. | **DROP at admission:** existing mechanisms receive no duplicate credit; no further matching reuse boundary established. The slower triple-sort replacement stays dropped. |
-| P033-6 | Reuse bound string-length/measure kernels in grouped accumulation, motivated by Q28. | Q28 is 2.279 s; caller-update spans are 2.182–2.214 s. Attribute repeated accessor work versus required aggregate updates. | Retain a shared measure-path improvement with exact aggregates, overflow/null behavior, HAVING and complete outputs. Avoid a query-number-specific route. |
-| P033-7 | Adjust measured ownership/work admission in existing dictionary/count completion, motivated by Q29 and Q34/Q35. | Q29 is 4.826 s; Q34/Q35 approach 5 GiB RSS. Preserve Q35's original +13.75% observation and separate +4.36% best/+0.70% median follow-up. Attribute active work, waiting, reconciliation and live owners. | Change only an identified contention or lifetime boundary under the existing CPU grant and ordered jobs. More threads or a generic queue is not an admitted fix. Require complete results and report both local wins and regressions. |
+| P033-6 | Reuse bound string-length/measure kernels in grouped accumulation, motivated by Q28. | Native derived URL lengths still enter repeated numeric accessor/type dispatch during compact updates. | **RETAIN:** bind current numeric types and validity once per block. Q28 best falls 7.935% in its targeted screen and 8.233% in Full43; exact arithmetic, nulls, error ordering, source-order limits and HAVING pass. |
+| P033-7 | Adjust measured ownership/work admission in existing dictionary/count completion, motivated by Q29 and Q34/Q35. | Canonical string count validates UTF-8 on every row although duplicate lookup proves complete equality with an already validated key. | **RETAIN:** validate each new exact key once, preserving existing workers, owners and queues. Count-work spans fall in all 18 matched pairs and CPU in 17; wall time and RSS remain mixed, including slower Full43 Q34. |
 
 P033-1/2/3 begin with one common full-size ingest attribution run; that run can
 reject a weak hypothesis without building a prototype. A candidate may be revised
@@ -324,7 +328,7 @@ update, while COUNT of a non-null NaN remains valid. Six new semantic tests and
 the nine existing ordinary-measure tests pass, including all primitive widths,
 nulls, empty/rebound blocks, sparse/repeated row selections, overflow, measure
 order beyond four inline states, source-order limits and HAVING. Performance
-acceptance remains pending.
+acceptance is recorded below.
 
 After the ingest merge and portable evidence acceptance, the diagnosed first
 P033-3 payload was retired. Its full SHA-256 and file generation matched the
@@ -333,6 +337,82 @@ generations remained unchanged. `failed-ingest-payload-cleanup.json` records
 15,551,053,824 allocated bytes removed. The original failed receipt and raw logs
 remain in the immutable ingest bundle; recreating that obsolete layout requires
 its recorded source and configuration.
+
+## Retained query batch acceptance
+
+The final query runtime is `8385055894ba8c74bd4501ecbd833ae650a07895`, frozen
+binary SHA-256
+`7f92839c2598b29e06ce244b61b53d84197c885a59a262b5961877b882a6fd9a`.
+The control is the accepted ingest runtime `2f5a99fb` and its frozen binary
+above. Both read the same 99,997,497-row, 112-column, 15,682,956,489-byte
+public-prepared Vortex artifact. All calls use the public native CLI, 24 GiB
+admission policy and maximum parallelism 12. That policy is not a physical RSS
+cap. The Apple M5 host has 10 CPU cores and 16 GiB memory; caches are uncontrolled
+and unrelated host activity was accepted. Native calls, builds and tests remain
+sequential under the existing process and storage guards.
+
+P033-6's separate Q28 screen records control times 2.165168 / 2.213823 /
+2.164528 seconds and candidate times 2.577046 / 1.992767 / 2.008187 seconds.
+Best time falls 7.935%; medians are 2.165168 and 2.008187 seconds. Candidate
+CPU and grouped-update spans fall in all three pairs. The first candidate's
+slower complete call remains in the score inputs. Its six complete results
+match exactly; observed RSS is slightly higher, so this is not a memory claim.
+
+Final formatting, workspace Clippy and native Vortex/CLI all-target Clippy pass.
+All 3,436 workspace tests, 2,056 native Vortex tests and 1,521 native CLI tests
+pass; these counts overlap. The same 22 pre-existing native tests remain ignored.
+All seven gate receipts match the release build's complete 514-file Rust/Cargo
+source manifest. Original fixture-compilation and test-lint failures remain
+alongside the successful corrections.
+
+The final Full43 cohort is `paired43_20260930T165438515721Z`. All 258 complete
+outputs match the retained references by canonical JSON SHA-256, without float
+tolerance. Every member of its 43 archives (1,032 files) is verified. Together
+with the 30 targeted calls, all 288 recorded native PIDs are absent at acceptance.
+The seven instrumented attribution calls are separate evidence.
+
+| Full43 query | Control best (s) | Candidate best (s) | Best reduction | Control median (s) | Candidate median (s) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Q28 | 6.866969 | 6.301626 | 8.233% | 7.165717 | 6.454019 |
+| Q34 | 3.952222 | 4.039137 | -2.199% | 3.995122 | 4.340495 |
+| Q35 | 4.052308 | 3.760625 | 7.198% | 4.067570 | 4.203665 |
+
+The sum of each query's best of three calls is effectively flat: **75.507636 →
+74.985410 seconds**, 0.692% lower. Within-cohort latency varies substantially,
+especially around Q26–Q29 on both binaries. No cause is established, and these
+times must not be compared with earlier cohorts as a measured overall gain or
+regression. Q28 is faster in all three Full43 pairs, with lower CPU and update
+spans. The count change lowers count-work spans in all 18 matched Q34/Q35 pairs
+across its two screens and Full43, and lowers total CPU in 17. These stage spans
+overlap other work and are not exclusive CPU attribution.
+
+Preserve the tradeoffs: Full43 Q34's best and median are slower; Q35's median is
+slower despite its better best. Q27's best is 8.594% slower while its median is
+slightly faster. Q17's best is 4.599% slower and all three pairs are slower.
+In total, 26 query bests and 71 matched wall-time pairs are slower. None meets
+the predeclared larger-regression flag (both over 10% and over 0.15 seconds).
+The small retained changes remove demonstrated work, with exact semantics and
+repeated targeted evidence; they do not establish uniform wall-time or RSS wins.
+No further repetition replaces these observations.
+
+The [refreshed query inventory](../benchmarks/query-profile-post033-2026-09-30.json)
+records all 43 candidate samples, CPU, RSS and stage spans from this Full43
+cohort alone. Twenty-three queries still have a best call below one second.
+The ranking is an observation to attribute before any separately admitted next
+packet, not proof of a new bottleneck. P033-4/5's source decisions remain closed;
+the original 29 experiments are not reopened.
+
+The [portable query evidence](../benchmarks/evidence/post033-native-query-kernels-2026-09-30.json.xz)
+is 957,140 bytes, SHA-256
+`fd634c4c615d28c75dc5bfe9a6e47aba96d1d848402f5106687cd963160aa3ef`.
+It preserves all 288 timed complete results in 48 archives with 1,152 raw
+members, seven attribution calls with 42 raw files and seven receipts, 43
+complete retained reference logs, source/build/test evidence, failed checks,
+the source patch and cleanup proof. The earlier ingest packet is linked by
+exact hash. Machine path prefixes are replaced with portable placeholders;
+original byte hashes and portable-text hashes remain, and complete returned
+values are verified unchanged. Binaries and full data payloads remain local.
+These are retained regression oracles, not fresh independent SQL oracles.
 
 ## Comparison and completion gates
 
@@ -360,6 +440,14 @@ The Vortex-first decision for the initial writer hypotheses is
 new encoding abstraction is proposed. Keep the public route's Native I/O and
 execution certificates, representation boundaries, `fallback_attempted=false`
 and `external_engine_invoked=false` intact.
+
+For P033-6/7 the Vortex-first classification is `implement_shardloom_kernel`
+within the existing shared grouped-aggregate family. Pinned Vortex 0.85 supplies
+the native primitive buffers, validity and string views; ShardLoom retains its
+group state, exact key comparison, arithmetic/error ordering, source-order
+admission and HAVING semantics. The change reuses those owners and the existing
+typed binder rather than adding a provider, scanner, cache or scheduler. Native
+certificates and the existing materialization boundaries remain unchanged.
 
 PulseWeave/capillary work and dynamic admission matter at ownership and CPU/memory
 boundaries; this packet does not create another scheduler. Metadata-first behavior
