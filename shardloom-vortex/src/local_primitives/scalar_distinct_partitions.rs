@@ -31,7 +31,15 @@ pub(super) struct Partitions {
 
 impl Partitions {
     pub(super) fn new(memory: &LiveMemoryPool) -> Result<Self> {
-        let (mut parts, metadata) = allocate(PARTITIONS, memory)?;
+        let (mut parts, mut metadata) = allocate(PARTITIONS, memory)?;
+        // The production owner is an Arc, in addition to the directory of
+        // mutexes. Charge that fixed allocation explicitly as well.
+        metadata.resize(
+            metadata
+                .bytes()
+                .checked_add((size_of::<Self>() + 2 * size_of::<usize>()) as u64)
+                .ok_or_else(|| failed("owner metadata overflow"))?,
+        )?;
         for _ in 0..PARTITIONS {
             parts.push(Mutex::new(Partition {
                 directory: Vec::new(),
