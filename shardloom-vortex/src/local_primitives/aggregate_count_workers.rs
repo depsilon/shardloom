@@ -1111,20 +1111,6 @@ impl SingleCountWorkers {
         }
         if let Some(evidence) = self.partition_evidence.as_ref() {
             for (name, value) in [
-                "drained_slot_capacity_bytes",
-                "drained_occupied_record_bytes",
-                "drained_arena_used_bytes",
-                "drained_arena_capacity_bytes",
-                "max_single_partition_growth_overlap_bytes",
-                "cumulative_growths",
-            ]
-            .into_iter()
-            .zip(evidence.storage)
-            {
-                object.insert(format!("aggregate_workers_partition_{name}"), value.into());
-            }
-            object.insert("aggregate_workers_partition_storage_scope".into(), "temporary_R10_diagnostic;simultaneous_partition_storage_after_jobs_drain_before_release;first_four_fields_summed_live_capacity;growth_max_is_one_partition_old_plus_new_slots_and_arena_not_global_peak;shared_pool_peak_includes_overlapping_workers_provider_partials_and_growth;not_process_RSS".into());
-            for (name, value) in [
                 (
                     "partition_count",
                     string_count_partitions::PARTITIONS as u64,

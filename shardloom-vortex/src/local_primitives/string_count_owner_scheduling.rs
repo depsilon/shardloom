@@ -553,9 +553,10 @@ fn export(partitions: &StringCountPartitions) -> Result<Export> {
         result.table_reserved_bytes = result
             .table_reserved_bytes
             .checked_add(partition.slots_lease.bytes())
+            .and_then(|bytes| bytes.checked_add(partition.records.reserved_bytes()))
             .and_then(|bytes| bytes.checked_add(partition.bytes_lease.bytes()))
             .ok_or_else(|| failed("owner state counter overflow"))?;
-        for slot in &partition.slots {
+        for slot in partition.records.iter() {
             if slot.count == 0 {
                 continue;
             }

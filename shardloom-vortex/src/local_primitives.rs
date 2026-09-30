@@ -7,6 +7,9 @@ mod aggregate_chunk_jobs;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_count_workers.rs"]
 mod aggregate_count_workers;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/aggregate_dense_pages.rs"]
+mod aggregate_dense_pages;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitive_aggregate_empty_tests.rs"]
 mod aggregate_empty_tests;
