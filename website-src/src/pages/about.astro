@@ -1,35 +1,50 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { repoLink } from "../lib/data";
+import release from "../../../docs/release/package-channel-readiness-matrix.json";
+const version = release.selected_v0_1_0_release_tag.slice(1);
 ---
 
-<SiteLayout title="About" description="Claim-safe ShardLoom overview with current route, timing-surface, and evidence boundaries." path="/about" active="about">
+<SiteLayout title="About" description="What makes ShardLoom different: encoded execution, reusable preparation, exact aggregation, and native results." path="/about" active="about">
   <section class="page-hero">
     <p class="eyebrow">About</p>
-    <h1>ShardLoom is a Vortex-first local compute engine foundation.</h1>
+    <h1>Less repeated work. One native engine.</h1>
     <p class="lede">
-      It is pre-release, standalone from external query-engine fallback, and built to make source admission, Vortex preparation, execution, output, timing surface, and claim gates inspectable.
+      ShardLoom is a published technical preview for local Vortex-native compute. Python, SQL, and CLI calls share native execution families, reusable preparation, and explicit output boundaries.
     </p>
     <div class="actions">
-      <a class="button primary" href="/compute-engine-flow">View compute flow</a>
-      <a class="button" href="/benchmarks">Open benchmark comparison</a>
+      <a class="button primary" href="/start">Install and run</a>
+      <a class="button" href="/compute-engine-flow">View compute flow</a>
       <a class="button ghost" href={repoLink("README.md")}>Open README</a>
     </div>
   </section>
 
   <section class="section-grid">
     <div>
-      <p class="eyebrow">Identity</p>
-      <h2>Vortex-native routes, no hidden delegation.</h2>
+      <p class="eyebrow">Differentiators</p>
+      <h2>Keep useful structure through the whole route.</h2>
       <p class="narrow">
-        ShardLoom treats Vortex input and output as first-class targets. Compatibility formats are explicit ingress or export boundaries, and unsupported work must return deterministic diagnostics.
+        The engine avoids reads, decoding, copies, and materialization where the admitted operation allows it. These capabilities have specific type and operator limits; the <a href="/field-guide/runtime-and-io">runtime and I/O guide</a> makes those limits explicit.
       </p>
     </div>
     <div class="card-grid">
-      <article class="card"><span class="badge">Native</span><h3>Vortex is the preferred persisted shape.</h3><p>Non-Vortex local sources enter through UniversalIngress, SourceState, and vortex_ingest before prepared_vortex execution.</p></article>
-      <article class="card"><span class="badge">No fallback</span><h3>External engines do not execute ShardLoom work.</h3><p>Spark, DataFusion, DuckDB, Polars, Velox, and similar engines may appear only as baselines, oracles, or migration references.</p></article>
-      <article class="card"><span class="badge">Evidence</span><h3>Outputs carry claim posture.</h3><p>Rows surface fallback_attempted, external_engine_invoked, claim_gate_status, evidence tier, and timing_surface fields where relevant.</p></article>
-      <article class="card"><span class="badge">Pre-release</span><h3>Public claims stay gated.</h3><p>The site describes current local proof posture and the selected source/package release path. It does not claim production readiness, package availability before publication, or broad engine-replacement readiness.</p></article>
+      <article class="card"><span class="badge">Work avoidance</span><h3>Use what the data already knows.</h3><p>Exact metadata can answer supported queries before row reads. Statistics prune segments; encoded kernels use dictionary codes, values, and repetition counts. Top-K routes defer payload gathering until selection.</p></article>
+      <article class="card"><span class="badge">Exact aggregation</span><h3>Exploit repetition without approximating the answer.</h3><p>Weighted counts, fused SUM/AVG work, complete key partitions, and delayed measures preserve exact DISTINCT and grouping equality. Retained string owners, compact count state, and shared partials avoid repeated construction on admitted routes.</p></article>
+      <article class="card"><span class="badge">Preparation</span><h3>Reuse an artifact only while its identity holds.</h3><p>Unchanged compatibility inputs can reuse schema-bound Vortex preparation. Source and artifact generation checks reject detected changes. Native Vortex preparation preserves the input layout.</p></article>
+      <article class="card"><span class="badge">Resident execution</span><h3>Retain setup, renew query state.</h3><p>Prepared sessions retain source handles and lowering for supported families. Python contexts reuse a local worker to avoid per-call process startup; each query gets fresh execution state.</p></article>
+      <article class="card"><span class="badge">Native ownership</span><h3>Carry results into their next consumer.</h3><p>Supported results own Vortex arrays and memory credits. Bounded Rust composition can consume them directly; flat result exports reach shared writers without rerunning the query or reparsing serialized JSON.</p></article>
+      <article class="card"><span class="badge">Local I/O</span><h3>Choose a format at the boundary.</h3><p>Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL use explicit adapters and writers. Vortex remains the highest-fidelity persistence target; compatibility export exposes type and metadata limits.</p></article>
+      <article class="card"><span class="badge">Resources</span><h3>Make pressure and ownership visible.</h3><p>Bounded queues, reservations, cancellation cleanup, and selected native spill routes govern admitted work. Metadata-only aggregates avoid payload and worker admission; native file operations drain admitted I/O and readers before completion. PulseWeave and typed capillary work units expose control decisions.</p></article>
+      <article class="card"><span class="badge">No fallback</span><h3>Know which engine executed the work.</h3><p>Structured route evidence exposes fallback_attempted=false and external_engine_invoked=false. Unsupported work returns a deterministic diagnostic instead of silently delegating to another query engine.</p></article>
+    </div>
+  </section>
+
+  <section class="section-grid">
+    <div><p class="eyebrow">Available today</p><h2>A technical preview you can install.</h2></div>
+    <div>
+      <p>GitHub pre-release, PyPI, TestPyPI, and Homebrew publication is verified for {version}. Package availability does not imply production support or broad SQL/DataFrame parity.</p>
+      <p>General relational completion, broader spill, and a shared all-I/O layout-optimization policy remain unfinished. General computed-result exports are bounded, and an existing Vortex file is not automatically rebuilt into a new optimized layout.</p>
+      <p><a href={repoLink("docs/release/v1-local-source-package-release.md")}>Publication evidence</a> · <a href={repoLink("docs/release/public-status-matrix.md")}>Support matrix</a> · <a href="/field-guide/limitations">Current limitations</a></p>
     </div>
   </section>
 

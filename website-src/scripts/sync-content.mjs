@@ -10,6 +10,13 @@ const docsRoot = path.join(root, "src", "content", "docs");
 const docsUseCaseGeneratedRoot = path.join(repoRoot, "docs", "use-cases", "generated");
 const legacyWebsiteDataRoot = path.join(repoRoot, "website", "assets", "data");
 const publicDataRoot = path.join(repoRoot, "website-public", "assets", "data");
+// Source preparation versions can be ahead of the proof-backed public release.
+const publication = JSON.parse(fs.readFileSync(path.join(repoRoot, "docs/release/package-channel-readiness-matrix.json"), "utf8"));
+const publishedTag = publication.selected_v0_1_0_release_tag;
+if (!publishedTag || publication.selected_v0_1_0_publication_status !== `published_and_verified_${publishedTag}`) {
+  throw new Error("website installation guidance requires a verified selected package release");
+}
+const packageVersion = publishedTag.slice(1);
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(path.join(dataRoot, file), "utf8"));
@@ -272,18 +279,24 @@ const durableDocsPages = [
     slug: "start-local-proof",
     content: docsPage({
       title: "Start local proof",
-      description: "Run ShardLoom from a source checkout and inspect no-fallback evidence.",
+      description: "Install the published technical preview and inspect native execution evidence.",
       order: 1,
-      body: `ShardLoom is pre-release. Start from a source checkout, not a package-publication claim.
+      body: `ShardLoom ${packageVersion} is a published technical preview. Install from PyPI or Homebrew,
+then follow the [local query walkthrough](/start). GitHub pre-release and TestPyPI artifacts are
+also available; see [package installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md)
+for supported platforms and channel verification.
 
-Canonical install and support pages:
+## Install
 
-- \`docs/getting-started/source-checkout-install.md\`
-- \`docs/getting-started/package-user-install.md\`
-- \`docs/getting-started/v1-supported-unsupported.md\`
-- \`docs/getting-started/troubleshooting-support.md\`
+\`\`\`sh
+python -m pip install shardloom
+# Or install the CLI with Homebrew
+brew install depsilon/tap/shardloom
+\`\`\`
 
-## First Commands
+## Source Checkout
+
+For development and release validation, follow [source checkout installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md), then run:
 
 \`\`\`powershell
 python scripts\\release_dry_run_proof.py --rows 64 --iterations 1
@@ -300,7 +313,11 @@ python examples\\local-python-smoke\\run.py --repo-root .
 
 ## Boundary
 
-This proves local technical-preview posture only. It does not prove package publication, production readiness, broad SQL/DataFrame parity, object-store runtime, or performance superiority.`,
+Package publication and source execution have separate evidence. Check the
+[supported surface](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/v1-supported-unsupported.md)
+and [troubleshooting guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/troubleshooting-support.md).
+Neither establishes production readiness, broad SQL/DataFrame parity, object-store runtime, or
+performance superiority.`,
     }),
   },
   {
@@ -313,6 +330,9 @@ This proves local technical-preview posture only. It does not prove package publ
 
 ## Normal Package Shape
 
+Create the small CSV in the [getting-started walkthrough](/start) before running this example.
+The public \`run()\` report exposes a shared result envelope across admitted routes.
+
 \`\`\`python
 import shardloom as sl
 
@@ -321,12 +341,11 @@ result = (
     ctx.read("data/orders.csv")
        .filter(sl.col("status") == "paid")
        .limit(10)
-       .collect()
+       .run()
 )
 
-print(result.output_row_count)
-print(result.first_result_row)
-print(result.claim_summary.claim_gate_status)
+print(result.envelope.field_int("output_row_count"))
+print(result.envelope.human_text)
 print(result.fallback_attempted, result.external_engine_invoked)
 \`\`\`
 
@@ -335,6 +354,18 @@ print(result.fallback_attempted, result.external_engine_invoked)
 generated rows, and scoped local Vortex inputs are the default public examples. Parquet, Arrow
 IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
 present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
+
+## Reuse And Export
+
+Python contexts can retain a local worker to avoid per-call CLI startup. Automatic preparation
+reuses an unchanged source only when its schema and artifact identities match. Each query still
+has fresh execution state; a prepared artifact is not a cache of query results.
+
+Admitted flat results can use \`write_vortex\`, \`write_parquet\`, \`write_arrow_ipc\`,
+\`write_avro\`, \`write_orc\`, \`write_csv\`, \`write_json\`, and \`write_jsonl\` through the
+shared native result and sink contracts. Feature gates, supported types, and result limits apply.
+See [runtime and I/O](/field-guide/runtime-and-io) and the
+[user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
 
 ## Schema-Pinned Benchmark Shape
 
@@ -377,6 +408,86 @@ The primary route must emit ShardLoom evidence. Direct local-file execution is a
     }),
   },
   {
+    slug: "runtime-and-io",
+    content: docsPage({
+      title: "Runtime and I/O",
+      description: "Shipped native execution, preparation reuse, format support, and result limits.",
+      order: 3,
+      body: `Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the same
+ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
+writers around that middle; they do not select a different query engine.
+
+## Native Execution
+
+Supported routes use exact metadata, segment pruning, encoded reductions, weighted dictionary
+aggregation, exact DISTINCT, and late payload gathering. Sparse dictionary selections decode only
+referenced values. Coverage depends on the operation, type, and physical layout.
+
+Admitted text grouping retains input-backed dictionary strings, uses compact exact-count state,
+and shares partial construction between serial and bounded workers. Transformed text grouping
+can overlap bounded dictionary preparation with native input progress and ordered consumption.
+See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
+
+Filters, projections, aggregates, sort/Top-K, and selected provider-backed join workflows are
+available. General joins, set operations, analytic windows, and subqueries still have native
+coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
+and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
+
+## Local Formats
+
+| Format | Input | Output |
+| --- | --- | --- |
+| Vortex | Native files; admitted local manifests and partitions | Highest-fidelity native persistence |
+| Parquet | Feature-gated local reader | Feature-gated typed writer |
+| Arrow IPC / Feather | Feature-gated local reader | Feature-gated Arrow IPC writer |
+| Avro | Feature-gated local reader | Feature-gated writer; type restrictions apply |
+| ORC | Feature-gated local reader | Feature-gated writer; nested and unrepresentable unsigned values remain unsupported |
+| CSV | Local inference or declared schema; quoted multiline records | Text output with explicit materialization |
+| JSON | Local JSON input with declared ingestion semantics | One top-level JSON array |
+| JSONL / NDJSON | Local line-delimited JSON | JSONL text output |
+
+Method availability does not imply every operator can feed every sink. Consult the
+[input surface](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md)
+and [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md)
+for enabled features, schema support, and write policy. Compatibility outputs expose metadata
+loss; text formats do not preserve Vortex layouts or static types.
+
+## Preparation And Result Handoffs
+
+Automatic compatibility-input preparation can reuse a local Vortex artifact when the source,
+declared schema, and artifact identities match. Generation checks span reuse and execution;
+detected changes fail explicitly. This is local preparation reuse, not a global query-result cache.
+
+Native Vortex preparation preserves the existing layout. The shared all-I/O physical-layout
+optimization policy remains follow-up work. Reading Vortex does not make parsing, computation,
+encoding, or result delivery instantaneous.
+
+Supported owned results retain Vortex arrays, validity, and memory credits. Complete flat aggregate
+and sorted results reach the shared writers without rerunning the query or reparsing serialized
+JSON for binary export. General computed results still use bounded scalar-to-native construction:
+**65,536 rows, 128 fields, and 8 MiB**, subject to type and memory admission. This is not unbounded
+streaming or every-operator/every-sink parity. See the
+[I/O integration evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/public-io-route-repair-2026-09-27.md).
+
+## Resources And Recovery
+
+Prepared sessions retain source handles and supported lowering while calls create fresh execution
+state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
+explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
+Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
+aggregates avoid payload and worker admission, including when no spare payload credit is available.
+
+COUNT/DISTINCT and selected numeric sort spill have specific admission, recovery, cancellation,
+and cleanup contracts. Broad compound-key spill and spill-backed export remain incomplete. See
+[COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
+[numeric sort spill](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),
+and [serving evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/concurrent-native-serving-2026-09-20.md).
+
+Every admitted execution preserves \`fallback_attempted=false\` and
+\`external_engine_invoked=false\`. Unsupported work returns deterministic diagnostics.`,
+    }),
+  },
+  {
     slug: "benchmark-methodology",
     content: docsPage({
       title: "Benchmark methodology",
@@ -406,11 +517,24 @@ claim superiority.`,
       title: "Limitations",
       description: "Current public claim boundaries and unsupported behavior.",
       order: 4,
-      body: `ShardLoom is not public production infrastructure yet.
+      body: `ShardLoom ${packageVersion} is available as a local technical preview through GitHub
+pre-release, PyPI, TestPyPI, and Homebrew. See the
+[publication record](https://github.com/depsilon/shardloom/blob/main/docs/release/v1-local-source-package-release.md)
+and [current support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md).
+Package availability is separate from production readiness.
+
+## Runtime Limits
+
+- General native joins, set operations, windows, and subqueries have remaining coverage gaps.
+- General computed-result exports are bounded to 65,536 rows, 128 fields, and 8 MiB; format and type restrictions apply.
+- Existing Vortex inputs preserve their layout during preparation; all-I/O physical-layout optimization remains unfinished.
+- Spill, memory reservations, and concurrent serving are scoped contracts, not universal spill support, an RSS ceiling, or production fairness proof.
+- Remote output, table/catalog writes, and lakehouse transactions are outside the local sink contract.
+
+See [runtime and I/O](/field-guide/runtime-and-io) for the shipped boundaries and linked evidence.
 
 ## Not Claimed
 
-- package publication readiness
 - production support
 - broad SQL/DataFrame parity
 - Spark displacement
@@ -433,14 +557,14 @@ function fieldGuideIndex(terms) {
     sidebar: { label: "Field Guide" },
   })}
 
-A compact Starlight docs shell for ShardLoom's current public surface. Start with local proof,
-Python route shape, benchmark methodology, and limitations, then use the vocabulary atlas for
-exact route and evidence terms.
+A compact Starlight docs shell for ShardLoom's current public surface. Start with installation,
+Python, runtime and I/O, then use the vocabulary atlas for exact route and evidence terms.
 
 ## Category Table Of Contents
 
 - [Start local proof](/field-guide/start-local-proof/)
 - [Python surface](/field-guide/python-surface/)
+- [Runtime and I/O](/field-guide/runtime-and-io/)
 - [Benchmark methodology](/field-guide/benchmark-methodology/)
 - [Limitations](/field-guide/limitations/)
 ${categories.map((category) => `- [${category}](#${slug(category)})`).join("\n")}

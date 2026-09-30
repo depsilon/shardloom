@@ -41,6 +41,7 @@ export default defineConfig({
             { label: "Website home", link: "/" },
             { slug: "field-guide/start-local-proof" },
             { slug: "field-guide/python-surface" },
+            { slug: "field-guide/runtime-and-io" },
             { label: "Benchmarks", link: "/benchmarks" },
             { label: "Compute flow", link: "/compute-engine-flow" },
           ],

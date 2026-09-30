@@ -4,7 +4,7 @@
     "title": "What is ShardLoom?",
     "category": "Start Here",
     "status": "runtime_supported",
-    "summary": "A pre-release compute engine focused on Vortex-prepared routes, explicit evidence, and no hidden fallback.",
+    "summary": "A published technical-preview engine for local Vortex-native compute, reusable preparation, and explicit no-fallback execution.",
     "route": "overview",
     "evidence_fields": [
       "claim_gate_status",

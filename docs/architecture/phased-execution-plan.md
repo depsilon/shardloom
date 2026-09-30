@@ -277,6 +277,10 @@ R3.a reuses native COUNT selection and filtered mixed measures; see
 R3.b shares mixed chunk partials and bounded owned completion; see
 [the mixed DISTINCT worker screen](mixed-distinct-worker-screen-2026-09-29.md).
 
+The September 28 README/site refresh remains one documentation/site PR, including
+stale reachable pages and compatibility URLs. Its earlier pause instruction is
+superseded by the subsequent optimization and release directions above.
+
 September 27 scope override: the whole-file JSON C7 change, 0.3.1 publication,
 authorized format pulse and public I/O handoff repairs are complete. Their
 closure is recorded in the [completed ledger](phased-execution-completed-ledger.md).

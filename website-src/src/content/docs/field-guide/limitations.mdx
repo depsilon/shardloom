@@ -5,11 +5,24 @@ sidebar: {"label":"Limitations","order":4}
 ---
 
 
-ShardLoom is not public production infrastructure yet.
+ShardLoom 0.3.2 is available as a local technical preview through GitHub
+pre-release, PyPI, TestPyPI, and Homebrew. See the
+[publication record](https://github.com/depsilon/shardloom/blob/main/docs/release/v1-local-source-package-release.md)
+and [current support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md).
+Package availability is separate from production readiness.
+
+## Runtime Limits
+
+- General native joins, set operations, windows, and subqueries have remaining coverage gaps.
+- General computed-result exports are bounded to 65,536 rows, 128 fields, and 8 MiB; format and type restrictions apply.
+- Existing Vortex inputs preserve their layout during preparation; all-I/O physical-layout optimization remains unfinished.
+- Spill, memory reservations, and concurrent serving are scoped contracts, not universal spill support, an RSS ceiling, or production fairness proof.
+- Remote output, table/catalog writes, and lakehouse transactions are outside the local sink contract.
+
+See [runtime and I/O](/field-guide/runtime-and-io) for the shipped boundaries and linked evidence.
 
 ## Not Claimed
 
-- package publication readiness
 - production support
 - broad SQL/DataFrame parity
 - Spark displacement

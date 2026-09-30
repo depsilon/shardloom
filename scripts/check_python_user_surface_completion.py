@@ -317,7 +317,7 @@ REQUIRED_DOC_MARKERS = {
         "examples\\local-python-smoke\\run.py --repo-root .",
         "ctx.read(\"data/orders.csv\")",
         "sl.col(\"status\") == \"paid\"",
-        "print(result.claim_summary.claim_gate_status)",
+        "print(result.envelope.human_text)",
         "check_python_user_surface_completion.py",
     ],
 }

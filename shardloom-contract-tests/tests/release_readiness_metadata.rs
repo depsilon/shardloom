@@ -1194,9 +1194,9 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
     for required in [
         "parallax ShardLoom homepage for `/` and claim-safe Starlight documentation",
         "`/`: parallax ShardLoom homepage experience from the productionized source-of-truth HTML",
-        "`/about`: concise claim-safe project overview and evidence pointers",
-        "`/start`: first local proof entry point",
-        "`/field-guide`: Starlight docs shell for local proof, Python route shape, benchmark methodology, limitations, and vocabulary",
+        "`/about`: shipped differentiators, technical-preview support, and evidence pointers",
+        "`/start`: package installation, a small CSV example, and a first local query",
+        "`/field-guide`: Starlight docs for installation, Python, runtime and I/O, benchmark methodology, limitations, and vocabulary",
         "`/benchmarks`: ClickBench handoff and claim-safe public comparison posture",
         "`/compute-engine-flow`: human-readable route translation",
         "Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the",
@@ -4192,7 +4192,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     }
     for required in [
         "siteNav",
-        "ShardLoom is pre-release, local-first, and claim-gated",
+        "ShardLoom is a published technical preview for local Vortex-native compute",
         "/assets/site.css",
         "/assets/site.js",
     ] {
@@ -4432,7 +4432,6 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let postbuild = read_repo_file("website-src/scripts/postbuild-static.mjs");
     for required in [
-        "canonicalLegacyRoutes",
         "copyLegacyHtml",
         "removeDuplicateSuffixedArtifacts",
         "copyPublicPath",
@@ -4446,6 +4445,19 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         assert!(
             postbuild.contains(required),
             "missing postbuild static field {required}"
+        );
+    }
+    for route in [
+        "about",
+        "start",
+        "field-guide",
+        "benchmarks",
+        "compute-engine-flow",
+    ] {
+        assert_eq!(
+            read_repo_file(format!("website/{route}.html")),
+            read_repo_file(format!("website/{route}/index.html")),
+            "legacy {route}.html must serve the current canonical page"
         );
     }
 
@@ -4553,6 +4565,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     for required in [
         "https://shardloom.io/about",
         "https://shardloom.io/start",
+        "https://shardloom.io/field-guide/runtime-and-io",
         "https://shardloom.io/field-guide/prepared-vortex",
         "https://shardloom.io/field-guide/output-plan",
         "https://shardloom.io/field-guide/scale-classes",
@@ -4565,7 +4578,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let pagefind_entry = read_repo_file("website/pagefind/pagefind-entry.json");
     assert!(pagefind_entry.contains("\"version\":\"1.5.2\""));
-    assert!(pagefind_entry.contains("\"page_count\":39"));
+    assert!(pagefind_entry.contains("\"page_count\":40"));
 
     let headers = read_repo_file("website/_headers");
     for required in [
@@ -4588,6 +4601,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Removed website surface still exists",
         "field-guide/start-local-proof/index.html",
         "field-guide/python-surface/index.html",
+        "field-guide/runtime-and-io/index.html",
         "field-guide/benchmark-methodology/index.html",
         "field-guide/limitations/index.html",
         "pagefind/pagefind-entry.json",
