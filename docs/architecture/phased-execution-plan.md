@@ -2592,6 +2592,14 @@ and seven-candidate ship/drop packet are recorded. The finite packet has four
 retained and three dropped candidates. The rules below govern a separately
 admitted continuation, rather than automatically restarting exhausted experiments.
 
+The [quiet-workstation follow-up assessment](performance-quiet-intake-2026-09-30.md)
+records five experiment families and the maintainer's paused-workstreams
+clarification. The maintainer has now authorized the complete finite batch:
+existing ingest grants, borrowed sort reads, concrete compact measure loops,
+scalar exact DISTINCT admission, then two separate dense-directory screens.
+Execute its frozen comparisons and complete retained-batch acceptance under the
+existing PERF owners. It preserves completed decisions and does not change CG status.
+
 1. Ground any separately admitted next candidate list in the
    [current-runtime observation and controls](../benchmarks/current-runtime-e2e-2026-09-30.md),
    [post-release paired measurements](performance-post033-intake-2026-09-30.md) and

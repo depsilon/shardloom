@@ -22,8 +22,25 @@ The Full43 total is one measured pass; it is not a best-of-three aggregate or
 a paired speedup. The earlier 74.985410-second best-of-three cohort and its
 75.507636-second control remain unchanged in the
 [experiment record](../architecture/performance-post033-intake-2026-09-30.md).
-The lower repeat is consistent with contention affecting the earlier cohort;
-the observations do not isolate its cause.
+The operational annotation below supplies the maintainer's context for this
+repeat. Keep the original cohorts and scoring rules when reviewing an individual
+change; comparisons between those cohorts do not isolate a software regression.
+
+## Maintainer annotation — paused competing workstreams
+
+The maintainer subsequently clarified that user-managed competing workstreams
+were deliberately paused for this fresh measurement. Use **65.806017 seconds
+at ingest parallelism 4** and **55.251837 seconds for the single Full43 pass**
+as the current working baseline under that condition. The earlier slower
+mixed-load cohorts remain historical measurements; their timing spread alone
+does not justify a generic engine-instability or Q35 scheduler-repair project.
+
+This is supplied operational context, not a new measurement or a quantitative
+causal attribution. Ordinary OS activity and the uncontrolled cache conditions
+recorded below still apply. The original machine-readable record, raw results,
+timing receipts, evidence bundle and hashes are unchanged. The
+[source-checked follow-up assessment](../architecture/performance-quiet-intake-2026-09-30.md)
+records the proposed experiments separately from completed measurements.
 
 ## Workload and identity
 
