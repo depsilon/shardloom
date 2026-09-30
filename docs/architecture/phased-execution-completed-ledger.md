@@ -17,6 +17,41 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `RELEASE-033` publish and verify the 0.3.3 optimization patch train.
+  - Date: 2026-09-30 UTC. Runtime PR #1488, README/site PR #1483, source PR #1489
+    and publication PR #1490 merged after 40 checks and completed review on each
+    accepted head. Release source is `e15f2e66faf6d359bba944e9d295fc58ce3bf7d4`;
+    exact-source CI passed all 36 jobs. The deployed publication commit is
+    `0d84290dadae0d2e89d3129a7812c06c904160d9`, with the accepted tree unchanged.
+  - GitHub, TestPyPI, PyPI and Homebrew passed their install, exact-result smoke,
+    uninstall and clean-install proofs in order. All eight registry distributions
+    match their Actions artifacts; Homebrew passed 25 steps including two clean
+    source installs. Local runtime proofs cover macOS arm64; Linux and Windows
+    artifact inspection does not establish runtime parity. See the
+    [publication verification](../release/v0.3.3-publication-verification.md) and
+    [deployment observation](../release/channel-proofs/website-v0.3.3-deployment.json).
+  - All 18 publication checks passed, with 260 passing release-tool tests and
+    two existing optional skips across 262 cases. Astro checked 20 files without
+    errors/warnings/hints and built 46 pages. Browser observations and three
+    public document hashes bind the actual merged deployment; final technical-
+    preview readiness advances only after that proof. Open architecture and
+    production gates remain open. No full-size benchmark was repeated for metadata.
+  - Cleanup removed six completed proof environments and 12 verified duplicate
+    downloads: 289,934,712 logical bytes and 301,776,896 allocated bytes. Canonical
+    assets, raw receipts, failed-check evidence, original data and frozen controls
+    remain. Superseded dependency PRs were closed with recorded decisions; safe
+    updates were consolidated into PR #1489. Local cleanup receipt:
+    `/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/completed-proof-cleanup.json`.
+  - V1 scope classification: `required_for_v1`; release queue identifier only.
+    Shared native execution, metadata-first policy, dynamic/capillary/PulseWeave
+    resource contracts and timing-surface/evidence-tier distinctions are preserved.
+    CG-1 through CG-23 retain their own evidence gates. No fallback, new performance,
+    broad operator parity or production-runtime claim follows from publication.
+  - The maintainer authorized ship/drop testing after closeout. Admit a finite
+    packet from the refreshed profile, preserving useful smaller gains and
+    sequential runs. The interrupted format pulse and large text-format tests
+    remain paused; shared all-I/O physical-layout policy remains separate work.
+
 - [x] `PERF-INTAKE` R2.b and final profiling: complete the 29-experiment packet.
   - Date: 2026-09-30 UTC. Runtime `93ee6b39fd09ce657adf078a711206a89ccb2ab9`
     shares the source-backed first-seen dictionary builder and ordered consumer.
