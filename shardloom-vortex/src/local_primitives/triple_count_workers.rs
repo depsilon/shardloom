@@ -20,7 +20,10 @@ use super::{
 };
 use rustc_hash::FxHashMap;
 use shardloom_core::{Result, ShardLoomError};
-use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{Budgeted, LiveMemoryPool, MemoryLease},
+};
 use std::{
     sync::{Arc, Mutex},
     time::Instant,
@@ -30,7 +33,97 @@ use vortex::array::{
     dtype::{DType, Nullability},
 };
 
-const PARTITIONS: usize = 64;
+pub(super) const PARTITIONS: usize = 64;
+
+/// Choose complete-key storage before the first input. A committed reducer
+/// failure cannot switch representations or replay the source.
+#[allow(clippy::large_enum_variant)]
+pub(super) enum TripleWorkers {
+    Hash(HashWorkers),
+    Sorted(super::triple_sort_workers::SortedWorkers),
+}
+
+impl TripleWorkers {
+    pub(super) fn admit(
+        states: &GroupedAggregateStates<'_>,
+        dtype: &DType,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
+    ) -> Result<Option<Self>> {
+        if let Some(workers) = super::triple_sort_workers::SortedWorkers::admit(
+            states,
+            dtype,
+            columns,
+            policy,
+            memory,
+            cancellation,
+        )? {
+            return Ok(Some(Self::Sorted(workers)));
+        }
+        HashWorkers::admit(states, dtype, columns, policy, memory).map(|w| w.map(Self::Hash))
+    }
+    pub(super) fn before_next(&mut self) -> Result<()> {
+        match self {
+            Self::Hash(w) => w.before_next(),
+            Self::Sorted(w) => w.before_next(),
+        }
+    }
+    pub(super) fn submit(
+        &mut self,
+        chunk: &ArrayRef,
+        states: &mut GroupedAggregateStates<'_>,
+    ) -> Result<bool> {
+        match self {
+            Self::Hash(w) => w.submit(chunk, states),
+            Self::Sorted(w) => w.submit(chunk, states),
+        }
+    }
+    pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        match self {
+            Self::Hash(w) => w.finish(states),
+            Self::Sorted(w) => w.finish(states),
+        }
+    }
+    pub(super) fn cancel(&self) {
+        match self {
+            Self::Hash(w) => w.cancel(),
+            Self::Sorted(w) => w.cancel(),
+        }
+    }
+    pub(super) fn annotate_summary(&self, summary: &mut String) -> Result<()> {
+        match self {
+            Self::Hash(w) => w.annotate_summary(summary),
+            Self::Sorted(w) => w.annotate_summary(summary),
+        }
+    }
+    #[cfg(test)]
+    pub(super) fn cancel_for_test(&self) {
+        self.cancel();
+    }
+    #[cfg(test)]
+    pub(super) fn drain(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        match self {
+            Self::Hash(w) => w.drain(states),
+            Self::Sorted(w) => w.before_next(),
+        }
+    }
+    #[cfg(test)]
+    pub(super) fn deny_next_state_growth_for_test(&mut self) {
+        match self {
+            Self::Hash(w) => w.deny_next_state_growth_for_test(),
+            Self::Sorted(w) => w.deny_next_state_growth_for_test(),
+        }
+    }
+    #[cfg(test)]
+    pub(super) fn has_committed_groups(&self) -> bool {
+        match self {
+            Self::Hash(w) => w.has_committed_groups(),
+            Self::Sorted(w) => w.has_committed_groups(),
+        }
+    }
+}
 
 fn failed(message: impl std::fmt::Display) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
@@ -131,7 +224,11 @@ pub(super) fn preserve_raw_minute_input(
     )
 }
 
-fn roles(states: &GroupedAggregateStates<'_>, dtype: &DType, columns: &[String]) -> Option<Roles> {
+pub(super) fn roles(
+    states: &GroupedAggregateStates<'_>,
+    dtype: &DType,
+    columns: &[String],
+) -> Option<Roles> {
     if !shape(states) {
         return None;
     }
@@ -187,7 +284,7 @@ fn roles(states: &GroupedAggregateStates<'_>, dtype: &DType, columns: &[String])
 
 // Independent routing mixer: selecting on FxHashMap's bucket bits would make
 // every key within a partition collide on those same bits in its inner table.
-fn partition(key: Key) -> usize {
+pub(super) fn partition(key: Key) -> usize {
     let mut value =
         key.numeric_bits ^ key.string_id.rotate_left(23) ^ u64::from(key.key_kinds).rotate_left(47);
     value ^= value >> 30;
@@ -200,7 +297,7 @@ fn partition(key: Key) -> usize {
 
 // A conservative capacity model, not allocator/RSS accounting. Reserve old and
 // new table capacity simultaneously before try_reserve can move the allocation.
-fn table_bytes(entries: usize) -> Result<u64> {
+pub(super) fn table_bytes(entries: usize) -> Result<u64> {
     if entries == 0 {
         return Ok(0);
     }
@@ -273,7 +370,7 @@ struct Work {
     lock_wait: u128,
 }
 
-pub(super) struct TripleWorkers {
+pub(super) struct HashWorkers {
     jobs: AggregateChunkJobs<Work>,
     partitions: Vec<Arc<Mutex<Partition>>>,
     roles: Roles,
@@ -293,7 +390,7 @@ pub(super) struct TripleWorkers {
     total_key_bytes: u64,
 }
 
-impl TripleWorkers {
+impl HashWorkers {
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
@@ -363,10 +460,6 @@ impl TripleWorkers {
     }
     pub(super) fn cancel(&self) {
         self.jobs.cancel();
-    }
-    #[cfg(test)]
-    pub(super) fn cancel_for_test(&self) {
-        self.cancel();
     }
     #[cfg(test)]
     pub(super) fn drain(&mut self, _states: &mut GroupedAggregateStates<'_>) -> Result<()> {
@@ -470,43 +563,14 @@ impl TripleWorkers {
             return Err(failed("key buffer exceeds admitted capacity"));
         }
         let mut counts = [0usize; PARTITIONS];
-        let used_direct = if let Some(ids) = ids.as_deref() {
-            direct_keys(
-                [numeric, minute, text],
-                ids,
-                self.roles.minute_column_prepared,
-                &mut keys,
-                &mut counts,
-            )?
-        } else {
-            false
-        };
-        if !used_direct {
-            for row in 0..chunk.len() {
-                let key = if let Some(ids) = ids.as_deref() {
-                    Key::from_parts(
-                        aggregate_direct_integer_key_part(numeric, row, "triple count")?,
-                        if self.roles.minute_column_prepared {
-                            aggregate_direct_prepared_minute_u8(minute, row)?
-                        } else {
-                            aggregate_direct_minute_u8(minute, row)?
-                        },
-                        aggregate_direct_utf8_dictionary_bound_id(text, ids, row)?,
-                    )
-                } else {
-                    Key::from_accessors(
-                        numeric,
-                        minute,
-                        text,
-                        self.roles.minute_column_prepared,
-                        row,
-                        &mut states.string_interner,
-                    )?
-                };
-                counts[partition(key)] += 1;
-                keys.push(key);
-            }
-        }
+        fill_keys(
+            [numeric, minute, text],
+            ids.as_deref(),
+            self.roles.minute_column_prepared,
+            &mut states.string_interner,
+            &mut keys,
+            &mut counts,
+        )?;
         let mut ends = [0usize; PARTITIONS];
         let mut next = [0usize; PARTITIONS];
         let mut total = 0;
@@ -682,6 +746,40 @@ impl TripleWorkers {
         *summary = value.to_string();
         Ok(())
     }
+}
+
+pub(super) fn fill_keys(
+    accessors: [&AggregateDirectColumnAccessor; 3],
+    ids: Option<&[u64]>,
+    prepared: bool,
+    interner: &mut super::AggregateStringInterner,
+    keys: &mut Vec<Key>,
+    counts: &mut [usize; PARTITIONS],
+) -> Result<()> {
+    let [numeric, minute, text] = accessors;
+    if let Some(ids) = ids
+        && direct_keys(accessors, ids, prepared, keys, counts)?
+    {
+        return Ok(());
+    }
+    for row in 0..numeric.len() {
+        let key = if let Some(ids) = ids {
+            Key::from_parts(
+                aggregate_direct_integer_key_part(numeric, row, "triple count")?,
+                if prepared {
+                    aggregate_direct_prepared_minute_u8(minute, row)?
+                } else {
+                    aggregate_direct_minute_u8(minute, row)?
+                },
+                aggregate_direct_utf8_dictionary_bound_id(text, ids, row)?,
+            )
+        } else {
+            Key::from_accessors(numeric, minute, text, prepared, row, interner)?
+        };
+        counts[partition(key)] += 1;
+        keys.push(key);
+    }
+    Ok(())
 }
 
 fn direct_keys(
