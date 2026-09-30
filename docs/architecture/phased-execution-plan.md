@@ -278,9 +278,11 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
     ship/drop authorization; [release notes](../release/v0.3.3-release-notes.md).
   - Current state: runtime PR #1488 and README/site PR #1483 are merged with all
     40 checks passing on each reviewed head; recorded artifact cleanup is complete.
-    Release source consolidates the compatible dependency intake. Fresh broad
-    source validation and all 20 versioned schema/export cases pass.
-    Published-channel selection stays at proof-backed 0.3.2 until new proofs exist.
+    Release source PR #1489 is merged after 40 checks and completed review;
+    exact merged-source CI passes all 36 jobs. Fresh broad source validation and
+    all 20 versioned schema/export cases pass. GitHub, TestPyPI, PyPI and Homebrew
+    0.3.3 proofs pass; the published-channel contract advances to 0.3.3. Public
+    website deployment and final closeout remain pending.
   - V1 scope classification: `required_for_v1`; package distribution work, not a
     production-readiness or broad operator-support claim.
   - ShardLoom technique review: preserve shared native runtime, dynamic admission,
@@ -290,7 +292,7 @@ record a finite measured candidate list with reuse boundaries and retain/drop ga
     - [x] Merge accepted runtime and README/site PRs; retire only recorded obsolete artifacts.
     - [x] Consolidate compatible dependency updates and validate 0.3.3 source/package versions.
     - [x] Merge source preparation with exact-head checks and completed review (PR #1489).
-    - [ ] Publish and verify GitHub, TestPyPI, PyPI and Homebrew in that order.
+    - [x] Publish and verify GitHub, TestPyPI, PyPI and Homebrew in that order.
     - [ ] Update selected-channel proofs, public docs and deployed website; verify final readiness.
     - [ ] Clean temporary release artifacts and superseded PRs; move this item to the completed ledger.
   - Acceptance: channel-specific identity, install, uninstall, clean-install,

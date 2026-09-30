@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Observe the existing 0.3.2 registry distributions without rebuilding/uploading.
+"""Observe the existing 0.3.3 registry distributions without rebuilding/uploading.
 
 Downloads the eight existing Actions artifacts, binds each distribution to the
 passed channel proof AND live registry inventory, inspects package/bundled-CLI
@@ -33,18 +33,18 @@ import zipfile
 from local_uat_storage import available_bytes, require_local_path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.2"
-RELEASE_SOURCE = "b06a77d9a994684ee483d43d65a8bc254dd998a6"
+VERSION = "0.3.3"
+RELEASE_SOURCE = "e15f2e66faf6d359bba944e9d295fc58ce3bf7d4"
 WORKFLOW = ".github/workflows/pypi-publish-draft.yml"
 CHANNELS = {
-    "testpypi": (36357744771, RELEASE_SOURCE, "https://test.pypi.org"),
-    "pypi": (36359375442, "c983aad22360c17f1a1c17e6651730f4a9e6d831", "https://pypi.org"),
+    "testpypi": (36707733970, RELEASE_SOURCE, "https://test.pypi.org"),
+    "pypi": (36710669483, "16869b635a64f4c12dba06051724118a1d8f28d4", "https://pypi.org"),
 }
 KINDS = {
-    "python-dist-macos": ("shardloom-0.3.2-cp313-cp313-macosx_26_0_arm64.whl", "macos-aarch64", "shardloom"),
-    "python-dist-linux": ("shardloom-0.3.2-cp313-cp313-manylinux_2_39_x86_64.whl", "linux-x86_64", "shardloom"),
-    "python-dist-windows": ("shardloom-0.3.2-cp313-cp313-win_amd64.whl", "windows-x86_64", "shardloom.exe"),
-    "python-dist-sdist": ("shardloom-0.3.2.tar.gz", None, None),
+    "python-dist-macos": ("shardloom-0.3.3-cp313-cp313-macosx_26_0_arm64.whl", "macos-aarch64", "shardloom"),
+    "python-dist-linux": ("shardloom-0.3.3-cp313-cp313-manylinux_2_39_x86_64.whl", "linux-x86_64", "shardloom"),
+    "python-dist-windows": ("shardloom-0.3.3-cp313-cp313-win_amd64.whl", "windows-x86_64", "shardloom.exe"),
+    "python-dist-sdist": ("shardloom-0.3.3.tar.gz", None, None),
 }
 MAX_ARCHIVE = 32 << 20
 MAX_CLI = 128 << 20
@@ -125,22 +125,22 @@ def inspect_distribution(path, artifact_name, source_pyproject):
             require(len(names) == len(set(names)) and len(names) <= 4096, "ambiguous wheel inventory")
             for name in names:
                 safe_member(name)
-            metadata_name = "shardloom-0.3.2.dist-info/METADATA"
-            wheel_name = "shardloom-0.3.2.dist-info/WHEEL"
+            metadata_name = "shardloom-0.3.3.dist-info/METADATA"
+            wheel_name = "shardloom-0.3.3.dist-info/WHEEL"
             require(sum(name.endswith(".dist-info/METADATA") for name in names) == 1,
                     "ambiguous package metadata")
             require(archive.getinfo(metadata_name).file_size <= MAX_JSON and
                     archive.getinfo(wheel_name).file_size <= 65536, "oversized wheel metadata")
             metadata = package_metadata(archive.read(metadata_name))
             wheel = archive.read(wheel_name)
-            expected_tag = path.name[len("shardloom-0.3.2-"):-len(".whl")]
+            expected_tag = path.name[len("shardloom-0.3.3-"):-len(".whl")]
             wheel_metadata = email.parser.BytesParser().parsebytes(wheel)
             require(wheel_metadata["Root-Is-Purelib"] == "false" and
                     wheel_metadata.get_all("Tag") == [expected_tag], "wheel platform contract differs")
             binary_suffix = f"shardloom/bin/{platform}/{executable}"
             # Platform wheels may retain setuptools' purelib relocation tree;
             # pip installs that tree into site-packages without changing bytes.
-            allowed = {binary_suffix, "shardloom-0.3.2.data/purelib/" + binary_suffix}
+            allowed = {binary_suffix, "shardloom-0.3.3.data/purelib/" + binary_suffix}
             binary_members = [name for name in names if
                 (name.startswith("shardloom/bin/") or "/shardloom/bin/" in name) and not name.endswith("/")]
             require(len(binary_members) == 1 and binary_members[0] in allowed,
@@ -169,8 +169,8 @@ def inspect_distribution(path, artifact_name, source_pyproject):
             require(row.isfile() and row.size <= MAX_JSON, "invalid sdist metadata member")
             with archive.extractfile(row) as stream:
                 return stream.read(MAX_JSON + 1)
-        metadata = package_metadata(member_bytes("shardloom-0.3.2/PKG-INFO"))
-        pyproject = member_bytes("shardloom-0.3.2/pyproject.toml")
+        metadata = package_metadata(member_bytes("shardloom-0.3.3/PKG-INFO"))
+        pyproject = member_bytes("shardloom-0.3.3/pyproject.toml")
         require(pyproject == source_pyproject, "sdist pyproject differs from actual build source")
         return {"package_metadata": metadata, "clean_sdist_no_bundled_cli": True,
                 "source_pyproject_sha256": sha_bytes(pyproject),
@@ -244,7 +244,7 @@ class Observer:
         require(available_bytes(self.target) >= (12 << 30) + MAX_WORKSPACE,
                 "insufficient free space for observation and12GiB headroom")
         self.target.mkdir(parents=True, exist_ok=True)
-        self.directory = Path(tempfile.mkdtemp(prefix="registry-evidence-032-", dir=self.target))
+        self.directory = Path(tempfile.mkdtemp(prefix="registry-evidence-033-", dir=self.target))
         self.deadline = time.monotonic() + 900
         self.commands = []
 
@@ -343,7 +343,7 @@ def cyclonedx(channel, artifacts, source_inputs, timestamp):
             "metadata": {"timestamp": timestamp,
                 "tools": [{"vendor": "ShardLoom", "name": "registry_release_evidence.py", "version": "1"}],
                 "component": {"type": "application", "name": "shardloom", "version": VERSION,
-                              "purl": "pkg:pypi/shardloom@0.3.2", "licenses": [{"license": {"id": "Apache-2.0"}}]},
+                              "purl": "pkg:pypi/shardloom@0.3.3", "licenses": [{"license": {"id": "Apache-2.0"}}]},
                 "properties": [{"name": "shardloom:channel", "value": channel},
                     {"name": "shardloom:inventory-scope", "value": "post-publication distribution files and observed bundled CLI bytes;not a build attestation or complete compiled dependency SBOM"},
                     {"name": "shardloom:source-inputs", "value": json.dumps(source_inputs, sort_keys=True)}]},
@@ -353,10 +353,10 @@ def cyclonedx(channel, artifacts, source_inputs, timestamp):
 def observe_channel(observer, channel):
     root = observer.root
     run_id, source, registry = CHANNELS[channel]
-    proof_path = root / f"docs/release/channel-proofs/{channel}-v0.3.2-transcript.json"
+    proof_path = root / f"docs/release/channel-proofs/{channel}-v0.3.3-transcript.json"
     proof_raw = read_small(proof_path)
     proof = strict_json(proof_raw)
-    live, live_path = observer.registry_json(registry + "/pypi/shardloom/0.3.2/json", channel + "-registry")
+    live, live_path = observer.registry_json(registry + "/pypi/shardloom/0.3.3/json", channel + "-registry")
     distributions = validate_inventory(proof, live, channel)
     workflow, workflow_path = observer.gh_json(f"repos/depsilon/shardloom/actions/runs/{run_id}", channel + "-workflow")
     require(workflow["id"] == run_id and workflow["head_sha"] == source and
@@ -413,7 +413,7 @@ def observe_channel(observer, channel):
         artifacts.append(artifact)
     require(read_small(proof_path) == proof_raw, "channel proof changed during observation")
     timestamp = dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
-    prefix = f"docs/release/channel-proofs/{channel}-v0.3.2-"
+    prefix = f"docs/release/channel-proofs/{channel}-v0.3.3-"
     sbom_path, checksums_path = prefix + "sbom.cdx.json", prefix + "checksums.sha256"
     sbom = json_bytes(cyclonedx(channel, artifacts, source_inputs, timestamp))
     checksums = "".join(row["sha256"] + "  " + row["filename"] + "\n" for row in sorted(artifacts, key=lambda row: row["filename"])).encode()
@@ -450,7 +450,7 @@ def main():
     args = parser.parse_args()
     root = args.repo_root.resolve()
     require(os.name == "posix" and root == ROOT, "use this generator's POSIX publication worktree")
-    outputs = [root / f"docs/release/channel-proofs/{channel}-v0.3.2-{suffix}"
+    outputs = [root / f"docs/release/channel-proofs/{channel}-v0.3.3-{suffix}"
                for channel in CHANNELS for suffix in ("sbom.cdx.json", "checksums.sha256", "provenance.json")]
     require(not any(path.exists() for path in outputs), "preserve existing registry evidence; refusing overwrite")
     observer = Observer(root)

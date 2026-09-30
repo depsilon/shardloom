@@ -21,12 +21,16 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
 
 # The JSON field names still include v0_1_0 for schema compatibility. The
 # selected release value itself is the current proof-backed package version.
-SELECTED_PACKAGE_RELEASE_VERSION = "0.3.2"
+SELECTED_PACKAGE_RELEASE_VERSION = "0.3.3"
 SELECTED_PACKAGE_RELEASE_TAG = f"v{SELECTED_PACKAGE_RELEASE_VERSION}"
 # Approved identities observed during the publication train. Keep these keyed
 # by release so advancing the selected version cannot reuse a prior build's
 # source/run binding. PyPI's source adds only the prerequisite proof documents.
 PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
+    "0.3.3": {'testpypi': {'source_commit': 'e15f2e66faf6d359bba944e9d295fc58ce3bf7d4',
+                  'workflow_run_id': 36707733970},
+     'pypi': {'source_commit': '16869b635a64f4c12dba06051724118a1d8f28d4',
+              'workflow_run_id': 36710669483}},
     "0.3.2": {'testpypi': {'source_commit': 'b06a77d9a994684ee483d43d65a8bc254dd998a6',
                   'workflow_run_id': 36357744771},
      'pypi': {'source_commit': 'c983aad22360c17f1a1c17e6651730f4a9e6d831',
@@ -63,6 +67,10 @@ PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
     },
 }
 PUBLISHED_REGISTRY_DISTRIBUTIONS = {
+    "0.3.3": ('shardloom-0.3.3-cp313-cp313-macosx_26_0_arm64.whl',
+     'shardloom-0.3.3-cp313-cp313-manylinux_2_39_x86_64.whl',
+     'shardloom-0.3.3-cp313-cp313-win_amd64.whl',
+     'shardloom-0.3.3.tar.gz'),
     "0.3.2": ('shardloom-0.3.2-cp313-cp313-macosx_26_0_arm64.whl',
      'shardloom-0.3.2-cp313-cp313-manylinux_2_39_x86_64.whl',
      'shardloom-0.3.2-cp313-cp313-win_amd64.whl',
@@ -91,6 +99,7 @@ PUBLISHED_REGISTRY_DISTRIBUTIONS = {
 # results/no fallback, and prints the captured JSON result. A new release must
 # approve its own program; arbitrary isolated Python is not execution evidence.
 PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
+    "0.3.3": 'cee1d3fbef2f857028f3694e5ecbc314c8a1ffe497ae971e3a1f9c70a5d35acc',
     "0.3.2": '535d75bc9b620ac5dd4559c850409c2041dd239385797514d2604604dc671516',
     "0.3.1": "ee49b52a55770327d783e177dd6768b670d15b1bb3b8144ad1037f477900b146",
     "0.3.0": "77404a954315c308e2dbacbadd69d6a754e99ca234c82fc3a0d6c056bd074af8",
@@ -100,6 +109,18 @@ PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
 # command, output, recovery note and lifecycle result, including non-registry
 # channels. Updating a record requires explicit review of a new approved pin.
 PUBLISHED_CHANNEL_TRANSCRIPTS = {
+    "0.3.3": {'github_prerelease': ('github-prerelease',
+                           'shardloom.github_prerelease_channel_proof.v1',
+                           'f0f3db4c3cdddd5d063aeccd097f378c8e8d93da6220afac8a14af92f24c6b77'),
+     'testpypi': ('testpypi',
+                  'shardloom.python_registry_package_proof.v1',
+                  '5b882712178cafe237a7600d65d63d8816da350aed9e6a91bd2acfa7752cc560'),
+     'pypi': ('pypi',
+              'shardloom.python_registry_package_proof.v1',
+              '8ebf62d569ff4d4d66175461f5c96f6336cd20e1f97fabe0dc0933fd9ec27389'),
+     'homebrew_tap': ('homebrew',
+                      'shardloom.homebrew_channel_proof.v1',
+                      'e10e8ffbbecf7b7f6c809708ff59f854c7db87d0f6447bb215c0a7113fb1aa6a')},
     "0.3.2": {'github_prerelease': ('github-prerelease',
                            'shardloom.github_prerelease_channel_proof.v1',
                            '6147f1748013726b713a4fe423e02fa3f86352ffd916d07ebb4821e937da9741'),
@@ -147,6 +168,8 @@ PUBLISHED_CHANNEL_TRANSCRIPTS = {
 # distributions against the published wheel hashes. Their immutable records bind
 # the extracted CLI hashes/sizes, source inputs, and checksum/SBOM hashes.
 PUBLISHED_REGISTRY_PROVENANCE_SHA256 = {
+    "0.3.3": {'testpypi': '0e8df9bc8d1498a0f98d414503f82636fac5b5b65a88a9e3a646067ea1f0a79e',
+     'pypi': 'd013801ade4732cda9286897236a6b12347d2b560903b6074aaadfed16c9be1c'},
     "0.3.2": {'testpypi': 'f68b130f05b77389bf480b13533a9eb56594e8a06496bd4fe90660b280a2d2dc',
      'pypi': 'e6c4935074ac3cf8bd466cf04e48de12cb928785bdafcb6a02d815aaeb4bf272'},
     "0.3.1": {
