@@ -314,6 +314,7 @@ fn call(
                     allocator: context.native_session().allocator(),
                     handle: context.runtime().handle(),
                     concurrency: context.cpu_lanes(),
+                    _reader_owner: Some(scope.retain_reader(context.memory())?),
                     scope: Some(scope),
                 };
                 let metrics = RequestMetrics::new(&DefaultMetricsRegistry::default(), Vec::new());

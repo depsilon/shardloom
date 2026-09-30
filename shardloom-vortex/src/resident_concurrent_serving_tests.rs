@@ -535,6 +535,68 @@ fn serving_cancelled_blocking_completion_keeps_io_and_buffer_owners_until_return
 }
 
 #[test]
+fn ordinary_failed_operation_drives_cancelled_provider_completion_before_return() {
+    let fixture = Fixture::new();
+    for cancel in [false, true] {
+        // No background driver: aborting a task only schedules its destructor.
+        // The operation boundary must drive that cleanup, including a completed
+        // read whose charged buffer is still held by its waiting provider future.
+        let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+        let source = session.prepare_file(fixture.path()).unwrap();
+        let memory = session.memory().clone();
+        let baseline = memory.snapshot().reserved_bytes;
+        let cancellation = CancellationToken::default();
+        let empty_error = source
+            .with_native_execution_controlled(&cancellation, |_, _| -> Result<()> {
+                Err(resident_error("failure before the first read"))
+            })
+            .unwrap_err();
+        assert!(empty_error.to_string().contains("before the first read"));
+        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        let error = source
+            .with_native_execution_controlled(&cancellation, |_, context| -> Result<()> {
+                let job = context
+                    .io_scope()
+                    .map(|scope| scope.admit(4096))
+                    .transpose()?;
+                let allocator = context.native_session().allocator();
+                let (entered, entry) = futures::channel::oneshot::channel();
+                let task = context.runtime().handle().spawn(async move {
+                    let completion = io_ownership::ReadCompletion {
+                        result: allocator.allocate(4096, Alignment::none()).unwrap(),
+                        _job: job,
+                    };
+                    entered.send(()).unwrap();
+                    futures::future::pending::<()>().await;
+                    drop(completion);
+                });
+                context.runtime().block_on(entry).unwrap();
+                assert!(memory.snapshot().reserved_bytes >= baseline + 4096);
+                if cancel {
+                    cancellation.cancel();
+                }
+                drop(task);
+                Err(resident_error("injected operation failure"))
+            })
+            .unwrap_err();
+        assert!(error.to_string().contains("injected operation failure"));
+        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert!(session.io_snapshot().is_none());
+        exact(
+            &source
+                .prepare_projection(&["renamed_exact_key"], 4096, 1 << 20)
+                .unwrap()
+                .execute()
+                .unwrap(),
+            &fixture,
+        );
+        drop(source);
+        drop(session);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn serving_retained_result_delivery_uses_cpu_admission_after_source_drop() {
     let fixture = Fixture::new();
     let session =

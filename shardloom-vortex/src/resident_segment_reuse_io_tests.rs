@@ -517,6 +517,8 @@ fn optional_cache_table_refusal_still_executes_on_the_same_prepared_source() {
     let resident = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let prepared = resident.prepare_file(fixture.path()).unwrap();
     let memory = resident.memory();
+    // Footer-only completion needs neither the optional cache nor a payload
+    // reader. Keep both behind actual segment demand, even with no spare credit.
     let held = memory
         .reserve(memory.snapshot().limit_bytes - memory.snapshot().reserved_bytes)
         .unwrap();

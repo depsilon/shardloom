@@ -55,6 +55,11 @@ contract defines the supported operations, types, and resource limits.
   and [complete triple-key count partitions](docs/architecture/q19-complete-key-partitions-2026-09-19.md).
   Near-unique integer pairs can use [exact partition sorting and reduction](docs/architecture/q33-exact-partition-reduction-2026-09-19.md)
   to avoid a nearly one-entry-per-row hash directory before evaluating retained measures.
+  Text grouping can retain input-backed dictionary strings and compact exact-count state;
+  serial and bounded worker routes share partial construction and ownership through reduction.
+  See the [source-backed dictionaries](docs/architecture/source-backed-dictionary-screen-2026-09-29.md),
+  [shared partials](docs/architecture/mixed-distinct-worker-screen-2026-09-29.md), and
+  [dense string-count state](docs/architecture/dense-string-count-screen-2026-09-30.md).
   The [performance plan](docs/architecture/phased-execution-plan.md) records both retained
   implementations and experiments that did not earn retention.
 - **Reusable structure stays with the data.** Prepared local OLAP workflows use a single `.vortex`
@@ -96,6 +101,10 @@ contract defines the supported operations, types, and resource limits.
   cancellation cleanup govern admitted native operations. An explicit resident serving policy
   bounds concurrent calls, CPU grants and positional I/O, with a reserved metadata lane when
   enabled. See the [serving contract and bounded load evidence](docs/architecture/concurrent-native-serving-2026-09-20.md).
+  Native file operations drain admitted I/O and reader ownership before completion; metadata-only
+  aggregates avoid payload and worker admission. Admitted transformed text grouping can overlap
+  bounded dictionary preparation with the shared native provider and ordered consumer. See the
+  [dictionary preparation and lifetime evidence](docs/architecture/dictionary-preparation-screen-2026-09-30.md).
   The non-null UTF8 COUNT worker path
   can transfer committed state into native temporary runs under memory pressure. Spill support
   remains operator-specific, and reservations do not cover every provider allocation or establish

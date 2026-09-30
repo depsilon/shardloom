@@ -77,7 +77,18 @@ after source verification; Q23 provider attribution remains open. R10
 [retains shared dense string-count pages](dense-string-count-screen-2026-09-30.md):
 Full43 Q34/Q35 improve 33.98%/32.39%, the total falls 3.26%, and all 258 complete
 comparisons pass. Its negative observations and bounded follow-up are retained.
-R2.b remains undecided. The
+R10 merged as PR #1487. R2.b's [bounded dictionary preparation](dictionary-preparation-screen-2026-09-30.md)
+passes final local acceptance after native I/O lifetime and metadata-admission
+corrections: Q29 improves 29.67% in Full43, the total falls 2.72% to 53.171336
+seconds, and all 258 complete comparisons pass. Q35's 13.75% slower best call
+remains recorded; a six-call reversed-order follow-up is still 4.36% slower by
+best and 0.70% by median. Ordinary and serving operations reuse one I/O/reader
+drain contract; metadata completion defers payload/worker admission. Original
+and interrupted cohorts remain separate. Independent artifact audit passes.
+All **29 experiments have decisions**. The
+[final profiling refresh](performance-profile-refresh-2026-09-30.md) records
+all 43 queries and separately dated ingest, storage, public-call and serving evidence.
+The final R2.b PR still requires normal exact-head CI and merge before main includes it. The
 [phased plan](phased-execution-plan.md#planned) owns execution order and progress;
 the labels below identify experiments, not new phases.
 
@@ -95,7 +106,11 @@ a query lane. These are hypotheses, not forecasts of seconds saved. Storage
 bytes, ingest time, query-suite time, composed workflows and concurrent throughput
 remain separate outcomes.
 
-## Evidence boundary
+## Historical intake evidence boundary
+
+The measurements below are the September 26 intake's starting evidence. Use the
+[September 30 refresh](performance-profile-refresh-2026-09-30.md) for current
+query timings and the dates/limits of the latest non-query records.
 
 The latest [composition acceptance](native-result-composition-2026-09-20.md)
 records 63.459160 s for Full43, with all 129 complete outputs checked; it is an

@@ -1,22 +1,27 @@
 //! A borrowed operation boundary; nested operators use this grant directly.
 
 use super::{
-    CallClass, RuntimeOwner, SourceIdentity, io_ownership::IoScope, resident_error,
+    CallClass, RuntimeOwner, SourceIdentity,
+    io_ownership::{IoBudget, IoScope},
+    resident_error,
     serving_admission::Permit,
 };
+use futures::FutureExt as _;
 use shardloom_core::Result;
 use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     borrow::Cow,
-    sync::{Arc, MutexGuard},
+    sync::{Arc, MutexGuard, OnceLock},
     time::{Duration, Instant},
 };
 use vortex::{
+    error::{SharedVortexResult, vortex_err},
     file::{
-        VortexFile,
+        SegmentSpec, VortexFile,
         segments::{FileSegmentSource, RequestMetrics},
     },
     io::runtime::BlockingRuntime as _,
+    layout::segments::{SegmentFuture, SegmentId, SegmentSource},
     session::VortexSession,
 };
 
@@ -41,7 +46,7 @@ pub struct NativeExecutionContext<'a> {
     owner: &'a RuntimeOwner,
     class: CallClass,
     cancellation: CancellationToken,
-    io: Option<Arc<IoScope>>,
+    io: OnceLock<Arc<IoScope>>,
     admitted: Instant,
     gate: Gate<'a>,
 }
@@ -77,7 +82,7 @@ impl RuntimeOwner {
             owner: self,
             class,
             cancellation,
-            io,
+            io: io.map_or_else(OnceLock::new, OnceLock::from),
             admitted,
             gate,
         })
@@ -155,11 +160,11 @@ impl NativeExecutionContext<'_> {
     }
 
     pub(super) fn io_scope(&self) -> Option<Arc<IoScope>> {
-        self.io.clone()
+        self.io.get().cloned()
     }
 
     pub(super) fn drain_io(&self) {
-        if let Some(scope) = &self.io {
+        if let Some(scope) = self.io.get() {
             scope.close_and_drain(&self.owner.runtime);
         }
     }
@@ -168,10 +173,29 @@ impl NativeExecutionContext<'_> {
         &self,
         file: &'a VortexFile,
         identity: Option<&Arc<SourceIdentity>>,
-    ) -> Cow<'a, VortexFile> {
-        let (Some(scope), Some(identity)) = (&self.io, identity) else {
-            return Cow::Borrowed(file);
+    ) -> Result<Cow<'a, VortexFile>> {
+        let Some(identity) = identity else {
+            return Ok(Cow::Borrowed(file));
         };
+        self.check_general_execution()?;
+        if self.io.get().is_none() {
+            // Ordinary calls need the same cancellation/drain boundary as
+            // serving calls. Allocate it only for file execution: metadata and
+            // retained in-memory results do not acquire an unused I/O owner.
+            // Their reader concurrency and live allocator remain the limits;
+            // this private budget adds lifetime tracking, not a serving policy.
+            let budget = self
+                .owner
+                .io_budget
+                .clone()
+                .unwrap_or_else(|| IoBudget::new(usize::MAX, u64::MAX));
+            let scope = IoScope::deferred(budget, &self.owner.memory, self.cancellation.clone())?;
+            let _ = self.io.set(scope);
+        }
+        let scope = self
+            .io
+            .get()
+            .ok_or_else(|| resident_error("native file execution has no I/O owner"))?;
         // Keep the held descriptor, parsed footer and user metadata. A fresh
         // provider reader tree gives this operation an exact I/O lifetime; it
         // does not reopen the file or cache an answer. Batch readers are unchanged.
@@ -181,18 +205,65 @@ impl NativeExecutionContext<'_> {
             handle: self.owner.runtime.handle(),
             concurrency: self.cpu_lanes(),
             scope: Some(Arc::clone(scope)),
+            _reader_owner: None,
         };
-        let metrics = RequestMetrics::new(
-            &vortex::metrics::DefaultMetricsRegistry::default(),
-            Vec::new(),
-        );
-        let source = FileSegmentSource::open(
-            Arc::clone(file.footer().segment_map()),
+        let source = DeferredFileSegments {
+            segments: Arc::clone(file.footer().segment_map()),
             reader,
-            self.owner.runtime.handle(),
-            metrics,
-        );
-        Cow::Owned(file.clone().with_segment_source(Arc::new(source)))
+            scope: Arc::clone(scope),
+            memory: self.owner.memory.clone(),
+            source: OnceLock::new(),
+            #[cfg(all(test, unix, feature = "vortex-write"))]
+            observation: super::read_observer::operation_observation(),
+        };
+        let source: Arc<dyn SegmentSource> = Arc::new(source);
+        #[cfg(all(test, unix, feature = "vortex-write"))]
+        let source = super::file_pruning_tests::observe_operation_segments(source);
+        Ok(Cow::Owned(file.clone().with_segment_source(source)))
+    }
+}
+
+/// Keep footer inspection and pruning ahead of reader admission. The first
+/// actual segment request admits the existing native provider exactly once;
+/// failures remain attached to this operation and never reopen/replay a source.
+struct DeferredFileSegments {
+    segments: Arc<[SegmentSpec]>,
+    reader: super::ResidentFileReadAt,
+    scope: Arc<IoScope>,
+    memory: shardloom_exec::live_memory::LiveMemoryPool,
+    source: OnceLock<SharedVortexResult<FileSegmentSource>>,
+    #[cfg(all(test, unix, feature = "vortex-write"))]
+    observation: Option<super::read_observer::OperationObservation>,
+}
+
+impl SegmentSource for DeferredFileSegments {
+    fn request(&self, id: SegmentId) -> SegmentFuture {
+        let source = self.source.get_or_init(|| {
+            let reader = super::ResidentFileReadAt {
+                _reader_owner: Some(
+                    self.scope
+                        .retain_reader(&self.memory)
+                        .map_err(|error| Arc::new(vortex_err!("{error}")))?,
+                ),
+                ..self.reader.clone()
+            };
+            #[cfg(all(test, unix, feature = "vortex-write"))]
+            let reader =
+                super::read_observer::observe_operation_reader(reader, self.observation.as_ref());
+            Ok(FileSegmentSource::open(
+                Arc::clone(&self.segments),
+                reader,
+                self.reader.handle.clone(),
+                RequestMetrics::new(
+                    &vortex::metrics::DefaultMetricsRegistry::default(),
+                    Vec::new(),
+                ),
+            ))
+        });
+        match source {
+            Ok(source) => source.request(id),
+            Err(error) => futures::future::ready(Err(error.into())).boxed(),
+        }
     }
 }
 

@@ -15,6 +15,11 @@ Supported routes use exact metadata, segment pruning, encoded reductions, weight
 aggregation, exact DISTINCT, and late payload gathering. Sparse dictionary selections decode only
 referenced values. Coverage depends on the operation, type, and physical layout.
 
+Admitted text grouping retains input-backed dictionary strings, uses compact exact-count state,
+and shares partial construction between serial and bounded workers. Transformed text grouping
+can overlap bounded dictionary preparation with native input progress and ordered consumption.
+See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
+
 Filters, projections, aggregates, sort/Top-K, and selected provider-backed join workflows are
 available. General joins, set operations, analytic windows, and subqueries still have native
 coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
@@ -61,6 +66,8 @@ streaming or every-operator/every-sink parity. See the
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
+Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
+aggregates avoid payload and worker admission, including when no spare payload credit is available.
 
 COUNT/DISTINCT and selected numeric sort spill have specific admission, recovery, cancellation,
 and cleanup contracts. Broad compound-key spill and spill-backed export remain incomplete. See

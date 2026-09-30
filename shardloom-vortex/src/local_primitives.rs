@@ -56,6 +56,17 @@ mod compound_count_workers;
 #[path = "local_primitives/dictionary_handoff.rs"]
 mod dictionary_handoff;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/dictionary_prepare_workers.rs"]
+mod dictionary_prepare_workers;
+#[cfg(all(
+    test,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    unix
+))]
+#[path = "local_primitives/dictionary_prepare_workers_tests.rs"]
+mod dictionary_prepare_workers_tests;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/encoded_numeric_reduction.rs"]
 mod encoded_numeric_reduction;
 #[cfg(feature = "vortex-local-primitives")]
@@ -20321,6 +20332,10 @@ fn read_lowered_vortex_simple_aggregate_scan(
         .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &declared_columns))
         .transpose()?;
 
+    // Metadata completion and whole-input pruning require no workers or native
+    // provider progress. Use the same decision for admission and the scan.
+    let input_scan_required =
+        !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none();
     // Select before input; an execution failure never triggers another route.
     let small_numeric_direct_selected = worker_memory.is_some()
         && request.predicate.is_none()
@@ -20340,6 +20355,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
     let worker_admission_selected = aggregate_count_workers::ADMISSION_TEST_WORKERS
         .with(std::cell::Cell::take)
         .unwrap_or(worker_admission_selected);
+    let worker_admission_selected = input_scan_required && worker_admission_selected;
     let mut count_workers = if worker_admission_selected
         && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
@@ -20355,12 +20371,35 @@ fn read_lowered_vortex_simple_aggregate_scan(
     } else {
         None
     };
+    if count_workers.is_none()
+        && worker_admission_selected
+        && residual_evaluator.is_none()
+        && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
+    {
+        count_workers = dictionary_prepare_workers::DictionaryPrepareWorkers::admit(
+            states,
+            file.dtype(),
+            &declared_columns,
+            policy,
+            memory,
+            cancellation,
+        )?
+        .map(aggregate_count_workers::CountWorkers::DictionaryPrepare);
+    }
     // The earlier shape/schema check chooses CPU ownership, but actual worker
     // admission can still decline under memory pressure. Restore progress on
     // this SAME runtime before scanning; no input has been processed or replayed.
     // `worker_memory` is supplied only by a caller-only aggregate session.
     let (mut provider_drivers, mut provider_background_workers) =
-        if worker_memory.is_some() && count_workers.is_none() && metadata_completion.is_none() {
+        if let Some(provider_parallelism) = count_workers
+            .as_ref()
+            .and_then(aggregate_count_workers::CountWorkers::provider_overlap_parallelism)
+        {
+            // The dictionary family explicitly grants one provider lane in a
+            // total budget of three (caller + dictionary + native progress).
+            let (drivers, count) = runtime.provider_drivers(provider_parallelism)?;
+            (Some(drivers), count)
+        } else if worker_memory.is_some() && count_workers.is_none() && input_scan_required {
             let (drivers, count) =
                 runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
             (Some(drivers), count)
@@ -20434,7 +20473,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             provider_background_workers = count;
         }
     }
-    if !embedded_layout.metadata_pruned_entire_input && metadata_completion.is_none() {
+    if input_scan_required {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
         let mut scan = file.scan(session).map_err(vortex_error)?;
@@ -21252,9 +21291,19 @@ fn read_lowered_vortex_simple_aggregate_scan(
             summary["aggregate_worker_selection_max_rows"] =
                 aggregate_count_workers::SMALL_NUMERIC_DIRECT_MAX_ROWS.into();
         }
-        summary["aggregate_provider_cpu_scope"] = if provider_resume_after_pair_retirement
+        summary["aggregate_provider_cpu_scope"] = if let Some(aggregate_count_workers::CountWorkers::DictionaryPrepare(workers)) = count_workers.as_ref()
+            && workers.provider_parallelism().is_some() {
+            if workers.retired() {
+                "same_prepared_source;dictionary_worker_joined_before_serial_consumer;existing_provider_driver_retained;shared_three_lane_CPU_grant;no_source_reopen_or_replay"
+            } else {
+                "same_prepared_source;one_caller_one_dictionary_worker_one_provider_driver;shared_three_lane_CPU_grant;no_source_reopen_or_replay"
+            }
+        } else if provider_resume_after_pair_retirement
             && matches!(count_workers, Some(aggregate_count_workers::CountWorkers::MixedDistinct(_))) {
             "same_prepared_source;mixed_distinct_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
+        } else if provider_resume_after_pair_retirement
+            && matches!(count_workers, Some(aggregate_count_workers::CountWorkers::DictionaryPrepare(_))) {
+            "same_prepared_source;dictionary_preparation_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         } else if provider_resume_after_pair_retirement {
             "same_prepared_source;numeric_pair_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
         } else if small_numeric_direct_selected && !worker_admission_selected {
@@ -42232,11 +42281,7 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
     array: &vortex::array::ArrayRef,
     work: &mut native_numeric_accessor::Utf8AccessorWork,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
-    use vortex::array::VortexSessionExecute as _;
-    use vortex::array::arrays::VarBinViewArray;
-    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::dtype::DType;
-    use vortex::array::validity::Validity;
 
     if !matches!(array.dtype(), DType::Utf8(_)) {
         return Ok(None);
@@ -42246,6 +42291,25 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
     } else {
         AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary
     };
+    let utf8 = aggregate_canonical_utf8_chunk(array, work)?;
+    aggregate_utf8_accessor_from_canonical(
+        column,
+        &utf8,
+        source,
+        work,
+        utf8_chunk_dictionary::Utf8ChunkDictionary::default(),
+        &|| Ok(()),
+    )
+    .map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_canonical_utf8_chunk(
+    array: &vortex::array::ArrayRef,
+    work: &mut native_numeric_accessor::Utf8AccessorWork,
+) -> Result<vortex::array::arrays::VarBinViewArray> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::VarBinViewArray;
     let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let started = Instant::now();
     let utf8 = array
@@ -42253,15 +42317,34 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
         .execute::<VarBinViewArray>(&mut ctx)
         .map_err(vortex_error)?;
     work.provider_nanos += started.elapsed().as_nanos();
+    Ok(utf8)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_utf8_accessor_from_canonical(
+    column: &str,
+    utf8: &vortex::array::arrays::VarBinViewArray,
+    source: AggregateUtf8DictionarySource,
+    work: &mut native_numeric_accessor::Utf8AccessorWork,
+    mut dictionary: utf8_chunk_dictionary::Utf8ChunkDictionary,
+    check: &impl Fn() -> Result<()>,
+) -> Result<AggregateDirectColumnAccessor> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
+    use vortex::array::validity::Validity;
+
+    check()?;
     let started = Instant::now();
     let validity = utf8.varbinview_validity();
     let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
-    let mut row_nulls = Vec::<bool>::new();
+    let mut row_nulls = utf8_chunk_dictionary::exact_row_vec::<bool>(utf8.len())?;
     let mut has_null_row = false;
 
-    let mut dictionary = utf8_chunk_dictionary::Utf8ChunkDictionary::default();
-    let mut row_ids = Vec::with_capacity(utf8.len());
+    let mut row_ids = utf8_chunk_dictionary::exact_row_vec::<u32>(utf8.len())?;
     for row_index in 0..utf8.len() {
+        if row_index.is_multiple_of(4096) {
+            check()?;
+        }
         let row_is_null = match &validity {
             Validity::NonNullable | Validity::AllValid => false,
             Validity::AllInvalid => true,
@@ -42275,9 +42358,10 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
             row_ids.push(0);
             continue;
         }
-        let id = dictionary.intern_source(column, &utf8, row_index)?;
+        let id = dictionary.intern_source(column, utf8, row_index)?;
         row_ids.push(id);
     }
+    check()?;
     let (values, copied_bytes, source_backed_bytes) = dictionary.into_values();
     work.copied_bytes += copied_bytes;
     work.source_backed_bytes += source_backed_bytes;
@@ -42285,13 +42369,13 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
     work.rows += utf8.len() as u64;
     work.entries += values.len() as u64;
     work.dictionary_nanos += started.elapsed().as_nanos();
-    Ok(Some(AggregateDirectColumnAccessor::Utf8Dictionary {
+    Ok(AggregateDirectColumnAccessor::Utf8Dictionary {
         row_ids,
         values,
         value_nulls: None,
         row_nulls: has_null_row.then_some(row_nulls),
         source,
-    }))
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]

@@ -242,31 +242,34 @@ impl SegmentSource for ObservedSegments {
     }
 }
 
-fn observed_source(
-    source: &PreparedVortexSource,
-) -> (PreparedVortexSource, Arc<AtomicUsize>, Arc<AtomicUsize>) {
-    let requested = Arc::new(AtomicUsize::new(0));
-    let completed = Arc::new(AtomicUsize::new(0));
-    // Retain the public prepare_file identity and session; decorate only its
-    // existing segment source. This adds no file open or alternate executor.
-    let file = source
-        .0
-        .file
-        .clone()
-        .with_segment_source(Arc::new(ObservedSegments {
-            inner: source.0.file.segment_source(),
-            requested: Arc::clone(&requested),
-            completed: Arc::clone(&completed),
-        }));
-    (
-        PreparedVortexSource(Arc::new(PreparedSourceOwner {
-            file,
-            identity: source.0.identity.clone(),
-            runtime: Arc::clone(&source.0.runtime),
-        })),
-        requested,
-        completed,
-    )
+#[derive(Clone, Default)]
+struct SegmentCounts {
+    requested: Arc<AtomicUsize>,
+    completed: Arc<AtomicUsize>,
+}
+
+thread_local! {
+    static SEGMENT_COUNTS: std::cell::RefCell<Option<SegmentCounts>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+
+struct ObserveSegments;
+impl Drop for ObserveSegments {
+    fn drop(&mut self) {
+        SEGMENT_COUNTS.with(|counts| drop(counts.borrow_mut().take()));
+    }
+}
+
+pub(super) fn observe_operation_segments(inner: Arc<dyn SegmentSource>) -> Arc<dyn SegmentSource> {
+    SEGMENT_COUNTS.with(|counts| match counts.borrow().as_ref() {
+        None => inner,
+        Some(counts) => Arc::new(ObservedSegments {
+            inner,
+            requested: Arc::clone(&counts.requested),
+            completed: Arc::clone(&counts.completed),
+        }),
+    })
 }
 
 fn check_predicate(
@@ -274,7 +277,19 @@ fn check_predicate(
     fixture: &Fixture,
     predicate: Predicate,
 ) -> (bool, usize) {
-    let (source, requested, completed) = observed_source(source);
+    // Decorate the actual per-operation segment source after its scoped reader
+    // is installed; the prepared footer/source template is no longer executed.
+    let SegmentCounts {
+        requested,
+        completed,
+    } = SegmentCounts::default();
+    SEGMENT_COUNTS.with(|counts| {
+        *counts.borrow_mut() = Some(SegmentCounts {
+            requested: Arc::clone(&requested),
+            completed: Arc::clone(&completed),
+        });
+    });
+    let _observe = ObserveSegments;
     let expression = predicate.expression();
     let can_prune = source
         .with_native_execution(|file, _, _| file.can_prune(&expression).map_err(native_error))

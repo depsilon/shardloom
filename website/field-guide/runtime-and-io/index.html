@@ -77,6 +77,10 @@ writers around that middle; they do not select a different query engine.</p>
 <p>Supported routes use exact metadata, segment pruning, encoded reductions, weighted dictionary
 aggregation, exact DISTINCT, and late payload gathering. Sparse dictionary selections decode only
 referenced values. Coverage depends on the operation, type, and physical layout.</p>
+<p>Admitted text grouping retains input-backed dictionary strings, uses compact exact-count state,
+and shares partial construction between serial and bounded workers. Transformed text grouping
+can overlap bounded dictionary preparation with native input progress and ordered consumption.
+See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md">implementation and measured tradeoffs</a>.</p>
 <p>Filters, projections, aggregates, sort/Top-K, and selected provider-backed join workflows are
 available. General joins, set operations, analytic windows, and subqueries still have native
 coverage gaps. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md">front-door contract</a>
@@ -154,7 +158,9 @@ streaming or every-operator/every-sink parity. See the
 <div class="sl-heading-wrapper level-h2"><h2 id="resources-and-recovery">Resources And Recovery</h2><a class="sl-anchor-link" href="#resources-and-recovery"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Resources And Recovery”</span></a></div>
 <p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
-explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.</p>
+explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
+Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
+aggregates avoid payload and worker admission, including when no spare payload credit is available.</p>
 <p>COUNT/DISTINCT and selected numeric sort spill have specific admission, recovery, cancellation,
 and cleanup contracts. Broad compound-key spill and spill-backed export remain incomplete. See
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md">COUNT/DISTINCT contracts</a>,
