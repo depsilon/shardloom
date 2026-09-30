@@ -17,6 +17,23 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-INTAKE` R4 / R6.c: close the next two bounded candidates.
+  - Date: 2026-09-30 UTC. R4's complete triple-key partition sort/reduce passes
+    all six exact Q19 comparisons and 18 focused tests, but every candidate call
+    is slower: best 4.122425 to 4.403890 seconds (+6.83%). Observed RSS falls
+    14–17%; modeled peak reservations increase. The memory gate also requires
+    no time regression. Restore the original hash runtime; preserve the complete
+    prototype patch, samples, source identities and independently audited
+    portable evidence. See [R4](triple-sort-screen-2026-09-30.md).
+  - R6.c's progressive filtering and selectivity ordering already exist in the
+    pinned Vortex provider. Drop a duplicate scanner implementation. The saved
+    Q23 provider span remains 4.09–4.22 seconds with its exclusive costs unresolved;
+    no repeated-decompression or new speedup claim is made. See
+    [R6.c](progressive-provider-selection-audit-2026-09-30.md).
+  - No runtime change survives either decision. R10 and R2.b remain Planned,
+    followed by the profiling refresh. PERF and CG-1 through CG-23 retain their
+    independent gates and V1 candidate scope.
+
 - [x] `PERF-INTAKE` R3.b: retain shared mixed-measure exact DISTINCT workers.
   - Date: 2026-09-29 local; evidence September 30 UTC. Runtime
     `dff85c33763ac773c51ca1dd5e61a675cef6e20f` shares one chunk builder/consuming
@@ -41,9 +58,12 @@ phase plan first.
     Reservations exclude upstream source/provider and global aggregate allocations;
     no process RSS bound or production fairness claim is made.
   - V1 scope classification: `v1_candidate_pending_feasibility` under existing
-    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 remain independently gated. R4,
-    R6.c, R10 and R2.b remain in Planned. The previous R3.a PR #1485 is merged;
-    this result closes through its own cohesive PR before the next implementation.
+    PERF-INTAKE/PERF-02/03. CG-1 through CG-23 remain independently gated.
+    PR #1486 merged at `4ae717a7d67d1d8ffe7aa384c5c96bc48413be44` after all
+    40 checks and independent audit of 264 final complete comparisons passed.
+    Cleanup retired three superseded binaries (191,832,064 allocated bytes)
+    after identity/evidence/active-consumer checks. Evidence, inputs, the current
+    dff85c33 control and released 0.3.2 executable remain available.
 
 - [x] `PERF-INTAKE` R3.a: retain winner-only integer exact DISTINCT.
   - Date: 2026-09-29 local; final evidence September 30 UTC. Runtime

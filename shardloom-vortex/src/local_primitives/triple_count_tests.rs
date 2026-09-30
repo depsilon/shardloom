@@ -1,8 +1,5 @@
 //! Complete triple keys must survive chunk boundaries and worker failures.
 
-#[path = "triple_sort_native_tests.rs"]
-mod native_sorted;
-
 use super::{
     GroupedAggregateStates, VortexLocalPrimitiveExecutionPolicy,
     aggregate_count_workers::CountWorkers, shardloom_extract_minute_derived_column,
@@ -223,45 +220,14 @@ fn worker_values(
     workers.annotate_summary(&mut summary).unwrap();
     let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
     let result = summary["values"].clone();
-    if request
-        .offset
-        .checked_add(limit)
-        .is_some_and(|cap| cap <= 128)
-    {
-        assert!(matches!(
-            &workers,
-            CountWorkers::Triple(super::triple_count_workers::TripleWorkers::Sorted(_))
-        ));
-        assert_eq!(
-            summary["aggregate_workers_family"],
-            "complete_numeric_minute_string_partition_sort_reduce"
-        );
-        assert_eq!(
-            summary["aggregate_workers_triple_source_chunks"],
-            chunks.len()
-        );
-        assert_eq!(
-            summary["aggregate_workers_triple_submitted_partition_tasks"],
-            64
-        );
-        assert_eq!(
-            summary["aggregate_workers_triple_joined_partition_tasks"],
-            64
-        );
-    } else {
-        assert!(matches!(
-            &workers,
-            CountWorkers::Triple(super::triple_count_workers::TripleWorkers::Hash(_))
-        ));
-        assert_eq!(
-            summary["aggregate_workers_family"],
-            "complete_numeric_minute_string_partitions"
-        );
-        assert_eq!(
-            summary["aggregate_workers_submitted_chunks"],
-            summary["aggregate_workers_joined_chunks"]
-        );
-    }
+    assert_eq!(
+        summary["aggregate_workers_family"],
+        "complete_numeric_minute_string_partitions"
+    );
+    assert_eq!(
+        summary["aggregate_workers_submitted_chunks"],
+        summary["aggregate_workers_joined_chunks"]
+    );
     assert_eq!(
         summary["aggregate_workers_triple_rows"],
         chunks.iter().map(|chunk| chunk.len() as u64).sum::<u64>()

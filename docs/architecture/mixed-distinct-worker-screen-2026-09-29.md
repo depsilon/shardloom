@@ -1,6 +1,15 @@
 # Mixed-measure exact DISTINCT workers — R3.b
 
-Status: **retain; reviewed runtime accepted, PR #1486 integration pending**.
+Status: **retained and merged in PR #1486** at
+`4ae717a7d67d1d8ffe7aa384c5c96bc48413be44`, after all 40 final-head checks passed.
+The independent follow-up audit verified all 264 outputs, 1,056 archive members,
+44 query metric rows, 11 frozen-source entries and 12 portable text hashes.
+
+After merge, three superseded frozen executables were retired with SHA-256,
+file-generation, no-open-process and retained-evidence checks. This removed
+191,832,064 allocated bytes. Receipts, all archived outputs, both portable bundles,
+the final reviewed executable, release control and inputs remain. The local
+receipt is `performance-candidates-20260926/r3b-superseded-binary-cleanup.json`.
 
 The control is retained R3.a runtime
 `22f7acd22e8c06c651f835bb817e25edcad5d5f5`, frozen separately from the build

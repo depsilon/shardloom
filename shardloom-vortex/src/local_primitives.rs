@@ -130,9 +130,6 @@ mod triple_count_tests;
 #[path = "local_primitives/triple_count_workers.rs"]
 mod triple_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
-#[path = "local_primitives/triple_sort_workers.rs"]
-mod triple_sort_workers;
-#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/winner_distinct.rs"]
 mod winner_distinct;
 #[cfg(feature = "vortex-local-primitives")]
@@ -20344,14 +20341,13 @@ fn read_lowered_vortex_simple_aggregate_scan(
         && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
     {
-        aggregate_count_workers::CountWorkers::admit_with_cancellation(
+        aggregate_count_workers::CountWorkers::admit(
             states,
             file.dtype(),
             &declared_columns,
             policy,
             session,
             memory,
-            cancellation,
         )?
     } else {
         None

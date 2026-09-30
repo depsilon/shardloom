@@ -66,7 +66,6 @@ pub(super) enum CountWorkers {
 }
 
 impl CountWorkers {
-    #[cfg(test)]
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
@@ -74,17 +73,6 @@ impl CountWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         session: &VortexSession,
         memory: &LiveMemoryPool,
-    ) -> Result<Option<Self>> {
-        Self::admit_with_cancellation(states, dtype, columns, policy, session, memory, None)
-    }
-    pub(super) fn admit_with_cancellation(
-        states: &GroupedAggregateStates<'_>,
-        dtype: &DType,
-        columns: &[String],
-        policy: VortexLocalPrimitiveExecutionPolicy,
-        session: &VortexSession,
-        memory: &LiveMemoryPool,
-        cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
     ) -> Result<Option<Self>> {
         #[cfg(test)]
         let _admission_pressure = ADMISSION_TEST_PRESSURE
@@ -101,12 +89,7 @@ impl CountWorkers {
             return Ok(Some(Self::PairPartitions(workers)));
         }
         if let Some(workers) = super::triple_count_workers::TripleWorkers::admit(
-            states,
-            dtype,
-            columns,
-            policy,
-            memory,
-            cancellation,
+            states, dtype, columns, policy, memory,
         )? {
             return Ok(Some(Self::Triple(workers)));
         }
