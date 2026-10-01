@@ -1601,8 +1601,8 @@ mod tests {
         let provider = VortexTopLevelExecutionProvider::default();
         let result = execute_with_provider(&plan, &provider).expect("execution result");
         assert_eq!(result.status, ShardLoomExecutionStatus::Executed);
-        assert!(!result.execution_certificate_refs.is_empty());
-        assert!(!result.native_io_certificate_refs.is_empty());
+        assert_ne!(result.execution_certificate_refs, [] as [String; 0]);
+        assert_ne!(result.native_io_certificate_refs, [] as [String; 0]);
         assert_eq!(
             result.provider_version.as_deref(),
             Some(env!("CARGO_PKG_VERSION"))

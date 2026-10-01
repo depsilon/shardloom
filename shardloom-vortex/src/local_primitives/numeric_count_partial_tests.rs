@@ -225,7 +225,7 @@ fn constant_counts_preserve_weight_without_expanding_rows() {
     drop(constant);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     let empty = count_numeric_constant(i64::MIN, 0, &context, &mut lease).unwrap();
-    assert!(empty.pairs().is_empty());
+    assert_eq!(empty.pairs(), [] as [(i64, u64); 0]);
     assert_eq!(empty.rows(), 0);
     assert_eq!(empty.reserved_bytes(), 0);
 }

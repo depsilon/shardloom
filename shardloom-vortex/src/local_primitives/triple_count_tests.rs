@@ -67,7 +67,7 @@ fn triple_lowering_preserves_nonnullable_raw_minutes_when_prepared_dtype_is_null
     .unwrap()
     .into_array();
     let lowering = AggregateLowering::new(&query, chunk.dtype()).unwrap();
-    assert!(lowering.rewrite.rewritten_columns.is_empty());
+    assert_eq!(lowering.rewrite.rewritten_columns, [] as [String; 0]);
     assert_eq!(
         lowering.rewrite.aggregate.group_expressions[0].function,
         "extract_minute"

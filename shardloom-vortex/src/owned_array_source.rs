@@ -109,7 +109,7 @@ impl OwnedArraySource {
         composition.storage.max_metadata_bytes = bounds.max_metadata_bytes;
         let array = composition_array(&result, composition, context)?;
         let id = NEXT_SOURCE
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
             .map_err(|_| failed("source identity exhausted"))?;
         let uri = DatasetUri::new(format!(
             "memory://shardloom/{}/owned-array/{id}.vortex",

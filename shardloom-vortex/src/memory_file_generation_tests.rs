@@ -810,7 +810,10 @@ fn generation_geometry_rejection_precedes_serialization_and_zero_rows_need_no_se
     let generation = empty
         .file_generation(MemoryFileGenerationBounds::default())
         .unwrap();
-    assert!(generation.segment_evidence().is_empty());
+    assert_eq!(
+        generation.segment_evidence(),
+        [] as [crate::memory_file_generation::MemoryFileSegmentEvidence; 0]
+    );
     assert_eq!(generation.evidence().array_serializer_calls, 0);
     assert_eq!(generation.evidence().row_groups, 0);
 }

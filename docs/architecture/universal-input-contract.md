@@ -6,6 +6,25 @@
 not by compiling every reader by default. Active implementation status for input work lives in
 `docs/architecture/phased-execution-plan.md`; this document is the supporting contract reference.
 
+## One Native Workflow
+
+The product contract is one pipeline:
+`input adapter -> Vortex-native representation -> ShardLoom execution -> output adapter`.
+SQL, Python, DataFrame-style calls and the CLI describe work for that same engine.
+Formats differ at admission and translation boundaries. Source preparation, native
+input and prepared-state reuse describe data lifecycle, not user-selectable compute
+engines. Metadata-first planning, pruning, encoded work, resource control and late
+materialization apply inside the shared pipeline wherever their semantics permit.
+
+Universal coverage is the direction of adapter and runtime completion; it is not a
+claim that every schema, operator, connector or volume works today. The
+[breadth and scale plan](universal-workflow-completion-2026-10-01.md) defines complete
+read/transform/write acceptance under the existing PERF and CG owners. ClickBench
+is one validation workload rather than the boundary of product scope. The historical
+bridge and smoke descriptions below record specific implementation surfaces; current
+public support is owned by the [front-door contract](v1-front-door-runtime-scope.md)
+and active phase plan.
+
 ## Core Principles
 
 - `Vortex` is native input.

@@ -3697,10 +3697,9 @@ mod tests {
     #[test]
     fn parse_sizing_feedback_signals_rejects_unknown_and_allows_empty() {
         assert!(engine_runtime_planning::parse_sizing_feedback_signals("unknown").is_err());
-        assert!(
-            engine_runtime_planning::parse_sizing_feedback_signals(" ")
-                .unwrap()
-                .is_empty()
+        assert_eq!(
+            engine_runtime_planning::parse_sizing_feedback_signals(" ").unwrap(),
+            [] as [shardloom_exec::SizingFeedbackSignal; 0]
         );
     }
     #[test]
@@ -4485,7 +4484,10 @@ mod tests {
     #[test]
     fn parse_staged_marker_options_whitespace_only_means_no_overwrite() {
         let options = parse_vortex_staged_marker_options("   ").unwrap();
-        assert!(options.is_empty());
+        assert_eq!(
+            options,
+            [] as [shardloom_vortex::VortexStagedMarkerOption; 0]
+        );
     }
 
     #[test]

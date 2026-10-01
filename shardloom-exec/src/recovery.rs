@@ -5212,7 +5212,10 @@ mod tests {
     #[test]
     fn retry_execution_gate_request_builders() {
         let request = ShardLoomRetryExecutionGateRequest::new();
-        assert!(request.signals.is_empty());
+        assert_eq!(
+            request.signals,
+            [] as [crate::recovery::ShardLoomRetryExecutionGateSignal; 0]
+        );
         let request = request.retry_requested(true).cleanup_completed(true);
         assert!(request.has_signal(ShardLoomRetryExecutionGateSignal::RetryRequested));
         assert!(request.has_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted));
@@ -5567,7 +5570,10 @@ mod cancellation_execution_gate_tests {
     #[test]
     fn cancellation_execution_gate_request_builders_work() {
         let request = ShardLoomCancellationExecutionGateRequest::new();
-        assert!(request.signals.is_empty());
+        assert_eq!(
+            request.signals,
+            [] as [crate::recovery::ShardLoomCancellationExecutionGateSignal; 0]
+        );
         let request = request.cancellation_requested(true).cleanup_completed(true);
         assert!(
             request.has_signal(ShardLoomCancellationExecutionGateSignal::CancellationRequested)

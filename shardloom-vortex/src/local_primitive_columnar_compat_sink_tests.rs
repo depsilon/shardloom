@@ -322,7 +322,7 @@ fn columnar_compatibility_empty_and_metadata_pruned_outputs_preserve_schema() {
             let result = prepared.write(&output, false).unwrap();
             let (schema, values) = read(&output, format);
             assert_eq!(schema, prepared.schema);
-            assert!(values.is_empty());
+            assert_eq!(values, [] as [serde_json::Value; 0]);
             assert_eq!(result.report.rows_written, 0);
             assert_eq!(result.work.arrow_batches, 0);
             assert!(!result.report.evidence.side_effects.arrow_converted);
@@ -365,7 +365,7 @@ fn columnar_compatibility_zero_match_scan_is_not_reported_as_zero_read_or_decode
         let result = prepared.write(&output, false).unwrap();
         let (schema, actual) = read(&output, format);
         assert_eq!(schema, prepared.schema);
-        assert!(actual.is_empty());
+        assert_eq!(actual, [] as [serde_json::Value; 0]);
         assert_eq!(result.report.rows_written, 0);
         assert_eq!(result.report.arrays_read_count, 0);
         assert_eq!(result.work.native_batches, 0);

@@ -255,7 +255,10 @@ fn assert_metadata(report: &VortexLocalPrimitiveExecutionReport, rows: usize, me
     assert!(!report.upstream_filter_expression_used && !report.upstream_projection_expression_used);
     assert_eq!(report.arrays_read_count, 0);
     assert_eq!(report.max_chunk_rows, 0);
-    assert!(report.reader_splits.is_empty());
+    assert_eq!(
+        report.reader_splits,
+        [] as [crate::source_backed_encoded_execution::VortexReaderBackedSplitEvidence; 0]
+    );
     assert_eq!(report.rows_scanned, u64::try_from(rows).unwrap());
     let work = payload(report);
     let proof = &work["metadata_aggregate"];
@@ -519,7 +522,7 @@ fn footer_aggregate_native_aliases_having_and_text_exports_share_scalar_contract
             match format {
                 runtime::VortexLocalPrimitiveRowExportFormat::Jsonl => {
                     if reject {
-                        assert!(text.is_empty());
+                        assert_eq!(text, "");
                     } else {
                         assert_eq!(
                             serde_json::from_str::<Value>(text.trim()).unwrap(),

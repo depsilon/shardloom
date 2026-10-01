@@ -1384,6 +1384,6 @@ mod tests {
         assert!(!report.data_written());
         assert!(!report.upstream_scan_called());
         assert!(!report.fallback_execution_allowed());
-        assert!(!report.diagnostics.is_empty());
+        assert_ne!(report.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
     }
 }

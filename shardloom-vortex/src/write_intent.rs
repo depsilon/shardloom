@@ -489,7 +489,10 @@ mod tests {
         r.add_signal(VortexWriteIntentSignal::SchemaKnown, true);
         assert_eq!(r.signals.len(), 1);
         r.add_signal(VortexWriteIntentSignal::SchemaKnown, false);
-        assert!(r.signals.is_empty());
+        assert_eq!(
+            r.signals,
+            [] as [crate::write_intent::VortexWriteIntentSignal; 0]
+        );
     }
     fn base() -> VortexWriteIntentRequest {
         VortexWriteIntentRequest::new(DatasetUri::new("file://tmp/out.vortex").unwrap())

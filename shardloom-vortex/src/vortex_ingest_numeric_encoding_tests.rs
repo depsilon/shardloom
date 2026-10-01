@@ -253,7 +253,7 @@ fn pinned_dictionary_probe_discards_a_non_dict_result_but_storage_adapter_retain
     let session = VortexSession::default().with_handle(runtime.handle());
     let probe_encodings =
         vortex::array::legacy_session().enabled_component_ids(ComponentKind::Array);
-    assert!(probe_encodings.is_empty());
+    assert_eq!(probe_encodings, [] as [vortex::session::registry::Id; 0]);
     assert!(
         session
             .enabled_component_ids(ComponentKind::Array)

@@ -1286,7 +1286,7 @@ mod tests {
         assert_eq!(result.status, ShardLoomExecutionStatus::ReportOnly);
         assert!(!result.fallback_attempted());
         assert!(!result.external_engine_invoked);
-        assert!(result.result_refs.is_empty());
+        assert_eq!(result.result_refs, [] as [String; 0]);
     }
 
     #[test]

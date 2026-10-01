@@ -352,7 +352,10 @@ mod tests {
             PhysicalOperatorReadinessStatus::MissingKernel
         );
         assert!(!contract.can_plan_native());
-        assert!(!contract.diagnostics.is_empty());
+        assert_ne!(
+            contract.diagnostics,
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
         assert!(!contract.fallback_execution_allowed());
     }
 

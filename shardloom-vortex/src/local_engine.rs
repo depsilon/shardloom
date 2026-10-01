@@ -1678,7 +1678,7 @@ mod tests {
             Some(&local_primitive),
         );
 
-        assert!(diagnostics.is_empty());
+        assert_eq!(diagnostics, [] as [shardloom_core::Diagnostic; 0]);
     }
 
     #[test]

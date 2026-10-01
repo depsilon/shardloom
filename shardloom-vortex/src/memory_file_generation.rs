@@ -173,7 +173,7 @@ static NEXT_MEMORY_GENERATION: AtomicU64 = AtomicU64::new(0);
 /// Checked monotonic allocation prevents identity reuse if the counter exhausts.
 fn new_memory_generation_uri() -> Result<shardloom_core::DatasetUri> {
     let id = NEXT_MEMORY_GENERATION
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+        .try_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
         .map_err(|_| generation_error("memory generation identity exhausted"))?;
     shardloom_core::DatasetUri::new(format!(
         "memory://shardloom/{}/{id}.vortex",

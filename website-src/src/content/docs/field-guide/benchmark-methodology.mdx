@@ -5,7 +5,9 @@ sidebar: {"label":"Benchmarks","order":3}
 ---
 
 
-Use ClickBench for public cross-engine OLAP comparisons. This guide explains ShardLoom's
+ClickBench is one workload used to test and compare ShardLoom; its schema and query set do
+not define the engine's intended breadth. Use it for public cross-engine OLAP comparisons.
+This guide explains ShardLoom's
 engineering evidence and measurement boundaries; it does not present a public ranking.
 
 **[Open ClickBench ↗](https://benchmark.clickhouse.com/)**
@@ -28,7 +30,7 @@ or production readiness. Earlier receipts remain historical evidence for their n
 | Measurement | Read it as |
 | --- | --- |
 | Cold preparation | Source read and parse, Vortex construction, persistence, and the checks included by that runner. Keep this separate from warm queries. |
-| Prepared/native query | Execution against an existing Vortex artifact. State whether setup, process startup, output, and verification are timed. |
+| Query over existing Vortex data | Execution against a native or previously prepared artifact. State whether setup, process startup, output, and verification are timed. |
 | Fresh-process complete query | A complete invocation and result, with startup and output costs. OS cache can still be warm. |
 | Resident call | A retained local worker or session; state which source handles and lowering are reused. Every query still executes. |
 | Replay/publication proof | Additional validation and evidence work, where the runner includes it. Do not silently fold it into or remove it from runtime. |

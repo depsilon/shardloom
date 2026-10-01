@@ -1474,7 +1474,7 @@ mod tests {
             VortexSpecializedKernelAdmissionStatus::BlockedUnsupportedRoute
         );
         assert_eq!(admission.selected_kernel_id, None);
-        assert!(!admission.diagnostics.is_empty());
+        assert_ne!(admission.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
         assert!(
             admission
                 .diagnostics

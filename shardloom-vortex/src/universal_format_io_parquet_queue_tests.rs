@@ -267,7 +267,7 @@ fn empty_tasks_finish_without_workers_and_worker_panic_fails_closed() {
         |_, _| panic!("empty source must not execute a task"),
     )
     .unwrap();
-    assert!(collect_ids(empty).unwrap().is_empty());
+    assert_eq!(collect_ids(empty).unwrap(), [] as [i64; 0]);
 
     let mut reader = ParquetRowGroupParallelRecordBatchReader::with_task_runner(
         schema(),

@@ -1625,7 +1625,7 @@ mod tests {
             .with_policy_field("fallback_execution_allowed", "false")
             .with_legacy_field("fallback_execution_allowed", "false");
 
-        assert!(envelope.result.fields.is_empty());
+        assert_eq!(envelope.result.fields, [] as [(String, String); 0]);
         assert_eq!(
             envelope.policy.fields,
             vec![(

@@ -1,12 +1,16 @@
 ---
 title: "Field Guide"
-description: "Install ShardLoom, run local queries, and understand Vortex-native execution."
+description: "Read, transform, and write data through one Vortex-native pipeline."
 sidebar: {"label":"Field Guide","order":0}
 ---
 
 
-A practical guide to local, Vortex-native compute. Start with a query, then follow the
-parts of the engine that matter to your workload.
+Read data, transform or query it, and deliver the result through one Vortex-native pipeline.
+Input and output adapters connect formats to the same engine. Python, SQL, DataFrame-style calls,
+and the CLI provide familiar ways to describe the work.
+
+ShardLoom is being built for general-purpose data processing. The technical preview supports
+specific local workflows today; the guide makes that coverage and the remaining work visible.
 
 ## Get started
 
@@ -15,14 +19,14 @@ parts of the engine that matter to your workload.
 
 ## Understand the engine
 
-- [Execution model](/field-guide/execution-model) — encoded work, native Vortex, and the no-fallback contract.
-- [Execution routes](/field-guide/execution-routes) — source admission, preparation, and reuse.
+- [Execution model](/field-guide/execution-model) — one native pipeline and automatic work avoidance.
+- [Data lifecycle](/field-guide/execution-routes) — source admission, preparation, reuse, and output.
 - [Runtime and I/O](/field-guide/runtime-and-io) — operators, formats, result limits, and resource boundaries.
 
 ## Read the evidence
 
-- [Benchmarks](/field-guide/benchmark-methodology) — what a timing includes and how to compare it.
-- [Support and limitations](/field-guide/limitations) — what executes today and where coverage is partial.
+- [Benchmarks](/field-guide/benchmark-methodology) — ClickBench and broader workflow evidence.
+- [Support and limitations](/field-guide/limitations) — what executes today and the breadth and scale still to complete.
 
 For the architecture diagram, open the [compute flow](/field-guide/compute-flow).
 The [repository](https://github.com/depsilon/shardloom) holds detailed API references and implementation evidence.

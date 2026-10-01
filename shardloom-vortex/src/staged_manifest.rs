@@ -709,7 +709,10 @@ mod tests {
         r.add_signal(VortexStagedManifestDraftSignal::SchemaKnown, true);
         assert_eq!(r.signals.len(), 1);
         r.add_signal(VortexStagedManifestDraftSignal::SchemaKnown, false);
-        assert!(r.signals.is_empty());
+        assert_eq!(
+            r.signals,
+            [] as [crate::staged_manifest::VortexStagedManifestDraftSignal; 0]
+        );
     }
     #[test]
     fn status_priority_and_side_effects() {

@@ -952,7 +952,10 @@ mod tests {
             report.certificate.status,
             VortexColumnarResultMaterializationStatus::ColumnarHandoffNoRowsMaterialized
         );
-        assert!(report.rows.is_empty());
+        assert_eq!(
+            report.rows,
+            [] as [Vec<(String, shardloom_core::ScalarValue)>; 0]
+        );
         assert_eq!(report.certificate.rows_materialized, 0);
         assert_eq!(report.certificate.columns_decoded, 0);
         assert!(!report.has_errors());
@@ -985,7 +988,10 @@ mod tests {
             report.certificate.status,
             VortexColumnarResultMaterializationStatus::BlockedRowsNotAvailableAtSink
         );
-        assert!(report.rows.is_empty());
+        assert_eq!(
+            report.rows,
+            [] as [Vec<(String, shardloom_core::ScalarValue)>; 0]
+        );
         assert!(report.has_errors());
         assert!(!report.certificate.fallback_attempted);
         assert!(!report.certificate.external_engine_invoked);

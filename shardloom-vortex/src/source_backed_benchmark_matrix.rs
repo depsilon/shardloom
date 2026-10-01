@@ -1641,7 +1641,10 @@ mod tests {
 
         assert!(report.executable_rows_require_all_claim_grade_evidence());
         assert_eq!(report.measured_row_count, 0);
-        assert!(report.measured_rows.is_empty());
+        assert_eq!(
+            report.measured_rows,
+            [] as [crate::source_backed_benchmark_matrix::SourceBackedBenchmarkMeasuredRow; 0]
+        );
         assert!(!report.measured_benchmark_rows_present);
         assert!(!report.source_backed_claim_closeout_allowed);
         assert!(!report.benchmark_execution_performed);
@@ -1719,11 +1722,11 @@ mod tests {
             assert!(row.benchmark_row_ref.ends_with(expected));
             assert!(row.row_count.unwrap_or_default() > 0);
             assert!(row.selected_or_projected_count.unwrap_or_default() > 0);
-            assert!(!row.execution_certificate_refs.is_empty());
-            assert!(!row.native_io_certificate_refs.is_empty());
-            assert!(!row.native_io_certificate_path_refs.is_empty());
-            assert!(!row.correctness_refs.is_empty());
-            assert!(!row.representation_transitions.is_empty());
+            assert_ne!(row.execution_certificate_refs, [] as [String; 0]);
+            assert_ne!(row.native_io_certificate_refs, [] as [String; 0]);
+            assert_ne!(row.native_io_certificate_path_refs, [] as [String; 0]);
+            assert_ne!(row.correctness_refs, [] as [String; 0]);
+            assert_ne!(row.representation_transitions, [] as [String; 0]);
             assert!(!row.external_engine_invoked);
             assert!(!row.fallback_attempted);
             assert!(!row.performance_claim_allowed);

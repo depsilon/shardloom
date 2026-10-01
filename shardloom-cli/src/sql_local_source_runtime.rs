@@ -48292,8 +48292,11 @@ mod tests {
         .expect("statement parses");
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
-        assert!(parsed.aggregates.is_empty());
-        assert!(parsed.group_by.is_empty());
+        assert_eq!(
+            parsed.aggregates,
+            [] as [crate::sql_local_source_runtime::ParsedAggregate; 0]
+        );
+        assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(parsed.limit, 5);
@@ -48314,8 +48317,11 @@ mod tests {
                 .expect("statement parses without a predicate");
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
-        assert!(parsed.aggregates.is_empty());
-        assert!(parsed.group_by.is_empty());
+        assert_eq!(
+            parsed.aggregates,
+            [] as [crate::sql_local_source_runtime::ParsedAggregate; 0]
+        );
+        assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(parsed.limit, 5);
@@ -48333,7 +48339,10 @@ mod tests {
 
         assert!(parsed.has_distinct_projection());
         assert_eq!(parsed.projections, vec!["region", "label"]);
-        assert!(parsed.aggregates.is_empty());
+        assert_eq!(
+            parsed.aggregates,
+            [] as [crate::sql_local_source_runtime::ParsedAggregate; 0]
+        );
         assert_eq!(
             parsed.statement_kind(),
             "local_source_distinct_projection_order_by_topn_filter_limit"
@@ -48762,7 +48771,10 @@ mod tests {
         .expect("numeric arithmetic projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert!(parsed.literal_projections.is_empty());
+        assert_eq!(
+            parsed.literal_projections,
+            [] as [crate::sql_local_source_runtime::ParsedLiteralProjection; 0]
+        );
         assert_eq!(parsed.numeric_arithmetic_projections.len(), 2);
         assert_eq!(parsed.numeric_arithmetic_projections[0].alias, "adjusted");
         assert_eq!(parsed.numeric_arithmetic_projections[0].column, "amount");
@@ -48805,7 +48817,10 @@ mod tests {
         .expect("decimal generic arithmetic projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert!(parsed.numeric_arithmetic_projections.is_empty());
+        assert_eq!(
+            parsed.numeric_arithmetic_projections,
+            [] as [crate::sql_local_source_runtime::ParsedNumericArithmeticProjection; 0]
+        );
         assert_eq!(parsed.generic_expression_projections.len(), 1);
         assert_eq!(parsed.generic_expression_projections[0].alias, "adjusted");
         assert_eq!(
@@ -49155,7 +49170,10 @@ mod tests {
         .expect("generic expression projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert!(parsed.numeric_arithmetic_projections.is_empty());
+        assert_eq!(
+            parsed.numeric_arithmetic_projections,
+            [] as [crate::sql_local_source_runtime::ParsedNumericArithmeticProjection; 0]
+        );
         assert_eq!(parsed.generic_expression_projections.len(), 2);
         assert_eq!(parsed.generic_expression_projections[0].alias, "gross");
         assert_eq!(
@@ -49242,7 +49260,10 @@ mod tests {
         .expect("numeric abs projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert!(parsed.literal_projections.is_empty());
+        assert_eq!(
+            parsed.literal_projections,
+            [] as [crate::sql_local_source_runtime::ParsedLiteralProjection; 0]
+        );
         assert_eq!(parsed.numeric_abs_projections.len(), 1);
         assert_eq!(parsed.numeric_abs_projections[0].alias, "magnitude");
         assert_eq!(parsed.numeric_abs_projections[0].column, "amount");
@@ -49306,7 +49327,10 @@ mod tests {
             parse_sql_local_source_statement(statement).expect("cast projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert!(parsed.literal_projections.is_empty());
+        assert_eq!(
+            parsed.literal_projections,
+            [] as [crate::sql_local_source_runtime::ParsedLiteralProjection; 0]
+        );
         assert_eq!(parsed.cast_projections.len(), 3);
         assert_eq!(parsed.cast_projections[0].alias, "amount_float");
         assert_eq!(parsed.cast_projections[0].column, "amount");
@@ -49797,7 +49821,10 @@ mod tests {
             parsed.predicate_projections[0].predicate.family(),
             "generic_expression"
         );
-        assert!(parsed.generic_expression_projections.is_empty());
+        assert_eq!(
+            parsed.generic_expression_projections,
+            [] as [crate::sql_local_source_runtime::ParsedGenericExpressionProjection; 0]
+        );
         assert_eq!(parsed.predicate_projection_source_columns(), "amount+fee");
         assert_eq!(
             parsed.predicate_projection_output_columns(),
@@ -49813,8 +49840,14 @@ mod tests {
         .expect("string transform projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert!(parsed.literal_projections.is_empty());
-        assert!(parsed.numeric_arithmetic_projections.is_empty());
+        assert_eq!(
+            parsed.literal_projections,
+            [] as [crate::sql_local_source_runtime::ParsedLiteralProjection; 0]
+        );
+        assert_eq!(
+            parsed.numeric_arithmetic_projections,
+            [] as [crate::sql_local_source_runtime::ParsedNumericArithmeticProjection; 0]
+        );
         assert_eq!(parsed.string_transform_projections.len(), 3);
         assert_eq!(parsed.string_transform_projections[0].alias, "lowered");
         assert_eq!(
@@ -49855,8 +49888,14 @@ mod tests {
         .expect("string length projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert!(parsed.literal_projections.is_empty());
-        assert!(parsed.string_transform_projections.is_empty());
+        assert_eq!(
+            parsed.literal_projections,
+            [] as [crate::sql_local_source_runtime::ParsedLiteralProjection; 0]
+        );
+        assert_eq!(
+            parsed.string_transform_projections,
+            [] as [crate::sql_local_source_runtime::ParsedStringTransformProjection; 0]
+        );
         assert_eq!(parsed.string_length_projections.len(), 1);
         assert_eq!(parsed.string_length_projections[0].alias, "label_len");
         assert_eq!(
@@ -50285,12 +50324,12 @@ mod tests {
         )
         .expect("aggregate statement parses");
 
-        assert!(parsed.projections.is_empty());
+        assert_eq!(parsed.projections, [] as [String; 0]);
         assert_eq!(parsed.aggregates.len(), 5);
         assert_eq!(parsed.aggregates[0].label(), "count(*)");
         assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
         assert_eq!(parsed.aggregates[2].output_name(), "avg_amount");
-        assert!(parsed.group_by.is_empty());
+        assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(
@@ -50306,14 +50345,14 @@ mod tests {
         )
         .expect("aggregate alias statement parses");
 
-        assert!(parsed.projections.is_empty());
+        assert_eq!(parsed.projections, [] as [String; 0]);
         assert_eq!(parsed.aggregates.len(), 2);
         assert_eq!(parsed.aggregates[0].label(), "count(*)");
         assert_eq!(parsed.aggregates[0].output_name(), "rows");
         assert_eq!(parsed.aggregates[0].alias.as_deref(), Some("rows"));
         assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
         assert_eq!(parsed.aggregates[1].output_name(), "total_amount");
-        assert!(parsed.group_by.is_empty());
+        assert_eq!(parsed.group_by, [] as [String; 0]);
         assert_eq!(
             parsed.statement_kind(),
             "local_source_aggregate_filter_limit"
@@ -50577,8 +50616,11 @@ mod tests {
         .expect("order-by statement parses");
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
-        assert!(parsed.aggregates.is_empty());
-        assert!(parsed.group_by.is_empty());
+        assert_eq!(
+            parsed.aggregates,
+            [] as [crate::sql_local_source_runtime::ParsedAggregate; 0]
+        );
+        assert_eq!(parsed.group_by, [] as [String; 0]);
         let order_by = parsed.order_by.as_ref().expect("order by parsed");
         assert_eq!(order_by.columns_label(), "amount");
         assert_eq!(order_by.directions_label(), "desc");
@@ -58949,8 +58991,11 @@ mod tests {
         .expect("join statement parses");
 
         assert_eq!(parsed.projections, vec!["f.id", "d.segment"]);
-        assert!(parsed.aggregates.is_empty());
-        assert!(parsed.group_by.is_empty());
+        assert_eq!(
+            parsed.aggregates,
+            [] as [crate::sql_local_source_runtime::ParsedAggregate; 0]
+        );
+        assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
         assert_eq!(parsed.source_path, PathBuf::from("target/fact.csv"));
         assert_eq!(parsed.source_alias.as_deref(), Some("f"));

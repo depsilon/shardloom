@@ -13867,7 +13867,7 @@ mod tests {
         for summary in ["{}", "{\"aggregate_native_numeric_accessor\":null}"] {
             let mut fields = Vec::new();
             append_local_primitive_result_summary_evidence_fields(&mut fields, Some(summary));
-            assert!(fields.is_empty());
+            assert_eq!(fields, [] as [(String, String); 0]);
         }
     }
 

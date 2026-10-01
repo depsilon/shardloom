@@ -1123,7 +1123,10 @@ mod tests {
         assert!(!report.fallback_attempted());
         assert!(!report.external_engine_invoked);
         assert!(!report.runtime_execution);
-        assert!(report.diagnostics().is_empty());
+        assert_eq!(
+            report.diagnostics(),
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
     }
 
     #[test]
@@ -1138,7 +1141,10 @@ mod tests {
         assert_eq!(live.selected, Some(EngineMode::Live));
         assert!(live.rejected_modes.contains(&EngineMode::Hybrid));
         assert!(!live.fallback_attempted());
-        assert!(live.diagnostics().is_empty());
+        assert_eq!(
+            live.diagnostics(),
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
     }
 
     #[test]
@@ -1171,7 +1177,10 @@ mod tests {
         assert_eq!(hybrid.status, EngineSelectionStatus::Selected);
         assert_eq!(hybrid.selected, Some(EngineMode::Hybrid));
         assert!(!hybrid.external_engine_invoked);
-        assert!(hybrid.diagnostics().is_empty());
+        assert_eq!(
+            hybrid.diagnostics(),
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
     }
 
     #[test]

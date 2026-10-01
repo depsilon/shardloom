@@ -659,7 +659,7 @@ fn nanos(started: Instant) -> Result<u64> {
 fn add_nanos(counter: &AtomicU64, started: Instant) -> Result<()> {
     let elapsed = nanos(started)?;
     counter
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |prior| {
+        .try_update(Ordering::AcqRel, Ordering::Acquire, |prior| {
             prior.checked_add(elapsed)
         })
         .map(|_| ())

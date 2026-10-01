@@ -502,7 +502,7 @@ mod columnar_compatibility {
                 let output = fixture.0.join(format!("{name}.{format}"));
                 let stdout = export(&fixture.source(), &output, format, Some(predicate), None);
                 assert_boundary(&stdout, format, scanned, false);
-                assert!(read(&output, format).is_empty());
+                assert_eq!(read(&output, format), [] as [serde_json::Value; 0]);
                 let envelope = serde_json::from_str::<Value>(&stdout).unwrap();
                 for name in [
                     "native_batches",

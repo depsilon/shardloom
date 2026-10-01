@@ -4209,7 +4209,7 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         "docsUseCaseGeneratedRoot",
         "parseYaml",
         "durableDocsPages",
-        "A practical guide to local, Vortex-native compute.",
+        "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
         "no-fallback",
     ] {
         assert!(
@@ -4263,10 +4263,10 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "A practical guide to local, Vortex-native compute.",
+        "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
         "Get started",
         "Execution model",
-        "Execution routes",
+        "Data lifecycle",
         "Read the evidence",
     ] {
         assert!(
@@ -4314,7 +4314,8 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
     }
     for required in [
         "shardloom-compute-flow",
-        "Choose a query shape",
+        "Explore a query example",
+        "One native pipeline",
         "Metadata count",
         "Ordered top-K",
         "Late payload gathering",
@@ -4484,14 +4485,14 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
 
     let website_index = read_repo_file("website/field-guide/index.html");
     for required in [
-        "A practical guide to local, Vortex-native compute.",
+        "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
         "Get started",
         "Install and run",
         "Python",
         "Benchmarks",
         "Support and limitations",
         "Execution model",
-        "Execution routes",
+        "Data lifecycle",
     ] {
         assert!(
             website_index.contains(required),

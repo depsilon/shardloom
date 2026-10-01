@@ -2569,7 +2569,10 @@ mod tests {
         assert!(plan.external_oracle_artifacts_are_test_only());
         assert!(plan.required_foundation_edge_cases_covered());
         assert_eq!(plan.covered_required_foundation_edge_case_count(), 7);
-        assert!(plan.missing_required_foundation_edge_cases().is_empty());
+        assert_eq!(
+            plan.missing_required_foundation_edge_cases(),
+            [] as [&str; 0]
+        );
         assert!(plan.reference_roles_are_test_only());
         assert!(plan.baselines_are_fallback_free());
         assert_eq!(
@@ -2777,7 +2780,7 @@ mod tests {
         );
 
         assert!(!blocked.contains(&"deferred_fixture_family_artifacts".to_string()));
-        assert!(blocked.is_empty());
+        assert_eq!(blocked, [] as [String; 0]);
     }
 
     #[test]
@@ -2831,7 +2834,7 @@ mod tests {
                 "unsupported_diagnostic_only"
             ]
         );
-        assert!(report.missing_validation_mode_order().is_empty());
+        assert_eq!(report.missing_validation_mode_order(), [] as [&str; 0]);
         assert_eq!(
             report.baseline_engine_order,
             vec![

@@ -327,10 +327,10 @@ for (const required of [
 
 const fieldGuide = read("field-guide.html");
 for (const required of [
-  "A practical guide to local, Vortex-native compute.",
+  "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
   "Get started",
   "Execution model",
-  "Execution routes",
+  "Data lifecycle",
   "Read the evidence",
 ]) {
   assert(fieldGuide.includes(required), `field guide missing ${required}`);

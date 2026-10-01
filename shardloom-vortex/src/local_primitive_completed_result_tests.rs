@@ -213,7 +213,7 @@ fn completed_mixed_aggregate_exports_all_binary_formats_and_preserves_existing_f
         assert_eq!(report.rows_written, 2);
         assert_eq!(prepared.snapshot().completed_executions, 1);
         let bytes = fs::read(&output).unwrap();
-        assert!(!bytes.is_empty());
+        assert_ne!(bytes, [] as [u8; 0]);
         assert!(
             prepared
                 .execute_owned()

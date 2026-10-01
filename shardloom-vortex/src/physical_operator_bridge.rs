@@ -617,7 +617,7 @@ mod tests {
             VortexPhysicalOperatorBridgeStatus::Unsupported
         );
         assert_eq!(report.physical_plan.unsupported_count(), 1);
-        assert!(!report.diagnostics.is_empty());
+        assert_ne!(report.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
         assert!(
             report
                 .to_human_text()
@@ -683,7 +683,7 @@ mod tests {
         assert!(!report.planning_certificate.can_satisfy_production_claim());
         assert!(!report.runtime_execution_allowed());
         assert!(!report.fallback_execution_allowed());
-        assert!(report.diagnostics.is_empty());
+        assert_eq!(report.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
     }
 
     #[test]
@@ -738,7 +738,7 @@ mod tests {
         assert!(!report.planning_certificate.can_plan_native());
         assert!(!report.runtime_execution_allowed());
         assert!(!report.fallback_execution_allowed());
-        assert!(!report.diagnostics.is_empty());
+        assert_ne!(report.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
     }
 
     #[test]

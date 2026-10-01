@@ -129,9 +129,9 @@ mod tests {
 
         assert!(!evidence.deferred_execution_claimed);
         assert!(!evidence.fusion_claimed);
-        assert!(evidence.fused_operations.is_empty());
-        assert!(evidence.reduce_steps.is_empty());
-        assert!(evidence.trace_span_refs.is_empty());
+        assert_eq!(evidence.fused_operations, [] as [&str; 0]);
+        assert_eq!(evidence.reduce_steps, [] as [&str; 0]);
+        assert_eq!(evidence.trace_span_refs, [] as [&str; 0]);
         assert!(evidence.blocks_claims_without_trace_evidence());
     }
 
@@ -139,8 +139,8 @@ mod tests {
     fn execute_step_evidence_blocks_canonicalization_materialization_and_fallback() {
         let evidence = plan_execute_step_evidence();
 
-        assert!(evidence.canonicalization_steps.is_empty());
-        assert!(evidence.materialization_steps.is_empty());
+        assert_eq!(evidence.canonicalization_steps, [] as [&str; 0]);
+        assert_eq!(evidence.materialization_steps, [] as [&str; 0]);
         assert!(evidence.preserves_encoded_execution_boundary());
         assert!(!evidence.external_engine_invoked);
         assert!(!evidence.fallback_attempted);

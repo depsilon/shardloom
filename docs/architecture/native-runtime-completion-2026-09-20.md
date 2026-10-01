@@ -15,6 +15,13 @@ spill or production-serving items below. The September 26 scope override limits
 the current work to completing 0.3.0; native family and ingest/storage work remain
 queued and do not automatically resume after publication.
 
+The October 1 [universal workflow clarification](universal-workflow-completion-2026-10-01.md)
+sets the next runtime priority in the active phase plan: finish bounded native
+result composition and local output with resource/spill/failure dependencies,
+then broaden the operator families inventoried here. The finite performance and
+release packets remain historical evidence. The new priority does not claim the
+open checklists are complete or resume paused large format performance tests.
+
 ## Contract and reuse
 
 Every advertised execution route must perform the requested work through

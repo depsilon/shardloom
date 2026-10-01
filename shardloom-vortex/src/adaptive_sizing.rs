@@ -684,6 +684,6 @@ mod tests {
         .expect("sizing");
         assert_eq!(out.status, VortexAdaptiveSizingStatus::Unsupported);
         assert!(out.has_errors());
-        assert!(!out.diagnostics.is_empty());
+        assert_ne!(out.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
     }
 }

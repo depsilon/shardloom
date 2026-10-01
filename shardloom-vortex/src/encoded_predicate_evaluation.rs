@@ -637,7 +637,10 @@ mod tests {
         assert_eq!(always_true.selected_all_count, 0);
         assert_eq!(always_true.selection_vectors_emitted, 0);
         assert_eq!(always_true.selected_rows_metadata_count, None);
-        assert!(always_true.diagnostics.is_empty());
+        assert_eq!(
+            always_true.diagnostics,
+            [] as [shardloom_core::Diagnostic; 0]
+        );
 
         let always_false = evaluate_vortex_encoded_predicate_segments(
             &PredicateExpr::AlwaysFalse,
@@ -652,7 +655,10 @@ mod tests {
         assert_eq!(always_false.selected_none_count, 1);
         assert_eq!(always_false.selection_vectors_emitted, 1);
         assert_eq!(always_false.selected_rows_metadata_count, Some(0));
-        assert!(always_false.diagnostics.is_empty());
+        assert_eq!(
+            always_false.diagnostics,
+            [] as [shardloom_core::Diagnostic; 0]
+        );
     }
 
     #[test]
@@ -694,7 +700,7 @@ mod tests {
             assert_eq!(report.selection_vectors_emitted, 0);
             assert_eq!(report.selected_rows_metadata_count, None);
             assert_eq!(report.segment_reports[0].row_count, None);
-            assert!(report.diagnostics.is_empty());
+            assert_eq!(report.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
         }
     }
 
@@ -747,7 +753,7 @@ mod tests {
                     })
                 );
             }
-            assert!(report.diagnostics.is_empty());
+            assert_eq!(report.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
         }
     }
 

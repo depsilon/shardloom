@@ -428,7 +428,7 @@ fn owned_closed_admission_skips_later_key_expression_for_unknown_strings() {
             8,
         )
         .unwrap();
-    assert!(state.string_interner.values.is_empty());
+    assert_eq!(state.string_interner.values, [] as [std::sync::Arc<str>; 0]);
     assert_eq!(state.groups.len(), 2);
     let (_, summary) = state.result_row_count_and_summary(Some(2)).unwrap();
     let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
@@ -576,5 +576,5 @@ fn closed_owned_key_probe_is_read_only_for_wide_retained_groups() {
     );
     assert_eq!(probe.estimated_group_key_storage_bytes(), bytes);
     assert_eq!(probe.groups.len(), retained);
-    assert!(probe.string_interner.values.is_empty());
+    assert_eq!(probe.string_interner.values, [] as [std::sync::Arc<str>; 0]);
 }

@@ -2949,7 +2949,10 @@ mod tests {
             VortexCommitProtocolState::NotStarted,
             VortexCommitProtocolTransition::ValidateIntent,
         );
-        assert!(request.signals.is_empty());
+        assert_eq!(
+            request.signals,
+            [] as [crate::commit_protocol::VortexCommitProtocolSignal; 0]
+        );
         let report =
             plan_vortex_commit_protocol(request.commit_intent_ready(true).recovery_ready(true))
                 .expect("report");
@@ -3147,7 +3150,7 @@ mod tests {
         assert!(ambiguous.has_errors());
         assert!(ambiguous.ambiguous_commit());
         assert!(ambiguous.cleanup_required());
-        assert!(!ambiguous.diagnostics.is_empty());
+        assert_ne!(ambiguous.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
         assert!(!ambiguous.cleanup_performed());
 
         let missing = plan_vortex_local_commit_recovery(

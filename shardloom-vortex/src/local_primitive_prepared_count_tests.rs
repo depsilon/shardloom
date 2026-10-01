@@ -71,7 +71,7 @@ fn prepared_count_reexecutes_complete_predicate_with_one_open_and_real_certifica
             );
             assert_eq!(result.report.data_read, threshold != 99);
             assert!(result.report.projection_pushdown_applied);
-            assert!(result.report.projected_columns.is_empty());
+            assert_eq!(result.report.projected_columns, [] as [String; 0]);
             assert!(result.native_io_certificate.is_certified());
             assert!(
                 result

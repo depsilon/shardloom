@@ -99,7 +99,7 @@ PUBLIC_DOC_MARKERS = {
         "VortexPreparedState",
         "prepared_vortex",
         "source, schema, and artifact identities match",
-        "prepared state is not a query-result cache",
+        "Preparation reuse does not cache query answers",
     ),
 }
 

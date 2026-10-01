@@ -254,7 +254,7 @@ fn artifact_proof(file: &vortex::file::VortexFile, bytes: &[u8], candidate: bool
             )
         })
         .collect::<Vec<_>>();
-    assert!(!geometry.is_empty());
+    assert_ne!(geometry, [] as [(u64, u64, String); 0]);
     let end = geometry
         .iter()
         .map(|(offset, length, _)| offset + length)
@@ -400,7 +400,7 @@ fn write_composition(
             "footer_layout=native_struct_column_chunked_preserved_subtrees;actual_nonempty_groups=3"
         ));
     } else {
-        assert!(applied.is_empty());
+        assert_eq!(applied, "");
     }
     drop(file);
     drop(summary);

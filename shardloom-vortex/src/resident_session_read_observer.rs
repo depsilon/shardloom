@@ -879,7 +879,10 @@ mod tests {
         assert_eq!(observed.failed_read_calls, 1);
         assert_eq!(observed.completed_read_calls, 0);
         assert_eq!(observed.completed_read_bytes, 0); // Not a claim of zero physical work.
-        assert!(observed.completed_ranges.is_empty());
+        assert_eq!(
+            observed.completed_ranges,
+            [] as [crate::resident_session::read_observer::CompletedReadRange; 0]
+        );
         assert_eq!(fixture.memory.snapshot().reserved_bytes, 0);
         assert!(fixture.reader.validate_generation().is_err());
     }

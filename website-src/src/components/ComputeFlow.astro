@@ -9,7 +9,7 @@ const flows = [
       ["Work on the encoding", "Eligible dictionary grouping combines encoded identities and exact counts. Referenced values are decoded only where required.", "Encoded aggregation", "encoded"],
       ["Return the result", "Resolve the surviving group values and send the complete result to an admitted sink, with execution evidence.", "Late materialization", "result"],
     ],
-    control: "Admitted local routes divide work into capillary units. PulseWeave can bound in-flight work inside the route’s resource and evidence policy.",
+    control: "The native pipeline divides supported work into capillary units. PulseWeave can bound in-flight work within the operator’s resource and evidence policy.",
     takeaway: "Less source data read. Less repeated text expanded. One native result.",
   },
   {
@@ -19,7 +19,7 @@ const flows = [
       ["Validate the source", "Open the admitted native source and check its identity. An unchanged prepared source can reuse retained handles.", "Source identity", "full"],
       ["Answer from metadata", "For an eligible exact row count, use file metadata. No data-column payload needs to be read.", "Metadata only", "result"],
       ["Skip the scan", "No payload decoding, row materialization, or aggregate worker admission is needed for this metadata-only path.", "Payload work bypassed", "bypass"],
-      ["Return one value", "Return the exact count and evidence identifying the metadata path. Filters or other measures may require a different path.", "Exact result", "result"],
+      ["Return one value", "Return the exact count and evidence identifying the metadata answer. Filters or other measures can require payload work in the same pipeline.", "Exact result", "result"],
     ],
     control: "Metadata-only aggregates avoid payload and worker admission. The reserved metadata lane is an explicit option on the bounded serving policy.",
     takeaway: "The fastest stage is the one the query does not need.",
@@ -31,9 +31,9 @@ const flows = [
       ["Start from Vortex", "Use the native input or a validated prepared artifact. The query retains the same source generation through execution.", "Native source", "full"],
       ["Read the ordering keys", "Inspect the keys required to select winners. Eligible bound proofs can skip segments; other segments must still be considered.", "Key-first scan", "prune"],
       ["Keep exact winners", "Supported native Top-K paths retain candidate keys and row ordinals instead of materializing every candidate row’s payload.", "Exact selection", "encoded"],
-      ["Gather winning payload", "Fetch the requested values for selected rows, preserve the query’s order, and return the result through an admitted output route.", "Late payload gathering", "result"],
+      ["Gather winning payload", "Fetch the requested values for selected rows, preserve the query’s order, and return the result through a supported output adapter.", "Late payload gathering", "result"],
     ],
-    control: "Worker, memory, and I/O admission bound the supported route. Available spill paths are operator-specific; unsupported pressure cases return a diagnostic.",
+    control: "Worker, memory, and I/O admission bound supported execution. Native spill coverage is operator-specific; unsupported pressure cases return a diagnostic.",
     takeaway: "Decide which rows win before gathering their payload.",
   },
 ];
@@ -41,7 +41,7 @@ const flows = [
 
 <shardloom-compute-flow class="compute-flow not-content">
   <fieldset class="flow-picker" hidden>
-    <legend>Choose a query shape</legend>
+    <legend>Explore a query example</legend>
     <div class="flow-options">
       {flows.map((flow, index) => (
         <label>
@@ -54,7 +54,7 @@ const flows = [
   {flows.map((flow) => (
     <section id={`flow-${flow.id}`} class="flow-panel" aria-labelledby={`flow-title-${flow.id}`}>
       <div class="flow-intro">
-        <p class="flow-kicker">An illustrated execution path</p>
+        <p class="flow-kicker">One native pipeline · query example</p>
         <h2 id={`flow-title-${flow.id}`}>{flow.title}</h2>
         <p class="flow-query">{flow.query}</p>
       </div>
@@ -77,7 +77,7 @@ const flows = [
       <p class="flow-takeaway">{flow.takeaway}</p>
     </section>
   ))}
-  <p class="flow-caption">Conceptual illustrations of eligible local paths. The tiles are visual cues, not measured row counts or runtime telemetry. Actual execution depends on the query, types, layout, and enabled features.</p>
+  <p class="flow-caption">Conceptual illustrations of one native pipeline. Each example shows the work its query needs. The tiles are visual cues, not measured row counts or runtime telemetry. Actual execution depends on the query, types, layout, and enabled features.</p>
 </shardloom-compute-flow>
 
 <script>

@@ -1075,9 +1075,9 @@ mod tests {
     fn array_execution_certificate_does_not_claim_vortex_execution_layers_without_traces() {
         let certificate = VortexArrayExecutionCertificate::report_only_required();
 
-        assert!(certificate.reduce_steps.is_empty());
-        assert!(certificate.reduce_parent_steps.is_empty());
-        assert!(certificate.execute_parent_kernel_steps.is_empty());
+        assert_eq!(certificate.reduce_steps, [] as [&str; 0]);
+        assert_eq!(certificate.reduce_parent_steps, [] as [&str; 0]);
+        assert_eq!(certificate.execute_parent_kernel_steps, [] as [&str; 0]);
         assert!(certificate.blocks_execution_layer_claims());
         assert!(!certificate.canonicalization_performed);
         assert!(!certificate.materialization_performed);
