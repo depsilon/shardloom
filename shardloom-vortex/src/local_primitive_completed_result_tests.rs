@@ -1,7 +1,5 @@
-#[cfg(feature = "universal-format-io")]
 use super::super::super as runtime;
 use super::*;
-#[cfg(feature = "universal-format-io")]
 use vortex::array::VortexSessionExecute as _;
 
 #[cfg(feature = "universal-format-io")]
@@ -649,6 +647,204 @@ fn completed_finalization_checks_limited_width_and_reserves_before_row_allocatio
     drop(lease);
     assert_eq!(memory.snapshot().reserved_bytes, 65536);
     drop(output);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn result_batch_visitor_streams_bounded_completed_values_under_two_mib() {
+    use super::super::super::completed_result::CompletedRows;
+    use super::super::super::result_batch::{Rows, VISITOR_ROWS, Value};
+    use shardloom_exec::live_memory::LiveMemoryPool;
+    use std::cell::Cell;
+
+    const ROWS: usize = 70_017;
+    const PAYLOAD: &str = "lane-雪";
+
+    let memory = LiveMemoryPool::new(2 * 1024 * 1024).unwrap();
+    let fields = vec![
+        (
+            "ordinal".into(),
+            DType::Primitive(PType::U64, Nullability::NonNullable),
+        ),
+        ("payload".into(), DType::Utf8(Nullability::Nullable)),
+    ];
+    let columns = vec!["ordinal".into(), "payload".into()];
+    let visited = Cell::new(0_usize);
+    let visiting = Cell::new(false);
+    let first_delivery_at = Cell::new(None);
+    let mut batch_rows = Vec::new();
+    let mut received = 0_usize;
+    let mut scalar_context = VortexSession::default().create_execution_ctx();
+    let mut consume = |array: ArrayRef| {
+        assert!(array.len() <= VISITOR_ROWS);
+        if first_delivery_at.get().is_none() {
+            assert!(
+                visiting.get(),
+                "the first batch was deferred until after visit"
+            );
+            assert!(visited.get() <= VISITOR_ROWS);
+            first_delivery_at.set(Some(visited.get()));
+        }
+        batch_rows.push(array.len());
+        let ordinal = runtime::logical_field_from_native_array(&array, "ordinal")?;
+        let payload = runtime::logical_field_from_native_array(&array, "payload")?;
+        for row in 0..array.len() {
+            assert_eq!(
+                runtime::vortex_scalar_to_stat_value(
+                    &ordinal.execute_scalar(row, &mut scalar_context).unwrap()
+                ),
+                Some(shardloom_core::StatValue::UInt64(received as u64)),
+            );
+            let actual = payload.execute_scalar(row, &mut scalar_context).unwrap();
+            if received.is_multiple_of(7) {
+                assert!(actual.is_null(), "row {received}");
+            } else {
+                assert_eq!(
+                    runtime::vortex_scalar_to_stat_value(&actual),
+                    Some(shardloom_core::StatValue::Utf8(PAYLOAD.into())),
+                    "row {received}",
+                );
+            }
+            received += 1;
+        }
+        Ok(())
+    };
+    let mut output = CompletedRows::streaming(
+        fields,
+        &memory,
+        VISITOR_ROWS,
+        shardloom_exec::compute_pool::CancellationToken::default(),
+        &mut consume,
+    )
+    .unwrap();
+    let selection = output.reserve_selection(VISITOR_ROWS, 0, 0).unwrap();
+    let rows = Rows::from_visitor(
+        Some(&mut output),
+        &columns,
+        |push| {
+            visiting.set(true);
+            let result = (0..ROWS).try_for_each(|row| {
+                visited.set(row + 1);
+                push((row as u64, (!row.is_multiple_of(7)).then_some(PAYLOAD)))
+            });
+            visiting.set(false);
+            result
+        },
+        |row, column| {
+            Ok(match column {
+                0 => Value::UInt(row.0),
+                1 => row.1.map_or(Value::Null, |text| Value::Text(text.into())),
+                _ => unreachable!("declared visitor column"),
+            })
+        },
+    )
+    .unwrap();
+
+    assert_eq!(rows.len(), ROWS);
+    assert!(rows.values.is_null());
+    assert_eq!(first_delivery_at.get(), Some(VISITOR_ROWS));
+    drop(output);
+    assert_eq!(received, ROWS);
+    assert_eq!(batch_rows.last().copied(), Some(ROWS % VISITOR_ROWS));
+    assert!(batch_rows.iter().all(|rows| *rows <= VISITOR_ROWS));
+    assert!(memory.snapshot().peak_reserved_bytes <= 2 * 1024 * 1024);
+    drop(selection);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn result_batch_visitor_delivers_empty_schema_once_and_stops_on_consumer_error() {
+    use super::super::super::completed_result::CompletedRows;
+    use super::super::super::result_batch::{Rows, VISITOR_ROWS, Value};
+    use shardloom_exec::live_memory::LiveMemoryPool;
+
+    let fields = vec![(
+        "ordinal".into(),
+        DType::Primitive(PType::U64, Nullability::NonNullable),
+    )];
+    let columns = vec!["ordinal".into()];
+    let memory = LiveMemoryPool::new(1024 * 1024).unwrap();
+    let mut visits = 0;
+    let mut deliveries = 0;
+    let mut consume_empty = |array: ArrayRef| {
+        deliveries += 1;
+        assert_eq!(array.len(), 0);
+        assert_eq!(
+            array
+                .dtype()
+                .as_struct_fields_opt()
+                .unwrap()
+                .field("ordinal"),
+            Some(DType::Primitive(PType::U64, Nullability::NonNullable)),
+        );
+        Ok(())
+    };
+    let mut output = CompletedRows::streaming(
+        fields.clone(),
+        &memory,
+        VISITOR_ROWS,
+        shardloom_exec::compute_pool::CancellationToken::default(),
+        &mut consume_empty,
+    )
+    .unwrap();
+    let selection = output.reserve_selection(VISITOR_ROWS, 0, 0).unwrap();
+    let rows = Rows::from_visitor(
+        Some(&mut output),
+        &columns,
+        |_| {
+            visits += 1;
+            Ok(())
+        },
+        |_: &u64, _| Ok(Value::UInt(0)),
+    )
+    .unwrap();
+    assert_eq!(rows.len(), 0);
+    assert_eq!(visits, 1);
+    drop(output);
+    assert_eq!(deliveries, 1);
+    drop(selection);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let memory = LiveMemoryPool::new(1024 * 1024).unwrap();
+    let visited = std::cell::Cell::new(0_usize);
+    let mut consumer_calls = 0;
+    let mut fail_consumer = |_array: ArrayRef| {
+        consumer_calls += 1;
+        Err(shardloom_core::ShardLoomError::InvalidOperation(
+            "test result visitor consumer error".into(),
+        ))
+    };
+    let mut output = CompletedRows::streaming(
+        fields,
+        &memory,
+        VISITOR_ROWS,
+        shardloom_exec::compute_pool::CancellationToken::default(),
+        &mut fail_consumer,
+    )
+    .unwrap();
+    let selection = output.reserve_selection(VISITOR_ROWS, 0, 0).unwrap();
+    let error = Rows::from_visitor(
+        Some(&mut output),
+        &columns,
+        |push| {
+            (0..10_000).try_for_each(|ordinal| {
+                visited.set(ordinal + 1);
+                push(ordinal as u64)
+            })
+        },
+        |ordinal, _| Ok(Value::UInt(*ordinal)),
+    )
+    .err()
+    .expect("consumer error must stop the visitor");
+    assert!(
+        error
+            .to_string()
+            .contains("test result visitor consumer error")
+    );
+    drop(output);
+    assert_eq!(visited.get(), VISITOR_ROWS);
+    assert_eq!(consumer_calls, 1);
+    drop(selection);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 

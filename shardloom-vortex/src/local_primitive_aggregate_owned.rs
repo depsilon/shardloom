@@ -101,21 +101,25 @@ impl AggregateOutput<'_> {
                     states.result_limit,
                     states.group_count().saturating_sub(states.request.offset),
                 )?;
-                let max_utf8_len = if output.has_utf8() {
+                let finalized_stream =
+                    output.is_streaming() && states.finalized_distinct_counts.is_some();
+                let max_utf8_len = if output.has_utf8() && !finalized_stream {
                     grouped_output_max_utf8_len(states)?
                 } else {
                     0
                 };
                 let _finalization = if output.is_streaming() {
-                    let retained = states.finalized_distinct_counts.as_ref().map_or_else(
-                        || states.group_count(),
-                        workers::ExactDistinctResult::retained_count,
-                    );
-                    output.reserve_selection(
-                        retained,
-                        states.request.order_by.len(),
-                        max_utf8_len,
-                    )?
+                    if finalized_stream {
+                        // The completed owner already reserves global selection.
+                        // Only one window of borrowed references overlaps it.
+                        output.reserve_selection(super::result_batch::VISITOR_ROWS, 0, 0)?
+                    } else {
+                        output.reserve_selection(
+                            states.group_count(),
+                            states.request.order_by.len(),
+                            max_utf8_len,
+                        )?
+                    }
                 } else {
                     output.reserve_finalization(rows, max_utf8_len)?
                 };

@@ -74,6 +74,8 @@ pub(super) fn window<T>(values: &[T], offset: usize, count: usize) -> &[T] {
     &values[start..values.len().min(start.saturating_add(count))]
 }
 
+pub(super) const VISITOR_ROWS: usize = 2048;
+
 impl Rows {
     pub(super) fn streamed(count: usize) -> Self {
         Self {
@@ -83,6 +85,52 @@ impl Rows {
     }
     pub(super) const fn len(&self) -> usize {
         self.count
+    }
+
+    /// Visit completed, globally selected state without retaining a second full
+    /// selection. The caller reserves these bounded references; native buffers
+    /// acquire their own leases while each batch is synchronously consumed.
+    pub(super) fn from_visitor<'a, T>(
+        output: Option<&mut super::completed_result::CompletedRows>,
+        columns: &[String],
+        visit: impl FnOnce(&mut dyn FnMut(T) -> Result<()>) -> Result<()>,
+        mut value: impl FnMut(&T, usize) -> Result<Value<'a>>,
+    ) -> Result<Self> {
+        match output {
+            Some(output) if output.is_streaming() => {
+                let mut batch = Vec::with_capacity(VISITOR_ROWS);
+                let mut count = 0;
+                visit(&mut |row| {
+                    batch.push(row);
+                    if batch.len() == VISITOR_ROWS {
+                        output.push_values(columns, batch.len(), |row, column| {
+                            value(&batch[row], column)
+                        })?;
+                        count = add(count, batch.len())?;
+                        batch.clear();
+                    }
+                    Ok(())
+                })?;
+                if !batch.is_empty() || count == 0 {
+                    output.push_values(columns, batch.len(), |row, column| {
+                        value(&batch[row], column)
+                    })?;
+                    count = add(count, batch.len())?;
+                }
+                output.finish_stream()?;
+                Ok(Self::streamed(count))
+            }
+            output => {
+                let mut selected = Vec::new();
+                visit(&mut |row| {
+                    selected.push(row);
+                    Ok(())
+                })?;
+                Self::from_fn(output, columns, selected.len(), |row, column| {
+                    value(&selected[row], column)
+                })
+            }
+        }
     }
 
     pub(super) fn from_fn<'a>(

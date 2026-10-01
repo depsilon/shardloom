@@ -438,7 +438,7 @@ fn result_stream_public_exact_distinct_spill_writes_native_columns_and_cleans_ru
         .with_offset(5)
         .with_spill(spill),
     )
-    .with_source_order_limit(127);
+    .with_source_order_limit(4097);
     let target = fixture.0.join("distinct.vortex");
     let report = runtime::execute_vortex_local_primitive_row_export_with_policy(
         &query,
@@ -448,7 +448,7 @@ fn result_stream_public_exact_distinct_spill_writes_native_columns_and_cleans_ru
         VortexLocalPrimitiveExecutionPolicy::single_threaded(),
     )
     .unwrap();
-    assert_eq!(report.rows_written, 127);
+    assert_eq!(report.rows_written, 4097);
     let evidence = report.state_budget.native_aggregate_spill.as_ref().unwrap();
     assert!(evidence.runs_written > 0);
     assert!(evidence.owned_cleanup_completed);
@@ -471,7 +471,7 @@ fn result_stream_public_exact_distinct_spill_writes_native_columns_and_cleans_ru
             Ok(())
         })
         .unwrap();
-    assert_eq!(next, 132);
+    assert_eq!(next, 4102);
 }
 
 #[cfg(feature = "universal-format-io")]

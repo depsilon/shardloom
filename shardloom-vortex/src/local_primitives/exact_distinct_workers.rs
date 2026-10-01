@@ -176,35 +176,32 @@ impl ExactDistinctResult {
             .first()
             .filter(|measure| measure.function == SimpleAggregateFunction::CountDistinct)
             .ok_or_else(|| failed("final distinct aggregate contract changed"))?;
-        let mut selected = Vec::with_capacity(limit.min(self.retained_count()));
-        let mut ordinal = 0_usize;
-        if self.is_utf8() {
-            self.visit_utf8(|key, count| {
-                if ordinal >= states.request.offset && selected.len() < limit {
-                    selected.push((Value::Text(key.into()), count));
-                }
-                ordinal += 1;
-                Ok(())
-            })?;
-        } else {
-            self.visit(|key, count| {
-                if ordinal >= states.request.offset && selected.len() < limit {
-                    selected.push((Value::integer(key.bits, key.signed), count));
-                }
-                ordinal += 1;
-                Ok(())
-            })?;
-        }
         let scalar_output = output.is_none();
-        let rows = Rows::from_fn(
+        let rows = Rows::from_visitor(
             output,
             &[group.name.clone(), measure.alias.clone()],
-            selected.len(),
+            |visit| {
+                let mut ordinal = 0_usize;
+                let mut selected = 0_usize;
+                let mut accept = |key, count| {
+                    if ordinal >= states.request.offset && selected < limit {
+                        visit((key, count))?;
+                        selected += 1;
+                    }
+                    ordinal += 1;
+                    Ok(())
+                };
+                if self.is_utf8() {
+                    self.visit_utf8(|key, count| accept(Value::Text(key.into()), count))
+                } else {
+                    self.visit(|key, count| accept(Value::integer(key.bits, key.signed), count))
+                }
+            },
             |row, column| {
                 Ok(if column == 0 {
-                    selected[row].0.clone()
+                    row.0.clone()
                 } else {
-                    Value::UInt(selected[row].1)
+                    Value::UInt(row.1)
                 })
             },
         )?;

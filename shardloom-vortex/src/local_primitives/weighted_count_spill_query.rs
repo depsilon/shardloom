@@ -396,45 +396,53 @@ fn result_summary_with_output(
     request: &VortexQueryPrimitiveRequest,
     output: Option<&mut super::completed_result::CompletedRows>,
 ) -> Result<(usize, String)> {
-    use super::result_batch::{Rows, Value};
+    use super::result_batch::{Rows, VISITOR_ROWS, Value};
     let contract = &owner.contract;
     let native_output = output.is_some();
     let _selection = output
         .as_ref()
         .map(|output| {
-            output.reserve_selection(
-                usize::try_from(owner.result.evidence.groups)
-                    .unwrap_or(usize::MAX)
-                    .min(contract.limit),
-                0,
-                0,
-            )
+            let retained = usize::try_from(owner.result.evidence.groups)
+                .unwrap_or(usize::MAX)
+                .min(contract.limit);
+            let references = if output.is_streaming() {
+                VISITOR_ROWS
+            } else {
+                retained
+            };
+            output.reserve_selection(references, 0, 0)
         })
         .transpose()?;
-    let mut selected = Vec::new();
-    owner.result.visit(contract.offset, |key, text, count| {
-        if selected.len() < contract.limit {
-            selected.push((key, text, count));
-        }
-        Ok(())
-    })?;
     let columns = contract
         .groups
         .iter()
         .cloned()
         .chain(std::iter::once(contract.count_alias.clone()))
         .collect::<Vec<_>>();
-    let rows = Rows::from_fn(output, &columns, selected.len(), |row, column| {
-        let (key, text, count) = selected[row];
-        if column == contract.groups.len() {
-            Ok(Value::UInt(count))
-        } else if column == contract.text_index {
-            Ok(Value::Text(text.into()))
-        } else {
-            let key = key.ok_or_else(|| failed("final numeric key disappeared"))?;
-            Ok(Value::integer(key.bits, key.signed))
-        }
-    })?;
+    let rows = Rows::from_visitor(
+        output,
+        &columns,
+        |visit| {
+            let mut selected = 0;
+            owner.result.visit(contract.offset, |key, text, count| {
+                if selected < contract.limit {
+                    visit((key, text, count))?;
+                    selected += 1;
+                }
+                Ok(())
+            })
+        },
+        |&(key, text, count), column| {
+            if column == contract.groups.len() {
+                Ok(Value::UInt(count))
+            } else if column == contract.text_index {
+                Ok(Value::Text(text.into()))
+            } else {
+                let key = key.ok_or_else(|| failed("final numeric key disappeared"))?;
+                Ok(Value::integer(key.bits, key.signed))
+            }
+        },
+    )?;
     let count = rows.len();
     let evidence = owner.result.evidence;
     let spill_json = serde_json::json!({

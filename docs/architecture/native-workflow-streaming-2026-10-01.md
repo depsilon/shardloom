@@ -49,6 +49,13 @@ execution format. Bounded synchronous handoff supplies backpressure: a producer
 cannot advance while its consumer retains the active operation. Later async
 queues would require their own admitted capacity and cancellation contract.
 
+Completed DISTINCT and weighted COUNT owners already reserve their exact global
+selection. Their final handoff borrows at most 2,048 selected keys/counts at once,
+with a separate reservation for that reference window. It does not duplicate the
+whole selected result before producing batches. Generic aggregate ordering still
+reserves its complete candidate selection separately; this does not add spill
+support or complete resource accounting to those state machines.
+
 ## Acceptance contract
 
 - Complete values, dtype, validity and order for scalar/grouped/ordered empty and

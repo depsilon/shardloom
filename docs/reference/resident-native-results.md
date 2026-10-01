@@ -67,6 +67,8 @@ COUNT, integer DISTINCT and numeric-sort spills can complete through the writers
 In-memory collection limits no longer cap these file outputs. Native writers
 request at most 8,192 rows per batch; text and compatibility writers request
 2,048. Ordered payload reads use selections of at most 512 source rows.
+Completed DISTINCT and weighted COUNT handoffs borrow at most 2,048 selected
+keys/counts at once; their completed owners retain the globally selected state.
 
 Writers stage the complete output, validate it and the source generation, and
 atomically publish a new destination. Existing destinations are rejected even
