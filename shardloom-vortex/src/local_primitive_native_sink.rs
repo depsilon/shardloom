@@ -88,14 +88,28 @@ impl NativeSinkInput {
         matches!(self, Self::Produced { .. })
     }
 
-    pub(super) fn with_native_execution<T>(
+    pub(super) fn with_native_execution_or_admitted<T>(
         &self,
         cancellation: &CancellationToken,
+        admitted: Option<&NativeExecutionContext<'_>>,
         execute: impl FnOnce(
             Option<&vortex::file::VortexFile>,
             &NativeExecutionContext<'_>,
         ) -> Result<T>,
     ) -> Result<T> {
+        cancellation.check()?;
+        if let Some(context) = admitted {
+            return match self {
+                Self::Produced {
+                    source: Some(source),
+                    ..
+                } => source
+                    .with_admitted_native_execution(context, |_, context| execute(None, context)),
+                _ => Err(sink_error(
+                    "shared admission requires a generation-bound produced result",
+                )),
+            };
+        }
         match self {
             Self::Source(source) => source
                 .with_native_execution_controlled(cancellation, |file, context| {
@@ -414,10 +428,11 @@ impl NativeSinkPlan {
             policy,
             None,
             &CancellationToken::default(),
+            None,
         )
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub(super) fn write_produced(
         self,
         request: &VortexQueryPrimitiveRequest,
@@ -426,6 +441,7 @@ impl NativeSinkPlan {
         policy: VortexLocalPrimitiveExecutionPolicy,
         producer: Option<&mut ArrayProducer<'_>>,
         cancellation: &CancellationToken,
+        admitted: Option<&NativeExecutionContext<'_>>,
     ) -> Result<VortexLocalPrimitiveRowExportReport> {
         self.source.validate_generation()?;
         if self.source_path.as_ref().is_some_and(|source_path| {
@@ -480,8 +496,10 @@ impl NativeSinkPlan {
         let mut native_bytes = 0_u64;
         let mut matched_rows_observed = 0_u64;
         let mut stopped_at_limit = false;
-        self.source
-            .with_native_execution(cancellation, |file, execution| {
+        self.source.with_native_execution_or_admitted(
+            cancellation,
+            admitted,
+            |file, execution| {
                 let session = execution.native_session();
                 let runtime = execution.runtime();
                 let allowed_encodings = session
@@ -615,7 +633,8 @@ impl NativeSinkPlan {
                 #[cfg(test)]
                 overlap_timing::record("sync_and_reopen", started);
                 Ok(())
-            })?;
+            },
+        )?;
         #[cfg(test)]
         let started = overlap_timing::clock();
         let checksum = output.checksum()?;

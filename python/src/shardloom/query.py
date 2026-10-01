@@ -45,6 +45,14 @@ from .runtime_defaults import (
 )
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
+_NATIVE_UNARY_PRIMITIVES = frozenset({
+    "distinct", "drop_duplicates", "duplicate_mask", "tail", "sample",
+    "expression_project", "melt", "explode", "pivot", "rolling_window",
+})
+_NATIVE_WRITE_REQUESTS = frozenset({
+    "write_vortex", "write_parquet", "write_arrow_ipc", "write_avro",
+    "write_orc", "write_json", "write_jsonl", "write_csv",
+})
 MAX_DATE_ARITHMETIC_DAYS = 366_000
 MAX_TIMESTAMP_ARITHMETIC_SECONDS = MAX_DATE_ARITHMETIC_DAYS * 86_400
 _INTERVAL_SECOND_MULTIPLIERS = {
@@ -2350,6 +2358,22 @@ class SqlWorkflow:
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source SQL."""
 
+        shape = _vortex_sql_primitive_shape(self.statement)
+        if shape is not None and shape.distinct:
+            workflow = self if limit is None else self.limit(limit)
+            report = workflow._vortex_sql_primitive_collect_report(
+                check=check,
+                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            )
+            if (report is not None and report.status == "success"
+                    and report.envelope.field("result_jsonl") is not None):
+                return report.result_rows
+            if report is not None and report.status != "success":
+                return UnsupportedWorkflowOperationReport(
+                    self._report_workflow(), "to-python-objects", report.envelope
+                )
+            return self._unsupported_operation("to-python-objects", self.statement, check=check)
         if report := self._bounded_materialization_report(limit=limit, check=check):
             return report.result_rows
         return self._unsupported_operation("to-python-objects", self.statement, check=check)
@@ -3131,7 +3155,7 @@ class SqlWorkflow:
             requested_output="collect",
             execution_policy="native_vortex",
             materialization_policy=(
-                "bounded" if primitive in {"filter", "project", "filter_project"} else "zero_decode"
+                "zero_decode" if primitive in {"count", "count_where"} else "bounded"
             ),
             evidence_level="runtime_smoke",
             bounded=True,
@@ -3200,7 +3224,7 @@ class SqlWorkflow:
     ) -> VortexWorkflowExecutionReport | None:
         shape = _vortex_sql_user_route_shape(self.statement)
         if shape is None:
-            if requested_output not in {"write_json", "write_jsonl", "write_csv"}:
+            if requested_output not in _NATIVE_WRITE_REQUESTS:
                 return None
             primitive_shape = _vortex_sql_primitive_shape(self.statement)
             primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
@@ -3218,7 +3242,7 @@ class SqlWorkflow:
                 output_ref=target_uri,
                 fanout_outputs=fanout_outputs,
                 execution_policy="native_vortex",
-                materialization_policy="zero_decode",
+                materialization_policy="bounded",
                 evidence_level="runtime_smoke",
                 bounded=True,
                 allow_overwrite=allow_overwrite,
@@ -3366,6 +3390,18 @@ class VortexWorkflowExecutionReport:
     operation: str
     envelope: OutputEnvelope
     preparation_envelope: OutputEnvelope | None = None
+
+    @property
+    def result_jsonl(self) -> str:
+        """Return complete bounded rows when this execution includes a row payload."""
+
+        return SqlLocalSourceSmokeReport(self.envelope).result_jsonl
+
+    @property
+    def result_rows(self) -> tuple[Mapping[str, Any], ...]:
+        """Decode this execution's rows without reading or executing its source again."""
+
+        return SqlLocalSourceSmokeReport(self.envelope).result_rows
 
     @property
     def command(self) -> str:
@@ -3899,7 +3935,7 @@ def _sql_native_vortex_public_workflow_kwargs(
 ) -> dict[str, Any]:
     """Return exact native Vortex route payloads inferred from a SQL workflow."""
 
-    if requested_output in {"write_vortex", "write_json", "write_jsonl", "write_csv"}:
+    if requested_output in _NATIVE_WRITE_REQUESTS:
         provider_shape = _vortex_sql_user_route_shape(statement)
         if provider_shape is not None:
             payload: dict[str, Any] = {
@@ -3911,17 +3947,16 @@ def _sql_native_vortex_public_workflow_kwargs(
             if provider_shape.right_input is not None:
                 payload["native_vortex_right_input"] = provider_shape.right_input
             return payload
-        if requested_output in {"write_json", "write_jsonl", "write_csv"}:
-            primitive_shape = _vortex_sql_primitive_shape(statement)
-            primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
-                primitive_shape
-            )
-            if primitive_payload is not None:
-                return {
-                    "input_uri": primitive_shape.uri,
-                    "input_format": "vortex",
-                    **primitive_payload,
-                }
+        primitive_shape = _vortex_sql_primitive_shape(statement)
+        primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
+            primitive_shape
+        )
+        if primitive_payload is not None:
+            return {
+                "input_uri": primitive_shape.uri,
+                "input_format": "vortex",
+                **primitive_payload,
+            }
         return {}
     if requested_output != "collect":
         return {}
@@ -6194,7 +6229,9 @@ class LazyFrame:
 
         if not kwargs:
             normalized_keep = _normalize_duplicate_keep_value(keep)
-            projection_columns = self._projection_columns_for_schema_or_explicit_selection()
+            projection_columns = self._projection_columns_for_schema_or_explicit_selection(
+                allowed_operations={"filter"}
+            )
             try:
                 subset_columns = (
                     projection_columns
@@ -6349,6 +6386,12 @@ class LazyFrame:
             return self._append(
                 WorkflowOperation("expression_project", (expression_project_payload,))
             )
+        if (self.source.source_format == "vortex"
+                and isinstance(expression, ComplexProjectionExpression)
+                and self._can_append_projection_column(column_name, allow_vortex=True)):
+            projected = self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
+            if projected._has_structured_binary_export_shape():
+                return projected
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
@@ -6412,7 +6455,7 @@ class LazyFrame:
             return {}
         if requested_output == "profile":
             return {"native_vortex_operation_family": "profile"}
-        if requested_output in {"write_vortex", "write_json", "write_jsonl", "write_csv"}:
+        if requested_output in _NATIVE_WRITE_REQUESTS:
             shape = self._native_vortex_user_route_shape()
             if shape is not None:
                 payload: dict[str, Any] = {
@@ -6422,12 +6465,13 @@ class LazyFrame:
                 if shape.right_input is not None:
                     payload["native_vortex_right_input"] = shape.right_input
                 return payload
-            if requested_output in {"write_json", "write_jsonl", "write_csv"}:
-                primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
-                    self._vortex_primitive_shape()
-                )
-                if primitive_payload is not None:
-                    return primitive_payload
+            primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
+                self._vortex_primitive_shape()
+            )
+            if primitive_payload is not None:
+                return primitive_payload
+            if requested_output in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc"}:
+                return self._native_vortex_structured_export_payload() or {}
             return {}
         if requested_output != "collect":
             return {}
@@ -7110,6 +7154,14 @@ class LazyFrame:
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source workflows."""
 
+        if any(operation.kind in _NATIVE_UNARY_PRIMITIVES for operation in self.operations):
+            report = self.collect(check=check)
+            if (isinstance(report, VortexWorkflowExecutionReport) and report.status == "success"
+                    and report.envelope.field("result_jsonl") is not None):
+                return report.result_rows
+            if isinstance(report, VortexWorkflowExecutionReport) and report.status != "success":
+                return UnsupportedWorkflowOperationReport(self, "to-python-objects", report.envelope)
+            return self._unsupported_operation("to-python-objects", check=check)
         if report := self._bounded_materialization_report(limit=None, check=check):
             return report.result_rows
         return self._unsupported_operation("to-python-objects", check=check)
@@ -8328,7 +8380,7 @@ class LazyFrame:
         if shape.expression_projection is not None:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="expression_project",
-                predicate=None,
+                predicate=shape.predicate,
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
@@ -8347,7 +8399,7 @@ class LazyFrame:
         elif shape.melt_projection is not None:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="melt",
-                predicate=None,
+                predicate=shape.predicate,
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
@@ -8366,7 +8418,7 @@ class LazyFrame:
         elif shape.explode_projection is not None:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="explode",
-                predicate=None,
+                predicate=shape.predicate,
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
@@ -8385,7 +8437,7 @@ class LazyFrame:
         elif shape.pivot_projection is not None:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="pivot",
-                predicate=None,
+                predicate=shape.predicate,
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
@@ -8404,7 +8456,7 @@ class LazyFrame:
         elif shape.rolling_window is not None:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="rolling_window",
-                predicate=None,
+                predicate=shape.predicate,
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
@@ -8781,7 +8833,7 @@ class LazyFrame:
                         output_ref=target_uri,
                         fanout_outputs=fanout_outputs,
                         execution_policy="native_vortex",
-                        materialization_policy="zero_decode",
+                        materialization_policy="bounded",
                         evidence_level="runtime_smoke",
                         bounded=True,
                         allow_overwrite=allow_overwrite,
@@ -8797,7 +8849,7 @@ class LazyFrame:
             if (
                 requested_output
                 in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc"}
-                and self._has_structured_binary_export_shape()
+                and (structured_payload := self._native_vortex_structured_export_payload()) is not None
             ):
                 write_method = requested_output.removeprefix("write_")
                 envelope = self.client.public_workflow_run(
@@ -8809,12 +8861,13 @@ class LazyFrame:
                     output_ref=target_uri,
                     fanout_outputs=fanout_outputs,
                     execution_policy="native_vortex",
-                    materialization_policy="zero_decode",
+                    materialization_policy="bounded",
                     evidence_level="runtime_smoke",
                     bounded=True,
                     allow_overwrite=allow_overwrite,
                     max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
                     check=check,
+                    **structured_payload,
                 ).envelope
                 return VortexWorkflowExecutionReport(
                     workflow=self,
@@ -8883,7 +8936,7 @@ class LazyFrame:
             requested_output="collect",
             execution_policy="native_vortex",
             materialization_policy=(
-                "bounded" if primitive in {"filter", "project", "filter_project"} else "zero_decode"
+                "zero_decode" if primitive in {"count", "count_where"} else "bounded"
             ),
             evidence_level="runtime_smoke",
             bounded=True,
@@ -9023,7 +9076,9 @@ class LazyFrame:
                 if key_columns is None:
                     return None
                 if columns is None:
-                    columns = self._projection_columns_for_schema_or_explicit_selection()
+                    columns = self._projection_columns_for_schema_or_explicit_selection(
+                        allowed_operations={"filter", "drop_duplicates", "limit"}
+                    )
                 if columns is None:
                     return None
                 if any(column not in columns for column in key_columns):
@@ -9179,8 +9234,7 @@ class LazyFrame:
                     sample_with_replacement = parsed_replacement
             elif operation.kind == "expression_project":
                 if (
-                    predicate is not None
-                    or limit is not None
+                    limit is not None
                     or distinct
                     or drop_duplicates
                     or duplicate_mask
@@ -9207,8 +9261,7 @@ class LazyFrame:
                 expression_projection = operation.values[0]
             elif operation.kind == "melt":
                 if (
-                    predicate is not None
-                    or limit is not None
+                    limit is not None
                     or distinct
                     or drop_duplicates
                     or duplicate_mask
@@ -9235,8 +9288,7 @@ class LazyFrame:
                 melt_projection = operation.values[0]
             elif operation.kind == "explode":
                 if (
-                    predicate is not None
-                    or limit is not None
+                    limit is not None
                     or distinct
                     or drop_duplicates
                     or duplicate_mask
@@ -9265,8 +9317,7 @@ class LazyFrame:
                 explode_projection = operation.values[0]
             elif operation.kind == "pivot":
                 if (
-                    predicate is not None
-                    or limit is not None
+                    limit is not None
                     or distinct
                     or drop_duplicates
                     or duplicate_mask
@@ -9293,8 +9344,7 @@ class LazyFrame:
                 pivot_projection = operation.values[0]
             elif operation.kind == "rolling_window":
                 if (
-                    predicate is not None
-                    or limit is not None
+                    limit is not None
                     or distinct
                     or drop_duplicates
                     or duplicate_mask
@@ -9438,6 +9488,41 @@ class LazyFrame:
             )
         return None
 
+    def _native_vortex_structured_export_payload(self) -> dict[str, Any] | None:
+        if not self._has_structured_binary_export_shape():
+            return None
+        operations = [operation for operation in self.operations if operation.kind != "set_index"]
+        limit = None
+        if operations[-1].kind == "limit":
+            limit = int(operations.pop().values[0])
+        sources = list(operations[0].values)
+        fields = [{"name": name, "source": name} for name in sources]
+        names = set(sources)
+        for operation in operations[1:]:
+            name, expression = operation.values
+            if name in names:
+                return None
+            names.add(name)
+            expression = str(expression).strip()
+            if expression.startswith("ARRAY["):
+                try:
+                    values = [_native_vortex_structured_literal(token)
+                              for token in _split_projection_function_args(expression[6:-1])]
+                except (TypeError, ValueError):
+                    return None
+                fields.append({"name": name, "array": values})
+            else:
+                columns = _split_projection_function_args(expression[7:-1])
+                fields.append({"name": name, "struct": list(columns)})
+                sources.extend(column for column in columns if column not in sources)
+        return {
+            "native_vortex_operation_family": "sink",
+            "vortex_primitive": "expression_project",
+            "vortex_columns": tuple(sources),
+            "vortex_source_order_limit": limit,
+            "vortex_expression_projection": json.dumps({"structured_columns": fields}, ensure_ascii=False),
+        }
+
     def _has_structured_binary_export_shape(self) -> bool:
         if self.source.source_format != "vortex":
             return False
@@ -9563,8 +9648,9 @@ class LazyFrame:
                 return False
         return saw_aggregate
 
-    def _can_append_projection_column(self, column_name: str) -> bool:
-        if not _is_query_builder_local_source(self.source):
+    def _can_append_projection_column(self, column_name: str, *, allow_vortex: bool = False) -> bool:
+        if (not _is_query_builder_local_source(self.source)
+                and not (allow_vortex and self.source.source_format == "vortex")):
             return False
         saw_join = False
         saw_projection = False
@@ -9633,7 +9719,7 @@ class LazyFrame:
                 if any(not _is_sql_identifier(value) for value in operation.values):
                     return None
                 projection_columns = operation.values
-            elif operation.kind == "set_index":
+            elif operation.kind in {"set_index", "filter"}:
                 continue
             else:
                 return None
@@ -13763,6 +13849,17 @@ def _vortex_expression_scalar_payload(
             return {"type": "utf8", "value": value}
         return None
     return None
+
+
+def _native_vortex_structured_literal(token: str) -> object:
+    if token.upper() in {"NULL", "TRUE", "FALSE"}:
+        return {"NULL": None, "TRUE": True, "FALSE": False}[token.upper()]
+    if token.startswith("'"):
+        return _parse_sql_string_literal_token(token)
+    value = _parse_numeric_literal_token(token)
+    if isinstance(value, int) and not -(1 << 63) <= value < (1 << 64):
+        raise ValueError("native array integer literals must fit Int64 or UInt64")
+    return value
 
 
 def _sql_complex_projection_literal(value: object) -> str:

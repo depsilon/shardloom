@@ -120,7 +120,11 @@ mod resident_count_where;
 #[path = "public_resident_aggregate.rs"]
 mod resident_aggregate;
 
-/// Caller-owned prepared execution. Only the latest count, collection or aggregate is retained;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "public_resident_unary.rs"]
+mod resident_unary;
+
+/// Caller-owned prepared execution. Only the latest admitted operation is retained;
 /// results are never cached and every execution validates its source generation.
 #[derive(Default)]
 pub(crate) struct PublicExecutionSession {
@@ -132,6 +136,8 @@ pub(crate) struct PublicExecutionSession {
     count_where: Option<PreparedPublicCountWhere>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     aggregate: Option<resident_aggregate::PreparedPublicAggregate>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    unary: Option<resident_unary::PreparedPublicUnary>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     memory: Option<(
         u64,
@@ -219,6 +225,10 @@ pub(crate) fn handle_public_workflow_run(
             .is_some_and(|entry| entry.request != request)
         || execution_session
             .aggregate
+            .as_ref()
+            .is_some_and(|entry| entry.request != request)
+        || execution_session
+            .unary
             .as_ref()
             .is_some_and(|entry| entry.request != request)
         || (execution_session.memory.is_some() && plan.route_id != "generated_rows_memory_collect")
@@ -415,7 +425,7 @@ fn native_vortex_primitive_row_export_execution(
     let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
     let mut primitive_request =
         vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
-    attach_native_expression_source_predicate(request, &mut primitive_request)?;
+    attach_native_unary_source_predicate(request, &mut primitive_request)?;
     if let Some(limit) = request.vortex_source_order_limit.as_deref() {
         primitive_request = primitive_request
             .with_source_order_limit(positive_usize_arg("source-order limit", limit)?);
@@ -970,18 +980,29 @@ fn native_vortex_primitive_arg_for_request(
     }
 }
 
-// Expression-project's compact payload contains projection expressions only.
-// Preserve the separate public source predicate before projection and LIMIT.
-fn attach_native_expression_source_predicate(
+// Computed unary payloads describe the operation, not the source predicate.
+// Preserve the separate public predicate before computation and LIMIT.
+fn attach_native_unary_source_predicate(
     request: &PublicWorkflowRouteRequest,
     primitive_request: &mut shardloom_vortex::VortexQueryPrimitiveRequest,
 ) -> Result<(), ShardLoomError> {
-    if primitive_request.kind != shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows {
-        return Ok(());
-    }
+    use shardloom_vortex::VortexQueryPrimitiveKind as Kind;
     let Some(predicate) = request.vortex_predicate.as_deref() else {
         return Ok(());
     };
+    match primitive_request.kind {
+        Kind::TailRows | Kind::DuplicateMaskRows => {
+            return Err(ShardLoomError::InvalidOperation(
+                "source predicates are not admitted for tail or duplicate_mask; no fallback execution was attempted".to_owned(),
+            ));
+        }
+        Kind::ExpressionProjectRows
+        | Kind::MeltRows
+        | Kind::ExplodeRows
+        | Kind::PivotRows
+        | Kind::RollingWindowRows => {}
+        _ => return Ok(()),
+    }
     let source_only = primitive_request
         .expression_projection
         .as_ref()
@@ -998,9 +1019,9 @@ fn attach_native_expression_source_predicate(
                         )
                     })
             });
-    if !source_only {
+    if primitive_request.structured_projection.is_some() && !source_only {
         return Err(ShardLoomError::InvalidOperation(
-            "filtered expression_project currently requires a structured projection of source columns; constructed expressions and rewrites are not admitted with --vortex-predicate; no fallback execution was attempted".to_string(),
+            "filtered structured expression_project requires a projection of source columns; constructed expressions are not admitted with --vortex-predicate; no fallback execution was attempted".to_string(),
         ));
     }
     primitive_request.predicate =
@@ -2651,16 +2672,12 @@ fn execute_native_vortex_primitive_run_with_extra(
         return emit_blocked_facade("run", format, request, &blocked);
     };
     if native_vortex_primitive_materializes(primitive) {
-        #[cfg(all(feature = "vortex-local-primitives", unix))]
-        if primitive == PublicVortexPrimitive::Aggregate && request.requested_output == "collect" {
-            return resident_aggregate::run(request, plan, format, extra_fields, execution_session);
-        }
-        execution_session.clear();
-        return execute_native_vortex_materializing_primitive_run_with_extra(
+        return execute_native_vortex_materializing_with_session(
             request,
             plan,
             format,
             extra_fields,
+            execution_session,
             primitive,
         );
     }
@@ -2737,6 +2754,40 @@ fn execute_native_vortex_primitive_run_with_extra(
     let mut attachment_fields = execution_attachment_fields("run", request, plan);
     attachment_fields.append(&mut extra_fields);
     execute_native_vortex_single_primitive_run(primitive, runtime_args, format, attachment_fields)
+}
+
+fn execute_native_vortex_materializing_with_session(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    extra_fields: Vec<(String, String)>,
+    execution_session: &mut PublicExecutionSession,
+    primitive: PublicVortexPrimitive,
+) -> ExitCode {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if request.requested_output == "collect" {
+        if primitive == PublicVortexPrimitive::Aggregate {
+            return resident_aggregate::run(request, plan, format, extra_fields, execution_session);
+        }
+        if primitive != PublicVortexPrimitive::SortRows {
+            return resident_unary::run(
+                request,
+                plan,
+                format,
+                extra_fields,
+                execution_session,
+                primitive,
+            );
+        }
+    }
+    execution_session.clear();
+    execute_native_vortex_materializing_primitive_run_with_extra(
+        request,
+        plan,
+        format,
+        extra_fields,
+        primitive,
+    )
 }
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -3042,6 +3093,13 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
             "aggregate compute requires admitted native array decoding and typed materialization; use --materialization-policy bounded or the metadata-only count primitive; no fallback execution was attempted".to_string(),
         ));
     }
+    if native_vortex_primitive_materializes(primitive)
+        && request.materialization_policy == "zero_decode"
+    {
+        return native_vortex_materializing_error(format, primitive, &ShardLoomError::InvalidOperation(
+            "native row computation and collection require admitted materialization; use --materialization-policy bounded; no fallback execution was attempted".to_string(),
+        ));
+    }
     let binding = match native_vortex_input_binding_for_request(request) {
         Ok(binding) => binding,
         Err(error) => return native_vortex_materializing_error(format, primitive, &error),
@@ -3143,7 +3201,7 @@ fn native_vortex_bound_request_and_arg(
     let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
     let mut primitive_request =
         vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
-    attach_native_expression_source_predicate(request, &mut primitive_request)?;
+    attach_native_unary_source_predicate(request, &mut primitive_request)?;
     if let Some(limit) = request.vortex_source_order_limit.as_ref() {
         primitive_request = primitive_request
             .with_source_order_limit(positive_usize_arg("source-order limit", limit)?);
@@ -10822,10 +10880,19 @@ fn native_vortex_row_export_requires_structured_payload(
     request: &PublicWorkflowRouteRequest,
 ) -> bool {
     if cfg!(all(feature = "vortex-write", unix))
-        && matches!(
-            normalized_vortex_primitive(request),
-            Some(PublicVortexPrimitive::Aggregate | PublicVortexPrimitive::SortRows)
-        )
+        && !request
+            .vortex_expression_projection
+            .as_deref()
+            .is_some_and(native_vortex_expression_projection_is_structured)
+        && normalized_vortex_primitive(request).is_some_and(|primitive| {
+            native_vortex_primitive_materializes(primitive)
+                || matches!(
+                    primitive,
+                    PublicVortexPrimitive::Project
+                        | PublicVortexPrimitive::Filter
+                        | PublicVortexPrimitive::FilterProject
+                )
+        })
         && (request.requested_output == "write_vortex"
             || (cfg!(feature = "universal-format-io")
                 && matches!(
@@ -10833,26 +10900,9 @@ fn native_vortex_row_export_requires_structured_payload(
                     "write_parquet" | "write_arrow_ipc" | "write_avro" | "write_orc"
                 )))
     {
-        // Completed native aggregates already own a typed schema and payload;
-        // requiring an expression-project payload discards that sink contract.
-        return false;
-    }
-    if cfg!(all(feature = "vortex-write", unix))
-        && (request.requested_output == "write_vortex"
-            || (cfg!(feature = "universal-format-io")
-                && matches!(
-                    request.requested_output.as_str(),
-                    "write_parquet" | "write_arrow_ipc" | "write_avro" | "write_orc"
-                )))
-        && matches!(
-            normalized_vortex_primitive(request),
-            Some(
-                PublicVortexPrimitive::Project
-                    | PublicVortexPrimitive::Filter
-                    | PublicVortexPrimitive::FilterProject
-            )
-        )
-    {
+        // These native producers bind or discover their own result schema.
+        // Runtime dtype admission still precedes publication; a structured
+        // expression-project payload is not required for an ordinary result.
         return false;
     }
     matches!(
@@ -12164,6 +12214,15 @@ fn typed_sink_contract(
         }
         "native_vortex_primitive_row_export" if request.requested_output == "write_vortex" => {
             "native_vortex_array_stream_to_vortex_sink"
+        }
+        "native_vortex_primitive_row_export" if request.requested_output == "write_parquet" => {
+            "native_vortex_arrays_to_parquet_compatibility_sink"
+        }
+        "native_vortex_primitive_row_export" if request.requested_output == "write_arrow_ipc" => {
+            "native_vortex_arrays_to_arrow_ipc_compatibility_sink"
+        }
+        "native_vortex_primitive_row_export" if request.requested_output == "write_avro" => {
+            "native_vortex_arrays_to_avro_compatibility_sink"
         }
         "native_vortex_primitive_row_export" => {
             "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"
@@ -16216,7 +16275,7 @@ mod tests {
             .err()
             .unwrap()
             .to_string()
-            .contains("constructed expressions and rewrites are not admitted")
+            .contains("constructed expressions are not admitted")
         );
         assert!(
             native_vortex_bound_request_and_arg(

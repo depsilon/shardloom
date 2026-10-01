@@ -108,10 +108,13 @@ Bounded flat projection, aggregate and sorted-result exports also use shared nat
 result ownership for Vortex, Parquet, Arrow IPC, Avro and ORC. Computed aggregate
 and ordered file outputs now use bounded typed native batches across all eight
 formats, including admitted weighted COUNT, integer DISTINCT and numeric-sort
-spill. They admit up to 128 flat scalar fields and bound each native batch to
+spill. The [ten unary families](native-unary-workflows-2026-10-01.md) use the same
+writers for supported flat scalar results, with source reuse in explicit prepared
+handles and fresh operator state. They admit up to 128 flat scalar fields and bound each native batch to
 8 MiB; output row counts may exceed 65,536. Small owned collection retains its
-independent 65,536-row / 128-field / 8-MiB bounds. Nested and extension results and
-broader spill families remain outside this handoff. Resource denial or a value
+independent 65,536-row / 128-field / 8-MiB bounds. Heterogeneous scalar Variant results
+retain native/text admission only. General nested and extension results, unary
+state spill and broader spill families remain outside this handoff. Resource denial or a value
 outside a format's admission fails the complete write before publication.
 These computed writers atomically create a new destination and reject existing
 files even with overwrite enabled. See the
@@ -136,7 +139,7 @@ The route ids covered by this scope are:
 | `local_file_prepare_once_batch` | Batch prepared query result, bounded report, or local result sink. |
 | `prepared_vortex_warm_query` | Prepared Vortex query result, bounded report, or local result sink. |
 | `native_vortex_query` | Native local Vortex result/report route with scoped result sink evidence. |
-| `native_vortex_primitive_row_export` | Native/prepared Vortex row export to JSON array/JSONL/CSV; flat computed aggregate/sort result streams to all eight formats, including admitted spill; bounded flat projections to Vortex/Parquet/Arrow IPC/Avro/ORC; existing structured projections retain their typed admission. Explicit decode/materialization evidence; fanout remains JSONL/CSV only. |
+| `native_vortex_primitive_row_export` | Native/prepared Vortex row export to JSON array/JSONL/CSV; flat computed aggregate/sort and ten unary-family result streams to all eight formats, including admitted aggregate/sort spill; bounded flat projections to Vortex/Parquet/Arrow IPC/Avro/ORC; existing structured projections retain their typed admission. Explicit decode/materialization evidence; fanout remains JSONL/CSV only. |
 | `generated_rows_local_output` | Local JSON-array/JSONL/CSV, feature-gated structured/Vortex output, artifact-adjacent prepared-state reuse manifest, and fanout. |
 | `quarantine_output_route` | Local quarantine sink for admitted schema/data-quality rows. |
 

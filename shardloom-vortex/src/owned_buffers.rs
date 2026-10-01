@@ -101,6 +101,20 @@ struct ReservedBufferOwner {
     _lease: MemoryLease,
 }
 
+/// Keep a pre-reserved native metadata owner with an existing required buffer.
+/// No payload copy is needed; clones of this buffer retain both reservations.
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn retain_credit(buffer: ByteBuffer, lease: MemoryLease) -> ByteBuffer {
+    let alignment = buffer.alignment();
+    ByteBuffer::from_bytes_aligned(
+        bytes::Bytes::from_owner(ReservedBufferOwner {
+            buffer,
+            _lease: lease,
+        }),
+        alignment,
+    )
+}
+
 impl AsRef<[u8]> for ReservedBufferOwner {
     fn as_ref(&self) -> &[u8] {
         self.buffer.as_slice()

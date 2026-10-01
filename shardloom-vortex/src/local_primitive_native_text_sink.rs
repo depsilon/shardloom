@@ -36,6 +36,7 @@ pub(super) fn write(
     policy: VortexLocalPrimitiveExecutionPolicy,
     producer: Option<&mut ArrayProducer<'_>>,
     cancellation: &CancellationToken,
+    admitted: Option<&crate::resident_session::NativeExecutionContext<'_>>,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
     if !matches!(format, Format::Json | Format::Jsonl | Format::Csv) {
         return Err(failed("requires JSON, JSONL or CSV output"));
@@ -50,7 +51,7 @@ pub(super) fn write(
     let mut logical_bytes = 0_u64;
     let mut text_copies = 0_u64;
     plan.source
-        .with_native_execution(cancellation, |file, context| {
+        .with_native_execution_or_admitted(cancellation, admitted, |file, context| {
             let mut scalar_context = context.native_session().create_execution_ctx();
             let mut writer = BufWriter::with_capacity(64 * 1024, &mut output.file);
             match format {
@@ -112,12 +113,7 @@ pub(super) fn write(
                         let scalar = column
                             .execute_scalar(row, &mut scalar_context)
                             .map_err(vortex_error)?;
-                        let value = if scalar.is_null() {
-                            StatValue::Null
-                        } else {
-                            vortex_scalar_to_stat_value(&scalar)
-                                .ok_or_else(|| failed("text output requires a flat scalar value"))?
-                        };
+                        let value = terminal_scalar(&scalar)?;
                         if let StatValue::Utf8(text) = &value {
                             text_copies = text_copies
                                 .checked_add(usize_to_u64(text.len())?)
@@ -192,6 +188,19 @@ pub(super) fn write(
         evidence,
         diagnostics: Vec::new(),
     })
+}
+
+fn terminal_scalar(scalar: &vortex::array::scalar::Scalar) -> Result<StatValue> {
+    let scalar = match scalar.value() {
+        Some(vortex::array::scalar::ScalarValue::Variant(value)) => value.as_ref(),
+        _ => scalar,
+    };
+    if scalar.is_null() {
+        Ok(StatValue::Null)
+    } else {
+        vortex_scalar_to_stat_value(scalar)
+            .ok_or_else(|| failed("text output requires a flat scalar value"))
+    }
 }
 
 fn write_value(writer: &mut impl Write, value: StatValue, format: Format) -> Result<()> {

@@ -18,6 +18,8 @@ fn field(key: &str, value: &str) -> String {
 fn vortex_file_io_enabled() -> bool {
     cfg!(any(
         feature = "vortex-encoded-read-spike",
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
         feature = "vortex-traditional-analytics-benchmark"
     ))
 }

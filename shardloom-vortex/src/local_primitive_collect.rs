@@ -3,16 +3,16 @@
 use super::{
     Result, ShardLoomError, VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveKind,
     VortexQueryPrimitiveRequest, bind_vortex_scan_expr, local_vortex_path,
-    logical_field_from_native_array, row_export_scan_plan, stat_value_to_json_value,
-    vortex_scalar_to_stat_value,
+    logical_field_from_native_array, row_export_scan_plan,
 };
 use crate::resident_session::{
     OwnedVortexResultBatch, PreparedVortexCount, PreparedVortexProjection, PreparedVortexSource,
     ResidentSessionSnapshot, ResidentVortexSession,
 };
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use std::io::Write as _;
-use vortex::array::Columnar;
+use vortex::array::{ArrayRef, Columnar, ExecutionCtx};
 
 const MAX_COLLECT_ROWS: u64 = 65_536;
 const MAX_JSON_BYTES: usize = 8 * 1024 * 1024;
@@ -347,65 +347,158 @@ pub(crate) fn render_owned_json(
             "native JSON sink requires positive byte bounds and at most 65,536 rows",
         ));
     }
-    let names = names.iter().map(String::as_str).collect::<Vec<_>>();
-    let mut output = BoundedJson::new(memory, max_bytes.min(MAX_JSON_BYTES))?;
-    render_rows(result, &names, &mut output)?;
-    let text = String::from_utf8(output.bytes).map_err(collect_io_error)?;
-    Ok(Budgeted::new(text, output.lease))
+    let mut output = JsonRows::new(memory, max_bytes.min(MAX_JSON_BYTES), false)?;
+    let mut context = result.create_execution_ctx();
+    for array in result.arrays() {
+        output.append(array, names, &mut context, &CancellationToken::default())?;
+    }
+    output.finish()
 }
 
-fn render_rows(
-    result: &OwnedVortexResultBatch,
-    names: &[&str],
-    output: &mut BoundedJson,
-) -> Result<()> {
-    let mut context = result.create_execution_ctx();
-    output.write_all(b"[").map_err(collect_io_error)?;
-    let mut emitted = 0;
-    for array in result.arrays() {
+/// A terminal bounded text sink. Native batches are consumed synchronously;
+/// neither a second row table nor a JSON value tree is constructed.
+pub(super) struct JsonRows {
+    output: BoundedJson,
+    memory: LiveMemoryPool,
+    rows: u64,
+    lines: bool,
+}
+
+impl JsonRows {
+    pub(super) fn new(memory: &LiveMemoryPool, max_bytes: usize, lines: bool) -> Result<Self> {
+        if max_bytes == 0 || max_bytes > MAX_JSON_BYTES {
+            return Err(collect_error("JSON collection requires a 1..=8 MiB bound"));
+        }
+        let mut output = BoundedJson::new(memory, max_bytes)?;
+        if !lines {
+            output.write_all(b"[").map_err(collect_io_error)?;
+        }
+        Ok(Self {
+            output,
+            memory: memory.clone(),
+            rows: 0,
+            lines,
+        })
+    }
+
+    pub(super) fn append(
+        &mut self,
+        array: &ArrayRef,
+        names: &[impl AsRef<str>],
+        context: &mut ExecutionCtx,
+        cancellation: &CancellationToken,
+    ) -> Result<()> {
+        cancellation.check()?;
+        let next_rows = self
+            .rows
+            .checked_add(array.len() as u64)
+            .ok_or_else(|| collect_error("collection row overflow"))?;
+        if next_rows > MAX_COLLECT_ROWS {
+            return Err(collect_error(
+                "collect exceeds 65,536 rows; use an explicit streaming export",
+            ));
+        }
+        let bytes = names
+            .len()
+            .checked_mul(std::mem::size_of::<ArrayRef>() + 512)
+            .ok_or_else(|| collect_error("JSON field metadata overflow"))?;
+        let _metadata = self.memory.reserve(bytes as u64)?;
         // Logical fields need not be physical encoding child slots. Resolve
         // each requested field through the provider, including struct validity,
-        // only at this explicit JSON materialization boundary.
+        // only at this explicit JSON materialization boundary. Preserve Variant
+        // tags directly; the provider's general Columnar builder is not required
+        // to support dynamic variants for this scalar serialization boundary.
         let children = names
             .iter()
             .map(|column| {
-                logical_field_from_native_array(array, column)?
-                    .execute::<Columnar>(&mut context)
-                    .map(vortex::array::IntoArray::into_array)
-                    .map_err(collect_io_error)
+                let field = logical_field_from_native_array(array, column.as_ref())?;
+                if matches!(field.dtype(), vortex::array::dtype::DType::Variant(_)) {
+                    Ok(field)
+                } else {
+                    field
+                        .execute::<Columnar>(context)
+                        .map(vortex::array::IntoArray::into_array)
+                        .map_err(collect_io_error)
+                }
             })
             .collect::<Result<Vec<_>>>()?;
         for row in 0..array.len() {
-            if emitted != 0 {
-                output.write_all(b",").map_err(collect_io_error)?;
+            cancellation.check()?;
+            if !self.lines && self.rows != 0 {
+                self.output.write_all(b",").map_err(collect_io_error)?;
             }
-            output.write_all(b"{").map_err(collect_io_error)?;
+            self.output.write_all(b"{").map_err(collect_io_error)?;
             for (index, column) in names.iter().enumerate() {
                 if index != 0 {
-                    output.write_all(b",").map_err(collect_io_error)?;
+                    self.output.write_all(b",").map_err(collect_io_error)?;
                 }
-                serde_json::to_writer(&mut *output, column).map_err(collect_io_error)?;
-                output.write_all(b":").map_err(collect_io_error)?;
+                serde_json::to_writer(&mut self.output, column.as_ref())
+                    .map_err(collect_io_error)?;
+                self.output.write_all(b":").map_err(collect_io_error)?;
                 let child = &children[index];
                 let scalar = child
-                    .execute_scalar(row, &mut context)
+                    .execute_scalar(row, context)
                     .map_err(collect_io_error)?;
-                let value = if scalar.is_null() {
-                    serde_json::Value::Null
-                } else {
-                    let value = vortex_scalar_to_stat_value(&scalar).ok_or_else(|| {
-                        collect_error("result type is not admitted for JSON collect")
-                    })?;
-                    stat_value_to_json_value(&value)?
-                };
-                serde_json::to_writer(&mut *output, &value).map_err(collect_io_error)?;
+                write_scalar_json(&mut self.output, &scalar)?;
             }
-            output.write_all(b"}").map_err(collect_io_error)?;
-            emitted += 1;
+            self.output
+                .write_all(if self.lines { b"}\n" } else { b"}" })
+                .map_err(collect_io_error)?;
+            self.rows += 1;
         }
+        Ok(())
     }
-    output.write_all(b"]").map_err(collect_io_error)?;
-    Ok(())
+
+    pub(super) fn finish(mut self) -> Result<Budgeted<String>> {
+        if !self.lines {
+            self.output.write_all(b"]").map_err(collect_io_error)?;
+        }
+        let text = String::from_utf8(self.output.bytes).map_err(collect_io_error)?;
+        Ok(Budgeted::new(text, self.output.lease))
+    }
+}
+
+fn write_scalar_json(
+    writer: &mut impl std::io::Write,
+    scalar: &vortex::array::scalar::Scalar,
+) -> Result<()> {
+    use shardloom_core::StatValue;
+    use vortex::array::scalar::ScalarValue;
+    let mut scalar = scalar;
+    let mut depth = 0;
+    while let Some(ScalarValue::Variant(inner)) = scalar.value() {
+        depth += 1;
+        if depth > 64 {
+            return Err(collect_error("JSON Variant nesting exceeds 64 levels"));
+        }
+        scalar = inner;
+    }
+    match scalar.value() {
+        None => writer.write_all(b"null").map_err(collect_io_error),
+        Some(ScalarValue::Bool(value)) => {
+            serde_json::to_writer(writer, value).map_err(collect_io_error)
+        }
+        Some(ScalarValue::Utf8(value)) => {
+            serde_json::to_writer(writer, value.as_str()).map_err(collect_io_error)
+        }
+        Some(ScalarValue::Primitive(value)) => match super::vortex_pvalue_to_stat_value(*value) {
+            Some(StatValue::UInt64(value)) => {
+                serde_json::to_writer(writer, &value).map_err(collect_io_error)
+            }
+            Some(StatValue::Int64(value)) => {
+                serde_json::to_writer(writer, &value).map_err(collect_io_error)
+            }
+            Some(StatValue::Float64(value)) if value.is_finite() => {
+                serde_json::to_writer(writer, &value).map_err(collect_io_error)
+            }
+            _ => Err(collect_error(
+                "JSON numbers require supported finite values",
+            )),
+        },
+        _ => Err(collect_error(
+            "result type is not admitted for JSON collect",
+        )),
+    }
 }
 
 struct BoundedJson {
@@ -432,13 +525,14 @@ impl BoundedJson {
             .max(256)
             .min(self.limit);
         let previous = self.lease.bytes();
-        // Geometric growth avoids repeated reallocations, but scarce remaining
-        // capacity may still admit the exact completed bytes requested here.
+        // Cover old and replacement buffers during reallocation, then retain
+        // only the new allocation's credits. Try exact growth under pressure.
         self.lease
-            .resize(capacity as u64)
-            .or_else(|_| self.lease.resize(required as u64))
+            .resize(previous + capacity as u64)
+            .or_else(|_| self.lease.resize(previous + required as u64))
             .map_err(std::io::Error::other)?;
-        let capacity = usize::try_from(self.lease.bytes()).map_err(std::io::Error::other)?;
+        let capacity =
+            usize::try_from(self.lease.bytes() - previous).map_err(std::io::Error::other)?;
         if let Err(error) = self.bytes.try_reserve_exact(capacity - self.bytes.len()) {
             self.lease.resize(previous).map_err(std::io::Error::other)?;
             return Err(std::io::Error::other(error));
@@ -478,6 +572,7 @@ fn collect_io_error(error: impl std::fmt::Display) -> ShardLoomError {
 
 #[cfg(test)]
 mod tests {
+    use super::super::vortex_scalar_to_stat_value;
     use super::*;
     use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
     use shardloom_plan::ProjectionRequest;
