@@ -22,13 +22,6 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(path.join(dataRoot, file), "utf8"));
 }
 
-function slug(value) {
-  return String(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "") || "item";
-}
-
 function write(file, content) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, content, "utf8");
@@ -123,14 +116,6 @@ function referenceProof(reference) {
   return REFERENCE_PROOFS[reference] ?? "This source anchors the page claim boundary, evidence fields, and support posture.";
 }
 
-function referenceList(references) {
-  const rows = references ?? [];
-  if (!rows.length) return `<ul data-citation-block="reference-files"><li>Reference not yet attached.</li></ul>`;
-  return `<ul data-citation-block="reference-files">
-${rows.map((ref) => `<li><code>${ref}</code> - What this proves: ${referenceProof(ref)}</li>`).join("\n")}
-</ul>`;
-}
-
 function markdownList(values) {
   return (values ?? []).map((value) => `- \`${String(value)}\``).join("\n") || "- Not reported.";
 }
@@ -215,54 +200,6 @@ ${relatedTerms
 `;
 }
 
-function termPage(term) {
-  return `${frontmatter({
-    title: term.title,
-    description: term.summary,
-    sidebar: { label: term.title },
-  })}
-
-<span class="status-chip status-${String(term.status).replaceAll("_", "-")}">${term.status}</span>
-
-${term.summary}
-
-## Plain-English Meaning
-
-${term.summary}
-
-## Why It Matters
-
-This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
-
-## How ShardLoom Uses It
-
-- Route: \`${term.route}\`
-- Category: ${term.category}
-
-## Current Support
-
-Status: \`${term.status}\`
-
-## Evidence Fields
-
-${(term.evidence_fields ?? []).map((field) => `- \`${field}\``).join("\n") || "- Not reported for this term."}
-
-## What It Does Not Claim
-
-This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
-
-## Try It / Related Use Cases
-
-${(term.related_use_cases ?? [])
-  .map((id) => `- [${id}](https://github.com/depsilon/shardloom/blob/main/docs/use-cases/generated/${id}.md)`)
-  .join("\n") || "- No related use case yet."}
-
-## Reference Files
-
-${referenceList(term.references)}
-`;
-}
-
 function docsPage({ title, description, order, body }) {
   return `${frontmatter({
     title,
@@ -275,10 +212,23 @@ ${body}
 }
 
 const durableDocsPages = [
+  { slug: "execution-model", content: docsPage({
+  "title": "Execution model",
+  "description": "How ShardLoom avoids data work and preserves its no-fallback contract.",
+  "order": 3,
+  "body": "ShardLoom computes over Vortex-native, encoded columnar data. It is a local technical preview\nwith Python, SQL, DataFrame-style, and CLI entry points into the same admitted execution families.\n\n## Avoid work first\n\nThe engine tries to answer from metadata, prune irrelevant segments, and compute against encoded\nvalues before decoding or materializing rows. A dictionary or repeated value can let an operator\nwork on fewer values while preserving exact results.\n\nZero-decode means an operation preserves encoded values. Zero-copy means a boundary avoids copying\nbuffers. They describe different things, and neither applies to every operation. Execution evidence\nrecords where reading, decoding, and materialization occur.\n\n## No fallback\n\nUnsupported plans return explicit diagnostics. ShardLoom does not delegate them to Spark,\nDataFusion, DuckDB, Polars, or another query engine.\n\nApproved upstream Vortex array, compute, scan, source, and sink APIs can supply native operations\ninside ShardLoom's feature and policy boundaries. Vortex integrations with external query engines\nare not execution providers.\n\n## Inputs and outputs\n\nCompatibility inputs such as CSV or Parquet enter through explicit adapters. Vortex is the native\nmiddle and the highest-fidelity persistence target. Compatibility outputs translate results and\nreport metadata loss; choosing an output format does not choose another execution engine.\n\nSee [execution routes](/field-guide/execution-routes) for preparation and reuse, and\n[runtime and I/O](/field-guide/runtime-and-io) for supported formats and limits.\n\n## Execution evidence\n\nAdmitted execution reports `fallback_attempted=false` and `external_engine_invoked=false`.\nCertificates describe the admitted source, work, output, and materialization boundaries. Where\nincluded, sink digests and replay checks support result verification.\n\n`claim_gate_status` describes the scope of the evidence. A local smoke test, a capability report,\nand a reproducible benchmark answer different questions. A certificate alone does not establish\nproduction readiness or performance superiority.\n\nThe [compute flow](/compute-engine-flow) shows the route in detail. Read\n[benchmark methodology](/field-guide/benchmark-methodology) before comparing timings."
+}) },
+  { slug: "execution-routes", content: docsPage({
+  "title": "Execution routes",
+  "description": "Source admission, prepare-once reuse, and native Vortex routes.",
+  "order": 4,
+  "body": "Local files, prepared artifacts, and native Vortex files enter the same engine at different\npoints. The distinction matters for reuse and for what a timing measurement includes.\n\n## Source admission\n\n`UniversalIngress` identifies the input family and checks whether an adapter is available.\n`SourceState` records the source identity, schema, and adapter evidence. Unsupported formats or\noperations return a diagnostic before execution; a recognized file extension is not a promise of\nfull format support.\n\n## Prepare once\n\nFor an admitted compatibility input, `vortex_ingest` creates a `VortexPreparedState`.\nThe `prepared_vortex` route executes against that artifact.\n\nPreparation can be reused when the source, schema, and artifact identities match. Generation\nchecks span reuse and execution, and detected changes fail explicitly. Each query has fresh\nexecution state: prepared state is not a query-result cache.\n\n## Native Vortex\n\nThe `native_vortex` route starts with data already stored as Vortex. Preparation preserves its\nexisting layout. Operations still depend on supported types, encodings, and physical layouts;\nnative input does not eliminate computation or result delivery.\n\n## Generated rows\n\nA generated-source route creates deterministic rows without reading an input dataset. Its evidence\nmust distinguish row generation from source parsing and from query execution.\n\n## Cold and warm runs\n\nA certified cold route can include source reading, parsing, staging, Vortex construction,\nwrite/reopen checks, query execution, and output evidence. A prepared warm run begins after the\nprepared artifact exists. Compare only runs with the same measured boundary.\n\nThe [benchmark methodology](/field-guide/benchmark-methodology) explains timing surfaces.\nThe [Python guide](/field-guide/python-surface) shows the normal local query path.\nFor the full route vocabulary, see the\n[repository contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md)."
+}) },
+
   {
     slug: "start-local-proof",
     content: docsPage({
-      title: "Start local proof",
+      title: "Install and run",
       description: "Install the published technical preview and inspect native execution evidence.",
       order: 1,
       body: `ShardLoom ${packageVersion} is a published technical preview. Install from PyPI or Homebrew,
@@ -294,17 +244,11 @@ python -m pip install shardloom
 brew install depsilon/tap/shardloom
 \`\`\`
 
-## Source Checkout
+## Develop from source
 
-For development and release validation, follow [source checkout installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md), then run:
+For development, follow [source checkout installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
 
-\`\`\`powershell
-python scripts\\release_dry_run_proof.py --rows 64 --iterations 1
-python scripts\\check_production_usability_gate.py
-python examples\\local-python-smoke\\run.py --repo-root .
-\`\`\`
-
-## Success Evidence
+## Verify execution
 
 - \`fallback_attempted=false\`
 - \`external_engine_invoked=false\`
@@ -323,12 +267,13 @@ performance superiority.`,
   {
     slug: "python-surface",
     content: docsPage({
-      title: "Python surface",
+      title: "Python",
       description: "Current Python ETL scenario shape for the primary ShardLoom route.",
       order: 2,
-      body: `The Python surface is the current user-facing way to describe local ETL scenarios. It is a front door into ShardLoom route admission, not permission to use pandas, Polars, DuckDB, Spark, or DataFusion as fallback execution.
+      body: `Use Python to read local data, build queries, and inspect or export results. Admitted queries
+run in ShardLoom. Unsupported work returns a diagnostic without fallback execution.
 
-## Normal Package Shape
+## Run a local query
 
 Create the small CSV in the [getting-started walkthrough](/start) before running this example.
 The public \`run()\` report exposes a shared result envelope across admitted routes.
@@ -367,44 +312,11 @@ shared native result and sink contracts. Feature gates, supported types, and res
 See [runtime and I/O](/field-guide/runtime-and-io) and the
 [user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
 
-## Schema-Pinned Benchmark Shape
+## Next steps
 
-Markers for the copyable v1 guide examples: \`stable_v1_example_local_csv\`,
-\`stable_v1_example_blocker_inspection\`, and \`unsupported_example_broad_sql\`.
-
-\`\`\`python
-import shardloom as sl
-
-ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
-
-prepared = ctx.prepare_vortex(
-    "data/fact.csv",
-    dim="data/dim.csv",
-    workspace="target/shardloom-prepared",
-    input_format="csv",
-    result_workspace="target/shardloom-results",
-    evidence_level="certified",
-    max_parallelism=1,
-)
-
-# selective filter
-result = prepared.query("selective filter").collect()
-prepared.query("filter + projection + limit").collect()
-prepared.query("group by aggregation").collect()
-prepared.query("hash join").collect()
-prepared.query("sort and top-k").collect()
-prepared.query("clean/cast/filter/write").collect()
-prepared.query("malformed timestamp / dirty CSV").collect()
-prepared.query("null-heavy aggregate").collect()
-prepared.query("nested JSON field scan").collect()
-
-print(result.batch.field("scenario_selective-filter_fallback_attempted"))
-print(result.batch.field("scenario_selective-filter_external_engine_invoked"))
-\`\`\`
-
-## Boundary
-
-The primary route must emit ShardLoom evidence. Direct local-file execution is an internal smoke path; public scenario execution uses Vortex-prepared or native Vortex routes unless the current runtime returns a deterministic blocker.`,
+See [the examples](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md)
+for preparation, bounded collection, writes, and blocker inspection. The [limitations](/field-guide/limitations)
+page describes current coverage gaps.`,
     }),
   },
   {
@@ -504,6 +416,11 @@ coverage, and claim gating.
 - \`publication_proof\`: result-sink, replay, and human evidence rendering when included by the row formula.
 - \`external_baseline\`: comparison context only, never fallback execution.
 
+## External baselines
+
+External engines are comparison context only. Their execution never satisfies a ShardLoom
+execution contract or its no-fallback evidence. The [benchmarks page](/benchmarks) links to ClickBench.
+
 ## Claim Rules
 
 Do not compare rows without naming the timing surface, evidence tier, and claim gate. If
@@ -533,7 +450,14 @@ Package availability is separate from production readiness.
 
 See [runtime and I/O](/field-guide/runtime-and-io) for the shipped boundaries and linked evidence.
 
-## Not Claimed
+## External systems
+
+Remote output, table transactions, and production object-store or Foundry runtime are outside
+the local contract. Local fixtures, metadata inspection, and explicitly admitted local table-file
+reads do not establish live provider support. Network, credential, extension, UDF, API, and model
+effects require explicit admission; discovery does not execute them.
+
+## Not claimed
 
 - production support
 - broad SQL/DataFrame parity
@@ -549,40 +473,13 @@ Unsupported work must produce a deterministic blocker or report-only posture. It
   },
 ];
 
-function fieldGuideIndex(terms) {
-  const categories = [...new Set(terms.map((term) => term.category))];
-  return `${frontmatter({
+function fieldGuideIndex() {
+  return docsPage({
     title: "Field Guide",
-    description: "A concise Starlight-powered atlas for ShardLoom routes, evidence terms, and support boundaries.",
-    sidebar: { label: "Field Guide" },
-  })}
-
-A compact Starlight docs shell for ShardLoom's current public surface. Start with installation,
-Python, runtime and I/O, then use the vocabulary atlas for exact route and evidence terms.
-
-## Category Table Of Contents
-
-- [Start local proof](/field-guide/start-local-proof/)
-- [Python surface](/field-guide/python-surface/)
-- [Runtime and I/O](/field-guide/runtime-and-io/)
-- [Benchmark methodology](/field-guide/benchmark-methodology/)
-- [Limitations](/field-guide/limitations/)
-${categories.map((category) => `- [${category}](#${slug(category)})`).join("\n")}
-
-${categories
-  .map((category) => {
-    const rows = terms
-      .filter((term) => term.category === category)
-      .map((term) => `- [${term.title}](/field-guide/${term.slug}/) - ${term.summary}`)
-      .join("\n");
-    return `## ${category}\n\n${rows}`;
-  })
-  .join("\n\n")}
-
-## Claim Boundary
-
-The Field Guide explains vocabulary. It does not create a runtime, performance, production, SQL/DataFrame, object-store, lakehouse, Foundry, package-publication, Spark-displacement, or fallback-execution claim.
-`;
+    description: "Install ShardLoom, run local queries, and understand Vortex-native execution.",
+    order: 0,
+    body: "A practical guide to local, Vortex-native compute. Start with a query, then follow the\nparts of the engine that matter to your workload.\n\n## Get started\n\n- [Install and run](/field-guide/start-local-proof) — install the technical preview and verify a local query.\n- [Python](/field-guide/python-surface) — read, filter, inspect results, and choose an output.\n\n## Understand the engine\n\n- [Execution model](/field-guide/execution-model) — encoded work, native Vortex, and the no-fallback contract.\n- [Execution routes](/field-guide/execution-routes) — source admission, preparation, and reuse.\n- [Runtime and I/O](/field-guide/runtime-and-io) — operators, formats, result limits, and resource boundaries.\n\n## Read the evidence\n\n- [Benchmark methodology](/field-guide/benchmark-methodology) — what a timing includes and how to compare it.\n- [Limitations](/field-guide/limitations) — current coverage gaps and failure behavior.\n\nFor the architecture diagram, open the [compute flow](/compute-engine-flow).\nThe [repository](https://github.com/depsilon/shardloom) holds detailed API references and implementation evidence.",
+  });
 }
 
 syncSourceOfTruthData();
@@ -606,13 +503,17 @@ prepareGenerated(fieldGuideRoot);
 const starlightDocsIndex = path.join(docsRoot, "docs.mdx");
 if (fs.existsSync(starlightDocsIndex)) fs.rmSync(starlightDocsIndex);
 const expectedFieldGuideFiles = new Set(["index.mdx"]);
-write(path.join(fieldGuideRoot, "index.mdx"), fieldGuideIndex(fieldGuide));
+write(path.join(fieldGuideRoot, "index.mdx"), fieldGuideIndex());
 
-for (const term of fieldGuide) {
-  const fileName = `${term.slug}.mdx`;
-  expectedFieldGuideFiles.add(fileName);
-  write(path.join(fieldGuideRoot, fileName), termPage(term));
-}
+// Retired vocabulary URLs resolve to useful sections, without adding pages to search.
+const redirectsPath = path.join(repoRoot, "website-public", "_redirects");
+const redirectMarker = "# Consolidated Field Guide links";
+const authoredRedirects = fs.readFileSync(redirectsPath, "utf8").split(redirectMarker)[0].trimEnd();
+const retiredRedirects = fieldGuide.flatMap((term) => {
+  if (!term.redirect?.startsWith("/field-guide/")) throw new Error(`missing redirect for ${term.slug}`);
+  return ["", "/"].map((suffix) => `/field-guide/${term.slug}${suffix} ${term.redirect} 301`);
+});
+write(redirectsPath, `${authoredRedirects}\n\n${redirectMarker}\n${retiredRedirects.join("\n")}\n`);
 
 for (const page of durableDocsPages) {
   const fileName = `${page.slug}.mdx`;
@@ -621,4 +522,4 @@ for (const page of durableDocsPages) {
 }
 pruneGenerated(fieldGuideRoot, expectedFieldGuideFiles);
 
-console.log(`synced ${fieldGuide.length} field-guide terms and ${(useCaseIndex.use_cases ?? []).length} repository use-case records`);
+console.log(`synced ${durableDocsPages.length + 1} guide pages, ${fieldGuide.length} vocabulary redirects, and ${(useCaseIndex.use_cases ?? []).length} repository use-case records`);

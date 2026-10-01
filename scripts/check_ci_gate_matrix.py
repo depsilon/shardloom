@@ -441,8 +441,9 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "npm run build",
             "npm run check",
             "python scripts/check_public_status_docs.py",
+            "python -m unittest discover -s scripts -p test_website_links.py",
             "python scripts/check_website_readiness.py",
-            "node website/validate_static_assets.js",
+            "node scripts/validate_static_assets.cjs",
         ),
         artifact_refs=(
             "target/public-status-docs-report.json",

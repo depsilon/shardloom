@@ -12,18 +12,20 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "ShardLoom",
-      description: "ShardLoom field guide for Vortex-native, no-fallback compute evidence.",
-      favicon: "/assets/logo/shardloom-favicon.png",
+      description: "Install ShardLoom, run local queries, and understand Vortex-native execution.",
+      favicon: "/assets/logo/shardloom-mark.svg",
       customCss: ["./src/styles/starlight.css"],
+      components: {
+        SiteTitle: "./src/components/GuideSiteTitle.astro",
+        MobileMenuToggle: "./src/components/GuideMenuToggle.astro",
+      },
+      pagination: false,
+      credits: false,
       head: [
         {
           tag: "script",
           content:
-            "try{if(!localStorage.getItem('starlight-theme'))localStorage.setItem('starlight-theme','light')}catch{}",
-        },
-        {
-          tag: "link",
-          attrs: { rel: "stylesheet", href: "/assets/site.css" },
+            "try{if(!localStorage.getItem('starlight-theme'))localStorage.setItem('starlight-theme','dark')}catch{}",
         },
         {
           tag: "meta",
@@ -36,45 +38,35 @@ export default defineConfig({
       ],
       sidebar: [
         {
-          label: "Start",
+          label: "Start here",
+          items: [
+            { slug: "field-guide", label: "Overview" },
+            { slug: "field-guide/start-local-proof", label: "Install and run" },
+            { slug: "field-guide/python-surface", label: "Python" },
+          ],
+        },
+        {
+          label: "Understand the engine",
+          items: [
+            { slug: "field-guide/execution-model" },
+            { slug: "field-guide/execution-routes" },
+            { slug: "field-guide/runtime-and-io" },
+          ],
+        },
+        {
+          label: "Evidence and limits",
+          items: [
+            { slug: "field-guide/benchmark-methodology" },
+            { slug: "field-guide/limitations" },
+          ],
+        },
+        {
+          label: "Explore",
           items: [
             { label: "Website home", link: "/" },
-            { slug: "field-guide/start-local-proof" },
-            { slug: "field-guide/python-surface" },
-            { slug: "field-guide/runtime-and-io" },
             { label: "Benchmarks", link: "/benchmarks" },
             { label: "Compute flow", link: "/compute-engine-flow" },
           ],
-        },
-        {
-          label: "Core Concepts",
-          items: [
-            { slug: "field-guide/what-is-shardloom" },
-            { slug: "field-guide/no-fallback" },
-            { slug: "field-guide/evidence-gated-compute" },
-            { slug: "field-guide/universal-ingress" },
-            { slug: "field-guide/source-state" },
-            { slug: "field-guide/vortex-ingest" },
-            { slug: "field-guide/vortex-prepared-state" },
-            { slug: "field-guide/prepared-vortex" },
-            { slug: "field-guide/native-vortex" },
-          ],
-        },
-        {
-          label: "Benchmarks And Boundaries",
-          items: [
-            { slug: "field-guide/benchmark-methodology" },
-            { slug: "field-guide/benchmark-evidence" },
-            { slug: "field-guide/certified-cold-route" },
-            { slug: "field-guide/prepared-warm-route" },
-            { slug: "field-guide/external-baseline-only" },
-            { slug: "field-guide/limitations" },
-            { slug: "field-guide/deterministic-blockers" },
-          ],
-        },
-        {
-          label: "Reference Atlas",
-          items: [{ slug: "field-guide" }],
         },
       ],
     }),

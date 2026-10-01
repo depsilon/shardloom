@@ -1,0 +1,47 @@
+---
+title: "Execution routes"
+description: "Source admission, prepare-once reuse, and native Vortex routes."
+sidebar: {"label":"Execution routes","order":4}
+---
+
+
+Local files, prepared artifacts, and native Vortex files enter the same engine at different
+points. The distinction matters for reuse and for what a timing measurement includes.
+
+## Source admission
+
+`UniversalIngress` identifies the input family and checks whether an adapter is available.
+`SourceState` records the source identity, schema, and adapter evidence. Unsupported formats or
+operations return a diagnostic before execution; a recognized file extension is not a promise of
+full format support.
+
+## Prepare once
+
+For an admitted compatibility input, `vortex_ingest` creates a `VortexPreparedState`.
+The `prepared_vortex` route executes against that artifact.
+
+Preparation can be reused when the source, schema, and artifact identities match. Generation
+checks span reuse and execution, and detected changes fail explicitly. Each query has fresh
+execution state: prepared state is not a query-result cache.
+
+## Native Vortex
+
+The `native_vortex` route starts with data already stored as Vortex. Preparation preserves its
+existing layout. Operations still depend on supported types, encodings, and physical layouts;
+native input does not eliminate computation or result delivery.
+
+## Generated rows
+
+A generated-source route creates deterministic rows without reading an input dataset. Its evidence
+must distinguish row generation from source parsing and from query execution.
+
+## Cold and warm runs
+
+A certified cold route can include source reading, parsing, staging, Vortex construction,
+write/reopen checks, query execution, and output evidence. A prepared warm run begins after the
+prepared artifact exists. Compare only runs with the same measured boundary.
+
+The [benchmark methodology](/field-guide/benchmark-methodology) explains timing surfaces.
+The [Python guide](/field-guide/python-surface) shows the normal local query path.
+For the full route vocabulary, see the
+[repository contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md).

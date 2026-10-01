@@ -18,7 +18,8 @@
     "references": [
       "README.md",
       "docs/getting-started/first-10-minutes.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model"
   },
   {
     "slug": "evidence-gated-compute",
@@ -39,7 +40,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model#execution-evidence"
   },
   {
     "slug": "no-fallback",
@@ -61,7 +63,8 @@
     "references": [
       "README.md",
       "docs/architecture/compute-engine-flow-reference.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model#no-fallback"
   },
   {
     "slug": "compatibility-import-certified",
@@ -92,7 +95,8 @@
     "references": [
       "docs/getting-started/certified-local-workload.md",
       "docs/benchmarks/local-taxonomy-benchmark.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#cold-and-warm-runs"
   },
   {
     "slug": "internal-local-source-smoke",
@@ -114,7 +118,8 @@
     "references": [
       "python/README.md",
       "docs/architecture/compute-engine-flow-reference.md"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#failure-behavior"
   },
   {
     "slug": "generated-source-route",
@@ -135,7 +140,8 @@
     "references": [
       "docs/foundry/proof-of-use-certification.md",
       "python/README.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#generated-rows"
   },
   {
     "slug": "universal-ingress",
@@ -157,7 +163,8 @@
     "references": [
       "docs/architecture/universal-ingress-route-taxonomy.md",
       "docs/architecture/compute-engine-flow-reference.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#source-admission"
   },
   {
     "slug": "source-state",
@@ -179,7 +186,8 @@
     "references": [
       "docs/architecture/universal-input-contract.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#source-admission"
   },
   {
     "slug": "source-adapter-status",
@@ -201,7 +209,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#source-admission"
   },
   {
     "slug": "local-sqlite-fixture",
@@ -222,7 +231,8 @@
     "references": [
       "docs/architecture/universal-ingress-route-taxonomy.md",
       "docs/architecture/effectful-operation-admission-matrix.md"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#external-systems"
   },
   {
     "slug": "effectful-operation-admission",
@@ -244,7 +254,8 @@
       "docs/architecture/effectful-operation-admission-matrix.md",
       "docs/architecture/effect-budget-plan.md",
       "docs/architecture/extension-manifest-effect-capability-matrix.md"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#external-systems"
   },
   {
     "slug": "vortex-ingest",
@@ -265,7 +276,8 @@
     "references": [
       "docs/architecture/universal-ingress-route-taxonomy.md",
       "python/README.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#prepare-once"
   },
   {
     "slug": "vortex-prepared-state",
@@ -286,7 +298,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#prepare-once"
   },
   {
     "slug": "prepared-state-reuse",
@@ -307,7 +320,8 @@
     "references": [
       "docs/benchmarks/local-taxonomy-benchmark.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#prepare-once"
   },
   {
     "slug": "prepared-vortex",
@@ -328,7 +342,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/benchmarks/local-taxonomy-benchmark.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#prepare-once"
   },
   {
     "slug": "native-vortex",
@@ -349,7 +364,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "benchmarks/traditional_analytics/README.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#native-vortex"
   },
   {
     "slug": "source-backed-scan",
@@ -371,7 +387,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/benchmarks/local-taxonomy-benchmark.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model#avoid-work-first"
   },
   {
     "slug": "claim-gate-status",
@@ -392,7 +409,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model#execution-evidence"
   },
   {
     "slug": "native-io-certificate",
@@ -417,7 +435,8 @@
     "references": [
       "docs/getting-started/certified-local-workload.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model#execution-evidence"
   },
   {
     "slug": "materialization-boundary",
@@ -438,7 +457,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/benchmarks/local-taxonomy-benchmark.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model#avoid-work-first"
   },
   {
     "slug": "result-sink-replay",
@@ -459,7 +479,8 @@
     "references": [
       "docs/getting-started/certified-local-workload.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-model#execution-evidence"
   },
   {
     "slug": "benchmark-evidence",
@@ -484,7 +505,8 @@
     "references": [
       "docs/benchmarks/local-taxonomy-benchmark.md",
       "docs/benchmarks/baseline-comparison-boundary.md"
-    ]
+    ],
+    "redirect": "/field-guide/benchmark-methodology"
   },
   {
     "slug": "certified-cold-route",
@@ -511,7 +533,8 @@
     "references": [
       "docs/benchmarks/local-taxonomy-benchmark.md",
       "docs/architecture/compute-engine-flow-reference.md"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#cold-and-warm-runs"
   },
   {
     "slug": "prepared-warm-route",
@@ -532,7 +555,8 @@
     "references": [
       "docs/benchmarks/local-taxonomy-benchmark.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/execution-routes#cold-and-warm-runs"
   },
   {
     "slug": "external-baseline-only",
@@ -553,7 +577,8 @@
     "references": [
       "docs/benchmarks/baseline-comparison-boundary.md",
       "benchmarks/traditional_analytics/README.md"
-    ]
+    ],
+    "redirect": "/field-guide/benchmark-methodology#external-baselines"
   },
   {
     "slug": "output-plan",
@@ -574,7 +599,8 @@
     "references": [
       "docs/use-cases/use-case-index.yml",
       "docs/architecture/compute-engine-flow-reference.md"
-    ]
+    ],
+    "redirect": "/field-guide/runtime-and-io#local-formats"
   },
   {
     "slug": "sink-artifact",
@@ -595,7 +621,8 @@
     "references": [
       "docs/use-cases/use-case-index.yml",
       "python/README.md"
-    ]
+    ],
+    "redirect": "/field-guide/runtime-and-io#local-formats"
   },
   {
     "slug": "output-fanout",
@@ -616,7 +643,8 @@
     "references": [
       "docs/architecture/io-reuse-and-fanout-architecture.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/runtime-and-io#preparation-and-result-handoffs"
   },
   {
     "slug": "scale-classes",
@@ -639,7 +667,8 @@
     "references": [
       "docs/architecture/scale-readiness-contract.md",
       "docs/architecture/compute-engine-flow-reference.md"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#runtime-limits"
   },
   {
     "slug": "object-store-boundary",
@@ -664,7 +693,8 @@
     "references": [
       "docs/use-cases/use-case-index.yml",
       "docs/architecture/object-store-request-planner.md"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#external-systems"
   },
   {
     "slug": "table-lakehouse-boundary",
@@ -693,7 +723,8 @@
       "docs/architecture/table-intelligence-layer.md",
       "docs/architecture/object-store-request-planner.md",
       "docs/architecture/universal-compatibility-coverage-scoreboard.md"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#external-systems"
   },
   {
     "slug": "foundry-boundary",
@@ -714,7 +745,8 @@
     "references": [
       "docs/foundry/proof-of-use-certification.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#external-systems"
   },
   {
     "slug": "deterministic-blockers",
@@ -736,7 +768,8 @@
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
       "docs/use-cases/use-case-index.yml"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#failure-behavior"
   },
   {
     "slug": "report-only",
@@ -757,6 +790,7 @@
     "references": [
       "docs/use-cases/use-case-index.yml",
       "docs/architecture/compute-engine-flow-reference.md"
-    ]
+    ],
+    "redirect": "/field-guide/limitations#failure-behavior"
   }
 ]

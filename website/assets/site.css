@@ -101,26 +101,9 @@ pre code {
   gap: 20px;
   min-height: 72px;
   padding: 0 max(24px, calc((100vw - var(--max)) / 2));
-  border-bottom: 1px solid rgba(189, 204, 216, 0.85);
-  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid #233342;
+  background: #070d13;
   backdrop-filter: blur(16px);
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  font-weight: 760;
-  color: var(--navy);
-  letter-spacing: 0;
-}
-
-.brand img {
-  display: block;
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
 }
 
 .site-header nav {
@@ -128,7 +111,7 @@ pre code {
   align-items: center;
   justify-content: flex-end;
   gap: 20px;
-  color: var(--muted);
+  color: #b5c6d3;
   font-size: 0.94rem;
 }
 
@@ -138,7 +121,7 @@ pre code {
 
 .site-header nav a:hover,
 .site-header nav a.active {
-  color: var(--navy);
+  color: #badcff;
 }
 
 main > section {

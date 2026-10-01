@@ -70,7 +70,7 @@ MIRROR_GROUPS = (
 REQUIRED_VALIDATORS = (
     "python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json",
     "python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree",
-    "PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH node website/validate_static_assets.js",
+    "PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH node scripts/validate_static_assets.cjs",
     "python3 scripts/check_website_readiness.py --output target/website-readiness-report.json",
     "git diff --check",
 )
@@ -395,13 +395,13 @@ def build_report(
                 "required_validators": [
                     "python3 scripts/check_benchmark_publish_doctor.py",
                     "python3 scripts/check_website_readiness.py --output target/website-readiness-report.json",
-                    "node website/validate_static_assets.js",
+                    "node scripts/validate_static_assets.cjs",
                     "git diff --check",
                 ],
                 "relevant_files": [
                     "website-src/src/pages/benchmarks.astro",
                     "scripts/check_website_readiness.py",
-                    "website-public/validate_static_assets.js",
+                    "scripts/validate_static_assets.cjs",
                     "scripts/check_benchmark_publish_doctor.py",
                 ],
             }

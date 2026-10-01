@@ -2354,7 +2354,7 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
         "python scripts/check_production_usability_gate.py",
         "python scripts/check_release_readiness.py",
         "npm run build",
-        "node website/validate_static_assets.js",
+        "node scripts/validate_static_assets.cjs",
     ] {
         assert!(
             ci_workflow.contains(required),
@@ -4039,11 +4039,12 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
 
     let website_python_surface = read_repo_file("website/field-guide/python-surface/index.html");
     for required in [
-        "Python surface",
+        "Python",
         "sl.context",
         "ctx.read",
-        "prepare_vortex",
-        "scenario_selective-filter_fallback_attempted",
+        "result.envelope",
+        "fallback_attempted",
+        "external_engine_invoked",
         "fallback execution",
     ] {
         assert!(
@@ -4136,7 +4137,7 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
 }
 
 #[test]
-fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
+fn field_guide_cleanup_remains_generated_and_claim_safe() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1A"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1B"));
@@ -4183,7 +4184,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "pagefind: true",
         "outDir: \"../website\"",
         "publicDir: \"../website-public\"",
-        "localStorage.setItem('starlight-theme','light')",
+        "localStorage.setItem('starlight-theme','dark')",
     ] {
         assert!(
             astro_config.contains(required),
@@ -4194,7 +4195,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "siteNav",
         "ShardLoom is a published technical preview for local Vortex-native compute",
         "/assets/site.css",
-        "/assets/site.js",
+        "Brand",
     ] {
         assert!(
             site_layout.contains(required),
@@ -4206,8 +4207,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "docsUseCaseGeneratedRoot",
         "parseYaml",
         "durableDocsPages",
-        "A compact Starlight docs shell",
-        "Spark-displacement",
+        "A practical guide to local, Vortex-native compute.",
+        "no-fallback",
     ] {
         assert!(
             content_sync.contains(required),
@@ -4260,12 +4261,11 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "A compact Starlight docs shell",
-        "UniversalIngress",
-        "vortex_ingest",
-        "VortexPreparedState",
-        "No fallback",
-        "claim_gate_status",
+        "A practical guide to local, Vortex-native compute.",
+        "Get started",
+        "Execution model",
+        "Execution routes",
+        "Read the evidence",
     ] {
         assert!(
             field_guide.contains(required),
@@ -4273,11 +4273,12 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Python surface",
+        "Python",
         "ctx = sl.context",
         "ctx.read",
-        "prepare_vortex",
-        "scenario_selective-filter_fallback_attempted",
+        "result.envelope",
+        "fallback_attempted",
+        "external_engine_invoked",
     ] {
         assert!(
             python_surface.contains(required),
@@ -4334,7 +4335,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "/use-cases.html /field-guide/python-surface",
         "/status.html /field-guide/limitations",
         "/docs.html /field-guide",
-        "/readme https://github.com/depsilon/shardloom#readme",
+        "/readme https://github.com/depsilon/shardloom/blob/main/README.md",
     ] {
         assert!(
             redirects.contains(required),
@@ -4464,7 +4465,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let field_guide_data = read_repo_file("website-src/src/data/field-guide.json");
     assert!(
         field_guide_data.matches("\"slug\"").count() >= 30,
-        "Field Guide data should retain the compact current vocabulary atlas"
+        "Repository vocabulary should retain migration and backlink metadata"
     );
     for required in [
         "\"slug\": \"what-is-shardloom\"",
@@ -4483,42 +4484,45 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let website_index = read_repo_file("website/field-guide/index.html");
     for required in [
-        "A compact Starlight docs shell",
-        "Category Table Of Contents",
-        "Start local proof",
-        "Python surface",
+        "A practical guide to local, Vortex-native compute.",
+        "Get started",
+        "Install and run",
+        "Python",
         "Benchmark methodology",
         "Limitations",
-        "Execution Routes",
-        "UniversalIngress",
-        "Prepared/Native Vortex",
-        "Unsupported Diagnostics",
-        "No fallback",
-        "claim_gate_status",
+        "Execution model",
+        "Execution routes",
     ] {
         assert!(
             website_index.contains(required),
             "missing generated Field Guide index field {required}"
         );
     }
-
-    let dossier = read_repo_file("website/field-guide/prepared-vortex/index.html");
-    for required in [
-        "Plain-English Meaning",
-        "Why It Matters",
-        "How ShardLoom Uses It",
-        "Current Support",
-        "Evidence Fields",
-        "What It Does Not Claim",
-        "Try It / Related Use Cases",
-        "Reference Files",
-        "data-citation-block=\"reference-files\"",
-        "What this proves:",
-        "claim-gated",
+    for retired in [
+        "Category Table Of Contents",
+        "Starlight docs shell",
+        "Reference Atlas",
     ] {
         assert!(
-            dossier.contains(required),
-            "missing generated Field Guide dossier field {required}"
+            !website_index.contains(retired),
+            "retired Field Guide content: {retired}"
+        );
+    }
+
+    let redirects = read_repo_file("website/_redirects");
+    for (slug, destination) in [
+        ("prepared-vortex", "execution-routes#prepare-once"),
+        ("native-vortex", "execution-routes#native-vortex"),
+        ("no-fallback", "execution-model#no-fallback"),
+        ("claim-gate-status", "execution-model#execution-evidence"),
+    ] {
+        assert!(redirects.contains(&format!(
+            "/field-guide/{slug} /field-guide/{destination} 301"
+        )));
+        assert!(
+            !repo_root()
+                .join(format!("website/field-guide/{slug}/index.html"))
+                .exists()
         );
     }
 
@@ -4566,9 +4570,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "https://shardloom.io/about",
         "https://shardloom.io/start",
         "https://shardloom.io/field-guide/runtime-and-io",
-        "https://shardloom.io/field-guide/prepared-vortex",
-        "https://shardloom.io/field-guide/output-plan",
-        "https://shardloom.io/field-guide/scale-classes",
+        "https://shardloom.io/field-guide/execution-model",
+        "https://shardloom.io/field-guide/execution-routes",
+        "https://shardloom.io/field-guide/limitations",
     ] {
         assert!(
             sitemap.contains(required),
@@ -4578,7 +4582,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let pagefind_entry = read_repo_file("website/pagefind/pagefind-entry.json");
     assert!(pagefind_entry.contains("\"version\":\"1.5.2\""));
-    assert!(pagefind_entry.contains("\"page_count\":40"));
+    assert!(pagefind_entry.contains("\"page_count\":8"));
 
     let headers = read_repo_file("website/_headers");
     for required in [
@@ -4594,7 +4598,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
 
-    let website_validator = read_repo_file("website/validate_static_assets.js");
+    let website_validator = read_repo_file("scripts/validate_static_assets.cjs");
     for required in [
         "requiredFiles",
         "removedWebsiteSurfaces",

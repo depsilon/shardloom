@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from website_links import check_site_links
+
 ROOT = Path(__file__).resolve().parents[1]
 CLOUDFLARE_STATIC_ASSET_MAX_BYTES = 25 * 1024 * 1024
 EXPECTED_PAGES = [
@@ -25,6 +27,9 @@ EXPECTED_PAGES = [
     "field-guide/index.html",
     "field-guide/start-local-proof/index.html",
     "field-guide/python-surface/index.html",
+    "field-guide/runtime-and-io/index.html",
+    "field-guide/execution-model/index.html",
+    "field-guide/execution-routes/index.html",
     "field-guide/benchmark-methodology/index.html",
     "field-guide/limitations/index.html",
     "benchmarks.html",
@@ -34,9 +39,7 @@ EXPECTED_PAGES = [
     "404.html",
 ]
 EXPECTED_ASSETS = [
-    "assets/logo/shardloom-favicon.png",
-    "assets/logo/shardloom-logo.png",
-    "assets/logo/shardloom-logo-trim.png",
+    "assets/logo/shardloom-mark.svg",
     "assets/parallax-home.css",
     "assets/parallax-home.js",
     "assets/site.css",
@@ -109,6 +112,11 @@ PACKAGE_CLAIM_PHRASES = [
     r"\bpublished crate\b",
 ]
 REMOVED_WEBSITE_SURFACES: list[str] = [
+    "validate_static_assets.js",
+    "assets/site.js",
+    "assets/logo/shardloom-favicon.png",
+    "assets/logo/shardloom-logo.png",
+    "assets/logo/shardloom-logo-trim.png",
     "architecture.html",
     "architecture/index.html",
     "docs.html",
@@ -190,7 +198,7 @@ class HtmlRefs(HTMLParser):
         if tag == "meta" and values.get("property", "").startswith("og:"):
             self.og[values["property"]] = values.get("content", "")
         if tag == "link" and values.get("rel") in {"icon", "apple-touch-icon"}:
-            if values.get("href") == "/assets/logo/shardloom-favicon.png":
+            if values.get("href") == "/assets/logo/shardloom-mark.svg":
                 self.favicon_seen = True
 
     def handle_endtag(self, tag: str) -> None:
@@ -245,15 +253,13 @@ def runtime_files(website: Path) -> list[Path]:
         if path.is_file() and (
             path.suffix in RUNTIME_SUFFIXES or path.name in RUNTIME_NAMES
         ):
-            if path.name == "validate_static_assets.js":
-                continue
             files.append(path)
     return files
 
 
 def check_cloudflare_asset_sizes(website: Path, repo_root: Path, blockers: list[str]) -> None:
     for path in website.rglob("*"):
-        if path.is_file() and path.name != "validate_static_assets.js":
+        if path.is_file():
             size = path.stat().st_size
             if size > CLOUDFLARE_STATIC_ASSET_MAX_BYTES:
                 blockers.append(
@@ -402,7 +408,7 @@ def validate_html_page(
     for landmark in required_landmarks:
         if landmark not in parser.landmarks:
             blockers.append(f"{relative} missing {landmark} landmark")
-    if not parser.favicon_seen and "/assets/logo/shardloom-favicon.png" not in html:
+    if not parser.favicon_seen and "/assets/logo/shardloom-mark.svg" not in html:
         blockers.append(f"{relative} missing ShardLoom favicon")
     if parser.anchor_without_href_count:
         blockers.append(f"{relative} contains anchor(s) without href")
@@ -438,18 +444,6 @@ def validate_html_page(
         local = site_path_from_url(asset)
         if local and local.startswith("assets/") and not (website / local).exists():
             blockers.append(f"{relative} references missing asset: {asset}")
-    redirects = (website / "_redirects").read_text(encoding="utf-8") if (website / "_redirects").exists() else ""
-    for link in parser.local_links:
-        local = site_path_from_url(link)
-        if not local or local == "":
-            continue
-        expected_paths = [
-            website / local,
-            website / local / "index.html",
-            website / f"{local}.html",
-        ]
-        if not any(expected.exists() for expected in expected_paths) and f"/{local}" not in redirects:
-            blockers.append(f"{relative} links to unresolved local path: {link}")
     for status in STATUS_CHIP_RE.findall(html):
         value = status.strip()
         if value not in STATUS_VOCABULARY:
@@ -574,7 +568,7 @@ def main() -> int:
             )
 
     for page in website.rglob("*.html"):
-        if not page.is_file() or page.name == "validate_static_assets.js":
+        if not page.is_file():
             continue
         validate_html_page(page, repo_root, website, blockers)
 
@@ -649,15 +643,22 @@ def main() -> int:
         ]:
             if required not in css:
                 blockers.append(f"site CSS missing accessibility/readiness marker: {required}")
-    js_path = website / "assets/site.js"
-    if js_path.exists():
-        js = js_path.read_text(encoding="utf-8")
-        if "addEventListener" not in js or "[data-filter-scope]" not in js:
-            blockers.append("site JS must preserve static filter behavior")
+    link_report = check_site_links(website)
+    blockers.extend(link_report["blockers"])
+    expected_guide_pages = {
+        "index.html", "start-local-proof/index.html", "python-surface/index.html",
+        "runtime-and-io/index.html", "execution-model/index.html", "execution-routes/index.html",
+        "benchmark-methodology/index.html", "limitations/index.html",
+    }
+    guide_root = website / "field-guide"
+    actual_guide_pages = {path.relative_to(guide_root).as_posix() for path in guide_root.rglob("*.html")}
+    if actual_guide_pages != expected_guide_pages:
+        blockers.append(f"Field Guide route drift: expected {sorted(expected_guide_pages)}, got {sorted(actual_guide_pages)}")
 
     report: dict[str, Any] = {
         "schema_version": "shardloom.website_readiness.v3",
         "checked_pages": EXPECTED_PAGES,
+        "link_validation": link_report,
         "checked_assets": EXPECTED_ASSETS,
         "checked_nav_paths": sorted(EXPECTED_NAV_PATHS),
         "status_vocabulary": sorted(STATUS_VOCABULARY),

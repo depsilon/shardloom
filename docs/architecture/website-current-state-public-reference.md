@@ -32,8 +32,8 @@ artifacts remain repository evidence and must not be mirrored into a shardloom.i
 | --- | --- | --- |
 | `/` | Parallax product experience, route/evidence posture, next action | `website-src/src/pages/index.astro`, `website-public/assets/parallax-home.*`, README contracts |
 | `/about` | Short claim-safe overview of what ShardLoom is, is not, and where current evidence lives | `website-src/src/pages/about.astro`, README, compute-flow reference |
-| `/start` | Local proof path without package or production claims | repo getting-started docs and local scripts |
-| `/field-guide` | Starlight docs shell for start, Python surface, benchmark methodology, limitations, and vocabulary | generated docs content and exact source references |
+| `/start` | Verified package installation and a first local query | repo getting-started docs and local scripts |
+| `/field-guide` | Eight focused guides for installation, Python, execution, I/O, evidence, and limitations | generated docs content and exact source references |
 | `/benchmarks` | ClickBench handoff and claim-safe public benchmark posture | `website-src/src/pages/benchmarks.astro` |
 | `/compute-engine-flow` | Human-readable route architecture | `docs/architecture/compute-engine-flow-reference.md` |
 
@@ -48,6 +48,24 @@ labels such as "homepage concept" and "local technical preview" do not belong on
 Removing those presentation labels does not change the engine's support matrix or claim gates.
 The scroll, anchor, accessibility, and small-screen corrections are recorded in
 `docs/architecture/homepage-scroll-fidelity-2026-09-05.md`.
+
+## Field Guide Contract
+
+The Field Guide uses the current homepage's crystal mark, ink and ice-blue palette, paper reading
+theme, and system typography. Search, a short sidebar, and section navigation remain available
+on desktop and mobile. Keep the shared documentation styles separate from the older product-page
+stylesheet so unrelated global selectors cannot override the guide.
+
+The public docs contain eight pages: overview, install and run, Python, execution model,
+execution routes, runtime and I/O, benchmark methodology, and limitations. The former 34 vocabulary
+dossiers are consolidated into these guides. Their URLs redirect to relevant sections; they must
+not remain as duplicate generated pages or search results. Vocabulary metadata remains in
+`website-src/src/data/field-guide.json` for repository use-case backlinks and redirect generation.
+
+Do not expose build validators, unused UI scripts, internal scenario labels, or repeated
+boilerplate dossiers in the guide. The static validator lives in `scripts/validate_static_assets.cjs`
+outside the served tree. `scripts/website_links.py` checks generated HTML links, local assets,
+fragments, and exact redirect destinations. The route allowlist prevents retired pages returning.
 
 ## Benchmark Page Contract
 
@@ -88,7 +106,7 @@ Current references:
 
 ## Non-Goals
 
-- No package-publication claim.
+- No package-publication claim without a verified release record.
 - No production support claim.
 - No Spark, DataFusion, DuckDB, Polars, Velox, or Vortex query-engine fallback.
 - No external search SaaS.
@@ -106,10 +124,12 @@ cd website-src
 /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro check
 /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node node_modules/.bin/astro build
 cd ..
-/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js
+/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/validate_static_assets.cjs
 python3 scripts/check_website_readiness.py
 git diff --check
 ```
+
+For link regressions, run `python3 -m unittest discover -s scripts -p test_website_links.py`.
 
 For visual QA, inspect `/`, `/about`, `/start`, `/benchmarks`, `/compute-engine-flow`,
 `/field-guide`, `/field-guide/python-surface`, and `/field-guide/limitations` at desktop and
