@@ -256,6 +256,13 @@ operator/type and adapter coverage. This documentation correction does not claim
 that implementation is complete or resume paused large format/text performance
 runs, native Python binding experiments, or package publication.
 
+The October 1 implementation continuation uses the
+[native workflow streaming contract](native-workflow-streaming-2026-10-01.md)
+for this first runtime unit. The maintainer requested completion of the remaining
+optimization and breadth work; retain the existing PERF owners and proceed through
+the dependent workflow and family work without treating this first unit as the
+whole roadmap's completion.
+
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
 completed UAT/test artifacts. R2.a, R3.a and R3.b are retained with Full43 and ownership

@@ -25,19 +25,63 @@ For standalone recovery, both `VortexSortSpillPolicy::renew_cancellation()` and
 with the same workspace and quotas. Use that policy to retry interrupted cleanup;
 the original cancelled policy and its clones remain cancelled.
 
-`execute_owned()` has a separate, narrower contract for bounded
-[owned COUNT results](owned-count-results.md) with integer and nonnullable UTF8
-group keys. Its restrictions do not limit ordinary prepared aggregate reports.
+`execute_owned()` returns complete bounded flat-scalar results, including mixed
+and nullable grouping keys, derived keys and COUNT/SUM/AVG/MIN/MAX measures.
+The [owned COUNT results](owned-count-results.md) retain their direct finalizers;
+other admitted aggregates construct typed native columns from completed state.
+Owned collection keeps its 65,536-row, 128-field and 8-MiB admission bounds and
+does not admit explicit spill output. These bounds do not limit streaming writes.
 See the [current completion evidence](../architecture/native-runtime-completion-2026-09-20.md).
 
 `execute_cancellable(&CancellationToken)` adds cooperative cancellation to ordinary
 prepared aggregate calls without discarding their retained source or lowering.
 Scans check the token at chunk/stage boundaries and before publication. Explicit
 spill calls observe both the operation token and their policy token while waiting
-in the serving admission queue; inside the spill stage, cancellation still uses
-the policy token.
-The enclosing token is checked before and after that stage. Running provider work
-drains before return, and cancelled worker attempts do not cancel the parent.
+in the serving admission queue and inside admitted weighted COUNT and exact
+DISTINCT spill work, including workers and merge boundaries. Neither token
+cancels the other owner. Running provider work drains before return, and cancelled
+worker attempts do not cancel the parent.
+
+## Stream Computed Results
+
+With `vortex-write`, `PreparedVortexAggregate::for_each_batch(&cancellation,
+consume)` executes once and synchronously delivers native arrays together with
+the borrowed `NativeExecutionContext`. A callback may use that context for
+downstream native filtering or projection. It must not acquire a second ordinary
+execution admission in the same session. Empty results deliver the declared
+schema. Batches contain at most 2,048 rows and 8 MiB of native value, offset and
+validity buffers; a smaller batch is selected when needed. A single oversized row
+fails. Retained clones and slices retain their buffer reservations.
+
+The callback supplies backpressure: execution does not produce the next batch
+until the callback returns. Delivered batches are provisional until the whole
+call succeeds, including final source-generation validation. Consumer errors and
+cancellation fail the operation; consumers must not publish a prefix as success.
+
+`PreparedVortexAggregate::write(path, format, allow_overwrite)` and
+`write_controlled(path, format, allow_overwrite, &cancellation)` use the same
+typed result stream. Public aggregate and ordered-result file exports share these
+writers. Vortex, JSON, JSONL and CSV are available with `vortex-write`; Parquet,
+Arrow IPC, Avro and ORC also require `universal-format-io`. Admitted weighted
+COUNT, integer DISTINCT and numeric-sort spills can complete through the writers.
+In-memory collection limits no longer cap these file outputs. Native writers
+request at most 8,192 rows per batch; text and compatibility writers request
+2,048. Ordered payload reads use selections of at most 512 source rows.
+
+Writers stage the complete output, validate it and the source generation, and
+atomically publish a new destination. Existing destinations are rejected even
+when `allow_overwrite` is true because this route cannot atomically replace an
+expected destination generation. Failure removes owned staging files and drains
+accepted writer buffers. JSON/JSONL/CSV encode final native values at the sink;
+they do not construct a whole result table or use JSON as an execution boundary.
+An aggregate sink's observed row count is a lower bound before OFFSET/LIMIT when
+either may remove groups; the evidence does not mark that count exact.
+
+The accounted scope includes constructed result buffers, selection admission and
+writer retention/metadata grants. It does not establish a total RSS bound or
+account for every existing aggregate state and upstream allocation. Unsupported
+nested/extension results and broader state-spill families remain explicit gaps.
+See the [streaming contract and acceptance](../architecture/native-workflow-streaming-2026-10-01.md).
 
 ## Compose Owned Native Results
 

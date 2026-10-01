@@ -18,6 +18,7 @@ use parquet::{
     basic::{Compression, Encoding},
     file::properties::{EnabledStatistics, WriterProperties},
 };
+use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     fs::File,
     io::Write,
@@ -51,6 +52,8 @@ pub(super) struct CompatibilityLimits {
     pub arrow_batch_bytes: u64,
     pub file_bytes: u64,
     pub cancellation: Arc<AtomicBool>,
+    streaming: bool,
+    parent_cancellation: Option<CancellationToken>,
 }
 
 impl Default for CompatibilityLimits {
@@ -65,12 +68,29 @@ impl Default for CompatibilityLimits {
             arrow_batch_bytes: 8 * 1024 * 1024,
             file_bytes: 128 * 1024 * 1024,
             cancellation: Arc::new(AtomicBool::new(false)),
+            streaming: false,
+            parent_cancellation: None,
         }
     }
 }
 
 impl CompatibilityLimits {
+    pub(super) fn streaming(upper_rows: u64, cancellation: &CancellationToken) -> Self {
+        Self {
+            source_rows: upper_rows.max(1),
+            output_rows: upper_rows.max(1),
+            batches: usize::MAX,
+            file_bytes: u64::MAX,
+            streaming: true,
+            parent_cancellation: Some(cancellation.clone()),
+            ..Self::default()
+        }
+    }
+
     fn check(&self) -> Result<()> {
+        if let Some(parent) = &self.parent_cancellation {
+            parent.check()?;
+        }
         if self.cancellation.load(Ordering::Acquire) {
             return Err(error("cancelled"));
         }
@@ -85,14 +105,15 @@ impl CompatibilityLimits {
         {
             return Err(error("all admission bounds must be positive"));
         }
-        if self.source_rows > 65_536
-            || self.output_rows > 65_536
+        if (!self.streaming
+            && (self.source_rows > 65_536
+                || self.output_rows > 65_536
+                || self.batches > 256
+                || self.file_bytes > 128 * 1024 * 1024))
             || self.columns > 128
             || self.batch_rows > 2048
-            || self.batches > 256
             || self.string_bytes > 64 * 1024
             || self.arrow_batch_bytes > 8 * 1024 * 1024
-            || self.file_bytes > 128 * 1024 * 1024
         {
             return Err(error(
                 "requested bounds exceed the bounded flat-scalar candidate profile",
@@ -106,7 +127,11 @@ impl CompatibilityLimits {
         // and batch bounds, independently of payload. The work envelope covers
         // admitted contiguous Arrow data, IPC serialization / PLAIN pages and
         // growth overlap, not every upstream allocation or process RSS.
-        usize_to_u64(self.batches)?
+        Self::metadata_for_batches(columns, if self.streaming { 0 } else { self.batches })
+    }
+
+    fn metadata_for_batches(columns: usize, batches: usize) -> Result<u64> {
+        usize_to_u64(batches)?
             .checked_mul(usize_to_u64(columns)?)
             .and_then(|n| n.checked_mul(4096))
             .and_then(|n| n.checked_add(1024 * 1024))
@@ -421,11 +446,39 @@ impl PreparedCompatibilityExport {
         &self,
         output_path: &Path,
         overwrite: bool,
+        after_batch: impl FnMut(u64) -> Result<()>,
+    ) -> Result<CompletedCompatibilityExport> {
+        self.write_produced_observed(
+            output_path,
+            overwrite,
+            None,
+            &CancellationToken::default(),
+            after_batch,
+        )
+    }
+
+    pub(super) fn write_produced(
+        &self,
+        output: &Path,
+        overwrite: bool,
+        producer: &mut native_sink::ArrayProducer<'_>,
+        cancellation: &CancellationToken,
+    ) -> Result<CompletedCompatibilityExport> {
+        self.write_produced_observed(output, overwrite, Some(producer), cancellation, |_| Ok(()))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn write_produced_observed(
+        &self,
+        output_path: &Path,
+        overwrite: bool,
+        producer: Option<&mut native_sink::ArrayProducer<'_>>,
+        cancellation: &CancellationToken,
         mut after_batch: impl FnMut(u64) -> Result<()>,
     ) -> Result<CompletedCompatibilityExport> {
         self.limits.check()?;
         self.plan.source.validate_generation()?;
-        let metadata = self
+        let mut metadata = self
             .limits
             .metadata_reservation(self.schema.fields().len())?;
         let initial = metadata
@@ -444,7 +497,8 @@ impl PreparedCompatibilityExport {
         let mut stopped = false;
         self.plan
             .source
-            .with_native_execution(|file, session, runtime| {
+            .with_native_execution(cancellation, |file, execution| {
+                let session = execution.native_session();
                 let mut writer = Writer::new(
                     self.format,
                     Arc::clone(&self.schema),
@@ -453,95 +507,114 @@ impl PreparedCompatibilityExport {
                 )?;
                 let mut ctx = session.create_execution_ctx();
                 let target = Field::new("", DataType::Struct(self.schema.fields().clone()), false);
-                if !self.plan.metadata_pruned && self.plan.row_count > 0 {
-                    for next in self.plan.arrays(file, runtime, self.limits.batch_rows)? {
-                        self.limits.check()?;
-                        let array = next?;
-                        arrays = arrays
-                            .checked_add(1)
-                            .ok_or_else(|| error("scan counter overflow"))?;
-                        max_rows = max_rows.max(array.len());
-                        if array.len() > self.limits.batch_rows {
-                            return Err(error("scan batch exceeds row admission"));
-                        }
-                        add(&mut observed, usize_to_u64(array.len())?)?;
-                        if array.is_empty() {
-                            continue;
-                        }
-                        let remaining = self
-                            .plan
-                            .limit
-                            .map_or(u64::MAX, |limit| limit.saturating_sub(rows));
-                        let retain = array
-                            .len()
-                            .min(usize::try_from(remaining).unwrap_or(usize::MAX));
-                        if rows
-                            .checked_add(usize_to_u64(retain)?)
-                            .is_none_or(|total| total > self.limits.output_rows)
-                        {
-                            return Err(error(
-                                "complete output exceeds row admission; no preview published",
-                            ));
-                        }
-                        let array = if retain < array.len() {
-                            array.slice(0..retain).map_err(vortex_error)?
-                        } else {
-                            array
-                        };
-                        if work.arrow_batches >= usize_to_u64(self.limits.batches)? {
-                            return Err(error("writer batch count exceeds admission"));
-                        }
-                        add(&mut work.native_batches, 1)?;
-                        add(&mut work.native_logical_bytes, array.nbytes())?;
-                        let (canonical, expanded) =
-                            admitted_canonical(&array, &self.plan.columns, &mut ctx, &self.limits)?;
-                        let admitted = expanded
-                            .checked_mul(8)
-                            .and_then(|n| n.checked_add(metadata))
-                            .ok_or_else(|| error("writer admission overflow"))?
-                            .max(initial);
-                        // Grow before Arrow allocates or the writer retains this
-                        // batch. Keep the largest grant through writer destruction.
-                        if admitted > work_owner.bytes() {
-                            work_owner.resize(admitted)?;
-                        }
-                        work.writer_reserved_bytes =
-                            work.writer_reserved_bytes.max(work_owner.bytes());
-                        let arrow = session
-                            .arrow()
-                            .execute_arrow(canonical, Some(&target), &mut ctx)
+                if self.plan.source.is_produced()
+                    || (!self.plan.metadata_pruned && self.plan.row_count > 0)
+                {
+                    self.plan.consume(
+                        file,
+                        execution,
+                        self.limits.batch_rows,
+                        producer,
+                        |array| {
+                            self.limits.check()?;
+                            arrays = arrays
+                                .checked_add(1)
+                                .ok_or_else(|| error("scan counter overflow"))?;
+                            max_rows = max_rows.max(array.len());
+                            if array.len() > self.limits.batch_rows {
+                                return Err(error("scan batch exceeds row admission"));
+                            }
+                            add(&mut observed, usize_to_u64(array.len())?)?;
+                            if array.is_empty() {
+                                return Ok(true);
+                            }
+                            let remaining = self
+                                .plan
+                                .limit
+                                .map_or(u64::MAX, |limit| limit.saturating_sub(rows));
+                            let retain = array
+                                .len()
+                                .min(usize::try_from(remaining).unwrap_or(usize::MAX));
+                            if rows
+                                .checked_add(usize_to_u64(retain)?)
+                                .is_none_or(|total| total > self.limits.output_rows)
+                            {
+                                return Err(error(
+                                    "complete output exceeds row admission; no preview published",
+                                ));
+                            }
+                            let array = if retain < array.len() {
+                                array.slice(0..retain).map_err(vortex_error)?
+                            } else {
+                                array
+                            };
+                            if work.arrow_batches >= usize_to_u64(self.limits.batches)? {
+                                return Err(error("writer batch count exceeds admission"));
+                            }
+                            add(&mut work.native_batches, 1)?;
+                            add(&mut work.native_logical_bytes, array.nbytes())?;
+                            let (canonical, expanded) = admitted_canonical(
+                                &array,
+                                &self.plan.columns,
+                                &mut ctx,
+                                &self.limits,
+                            )?;
+                            if self.limits.streaming {
+                                metadata = CompatibilityLimits::metadata_for_batches(
+                                    self.schema.fields().len(),
+                                    usize::try_from(work.arrow_batches + 1)
+                                        .map_err(vortex_error)?,
+                                )?;
+                            }
+                            let admitted = expanded
+                                .checked_mul(8)
+                                .and_then(|n| n.checked_add(metadata))
+                                .ok_or_else(|| error("writer admission overflow"))?
+                                .max(initial);
+                            // Grow before Arrow allocates or the writer retains this
+                            // batch. Keep the largest grant through writer destruction.
+                            if admitted > work_owner.bytes() {
+                                work_owner.resize(admitted)?;
+                            }
+                            work.writer_reserved_bytes =
+                                work.writer_reserved_bytes.max(work_owner.bytes());
+                            let arrow = session
+                                .arrow()
+                                .execute_arrow(canonical, Some(&target), &mut ctx)
+                                .map_err(vortex_error)?;
+                            let structure = arrow
+                                .as_any()
+                                .downcast_ref::<ArrowStructArray>()
+                                .ok_or_else(|| {
+                                    error("Arrow provider did not return the admitted struct")
+                                })?;
+                            let batch = RecordBatch::try_new(
+                                Arc::clone(&self.schema),
+                                structure.columns().to_vec(),
+                            )
                             .map_err(vortex_error)?;
-                        let structure = arrow
-                            .as_any()
-                            .downcast_ref::<ArrowStructArray>()
-                            .ok_or_else(|| {
-                                error("Arrow provider did not return the admitted struct")
-                            })?;
-                        let batch = RecordBatch::try_new(
-                            Arc::clone(&self.schema),
-                            structure.columns().to_vec(),
-                        )
-                        .map_err(vortex_error)?;
-                        if batch.num_rows() != retain {
-                            return Err(error("Arrow provider changed row count"));
-                        }
-                        let actual = usize_to_u64(batch.get_array_memory_size())?;
-                        // This is a post-conversion consistency check inside the
-                        // pre-reserved envelope, not posthoc admission of a buffer.
-                        if actual > self.limits.arrow_batch_bytes {
-                            return Err(error("Arrow retained buffers exceed batch admission"));
-                        }
-                        add(&mut work.admitted_arrow_expansion_bytes, expanded)?;
-                        work.max_arrow_batch_bytes = work.max_arrow_batch_bytes.max(actual);
-                        writer.write(&batch, &mut work)?;
-                        add(&mut work.arrow_batches, 1)?;
-                        add(&mut rows, usize_to_u64(retain)?)?;
-                        after_batch(rows)?;
-                        if self.plan.limit == Some(rows) {
-                            stopped = true;
-                            break;
-                        }
-                    }
+                            if batch.num_rows() != retain {
+                                return Err(error("Arrow provider changed row count"));
+                            }
+                            let actual = usize_to_u64(batch.get_array_memory_size())?;
+                            // This is a post-conversion consistency check inside the
+                            // pre-reserved envelope, not posthoc admission of a buffer.
+                            if actual > self.limits.arrow_batch_bytes {
+                                return Err(error("Arrow retained buffers exceed batch admission"));
+                            }
+                            add(&mut work.admitted_arrow_expansion_bytes, expanded)?;
+                            work.max_arrow_batch_bytes = work.max_arrow_batch_bytes.max(actual);
+                            writer.write(&batch, &mut work)?;
+                            add(&mut work.arrow_batches, 1)?;
+                            add(&mut rows, usize_to_u64(retain)?)?;
+                            after_batch(rows)?;
+                            if self.plan.limit == Some(rows) {
+                                stopped = true;
+                                return Ok(false);
+                            }
+                            Ok(true)
+                        },
+                    )?;
                 }
                 writer.finish()?;
                 self.limits.check()?;
@@ -558,9 +631,12 @@ impl PreparedCompatibilityExport {
         work.output_bytes = output.file.metadata().map_err(vortex_error)?.len();
         let checksum = output.checksum()?;
         self.limits.check()?;
+        cancellation.check()?;
         self.plan.source.validate_generation()?;
         output.commit()?;
-        let before_limit = if self.plan.metadata_pruned {
+        let before_limit = if self.plan.source.is_produced() {
+            rows
+        } else if self.plan.metadata_pruned {
             0
         } else if self.plan.filter.is_none() {
             self.plan.row_count

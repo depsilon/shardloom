@@ -8,9 +8,9 @@ use super::{
     VortexLocalPrimitiveEmbeddedLayoutReport, VortexLocalPrimitiveExecutionPolicy,
     VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
     aggregate_scan_runtime::AggregateScanRuntime,
-    bind_vortex_scan_expr, integer_key_json_value,
-    plan_vortex_reader_generated_prepared_batch_envelopes, predicate_to_vortex_expr,
-    projection_scan_plan, split_predicate_for_vortex_pushdown, vortex_error,
+    bind_vortex_scan_expr, plan_vortex_reader_generated_prepared_batch_envelopes,
+    predicate_to_vortex_expr, projection_scan_plan, split_predicate_for_vortex_pushdown,
+    vortex_error,
     weighted_count_spill_accumulator::{Accumulator, OwnedResult},
     weighted_count_spill_admission::{self, failed},
 };
@@ -62,6 +62,36 @@ pub(super) fn execute(
     memory: &LiveMemoryPool,
     allow_workers: bool,
 ) -> Result<(LocalVortexAggregateScan, Arc<OwnedResult>)> {
+    execute_with_output(
+        source_uri,
+        request,
+        policy,
+        file,
+        session,
+        runtime,
+        memory,
+        allow_workers,
+        None,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub(super) fn execute_with_output(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: &VortexFile,
+    session: &VortexSession,
+    runtime: &impl AggregateScanRuntime,
+    memory: &LiveMemoryPool,
+    allow_workers: bool,
+    output: Option<&mut super::aggregate_owned::AggregateOutput>,
+    cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+) -> Result<(LocalVortexAggregateScan, Arc<OwnedResult>)> {
+    if let Some(token) = cancellation {
+        token.check()?;
+    }
     let contract = weighted_count_spill_admission::admit(request, file.dtype())?;
     let aggregate = request
         .simple_aggregate
@@ -70,6 +100,9 @@ pub(super) fn execute(
     let spill = aggregate.spill.as_ref().expect("admitted policy");
     let limit = contract.limit;
     let mut accumulator = Accumulator::new(spill, contract, memory, session)?;
+    if let Some(token) = cancellation {
+        accumulator.set_parent_cancellation(token);
+    }
     let (pushdown, residual) = request
         .predicate
         .as_ref()
@@ -110,7 +143,19 @@ pub(super) fn execute(
             policy.resource_envelope.group_state_soft_item_budget,
             accumulator.worker_memory(),
             accumulator.worker_session(),
-            Arc::clone(&spill.cancellation),
+            cancellation.map_or_else(
+                || {
+                    shardloom_exec::compute_pool::CancellationToken::from_shared_flag(Arc::clone(
+                        &spill.cancellation,
+                    ))
+                },
+                |parent| {
+                    shardloom_exec::compute_pool::CancellationToken::from_shared_flag_with_parent(
+                        Arc::clone(&spill.cancellation),
+                        parent,
+                    )
+                },
+            ),
         )?
     } else {
         None
@@ -154,6 +199,9 @@ pub(super) fn execute(
             }
             let Some(chunk) = scan.next() else { break };
             // A source error never replays or silently skips a consumed prefix.
+            if let Some(token) = cancellation {
+                token.check()?;
+            }
             let chunk = chunk.map_err(vortex_error)?;
             let submitted = workers
                 .as_mut()
@@ -213,7 +261,14 @@ pub(super) fn execute(
     }
     drop(provider_drivers);
     let owner = Arc::new(owner);
-    let (result_row_count, mut summary) = result_summary(&owner, request)?;
+    if let Some(token) = cancellation {
+        token.check()?;
+    }
+    let (result_row_count, mut summary) = result_summary_with_output(
+        &owner,
+        request,
+        output.map(|output| output.completed_rows()).transpose()?,
+    )?;
     owner.source_work.numeric.annotate(&mut summary)?;
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     // Spill must not retain duplicate source payloads solely for diagnostics.
@@ -328,29 +383,57 @@ fn state_budget(
     budget
 }
 
+#[cfg(test)]
 pub(super) fn result_summary(
     owner: &OwnedResult,
     request: &VortexQueryPrimitiveRequest,
 ) -> Result<(usize, String)> {
-    let mut rows = Vec::new();
+    result_summary_with_output(owner, request, None)
+}
+
+fn result_summary_with_output(
+    owner: &OwnedResult,
+    request: &VortexQueryPrimitiveRequest,
+    output: Option<&mut super::completed_result::CompletedRows>,
+) -> Result<(usize, String)> {
+    use super::result_batch::{Rows, Value};
     let contract = &owner.contract;
+    let native_output = output.is_some();
+    let _selection = output
+        .as_ref()
+        .map(|output| {
+            output.reserve_selection(
+                usize::try_from(owner.result.evidence.groups)
+                    .unwrap_or(usize::MAX)
+                    .min(contract.limit),
+                0,
+                0,
+            )
+        })
+        .transpose()?;
+    let mut selected = Vec::new();
     owner.result.visit(contract.offset, |key, text, count| {
-        if rows.len() == contract.limit {
-            return Ok(());
+        if selected.len() < contract.limit {
+            selected.push((key, text, count));
         }
-        let mut row = serde_json::Map::new();
-        for (index, column) in contract.groups.iter().enumerate() {
-            let value = if index == contract.text_index {
-                text.into()
-            } else {
-                let key = key.ok_or_else(|| failed("final numeric key disappeared"))?;
-                integer_key_json_value(key.bits, key.signed)
-            };
-            row.insert(column.clone(), value);
-        }
-        row.insert(contract.count_alias.clone(), count.into());
-        rows.push(serde_json::Value::Object(row));
         Ok(())
+    })?;
+    let columns = contract
+        .groups
+        .iter()
+        .cloned()
+        .chain(std::iter::once(contract.count_alias.clone()))
+        .collect::<Vec<_>>();
+    let rows = Rows::from_fn(output, &columns, selected.len(), |row, column| {
+        let (key, text, count) = selected[row];
+        if column == contract.groups.len() {
+            Ok(Value::UInt(count))
+        } else if column == contract.text_index {
+            Ok(Value::Text(text.into()))
+        } else {
+            let key = key.ok_or_else(|| failed("final numeric key disappeared"))?;
+            Ok(Value::integer(key.bits, key.signed))
+        }
     })?;
     let count = rows.len();
     let evidence = owner.result.evidence;
@@ -375,7 +458,7 @@ pub(super) fn result_summary(
         "utf8_native_value_bytes_scope": "serial_source_and_untouched_retry_intake;worker_native_owner_bytes_charged_to_shared_operator_pool",
     });
     let summary = serde_json::json!({
-        "rows": count, "values": rows, "group_by": contract.groups.join(","), "functions": "count",
+        "rows": count, "values": rows.values, "group_by": contract.groups.join(","), "functions": "count",
         "aggregate_update_strategy": if owner.source_work.fitted_partition_selection { "complete_key_workers_final_partition_selection" } else { "complete_weighted_native_runs" }, "group_output_strategy": "bounded_heap_after_complete_weighted_key_merge",
         "candidate_groups": evidence.groups, "offset": contract.offset,
         "order_by": request.simple_aggregate.as_ref().expect("admitted request").order_by.iter().map(crate::VortexAggregateOrderExpr::summary).collect::<Vec<_>>().join(","),
@@ -383,6 +466,8 @@ pub(super) fn result_summary(
         "weighted_count_final_reserved_bytes": owner.reserved_bytes(), "weighted_count_selected_reserved_bytes": owner.selected_reserved_bytes(),
         "spill_state": if evidence.runs_written == 0 { "admitted_no_spill_needed" } else { "native_runs_cleaned" },
         "weighted_count_spill": spill_json,
+        "aggregate_result_boundary": if native_output { "native_columns_from_completed_weighted_state" } else { "JSON_rows" },
+        "aggregate_result_serialized_json_round_trip": false,
         "weighted_count_spill_scope": "one_retained_source_generation;one_runtime;one_run_registry;all_positive_weights_before_global_selection;full_query_reserved_operator_envelope_through_native_result;source_provider_and_JSON_allocations_separate;not_RSS;blocking_IO_not_synchronously_interruptible",
         "weighted_count_worker_scope": "single_nonnull_utf8_count;existing_aggregate_chunk_jobs_and_complete_key_partitions;shared_operator_envelope_and_cancel_flag;workers_retired_before_provider_drivers_and_run_IO;source_errors_terminal_without_replay;fitted_EOF_uses_final_partition_K_without_runs",
     });

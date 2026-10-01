@@ -92,6 +92,14 @@ ownership, source-change behavior, and examples. This is a bounded native Rust a
 CLI-backed transport surface; it does not add a native Python binding or establish
 performance claims.
 
+With `vortex-write`, prepared aggregates also expose synchronous `for_each_batch`,
+`write` and cancellable `write_controlled`. Computed aggregate and ordered file
+outputs use bounded native batches through all eight admitted local formats,
+including existing COUNT/DISTINCT/numeric-sort spill families. These file writes
+can exceed the independent small-collection limits; they still require admitted
+flat types, resource grants and a new destination. See the
+[computed-result streaming contract](../architecture/native-workflow-streaming-2026-10-01.md).
+
 Single-file numeric sorting can use explicitly admitted temporary Vortex runs.
 See [Native Query Sort Spill](native-query-spill.md) for supported keys, bounded
 output, workspace quotas, cancellation, and recovery. The policy is opt-in and

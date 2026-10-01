@@ -9,9 +9,9 @@ use super::query_run_store::{
     QueryRunStore, QueryRunStorePolicy,
 };
 use super::{
-    LocalVortexRuntime, Result, ShardLoomError, SortRowCandidate, StatValue,
-    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexSortTiePolicy,
-    predicate_field_expr, row_export_columns_from_chunk,
+    Result, ShardLoomError, SortRowCandidate, StatValue, VortexQueryPrimitiveKind,
+    VortexQueryPrimitiveRequest, VortexSortTiePolicy, predicate_field_expr,
+    row_export_columns_from_chunk,
 };
 use crate::{VortexSortSpillPolicy, VortexSortSpillReport};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
@@ -29,6 +29,7 @@ use vortex::{
         dtype::{DType, Nullability, PType},
         validity::Validity,
     },
+    io::runtime::BlockingRuntime,
     session::VortexSession,
 };
 
@@ -123,6 +124,7 @@ struct Run {
 /// separate resource scopes; this counter is not process RSS.
 pub(super) struct NumericSortSpill {
     policy: VortexSortSpillPolicy,
+    parent_cancellation: Option<shardloom_exec::compute_pool::CancellationToken>,
     store: QueryRunStore,
     runs: Vec<Run>,
     report: VortexSortSpillReport,
@@ -181,6 +183,7 @@ impl NumericSortSpill {
         )?;
         let this = Self {
             policy: policy.clone(),
+            parent_cancellation: None,
             store,
             runs: Vec::with_capacity(MAX_LIVE_RUNS),
             report: VortexSortSpillReport {
@@ -214,13 +217,28 @@ impl NumericSortSpill {
         self.capacity_rows
     }
 
+    pub(super) fn set_parent_cancellation(
+        &mut self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) {
+        self.parent_cancellation = Some(cancellation.clone());
+    }
+
+    fn check_cancelled(&self) -> Result<()> {
+        check_cancelled(&self.policy)?;
+        if let Some(parent) = &self.parent_cancellation {
+            parent.check()?;
+        }
+        Ok(())
+    }
+
     pub(super) fn flush_if_full(
         &mut self,
         candidates: &mut Vec<SortRowCandidate>,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
-        check_cancelled(&self.policy)?;
+        self.check_cancelled()?;
         if candidates.len() >= self.capacity_rows {
             self.flush(candidates, runtime, session)?;
         }
@@ -230,7 +248,7 @@ impl NumericSortSpill {
     fn flush(
         &mut self,
         candidates: &mut Vec<SortRowCandidate>,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
         if candidates.is_empty() {
@@ -296,15 +314,21 @@ impl NumericSortSpill {
         &mut self,
         rows: impl Iterator<Item = Result<SpillRow>>,
         count: u64,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<Run> {
-        check_cancelled(&self.policy)?;
+        self.check_cancelled()?;
         let mut rows = rows;
         let policy = self.policy.clone();
+        let parent = self.parent_cancellation.clone();
         let block_rows = self.block_rows;
         let blocks = std::iter::from_fn(move || {
-            if let Err(error) = check_cancelled(&policy) {
+            if let Err(error) = check_cancelled(&policy).and_then(|()| {
+                parent.as_ref().map_or(
+                    Ok(()),
+                    shardloom_exec::compute_pool::CancellationToken::check,
+                )
+            }) {
                 return Some(Err(error));
             }
             let mut block = Vec::with_capacity(block_rows);
@@ -332,24 +356,28 @@ impl NumericSortSpill {
         Ok(Run { native, level: 0 })
     }
 
-    fn open_merge<'runtime>(
+    fn open_merge<'runtime, R: BlockingRuntime>(
         &mut self,
-        runtime: &'runtime LocalVortexRuntime,
+        runtime: &'runtime R,
         session: &VortexSession,
-    ) -> Result<RunMerge<'runtime>> {
+    ) -> Result<RunMerge<'runtime, R>> {
         self.report.max_open_runs = self.report.max_open_runs.max(self.runs.len());
         let readers = self
             .runs
             .iter()
             .map(|run| RunReader::open(run, &self.store, Arc::clone(&self.merge), runtime, session))
             .collect::<Result<Vec<_>>>()?;
-        RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)
+        let mut merge = RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)?;
+        merge
+            .parent_cancellation
+            .clone_from(&self.parent_cancellation);
+        Ok(merge)
     }
 
     fn compact(
         &mut self,
         fan_in: usize,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
         if !(2..=self.merge_fan_in).contains(&fan_in) || fan_in > self.runs.len() {
@@ -372,7 +400,10 @@ impl NumericSortSpill {
             .iter()
             .map(|run| RunReader::open(run, &self.store, Arc::clone(&self.merge), runtime, session))
             .collect::<Result<Vec<_>>>()?;
-        let merge = RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)?;
+        let mut merge = RunMerge::new(readers, self.policy.clone(), runtime, self.merge_fan_in)?;
+        merge
+            .parent_cancellation
+            .clone_from(&self.parent_cancellation);
         self.report.max_open_runs = self.report.max_open_runs.max(fan_in + 1);
         let mut output = self.write_run(merge, count, runtime, session)?;
         output.level = level;
@@ -393,7 +424,7 @@ impl NumericSortSpill {
         candidates: &mut Vec<SortRowCandidate>,
         offset: usize,
         limit: usize,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<(Vec<SortRowCandidate>, VortexSortSpillReport)> {
         self.flush(candidates, runtime, session)?;
@@ -492,7 +523,7 @@ impl RunReader {
         run: &Run,
         store: &QueryRunStore,
         work: Arc<MemoryLease>,
-        runtime: &LocalVortexRuntime,
+        runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<Self> {
         let reader = store.open(&run.native, &run_dtype(), runtime, session, work)?;
@@ -504,7 +535,7 @@ impl RunReader {
         })
     }
 
-    fn refill(&mut self, runtime: &LocalVortexRuntime) -> Result<()> {
+    fn refill(&mut self, runtime: &impl BlockingRuntime) -> Result<()> {
         let block = self
             .reader
             .next_block(runtime)?
@@ -530,7 +561,7 @@ impl RunReader {
         Ok(())
     }
 
-    fn next_row(&mut self, runtime: &LocalVortexRuntime) -> Result<Option<SpillRow>> {
+    fn next_row(&mut self, runtime: &impl BlockingRuntime) -> Result<Option<SpillRow>> {
         if self.rows.is_empty() && self.remaining != 0 {
             self.refill(runtime)?;
         }
@@ -552,14 +583,15 @@ impl RunReader {
     }
 }
 
-struct RunMerge<'runtime> {
+struct RunMerge<'runtime, R: BlockingRuntime> {
     readers: Vec<RunReader>,
     heads: BinaryHeap<Reverse<(SpillRow, usize)>>,
     policy: VortexSortSpillPolicy,
+    parent_cancellation: Option<shardloom_exec::compute_pool::CancellationToken>,
     failed: bool,
-    runtime: &'runtime LocalVortexRuntime,
+    runtime: &'runtime R,
 }
-impl<'runtime> RunMerge<'runtime> {
+impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
     fn validate_sources(&self) -> Result<()> {
         for reader in &self.readers {
             reader.reader.validate()?;
@@ -570,7 +602,7 @@ impl<'runtime> RunMerge<'runtime> {
     fn new(
         mut readers: Vec<RunReader>,
         policy: VortexSortSpillPolicy,
-        runtime: &'runtime LocalVortexRuntime,
+        runtime: &'runtime R,
         fan_in: usize,
     ) -> Result<Self> {
         if readers.len() > fan_in || fan_in > MERGE_FAN_IN {
@@ -588,18 +620,24 @@ impl<'runtime> RunMerge<'runtime> {
             readers,
             heads,
             policy,
+            parent_cancellation: None,
             failed: false,
             runtime,
         })
     }
 }
-impl Iterator for RunMerge<'_> {
+impl<R: BlockingRuntime> Iterator for RunMerge<'_, R> {
     type Item = Result<SpillRow>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.failed {
             return None;
         }
-        if let Err(error) = check_cancelled(&self.policy) {
+        if let Err(error) = check_cancelled(&self.policy).and_then(|()| {
+            self.parent_cancellation.as_ref().map_or(
+                Ok(()),
+                shardloom_exec::compute_pool::CancellationToken::check,
+            )
+        }) {
             self.failed = true;
             return Some(Err(error));
         }

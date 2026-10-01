@@ -85,9 +85,13 @@ pub(super) struct Policy {
     pub memory_bytes: u64,
     pub max_key_bytes: usize,
     pub cancellation: Arc<AtomicBool>,
+    pub parent_cancellation: Option<shardloom_exec::compute_pool::CancellationToken>,
 }
 impl Policy {
     fn check(&self) -> Result<()> {
+        if let Some(parent) = &self.parent_cancellation {
+            parent.check()?;
+        }
         if self.cancellation.load(Ordering::Acquire) {
             Err(failed("execution cancelled"))
         } else {
@@ -251,6 +255,13 @@ impl WeightedCountSpill {
             },
             failed: false,
         })
+    }
+
+    pub(super) fn set_parent_cancellation(
+        &mut self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) {
+        self.policy.parent_cancellation = Some(cancellation.clone());
     }
 
     fn check(&self) -> Result<()> {
@@ -872,10 +883,10 @@ impl SpilledCountResult {
     pub(super) fn reserved_bytes(&self) -> u64 {
         self.lease.bytes()
     }
-    pub(super) fn visit(
-        &self,
+    pub(super) fn visit<'a>(
+        &'a self,
         offset: usize,
-        mut visit: impl FnMut(Option<AggregateIntegerKeyPart>, &str, u64) -> Result<()>,
+        mut visit: impl FnMut(Option<AggregateIntegerKeyPart>, &'a str, u64) -> Result<()>,
     ) -> Result<()> {
         for ranked in self.selected.iter().skip(offset) {
             visit(

@@ -37,9 +37,13 @@ pub(super) struct Policy {
     pub quota_bytes: u64,
     pub memory_bytes: u64,
     pub cancellation: Arc<AtomicBool>,
+    pub parent_cancellation: Option<shardloom_exec::compute_pool::CancellationToken>,
 }
 impl Policy {
     fn check(&self) -> Result<()> {
+        if let Some(parent) = &self.parent_cancellation {
+            parent.check()?;
+        }
         if self.cancellation.load(Ordering::Acquire) {
             return Err(failed("execution cancelled"));
         }
@@ -148,6 +152,13 @@ impl ExactDistinctSpill {
             },
             failed: false,
         })
+    }
+
+    pub(super) fn set_parent_cancellation(
+        &mut self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) {
+        self.policy.parent_cancellation = Some(cancellation.clone());
     }
 
     fn check(&self) -> Result<()> {

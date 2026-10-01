@@ -4,6 +4,8 @@ use super::*;
 mod completed_result_tests;
 #[path = "local_primitive_aggregate_owned_count_tests.rs"]
 mod count_tests;
+#[path = "local_primitive_result_stream_tests.rs"]
+mod result_stream_tests;
 #[path = "local_primitive_aggregate_owned_utf8_tests.rs"]
 mod utf8_tests;
 use crate::{VortexAggregateOrderExpr, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest};

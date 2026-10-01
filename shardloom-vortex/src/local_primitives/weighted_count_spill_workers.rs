@@ -15,10 +15,7 @@ use shardloom_exec::{
     compute_pool::CancellationToken,
     live_memory::{LiveMemoryPool, MemoryLease},
 };
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::{Arc, atomic::Ordering};
 use vortex::{
     array::{ArrayRef, VortexSessionExecute as _},
     io::runtime::BlockingRuntime,
@@ -42,7 +39,7 @@ pub(super) struct Workers {
     batches: u64,
     dictionaries: u64,
     created: usize,
-    cancellation: Arc<AtomicBool>,
+    cancellation: CancellationToken,
     _handoff: MemoryLease,
     #[cfg(test)]
     deny_next_initial: bool,
@@ -55,7 +52,7 @@ impl Workers {
         entry_limit: usize,
         memory: &LiveMemoryPool,
         session: &VortexSession,
-        cancellation: Arc<AtomicBool>,
+        cancellation: CancellationToken,
     ) -> Result<Option<Self>> {
         if contract.numeric_index.is_some() || contract.groups.len() != 1 {
             return Ok(None);
@@ -96,7 +93,7 @@ impl Workers {
             window,
             memory.snapshot().limit_bytes,
             memory.clone(),
-            CancellationToken::from_shared_flag(Arc::clone(&cancellation)),
+            cancellation.clone(),
         )?;
         let created = jobs
             .pool_snapshot()
@@ -339,7 +336,7 @@ impl Workers {
         self.fitted_rows_and_groups()?;
         // No new pool: these are the retained exact partition selectors. Running
         // on the caller also avoids retaining another set of completed payloads.
-        let token = CancellationToken::from_shared_flag(Arc::clone(&self.cancellation));
+        let token = self.cancellation.clone();
         let worker = super::super::aggregate_chunk_jobs::ChunkWorkerContext::Inline(token);
         for index in 0..PARTITIONS {
             let selected = self.partitions.select(index, &worker)?;

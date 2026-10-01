@@ -109,6 +109,25 @@ phase note. They are not active queue state and do not override `phased-executio
 - Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines
   executing unsupported ShardLoom residual work as fallback.
 
+## October 1 computed-result provider check
+
+The [bounded result-stream continuation](native-workflow-streaming-2026-10-01.md)
+uses the pinned Vortex 0.85 `ArrayRef`, `StructArray`, `PrimitiveArray`, `BoolArray`,
+`VarBinArray`, `Validity`, `Buffer` and host-allocation interfaces. These are native
+result construction and ownership providers under `vortex-local-primitives`;
+streaming consumers/writers additionally require `vortex-write` on Unix.
+Native file scans with ordered row-index selection fetch selected sort payloads
+without reevaluating predicates or ordering. Existing Vortex writers persist the
+completed native arrays. Arrow conversion remains a compatibility-output boundary.
+
+Pinned source inspection of `vortex-array-0.85.0/src/builders/mod.rs:451-457`
+shows that `builder_with_capacity_in` discards its supplied allocator before
+calling `builder_with_capacity`. ShardLoom therefore constructs these final
+columns using its reserved host allocator and native array constructors. Value,
+offset and validity buffer credits survive native clones and slices. This scoped
+decision does not assert that every upstream builder or provider allocation is
+accounted, and does not introduce another array representation or dependency.
+
 ## Inventory Rules
 
 - Record the upstream `vortex` dependency version and license posture.

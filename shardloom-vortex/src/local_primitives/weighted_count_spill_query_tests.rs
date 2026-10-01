@@ -1,11 +1,11 @@
 use super::super::{
-    VortexLocalPrimitiveExecutionPolicy, execute_vortex_local_primitive_with_policy,
-    local_primitive_native_io_certificate, local_primitive_native_io_safe,
-    native_flat_layout::SequentialNativeFlatLayout,
+    VortexLocalPrimitiveExecutionPolicy, execute_vortex_local_primitive_row_export_with_policy,
+    execute_vortex_local_primitive_with_policy, local_primitive_native_io_certificate,
+    local_primitive_native_io_safe, native_flat_layout::SequentialNativeFlatLayout,
 };
 use crate::{
-    VortexAggregateOrderExpr, VortexAggregateSpillPolicy, VortexQueryPrimitiveRequest,
-    VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    VortexAggregateOrderExpr, VortexAggregateSpillPolicy, VortexLocalPrimitiveRowExportFormat,
+    VortexQueryPrimitiveRequest, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
     resident_session::ResidentVortexSession,
 };
 use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
@@ -13,7 +13,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 use vortex::{
     VortexSessionDefault as _,
     array::{
-        ArrayRef, IntoArray as _,
+        ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{DictArray, PrimitiveArray, StructArray, VarBinViewArray},
         dtype::FieldNames,
         validity::Validity,
@@ -253,6 +253,113 @@ fn summary(report: &super::super::VortexLocalPrimitiveExecutionReport) -> serde_
             .1,
     )
     .unwrap()
+}
+
+fn read_vortex_rows(path: &std::path::Path, columns: &[&str]) -> serde_json::Value {
+    let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+    let source = session.prepare_file(path).unwrap();
+    source
+        .with_native_execution(|file, session, runtime| {
+            let mut context = session.create_execution_ctx();
+            let mut rows = Vec::new();
+            for batch in file
+                .scan()
+                .unwrap()
+                .with_ordered(true)
+                .into_array_iter(runtime)
+                .unwrap()
+            {
+                let batch = batch.unwrap();
+                let fields = columns
+                    .iter()
+                    .map(|column| {
+                        super::super::logical_field_from_native_array(&batch, column).unwrap()
+                    })
+                    .collect::<Vec<_>>();
+                for row in 0..batch.len() {
+                    let mut object = serde_json::Map::with_capacity(columns.len());
+                    for (column, field) in columns.iter().zip(&fields) {
+                        let scalar = field.execute_scalar(row, &mut context).unwrap();
+                        let value = if scalar.is_null() {
+                            serde_json::Value::Null
+                        } else {
+                            let value = super::super::vortex_scalar_to_stat_value(&scalar).unwrap();
+                            super::super::stat_value_to_json_value(&value).unwrap()
+                        };
+                        object.insert((*column).to_owned(), value);
+                    }
+                    rows.push(serde_json::Value::Object(object));
+                }
+            }
+            Ok(serde_json::Value::Array(rows))
+        })
+        .unwrap()
+}
+
+#[test]
+fn result_stream_weighted_count_spill_writes_native_and_text_results_exactly() {
+    use VortexLocalPrimitiveRowExportFormat as Format;
+
+    let fixture = Fixture::new(65_536, 128, true, false);
+    for (group_index, groups) in [
+        vec!["label_renamed"],
+        vec!["cohort_renamed", "label_renamed"],
+        vec!["label_renamed", "cohort_renamed"],
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let request = fixture.query(&groups, 7, 7);
+        let expected = fixture.expected(&groups, 7, 7, 0);
+        for format in [Format::Vortex, Format::Jsonl] {
+            let output = fixture.directory.join(format!(
+                "result-{group_index}-{}.{}",
+                groups.len(),
+                format.as_str()
+            ));
+            let report = execute_vortex_local_primitive_row_export_with_policy(
+                &request,
+                &output,
+                format,
+                false,
+                VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(report.rows_written, 7, "{groups:?} {format:?}");
+            assert!(!report.evidence.side_effects.fallback_attempted);
+            assert!(!report.evidence.side_effects.fallback_execution_allowed);
+            assert!(report.evidence.native_array_sink.is_some());
+            let spill = report
+                .state_budget
+                .native_weighted_count_spill
+                .as_ref()
+                .unwrap();
+            assert!(spill.owned_cleanup_completed);
+            if groups.len() == 2 {
+                assert!(spill.runs_written > 0, "{groups:?}");
+            }
+            let rows = match format {
+                Format::Vortex => read_vortex_rows(
+                    &output,
+                    &groups
+                        .iter()
+                        .copied()
+                        .chain(std::iter::once("frequency"))
+                        .collect::<Vec<_>>(),
+                ),
+                Format::Jsonl => serde_json::Value::Array(
+                    std::fs::read_to_string(&output)
+                        .unwrap()
+                        .lines()
+                        .map(|line| serde_json::from_str(line).unwrap())
+                        .collect(),
+                ),
+                _ => unreachable!("only native and JSONL formats are listed"),
+            };
+            assert_eq!(rows, expected, "{groups:?} {format:?}");
+            fixture.empty();
+        }
+    }
 }
 
 #[test]

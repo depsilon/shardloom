@@ -11,8 +11,11 @@ use super::{
     usize_to_u64, vortex_error,
 };
 use crate::VortexStructuredProjectionExpr;
-use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
+use crate::resident_session::{
+    NativeExecutionContext, PreparedVortexSource, ResidentVortexSession,
+};
 use sha2::{Digest, Sha256};
+use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     fmt::Write as _,
     fs,
@@ -50,15 +53,30 @@ pub(super) struct NativeSinkPlan {
 pub(super) enum NativeSinkInput {
     Source(PreparedVortexSource),
     Completed(crate::resident_session::OwnedVortexResultBatch),
+    Produced {
+        session: ResidentVortexSession,
+        source: Option<PreparedVortexSource>,
+    },
 }
+
+pub(super) type ArrayProducer<'a> = dyn FnMut(
+        &NativeExecutionContext<'_>,
+        usize,
+        &mut dyn FnMut(vortex::array::ArrayRef) -> Result<bool>,
+    ) -> Result<()>
+    + 'a;
 
 impl NativeSinkInput {
     pub(super) fn validate_generation(&self) -> Result<()> {
         match self {
-            Self::Source(source) => source.validate_generation(),
             // Complete owned output was exposed only after final source
             // validation. Its lifetime no longer depends on a source file.
-            Self::Completed(_) => Ok(()),
+            Self::Completed(_) | Self::Produced { source: None, .. } => Ok(()),
+            Self::Source(source)
+            | Self::Produced {
+                source: Some(source),
+                ..
+            } => source.validate_generation(),
         }
     }
 
@@ -66,21 +84,35 @@ impl NativeSinkInput {
         matches!(self, Self::Source(_))
     }
 
+    pub(super) fn is_produced(&self) -> bool {
+        matches!(self, Self::Produced { .. })
+    }
+
     pub(super) fn with_native_execution<T>(
         &self,
+        cancellation: &CancellationToken,
         execute: impl FnOnce(
             Option<&vortex::file::VortexFile>,
-            &vortex::session::VortexSession,
-            &vortex::io::runtime::current::CurrentThreadRuntime,
+            &NativeExecutionContext<'_>,
         ) -> Result<T>,
     ) -> Result<T> {
         match self {
-            Self::Source(source) => source.with_native_execution(|file, session, runtime| {
-                execute(Some(file), session, runtime)
-            }),
+            Self::Source(source) => source
+                .with_native_execution_controlled(cancellation, |file, context| {
+                    execute(Some(file), context)
+                }),
             Self::Completed(result) => result
                 .retained_session()
-                .with_native_session(|session, runtime| execute(None, session, runtime)),
+                .with_native_execution_context(cancellation, |context| execute(None, context)),
+            Self::Produced { session, source } => match source {
+                Some(source) => source
+                    .with_native_execution_controlled(cancellation, |_, context| {
+                        execute(None, context)
+                    }),
+                None => {
+                    session.with_owned_execution(cancellation, |context| execute(None, context))
+                }
+            },
         }
     }
 }
@@ -231,6 +263,77 @@ fn prepare_source_projection(
 }
 
 impl NativeSinkPlan {
+    pub(super) fn produced(
+        session: ResidentVortexSession,
+        dtype: DType,
+        upper_rows: u64,
+        source_path: Option<PathBuf>,
+        source: Option<PreparedVortexSource>,
+    ) -> Result<Self> {
+        let columns = dtype
+            .as_struct_fields_opt()
+            .ok_or_else(|| sink_error("produced output requires a struct dtype"))?
+            .names()
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        Ok(Self {
+            source: NativeSinkInput::Produced {
+                session: session.clone(),
+                source,
+            },
+            session,
+            source_path,
+            projection: None,
+            filter: None,
+            dtype,
+            columns,
+            row_count: upper_rows.max(1),
+            limit: None,
+            metadata_pruned: false,
+        })
+    }
+
+    pub(super) fn consume(
+        &self,
+        file: Option<&vortex::file::VortexFile>,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        producer: Option<&mut ArrayProducer<'_>>,
+        mut consume: impl FnMut(vortex::array::ArrayRef) -> Result<bool>,
+    ) -> Result<()> {
+        if self.source.is_produced() {
+            return producer.ok_or_else(|| sink_error("computed result producer is absent"))?(
+                context,
+                batch_rows,
+                &mut |array| {
+                    context.check_cancelled()?;
+                    if array.dtype() != &self.dtype {
+                        return Err(sink_error("computed result changed the declared dtype"));
+                    }
+                    let keep = consume(array)?;
+                    context.check_cancelled()?;
+                    if !keep {
+                        return Err(sink_error(
+                            "computed result consumer stopped before complete output",
+                        ));
+                    }
+                    Ok(true)
+                },
+            );
+        }
+        let arrays = self.arrays(file, context.runtime(), batch_rows)?;
+        #[cfg(test)]
+        let arrays = overlap_timing::instrument(arrays);
+        for array in arrays {
+            context.check_cancelled()?;
+            if !consume(array?)? {
+                break;
+            }
+        }
+        context.check_cancelled()
+    }
+
     pub(super) fn completed(
         result: crate::resident_session::OwnedVortexResultBatch,
     ) -> Result<Self> {
@@ -304,6 +407,26 @@ impl NativeSinkPlan {
         allow_overwrite: bool,
         policy: VortexLocalPrimitiveExecutionPolicy,
     ) -> Result<VortexLocalPrimitiveRowExportReport> {
+        self.write_produced(
+            request,
+            output_path,
+            allow_overwrite,
+            policy,
+            None,
+            &CancellationToken::default(),
+        )
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn write_produced(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+        output_path: &Path,
+        allow_overwrite: bool,
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        producer: Option<&mut ArrayProducer<'_>>,
+        cancellation: &CancellationToken,
+    ) -> Result<VortexLocalPrimitiveRowExportReport> {
         self.source.validate_generation()?;
         if self.source_path.as_ref().is_some_and(|source_path| {
             fs::canonicalize(output_path).is_ok_and(|path| path == *source_path)
@@ -312,7 +435,10 @@ impl NativeSinkPlan {
         }) {
             return Err(sink_error("source and output must be different files"));
         }
-        let max_chunks = if let NativeSinkInput::Completed(result) = &self.source {
+        let max_chunks = if self.source.is_produced() {
+            usize::try_from(self.row_count)
+                .map_err(|_| sink_error("computed chunk bound overflow"))?
+        } else if let NativeSinkInput::Completed(result) = &self.source {
             result.arrays().iter().try_fold(0_usize, |chunks, array| {
                 chunks
                     .checked_add(array.len().div_ceil(SCAN_ROWS))
@@ -332,12 +458,18 @@ impl NativeSinkPlan {
             };
             usize::try_from(chunks).map_err(|_| sink_error("source chunk count overflow"))?
         };
-        let metadata_bytes = u64::try_from(max_chunks)
-            .ok()
-            .and_then(|chunks| chunks.checked_mul(METADATA_BYTES_PER_CHUNK))
-            .and_then(|bytes| bytes.checked_add(128 * 1024))
-            .ok_or_else(|| sink_error("native sink metadata reservation overflow"))?;
-        let _metadata = self.session.memory().reserve(metadata_bytes)?;
+        let metadata_bytes = if self.source.is_produced() {
+            128 * 1024
+        } else {
+            u64::try_from(max_chunks)
+                .ok()
+                .and_then(|chunks| chunks.checked_mul(METADATA_BYTES_PER_CHUNK))
+                .and_then(|bytes| bytes.checked_add(128 * 1024))
+                .ok_or_else(|| sink_error("native sink metadata reservation overflow"))?
+        };
+        let metadata = std::sync::Arc::new(std::sync::Mutex::new(
+            self.session.memory().reserve(metadata_bytes)?,
+        ));
         let mut output = OwnedOutput::new(output_path, allow_overwrite)?;
         let filter_applied = self.filter.is_some();
         let projection_applied = self.projection.is_some();
@@ -349,25 +481,33 @@ impl NativeSinkPlan {
         let mut matched_rows_observed = 0_u64;
         let mut stopped_at_limit = false;
         self.source
-            .with_native_execution(|file, session, runtime| {
+            .with_native_execution(cancellation, |file, execution| {
+                let session = execution.native_session();
+                let runtime = execution.runtime();
                 let allowed_encodings = session
                     .enabled_component_ids(ComponentKind::Array)
                     .into_iter()
                     .collect::<std::collections::BTreeSet<_>>();
                 let mut context = session.create_execution_ctx();
-                let strategy = native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks);
+                let strategy = if self.source.is_produced() {
+                    native_flat_layout::SequentialNativeFlatLayout::accounted_strategy(
+                        max_chunks,
+                        std::sync::Arc::clone(&metadata),
+                    )
+                } else {
+                    native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks)
+                };
                 let mut writer = session
                     .write_options()
                     .with_strategy(strategy)
                     .with_file_statistics(Vec::new())
                     .blocking(runtime)
                     .writer(&mut output.file, self.dtype.clone());
-                if !self.metadata_pruned && self.row_count > 0 {
-                    let arrays = self.arrays(file, runtime, SCAN_ROWS)?;
-                    #[cfg(test)]
-                    let arrays = overlap_timing::instrument(arrays);
-                    for array in arrays {
-                        let array = array?;
+                let mut writer_failed = false;
+                let delivery = if self.source.is_produced()
+                    || (!self.metadata_pruned && self.row_count > 0)
+                {
+                    self.consume(file, execution, SCAN_ROWS, producer, |array| {
                         arrays_read += 1;
                         max_rows = max_rows.max(array.len());
                         if array.len() > SCAN_ROWS {
@@ -376,7 +516,7 @@ impl NativeSinkPlan {
                             ));
                         }
                         if array.is_empty() {
-                            continue;
+                            return Ok(true);
                         }
                         matched_rows_observed = matched_rows_observed
                             .checked_add(usize_to_u64(array.len())?)
@@ -411,7 +551,10 @@ impl NativeSinkPlan {
                             .ok_or_else(|| sink_error("native sink logical byte overflow"))?;
                         #[cfg(test)]
                         let started = overlap_timing::clock();
-                        writer.push(array).map_err(vortex_error)?;
+                        if let Err(error) = writer.push(array) {
+                            writer_failed = true;
+                            return Err(vortex_error(error));
+                        }
                         #[cfg(test)]
                         {
                             overlap_timing::record("writer_push", started);
@@ -420,15 +563,35 @@ impl NativeSinkPlan {
                         arrays_submitted += 1;
                         if self.limit == Some(rows_written) {
                             stopped_at_limit = true;
-                            break;
+                            return Ok(false);
                         }
+                        Ok(true)
+                    })
+                } else {
+                    Ok(())
+                };
+                if let Err(error) = delivery {
+                    // The upstream writer owns a spawned layout task. Dropping
+                    // a healthy push writer can leave queued buffer owners in
+                    // that task until the resident runtime advances again.
+                    // Drain its bounded accepted prefix into the staging file;
+                    // publication is still forbidden and the original error wins.
+                    // A failed push already consumed the terminal writer future
+                    // and must not await that fused future a second time.
+                    if !writer_failed {
+                        let _ = writer.finish();
                     }
+                    return Err(error);
                 }
                 #[cfg(test)]
                 let started = overlap_timing::clock();
                 let summary = writer.finish().map_err(vortex_error)?;
                 #[cfg(test)]
                 overlap_timing::record("writer_finish", started);
+                let metadata_bytes = metadata
+                    .lock()
+                    .map_err(|_| sink_error("metadata owner poisoned"))?
+                    .bytes();
                 if summary.row_count() != rows_written
                     || summary.footer().approx_byte_size().is_none_or(|bytes| {
                         u64::try_from(bytes).unwrap_or(u64::MAX) > metadata_bytes
@@ -456,14 +619,21 @@ impl NativeSinkPlan {
         #[cfg(test)]
         let started = overlap_timing::clock();
         let checksum = output.checksum()?;
+        cancellation.check()?;
         self.source.validate_generation()?;
         output.commit()?;
+        let metadata_bytes = metadata
+            .lock()
+            .map_err(|_| sink_error("metadata owner poisoned"))?
+            .bytes();
         #[cfg(test)]
         overlap_timing::record("checksum_and_commit", started);
         // An unfiltered footer proves the pre-limit count without reading all
         // rows. Otherwise early limit termination proves only the matches
         // already observed; exhausting the stream proves the exact count.
-        let pre_limit_result_row_count = if self.metadata_pruned {
+        let pre_limit_result_row_count = if self.source.is_produced() {
+            rows_written
+        } else if self.metadata_pruned {
             0
         } else if self.filter.is_none() {
             self.row_count

@@ -162,7 +162,9 @@ impl ExactDistinctResult {
         &self,
         states: &GroupedAggregateStates<'_>,
         limit: Option<usize>,
+        output: Option<&mut super::super::completed_result::CompletedRows>,
     ) -> Result<(usize, serde_json::Value)> {
+        use super::super::result_batch::{Rows, Value};
         let limit = limit.ok_or_else(|| failed("final distinct counts require bounded output"))?;
         let group = states
             .group_columns
@@ -174,36 +176,45 @@ impl ExactDistinctResult {
             .first()
             .filter(|measure| measure.function == SimpleAggregateFunction::CountDistinct)
             .ok_or_else(|| failed("final distinct aggregate contract changed"))?;
-        let mut rows = Vec::new();
+        let mut selected = Vec::with_capacity(limit.min(self.retained_count()));
         let mut ordinal = 0_usize;
         if self.is_utf8() {
             self.visit_utf8(|key, count| {
-                if ordinal >= states.request.offset && rows.len() < limit {
-                    let mut row = serde_json::Map::new();
-                    row.insert(group.name.clone(), key.into());
-                    row.insert(measure.alias.clone(), count.into());
-                    rows.push(serde_json::Value::Object(row));
+                if ordinal >= states.request.offset && selected.len() < limit {
+                    selected.push((Value::Text(key.into()), count));
                 }
                 ordinal += 1;
                 Ok(())
             })?;
         } else {
             self.visit(|key, count| {
-                if ordinal >= states.request.offset && rows.len() < limit {
-                    let mut row = serde_json::Map::new();
-                    row.insert(
-                        group.name.clone(),
-                        super::super::integer_key_json_value(key.bits, key.signed),
-                    );
-                    row.insert(measure.alias.clone(), count.into());
-                    rows.push(serde_json::Value::Object(row));
+                if ordinal >= states.request.offset && selected.len() < limit {
+                    selected.push((Value::integer(key.bits, key.signed), count));
                 }
                 ordinal += 1;
                 Ok(())
             })?;
         }
-        let row_count = rows.len();
-        self.summary_payload(states, row_count, Some(&rows))
+        let scalar_output = output.is_none();
+        let rows = Rows::from_fn(
+            output,
+            &[group.name.clone(), measure.alias.clone()],
+            selected.len(),
+            |row, column| {
+                Ok(if column == 0 {
+                    selected[row].0.clone()
+                } else {
+                    Value::UInt(selected[row].1)
+                })
+            },
+        )?;
+        let (count, mut payload) = self.summary_payload(states, rows.len(), None)?;
+        payload["values"] = rows.values;
+        if scalar_output {
+            payload["materialized_group_value_count"] = count.into();
+            payload["aggregate_result_boundary"] = "JSON_rows".into();
+        }
+        Ok((count, payload))
     }
 
     pub(in super::super) fn summary(

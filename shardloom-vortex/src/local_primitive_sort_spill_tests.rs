@@ -13,7 +13,7 @@ use std::{
     path::PathBuf,
     sync::atomic::AtomicU64,
 };
-use vortex::{file::WriteOptionsSessionExt as _, io::runtime::BlockingRuntime as _};
+use vortex::file::WriteOptionsSessionExt as _;
 static NEXT_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 use vortex::{
     VortexSessionDefault as _, array::iter::ArrayIteratorAdapter,
@@ -703,6 +703,7 @@ fn verified_run_generation_rejects_replacement_and_mutation_after_native_open() 
             readers: vec![reader],
             heads: BinaryHeap::new(),
             policy: workspace.policy(),
+            parent_cancellation: None,
             failed: false,
             runtime: &runtime,
         };

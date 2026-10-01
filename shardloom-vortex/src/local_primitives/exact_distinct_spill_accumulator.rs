@@ -105,6 +105,7 @@ impl SpillAccumulator {
                 quota_bytes: policy.quota_bytes,
                 memory_bytes: policy.memory_bytes,
                 cancellation: Arc::clone(&policy.cancellation),
+                parent_cancellation: None,
             },
             operator_memory.clone(),
             signed(&dtypes[0]),
@@ -124,6 +125,13 @@ impl SpillAccumulator {
             source_rows: 0,
             failed: false,
         })
+    }
+
+    pub(in super::super) fn set_parent_cancellation(
+        &mut self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) {
+        self.spill.set_parent_cancellation(cancellation);
     }
 
     pub(in super::super) fn push(

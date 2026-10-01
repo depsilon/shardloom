@@ -44,6 +44,7 @@ impl PreparedVortexAggregate {
     pub(super) fn read_spill(
         &self,
         context: Option<&NativeExecutionContext<'_>>,
+        output: Option<&mut super::super::aggregate_owned::AggregateOutput>,
     ) -> Result<LocalVortexAggregateScan> {
         let uri = self
             .request
@@ -52,7 +53,7 @@ impl PreparedVortexAggregate {
             .ok_or_else(|| failed("prepared source URI is absent"))?;
         if weighted_count_spill_admission::request_admitted(&self.request) {
             self.run_spill(context, |file, session, runtime| {
-                weighted_count_spill_query::execute(
+                weighted_count_spill_query::execute_with_output(
                     uri,
                     &self.request,
                     self.policy,
@@ -61,11 +62,13 @@ impl PreparedVortexAggregate {
                     runtime,
                     self.session.memory(),
                     self.worker_pool,
+                    output,
+                    context.map(NativeExecutionContext::cancellation),
                 )
             })
         } else {
             self.run_spill(context, |file, session, runtime| {
-                exact_distinct_pairs::spill_query::execute(
+                exact_distinct_pairs::spill_query::execute_with_output(
                     uri,
                     &self.request,
                     self.policy,
@@ -73,6 +76,8 @@ impl PreparedVortexAggregate {
                     session,
                     runtime,
                     self.session.memory(),
+                    output,
+                    context.map(NativeExecutionContext::cancellation),
                 )
             })
         }
