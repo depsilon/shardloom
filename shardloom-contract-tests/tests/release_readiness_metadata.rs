@@ -1192,7 +1192,8 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 
     let website_readme = read_repo_file("website-src/README.md");
     for required in [
-        "parallax ShardLoom homepage for `/` and claim-safe Starlight documentation",
+        "parallax ShardLoom homepage for `/`, Starlight documentation for `/field-guide`",
+        "Astro pages for the supporting public routes",
         "`/`: parallax ShardLoom homepage experience from the productionized source-of-truth HTML",
         "`/about`: shipped differentiators, technical-preview support, and evidence pointers",
         "`/start`: package installation, a small CSV example, and a first local query",

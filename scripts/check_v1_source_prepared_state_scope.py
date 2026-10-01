@@ -89,9 +89,17 @@ PUBLIC_DOC_MARKERS = {
         DOC_PATH.as_posix(),
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
-        "ctx.prepare_vortex(",
-        "prepared.query",
+        "ctx.read(path)",
+        "result.envelope",
+        "reuses an unchanged source only when its schema and artifact identities match",
+        "docs/getting-started/examples.md",
         "fallback_attempted",
+    ),
+    "website-src/src/content/docs/field-guide/execution-routes.mdx": (
+        "VortexPreparedState",
+        "prepared_vortex",
+        "source, schema, and artifact identities match",
+        "prepared state is not a query-result cache",
     ),
 }
 

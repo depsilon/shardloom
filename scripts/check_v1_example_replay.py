@@ -94,8 +94,10 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
         "import shardloom as sl",
-        "prepared = ctx.prepare_vortex(",
-        "clean/cast/filter/write",
+        'ctx.read("data/orders.csv")',
+        "result.envelope.field_int",
+        "result.fallback_attempted, result.external_engine_invoked",
+        "docs/getting-started/examples.md",
         "fallback execution",
     ),
 }
