@@ -256,6 +256,13 @@ operator/type and adapter coverage. This documentation correction does not claim
 that implementation is complete or resume paused large format/text performance
 runs, native Python binding experiments, or package publication.
 
+The October 1 implementation continuation uses the
+[native workflow streaming contract](native-workflow-streaming-2026-10-01.md)
+for this first runtime unit. The maintainer requested completion of the remaining
+optimization and breadth work; retain the existing PERF owners and proceed through
+the dependent workflow and family work without treating this first unit as the
+whole roadmap's completion.
+
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
 completed UAT/test artifacts. R2.a, R3.a and R3.b are retained with Full43 and ownership
@@ -853,10 +860,15 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     complete bounded values, and the native array sink persists them directly.
     Later bounded integer COUNT/DISTINCT and UTF8 COUNT results also finalize
     directly into owned arrays with Vortex/IPC/Parquet sink acceptance. Additional
-    computed and multi-source families still require migration; see the completed
-    ledger and combined September 12 UAT for the exact scope.
+    computed and multi-source families still require migration. The
+    [October 1 result-stream unit](native-workflow-streaming-2026-10-01.md) completes
+    executable flat-scalar aggregate and ordered output into bounded native
+    batches and all eight admitted local writers, including existing native
+    spill output. Complete Python SQL/DataFrame workflows and Full43 pass;
+    collection bounds and broader resource/operator obligations remain separate.
+    See the completed ledger and combined September 12 UAT for earlier scope.
   - Execution checklist:
-    - [ ] Complete bounded result streams for already executable flat-scalar
+    - [x] Complete bounded result streams for already executable flat-scalar
       aggregate and ordered-result families through downstream operators and
       admitted local writers, including typed empty results and native spill
       output. Use the [whole-workflow acceptance matrix](universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix)

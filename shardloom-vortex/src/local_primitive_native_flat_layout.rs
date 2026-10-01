@@ -4,7 +4,8 @@
 //! those may need concurrent EOF progress, while Flat never writes at child EOF.
 
 use futures::{StreamExt as _, future::BoxFuture, stream};
-use std::sync::Arc;
+use shardloom_exec::live_memory::MemoryLease;
+use std::sync::{Arc, Mutex};
 use vortex::{
     error::{VortexResult, vortex_err},
     layout::{
@@ -48,11 +49,28 @@ pub(crate) fn complete_for_serialization(
 /// writer. `max_chunks` also bounds the retained layout-reference vector.
 pub(crate) struct SequentialNativeFlatLayout {
     max_chunks: usize,
+    metadata: Option<Arc<Mutex<MemoryLease>>>,
 }
 
 impl SequentialNativeFlatLayout {
     pub(crate) fn strategy(max_chunks: usize) -> Arc<dyn LayoutStrategy> {
-        Arc::new(Self { max_chunks })
+        Arc::new(Self {
+            max_chunks,
+            metadata: None,
+        })
+    }
+
+    /// Computed streams grow footer credit before accepting each leaf; they do
+    /// not allocate a worst-case source-sized layout vector in advance.
+    #[cfg(all(unix, feature = "vortex-write"))]
+    pub(crate) fn accounted_strategy(
+        max_chunks: usize,
+        metadata: Arc<Mutex<MemoryLease>>,
+    ) -> Arc<dyn LayoutStrategy> {
+        Arc::new(Self {
+            max_chunks,
+            metadata: Some(metadata),
+        })
     }
 }
 
@@ -73,9 +91,13 @@ impl LayoutStrategy for SequentialNativeFlatLayout {
         Box::pin(async move {
             let dtype = input.dtype().clone();
             let mut children = Vec::new();
-            children
-                .try_reserve_exact(self.max_chunks)
-                .map_err(|error| vortex_err!("native leaf layout reservation failed: {error}"))?;
+            if self.metadata.is_none() {
+                children
+                    .try_reserve_exact(self.max_chunks)
+                    .map_err(|error| {
+                        vortex_err!("native leaf layout reservation failed: {error}")
+                    })?;
+            }
             let mut rows = 0_u64;
             while let Some(item) = input.next().await {
                 if children.len() >= self.max_chunks {
@@ -84,6 +106,23 @@ impl LayoutStrategy for SequentialNativeFlatLayout {
                     ));
                 }
                 let item = item?;
+                if let Some(metadata) = &self.metadata {
+                    let bytes = u64::try_from(children.len() + 1)
+                        .ok()
+                        .and_then(|n| n.checked_mul(8192))
+                        .and_then(|n| n.checked_add(128 * 1024))
+                        .ok_or_else(|| vortex_err!("native leaf metadata size overflow"))?;
+                    metadata
+                        .lock()
+                        .map_err(|_| vortex_err!("native leaf metadata owner poisoned"))?
+                        .resize(bytes)
+                        .map_err(|error| {
+                            vortex_err!("native leaf metadata reservation failed: {error}")
+                        })?;
+                    children.try_reserve_exact(1).map_err(|error| {
+                        vortex_err!("native leaf layout reservation failed: {error}")
+                    })?;
+                }
                 rows = rows
                     .checked_add(
                         u64::try_from(item.1.len())

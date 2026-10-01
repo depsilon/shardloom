@@ -4114,7 +4114,11 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         primitive = "project"
         source_order_limit = getattr(shape, "limit", None)
     else:
-        return None
+        # A validated source-only shape writes every field through the existing
+        # native projection path; callers need not add a redundant select("*").
+        primitive = "project"
+        columns = ("*",)
+        source_order_limit = getattr(shape, "limit", None)
     return {
         "native_vortex_operation_family": "sink",
         "vortex_primitive": primitive,
@@ -7321,7 +7325,9 @@ class LazyFrame:
         check: bool,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> SqlLocalSourceSmokeReport:
-        statement = self._sql_local_source_statement(allow_native_source=True)
+        statement = self._native_vortex_aggregate_statement()
+        if statement is None:
+            statement = self._sql_local_source_statement(allow_native_source=True)
         if statement is None:
             raise ValueError(
                 "public workflow write facade requires an admitted local-source statement"
@@ -8747,6 +8753,17 @@ class LazyFrame:
         check: bool,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+        if self._native_vortex_aggregate_statement() is not None:
+            report = self._public_workflow_write_report(
+                target_uri,
+                requested_output=requested_output,
+                allow_overwrite=allow_overwrite,
+                check=check,
+                fanout_outputs=fanout_outputs,
+            )
+            return VortexWorkflowExecutionReport(
+                workflow=self, operation=operation, envelope=report.envelope
+            )
         shape = self._native_vortex_user_route_shape()
         if shape is None:
             if requested_output in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc", "write_json", "write_jsonl", "write_csv"}:
@@ -9459,7 +9476,11 @@ class LazyFrame:
         return True
 
     def _can_append_scalar_aggregate(self) -> bool:
-        if not _is_query_builder_local_source(self.source):
+        if not _is_query_builder_local_source(self.source) and self.source.source_format != "vortex":
+            return False
+        if self.source.source_format == "vortex" and any(
+            operation.kind == "limit" for operation in self.operations
+        ):
             return False
         return all(
             operation.kind not in {"select", "aggregate", "group_by", "sort"}
@@ -9516,7 +9537,7 @@ class LazyFrame:
             return all(operation.kind != "sort" for operation in self.operations)
         if self.source.source_format == "vortex":
             return all(
-                operation.kind in {"filter", "select", "set_index"}
+                operation.kind in {"filter", "select", "set_index", "group_by", "aggregate", "having"}
                 for operation in self.operations
             )
         return False
@@ -9531,7 +9552,7 @@ class LazyFrame:
         return True
 
     def _can_append_having(self) -> bool:
-        if not _is_query_builder_local_source(self.source):
+        if not _is_query_builder_local_source(self.source) and self.source.source_format != "vortex":
             return False
         saw_aggregate = False
         for operation in self.operations:
@@ -10343,8 +10364,30 @@ class LazyFrame:
             engine_mode=self.engine_mode,
         )
 
+    def _native_vortex_aggregate_statement(self) -> str | None:
+        """Lower a complete ordered aggregate chain without moving input limits."""
+        if self.source.source_format != "vortex":
+            return None
+        stages = ("filter", "group_by", "aggregate", "having", "sort", "limit")
+        position = -1
+        saw_aggregate = False
+        for operation in self.operations:
+            if operation.kind not in stages:
+                return None
+            next_position = stages.index(operation.kind)
+            if next_position <= position:
+                return None
+            position = next_position
+            saw_aggregate |= operation.kind == "aggregate"
+        if not saw_aggregate:
+            return None
+        return self._sql_local_source_statement(
+            allow_native_source=True, require_limit=False
+        )
+
     def _sql_local_source_statement(
-        self, *, default_limit: int | None = None, allow_native_source: bool = False
+        self, *, default_limit: int | None = None, allow_native_source: bool = False,
+        require_limit: bool = True,
     ) -> str | None:
         if not _is_query_builder_local_source(self.source) and not (
             allow_native_source and self.source.source_format == "vortex"
@@ -10468,9 +10511,11 @@ class LazyFrame:
             else:
                 return None
         if limit is None:
-            if default_limit is None:
+            if default_limit is None and require_limit:
                 return None
-            limit = str(default_limit)
+            if default_limit is not None:
+                limit = str(default_limit)
+        limit_clause = f" LIMIT {limit}" if limit is not None else ""
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
@@ -10546,7 +10591,7 @@ class LazyFrame:
                 f"{join_keyword} {right_source_uri} AS {right_alias}"
                 f"{on_clause}"
                 f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
-                f"{_optional_sql_having_clause(having)}{order_by_clause} LIMIT {limit}"
+                f"{_optional_sql_having_clause(having)}{order_by_clause}{limit_clause}"
             )
         if projection_list is not None:
             if aggregate_list is not None or group_by_list is not None:
@@ -10589,7 +10634,7 @@ class LazyFrame:
         return (
             f"{select_keyword} {select_clause} FROM {source_uri}"
             f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
-            f"{_optional_sql_having_clause(having)}{order_by_clause} LIMIT {limit}"
+            f"{_optional_sql_having_clause(having)}{order_by_clause}{limit_clause}"
         )
 
     def _sql_local_source_union_branch_statement(self) -> str | None:
@@ -15174,7 +15219,15 @@ def _vortex_grouped_aggregate_parts(
     group_by: tuple[str, ...] | None = None
     aggregate: tuple[str, ...] = ()
     limit: int | None = None
+    stages = ("filter", "group_by", "aggregate", "limit")
+    position = -1
     for operation in operations:
+        if operation.kind not in stages:
+            return None, None, (), None
+        next_position = stages.index(operation.kind)
+        if next_position <= position:
+            return None, None, (), None
+        position = next_position
         if operation.kind == "filter" and filter_expr is None:
             filter_expr = operation.values[0]
         elif operation.kind == "group_by" and group_by is None:

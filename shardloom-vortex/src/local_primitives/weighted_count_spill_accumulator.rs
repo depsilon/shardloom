@@ -118,6 +118,7 @@ impl Accumulator {
                 memory_bytes: policy.memory_bytes,
                 max_key_bytes: MAX_KEY_BYTES,
                 cancellation: Arc::clone(&policy.cancellation),
+                parent_cancellation: None,
             },
             operator_memory.clone(),
             contract.order,
@@ -137,6 +138,13 @@ impl Accumulator {
             envelope,
         })
     }
+    pub(super) fn set_parent_cancellation(
+        &mut self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) {
+        self.spill.set_parent_cancellation(cancellation);
+    }
+
     fn check(&self) -> Result<()> {
         cancelled(&self.cancellation)?;
         if self.failed {

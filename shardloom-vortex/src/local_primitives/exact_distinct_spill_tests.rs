@@ -42,6 +42,7 @@ impl Workspace {
             quota_bytes: 32 << 20,
             memory_bytes: 2 << 20,
             cancellation: Arc::new(AtomicBool::new(false)),
+            parent_cancellation: None,
         }
     }
     fn assert_empty(&self) {
@@ -237,7 +238,7 @@ fn exact_distinct_spill_all_native_widths_extrema_and_dictionary_domain_roundtri
 fn exact_distinct_spill_quota_cancel_and_invalid_weight_cleanup_are_terminal() {
     let workspace = Workspace::new();
     let (runtime, session) = runtime();
-    for failure in 0..4 {
+    for failure in 0..5 {
         let mut policy = workspace.policy();
         if failure == 0 {
             policy.quota_bytes = 32 * 1024 + 100;
@@ -245,6 +246,8 @@ fn exact_distinct_spill_quota_cancel_and_invalid_weight_cleanup_are_terminal() {
         let cancel = Arc::clone(&policy.cancellation);
         let memory = LiveMemoryPool::new(policy.memory_bytes).unwrap();
         let mut spill = ExactDistinctSpill::new(policy, memory.clone(), false, false, 7).unwrap();
+        let parent = shardloom_exec::compute_pool::CancellationToken::default();
+        spill.set_parent_cancellation(&parent);
         for value in 0..2048 {
             spill
                 .push(unsigned(value % 17, value), 1, &runtime, &session)
@@ -255,7 +258,7 @@ fn exact_distinct_spill_quota_cancel_and_invalid_weight_cleanup_are_terminal() {
         } else {
             spill.flush(&runtime, &session).unwrap();
             match failure {
-                1 => {
+                1 | 4 => {
                     let mut merge = RunMerge::new(
                         spill.runs.iter().map(|run| &run.native),
                         spill.store.as_ref().unwrap(),
@@ -266,7 +269,13 @@ fn exact_distinct_spill_quota_cancel_and_invalid_weight_cleanup_are_terminal() {
                         &session,
                     )
                     .unwrap();
-                    cancel.store(true, Ordering::Release);
+                    assert!(merge.next().unwrap().is_ok());
+                    if failure == 4 {
+                        parent.cancel();
+                        assert!(!cancel.load(Ordering::Acquire));
+                    } else {
+                        cancel.store(true, Ordering::Release);
+                    }
                     assert!(
                         merge
                             .next()

@@ -62,9 +62,9 @@ checked process-local monotonic IDs; they are never resolved as filesystem paths
 Ordinary aggregate scans observe parent cancellation at chunk/stage boundaries,
 including exact recount passes. The parent token remains independent of worker
 attempt cancellation so a pressure replay cannot poison the whole operation.
-Current explicit spill kernels keep their separate policy token; a borrowed
-operation token is observed before/after that stage. Extending parent-token
-propagation inside spill kernels remains a subsequent cancellation obligation.
+The October 1 [result-stream continuation](native-workflow-streaming-2026-10-01.md)
+propagates the borrowed operation token into admitted weighted COUNT and exact
+DISTINCT spill workers and merge boundaries alongside their separate policy token.
 Public cancellable admission observes both the spill policy and enclosing operation
 tokens while queued. Either owner can cancel admission; neither propagates
 cancellation backwards into the other owner. Renewing a spill policy retains its

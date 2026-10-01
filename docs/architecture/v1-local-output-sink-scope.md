@@ -59,7 +59,10 @@ decoded compatibility sinks as their runtime middle. Exact provider-backed Vorte
 may export bounded `result_json` to workspace-safe `jsonl` or `csv` sinks after native Vortex
 execution. Ordinary SQL/generated local result sinks and native primitive filter/project/filter-
 project row streams also admit JSON-array output. JSON output frames the same Vortex-derived row
-stream used by JSONL as one top-level array through a bounded spool. JSON and JSONL are text formats
+stream used by JSONL as one top-level array through a bounded spool. Computed
+aggregate and ordered results instead encode their typed native batches directly
+at the JSON/JSONL/CSV writer, without the spool or a complete result table.
+JSON and JSONL are text formats
 and do not preserve static type or Vortex layout metadata. Primitive filter/project/filter-project
 row streams may export workspace-safe JSON arrays, `jsonl`, or `csv`, including JSONL+CSV fanout,
 through the `native_vortex_primitive_row_export` route after native/prepared Vortex input with explicit
@@ -102,9 +105,18 @@ JSONL+CSV `fanout` through
 `native_vortex_primitive_row_export`. Structured expression-project row streams additionally admit
 Vortex, Parquet, Arrow IPC, and Avro output through the same native Vortex-derived route.
 Bounded flat projection, aggregate and sorted-result exports also use shared native
-result ownership for Vortex, Parquet, Arrow IPC, Avro and ORC. General computed
-results admit up to 65,536 rows, 128 scalar fields and 8 MiB; nested and extension
-result types and explicit aggregate/sort spill output remain outside that handoff.
+result ownership for Vortex, Parquet, Arrow IPC, Avro and ORC. Computed aggregate
+and ordered file outputs now use bounded typed native batches across all eight
+formats, including admitted weighted COUNT, integer DISTINCT and numeric-sort
+spill. They admit up to 128 flat scalar fields and bound each native batch to
+8 MiB; output row counts may exceed 65,536. Small owned collection retains its
+independent 65,536-row / 128-field / 8-MiB bounds. Nested and extension results and
+broader spill families remain outside this handoff. Resource denial or a value
+outside a format's admission fails the complete write before publication.
+These computed writers atomically create a new destination and reject existing
+files even with overwrite enabled. See the
+[streaming contract](native-workflow-streaming-2026-10-01.md) for ownership,
+cancellation, writer bounds and resource-accounting exclusions.
 Avro and ORC cannot preserve UInt64 values above Int64's maximum; checked ORC
 conversion rejects those values and reports signed widening and metadata loss.
 See the [I/O route repair](public-io-route-repair-2026-09-27.md) for the exact scope.
@@ -124,7 +136,7 @@ The route ids covered by this scope are:
 | `local_file_prepare_once_batch` | Batch prepared query result, bounded report, or local result sink. |
 | `prepared_vortex_warm_query` | Prepared Vortex query result, bounded report, or local result sink. |
 | `native_vortex_query` | Native local Vortex result/report route with scoped result sink evidence. |
-| `native_vortex_primitive_row_export` | Native/prepared Vortex row export to JSON array/JSONL/CSV; bounded flat projection/aggregate/sort results to Vortex/Parquet/Arrow IPC/Avro/ORC; existing structured projections retain their typed admission. Explicit decode/materialization evidence; fanout remains JSONL/CSV only. |
+| `native_vortex_primitive_row_export` | Native/prepared Vortex row export to JSON array/JSONL/CSV; flat computed aggregate/sort result streams to all eight formats, including admitted spill; bounded flat projections to Vortex/Parquet/Arrow IPC/Avro/ORC; existing structured projections retain their typed admission. Explicit decode/materialization evidence; fanout remains JSONL/CSV only. |
 | `generated_rows_local_output` | Local JSON-array/JSONL/CSV, feature-gated structured/Vortex output, artifact-adjacent prepared-state reuse manifest, and fanout. |
 | `quarantine_output_route` | Local quarantine sink for admitted schema/data-quality rows. |
 

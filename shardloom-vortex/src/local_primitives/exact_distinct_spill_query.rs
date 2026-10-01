@@ -39,6 +39,26 @@ pub(in super::super) fn execute(
     runtime: &impl BlockingRuntime,
     memory: &LiveMemoryPool,
 ) -> Result<(LocalVortexAggregateScan, Arc<OwnedSpillResult>)> {
+    execute_with_output(
+        source_uri, request, policy, file, session, runtime, memory, None, None,
+    )
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub(in super::super) fn execute_with_output(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: &VortexFile,
+    session: &VortexSession,
+    runtime: &impl BlockingRuntime,
+    memory: &LiveMemoryPool,
+    output: Option<&mut super::super::aggregate_owned::AggregateOutput>,
+    cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+) -> Result<(LocalVortexAggregateScan, Arc<OwnedSpillResult>)> {
+    if let Some(token) = cancellation {
+        token.check()?;
+    }
     if !workers::request_may_be_admitted(request)
         || !workers::request_schema_may_be_admitted(request, file.dtype())
     {
@@ -87,6 +107,9 @@ pub(in super::super) fn execute(
     ];
     let mut accumulator =
         SpillAccumulator::new(spill_policy, columns, dtypes, retained, memory, session)?;
+    if let Some(token) = cancellation {
+        accumulator.set_parent_cancellation(token);
+    }
     let (pushdown, residual) = aggregate_plan
         .predicate
         .as_ref()
@@ -141,6 +164,9 @@ pub(in super::super) fn execute(
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
+            if let Some(token) = cancellation {
+                token.check()?;
+            }
             let chunk = chunk.map_err(vortex_error)?;
             numeric_work.add(&accumulator.push(&chunk, runtime)?)?;
             rows = rows
@@ -160,11 +186,20 @@ pub(in super::super) fn execute(
             reader_splits.push(split);
         }
     }
+    if let Some(token) = cancellation {
+        token.check()?;
+    }
     let owner = Arc::new(accumulator.finish(runtime)?);
+    if let Some(token) = cancellation {
+        token.check()?;
+    }
     states.finalized_distinct_counts =
         Some(workers::ExactDistinctResult::from_spill(Arc::clone(&owner)));
-    let (result_row_count, mut result_summary) =
-        states.result_row_count_and_summary(Some(limit))?;
+    let (result_row_count, mut result_summary) = if let Some(output) = output {
+        output.finish(&states)?
+    } else {
+        states.result_row_count_and_summary(Some(limit))?
+    };
     let mut state_budget = states.state_budget_report(aggregate, rows, result_row_count)?;
     numeric_work.annotate(&mut result_summary)?;
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, &aggregate_plan)?;

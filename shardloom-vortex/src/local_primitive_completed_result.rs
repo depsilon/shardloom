@@ -5,24 +5,33 @@ use super::{
     AggregateValueTransform, Result, ShardLoomError, SimpleAggregateFunction,
     VortexQueryPrimitiveRequest, required_simple_aggregate, vortex_error,
 };
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::array::{
-    ArrayRef, IntoArray as _,
-    arrays::StructArray,
-    builders::builder_with_capacity,
-    dtype::{DType, FieldNames, Nullability, PType},
-    scalar::Scalar,
-    validity::Validity,
+    ArrayRef,
+    dtype::{DType, Nullability, PType},
 };
 
 const MAX_ROWS: usize = 65_536;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 
-pub(super) struct CompletedRows {
+pub(super) struct CompletedRows<'a> {
     fields: Vec<(String, DType)>,
     memory: LiveMemoryPool,
     array: Option<ArrayRef>,
     ownership: MemoryLease,
+    delivery: Delivery<'a>,
+    finished: bool,
+}
+
+enum Delivery<'a> {
+    Collect,
+    #[cfg_attr(not(all(unix, feature = "vortex-write")), allow(dead_code))]
+    Stream {
+        batch_rows: usize,
+        cancellation: CancellationToken,
+        consume: &'a mut dyn FnMut(ArrayRef) -> Result<()>,
+    },
 }
 
 fn failed(message: &str) -> ShardLoomError {
@@ -82,11 +91,28 @@ pub(super) fn aggregate_fields(
     request: &VortexQueryPrimitiveRequest,
     source: &DType,
 ) -> Result<Vec<(String, DType)>> {
+    aggregate_fields_with_bounds(request, source, true)
+}
+
+#[cfg(all(unix, feature = "vortex-write"))]
+pub(super) fn aggregate_stream_fields(
+    request: &VortexQueryPrimitiveRequest,
+    source: &DType,
+) -> Result<Vec<(String, DType)>> {
+    aggregate_fields_with_bounds(request, source, false)
+}
+
+fn aggregate_fields_with_bounds(
+    request: &VortexQueryPrimitiveRequest,
+    source: &DType,
+    collect: bool,
+) -> Result<Vec<(String, DType)>> {
     let aggregate = required_simple_aggregate(request)?;
-    if aggregate.spill.is_some() {
+    if collect && aggregate.spill.is_some() {
         return Err(failed("owned aggregate spill output is not admitted"));
     }
-    if (!aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty())
+    if collect
+        && (!aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty())
         && request.source_order_limit.is_some_and(|limit| {
             aggregate
                 .offset
@@ -140,8 +166,125 @@ pub(super) fn aggregate_fields(
     Ok(fields)
 }
 
-impl CompletedRows {
+#[cfg(all(unix, feature = "vortex-write"))]
+impl<'consumer> CompletedRows<'consumer> {
+    pub(super) fn streaming(
+        fields: Vec<(String, DType)>,
+        memory: &LiveMemoryPool,
+        batch_rows: usize,
+        cancellation: CancellationToken,
+        consume: &'consumer mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<Self> {
+        if batch_rows == 0 || batch_rows > 8192 {
+            return Err(failed("native stream batch rows must be in 1..=8192"));
+        }
+        let mut output = Self::new(fields, memory)?;
+        output.delivery = Delivery::Stream {
+            batch_rows,
+            cancellation,
+            consume,
+        };
+        Ok(output)
+    }
+}
+
+impl CompletedRows<'_> {
+    pub(super) fn is_streaming(&self) -> bool {
+        matches!(self.delivery, Delivery::Stream { .. })
+    }
+
+    pub(super) fn finish_values<'a>(
+        &mut self,
+        columns: &[String],
+        rows: usize,
+        value: impl FnMut(usize, usize) -> Result<super::result_batch::Value<'a>>,
+    ) -> Result<()> {
+        self.push_values(columns, rows, value)?;
+        self.finished = true;
+        Ok(())
+    }
+
+    pub(super) fn finish_stream(&mut self) -> Result<()> {
+        if !self.is_streaming() || self.finished {
+            return Err(failed("stream already finished or not admitted"));
+        }
+        self.finished = true;
+        Ok(())
+    }
+
+    pub(super) fn push_values<'a>(
+        &mut self,
+        columns: &[String],
+        rows: usize,
+        mut value: impl FnMut(usize, usize) -> Result<super::result_batch::Value<'a>>,
+    ) -> Result<()> {
+        if (!self.is_streaming() && rows > MAX_ROWS)
+            || self.finished
+            || !columns.iter().eq(self.fields.iter().map(|(name, _)| name))
+        {
+            return Err(failed(
+                "completed native rows or schema differ from admission",
+            ));
+        }
+        let allocator = std::sync::Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+            self.memory.clone(),
+        )) as vortex::array::memory::HostAllocatorRef;
+        match &mut self.delivery {
+            Delivery::Collect => {
+                self.array = Some(super::result_batch::build(
+                    &self.fields,
+                    rows,
+                    MAX_BYTES,
+                    &allocator,
+                    value,
+                )?);
+            }
+            Delivery::Stream {
+                batch_rows,
+                cancellation,
+                consume,
+            } => {
+                let mut start = 0;
+                loop {
+                    cancellation.check()?;
+                    let mut count = (rows - start).min(*batch_rows);
+                    while super::result_batch::buffer_bytes(
+                        &self.fields,
+                        count,
+                        &mut |row, column| value(start + row, column),
+                    )? > MAX_BYTES
+                    {
+                        if count <= 1 {
+                            return Err(failed(
+                                "one complete output row exceeds the native batch byte bound",
+                            ));
+                        }
+                        count = count.div_ceil(2);
+                    }
+                    let array = super::result_batch::build(
+                        &self.fields,
+                        count,
+                        MAX_BYTES,
+                        &allocator,
+                        |row, column| value(start + row, column),
+                    )?;
+                    cancellation.check()?;
+                    consume(array)?;
+                    cancellation.check()?;
+                    start += count;
+                    if start == rows {
+                        break;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn admit_group_count(&self, limit: Option<usize>, groups: usize) -> Result<usize> {
+        if self.is_streaming() {
+            return Ok(limit.map_or(groups, |limit| groups.min(limit)));
+        }
         if limit.is_none() && groups > MAX_ROWS {
             return Err(failed(
                 "grouped output without a limit exceeds 65536 groups",
@@ -197,6 +340,29 @@ impl CompletedRows {
             .reserve(u64::try_from(bytes).map_err(vortex_error)?)
     }
 
+    /// Candidate identities, order values and selected references remain live
+    /// while batches are delivered. They are separate from payload buffers.
+    pub(super) fn reserve_selection(
+        &self,
+        groups: usize,
+        order_fields: usize,
+        max_utf8_len: usize,
+    ) -> Result<MemoryLease> {
+        let per_group = 256_usize
+            .checked_add(
+                order_fields
+                    .checked_mul(128_usize.saturating_add(max_utf8_len))
+                    .ok_or_else(|| failed("selection reservation overflow"))?,
+            )
+            .ok_or_else(|| failed("selection reservation overflow"))?;
+        let bytes = groups
+            .checked_mul(per_group)
+            .and_then(|n| n.checked_add(64 * 1024))
+            .ok_or_else(|| failed("selection reservation overflow"))?;
+        self.memory
+            .reserve(u64::try_from(bytes).map_err(vortex_error)?)
+    }
+
     pub(super) fn new(fields: Vec<(String, DType)>, memory: &LiveMemoryPool) -> Result<Self> {
         if fields.is_empty() || fields.len() > 128 {
             return Err(failed("requires 1..=128 flat scalar columns"));
@@ -234,89 +400,9 @@ impl CompletedRows {
             memory: memory.clone(),
             array: None,
             ownership,
+            delivery: Delivery::Collect,
+            finished: false,
         })
-    }
-
-    pub(super) fn finish_payload(
-        &mut self,
-        rows: usize,
-        payload: &mut serde_json::Value,
-    ) -> Result<()> {
-        let values = payload
-            .get("values")
-            .ok_or_else(|| failed("completed values are absent"))?;
-        let objects: Vec<_> = if rows == 0 {
-            Vec::new()
-        } else if let Some(object) = values.as_object() {
-            vec![object]
-        } else if let Some(values) = values.as_array() {
-            values
-                .iter()
-                .map(|row| {
-                    row.as_object()
-                        .ok_or_else(|| failed("invalid completed row"))
-                })
-                .collect::<Result<_>>()?
-        } else {
-            return Err(failed("invalid completed values"));
-        };
-        if rows != objects.len() || rows > MAX_ROWS || self.array.is_some() {
-            return Err(failed("completed row count exceeds admission or changed"));
-        }
-        // Builders use bounded opaque buffers. Reserve their growth overlap plus
-        // metadata separately from the existing native scalar finalization stage.
-        let mut bytes = self
-            .fields
-            .len()
-            .checked_mul(rows)
-            .and_then(|n| n.checked_mul(32))
-            .ok_or_else(|| failed("result size overflow"))?;
-        for object in &objects {
-            for (name, _) in &self.fields {
-                let value = object
-                    .get(name)
-                    .ok_or_else(|| failed("completed column is absent"))?;
-                if let Some(text) = value.as_str() {
-                    bytes = bytes
-                        .checked_add(text.len())
-                        .ok_or_else(|| failed("string size overflow"))?;
-                }
-            }
-        }
-        if bytes > MAX_BYTES {
-            return Err(failed("completed values exceed 8 MiB output admission"));
-        }
-        let payload_owner = self.memory.reserve(
-            u64::try_from(bytes.saturating_mul(4).saturating_add(64 * 1024))
-                .map_err(vortex_error)?,
-        )?;
-        let mut arrays = Vec::with_capacity(self.fields.len());
-        for (name, dtype) in &self.fields {
-            let mut builder = builder_with_capacity(dtype, rows);
-            for object in &objects {
-                let value = object
-                    .get(name)
-                    .ok_or_else(|| failed("completed column is absent"))?;
-                let scalar = scalar(value, dtype)?;
-                builder.append_scalar(&scalar).map_err(vortex_error)?;
-            }
-            arrays.push(builder.finish());
-        }
-        let names: FieldNames = self.fields.iter().map(|(name, _)| name.as_str()).collect();
-        let array = StructArray::try_new(names, arrays, rows, Validity::NonNullable)
-            .map_err(vortex_error)?
-            .into_array();
-        if array.nbytes() > MAX_BYTES as u64 {
-            return Err(failed("native buffers exceed output admission"));
-        }
-        // Transfer the opaque buffer grant to the result lifetime.
-        self.ownership = payload_owner;
-        self.array = Some(array);
-        payload["values"] = serde_json::Value::Null;
-        payload["aggregate_result_boundary"] =
-            "owned_native_columns_from_completed_scalar_values".into();
-        payload["aggregate_result_serialized_json_round_trip"] = false.into();
-        Ok(())
     }
 
     pub(super) fn into_array(self) -> Result<(ArrayRef, MemoryLease)> {
@@ -328,35 +414,57 @@ impl CompletedRows {
     }
 }
 
-fn scalar(value: &serde_json::Value, dtype: &DType) -> Result<Scalar> {
-    if value.is_null() {
-        return if dtype.is_nullable() {
-            Ok(Scalar::null(dtype.clone()))
-        } else {
-            Err(failed("null in a nonnullable result column"))
-        };
+#[cfg(all(feature = "vortex-write", unix))]
+#[allow(clippy::too_many_arguments)]
+pub(super) fn write_stream(
+    plan: super::native_sink::NativeSinkPlan,
+    request: &VortexQueryPrimitiveRequest,
+    path: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    producer: &mut super::native_sink::ArrayProducer<'_>,
+    cancellation: &CancellationToken,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    if format == super::VortexLocalPrimitiveRowExportFormat::Vortex {
+        return plan.write_produced(
+            request,
+            path,
+            overwrite,
+            policy,
+            Some(producer),
+            cancellation,
+        );
     }
-    let nullability = dtype.nullability();
-    let scalar = match value {
-        serde_json::Value::Bool(value) => Scalar::bool(*value, nullability),
-        serde_json::Value::String(value) => Scalar::utf8(value.clone(), nullability),
-        serde_json::Value::Number(value) => {
-            if let Some(value) = value.as_u64() {
-                Scalar::primitive(value, nullability)
-            } else if let Some(value) = value.as_i64() {
-                Scalar::primitive(value, nullability)
-            } else {
-                Scalar::primitive(
-                    value
-                        .as_f64()
-                        .ok_or_else(|| failed("invalid numeric value"))?,
-                    nullability,
-                )
-            }
-        }
-        _ => return Err(failed("non-scalar completed value")),
-    };
-    scalar.cast(dtype).map_err(vortex_error)
+    if matches!(
+        format,
+        super::VortexLocalPrimitiveRowExportFormat::Json
+            | super::VortexLocalPrimitiveRowExportFormat::Jsonl
+            | super::VortexLocalPrimitiveRowExportFormat::Csv
+    ) {
+        return super::native_text_sink::write(
+            plan,
+            request,
+            path,
+            format,
+            overwrite,
+            policy,
+            Some(producer),
+            cancellation,
+        );
+    }
+    #[cfg(feature = "universal-format-io")]
+    if format.is_compatibility_binary() {
+        let limits = super::columnar_compat_sink::CompatibilityLimits::streaming(
+            plan.row_count,
+            cancellation,
+        );
+        return super::columnar_compat_sink::prepare_plan(request, plan, format, policy, limits)?
+            .ok_or_else(|| failed("result schema is outside compatibility output admission"))?
+            .write_produced(path, overwrite, producer, cancellation)
+            .map(|completed| completed.report);
+    }
+    Err(failed("result stream format is not admitted"))
 }
 
 #[cfg(all(feature = "vortex-write", unix))]
@@ -371,6 +479,23 @@ pub(super) fn write(
     let plan = super::native_sink::NativeSinkPlan::completed(result)?;
     if format == super::VortexLocalPrimitiveRowExportFormat::Vortex {
         return plan.write(request, path, overwrite, policy);
+    }
+    if matches!(
+        format,
+        super::VortexLocalPrimitiveRowExportFormat::Json
+            | super::VortexLocalPrimitiveRowExportFormat::Jsonl
+            | super::VortexLocalPrimitiveRowExportFormat::Csv
+    ) {
+        return super::native_text_sink::write(
+            plan,
+            request,
+            path,
+            format,
+            overwrite,
+            policy,
+            None,
+            &CancellationToken::default(),
+        );
     }
     #[cfg(feature = "universal-format-io")]
     {
@@ -397,15 +522,13 @@ pub(super) fn export_sort(
     overwrite: bool,
     policy: super::VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
-    if request
-        .source_order_limit
-        .is_none_or(|limit| limit > MAX_ROWS)
-        || super::required_sort_rows(request)?.spill.is_some()
-    {
-        return Err(failed(
-            "sort output requires a bounded result without explicit spill",
-        ));
-    }
+    let sort = super::required_sort_rows(request)?;
+    let cancellation = sort
+        .spill
+        .as_ref()
+        .map_or_else(CancellationToken::default, |spill| {
+            CancellationToken::from_shared_flag(std::sync::Arc::clone(&spill.cancellation))
+        });
     let uri = request
         .source_uri
         .as_ref()
@@ -418,36 +541,99 @@ pub(super) fn export_sort(
     )?;
     let source = session.prepare_file(&path)?;
     let columns = super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
-    let fields = columns
+    let fields: Vec<(String, DType)> = columns
         .iter()
         .map(|name| Ok((name.clone(), source_field(source.dtype(), name)?)))
         .collect::<Result<_>>()?;
-    let mut result = CompletedRows::new(fields, session.memory())?;
-    source.validate_generation()?;
-    let scan = super::read_local_vortex_sort_rows_scan_with_output(
-        uri,
-        &path,
-        request,
-        policy,
-        Some(&mut result),
+    // Validate shape before opening a staged output, without constructing results.
+    drop(CompletedRows::new(fields.clone(), session.memory())?);
+    let upper_rows = if sort.tie_policy == super::VortexSortTiePolicy::All {
+        source.file().row_count()
+    } else {
+        source
+            .file()
+            .row_count()
+            .min(request.source_order_limit.unwrap_or(usize::MAX) as u64)
+    };
+    let plan = super::native_sink::NativeSinkPlan::produced(
+        session.clone(),
+        DType::struct_(fields.clone(), Nullability::NonNullable),
+        upper_rows,
+        Some(std::fs::canonicalize(&path).map_err(vortex_error)?),
+        Some(source.clone()),
     )?;
-    source.validate_generation()?;
-    let (array, ownership) = result.into_array()?;
-    let result = session.own_completed_array(array, ownership)?;
-    let mut report = write(result, request, output, format, overwrite, policy)?;
+    let mut completed = None;
+    let mut producer = |context: &crate::resident_session::NativeExecutionContext<'_>,
+                        batch_rows,
+                        consume: &mut dyn FnMut(ArrayRef) -> Result<bool>| {
+        source.with_admitted_native_execution(context, |file, context| {
+            let generation = sort
+                .spill
+                .as_ref()
+                .map(|_| {
+                    super::sort_spill::SortSourceGeneration::capture(&path).map(std::sync::Arc::new)
+                })
+                .transpose()?;
+            let mut accept = |array| {
+                if !consume(array)? {
+                    return Err(failed("ordered result consumer stopped before completion"));
+                }
+                Ok(())
+            };
+            let mut result = CompletedRows::streaming(
+                fields.clone(),
+                context.memory(),
+                batch_rows,
+                context.cancellation().clone(),
+                &mut accept,
+            )?;
+            completed = Some(super::read_opened_local_vortex_sort_rows_scan_with_output(
+                uri,
+                request,
+                policy,
+                Some(&mut result),
+                file,
+                context.native_session(),
+                context.runtime(),
+                generation.as_ref(),
+                Some(context),
+            )?);
+            Ok(())
+        })
+    };
+    let report = write_stream(
+        plan,
+        request,
+        output,
+        format,
+        overwrite,
+        policy,
+        &mut producer,
+        &cancellation,
+    )?;
+    let scan = completed.ok_or_else(|| failed("ordered result did not complete"))?;
+    finish_sort_report(request, &scan, report)
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+fn finish_sort_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &super::LocalVortexRowsScan,
+    mut report: super::VortexLocalPrimitiveRowExportReport,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
     report.rows_scanned = scan.scan.source_row_count;
     report.pre_limit_result_row_count = super::usize_to_u64(scan.scan.pre_limit_result_row_count)?;
     report.arrays_read_count = scan.scan.arrays_read_count;
     report.max_chunk_rows = scan.scan.max_chunk_rows;
-    report.state_budget = super::sort_rows_state_budget_report(
-        request,
-        &scan.scan,
-        report.pre_limit_result_row_count,
-    )?;
+    report.state_budget = super::sort_rows_report(request, scan)?.state_budget;
     report.evidence.upstream_scan_called = scan.scan.arrays_read_count > 0;
     report.evidence.side_effects.data_read |= report.evidence.upstream_scan_called;
     report.evidence.side_effects.data_decoded |= report.evidence.upstream_scan_called;
     report.evidence.side_effects.data_materialized |= report.evidence.upstream_scan_called;
+    report.evidence.side_effects.row_read |= report.evidence.upstream_scan_called;
+    if let Some(evidence) = report.evidence.native_array_sink.as_mut() {
+        evidence.pre_limit_result_row_count = report.pre_limit_result_row_count;
+    }
     report.evidence.pushdown = super::VortexLocalPrimitiveRowExportPushdownEvidence {
         filter_pushdown_applied: scan.scan.filter_pushdown_applied,
         projection_pushdown_applied: scan.scan.projection_pushdown_applied,

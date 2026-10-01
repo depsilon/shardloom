@@ -1,4 +1,6 @@
+use super::super::super as runtime;
 use super::*;
+use vortex::array::VortexSessionExecute as _;
 
 #[cfg(feature = "universal-format-io")]
 fn read_binary_values(
@@ -11,20 +13,46 @@ fn read_binary_values(
         let session =
             crate::resident_session::ResidentVortexSession::new(256 * 1024 * 1024, 1).unwrap();
         let source = session.prepare_file(path).unwrap();
-        let names = columns.iter().map(String::as_str).collect::<Vec<_>>();
-        let result = source
-            .prepare_projection(&names, 65536, 8 * 1024 * 1024)
-            .unwrap()
-            .execute()
-            .unwrap();
-        return serde_json::from_str(result.to_bounded_json(columns, 65536).unwrap().value())
+        return source
+            .with_native_execution(|file, session, runtime_handle| {
+                let mut execution_context = session.create_execution_ctx();
+                let mut rows = Vec::new();
+                for array in file
+                    .scan()
+                    .unwrap()
+                    .with_ordered(true)
+                    .into_array_iter(runtime_handle)
+                    .unwrap()
+                {
+                    let array = array.unwrap();
+                    let fields = columns
+                        .iter()
+                        .map(|name| runtime::logical_field_from_native_array(&array, name).unwrap())
+                        .collect::<Vec<_>>();
+                    for row in 0..array.len() {
+                        let mut object = serde_json::Map::with_capacity(columns.len());
+                        for (name, field) in columns.iter().zip(&fields) {
+                            let scalar = field.execute_scalar(row, &mut execution_context).unwrap();
+                            let value = if scalar.is_null() {
+                                serde_json::Value::Null
+                            } else {
+                                let value = runtime::vortex_scalar_to_stat_value(&scalar).unwrap();
+                                runtime::stat_value_to_json_value(&value).unwrap()
+                            };
+                            object.insert(name.clone(), value);
+                        }
+                        rows.push(serde_json::Value::Object(object));
+                    }
+                }
+                Ok(serde_json::Value::Array(rows))
+            })
             .unwrap();
     }
     let table = match format {
-        Format::Parquet => crate::read_flat_parquet_source(path, 65536),
-        Format::ArrowIpc => crate::read_flat_arrow_ipc_source(path, 65536),
-        Format::Avro => crate::read_flat_avro_source(path, 65536),
-        Format::Orc => crate::read_flat_orc_source(path, 65536),
+        Format::Parquet => crate::read_flat_parquet_source(path, 100_000),
+        Format::ArrowIpc => crate::read_flat_arrow_ipc_source(path, 100_000),
+        Format::Avro => crate::read_flat_avro_source(path, 100_000),
+        Format::Orc => crate::read_flat_orc_source(path, 100_000),
         _ => panic!("binary format required"),
     }
     .unwrap();
@@ -182,6 +210,30 @@ fn completed_mixed_aggregate_preserves_scalar_grouped_empty_schema_and_native_ow
     }
 }
 
+#[test]
+fn completed_general_result_clones_keep_buffer_credit_after_all_producer_owners_drop() {
+    let fixture = Fixture::new();
+    let path = fixture.source(
+        PrimitiveArray::new(vec![1_i64, 1, 3], Validity::NonNullable).into_array(),
+        vec![2, 4, 9],
+    );
+    let query = mixed_request(&path, true);
+    let prepared = prepare_aggregate(
+        &query,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    let memory = prepared.session.memory().clone();
+    let executed = prepared.execute_owned().unwrap();
+    let slice = executed.result.arrays()[0].slice(1..2).unwrap();
+    let clone = slice.clone();
+    drop((executed, prepared, slice));
+    assert!(memory.snapshot().reserved_bytes > 0);
+    assert_eq!(clone.len(), 1);
+    drop(clone);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[cfg(feature = "universal-format-io")]
 #[test]
 fn completed_mixed_aggregate_exports_all_binary_formats_and_preserves_existing_files() {
@@ -271,6 +323,309 @@ fn completed_grouped_output_without_limit_rejects_excess_cardinality() {
     assert_eq!(prepared.execute_owned().unwrap().result.row_count(), 2);
 }
 
+#[cfg(feature = "universal-format-io")]
+#[test]
+#[allow(clippy::too_many_lines)] // Keep the full-format ordered row acceptance proof together.
+fn result_stream_aggregate_exports_every_format_above_collect_limit() {
+    use std::fmt::Write as _;
+
+    use crate::VortexLocalPrimitiveRowExportFormat as Format;
+
+    const ROWS: usize = 70_017;
+    let fixture = Fixture::new();
+    let path = fixture.0.join("large-stream-source.vortex");
+    let runtime = super::super::super::local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let keys = PrimitiveArray::new(
+        (0..ROWS)
+            .map(|row| i64::try_from(row).unwrap())
+            .collect::<Vec<_>>(),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let values = PrimitiveArray::new(vec![1_u64; ROWS], Validity::NonNullable).into_array();
+    let array = StructArray::new(
+        [KEY, VALUE].into(),
+        vec![keys, values],
+        ROWS,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let dtype = array.dtype().clone();
+    let mut file = fs::File::create(&path).unwrap();
+    let mut writer = session
+        .write_options()
+        .with_strategy(
+            super::super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(
+                ROWS.div_ceil(4096),
+            ),
+        )
+        .with_file_statistics(Vec::new())
+        .blocking(&runtime)
+        .writer(&mut file, dtype);
+    for start in (0..ROWS).step_by(4096) {
+        writer
+            .push(array.slice(start..ROWS.min(start + 4096)).unwrap())
+            .unwrap();
+    }
+    assert_eq!(writer.finish().unwrap().row_count(), ROWS as u64);
+
+    let query = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(path.display().to_string()).unwrap(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new(KEY).unwrap()],
+            vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new(KEY, false)]),
+    )
+    .with_source_order_limit(ROWS);
+    let columns = vec![KEY.to_string(), "n".to_string()];
+    for format in [
+        Format::Vortex,
+        Format::Parquet,
+        Format::ArrowIpc,
+        Format::Avro,
+        Format::Orc,
+        Format::Json,
+        Format::Jsonl,
+        Format::Csv,
+    ] {
+        let output = fixture.0.join(format!("stream.{}", format.as_str()));
+        let prepared = prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+        let report = prepared.write(&output, format, false).unwrap();
+        assert_eq!(report.rows_written, ROWS as u64, "{format:?}");
+
+        let rows = match format {
+            Format::Json => {
+                serde_json::from_slice::<serde_json::Value>(&fs::read(&output).unwrap()).unwrap()
+            }
+            Format::Jsonl => serde_json::Value::Array(
+                fs::read_to_string(&output)
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str(line).unwrap())
+                    .collect(),
+            ),
+            Format::Csv => {
+                let mut expected = format!("{KEY},n\n");
+                for row in 0..ROWS {
+                    writeln!(expected, "{row},1").unwrap();
+                }
+                assert_eq!(fs::read_to_string(&output).unwrap(), expected);
+                continue;
+            }
+            _ => read_binary_values(&output, format, &columns),
+        };
+        let rows = rows.as_array().expect("all formats decode to a row array");
+        assert_eq!(rows.len(), ROWS, "{format:?}");
+        for (index, row) in rows.iter().enumerate() {
+            assert_eq!(
+                row[KEY],
+                serde_json::json!(i64::try_from(index).unwrap()),
+                "{format:?}, row {index}"
+            );
+            assert_eq!(
+                row["n"],
+                serde_json::json!(1_u64),
+                "{format:?}, row {index}"
+            );
+        }
+    }
+}
+
+#[test]
+fn result_stream_text_preserves_nullable_utf8_and_escaping() {
+    use crate::VortexLocalPrimitiveRowExportFormat as Format;
+    use vortex::array::arrays::VarBinViewArray;
+
+    let expected = serde_json::json!([
+        {KEY: null, "n": 1},
+        {KEY: "", "n": 1},
+        {KEY: "comma,quote\"", "n": 1},
+        {KEY: "line\nbreak", "n": 1},
+        {KEY: "雪", "n": 1},
+    ]);
+    let fixture = Fixture::new();
+    let path = fixture.0.join("nullable-utf8-source.vortex");
+    let runtime = super::super::super::local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let keys = VarBinViewArray::from_iter_nullable_str([
+        Some("雪"),
+        Some(""),
+        None,
+        Some("comma,quote\""),
+        Some("line\nbreak"),
+    ])
+    .into_array();
+    let array = StructArray::new([KEY].into(), vec![keys], 5, Validity::NonNullable).into_array();
+    let mut file = fs::File::create(&path).unwrap();
+    let mut writer = session
+        .write_options()
+        .with_strategy(
+            super::super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(1),
+        )
+        .with_file_statistics(Vec::new())
+        .blocking(&runtime)
+        .writer(&mut file, array.dtype().clone());
+    writer.push(array).unwrap();
+    assert_eq!(writer.finish().unwrap().row_count(), 5);
+
+    let query = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(path.display().to_string()).unwrap(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new(KEY).unwrap()],
+            vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new(KEY, false)]),
+    )
+    .with_source_order_limit(5);
+    for format in [Format::Json, Format::Jsonl, Format::Csv] {
+        let output = fixture.0.join(format!("nullable.{}", format.as_str()));
+        let report = prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap()
+        .write(&output, format, false)
+        .unwrap();
+        assert_eq!(report.rows_written, 5, "{format:?}");
+        match format {
+            Format::Json => assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&fs::read(&output).unwrap()).unwrap(),
+                expected,
+            ),
+            Format::Jsonl => {
+                let rows = fs::read_to_string(&output)
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str(line).unwrap())
+                    .collect::<Vec<serde_json::Value>>();
+                assert_eq!(serde_json::Value::Array(rows), expected);
+            }
+            Format::Csv => assert_eq!(
+                fs::read_to_string(&output).unwrap(),
+                format!("{KEY},n\n,1\n\"\",1\n\"comma,quote\"\"\",1\n\"line\nbreak\",1\n雪,1\n"),
+            ),
+            _ => unreachable!("only text formats are listed"),
+        }
+    }
+}
+
+#[cfg(all(feature = "universal-format-io", feature = "vortex-write"))]
+#[test]
+fn result_stream_preserves_or_rejects_uint64_boundary_at_each_sink() {
+    use crate::VortexLocalPrimitiveRowExportFormat as Format;
+
+    let fixture = Fixture::new();
+    let signed_max = u64::try_from(i64::MAX).unwrap();
+    let source = fixture.source(
+        PrimitiveArray::new(vec![-1_i64, 0, 1], Validity::NonNullable).into_array(),
+        vec![0_u64, signed_max, u64::MAX],
+    );
+    let query = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(source.display().to_string()).unwrap(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new(KEY).unwrap()],
+            vec![VortexSimpleAggregateMeasure::new(
+                "max",
+                Some(ColumnRef::new(VALUE).unwrap()),
+                "peak".into(),
+            )],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new(KEY, false)]),
+    )
+    .with_source_order_limit(3);
+    let columns = vec![KEY.to_string(), "peak".to_string()];
+    let expected = serde_json::json!([
+        {KEY:-1,"peak":0_u64},
+        {KEY:0,"peak":signed_max},
+        {KEY:1,"peak":u64::MAX}
+    ]);
+
+    for format in [
+        Format::Vortex,
+        Format::Parquet,
+        Format::ArrowIpc,
+        Format::Json,
+        Format::Jsonl,
+        Format::Csv,
+    ] {
+        let output = fixture
+            .0
+            .join(format!("uint64-boundary.{}", format.as_str()));
+        let prepared = prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+        let report = prepared.write(&output, format, false).unwrap();
+        assert_eq!(report.rows_written, 3, "{format:?}");
+        assert_eq!(prepared.snapshot().completed_executions, 1, "{format:?}");
+        let rows = match format {
+            Format::Json => {
+                serde_json::from_slice::<serde_json::Value>(&fs::read(&output).unwrap()).unwrap()
+            }
+            Format::Jsonl => serde_json::Value::Array(
+                fs::read_to_string(&output)
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str(line).unwrap())
+                    .collect(),
+            ),
+            Format::Csv => {
+                assert_eq!(
+                    fs::read_to_string(&output).unwrap(),
+                    format!("{KEY},peak\n-1,0\n0,{}\n1,{}\n", i64::MAX, u64::MAX),
+                    "{format:?}"
+                );
+                continue;
+            }
+            _ => read_binary_values(&output, format, &columns),
+        };
+        assert_eq!(rows, expected, "{format:?}");
+    }
+
+    for format in [Format::Avro, Format::Orc] {
+        let output = fixture
+            .0
+            .join(format!("uint64-boundary.{}", format.as_str()));
+        let before = fs::read_dir(&fixture.0)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect::<std::collections::BTreeSet<_>>();
+        let prepared = prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+        let Err(error) = prepared.write(&output, format, false) else {
+            panic!("{format:?} unexpectedly represented u64::MAX")
+        };
+        let message = error.to_string().to_ascii_lowercase();
+        assert!(
+            ["represent", "range", "overflow", "i64::max", "signed"]
+                .iter()
+                .any(|needle| message.contains(needle)),
+            "{format:?} did not report a UInt64 representability error: {error}"
+        );
+        assert!(!output.exists(), "{format:?} published a failed output");
+        let after = fs::read_dir(&fixture.0)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(after, before, "{format:?} left a staging artifact");
+        assert_eq!(prepared.snapshot().completed_executions, 0, "{format:?}");
+    }
+}
+
 #[test]
 fn completed_finalization_checks_limited_width_and_reserves_before_row_allocation() {
     use crate::local_primitives::completed_result::CompletedRows;
@@ -292,6 +647,204 @@ fn completed_finalization_checks_limited_width_and_reserves_before_row_allocatio
     drop(lease);
     assert_eq!(memory.snapshot().reserved_bytes, 65536);
     drop(output);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn result_batch_visitor_streams_bounded_completed_values_under_two_mib() {
+    use super::super::super::completed_result::CompletedRows;
+    use super::super::super::result_batch::{Rows, VISITOR_ROWS, Value};
+    use shardloom_exec::live_memory::LiveMemoryPool;
+    use std::cell::Cell;
+
+    const ROWS: usize = 70_017;
+    const PAYLOAD: &str = "lane-雪";
+
+    let memory = LiveMemoryPool::new(2 * 1024 * 1024).unwrap();
+    let fields = vec![
+        (
+            "ordinal".into(),
+            DType::Primitive(PType::U64, Nullability::NonNullable),
+        ),
+        ("payload".into(), DType::Utf8(Nullability::Nullable)),
+    ];
+    let columns = vec!["ordinal".into(), "payload".into()];
+    let visited = Cell::new(0_usize);
+    let visiting = Cell::new(false);
+    let first_delivery_at = Cell::new(None);
+    let mut batch_rows = Vec::new();
+    let mut received = 0_usize;
+    let mut scalar_context = VortexSession::default().create_execution_ctx();
+    let mut consume = |array: ArrayRef| {
+        assert!(array.len() <= VISITOR_ROWS);
+        if first_delivery_at.get().is_none() {
+            assert!(
+                visiting.get(),
+                "the first batch was deferred until after visit"
+            );
+            assert!(visited.get() <= VISITOR_ROWS);
+            first_delivery_at.set(Some(visited.get()));
+        }
+        batch_rows.push(array.len());
+        let ordinal = runtime::logical_field_from_native_array(&array, "ordinal")?;
+        let payload = runtime::logical_field_from_native_array(&array, "payload")?;
+        for row in 0..array.len() {
+            assert_eq!(
+                runtime::vortex_scalar_to_stat_value(
+                    &ordinal.execute_scalar(row, &mut scalar_context).unwrap()
+                ),
+                Some(shardloom_core::StatValue::UInt64(received as u64)),
+            );
+            let actual = payload.execute_scalar(row, &mut scalar_context).unwrap();
+            if received.is_multiple_of(7) {
+                assert!(actual.is_null(), "row {received}");
+            } else {
+                assert_eq!(
+                    runtime::vortex_scalar_to_stat_value(&actual),
+                    Some(shardloom_core::StatValue::Utf8(PAYLOAD.into())),
+                    "row {received}",
+                );
+            }
+            received += 1;
+        }
+        Ok(())
+    };
+    let mut output = CompletedRows::streaming(
+        fields,
+        &memory,
+        VISITOR_ROWS,
+        shardloom_exec::compute_pool::CancellationToken::default(),
+        &mut consume,
+    )
+    .unwrap();
+    let selection = output.reserve_selection(VISITOR_ROWS, 0, 0).unwrap();
+    let rows = Rows::from_visitor(
+        Some(&mut output),
+        &columns,
+        |push| {
+            visiting.set(true);
+            let result = (0..ROWS).try_for_each(|row| {
+                visited.set(row + 1);
+                push((row as u64, (!row.is_multiple_of(7)).then_some(PAYLOAD)))
+            });
+            visiting.set(false);
+            result
+        },
+        |row, column| {
+            Ok(match column {
+                0 => Value::UInt(row.0),
+                1 => row.1.map_or(Value::Null, |text| Value::Text(text.into())),
+                _ => unreachable!("declared visitor column"),
+            })
+        },
+    )
+    .unwrap();
+
+    assert_eq!(rows.len(), ROWS);
+    assert!(rows.values.is_null());
+    assert_eq!(first_delivery_at.get(), Some(VISITOR_ROWS));
+    drop(output);
+    assert_eq!(received, ROWS);
+    assert_eq!(batch_rows.last().copied(), Some(ROWS % VISITOR_ROWS));
+    assert!(batch_rows.iter().all(|rows| *rows <= VISITOR_ROWS));
+    assert!(memory.snapshot().peak_reserved_bytes <= 2 * 1024 * 1024);
+    drop(selection);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn result_batch_visitor_delivers_empty_schema_once_and_stops_on_consumer_error() {
+    use super::super::super::completed_result::CompletedRows;
+    use super::super::super::result_batch::{Rows, VISITOR_ROWS, Value};
+    use shardloom_exec::live_memory::LiveMemoryPool;
+
+    let fields = vec![(
+        "ordinal".into(),
+        DType::Primitive(PType::U64, Nullability::NonNullable),
+    )];
+    let columns = vec!["ordinal".into()];
+    let memory = LiveMemoryPool::new(1024 * 1024).unwrap();
+    let mut visits = 0;
+    let mut deliveries = 0;
+    let mut consume_empty = |array: ArrayRef| {
+        deliveries += 1;
+        assert_eq!(array.len(), 0);
+        assert_eq!(
+            array
+                .dtype()
+                .as_struct_fields_opt()
+                .unwrap()
+                .field("ordinal"),
+            Some(DType::Primitive(PType::U64, Nullability::NonNullable)),
+        );
+        Ok(())
+    };
+    let mut output = CompletedRows::streaming(
+        fields.clone(),
+        &memory,
+        VISITOR_ROWS,
+        shardloom_exec::compute_pool::CancellationToken::default(),
+        &mut consume_empty,
+    )
+    .unwrap();
+    let selection = output.reserve_selection(VISITOR_ROWS, 0, 0).unwrap();
+    let rows = Rows::from_visitor(
+        Some(&mut output),
+        &columns,
+        |_| {
+            visits += 1;
+            Ok(())
+        },
+        |_: &u64, _| Ok(Value::UInt(0)),
+    )
+    .unwrap();
+    assert_eq!(rows.len(), 0);
+    assert_eq!(visits, 1);
+    drop(output);
+    assert_eq!(deliveries, 1);
+    drop(selection);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let memory = LiveMemoryPool::new(1024 * 1024).unwrap();
+    let visited = std::cell::Cell::new(0_usize);
+    let mut consumer_calls = 0;
+    let mut fail_consumer = |_array: ArrayRef| {
+        consumer_calls += 1;
+        Err(shardloom_core::ShardLoomError::InvalidOperation(
+            "test result visitor consumer error".into(),
+        ))
+    };
+    let mut output = CompletedRows::streaming(
+        fields,
+        &memory,
+        VISITOR_ROWS,
+        shardloom_exec::compute_pool::CancellationToken::default(),
+        &mut fail_consumer,
+    )
+    .unwrap();
+    let selection = output.reserve_selection(VISITOR_ROWS, 0, 0).unwrap();
+    let error = Rows::from_visitor(
+        Some(&mut output),
+        &columns,
+        |push| {
+            (0..10_000).try_for_each(|ordinal| {
+                visited.set(ordinal + 1);
+                push(ordinal as u64)
+            })
+        },
+        |ordinal, _| Ok(Value::UInt(*ordinal)),
+    )
+    .err()
+    .expect("consumer error must stop the visitor");
+    assert!(
+        error
+            .to_string()
+            .contains("test result visitor consumer error")
+    );
+    drop(output);
+    assert_eq!(visited.get(), VISITOR_ROWS);
+    assert_eq!(consumer_calls, 1);
+    drop(selection);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
@@ -318,6 +871,147 @@ fn completed_scalar_and_grouped_minmax_reject_oversized_text_before_finalization
         assert!(error.to_string().contains("before finalization"), "{error}");
         drop(prepared);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+#[allow(clippy::too_many_lines)] // Keep the exact wide-value acceptance matrix together.
+fn result_stream_wide_ordered_output_exceeds_eight_mib_in_every_format() {
+    use crate::VortexLocalPrimitiveRowExportFormat as Format;
+    use std::fmt::Write as _;
+    use vortex::array::arrays::VarBinViewArray;
+
+    const SOURCE_ROWS: usize = 4_113;
+    const OFFSET: usize = 7;
+    const OUTPUT_ROWS: usize = 4_097;
+    let fixture = Fixture::new();
+    let path = fixture.0.join("wide-sort-source.vortex");
+    let runtime = super::super::super::local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let keys = PrimitiveArray::new(
+        (0..SOURCE_ROWS)
+            .map(|row| i64::try_from(row).unwrap())
+            .collect::<Vec<_>>(),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let payload = "data\"line,\n雪".repeat(256);
+    let notes = VarBinViewArray::from_iter_nullable_str(
+        (0..SOURCE_ROWS).map(|row| (row % 7 != 0).then_some(payload.as_str())),
+    )
+    .into_array();
+    let array = StructArray::new(
+        [KEY, "delivery_note"].into(),
+        vec![keys, notes],
+        SOURCE_ROWS,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let mut file = fs::File::create(&path).unwrap();
+    let mut writer = session
+        .write_options()
+        .with_strategy(
+            super::super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(
+                SOURCE_ROWS.div_ceil(512),
+            ),
+        )
+        .with_file_statistics(Vec::new())
+        .blocking(&runtime)
+        .writer(&mut file, array.dtype().clone());
+    for start in (0..SOURCE_ROWS).step_by(512) {
+        writer
+            .push(array.slice(start..SOURCE_ROWS.min(start + 512)).unwrap())
+            .unwrap();
+    }
+    assert_eq!(
+        writer.finish().unwrap().row_count(),
+        u64::try_from(SOURCE_ROWS).unwrap()
+    );
+
+    let query = VortexQueryPrimitiveRequest::sort_rows(
+        DatasetUri::new(path.display().to_string()).unwrap(),
+        super::super::super::ProjectionRequest::All,
+        None,
+        crate::VortexSortRowsRequest::new(vec![VortexAggregateOrderExpr::new(KEY, true)])
+            .with_offset(OFFSET),
+        OUTPUT_ROWS,
+    );
+    let columns = vec![KEY.to_string(), "delivery_note".to_string()];
+    let mut expected_rows = Vec::with_capacity(OUTPUT_ROWS);
+    let mut expected_csv = format!("{KEY},delivery_note\n");
+    let escaped_payload = format!("\"{}\"", payload.replace('"', "\"\""));
+    for index in 0..OUTPUT_ROWS {
+        let ordinal = SOURCE_ROWS - 1 - OFFSET - index;
+        let note = if ordinal.is_multiple_of(7) {
+            serde_json::Value::Null
+        } else {
+            serde_json::json!(payload)
+        };
+        let mut object = serde_json::Map::with_capacity(2);
+        object.insert(KEY.into(), serde_json::json!(ordinal));
+        object.insert("delivery_note".into(), note);
+        expected_rows.push(serde_json::Value::Object(object));
+        if ordinal.is_multiple_of(7) {
+            writeln!(expected_csv, "{ordinal},").unwrap();
+        } else {
+            writeln!(expected_csv, "{ordinal},{escaped_payload}").unwrap();
+        }
+    }
+    let expected = serde_json::Value::Array(expected_rows);
+
+    for format in [
+        Format::Vortex,
+        Format::Parquet,
+        Format::ArrowIpc,
+        Format::Avro,
+        Format::Orc,
+        Format::Json,
+        Format::Jsonl,
+        Format::Csv,
+    ] {
+        let output = fixture.0.join(format!("wide-sort.{}", format.as_str()));
+        let report = runtime::execute_vortex_local_primitive_row_export_with_policy(
+            &query,
+            &output,
+            format,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .unwrap();
+        assert_eq!(
+            report.rows_written,
+            u64::try_from(OUTPUT_ROWS).unwrap(),
+            "{format:?}"
+        );
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+        let sink = report.evidence.native_array_sink.as_ref().unwrap();
+        assert!(
+            sink.native_array_logical_bytes > 8 * 1024 * 1024,
+            "{format:?}"
+        );
+        let batch_bound = if format == Format::Vortex { 8192 } else { 2048 };
+        assert!(sink.scan_row_bound <= batch_bound, "{format:?}");
+        match format {
+            Format::Json => assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&fs::read(&output).unwrap()).unwrap(),
+                expected,
+            ),
+            Format::Jsonl => {
+                let rows = fs::read_to_string(&output)
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str(line).unwrap())
+                    .collect::<Vec<serde_json::Value>>();
+                assert_eq!(serde_json::Value::Array(rows), expected);
+            }
+            Format::Csv => assert_eq!(fs::read_to_string(&output).unwrap(), expected_csv),
+            _ => assert_eq!(read_binary_values(&output, format, &columns), expected),
+        }
+        fs::remove_file(&output).unwrap();
     }
 }
 

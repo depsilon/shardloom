@@ -34,12 +34,42 @@ const UTF8_BOUNDARY: &str = "owned_native_utf8_columns;no_JSON_or_StatValue_outp
 #[path = "local_primitive_aggregate_owned_utf8.rs"]
 mod utf8;
 
-pub(super) enum AggregateOutput {
+pub(super) enum AggregateOutput<'a> {
     Direct(Box<OwnedAggregateFinalizer>),
-    General(super::completed_result::CompletedRows),
+    General(super::completed_result::CompletedRows<'a>),
 }
 
-impl AggregateOutput {
+#[cfg(all(unix, feature = "vortex-write"))]
+impl<'a> AggregateOutput<'a> {
+    pub(super) fn completed_rows(
+        &mut self,
+    ) -> Result<&mut super::completed_result::CompletedRows<'a>> {
+        match self {
+            Self::General(output) => Ok(output),
+            Self::Direct(_) => Err(failed("this stream requires general typed finalization")),
+        }
+    }
+
+    pub(super) fn streaming(
+        request: &VortexQueryPrimitiveRequest,
+        dtype: &DType,
+        memory: &LiveMemoryPool,
+        batch_rows: usize,
+        cancellation: shardloom_exec::compute_pool::CancellationToken,
+        consume: &'a mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<Self> {
+        super::completed_result::CompletedRows::streaming(
+            super::completed_result::aggregate_stream_fields(request, dtype)?,
+            memory,
+            batch_rows,
+            cancellation,
+            consume,
+        )
+        .map(Self::General)
+    }
+}
+
+impl AggregateOutput<'_> {
     #[cfg(unix)]
     pub(super) fn new(
         request: &VortexQueryPrimitiveRequest,
@@ -71,15 +101,33 @@ impl AggregateOutput {
                     states.result_limit,
                     states.group_count().saturating_sub(states.request.offset),
                 )?;
-                let max_utf8_len = if output.has_utf8() {
+                let finalized_stream =
+                    output.is_streaming() && states.finalized_distinct_counts.is_some();
+                let max_utf8_len = if output.has_utf8() && !finalized_stream {
                     grouped_output_max_utf8_len(states)?
                 } else {
                     0
                 };
-                let _finalization = output.reserve_finalization(rows, max_utf8_len)?;
-                let (rows, mut payload) =
-                    states.result_row_count_and_payload(states.result_limit)?;
-                output.finish_payload(rows, &mut payload)?;
+                let _finalization = if output.is_streaming() {
+                    if finalized_stream {
+                        // The completed owner already reserves global selection.
+                        // Only one window of borrowed references overlaps it.
+                        output.reserve_selection(super::result_batch::VISITOR_ROWS, 0, 0)?
+                    } else {
+                        output.reserve_selection(
+                            states.group_count(),
+                            states.request.order_by.len(),
+                            max_utf8_len,
+                        )?
+                    }
+                } else {
+                    output.reserve_finalization(rows, max_utf8_len)?
+                };
+                let (rows, mut payload) = states
+                    .result_row_count_and_payload_with_output(states.result_limit, Some(output))?;
+                payload["aggregate_result_boundary"] =
+                    "owned_native_columns_from_completed_state".into();
+                payload["aggregate_result_serialized_json_round_trip"] = false.into();
                 Ok((rows, payload.to_string()))
             }
         }
@@ -97,8 +145,17 @@ impl AggregateOutput {
         // when that evaluation will ultimately reject the scalar row.
         let _finalization = output.reserve_finalization(1, scalar_output_max_utf8_len(states))?;
         let rows = states.result_row_count(having)?;
-        let mut payload = states.result_payload(having)?;
-        output.finish_payload(rows, &mut payload)?;
+        let columns = states
+            .states
+            .iter()
+            .map(|state| state.alias.clone())
+            .collect::<Vec<_>>();
+        output.finish_values(&columns, rows, |_, column| {
+            states.native_result_value(column)
+        })?;
+        let mut payload = states.result_payload_for_values(rows, &serde_json::Value::Null);
+        payload["aggregate_result_boundary"] = "owned_native_columns_from_completed_state".into();
+        payload["aggregate_result_serialized_json_round_trip"] = false.into();
         Ok((rows, payload.to_string()))
     }
 

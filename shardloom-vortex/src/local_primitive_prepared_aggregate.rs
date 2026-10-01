@@ -62,6 +62,7 @@ impl ExecutedOwnedVortexAggregate {
             allow_overwrite,
             self.policy,
         )?;
+        annotate_output_count(&mut report, &self.request);
         let execution = self.execution.report;
         report.rows_scanned = execution.rows_scanned;
         report.arrays_read_count = execution.arrays_read_count;
@@ -73,12 +74,30 @@ impl ExecutedOwnedVortexAggregate {
         report.evidence.side_effects.data_read |= execution.data_read;
         report.evidence.side_effects.data_decoded |= execution.data_decoded;
         report.evidence.side_effects.data_materialized |= execution.data_materialized;
+        report.evidence.side_effects.row_read |= execution.row_read;
         report.evidence.pushdown = super::VortexLocalPrimitiveRowExportPushdownEvidence {
             filter_pushdown_applied: execution.filter_pushdown_applied,
             projection_pushdown_applied: execution.projection_pushdown_applied,
             source_order_limit_applied: execution.source_order_limit_applied,
         };
         Ok(report)
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn annotate_output_count(
+    report: &mut super::VortexLocalPrimitiveRowExportReport,
+    request: &VortexQueryPrimitiveRequest,
+) {
+    // Finalizers need not retain a complete count after HAVING and before
+    // OFFSET/LIMIT. The sink observes only delivered rows, a lower bound when
+    // either operation may have removed groups; never certify it as exact.
+    if let Some(evidence) = report.evidence.native_array_sink.as_mut() {
+        evidence.pre_limit_result_row_count_exact = request.source_order_limit.is_none()
+            && request
+                .simple_aggregate
+                .as_ref()
+                .is_some_and(|aggregate| aggregate.offset == 0);
     }
 }
 
@@ -527,6 +546,186 @@ fn segment_reuse_policy(
 }
 
 impl PreparedVortexAggregate {
+    fn operation_cancellation(
+        &self,
+        parent: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<shardloom_exec::compute_pool::CancellationToken> {
+        Ok(required_simple_aggregate(&self.request)?
+            .spill
+            .as_ref()
+            .map_or_else(
+                || parent.clone(),
+                |spill| {
+                    shardloom_exec::compute_pool::CancellationToken::from_shared_flag_with_parent(
+                        std::sync::Arc::clone(&spill.cancellation),
+                        parent,
+                    )
+                },
+            ))
+    }
+
+    /// Execute once and deliver complete native batches synchronously. The
+    /// consumer borrows the same operation context for downstream native work.
+    /// Retained arrays keep their buffer credit; a slow consumer applies direct
+    /// backpressure. Empty output still delivers its declared schema once.
+    /// # Errors
+    /// Rejects unsupported shapes, pressure, changed sources, cancellation or
+    /// consumer errors. Delivered batches are provisional until this call succeeds.
+    #[cfg(feature = "vortex-write")]
+    pub fn for_each_batch(
+        &self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+        mut consume: impl FnMut(vortex::array::ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
+    ) -> Result<ExecutedVortexAggregate> {
+        let cancellation = self.operation_cancellation(cancellation)?;
+        let mut executed = self
+            .session
+            .with_owned_execution(&cancellation, |context| {
+                self.consume_native_in_context(context, 2048, &mut |array| consume(array, context))
+            })?;
+        executed.runtime = self.snapshot();
+        self.annotate_prepared_execution(&mut executed)?;
+        Ok(executed)
+    }
+
+    #[cfg(feature = "vortex-write")]
+    fn consume_native_in_context(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(vortex::array::ArrayRef) -> Result<()>,
+    ) -> Result<ExecutedVortexAggregate> {
+        self.session.validate_execution_context(context)?;
+        let mut output = super::aggregate_owned::AggregateOutput::streaming(
+            &self.request,
+            self.source.dtype(),
+            self.session.memory(),
+            batch_rows,
+            context.cancellation().clone(),
+            consume,
+        )?;
+        let scan = self.read_with_output_in_context(Some(&mut output), Some(context))?;
+        context.check_cancelled()?;
+        self.certify(&scan)
+    }
+
+    /// Execute and atomically publish complete output through the shared native
+    /// result stream. In-memory collection limits do not limit this operation.
+    /// # Errors
+    /// Rejects unsupported formats, source changes, resource pressure, existing
+    /// destinations and incomplete output. Staged files are removed on failure.
+    #[cfg(feature = "vortex-write")]
+    pub fn write(
+        &self,
+        path: &std::path::Path,
+        format: super::VortexLocalPrimitiveRowExportFormat,
+        allow_overwrite: bool,
+    ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+        self.write_controlled(
+            path,
+            format,
+            allow_overwrite,
+            &shardloom_exec::compute_pool::CancellationToken::default(),
+        )
+    }
+
+    /// The cancellation token covers execution, batch delivery and publication.
+    /// # Errors
+    /// Returns the same errors as [`Self::write`], including cancellation.
+    #[cfg(feature = "vortex-write")]
+    pub fn write_controlled(
+        &self,
+        path: &std::path::Path,
+        format: super::VortexLocalPrimitiveRowExportFormat,
+        allow_overwrite: bool,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+        use vortex::array::dtype::{DType, Nullability};
+        let cancellation = self.operation_cancellation(cancellation)?;
+        let fields =
+            super::completed_result::aggregate_stream_fields(&self.request, self.source.dtype())?;
+        let (rows, source, source_path) = match &self.source {
+            PreparedAggregateSource::File(source) => {
+                let uri = self
+                    .request
+                    .source_uri
+                    .as_ref()
+                    .ok_or_else(|| failed("source URI is absent"))?;
+                let path = local_vortex_path(uri, self.request.kind)?
+                    .map(std::fs::canonicalize)
+                    .transpose()
+                    .map_err(super::vortex_error)?;
+                (source.file().row_count(), Some(source.clone()), path)
+            }
+            PreparedAggregateSource::Owned(source) => (source.row_count(), None, None),
+        };
+        let aggregate = required_simple_aggregate(&self.request)?;
+        let upper_rows = if aggregate.group_by.is_empty() && aggregate.group_expressions.is_empty()
+        {
+            1
+        } else {
+            rows.min(
+                self.request
+                    .source_order_limit
+                    .map_or(u64::MAX, |limit| limit as u64),
+            )
+        };
+        let plan = super::native_sink::NativeSinkPlan::produced(
+            self.session.clone(),
+            DType::struct_(fields, Nullability::NonNullable),
+            upper_rows,
+            source_path,
+            source,
+        )?;
+        let mut executed = None;
+        let mut producer =
+            |context: &NativeExecutionContext<'_>,
+             batch_rows,
+             consume: &mut dyn FnMut(vortex::array::ArrayRef) -> Result<bool>| {
+                executed =
+                    Some(
+                        self.consume_native_in_context(context, batch_rows, &mut |array| {
+                            if !consume(array)? {
+                                return Err(failed("result consumer stopped before completion"));
+                            }
+                            Ok(())
+                        })?,
+                    );
+                Ok(())
+            };
+        let mut report = super::completed_result::write_stream(
+            plan,
+            &self.request,
+            path,
+            format,
+            allow_overwrite,
+            self.policy,
+            &mut producer,
+            &cancellation,
+        )?;
+        annotate_output_count(&mut report, &self.request);
+        let execution = executed
+            .ok_or_else(|| failed("result producer did not complete"))?
+            .report;
+        report.rows_scanned = execution.rows_scanned;
+        report.arrays_read_count = execution.arrays_read_count;
+        report.max_chunk_rows = execution.max_chunk_rows;
+        report.state_budget = execution.state_budget;
+        report.physical_policy = execution.physical_policy;
+        report.source_order_limit_requested = execution.source_order_limit_requested;
+        report.evidence.upstream_scan_called = execution.upstream_scan_called;
+        report.evidence.side_effects.data_read |= execution.data_read;
+        report.evidence.side_effects.data_decoded |= execution.data_decoded;
+        report.evidence.side_effects.data_materialized |= execution.data_materialized;
+        report.evidence.side_effects.row_read |= execution.row_read;
+        report.evidence.pushdown = super::VortexLocalPrimitiveRowExportPushdownEvidence {
+            filter_pushdown_applied: execution.filter_pushdown_applied,
+            projection_pushdown_applied: execution.projection_pushdown_applied,
+            source_order_limit_applied: execution.source_order_limit_applied,
+        };
+        Ok(report)
+    }
+
     /// Start a fresh cancellation scope for this prepared spill handle while
     /// retaining its source and policy. Call after a cancelled execution has
     /// returned, then use the returned policy's `cancel()` to stop the next call.
@@ -584,10 +783,7 @@ impl PreparedVortexAggregate {
         let source = self.source.file()?;
         #[cfg(feature = "vortex-write")]
         if required_simple_aggregate(&self.request)?.spill.is_some() {
-            if output.is_some() {
-                return Err(failed("owned spill output is not yet admitted"));
-            }
-            return self.read_spill(context);
+            return self.read_spill(context, output);
         }
         let uri = self
             .request
@@ -742,18 +938,7 @@ impl PreparedVortexAggregate {
     ) -> Result<ExecutedVortexAggregate> {
         // Admission must observe the spill owner even while the enclosing call
         // waits for a lane. Neither cancellation source may cancel the other.
-        let cancellation = required_simple_aggregate(&self.request)?
-            .spill
-            .as_ref()
-            .map_or_else(
-                || cancellation.clone(),
-                |spill| {
-                    shardloom_exec::compute_pool::CancellationToken::from_shared_flag_with_parent(
-                        std::sync::Arc::clone(&spill.cancellation),
-                        cancellation,
-                    )
-                },
-            );
+        let cancellation = self.operation_cancellation(cancellation)?;
         let mut executed = match &self.source {
             PreparedAggregateSource::File(source) => source
                 .with_native_execution_controlled(&cancellation, |_, context| {

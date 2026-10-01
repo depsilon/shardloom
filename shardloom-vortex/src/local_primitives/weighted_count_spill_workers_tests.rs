@@ -4,6 +4,7 @@ use crate::{
     VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
 };
 use shardloom_core::{ColumnRef, DatasetUri};
+use std::sync::atomic::AtomicBool;
 use std::{collections::BTreeMap, path::PathBuf};
 use vortex::{
     VortexSessionDefault as _,
@@ -94,7 +95,7 @@ fn setup(
         entries,
         accumulator.worker_memory(),
         accumulator.worker_session(),
-        Arc::clone(&policy.cancellation),
+        CancellationToken::from_shared_flag(Arc::clone(&policy.cancellation)),
     )
     .unwrap()
     .unwrap();
