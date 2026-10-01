@@ -188,3 +188,11 @@ Paths are substituted with portable placeholders; full data and binaries are
 excluded. Native Vortex input/output and no-fallback execution remain intact.
 This batch does not publish a package, resume paused format work or establish
 an official ranking, general superiority or production-serving certification.
+
+After evidence verification, [guarded cleanup](quiet-runtime-cleanup-2026-09-30.json)
+removed the run-owned P6/P8 comparison layout and six intermediate/comparator
+executables: 16,075,311,297 logical bytes. Fresh hashes and file generations
+matched the original manifests before removal. The original Parquet, P4 Vortex
+reference, original control binary and final retained binary remain unchanged.
+All raw evidence remains. Replaying the retired physical layout or intermediate
+executables requires regeneration from the recorded commands and revisions.
