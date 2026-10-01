@@ -184,8 +184,7 @@ fn tagged_directory_real_input_work_diagnostic() {
     let query =
         VortexQueryPrimitiveRequest::simple_aggregate(DatasetUri::new(source).unwrap(), aggregate)
             .with_source_order_limit(10);
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::new(12).unwrap();
-    policy.resource_envelope.memory_budget_bytes = 24 << 30;
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(12, 24).unwrap();
     let report = execute_vortex_local_primitive_with_policy(&query, policy).unwrap();
     assert!(!report.has_errors());
     assert!(!report.fallback_execution_allowed);
@@ -199,13 +198,17 @@ fn tagged_directory_real_input_work_diagnostic() {
             .1,
     )
     .unwrap();
+    eprintln!("string_directory_lookup_diagnostic {payload}");
     assert_eq!(payload["values"], expected);
-    let count = |name| payload[name].as_u64().unwrap();
+    let count = |name| {
+        payload[name]
+            .as_u64()
+            .expect("directory diagnostic route must be admitted")
+    };
     let probes = count("aggregate_workers_test_lookup_probes");
     let reads = count("aggregate_workers_test_lookup_record_reads");
     let rejections = count("aggregate_workers_test_lookup_tag_rejections");
     assert!(rejections > 0 && reads > 0 && probes > reads + rejections);
-    eprintln!("string_directory_lookup_diagnostic {payload}");
 }
 
 #[test]
