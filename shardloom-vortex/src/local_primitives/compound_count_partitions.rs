@@ -675,7 +675,7 @@ fn allocate<T>(capacity: usize, memory: &LiveMemoryPool) -> Result<Option<(Vec<T
 }
 fn add(counter: &AtomicU64, value: u64) -> Result<()> {
     counter
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |old| {
+        .try_update(Ordering::AcqRel, Ordering::Acquire, |old| {
             old.checked_add(value)
         })
         .map(|_| ())

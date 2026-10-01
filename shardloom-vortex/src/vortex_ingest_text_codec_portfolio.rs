@@ -514,7 +514,7 @@ fn text_codec_portfolio_write_limit_rejects_before_forwarding() {
         written: MAX_FILE_BYTES - 1,
     };
     assert!(writer.write_all(b"ab").is_err());
-    assert!(writer.inner.is_empty());
+    assert_eq!(writer.inner, [] as [u8; 0]);
     assert_eq!(writer.written, MAX_FILE_BYTES - 1);
     writer.write_all(b"a").unwrap();
     assert_eq!(writer.inner, b"a");

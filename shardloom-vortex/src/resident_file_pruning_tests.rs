@@ -340,7 +340,7 @@ fn check_predicate(
     let requests = requested.load(Ordering::SeqCst);
     assert_eq!(requests, completed.load(Ordering::SeqCst));
     if can_prune {
-        assert!(expected.is_empty());
+        assert_eq!(expected, [] as [usize; 0]);
         assert_eq!(
             requests, 0,
             "native file statistics must prevent payload requests"

@@ -95,6 +95,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         job_id="rust-msrv",
         commands=(
             "cargo check --workspace --no-default-features",
+            "cargo check --workspace --all-targets --features release-user-surfaces",
             "python scripts/write_release_compatibility_lane_report.py",
             '--lane "$SHARDLOOM_RUST_MSRV_LANE"',
             '--rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN"',

@@ -2130,7 +2130,10 @@ mod tests {
     #[test]
     fn default_plan_has_expected_entries() {
         let p = ObservabilityPlan::default_foundation_plan();
-        assert!(!p.surfaces.is_empty());
+        assert_ne!(
+            p.surfaces,
+            [] as [crate::observability::ObservabilitySurface; 0]
+        );
         assert!(p.metrics.contains(&MetricKind::SegmentsConsidered));
     }
     #[test]
@@ -2214,7 +2217,7 @@ mod tests {
     fn runtime_report_from_plan_does_not_collect_metrics() {
         let p = ObservabilityPlan::default_foundation_plan();
         let r = RuntimeObservabilityReport::from_plan(&p);
-        assert!(r.metrics.is_empty());
+        assert_eq!(r.metrics, [] as [crate::observability::MetricSample; 0]);
     }
     #[test]
     fn runtime_report_exposes_report_only_introspection_boundaries() {

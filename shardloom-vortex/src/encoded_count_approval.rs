@@ -611,7 +611,7 @@ mod tests {
             Some("approved_for_layout_row_count_only")
         );
         assert_eq!(report.execution_usable_data_path_count, 1);
-        assert!(!report.api_boundary_blockers.is_empty());
+        assert_ne!(report.api_boundary_blockers, [] as [String; 0]);
         assert!(!report.count_executed);
         assert!(!report.encoded_data_read);
         assert!(!report.row_read);

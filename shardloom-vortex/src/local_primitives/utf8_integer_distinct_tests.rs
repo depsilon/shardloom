@@ -254,11 +254,12 @@ fn utf8_integer_distinct_complete_workers_global_winner_offset_and_actual_eviden
             chunks.len() as u64
         );
         if completed != 0 {
-            assert!(
-                !payload["aggregate_workers_actual_count_worker_indices"]
+            assert_ne!(
+                payload["aggregate_workers_actual_count_worker_indices"]
                     .as_array()
                     .unwrap()
-                    .is_empty()
+                    .as_slice(),
+                [] as [serde_json::Value; 0]
             );
         }
         drop(workers);

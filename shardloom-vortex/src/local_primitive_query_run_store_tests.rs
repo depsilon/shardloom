@@ -184,7 +184,7 @@ fn foreign_pool_scratch_and_work_are_rejected_before_file_side_effects() {
             .write_arrays(&spec(2), arrays(&[1, 2]), &runtime, &session, &foreign)
             .is_err()
     );
-    assert!(store.owned.is_empty());
+    assert_eq!(store.owned, [] as [std::path::PathBuf; 0]);
     let run = store
         .write_arrays(&spec(2), arrays(&[1, 2]), &runtime, &session, &work)
         .unwrap();
@@ -225,7 +225,7 @@ fn metadata_denial_is_before_run_creation_and_long_paths_have_separate_credit() 
             .write_arrays(&oversized, arrays(&[1, 2]), &runtime, &session, &work)
             .is_err()
     );
-    assert!(store.owned.is_empty());
+    assert_eq!(store.owned, [] as [std::path::PathBuf; 0]);
     assert_eq!(memory.snapshot().reserved_bytes, base);
     assert!(path_reservation(&PathBuf::from("x".repeat(4096)), 4).unwrap() > 16 << 10);
     drop(store);

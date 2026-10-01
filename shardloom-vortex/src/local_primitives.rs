@@ -50397,7 +50397,7 @@ mod tests {
         assert!(report.max_chunk_rows > 0);
         assert!(report.filter_pushdown_applied);
         assert!(report.projection_pushdown_applied);
-        assert!(report.projected_columns.is_empty());
+        assert_eq!(report.projected_columns, [] as [String; 0]);
         assert!(report.upstream_filter_expression_used);
         assert!(report.upstream_projection_expression_used);
         assert!(!report.data_decoded);
@@ -55340,7 +55340,7 @@ mod tests {
         assert!(report.projected_columns.contains(&"value".to_string()));
         assert_eq!(report.arrays_read_count, 0);
         assert_eq!(report.max_chunk_rows, 0);
-        assert!(rows.is_empty());
+        assert_eq!(rows, "");
         assert!(report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert!(!report.evidence.upstream_scan_called);
@@ -55393,7 +55393,7 @@ mod tests {
         assert_eq!(report.projected_columns, vec!["value".to_string()]);
         assert_eq!(report.arrays_read_count, 0);
         assert_eq!(report.max_chunk_rows, 0);
-        assert!(rows.is_empty());
+        assert_eq!(rows, "");
         assert!(report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert!(!report.evidence.upstream_scan_called);
@@ -55446,7 +55446,7 @@ mod tests {
         assert_eq!(report.arrays_read_count, 0);
         assert_eq!(report.max_chunk_rows, 0);
         assert_eq!(report.source_order_limit_requested, Some(2));
-        assert!(rows.is_empty());
+        assert_eq!(rows, "");
         assert!(report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert!(report.evidence.pushdown.source_order_limit_applied);
@@ -56405,7 +56405,10 @@ mod tests {
             table.header,
             vec!["value".to_string(), "metric".to_string()]
         );
-        assert!(table.rows.is_empty());
+        assert_eq!(
+            table.rows,
+            [] as [std::collections::BTreeMap<String, shardloom_core::ScalarValue>; 0]
+        );
     }
 
     #[cfg(all(feature = "universal-format-io", feature = "vortex-write"))]
@@ -58275,7 +58278,7 @@ mod tests {
         drop(filtered);
         assert_eq!(owner.ptype(), vortex::array::dtype::PType::I64);
         assert!(owner.all_valid());
-        assert!(owner.null_rows(true).is_empty());
+        assert_eq!(owner.null_rows(true), [] as [usize; 0]);
         assert_eq!(owner.i64_values(), Some([10_i64, 10, 30].as_slice()));
     }
 
@@ -58305,7 +58308,7 @@ mod tests {
         drop(filtered);
         assert_eq!(owner.ptype(), vortex::array::dtype::PType::I64);
         assert!(owner.all_valid());
-        assert!(owner.null_rows(true).is_empty());
+        assert_eq!(owner.null_rows(true), [] as [usize; 0]);
         assert_eq!(owner.i64_values(), Some([10_i64, 10, 30].as_slice()));
     }
 
@@ -63559,7 +63562,7 @@ mod tests {
             Some(&predicate),
         )
         .expect("embedded rewrite");
-        assert!(aggregate_plan.rewritten_columns.is_empty());
+        assert_eq!(aggregate_plan.rewritten_columns, [] as [String; 0]);
         let mut projected_columns = aggregate_plan.aggregate.projected_columns();
         let (pushdown_predicate, residual_predicate) =
             aggregate_plan
@@ -68071,7 +68074,7 @@ mod tests {
         );
         assert_eq!(export_report.rows_written, 0);
         assert_eq!(export_report.pre_limit_result_row_count, 0);
-        assert!(rows.trim().is_empty());
+        assert_eq!(rows.trim(), "");
         assert!(!export_report.evidence.side_effects.fallback_attempted);
         assert!(
             !export_report

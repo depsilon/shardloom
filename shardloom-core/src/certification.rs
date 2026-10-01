@@ -3164,7 +3164,10 @@ mod tests {
                 && entry.status == OperatorCertificationStatus::Unsupported
                 && !entry.diagnostics.is_empty()
         }));
-        assert!(!matrix.diagnostics.is_empty());
+        assert_ne!(
+            matrix.diagnostics,
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
     }
 
     #[test]
@@ -3197,7 +3200,10 @@ mod tests {
                 && entry.materialization_required
                 && !entry.diagnostics.is_empty()
         }));
-        assert!(!matrix.diagnostics.is_empty());
+        assert_ne!(
+            matrix.diagnostics,
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
     }
 
     #[test]
@@ -3249,9 +3255,18 @@ mod tests {
             entry.group == FunctionCoverageGroup::WindowFunctions
                 && entry.status == CapabilityCertificationStatus::Native
         }));
-        assert!(report.diagnostics.is_empty());
-        assert!(!report.operator_coverage.diagnostics.is_empty());
-        assert!(!report.function_coverage.diagnostics.is_empty());
+        assert_eq!(
+            report.diagnostics,
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
+        assert_ne!(
+            report.operator_coverage.diagnostics,
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
+        assert_ne!(
+            report.function_coverage.diagnostics,
+            [] as [crate::diagnostics::Diagnostic; 0]
+        );
     }
 
     #[test]

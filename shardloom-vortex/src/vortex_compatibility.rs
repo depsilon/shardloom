@@ -403,7 +403,7 @@ mod tests {
             .row("reader_chunk_constant_dictionary_run_end_kernel_inputs")
             .expect("reader chunk row");
         assert!(!reader_chunk.support_claim_allowed);
-        assert!(!reader_chunk.evidence_refs.is_empty());
+        assert_ne!(reader_chunk.evidence_refs, [] as [&str; 0]);
         let integration = report
             .row("vortex_query_engine_integrations")
             .expect("integration row");

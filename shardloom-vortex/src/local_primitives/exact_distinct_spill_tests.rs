@@ -425,7 +425,7 @@ fn exact_distinct_spill_empty_result_block_ownership_and_geometry_reservations()
     let memory = LiveMemoryPool::new(policy.memory_bytes).unwrap();
     let spill = ExactDistinctSpill::new(policy.clone(), memory.clone(), false, false, 7).unwrap();
     let result = spill.finish(&runtime, &session).unwrap();
-    assert!(result_rows(&result, 0).is_empty());
+    assert_eq!(result_rows(&result, 0), [] as [(i128, u64); 0]);
     assert_eq!(result.evidence.rows, 0);
     assert_eq!(result.evidence.runs_written, 0);
     workspace.assert_empty();

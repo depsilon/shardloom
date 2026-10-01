@@ -267,7 +267,7 @@ fn run(fixture: &Fixture, cached: bool) -> Value {
 }
 
 fn percentile(values: &[u64], percentile: usize) -> u64 {
-    assert!(!values.is_empty());
+    assert_ne!(values, [] as [u64; 0]);
     let mut values = values.to_vec();
     values.sort_unstable();
     values[(values.len() * percentile).div_ceil(100).saturating_sub(1)]

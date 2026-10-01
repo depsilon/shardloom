@@ -59,8 +59,12 @@ into the serial release-readiness tail:
 - `python_compatibility_matrix` checks Python 3.10 through 3.13 on `ubuntu-latest` and keeps
   `macos-latest` plus `windows-latest` smoke lanes for OS matrix coverage.
 - `rust_msrv_validation` derives the Rust MSRV toolchain from root `Cargo.toml` and checks it with
-  default features disabled, while the existing feature matrix continues to cover current stable
-  Rust and optional Vortex feature sets.
+  default features disabled and across all targets with `release-user-surfaces` enabled. This
+  covers the native runtime and its test code at the supported minimum, while the existing
+  feature matrix continues to cover current stable Rust and optional Vortex feature sets.
+  Rust 1.99 compatibility uses `AtomicU64::try_update` (available since Rust 1.95) with the
+  existing ordering and overflow behavior, and value-reporting empty-collection assertions.
+  The workspace minimum remains Rust 1.96; stable lint checks continue to deny warnings.
 - `release_readiness_reports` runs `python scripts/check_v1_security_ci_hardening.py` and uploads
   `target/v1-security-ci-hardening-report.json` as part of the release evidence bundle.
 - `release_readiness_reports` runs `python scripts/check_v1_release_boundary.py` and uploads
@@ -134,7 +138,7 @@ target/production-certification-gate.json
 | `ci_work_shaping_contract` | `ci-work-shaping` | `cargo run -q -p shardloom-cli -- ci-work-shaping-plan` | `target/ci-work-shaping-plan.json`<br>`target/ci-work-shaping-changed-files.txt`<br>`ci-work-shaping-evidence` | metadata-first CI work shaping; capillary changed-file selection; pulseweave evidence fingerprint; source-aware benchmark rerun recommendations |
 | `rust_baseline` | `rust-baseline` | `cargo fmt --all -- --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets` | none | default Rust formatting, linting, and tests; matrix capillary lanes for fmt, clippy, and test |
 | `rust_feature_matrix` | `rust-feature-matrix` | `cargo check --workspace`<br>`cargo check --workspace --all-features`<br>`cargo check --workspace --no-default-features`<br>`cargo check -p shardloom-vortex --features upstream-vortex`<br>`cargo check -p shardloom-vortex --features vortex-file-io`<br>`cargo check -p shardloom-vortex --features vortex-local-primitives`<br>`cargo check -p shardloom-vortex --features vortex-encoded-read-spike`<br>`cargo check -p shardloom-vortex --features release-user-surfaces`<br>`cargo test -p shardloom-contract-tests --test conda_packaging_recipes`<br>`cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` | none | workspace feature/build matrix |
-| `rust_msrv_validation` | `rust-msrv` | `cargo check --workspace --no-default-features`<br>`python scripts/write_release_compatibility_lane_report.py --lane "$SHARDLOOM_RUST_MSRV_LANE" --surface rust --rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN" --os-name ubuntu-latest` | `target/release-compatibility/rust_msrv_*.json`<br>`release-compatibility-rust-msrv` | Rust MSRV derived from root Cargo.toml validation |
+| `rust_msrv_validation` | `rust-msrv` | `cargo check --workspace --no-default-features`<br>`cargo check --workspace --all-targets --features release-user-surfaces`<br>`python scripts/write_release_compatibility_lane_report.py --lane "$SHARDLOOM_RUST_MSRV_LANE" --surface rust --rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN" --os-name ubuntu-latest` | `target/release-compatibility/rust_msrv_*.json`<br>`release-compatibility-rust-msrv` | Rust MSRV derived from root Cargo.toml validation |
 | `python_test_shards` | `python-test-shards` | `python scripts/run_python_test_shard.py --shard ${{ matrix.shard }}` | `target/python-test-shards/${{ matrix.shard }}.json`<br>`python-test-shard-${{ matrix.shard }}` | Python test shards |
 | `python_tests` | `python-tests` | `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`<br>`python scripts/merge_python_test_shard_evidence.py` | `python-test-shard-*`<br>`target/python-test-evidence.json`<br>`python-test-evidence` | Python tests; Python compile check |
 | `python_compatibility_matrix` | `python-compatibility-matrix` | `python -m compileall -q python/src scripts examples benchmarks/traditional_analytics`<br>`python -m build python`<br>`python scripts/write_release_compatibility_lane_report.py --lane ${{ matrix.lane }} --surface python --python-version ${{ matrix.python-version }} --os-name ${{ matrix.os }}` | `target/release-compatibility/${{ matrix.lane }}.json`<br>`release-compatibility-${{ matrix.lane }}` | Python 3.10 through 3.13 compatibility; OS matrix |

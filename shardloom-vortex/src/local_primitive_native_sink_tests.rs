@@ -456,7 +456,7 @@ fn false_filter_sink_writes_typed_empty_output_without_data_arrays() {
         fields.field("destination"),
         Some(DType::Utf8(Nullability::Nullable))
     );
-    assert!(rows.is_empty());
+    assert_eq!(rows, [] as [serde_json::Value; 0]);
 }
 
 #[test]
@@ -493,7 +493,7 @@ fn empty_completed_result_writes_native_schema_after_source_owner_drops() {
     assert_eq!(report.arrays_read_count, 0);
     let (dtype, rows) = read_complete(&output);
     assert_eq!(dtype, expected_dtype);
-    assert!(rows.is_empty());
+    assert_eq!(rows, [] as [serde_json::Value; 0]);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 

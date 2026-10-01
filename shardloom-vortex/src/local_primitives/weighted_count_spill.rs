@@ -105,7 +105,7 @@ impl Copies {
     fn add(counter: &AtomicU64, bytes: usize) -> Result<()> {
         let bytes = u64::try_from(bytes).map_err(|_| failed("copy byte count overflowed"))?;
         counter
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
                 value.checked_add(bytes)
             })
             .map_err(|_| failed("copy byte counter overflowed"))?;

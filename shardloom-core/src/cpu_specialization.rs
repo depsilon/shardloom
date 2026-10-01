@@ -652,7 +652,7 @@ mod tests {
             report.host_cpu_feature_probe.probe_performed
         );
         assert!(report.host_cpu_feature_probe.probe_effect_free);
-        assert!(!report.host_cpu_feature_probe.architecture.is_empty());
+        assert_ne!(report.host_cpu_feature_probe.architecture, "");
         assert_eq!(
             report.vectorized_kernel_admission_operator,
             PhysicalOperatorKind::Filter

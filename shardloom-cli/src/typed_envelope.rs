@@ -1670,7 +1670,10 @@ mod tests {
             ],
         );
 
-        assert!(envelope.artifact_refs.is_empty());
+        assert_eq!(
+            envelope.artifact_refs,
+            [] as [shardloom_core::OutputTypedRef; 0]
+        );
     }
 
     #[test]
@@ -2088,7 +2091,10 @@ mod tests {
             ],
         );
 
-        assert!(envelope.artifacts.is_empty());
+        assert_eq!(
+            envelope.artifacts,
+            [] as [shardloom_core::OutputTypedArtifact; 0]
+        );
         assert_eq!(
             envelope.lifecycle.fields,
             vec![(

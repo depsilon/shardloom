@@ -3213,7 +3213,7 @@ mod tests {
         assert_eq!(BenchmarkPlan::required_foundation_metrics().len(), 21);
         assert_eq!(plan.covered_required_foundation_metric_count(), 21);
         assert!(plan.required_foundation_metrics_covered());
-        assert!(plan.missing_required_foundation_metrics().is_empty());
+        assert_eq!(plan.missing_required_foundation_metrics(), [] as [&str; 0]);
         assert_eq!(plan.scenario_with_correctness_validation_count(), 7);
         assert_eq!(plan.scenario_with_required_metrics_count(), 7);
         assert_eq!(plan.scenario_with_baselines_count(), 7);
@@ -3445,7 +3445,7 @@ mod tests {
             report.claim_gate_status,
             BenchmarkClaimStatus::ReadyToPublish
         );
-        assert!(report.missing_field_order.is_empty());
+        assert_eq!(report.missing_field_order, [] as [String; 0]);
         assert_eq!(report.complete_row_count, 1);
         assert_eq!(report.claim_ready_row_count, 1);
         assert!(report.dataset_source_admission_present);
@@ -3641,10 +3641,9 @@ mod tests {
             &comparison,
         );
 
-        assert!(
-            report
-                .claim_grade_source_backed_benchmark_closeout_blocker_order
-                .is_empty()
+        assert_eq!(
+            report.claim_grade_source_backed_benchmark_closeout_blocker_order,
+            [] as [String; 0]
         );
         assert!(report.claim_grade_source_backed_benchmark_closeout_allowed);
         assert!(!report.performance_claim_allowed);

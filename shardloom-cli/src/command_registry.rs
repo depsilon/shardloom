@@ -1467,7 +1467,7 @@ mod tests {
                 descriptor.command,
                 descriptor.support_state()
             );
-            assert!(!descriptor.usage_fragment().is_empty());
+            assert_ne!(descriptor.usage_fragment(), "");
         }
         assert!(seen.contains("help"));
         assert!(seen.contains("command-metadata"));

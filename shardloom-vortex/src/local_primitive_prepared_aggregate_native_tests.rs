@@ -254,7 +254,10 @@ fn assert_empty_source_scan(report: &VortexLocalPrimitiveExecutionReport) {
     assert!(report.upstream_scan_called && report.streaming_scan_used);
     assert!(!report.data_read && !report.data_decoded && !report.data_materialized);
     assert!(!report.row_read && !report.arrow_converted && !report.full_stream_collected);
-    assert!(report.reader_splits.is_empty());
+    assert_eq!(
+        report.reader_splits,
+        [] as [crate::source_backed_encoded_execution::VortexReaderBackedSplitEvidence; 0]
+    );
 }
 
 #[test]

@@ -146,6 +146,8 @@ jobs:
           key: rust-msrv-${{ hashFiles('Cargo.toml') }}
       - name: Rust MSRV check
         run: cargo check --workspace --no-default-features
+      - name: Rust MSRV native user surfaces
+        run: cargo check --workspace --all-targets --features release-user-surfaces
       - name: Rust MSRV lane report
         run: |
           python scripts/write_release_compatibility_lane_report.py \

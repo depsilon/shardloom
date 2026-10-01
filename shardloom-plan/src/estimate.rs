@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn estimate_report_unsupported_has_diagnostics() {
         let report = EstimateReport::unsupported("op", "estimation", "not implemented");
-        assert!(!report.diagnostics.is_empty());
+        assert_ne!(report.diagnostics, [] as [shardloom_core::Diagnostic; 0]);
         assert!(report.has_errors());
     }
 
