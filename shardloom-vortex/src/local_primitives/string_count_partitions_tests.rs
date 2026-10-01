@@ -69,6 +69,146 @@ fn admission(partitions: &StringCountPartitions, requested: usize) -> EntryAdmis
 }
 
 #[test]
+fn tagged_directory_checks_encoding_bounds_and_keeps_zero_tag_occupied() {
+    assert_eq!(size_of::<DirectoryEntry>(), 8);
+    assert!(DirectoryEntry::default().is_empty());
+    let largest = usize::try_from(ORDINAL_MASK - 1).unwrap_or(usize::MAX);
+    for ordinal in [0, 1, largest] {
+        for hash in [0, 1, 0x9876_1234_5678_9abc, u64::MAX] {
+            let entry = DirectoryEntry::new(ordinal, hash).unwrap();
+            assert!(!entry.is_empty());
+            assert_eq!(entry.ordinal(), ordinal);
+            assert!(entry.matches_tag(hash));
+            assert!(entry.matches_tag(hash ^ ORDINAL_MASK));
+            assert!(!entry.matches_tag(hash ^ (1_u64 << 48)));
+        }
+    }
+    if let Ok(too_large) = usize::try_from(ORDINAL_MASK) {
+        assert!(DirectoryEntry::new(too_large, 0).is_err());
+        assert!(DirectoryEntry::new(usize::MAX, 0).is_err());
+    }
+}
+
+#[test]
+fn tagged_directory_skips_dense_reads_but_equal_tags_still_check_hash_and_bytes() {
+    let memory = LiveMemoryPool::new(2 << 20).unwrap();
+    let partitions = StringCountPartitions::try_new(&memory, 100, 40)
+        .unwrap()
+        .unwrap();
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let mut credit = admission(&partitions, 40);
+    let mut expected = BTreeMap::new();
+    {
+        let mut p = partitions.partitions[0].lock().unwrap();
+        for i in 0..32_u64 {
+            let key = format!("tag-{i}");
+            assert_eq!(
+                p.update(
+                    (key.as_bytes(), i << 48, 1),
+                    &memory,
+                    &worker,
+                    &mut credit,
+                    &mut 0
+                )
+                .unwrap(),
+                Update::Applied
+            );
+            expected.insert(key, 1_u64);
+        }
+        for counter in &p.lookup {
+            counter.set(0);
+        }
+        // Same bucket and partition, different high tags: precisely one dense
+        // read per hit, despite the deliberately long occupied probe chain.
+        for i in 0..32_u64 {
+            let bucket = p
+                .find(format!("tag-{i}").as_bytes(), i << 48, &mut 0)
+                .unwrap();
+            assert_eq!(p.records[p.slots[bucket].ordinal()].count, 1);
+        }
+        assert_eq!(
+            p.lookup.each_ref().map(std::cell::Cell::get),
+            [528, 32, 496]
+        );
+        // Equal tag/different full hash, then a full-hash collision with
+        // different bytes. Neither can be mistaken for the existing tag-5.
+        for (key, hash, count) in [
+            ("same-tag", (5_u64 << 48) | (1 << 40), 2),
+            ("same-hash", 5_u64 << 48, 3),
+            ("same-tag", (5_u64 << 48) | (1 << 40), 7),
+        ] {
+            assert_eq!(
+                p.update(
+                    (key.as_bytes(), hash, count),
+                    &memory,
+                    &worker,
+                    &mut credit,
+                    &mut 0
+                )
+                .unwrap(),
+                Update::Applied
+            );
+            *expected.entry(key.to_owned()).or_default() += count;
+        }
+    }
+    drop(credit);
+    assert_eq!(selected(&partitions), expected);
+    let evidence = partitions.evidence().unwrap();
+    assert!(evidence.lookup[2] > 496);
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+/// Work attribution only; production timing belongs to the guarded CLI runner.
+#[cfg(unix)]
+#[test]
+#[ignore = "requires an explicitly supplied resident Vortex file and exact reference values"]
+fn tagged_directory_real_input_work_diagnostic() {
+    use crate::{
+        VortexAggregateOrderExpr, VortexQueryPrimitiveRequest, VortexSimpleAggregateMeasure,
+        VortexSimpleAggregateRequest,
+        local_primitives::{
+            VortexLocalPrimitiveExecutionPolicy, execute_vortex_local_primitive_with_policy,
+        },
+    };
+    use shardloom_core::{ColumnRef, DatasetUri};
+    let source = std::env::var("SHARDLOOM_STRING_DIRECTORY_INPUT").expect("explicit input");
+    let reference = std::env::var("SHARDLOOM_STRING_DIRECTORY_REFERENCE").expect("exact reference");
+    let expected: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(reference).unwrap()).unwrap();
+    let aggregate = VortexSimpleAggregateRequest::grouped(
+        vec![ColumnRef::new("URL").unwrap()],
+        vec![VortexSimpleAggregateMeasure::new("count", None, "c".into())],
+    )
+    .with_order_by(vec![VortexAggregateOrderExpr::new("c", true)]);
+    let query =
+        VortexQueryPrimitiveRequest::simple_aggregate(DatasetUri::new(source).unwrap(), aggregate)
+            .with_source_order_limit(10);
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new(12).unwrap();
+    policy.resource_envelope.memory_budget_bytes = 24 << 30;
+    let report = execute_vortex_local_primitive_with_policy(&query, policy).unwrap();
+    assert!(!report.has_errors());
+    assert!(!report.fallback_execution_allowed);
+    let payload: serde_json::Value = serde_json::from_str(
+        report
+            .result_summary
+            .as_ref()
+            .unwrap()
+            .split_once(" values=")
+            .unwrap()
+            .1,
+    )
+    .unwrap();
+    assert_eq!(payload["values"], expected);
+    let count = |name| payload[name].as_u64().unwrap();
+    let probes = count("aggregate_workers_test_lookup_probes");
+    let reads = count("aggregate_workers_test_lookup_record_reads");
+    let rejections = count("aggregate_workers_test_lookup_tag_rejections");
+    assert!(rejections > 0 && reads > 0 && probes > reads + rejections);
+    eprintln!("string_directory_lookup_diagnostic {payload}");
+}
+
+#[test]
 fn dense_string_records_keep_exact_collisions_across_page_and_directory_growth() {
     let memory = LiveMemoryPool::new(8 << 20).unwrap();
     let partitions = StringCountPartitions::try_new(&memory, 3000, 7)
@@ -142,7 +282,7 @@ fn vacant_slot_is_invalidated_by_new_hash_mask_but_survives_byte_growth() {
             Update::Applied
         );
         assert_eq!(p.slots.len(), 32);
-        assert_eq!(p.slots[old_vacant], 0);
+        assert!(p.slots[old_vacant].is_empty());
         assert_eq!(
             p.update((b"new", 16, 5), &memory, &worker, &mut credit, &mut 0)
                 .unwrap(),
@@ -408,12 +548,15 @@ fn full_hash_collisions_compare_bytes_and_count_overflow_preserves_previous_valu
     );
     assert_eq!(comparisons, 7);
     let index = partition.find(b"alpha", 0, &mut comparisons).unwrap();
-    assert_eq!(partition.records[partition.slots[index] - 1].count, 14);
+    assert_eq!(
+        partition.records[partition.slots[index].ordinal()].count,
+        14
+    );
     let index = partition.find(b"beta", 0, &mut comparisons).unwrap();
-    assert_eq!(partition.records[partition.slots[index] - 1].count, 7);
+    assert_eq!(partition.records[partition.slots[index].ordinal()].count, 7);
     let index = partition.find(b"max", 0, &mut comparisons).unwrap();
     assert_eq!(
-        partition.records[partition.slots[index] - 1].count,
+        partition.records[partition.slots[index].ordinal()].count,
         u64::MAX
     );
     assert_eq!(comparisons, 13);
@@ -551,7 +694,7 @@ fn byte_pressure_keeps_committed_table_and_cancellation_releases_owned_storage()
         Update::Pressure
     );
     assert_eq!(partition.groups, 1);
-    assert_eq!(partition.records[partition.slots[0] - 1].count, 3);
+    assert_eq!(partition.records[partition.slots[0].ordinal()].count, 3);
     drop((blocker, partition));
     drop(admission);
     assert_eq!(partitions.group_count(), 1);

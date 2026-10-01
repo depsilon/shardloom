@@ -85,8 +85,8 @@ pub(in super::super) fn run(input: &[WeightedText<'_>], memory_bytes: u64) -> Re
         table_owned_bytes,
         // Directory width; separately owned dense records are included in
         // table_owned_bytes through their page and metadata reservations.
-        slot_bytes: size_of::<usize>(),
-        probes: None,
+        slot_bytes: size_of::<super::DirectoryEntry>(),
+        probes: Some(evidence.lookup[0]),
         equality_comparisons: evidence.equality_comparisons,
         payload_bytes_copied,
         rows: evidence.rows,

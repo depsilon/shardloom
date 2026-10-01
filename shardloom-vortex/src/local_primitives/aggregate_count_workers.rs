@@ -1134,6 +1134,16 @@ impl SingleCountWorkers {
             );
         }
         if let Some(evidence) = self.partition_evidence.as_ref() {
+            #[cfg(test)]
+            for (name, value) in ["probes", "record_reads", "tag_rejections"]
+                .into_iter()
+                .zip(evidence.lookup)
+            {
+                object.insert(
+                    format!("aggregate_workers_test_lookup_{name}"),
+                    value.into(),
+                );
+            }
             for (name, value) in [
                 (
                     "partition_count",

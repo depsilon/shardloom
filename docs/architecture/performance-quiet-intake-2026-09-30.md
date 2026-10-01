@@ -221,6 +221,16 @@ Extend them for stale-vacancy invalidation and deliberately equal tags before
 timing. Begin with this inspected single-string implementation; compound
 directories require their own matching-source check and measured retained benefit.
 
+The tag prototype packs a 16-bit high-hash tag with a 48-bit ordinal-plus-one
+in an eight-byte directory entry. Zero remains empty. Check ordinal encoding
+and limit directory capacity to `2^48`, so bucket bits and the existing partition
+bits (32 through 37) never consume the tag bits (48 through 63). Capacity leases
+use the entry's actual size, including on 32-bit targets. Full hash and exact
+bytes remain authoritative. Probe counters are test-only: an initial slot-reuse
+prototype with production counters regressed Q34, and its retained correction
+removed them before the separate tag comparison. A separately guarded real-input
+diagnostic records probe and dense-record work without adding production overhead.
+
 ## Comparison context
 
 The supplied Polars figures are reproducible from the official

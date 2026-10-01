@@ -342,7 +342,7 @@ fn actual_retained_reducer_matches_compact_collisions_weights_and_refunds() {
         assert_eq!(report.retained.complete_groups[""], 3);
         assert_eq!(report.retained.rows, 21);
         assert_eq!(report.candidate.work.rows, 21);
-        assert_eq!(report.retained.probes, None);
+        assert!(report.retained.probes.unwrap() >= report.retained.equality_comparisons);
         assert!(report.retained.equality_comparisons > 0);
         assert_eq!(
             report.retained.payload_bytes_copied,

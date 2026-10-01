@@ -26,6 +26,41 @@ mod owner_scheduling;
 
 pub(super) const PARTITIONS: usize = 64;
 
+const ORDINAL_MASK: u64 = (1_u64 << 48) - 1;
+
+/// High 16 hash bits reject misses before loading the dense record. Low 48
+/// bits hold ordinal + 1; zero is empty. The tag is disjoint from bucket bits
+/// below 48 and partition bits 32..38. Directory growth checks this bound.
+#[derive(Clone, Copy, Default)]
+struct DirectoryEntry(u64);
+
+impl DirectoryEntry {
+    fn new(ordinal: usize, hash: u64) -> Result<Self> {
+        let ordinal = u64::try_from(ordinal)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .filter(|value| *value <= ORDINAL_MASK)
+            .ok_or_else(|| failed("directory ordinal exceeds 48-bit capacity"))?;
+        Ok(Self((hash & !ORDINAL_MASK) | ordinal))
+    }
+
+    fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    fn ordinal(self) -> usize {
+        // Only new() creates occupied entries, from a checked usize ordinal.
+        debug_assert!(!self.is_empty());
+        #[allow(clippy::cast_possible_truncation)]
+        let ordinal = ((self.0 & ORDINAL_MASK) - 1) as usize;
+        ordinal
+    }
+
+    fn matches_tag(self, hash: u64) -> bool {
+        self.0 & !ORDINAL_MASK == hash & !ORDINAL_MASK
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 struct Slot {
     hash: u64,
@@ -35,14 +70,16 @@ struct Slot {
 }
 
 struct Partition {
-    // Zero means empty; nonzero ordinals refer to stable dense records + 1.
-    slots: Vec<usize>,
+    slots: Vec<DirectoryEntry>,
     records: DensePages<Slot>,
     bytes: Vec<u8>,
     groups: usize,
     slots_lease: MemoryLease,
     bytes_lease: MemoryLease,
     selection_lease: Option<MemoryLease>,
+    // Diagnostic builds count lookup work without changing production loops.
+    #[cfg(test)]
+    lookup: [std::cell::Cell<u64>; 3],
     // Actual copy sites, enabled only in the paired experiment/test binary.
     #[cfg(test)]
     benchmark_payload_bytes_copied: u64,
@@ -68,6 +105,8 @@ pub(super) struct PartitionEvidence {
     pub selection_nanos: u64,
     pub equality_comparisons: u64,
     pub comparison_publish_calls: u64,
+    #[cfg(test)]
+    pub lookup: [u64; 3],
     pub entry_credit_claim_calls: u64,
     pub entry_credit_granted_entries: u64,
     pub entry_credit_return_calls: u64,
@@ -151,6 +190,8 @@ impl StringCountPartitions {
                 bytes_lease: memory.reserve(0)?,
                 selection_lease: Some(lease.split(selection_bytes / PARTITIONS as u64)?),
                 #[cfg(test)]
+                lookup: Default::default(),
+                #[cfg(test)]
                 benchmark_payload_bytes_copied: 0,
             }));
         }
@@ -193,6 +234,21 @@ impl StringCountPartitions {
         if credits.reserved != 0 {
             return Err(failed("entry credits remain outstanding at final evidence"));
         }
+        #[cfg(test)]
+        let lookup = {
+            let mut lookup = [0_u64; 3];
+            for partition in &self.partitions {
+                let partition = partition
+                    .lock()
+                    .map_err(|_| failed("partition lock poisoned"))?;
+                for (total, value) in lookup.iter_mut().zip(&partition.lookup) {
+                    *total = total
+                        .checked_add(value.get())
+                        .ok_or_else(|| failed("lookup work overflowed"))?;
+                }
+            }
+            lookup
+        };
         Ok(PartitionEvidence {
             groups: credits.committed,
             rows: self.committed_rows.load(Ordering::Acquire),
@@ -202,6 +258,8 @@ impl StringCountPartitions {
             selection_nanos: self.selection_nanos.load(Ordering::Acquire),
             equality_comparisons: self.equality_comparisons.load(Ordering::Acquire),
             comparison_publish_calls: self.comparison_publish_calls.load(Ordering::Acquire),
+            #[cfg(test)]
+            lookup,
             entry_credit_claim_calls: credits.claim_calls,
             entry_credit_granted_entries: credits.granted_entries,
             entry_credit_return_calls: credits.return_calls,
@@ -526,8 +584,8 @@ impl Partition {
         let mut vacant = None;
         if !self.slots.is_empty() {
             let index = self.find(value, hash, comparisons)?;
-            if self.slots[index] != 0 {
-                let record = &mut self.records[self.slots[index] - 1];
+            if !self.slots[index].is_empty() {
+                let record = &mut self.records[self.slots[index].ordinal()];
                 record.count = record
                     .count
                     .checked_add(count)
@@ -564,6 +622,7 @@ impl Partition {
         memory: &LiveMemoryPool,
         worker: &ChunkWorkerContext,
     ) -> Result<bool> {
+        let entry = DirectoryEntry::new(self.records.len(), hash)?;
         let next_groups = self
             .groups
             .checked_add(1)
@@ -575,10 +634,15 @@ impl Partition {
                 .max(8)
                 .checked_mul(2)
                 .ok_or_else(|| failed("partition table size overflowed"))?;
-            let Some((mut slots, lease)) = allocate::<usize>(capacity, memory)? else {
+            if u64::try_from(capacity).map_err(|_| failed("directory capacity exceeds u64"))?
+                > ORDINAL_MASK + 1
+            {
+                return Err(failed("directory capacity consumes hash-tag bits"));
+            }
+            let Some((mut slots, lease)) = allocate::<DirectoryEntry>(capacity, memory)? else {
                 return Ok(false);
             };
-            slots.resize(capacity, 0);
+            slots.resize(capacity, DirectoryEntry::default());
             for (index, slot) in self.records.iter().copied().enumerate() {
                 if index % 4096 == 0 {
                     worker.check_cancelled()?;
@@ -587,10 +651,10 @@ impl Partition {
                     continue;
                 }
                 let mut bucket = hash_bucket(slot.hash, capacity)?;
-                while slots[bucket] != 0 {
+                while !slots[bucket].is_empty() {
                     bucket = (bucket + 1) & (capacity - 1);
                 }
-                slots[bucket] = index + 1;
+                slots[bucket] = DirectoryEntry::new(index, slot.hash)?;
             }
             self.slots = slots;
             self.slots_lease = lease;
@@ -636,20 +700,19 @@ impl Partition {
             bucket
         } else {
             let mut bucket = hash_bucket(hash, self.slots.len())?;
-            while self.slots[bucket] != 0 {
+            while !self.slots[bucket].is_empty() {
                 bucket = (bucket + 1) & (self.slots.len() - 1);
             }
             bucket
         };
         // Every fallible capacity operation finished before publishing the key.
-        let ordinal = self.records.len();
         self.records.push(Slot {
             hash,
             offset: self.bytes.len(),
             len: value.len(),
             count,
         });
-        self.slots[bucket] = ordinal + 1;
+        self.slots[bucket] = entry;
         self.bytes.extend_from_slice(value);
         #[cfg(test)]
         {
@@ -668,21 +731,41 @@ impl Partition {
     fn find(&self, value: &[u8], hash: u64, comparisons: &mut u64) -> Result<usize> {
         let mut bucket = hash_bucket(hash, self.slots.len())?;
         loop {
-            let ordinal = self.slots[bucket];
-            if ordinal == 0 {
+            #[cfg(test)]
+            self.count_lookup(0)?;
+            let entry = self.slots[bucket];
+            if entry.is_empty() {
                 return Ok(bucket);
             }
-            let slot = self.records[ordinal - 1];
-            if slot.hash == hash {
-                *comparisons = comparisons
-                    .checked_add(1)
-                    .ok_or_else(|| failed("comparison count overflowed"))?;
-                if self.bytes[slot.offset..slot.offset + slot.len] == *value {
-                    return Ok(bucket);
+            if entry.matches_tag(hash) {
+                #[cfg(test)]
+                self.count_lookup(1)?;
+                let slot = self.records[entry.ordinal()];
+                if slot.hash == hash {
+                    *comparisons = comparisons
+                        .checked_add(1)
+                        .ok_or_else(|| failed("comparison count overflowed"))?;
+                    if self.bytes[slot.offset..slot.offset + slot.len] == *value {
+                        return Ok(bucket);
+                    }
                 }
+            } else {
+                #[cfg(test)]
+                self.count_lookup(2)?;
             }
             bucket = (bucket + 1) & (self.slots.len() - 1);
         }
+    }
+
+    #[cfg(test)]
+    fn count_lookup(&self, index: usize) -> Result<()> {
+        self.lookup[index].set(
+            self.lookup[index]
+                .get()
+                .checked_add(1)
+                .ok_or_else(|| failed("lookup work overflowed"))?,
+        );
+        Ok(())
     }
 }
 
