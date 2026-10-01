@@ -341,6 +341,7 @@ impl ScalarDistinctWorkers {
             "strategy": "bounded_native_utf8_partition_exact", "chunks": self.jobs.joined(),
             "rows": self.work.rows, "partial_entries": self.work.entries,
             "cardinality": self.cardinality, "copied_persistent_bytes": self.work.copied_bytes,
+            "copy_scope": "copied_persistent_bytes_counts_unique_key_bytes_on_insert;arena_resize_copies_excluded",
             "native_dictionary_chunks": self.work.dictionary_chunks,
             "provider_nanos": self.work.provider_nanos, "dictionary_nanos": self.work.dictionary_nanos,
             "used_code_mark_nanos": self.work.mark_nanos, "union_nanos": self.work.union_nanos,

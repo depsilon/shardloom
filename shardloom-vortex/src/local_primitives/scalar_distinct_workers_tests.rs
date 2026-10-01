@@ -284,6 +284,25 @@ fn scalar_distinct_workers_invalid_used_utf8_fails_but_unused_dictionary_value_i
     assert!(!states.partition_distinct_completed);
     drop(workers);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+    let used_invalid = DictArray::try_new(
+        PrimitiveArray::new(vec![1_u32, 0], Validity::NonNullable).into_array(),
+        malformed(),
+    )
+    .unwrap()
+    .into_array();
+    let input = wrap(used_invalid);
+    let mut workers = admit(&input, &states, &memory, 2, None);
+    workers.submit(&input).unwrap();
+    assert!(
+        workers
+            .finish(&mut states)
+            .unwrap_err()
+            .to_string()
+            .contains("invalid UTF8")
+    );
+    assert!(!states.partition_distinct_completed);
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
     let dict = DictArray::try_new(
         PrimitiveArray::new(vec![0_u32, 0], Validity::NonNullable).into_array(),
         malformed(),
@@ -297,6 +316,71 @@ fn scalar_distinct_workers_invalid_used_utf8_fails_but_unused_dictionary_value_i
     assert_eq!(n(&states), 1);
     drop(workers);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn scalar_distinct_workers_decline_other_shapes_before_allocating() {
+    let memory = LiveMemoryPool::new(MEMORY).unwrap();
+    let session = VortexSession::default();
+    let nullable_parent = StructArray::new(
+        ["text"].into(),
+        vec![VarBinViewArray::from_iter_str(["x"]).into_array()],
+        1,
+        Validity::AllInvalid,
+    )
+    .into_array();
+    let numeric = wrap(PrimitiveArray::new(vec![1_u32], Validity::NonNullable).into_array());
+    for input in [nullable_parent, numeric] {
+        assert!(
+            ScalarDistinctWorkers::admit(
+                &state(),
+                input.dtype(),
+                &["text".into()],
+                policy(2),
+                &session,
+                &memory,
+                None,
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+    let input = strings(&[Some("x")]);
+    assert!(
+        ScalarDistinctWorkers::admit(
+            &state(),
+            input.dtype(),
+            &["text".into()],
+            policy(1),
+            &session,
+            &memory,
+            None,
+        )
+        .unwrap()
+        .is_none()
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    let uri = DatasetUri::new("unused.vortex").unwrap();
+    let base = VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), request());
+    assert!(request_may_be_admitted(&base));
+    assert!(!request_may_be_admitted(&base.with_source_order_limit(1)));
+    let grouped = VortexSimpleAggregateRequest::grouped(
+        vec![ColumnRef::new("text").unwrap()],
+        request().measures,
+    );
+    assert!(!request_may_be_admitted(
+        &VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), grouped)
+    ));
+    let mut multiple = request();
+    multiple.measures.push(VortexSimpleAggregateMeasure::new(
+        "count",
+        None,
+        "rows".into(),
+    ));
+    assert!(!request_may_be_admitted(
+        &VortexQueryPrimitiveRequest::simple_aggregate(uri, multiple)
+    ));
 }
 
 #[cfg(all(feature = "vortex-write", unix))]

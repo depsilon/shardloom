@@ -125,18 +125,23 @@ impl Partitions {
 }
 
 impl Partition {
-    fn find(&self, bytes: &[u8], hash: u64) -> usize {
+    fn find(&self, bytes: &[u8], hash: u64, worker: &ChunkWorkerContext) -> Result<usize> {
         let mut bucket = bucket(hash, self.directory.len());
         loop {
+            // Linear probing visits a multiple of 4096 within at most 4096
+            // buckets, even across wraparound. Keep hostile chains cancellable.
+            if bucket.is_multiple_of(4096) {
+                worker.check_cancelled()?;
+            }
             let ordinal = self.directory[bucket];
             if ordinal == 0 {
-                return bucket;
+                return Ok(bucket);
             }
             let record = self.records[ordinal - 1];
             if record.hash == hash
                 && self.bytes[record.offset..record.offset + record.len] == *bytes
             {
-                return bucket;
+                return Ok(bucket);
             }
             bucket = (bucket + 1) & (self.directory.len() - 1);
         }
@@ -151,7 +156,7 @@ impl Partition {
     ) -> Result<bool> {
         let mut vacant = 0;
         if !self.directory.is_empty() {
-            vacant = self.find(bytes, hash);
+            vacant = self.find(bytes, hash, worker)?;
             if self.directory[vacant] != 0 {
                 return Ok(false);
             }
@@ -176,13 +181,16 @@ impl Partition {
                 }
                 let mut slot = bucket(record.hash, capacity);
                 while directory[slot] != 0 {
+                    if slot.is_multiple_of(4096) {
+                        worker.check_cancelled()?;
+                    }
                     slot = (slot + 1) & (capacity - 1);
                 }
                 directory[slot] = index + 1;
             }
             self.directory = directory;
             self.directory_lease = lease;
-            vacant = self.find(bytes, hash);
+            vacant = self.find(bytes, hash, worker)?;
         }
         if !self.records.reserve_one(memory, failed)? {
             return Err(failed("dense capacity denied"));
@@ -236,4 +244,37 @@ pub(super) fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "local Vortex scalar distinct {reason}; no fallback execution was attempted"
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shardloom_exec::compute_pool::CancellationToken;
+
+    #[test]
+    fn scalar_distinct_collision_probe_observes_cancellation_before_empty_bucket() {
+        let memory = LiveMemoryPool::new(2 << 20).unwrap();
+        let parts = Partitions::new(&memory).unwrap();
+        let token = CancellationToken::default();
+        let worker = ChunkWorkerContext::Inline(token.clone());
+        let mut part = parts.parts[0].lock().unwrap();
+        for i in 0..4100 {
+            assert!(
+                part.insert(format!("key-{i}").as_bytes(), 1, &memory, &worker)
+                    .unwrap()
+            );
+        }
+        assert_eq!(part.records.len(), 4100);
+        token.cancel();
+        assert!(
+            part.find(b"absent", 1, &worker)
+                .unwrap_err()
+                .to_string()
+                .contains("cancel")
+        );
+        assert_eq!(part.records.len(), 4100);
+        drop(part);
+        drop(parts);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
