@@ -20,6 +20,9 @@ use vortex::{
 
 use super::vortex_error;
 
+#[path = "local_primitive_variant_result.rs"]
+mod variant;
+
 /// Borrow text from a completed key/state whenever it already exists there.
 #[derive(Clone)]
 pub(super) enum Value<'a> {
@@ -208,7 +211,8 @@ fn width(dtype: &DType) -> Result<usize> {
     }
 }
 
-/// Compute the exact logical buffer footprint before allocating any payload.
+/// Compute the logical buffer footprint before allocating any payload, including
+/// the conservative metadata grant needed by native heterogeneous scalar columns.
 /// The repeatable accessor reads completed state only; UTF8 bytes are copied
 /// once, during construction. Provider alignment slack is charged by the allocator.
 pub(super) fn buffer_bytes<'a>(
@@ -218,6 +222,13 @@ pub(super) fn buffer_bytes<'a>(
 ) -> Result<usize> {
     let mut bytes = 0;
     for (column, (_, dtype)) in fields.iter().enumerate() {
+        if matches!(dtype, DType::Variant(_)) {
+            bytes = add(
+                bytes,
+                variant::footprint(rows, &mut |row| value(row, column))?,
+            )?;
+            continue;
+        }
         let stride = width(dtype)?;
         bytes = add(
             bytes,
@@ -253,6 +264,7 @@ pub(super) fn build<'a>(
     rows: usize,
     max_bytes: usize,
     allocator: &HostAllocatorRef,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
     mut value: impl FnMut(usize, usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     if buffer_bytes(fields, rows, &mut value)? > max_bytes {
@@ -262,9 +274,13 @@ pub(super) fn build<'a>(
     }
     let mut arrays = Vec::with_capacity(fields.len());
     for (column, (_, dtype)) in fields.iter().enumerate() {
-        arrays.push(build_column(dtype, rows, allocator, |row| {
-            value(row, column)
-        })?);
+        arrays.push(if matches!(dtype, DType::Variant(_)) {
+            variant::build(dtype, rows, allocator, memory, &mut |row| {
+                value(row, column)
+            })?
+        } else {
+            build_column(dtype, rows, allocator, |row| value(row, column))?
+        });
     }
     StructArray::try_new(
         fields

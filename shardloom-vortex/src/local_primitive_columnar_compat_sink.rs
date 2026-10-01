@@ -453,6 +453,7 @@ impl PreparedCompatibilityExport {
             overwrite,
             None,
             &CancellationToken::default(),
+            None,
             after_batch,
         )
     }
@@ -463,17 +464,26 @@ impl PreparedCompatibilityExport {
         overwrite: bool,
         producer: &mut native_sink::ArrayProducer<'_>,
         cancellation: &CancellationToken,
+        admitted: Option<&crate::resident_session::NativeExecutionContext<'_>>,
     ) -> Result<CompletedCompatibilityExport> {
-        self.write_produced_observed(output, overwrite, Some(producer), cancellation, |_| Ok(()))
+        self.write_produced_observed(
+            output,
+            overwrite,
+            Some(producer),
+            cancellation,
+            admitted,
+            |_| Ok(()),
+        )
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     fn write_produced_observed(
         &self,
         output_path: &Path,
         overwrite: bool,
         producer: Option<&mut native_sink::ArrayProducer<'_>>,
         cancellation: &CancellationToken,
+        admitted: Option<&crate::resident_session::NativeExecutionContext<'_>>,
         mut after_batch: impl FnMut(u64) -> Result<()>,
     ) -> Result<CompletedCompatibilityExport> {
         self.limits.check()?;
@@ -495,9 +505,10 @@ impl PreparedCompatibilityExport {
         let mut arrays = 0_usize;
         let mut max_rows = 0_usize;
         let mut stopped = false;
-        self.plan
-            .source
-            .with_native_execution(cancellation, |file, execution| {
+        self.plan.source.with_native_execution_or_admitted(
+            cancellation,
+            admitted,
+            |file, execution| {
                 let session = execution.native_session();
                 let mut writer = Writer::new(
                     self.format,
@@ -627,7 +638,8 @@ impl PreparedCompatibilityExport {
                     &self.limits,
                 )?;
                 Ok(())
-            })?;
+            },
+        )?;
         work.output_bytes = output.file.metadata().map_err(vortex_error)?.len();
         let checksum = output.checksum()?;
         self.limits.check()?;

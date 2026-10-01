@@ -249,8 +249,8 @@ volume support through one universal-I/O native pipeline. ClickBench remains one
 acceptance workload. Source/prepared/native diagnostic names describe lifecycle;
 they must not become user-selectable performance modes. The
 [universal workflow completion plan](universal-workflow-completion-2026-10-01.md)
-turns this direction into existing PERF-02/03/06/07/10/11/12 obligations. The next
-cohesive runtime unit is bounded native result composition through local output,
+turns this direction into existing PERF-02/03/06/07/10/11/12 obligations. The sequence
+starts with bounded native result composition through local output,
 including its resource, spill and failure dependencies, followed by broader
 operator/type and adapter coverage. This documentation correction does not claim
 that implementation is complete or resume paused large format/text performance
@@ -262,6 +262,12 @@ for this first runtime unit. The maintainer requested completion of the remainin
 optimization and breadth work; retain the existing PERF owners and proceed through
 the dependent workflow and family work without treating this first unit as the
 whole roadmap's completion.
+
+The next retained-execution and delivery unit is recorded in
+[native unary workflows](native-unary-workflows-2026-10-01.md). It covers the ten
+existing unary families, complete bounded collection and local writers. General
+relational composition, wider type/adapter support and the remaining resource/spill
+contracts stay in the universal workflow queue; this unit does not close those items.
 
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of

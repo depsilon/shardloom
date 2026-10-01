@@ -385,6 +385,32 @@ and unsafe or non-admitted fanout return deterministic blockers until a native V
 route exists for the normalized plan. Native Vortex primitive and promoted provider helpers attach
 the inferred route payloads to the same facade rather than relying on a separate payload-only path.
 
+Admitted native DISTINCT, `drop_duplicates`, `duplicated`, tail, sample, scalar rewrites,
+melt, explode, rolling and pivot collections now include their complete rows. Read
+`report.result_rows` or call `to_python_objects()`; accessing an existing report does
+not execute the query again. Repeated identical collections reuse the opened source
+and prepared operation while computing fresh results. Source replacement fails the
+current call; a later explicit call can prepare the changed source.
+
+```python
+workflow = (
+    ctx.read_vortex("cargo.vortex")
+    .select(["cargo_id", "load_units"])
+    .drop_duplicates(subset=["cargo_id"], keep="last")
+)
+report = workflow.collect()
+print(report.result_rows)
+workflow.write_vortex("deduplicated-cargo.vortex")
+```
+
+These collections admit at most 65,536 rows, 128 scalar fields and 8 MiB of JSONL.
+Larger results use bounded batches through `write_vortex`, `write_parquet`,
+`write_arrow_ipc`, `write_avro`, `write_orc`, `write_json`, `write_jsonl` or `write_csv`,
+subject to each format's dtype contract and the operation's state budget. Native
+Vortex and text output admit supported mixed scalar melt/pivot results; mixed Variant
+columns are not general binary compatibility output support. Nested and extension
+shapes and arbitrary operator chains still require their own admitted implementation.
+
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
 `session.prepare_vortex(..., workspace=...)` return a route handle for

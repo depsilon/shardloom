@@ -2194,7 +2194,7 @@ class SqlLocalSourceSmokeReport:
     def result_jsonl(self) -> str:
         """Return the bounded inline JSONL result emitted by ShardLoom."""
 
-        return _required_field(self.envelope, "result_jsonl")
+        return _required_field(self.envelope, "result_jsonl", allow_empty=True)
 
     @property
     def result_rows(self) -> tuple[Mapping[str, Any], ...]:
@@ -14110,9 +14110,9 @@ def _adls_authority_has_userinfo(authority: str) -> bool:
     return bool(separator and ":" in container)
 
 
-def _required_field(envelope: OutputEnvelope, key: str) -> str:
+def _required_field(envelope: OutputEnvelope, key: str, *, allow_empty: bool = False) -> str:
     value = envelope.field(key)
-    if value is None or value == "":
+    if value is None or (value == "" and not allow_empty):
         raise ShardLoomProtocolError(
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )

@@ -121,8 +121,12 @@ fanout with target-level commit/cleanup evidence, through
 `native_vortex_primitive_row_export` with explicit selected-column
 decode/materialization evidence. Bounded flat projection, aggregate, and sorted results also reach feature-gated Vortex, Parquet,
 Arrow IPC, Avro, and ORC writers through shared native result ownership, without serialized JSON
-reconstruction or another query execution. General computed results are bounded to 65,536 rows,
-128 fields, and 8 MiB, with format-specific type and memory admission. See the
+reconstruction or another query execution. The [ten unary families](native-unary-workflows-2026-10-01.md)
+also carry complete bounded collection values and flat scalar results through all eight
+writers. Small computed collection is bounded to 65,536 rows, 128 fields and 8 MiB;
+admitted aggregate, ordered and unary file output instead uses bounded native batches
+and can exceed the collection row/byte bounds. Format-specific type and memory admission
+still applies. See the
 [local output contract](v1-local-output-sink-scope.md) for exact sink coverage.
 Broad compatibility exports outside these Vortex-derived contracts remain blocked. Local
 compatibility-file residual workflows that first normalize through Vortex preparation also block

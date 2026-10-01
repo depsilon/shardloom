@@ -26,7 +26,7 @@ pub(super) struct CompletedRows<'a> {
 
 enum Delivery<'a> {
     Collect,
-    #[cfg_attr(not(all(unix, feature = "vortex-write")), allow(dead_code))]
+    #[cfg_attr(not(unix), allow(dead_code))]
     Stream {
         batch_rows: usize,
         cancellation: CancellationToken,
@@ -166,7 +166,7 @@ fn aggregate_fields_with_bounds(
     Ok(fields)
 }
 
-#[cfg(all(unix, feature = "vortex-write"))]
+#[cfg(unix)]
 impl<'consumer> CompletedRows<'consumer> {
     pub(super) fn streaming(
         fields: Vec<(String, DType)>,
@@ -236,6 +236,7 @@ impl CompletedRows<'_> {
                     rows,
                     MAX_BYTES,
                     &allocator,
+                    &self.memory,
                     value,
                 )?);
             }
@@ -266,6 +267,7 @@ impl CompletedRows<'_> {
                         count,
                         MAX_BYTES,
                         &allocator,
+                        &self.memory,
                         |row, column| value(start + row, column),
                     )?;
                     cancellation.check()?;
@@ -376,6 +378,7 @@ impl CompletedRows<'_> {
                     dtype,
                     DType::Bool(_)
                         | DType::Utf8(_)
+                        | DType::Variant(_)
                         | DType::Primitive(
                             PType::I8
                                 | PType::I16
@@ -426,6 +429,32 @@ pub(super) fn write_stream(
     producer: &mut super::native_sink::ArrayProducer<'_>,
     cancellation: &CancellationToken,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    write_stream_admitted(
+        plan,
+        request,
+        path,
+        format,
+        overwrite,
+        policy,
+        producer,
+        cancellation,
+        None,
+    )
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[allow(clippy::too_many_arguments)]
+pub(super) fn write_stream_admitted(
+    plan: super::native_sink::NativeSinkPlan,
+    request: &VortexQueryPrimitiveRequest,
+    path: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    producer: &mut super::native_sink::ArrayProducer<'_>,
+    cancellation: &CancellationToken,
+    admitted: Option<&crate::resident_session::NativeExecutionContext<'_>>,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
     if format == super::VortexLocalPrimitiveRowExportFormat::Vortex {
         return plan.write_produced(
             request,
@@ -434,6 +463,7 @@ pub(super) fn write_stream(
             policy,
             Some(producer),
             cancellation,
+            admitted,
         );
     }
     if matches!(
@@ -451,6 +481,7 @@ pub(super) fn write_stream(
             policy,
             Some(producer),
             cancellation,
+            admitted,
         );
     }
     #[cfg(feature = "universal-format-io")]
@@ -461,7 +492,7 @@ pub(super) fn write_stream(
         );
         return super::columnar_compat_sink::prepare_plan(request, plan, format, policy, limits)?
             .ok_or_else(|| failed("result schema is outside compatibility output admission"))?
-            .write_produced(path, overwrite, producer, cancellation)
+            .write_produced(path, overwrite, producer, cancellation, admitted)
             .map(|completed| completed.report);
     }
     Err(failed("result stream format is not admitted"))
@@ -495,6 +526,7 @@ pub(super) fn write(
             policy,
             None,
             &CancellationToken::default(),
+            None,
         );
     }
     #[cfg(feature = "universal-format-io")]

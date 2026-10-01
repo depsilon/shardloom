@@ -1649,8 +1649,12 @@ mod tests {
     }
 
     fn fake_vortex_file_plans_should_succeed() -> bool {
+        // Either native feature enables real file I/O, so a made-up file is
+        // rejected even without the broader production runtime feature set.
         !cfg!(any(
             feature = "vortex-encoded-read-spike",
+            feature = "vortex-local-primitives",
+            feature = "vortex-write",
             feature = "vortex-traditional-analytics-benchmark"
         ))
     }

@@ -113,7 +113,7 @@ impl ResidentVortexSession {
         &self.0.memory
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn parallelism(&self) -> usize {
         self.0.parallelism
     }
@@ -177,6 +177,49 @@ impl ResidentVortexSession {
         Ok(OwnedVortexResultBatch {
             dtype: array.dtype().clone(),
             arrays: Budgeted::new(vec![array], ownership),
+            runtime: Arc::clone(&self.0),
+            rows,
+            logical_buffer_bytes,
+        })
+    }
+
+    /// Retain already completed batches without combining or copying their buffers.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn own_completed_arrays(
+        &self,
+        arrays: Vec<ArrayRef>,
+        ownership: shardloom_exec::live_memory::MemoryLease,
+    ) -> Result<OwnedVortexResultBatch> {
+        let dtype = arrays
+            .first()
+            .ok_or_else(|| resident_error("completed result has no schema"))?
+            .dtype()
+            .clone();
+        let mut rows = 0_u64;
+        let mut logical_buffer_bytes = 0_u64;
+        for array in &arrays {
+            if array.dtype() != &dtype {
+                return Err(resident_error("completed result batch schemas differ"));
+            }
+            rows = rows
+                .checked_add(u64::try_from(array.len()).map_err(native_error)?)
+                .ok_or_else(|| resident_error("completed result row count overflow"))?;
+            logical_buffer_bytes = logical_buffer_bytes
+                .checked_add(array.nbytes())
+                .ok_or_else(|| resident_error("completed result byte count overflow"))?;
+        }
+        if rows > 65_536
+            || logical_buffer_bytes > 8 * 1024 * 1024
+            || !self.memory().owns(&ownership)
+            || ownership.bytes() < (arrays.capacity() * std::mem::size_of::<ArrayRef>()) as u64
+        {
+            return Err(resident_error(
+                "completed result exceeds output ownership admission",
+            ));
+        }
+        Ok(OwnedVortexResultBatch {
+            dtype,
+            arrays: Budgeted::new(arrays, ownership),
             runtime: Arc::clone(&self.0),
             rows,
             logical_buffer_bytes,

@@ -137,6 +137,9 @@ mod pair_partition_workers;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_unary.rs"]
+pub mod prepared_unary;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/scalar_distinct_partitions.rs"]
 mod scalar_distinct_partitions;
@@ -3128,6 +3131,11 @@ fn local_primitive_native_io_safe(
             && report.filter_pushdown_applied
             && report.upstream_filter_expression_used;
     }
+    if local_primitive_empty_unary_source_scan(report)
+        || local_primitive_empty_unary_predicate_scan(request, report)
+    {
+        return true;
+    }
     // An authoritative source row count and a completed native scan prove that fresh
     // aggregate state received no input. Scalar finalization may emit one row
     // (or none after HAVING/offset); grouped finalization must emit none.
@@ -3172,12 +3180,81 @@ fn local_primitive_empty_aggregate_source_scan(
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> bool {
     report.primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate
-        && report.mode == VortexLocalPrimitiveExecutionMode::VortexScanPushdown
-        && ((report.embedded_layout.metadata_persisted_in_artifact
-            && report.embedded_layout.footer_row_count == 0)
-            || (report.embedded_layout.status == "owned_array_source_no_file_layout"
-                && !report.embedded_layout.metadata_persisted_in_artifact))
+        && local_primitive_empty_source_scan(report)
+}
+
+fn local_primitive_empty_unary_source_scan(report: &VortexLocalPrimitiveExecutionReport) -> bool {
+    local_primitive_is_unary_source_scan(report)
+        && report.rows_projected == Some(0)
+        && report.embedded_layout.metadata_persisted_in_artifact
+        && local_primitive_empty_source_scan(report)
+}
+
+fn local_primitive_is_unary_source_scan(report: &VortexLocalPrimitiveExecutionReport) -> bool {
+    matches!(
+        report.primitive_kind,
+        VortexQueryPrimitiveKind::DistinctRows
+            | VortexQueryPrimitiveKind::DropDuplicateRows
+            | VortexQueryPrimitiveKind::DuplicateMaskRows
+            | VortexQueryPrimitiveKind::TailRows
+            | VortexQueryPrimitiveKind::SampleRows
+            | VortexQueryPrimitiveKind::RollingWindowRows
+            | VortexQueryPrimitiveKind::ExpressionProjectRows
+            | VortexQueryPrimitiveKind::MeltRows
+            | VortexQueryPrimitiveKind::ExplodeRows
+            | VortexQueryPrimitiveKind::PivotRows
+    )
+}
+
+fn local_primitive_empty_unary_predicate_scan(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    #[cfg(feature = "vortex-local-primitives")]
+    {
+        if !(local_primitive_is_unary_source_scan(report)
+            && report.rows_projected == Some(0)
+            && report.rows_scanned > 0
+            && report.embedded_layout.metadata_persisted_in_artifact
+            && report.embedded_layout.footer_row_count == report.rows_scanned
+            && report.filter_pushdown_applied
+            && report.upstream_filter_expression_used
+            && local_primitive_empty_scan_work(report))
+        {
+            return false;
+        }
+        // A constant-false native predicate can suppress every array without
+        // consulting source values. Prove that exact predicate rather than
+        // interpreting zero returned arrays as metadata pruning or a data read.
+        request.predicate.as_ref().is_some_and(|predicate| {
+            matches!(
+                rewrite_predicate_for_embedded_derived_columns(
+                    predicate,
+                    &std::collections::BTreeSet::new(),
+                    &mut Vec::new(),
+                ),
+                Ok(PredicateExpr::AlwaysFalse)
+            )
+        })
+    }
+    #[cfg(not(feature = "vortex-local-primitives"))]
+    {
+        let _ = (request, report);
+        false
+    }
+}
+
+fn local_primitive_empty_source_scan(report: &VortexLocalPrimitiveExecutionReport) -> bool {
+    ((report.embedded_layout.metadata_persisted_in_artifact
+        && report.embedded_layout.footer_row_count == 0)
+        || (report.embedded_layout.status == "owned_array_source_no_file_layout"
+            && !report.embedded_layout.metadata_persisted_in_artifact))
         && report.rows_scanned == 0
+        && local_primitive_empty_scan_work(report)
+}
+
+fn local_primitive_empty_scan_work(report: &VortexLocalPrimitiveExecutionReport) -> bool {
+    report.mode == VortexLocalPrimitiveExecutionMode::VortexScanPushdown
         && report.rows_selected == Some(0)
         && report.upstream_scan_called
         && report.streaming_scan_used
@@ -4438,6 +4515,14 @@ fn execute_vortex_local_primitive_row_export_enabled(
     use vortex::session::VortexSession;
 
     let (policy, physical_policy) = policy.with_writer_sink_physical_policy_for_request(request);
+    #[cfg(all(feature = "vortex-write", unix))]
+    if prepared_unary::supports(request.kind)
+        && let Some(prepared) = prepared_unary::prepare_unary_for_optional_reuse(request, policy)?
+    {
+        return prepared
+            .write(output_path, output_format, allow_overwrite)
+            .map(|report| report.with_physical_policy(physical_policy));
+    }
     #[cfg(all(feature = "vortex-write", unix))]
     if request.kind == VortexQueryPrimitiveKind::SimpleAggregate {
         return prepared_aggregate::prepare_aggregate(request, policy)?
@@ -8073,15 +8158,19 @@ impl RollingWindowState {
         }
     }
 
-    fn push(&mut self, value: Option<f64>, window_size: usize) -> Result<()> {
+    fn push(&mut self, value: Option<f64>, window_size: usize, track_sum: bool) -> Result<()> {
         if self.values.len() == window_size
             && let Some(expired) = self.values.pop_front().flatten()
         {
-            self.sum -= expired;
+            if track_sum {
+                self.sum -= expired;
+            }
             self.valid_count = self.valid_count.saturating_sub(1);
         }
         if let Some(value) = value {
-            self.sum += value;
+            if track_sum {
+                self.sum += value;
+            }
             self.valid_count = self.valid_count.checked_add(1).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex rolling window valid count overflowed; no fallback execution was attempted"
@@ -8212,7 +8301,11 @@ fn rolling_window_values(
             state.push_centered(rolling_value)?;
             continue;
         }
-        state.push(rolling_value, rolling_window.window_size)?;
+        state.push(
+            rolling_value,
+            rolling_window.window_size,
+            matches!(rolling_window.aggregate.as_str(), "sum" | "mean"),
+        )?;
         if state.ready(rolling_window.min_periods) {
             let value = match rolling_window.aggregate.as_str() {
                 "sum" => StatValue::Float64(state.sum),
@@ -9673,16 +9766,24 @@ impl MaterializedPredicateEvaluator {
     }
 
     fn matches(&self, columns: &[Vec<StatValue>], row_index: usize) -> Result<bool> {
+        self.matches_with(&mut |column| materialized_predicate_value(columns, column, row_index))
+    }
+
+    fn matches_with<T: std::borrow::Borrow<StatValue>>(
+        &self,
+        value_at: &mut impl FnMut(usize) -> Result<T>,
+    ) -> Result<bool> {
         match self {
             Self::AlwaysTrue => Ok(true),
             Self::AlwaysFalse => Ok(false),
             Self::IsNull { column_index } | Self::IsNotNull { column_index } => {
-                let current = materialized_predicate_value(columns, *column_index, row_index)?;
+                let owner = value_at(*column_index)?;
+                let current = owner.borrow();
                 let is_null = matches!(current, StatValue::Null);
                 Ok(matches!(self, Self::IsNull { .. }) == is_null)
             }
             Self::And(predicates) => predicates.iter().try_fold(true, |selected, predicate| {
-                Ok(selected && predicate.matches(columns, row_index)?)
+                Ok(selected && predicate.matches_with(value_at)?)
             }),
             Self::Compare {
                 column,
@@ -9690,7 +9791,8 @@ impl MaterializedPredicateEvaluator {
                 op,
                 value,
             } => {
-                let current = materialized_predicate_value(columns, *column_index, row_index)?;
+                let owner = value_at(*column_index)?;
+                let current = owner.borrow();
                 compare_stat_value_with_op(Some(column.as_str()), current, *op, value)
             }
             Self::StringContains {
@@ -9699,7 +9801,8 @@ impl MaterializedPredicateEvaluator {
                 needle,
                 negated,
             } => {
-                let current = materialized_predicate_value(columns, *column_index, row_index)?;
+                let owner = value_at(*column_index)?;
+                let current = owner.borrow();
                 let StatValue::Utf8(value) = current else {
                     return Err(ShardLoomError::InvalidOperation(format!(
                         "local Vortex contains predicate requires UTF-8 column '{}'; no fallback execution was attempted",
@@ -9714,7 +9817,8 @@ impl MaterializedPredicateEvaluator {
                 values,
                 negated,
             } => {
-                let current = materialized_predicate_value(columns, *column_index, row_index)?;
+                let owner = value_at(*column_index)?;
+                let current = owner.borrow();
                 let matched = values.iter().any(|value| {
                     coerce_rewrite_value_for_column(Some(column.as_str()), current, value)
                         .is_ok_and(|value| stat_value_equal(current, &value))
@@ -13818,6 +13922,14 @@ fn execute_vortex_local_primitive_enabled(
         )
         .with_physical_policy(physical_policy));
     };
+    #[cfg(unix)]
+    if prepared_unary::supports(request.kind)
+        && let Some(prepared) = prepared_unary::prepare_unary_for_optional_reuse(request, policy)?
+    {
+        return prepared
+            .execute()
+            .map(|executed| executed.report.with_physical_policy(physical_policy));
+    }
     let report = match request.kind {
         VortexQueryPrimitiveKind::CountAll => count_all_metadata_report(uri, &path, policy),
         VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::FilterPredicate => {
@@ -47267,6 +47379,15 @@ mod tests {
         LogicalDType, Nullability, SegmentId, SegmentLayout, SegmentStats, UniversalInputSource,
     };
 
+    fn parsed_jsonl_rows(rows: &str) -> serde_json::Value {
+        // JSON object field order is not part of the result; row order is.
+        serde_json::Value::Array(
+            rows.lines()
+                .map(|line| serde_json::from_str(line).expect("complete JSON row"))
+                .collect(),
+        )
+    }
+
     fn unique_vortex_path(name: &str) -> std::path::PathBuf {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -53116,7 +53237,7 @@ mod tests {
                 .contains(&"hash_row_key_state".to_string())
         );
         assert_eq!(report.max_parallelism_requested, 2);
-        assert_eq!(report.scan_concurrency_per_worker, 2);
+        assert_eq!(report.scan_concurrency_per_worker, 1);
         assert!(report.filter_pushdown_applied);
         assert!(report.projection_pushdown_applied);
         assert!(report.upstream_filter_expression_used);
@@ -53199,7 +53320,8 @@ mod tests {
         assert_eq!(report.source_order_limit_rows_output, Some(2));
         assert!(report.data_read);
         assert!(report.streaming_scan_used);
-        assert!(report.full_stream_collected);
+        // Keep one candidate per key, not the full duplicate population.
+        assert!(!report.full_stream_collected);
         assert!(report.data_decoded);
         assert!(report.data_materialized);
         assert!(report.row_read);
@@ -53257,7 +53379,7 @@ mod tests {
             Some("sample_rows=2 projected_columns=metric sample_seed=7 sample_size=2")
         );
         assert_eq!(report.max_parallelism_requested, 2);
-        assert_eq!(report.scan_concurrency_per_worker, 2);
+        assert_eq!(report.scan_concurrency_per_worker, 1);
         assert!(report.filter_pushdown_applied);
         assert!(report.projection_pushdown_applied);
         assert!(report.upstream_filter_expression_used);
@@ -53268,7 +53390,7 @@ mod tests {
         assert_eq!(report.source_order_limit_rows_output, Some(2));
         assert!(report.data_read);
         assert!(report.streaming_scan_used);
-        assert!(report.full_stream_collected);
+        assert!(!report.full_stream_collected);
         assert!(report.data_decoded);
         assert!(report.data_materialized);
         assert!(report.row_read);
@@ -53613,7 +53735,8 @@ mod tests {
         assert!(report.projection_pushdown_applied);
         assert_eq!(report.source_order_limit_requested, Some(2));
         assert!(report.source_order_limit_applied);
-        assert_eq!(report.source_order_limit_input_rows, Some(5));
+        // The streaming producer stops rewriting once the output limit is met.
+        assert_eq!(report.source_order_limit_input_rows, Some(2));
         assert_eq!(report.source_order_limit_rows_output, Some(2));
         assert!(report.data_read);
         assert!(report.streaming_scan_used);
@@ -54267,7 +54390,8 @@ mod tests {
         );
         assert_eq!(report.rows_scanned, 5);
         assert_eq!(report.rows_written, 3);
-        assert_eq!(report.pre_limit_result_row_count, 4);
+        // No fourth result is computed after the three requested rows.
+        assert_eq!(report.pre_limit_result_row_count, 3);
         assert_eq!(
             report.projected_columns,
             vec!["rolling_metric_mean".to_string()]
@@ -54446,7 +54570,7 @@ mod tests {
         assert!(report.projection_pushdown_applied);
         assert_eq!(report.source_order_limit_requested, Some(2));
         assert!(report.source_order_limit_applied);
-        assert_eq!(report.source_order_limit_input_rows, Some(3));
+        assert_eq!(report.source_order_limit_input_rows, Some(2));
         assert_eq!(report.source_order_limit_rows_output, Some(2));
         assert!(report.data_read);
         assert!(report.streaming_scan_used);
@@ -54510,7 +54634,7 @@ mod tests {
         assert_eq!(report.pre_limit_result_row_count, 2);
         assert_eq!(report.projected_columns, vec!["value".to_string()]);
         assert_eq!(report.max_parallelism_requested, 2);
-        assert_eq!(report.scan_concurrency_per_worker, 2);
+        assert_eq!(report.scan_concurrency_per_worker, 1);
         assert_eq!(report.source_order_limit_requested, Some(2));
         assert_eq!(rows, "{\"value\":1}\n{\"value\":2}\n");
         assert!(!report.evidence.pushdown.filter_pushdown_applied);
@@ -56667,8 +56791,12 @@ mod tests {
             vec!["metric".to_string(), "index".to_string()]
         );
         assert_eq!(
-            rows,
-            "{\"index\":0,\"metric\":10}\n{\"index\":1,\"metric\":20}\n{\"index\":2,\"metric\":30}\n{\"index\":3,\"metric\":40}\n{\"index\":4,\"metric\":50}\n"
+            parsed_jsonl_rows(&rows),
+            serde_json::json!([
+                {"index": 0, "metric": 10}, {"index": 1, "metric": 20},
+                {"index": 2, "metric": 30}, {"index": 3, "metric": 40},
+                {"index": 4, "metric": 50}
+            ])
         );
         assert!(report.evidence.upstream_scan_called);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
@@ -56722,8 +56850,15 @@ mod tests {
             ]
         );
         assert_eq!(
-            rows,
-            "{\"amount\":10,\"id\":1,\"measure\":\"amount_a\"}\n{\"amount\":100,\"id\":1,\"measure\":\"amount_b\"}\n{\"amount\":20,\"id\":2,\"measure\":\"amount_a\"}\n{\"amount\":200,\"id\":2,\"measure\":\"amount_b\"}\n{\"amount\":30,\"id\":3,\"measure\":\"amount_a\"}\n{\"amount\":300,\"id\":3,\"measure\":\"amount_b\"}\n"
+            parsed_jsonl_rows(&rows),
+            serde_json::json!([
+                {"amount": 10, "id": 1, "measure": "amount_a"},
+                {"amount": 100, "id": 1, "measure": "amount_b"},
+                {"amount": 20, "id": 2, "measure": "amount_a"},
+                {"amount": 200, "id": 2, "measure": "amount_b"},
+                {"amount": 30, "id": 3, "measure": "amount_a"},
+                {"amount": 300, "id": 3, "measure": "amount_b"}
+            ])
         );
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert!(!report.evidence.pushdown.source_order_limit_applied);
@@ -56781,8 +56916,13 @@ mod tests {
         assert_eq!(report.rows_written, 4);
         assert_eq!(report.pre_limit_result_row_count, 4);
         assert_eq!(
-            rows,
-            "{\"amount\":20,\"id\":2,\"measure\":\"amount_a\"}\n{\"amount\":200,\"id\":2,\"measure\":\"amount_b\"}\n{\"amount\":30,\"id\":3,\"measure\":\"amount_a\"}\n{\"amount\":300,\"id\":3,\"measure\":\"amount_b\"}\n"
+            parsed_jsonl_rows(&rows),
+            serde_json::json!([
+                {"amount": 20, "id": 2, "measure": "amount_a"},
+                {"amount": 200, "id": 2, "measure": "amount_b"},
+                {"amount": 30, "id": 3, "measure": "amount_a"},
+                {"amount": 300, "id": 3, "measure": "amount_b"}
+            ])
         );
         assert!(report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
@@ -56836,8 +56976,13 @@ mod tests {
             vec!["id".to_string(), "field".to_string(), "value".to_string()]
         );
         assert_eq!(
-            rows,
-            "{\"field\":\"amount\",\"id\":1,\"value\":10}\n{\"field\":\"label\",\"id\":1,\"value\":\"paid\"}\n{\"field\":\"amount\",\"id\":2,\"value\":20}\n{\"field\":\"label\",\"id\":2,\"value\":\"trial\"}\n"
+            parsed_jsonl_rows(&rows),
+            serde_json::json!([
+                {"field": "amount", "id": 1, "value": 10},
+                {"field": "label", "id": 1, "value": "paid"},
+                {"field": "amount", "id": 2, "value": 20},
+                {"field": "label", "id": 2, "value": "trial"}
+            ])
         );
         assert!(report.evidence.side_effects.data_read);
         assert!(report.evidence.side_effects.data_decoded);

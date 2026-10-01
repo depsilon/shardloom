@@ -294,11 +294,11 @@ arbitrary callbacks, recursive SQL or external-effect/platform integrations.
 | Count/filter/project | Prepared count/count-where/projection and native scan lowering | Preserve admitted residual selections in owned collect; complete public parity |
 | Aggregates | Existing typed accessors, physical-key proofs, weighted counts, exact COUNT DISTINCT, SUM/AVG/MIN/MAX, HAVING and ordering; flat-scalar native result streams into local writers | Broader public composition/type coverage and wider spill transitions |
 | Sort/Top-N | Native exact ordering, secondary keys, partition selection, late payload gathering and flat-scalar native result streams, including admitted numeric spill | Retained prepared handles and broader spill schemas |
-| Distinct/deduplication/duplicate mask | Existing exact row-key and first/last/all survivor logic | Retained execution, owned survivor selection and row-state spill |
-| Tail/sample | Existing deterministic source ordinals and weighted/replacement sampling | Prepared/owned composition preserving repeated rows and seed semantics |
-| Expressions/casts/nested access | Existing typed rewrite and aggregate-transform kernels | Unify public lowering with native kernels; explicitly resolve parsed function/type gaps |
-| Melt/explode/pivot | Existing flat melt, list/FSL explode and single-index/value pivot | Prepared/owned composition; separately define wider pivot/nested shapes |
-| Source-order rolling | Existing sum/mean/count/min/max and centered lookahead | Prepared/owned execution with unchanged source order, nulls and min-periods |
+| Distinct/deduplication/duplicate mask | Retained native execution, exact row-key and first/last/all survivor logic, complete collection and admitted flat writers | Broader chains, filtered masks and row-state spill |
+| Tail/sample | Prepared native output preserving source order, repeated rows and weighted/replacement seed semantics | Filtered tail, broader chains and state spill |
+| Expressions/casts/nested access | Retained typed rewrite execution and existing aggregate-transform kernels; public source predicates preserved | Broader function/type and chain coverage; general nested/extension results |
+| Melt/explode/pivot | Prepared native batches for flat melt, admitted scalar list/FSL explode and single-index/value pivot; complete public values and writers | Wider pivot/nested shapes, broader chains and state spill |
+| Source-order rolling | Prepared sum/mean/count/min/max and centered lookahead with source order, nulls and min-periods preserved | Broader composition and pressure/spill transitions |
 | General joins | Native typed key owners, exact byte equality, row ordinals and native take | Duplicate-preserving equijoins first; then existing cross/non-equi shapes with explicit semantics |
 | Set operations | Native batches and exact retained-row membership | UNION ALL/DISTINCT, INTERSECT and EXCEPT with explicit null, dtype and multiplicity rules |
 | Analytic windows | Native partition/sort keys and late payload gathers | Existing parsed ranking, navigation and distribution functions; frame semantics remain explicit |
@@ -309,6 +309,9 @@ DataFrame/Python, owned output/sinks, pressure/spill applicability, cancellation
 recovery applicability and complete-value UAT. A row is not complete because one
 scenario matcher executes it. In particular, NULL-aware NOT IN cannot reuse an
 ordinary anti-join without retaining the right-side null/empty-set information.
+The [October 1 unary unit](native-unary-workflows-2026-10-01.md) records the exact
+prepared/public result and writer coverage; it does not close every obligation in
+these rows.
 
 Source anchors: `shardloom-vortex/src/query_primitive.rs`,
 `local_primitive_collect.rs`, `local_primitive_aggregate_owned.rs`,
