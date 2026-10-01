@@ -71,6 +71,13 @@ adapter step. Python, SQL, and DataFrame-style builders should lower to the same
 the adapter has produced an admitted source state. Output formats should be unique only in sink
 translation and metadata-preservation evidence.
 
+Preparation and native input are lifecycle states within this one pipeline. Public
+guidance must not present diagnostic route identifiers as a choice of fast or slow
+execution modes. Applicable work avoidance and resource control belong below every
+frontend. The intended scope is general-purpose data processing; ClickBench is one
+acceptance workload. The [breadth and scale plan](universal-workflow-completion-2026-10-01.md)
+tracks current composition and volume gaps without broadening the support claims below.
+
 For local compatibility sources, universal ingest owns schema hints, format inference, and payload
 normalization before Vortex preparation. `.jsonl` and `.ndjson` stay distinct input formats; all-null
 text-source columns without explicit dtype default to nullable UTF-8; mixed integer/float text

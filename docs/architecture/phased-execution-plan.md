@@ -244,6 +244,18 @@ the ledger.
 
 ## Planned
 
+October 1 product clarification: the maintainer reasserted broad workload and
+volume support through one universal-I/O native pipeline. ClickBench remains one
+acceptance workload. Source/prepared/native diagnostic names describe lifecycle;
+they must not become user-selectable performance modes. The
+[universal workflow completion plan](universal-workflow-completion-2026-10-01.md)
+turns this direction into existing PERF-02/03/06/07/10/11/12 obligations. The next
+cohesive runtime unit is bounded native result composition through local output,
+including its resource, spill and failure dependencies, followed by broader
+operator/type and adapter coverage. This documentation correction does not claim
+that implementation is complete or resume paused large format/text performance
+runs, native Python binding experiments, or package publication.
+
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
 completed UAT/test artifacts. R2.a, R3.a and R3.b are retained with Full43 and ownership
@@ -844,6 +856,12 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     computed and multi-source families still require migration; see the completed
     ledger and combined September 12 UAT for the exact scope.
   - Execution checklist:
+    - [ ] Complete bounded result streams for already executable flat-scalar
+      aggregate and ordered-result families through downstream operators and
+      admitted local writers, including typed empty results and native spill
+      output. Use the [whole-workflow acceptance matrix](universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix)
+      across current handoff bounds; do not replace safe limits with unbounded
+      materialization or serialized JSON reconstruction.
     - [ ] Carry executable arrays, selections, validity and retained ownership
       through the remaining physical result and compatibility sink families.
     - [ ] Complete close/cancel/slice and copied/decoded-byte acceptance for
@@ -963,6 +981,11 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     dropped. These bounded comparisons add evidence without closing the broader
     relational/resource matrix or changing historical C7 results.
   - Execution checklist:
+    - [ ] Certify complete read/transform/consume/write/reopen workflows across
+      formats, renamed schemas, distributions and resource pressure using the
+      [breadth and scale matrix](universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix).
+      Record every exposed composition as tested or a concrete implementation
+      gap; a successful reader, parser or individual operator is insufficient.
     - [ ] Pin eligible ClickBench scoring/cohort and separate cached product sessions.
     - [ ] Compare current/coarse and safe small/medium/large native topologies on
       the immutable 100M-row artifact with identical workers, memory, build and runner;
@@ -2583,6 +2606,17 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     sink-parity evidence.
 
 Current autonomous execution order:
+
+The October 1 product clarification makes
+[universal workflow completion](universal-workflow-completion-2026-10-01.md)
+the next runtime priority under existing PERF owners: complete bounded native
+result composition and local output, with resource/spill/failure prerequisites;
+then broaden reusable operator/type and adapter coverage. Every unit validates
+complete workflows beyond ClickBench while retaining it as regression evidence.
+This does not authorize unbounded rewrites or resume the paused large text-format
+and format-pulse performance tests. The experimental procedure below applies when
+a separate performance candidate is admitted; it does not displace workflow
+completion with another automatic optimization sweep.
 
 The September 29 resumption supersedes the earlier release/format stop for the
 finite September 26 intake. All 29 decisions and the final profiling refresh

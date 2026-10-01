@@ -1,12 +1,14 @@
 ---
 title: "Support and limitations"
-description: "What executes today, where coverage is partial, and which limits apply to your route."
+description: "Current workflow coverage and the remaining work toward broader data processing."
 sidebar: {"label":"Support and limitations","order":4}
 ---
 
 
 ShardLoom executes local queries over native and prepared Vortex data today.
-Coverage is specific to the operation, types, source layout, enabled features, and output route.
+Coverage is specific to the operation, types, source layout, enabled features, and output contract.
+The product direction is general-purpose data processing through one native pipeline. The gaps
+below are completion work within that pipeline.
 
 Current capabilities, reviewed **October 1, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
@@ -14,7 +16,7 @@ for the detailed evidence behind this scope.
 
 ## Runtime Limits
 
-| Area | Available in admitted routes | Remaining boundary |
+| Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
 | Relational and DataFrame operations | Selected provider-backed joins; scoped duplicate handling, sampling, melt/explode/pivot, and source-order rolling. | General joins, set operations, analytic windows, and subqueries are not complete native families. Prepared reuse, owned output, and spill parity also vary. |
@@ -33,6 +35,18 @@ Use [runtime and I/O](/field-guide/runtime-and-io), the
 [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md),
 and the [native completion inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory)
 for exact scope. A familiar method name is not an every-shape support promise.
+
+## Extending breadth and volume
+
+The [completion plan](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-workflow-completion-2026-10-01.md)
+starts with whole read → transform → write workflows. Priorities include native result streaming
+through chained operators and writers, broader relational and type coverage, shared resource
+accounting, and native spill for larger state. New adapters connect to the same engine.
+
+Acceptance must cover varied schemas, skew, nulls, output sizes, and data larger than the configured
+memory budget. ClickBench remains one regression suite alongside those workflow checks.
+Adding a reader alone does not complete a workflow, and removing a size guard alone does not
+establish safe scale.
 
 ## External systems
 

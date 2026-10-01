@@ -7,8 +7,9 @@ sidebar: {"label":"Compute flow","order":2}
 
 import ComputeFlow from '../../../components/ComputeFlow.astro';
 
-Follow the work that remains: validate the source, skip what can be proved unnecessary,
-compute over the admitted representation, and deliver a complete result.
+One pipeline handles every supported workflow: input → Vortex → native execution → output.
+The examples below show how the work changes with the query. The engine selects applicable
+optimizations; the controls here only switch illustrations.
 
 <ComputeFlow />
 
@@ -20,17 +21,18 @@ the source and artifact generation. It does not reuse a previous query answer.
 
 Vortex remains the highest-fidelity persistence target. Parquet, Arrow IPC, Avro, ORC, CSV,
 and JSON writers are explicit output boundaries, with their own type and size limits.
-See [execution routes](/field-guide/execution-routes) and [runtime and I/O](/field-guide/runtime-and-io).
+See [data lifecycle](/field-guide/execution-routes) and [runtime and I/O](/field-guide/runtime-and-io).
 
 ## Where the differentiators apply
 
 - **Metadata and pruning:** avoid payload reads only when exact evidence supports the answer or exclusion.
 - **Encoded execution:** dictionary identities, repeated values, and native typed accessors reduce expansion on eligible operations.
 - **Capillary work units:** divide admitted work into bounded pieces, including local preparation tasks.
-- **PulseWeave:** applies resource-aware control on certified local prepared/native and cold-preparation paths; other paths may report readiness without applying it.
+- **PulseWeave:** applies resource-aware control within supported preparation and execution work. Reports distinguish applied control from readiness-only evidence.
 - **Late materialization:** defer group-value resolution or winning-row payload gathering until the result needs it.
 
-These mechanisms compose where the route supports them. They are not all active on every query.
+The query and representation determine which mechanisms apply. Coverage is still being completed
+within the same pipeline; an execution-mode choice is not required to obtain these benefits.
 The [PulseWeave contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/pulseweave-runtime-control.md),
 [native result contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
 and [dictionary execution evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md)

@@ -554,6 +554,12 @@ candidates.
 
 ## UniversalIngress route terms
 
+These route identifiers describe lifecycle and evidence boundaries within one native
+pipeline. The public guide calls this the data lifecycle; it must not present the
+identifiers as selectable fast/slow compute engines. Cold/warm labels below distinguish
+measurement boundaries. See [universal workflow completion](universal-workflow-completion-2026-10-01.md)
+for the product contract and remaining breadth/scale work.
+
 - **UniversalIngress**: source-admission layer that recognizes every potential source family and
   either creates a `SourceState` or emits a deterministic blocker. Recognized source rows are a
   capability/status map, not runtime support by themselves.

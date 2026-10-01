@@ -5,8 +5,22 @@ sidebar: {"label":"Execution model","order":3}
 ---
 
 
-ShardLoom computes over Vortex-native, encoded columnar data. It is a local technical preview
-with Python, SQL, DataFrame-style, and CLI entry points into the same admitted execution families.
+ShardLoom is built toward general-purpose data processing: read data, transform or query it,
+and deliver the result. Python, SQL, DataFrame-style calls, and the CLI express work for one
+Vortex-native execution pipeline. The current technical preview has
+[specific coverage limits](/field-guide/limitations).
+
+## One native pipeline
+
+**Input adapter → Vortex-native data → ShardLoom execution → output adapter**
+
+Choose the data source, query, and destination. Input adapters handle format differences;
+the shared engine plans and executes the work. Data already in Vortex preserves its native
+representation. Preparation and reuse are stages in the data lifecycle.
+
+Metadata-first planning, pruning, encoded execution, resource control, and late materialization
+belong inside this pipeline. The engine applies each mechanism where the operation and data
+permit it. There is no separate fast-mode workflow to select.
 
 ## Avoid work first
 
@@ -17,6 +31,17 @@ work on fewer values while preserving exact results.
 Zero-decode means an operation preserves encoded values. Zero-copy means a boundary avoids copying
 buffers. They describe different things, and neither applies to every operation. Execution evidence
 records where reading, decoding, and materialization occur.
+
+## Broader workloads, the same engine
+
+The architecture supports extending formats, data types, operators, and connectors around the same
+native middle. Completing that support means making whole read → transform → write workflows
+compose and handling larger data with bounded streaming, shared resource accounting, and native
+spill. These are active engineering requirements, with remaining work tracked in the
+[breadth and scale plan](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-workflow-completion-2026-10-01.md).
+
+ClickBench is one regression and comparison workload. Its queries and schema do not define the
+product's intended scope. Shared optimizations must also work with other schemas and compositions.
 
 ## No fallback
 
@@ -33,18 +58,18 @@ Compatibility inputs such as CSV or Parquet enter through explicit adapters. Vor
 middle and the highest-fidelity persistence target. Compatibility outputs translate results and
 report metadata loss; choosing an output format does not choose another execution engine.
 
-See [execution routes](/field-guide/execution-routes) for preparation and reuse, and
+See [data lifecycle](/field-guide/execution-routes) for preparation and reuse, and
 [runtime and I/O](/field-guide/runtime-and-io) for supported formats and limits.
 
 ## Execution evidence
 
 Admitted execution reports `fallback_attempted=false` and `external_engine_invoked=false`.
-Certificates describe the admitted source, work, output, and materialization boundaries. Where
+Certificates describe the source, work, output, and materialization boundaries. Where
 included, sink digests and replay checks support result verification.
 
 `claim_gate_status` describes the scope of the evidence. A local smoke test, a capability report,
 and a reproducible benchmark answer different questions. A certificate alone does not establish
 production readiness or performance superiority.
 
-The [compute flow](/field-guide/compute-flow) shows the route in detail. Read
-[benchmark methodology](/field-guide/benchmark-methodology) before comparing timings.
+The [compute flow](/field-guide/compute-flow) illustrates how the pipeline adapts to a query.
+Read [benchmark methodology](/field-guide/benchmark-methodology) before comparing timings.
