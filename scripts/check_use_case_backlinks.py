@@ -12,6 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from check_use_case_index import INDEX_PATH, REPO_ROOT, load_index, validate_index
+from website_links import PageLinks, read_redirects, resolve_reference
 
 
 VAGUE_REFERENCE_PATTERN = re.compile(
@@ -87,6 +88,8 @@ def main() -> int:
             if slug:
                 field_guide_terms_by_use_case[related_use_case].append((slug, title))
 
+    website = repo_root / "website"
+    redirects = read_redirects(website)
     for entry in field_guide_entries:
         slug = str(entry.get("slug") or "")
         if not slug:
@@ -95,21 +98,19 @@ def main() -> int:
         references = values(entry, "references")
         if not references:
             blockers.append(f"Field Guide entry missing reference files: {slug}")
-        page = generated_html_page(repo_root / "website", "field-guide", slug)
-        page_text = page.read_text(encoding="utf-8") if page.exists() else ""
-        if not page_text:
-            blockers.append(f"missing generated Field Guide dossier page: {slug}")
-        elif 'data-citation-block="reference-files"' not in page_text:
-            blockers.append(f"Field Guide dossier missing citation block: {slug}")
-        elif "What this proves:" not in page_text:
-            blockers.append(f"Field Guide dossier missing citation proof labels: {slug}")
-        if page_text and VAGUE_REFERENCE_PATTERN.search(page_text):
-            blockers.append(f"Field Guide dossier uses vague reference wording: {slug}")
+        target = str(entry.get("redirect") or "")
+        result = resolve_reference(website, f"/field-guide/{slug}", "https://shardloom.io/", redirects)
+        if not target.startswith("/field-guide/") or not isinstance(result, tuple):
+            blockers.append(f"Field Guide legacy link has no valid destination: {slug}")
+        else:
+            page, fragment = result
+            if fragment and fragment not in PageLinks(page.read_text(encoding="utf-8")).ids:
+                blockers.append(f"Field Guide legacy link has missing fragment: {slug} -> {target}")
+            if generated_html_page(website, "field-guide", slug).exists():
+                blockers.append(f"retired Field Guide dossier still rendered: {slug}")
         for reference in references:
             if not (repo_root / reference).exists():
                 blockers.append(f"Field Guide entry {slug} reference does not exist: {reference}")
-            if page_text and f"<code>{reference}</code>" not in page_text:
-                blockers.append(f"Field Guide dossier {slug} missing reference: {reference}")
 
     for use_case in data.get("use_cases", []):
         if not isinstance(use_case, dict):

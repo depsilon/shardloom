@@ -1,99 +1,28 @@
 ---
 title: "Field Guide"
-description: "A concise Starlight-powered atlas for ShardLoom routes, evidence terms, and support boundaries."
-sidebar: {"label":"Field Guide"}
+description: "Install ShardLoom, run local queries, and understand Vortex-native execution."
+sidebar: {"label":"Field Guide","order":0}
 ---
 
 
-A compact Starlight docs shell for ShardLoom's current public surface. Start with installation,
-Python, runtime and I/O, then use the vocabulary atlas for exact route and evidence terms.
+A practical guide to local, Vortex-native compute. Start with a query, then follow the
+parts of the engine that matter to your workload.
 
-## Category Table Of Contents
+## Get started
 
-- [Start local proof](/field-guide/start-local-proof/)
-- [Python surface](/field-guide/python-surface/)
-- [Runtime and I/O](/field-guide/runtime-and-io/)
-- [Benchmark methodology](/field-guide/benchmark-methodology/)
-- [Limitations](/field-guide/limitations/)
-- [Start Here](#start-here)
-- [Execution Routes](#execution-routes)
-- [UniversalIngress](#universalingress)
-- [Evidence + Certificates](#evidence-certificates)
-- [Vortex Ingest](#vortex-ingest)
-- [Prepared/Native Vortex](#prepared-native-vortex)
-- [Benchmarks](#benchmarks)
-- [I/O + Outputs](#i-o-outputs)
-- [Scale + Resource Envelope](#scale-resource-envelope)
-- [Platform Boundaries](#platform-boundaries)
-- [Unsupported Diagnostics](#unsupported-diagnostics)
+- [Install and run](/field-guide/start-local-proof) — install the technical preview and verify a local query.
+- [Python](/field-guide/python-surface) — read, filter, inspect results, and choose an output.
 
-## Start Here
+## Understand the engine
 
-- [What is ShardLoom?](/field-guide/what-is-shardloom/) - A published technical-preview engine for local Vortex-native compute, reusable preparation, and explicit no-fallback execution.
-- [Evidence-gated compute](/field-guide/evidence-gated-compute/) - Every supported route must emit evidence before any claim can be upgraded.
-- [No fallback](/field-guide/no-fallback/) - Unsupported work blocks or reports a deterministic diagnostic instead of running through another engine.
+- [Execution model](/field-guide/execution-model) — encoded work, native Vortex, and the no-fallback contract.
+- [Execution routes](/field-guide/execution-routes) — source admission, preparation, and reuse.
+- [Runtime and I/O](/field-guide/runtime-and-io) — operators, formats, result limits, and resource boundaries.
 
-## Execution Routes
+## Read the evidence
 
-- [compatibility_import_certified](/field-guide/compatibility-import-certified/) - The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution.
-- [internal_local_source_smoke](/field-guide/internal-local-source-smoke/) - An internal smoke-only route; public local-file workflows must use Vortex preparation or native Vortex input.
-- [Generated source route](/field-guide/generated-source-route/) - No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.
+- [Benchmark methodology](/field-guide/benchmark-methodology) — what a timing includes and how to compare it.
+- [Limitations](/field-guide/limitations) — current coverage gaps and failure behavior.
 
-## UniversalIngress
-
-- [UniversalIngress](/field-guide/universal-ingress/) - The source admission layer that recognizes, admits, or blocks every potential input family.
-- [SourceState](/field-guide/source-state/) - Reusable source identity, schema, fingerprint, adapter posture, and source evidence.
-- [Source adapter status](/field-guide/source-adapter-status/) - The visible admit/block posture for an input adapter and source format.
-- [Local SQLite fixture](/field-guide/local-sqlite-fixture/) - A named local SQLite table scan to workspace-safe JSONL plus roundtrip SQLite replay, without SQL pushdown or network effects.
-
-## Evidence + Certificates
-
-- [Effectful operation admission](/field-guide/effectful-operation-admission/) - The matrix that admits local fixture/metadata exceptions while blocking network, credential, plugin, UDF, API, model, and vector effects by default.
-- [claim_gate_status](/field-guide/claim-gate-status/) - The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked.
-- [Native I/O certificate](/field-guide/native-io-certificate/) - Evidence for admitted local source or sink I/O without external engine fallback.
-- [Materialization boundary](/field-guide/materialization-boundary/) - Evidence describing when data was decoded, materialized, or kept source-backed.
-- [Result-sink replay](/field-guide/result-sink-replay/) - Output proof that a local result sink can be replayed or checked for evidence consistency.
-
-## Vortex Ingest
-
-- [vortex_ingest](/field-guide/vortex-ingest/) - The prepare-once stage that turns admitted non-Vortex sources into VortexPreparedState.
-- [VortexPreparedState](/field-guide/vortex-prepared-state/) - The prepared artifact/state that prepared_vortex executes from.
-- [Prepared state reuse](/field-guide/prepared-state-reuse/) - Reuse of a prepared Vortex artifact across scenarios, queries, or outputs.
-
-## Prepared/Native Vortex
-
-- [prepared_vortex](/field-guide/prepared-vortex/) - Prepared warm execution over an existing VortexPreparedState, not direct non-Vortex input.
-- [native_vortex](/field-guide/native-vortex/) - Execution over input that already exists as Vortex before the query starts.
-- [Source-backed scan](/field-guide/source-backed-scan/) - Prepared/native scan evidence showing columns, pushdown, decode, and materialization posture.
-
-## Benchmarks
-
-- [Benchmark evidence](/field-guide/benchmark-evidence/) - Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard.
-- [Certified cold route](/field-guide/certified-cold-route/) - Timing scope that includes source read, parse, source-state materialization, Vortex array build/write/digest/reopen, compute, output, and evidence.
-- [Prepared warm route](/field-guide/prepared-warm-route/) - Timing scope for query/runtime after VortexPreparedState already exists.
-- [external_baseline_only](/field-guide/external-baseline-only/) - Competitor engines are comparison context only and never satisfy ShardLoom evidence gates.
-
-## I/O + Outputs
-
-- [OutputPlan](/field-guide/output-plan/) - The output planning layer that stays separate from input format and execution route.
-- [SinkArtifact](/field-guide/sink-artifact/) - The written output artifact plus digest, format, replay, and certificate posture.
-- [Output fanout](/field-guide/output-fanout/) - One prepared source or result writing multiple output formats without coupling input and output types.
-
-## Scale + Resource Envelope
-
-- [Scale classes](/field-guide/scale-classes/) - Bounded scale claims such as local smoke, local claim-grade, split-local, object-store runtime, and distributed runtime.
-
-## Platform Boundaries
-
-- [Object-store boundary](/field-guide/object-store-boundary/) - S3/GCS/ADLS now have a public no-credential fixture read smoke, while live provider runtime remains separately blocked.
-- [Table/lakehouse boundary](/field-guide/table-lakehouse-boundary/) - ShardLoom can read local Iceberg metadata, manifest summaries, manifest split plans, and explicitly requested local Parquet Iceberg data-file scans; broad lakehouse runtime remains gated.
-- [Foundry boundary](/field-guide/foundry-boundary/) - Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims.
-
-## Unsupported Diagnostics
-
-- [Deterministic blockers](/field-guide/deterministic-blockers/) - Unsupported work must return an explicit blocker instead of silently disappearing or falling back.
-- [report_only](/field-guide/report-only/) - A visible design or capability posture that is not runtime execution.
-
-## Claim Boundary
-
-The Field Guide explains vocabulary. It does not create a runtime, performance, production, SQL/DataFrame, object-store, lakehouse, Foundry, package-publication, Spark-displacement, or fallback-execution claim.
+For the architecture diagram, open the [compute flow](/compute-engine-flow).
+The [repository](https://github.com/depsilon/shardloom) holds detailed API references and implementation evidence.

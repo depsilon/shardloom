@@ -1,42 +1,83 @@
+/* The homepage's ink, ice blue, paper, and system type, adapted for long-form reading. */
 :root {
-  --sl-color-accent-low: #d9f4fb;
-  --sl-color-accent: #0c95bb;
-  --sl-color-accent-high: #083e74;
-  --sl-color-white: #111827;
-  --sl-color-gray-1: #1f2d3a;
-  --sl-color-gray-2: #405363;
-  --sl-color-gray-3: #5f6f7d;
-  --sl-color-gray-4: #bdccd8;
-  --sl-color-gray-5: #dbe5ec;
-  --sl-color-gray-6: #f3f7fa;
-  --sl-color-black: #fbfcfd;
-  --sl-font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --sl-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --sl-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --sl-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --sl-color-accent-low: #162b3c;
+  --sl-color-accent: #badcff;
+  --sl-color-accent-high: #d9edff;
+  --sl-color-white: #edf4f9;
+  --sl-color-gray-1: #d8e3ec;
+  --sl-color-gray-2: #b5c6d3;
+  --sl-color-gray-3: #8fa5b6;
+  --sl-color-gray-4: #526879;
+  --sl-color-gray-5: #263a49;
+  --sl-color-gray-6: #101c26;
+  --sl-color-black: #070d13;
+  --sl-color-bg-nav: #070d13;
+  --sl-color-bg-sidebar: #0b141e;
+  --sl-color-hairline-light: #233342;
+  --sl-content-width: 47rem;
+  --sl-sidebar-width: 16rem;
+  --sl-nav-height: 4.5rem;
+  --sl-menu-button-size: 2.75rem;
+  --sl-text-h1: clamp(2.4rem, 5vw, 3.4rem);
+  --sl-text-h2: 1.6rem;
+  --sl-text-h3: 1.2rem;
+  --sl-line-height: 1.7;
 }
-
-:root[data-theme="dark"] {
-  --sl-color-black: #fbfcfd;
-  --sl-color-white: #111827;
+:root[data-theme="light"] {
+  --sl-color-accent-low: #d8e7ee;
+  --sl-color-accent: #285771;
+  --sl-color-accent-high: #143b52;
+  --sl-color-white: #14212a;
+  --sl-color-gray-1: #263845;
+  --sl-color-gray-2: #455968;
+  --sl-color-gray-3: #617786;
+  --sl-color-gray-4: #889dab;
+  --sl-color-gray-5: #cbd5d9;
+  --sl-color-gray-6: #e3e9e6;
+  --sl-color-gray-7: #e8ede9;
+  --sl-color-black: #edf0ec;
+  --sl-color-bg-nav: #070d13;
+  --sl-color-bg-sidebar: #e8ede9;
+  --sl-color-hairline-light: #cbd5d9;
 }
-
-.site-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  color: #071a52;
-  font-weight: 800;
-}
-
-.site-title::before {
-  content: "";
-  width: 2rem;
-  height: 2rem;
-  flex: 0 0 auto;
-  background: url("/assets/logo/shardloom-favicon.png") center / contain no-repeat;
-  object-fit: contain;
-}
-
+body { -webkit-font-smoothing: antialiased; }
 .header {
-  border-bottom-color: #dbe5ec;
-  background: rgba(255, 255, 255, 0.94);
+  color: #edf4f9;
+}
+.header .social-icons a, .header starlight-theme-select { color: #badcff; }
+starlight-menu-button button { align-items: center; justify-content: center; }
+header.header { border-bottom: 1px solid #233342; }
+.header button[data-open-modal] { min-height: 44px; min-width: 44px; background: #0b141e; color: #b5c6d3; border-color: #314655; }
+.header button[data-open-modal] kbd { color: #b5c6d3; background: #172532; }
+.header select { color: #edf4f9; }
+.header select option { color: #edf4f9; background: #0b141e; }
+h1, h2, h3 { letter-spacing: -.04em; font-weight: 550; }
+.sl-markdown-content :is(h2, h3) { line-height: 1.25; }
+.sl-markdown-content h2 { margin-top: 2.5rem; }
+.sl-markdown-content a { text-underline-offset: .2em; }
+.sl-markdown-content :is(pre, table) { max-width: 100%; }
+.sl-markdown-content table { display: block; overflow-x: auto; font-size: .9rem; }
+.sl-markdown-content :not(pre) > code { overflow-wrap: anywhere; }
+.sidebar-content .top-level > li > details > summary .large {
+  font-family: var(--sl-font-mono);
+  font-size: .7rem;
+  font-weight: 400;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-2);
+}
+.sidebar-content a { padding-block: .4rem; border-radius: 3px; }
+.sidebar-content a[aria-current="page"] { color: var(--sl-color-white); background: var(--sl-color-accent-low); font-weight: 600; }
+.right-sidebar h2 { font-family: var(--sl-font-mono); font-size: .7rem; font-weight: 400; letter-spacing: .05em; text-transform: uppercase; }
+.right-sidebar a { font-size: .8rem; }
+:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 3px; }
+header :focus-visible { outline-color: #badcff; }
+@media (max-width: 49.99rem) {
+  :root { --sl-nav-height: 4rem; }
+  .sl-markdown-content h2 { margin-top: 2rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }

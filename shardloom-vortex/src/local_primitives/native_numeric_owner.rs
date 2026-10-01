@@ -211,6 +211,78 @@ impl NativeNumericOwner {
             Ok(())
         })
     }
+
+    pub(super) fn update_compact_avg_count_block(
+        &self,
+        states: &mut super::GroupedAggregateStates<'_>,
+        accessors: &[super::AggregateDirectColumnAccessor],
+        rows: Option<&[usize]>,
+        count_first: bool,
+    ) -> Result<()> {
+        numeric_dispatch!(
+            self,
+            compact_avg_count_typed,
+            states,
+            accessors,
+            rows,
+            count_first
+        )
+    }
+
+    fn compact_avg_count_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        states: &mut super::GroupedAggregateStates<'_>,
+        accessors: &[super::AggregateDirectColumnAccessor],
+        rows: Option<&[usize]>,
+        count_first: bool,
+    ) -> Result<()> {
+        if count_first {
+            self.compact_avg_count_rows::<T, ALL_VALID, true>(states, accessors, rows)
+        } else {
+            self.compact_avg_count_rows::<T, ALL_VALID, false>(states, accessors, rows)
+        }
+    }
+
+    fn compact_avg_count_rows<T: Numeric, const ALL_VALID: bool, const COUNT_FIRST: bool>(
+        &self,
+        states: &mut super::GroupedAggregateStates<'_>,
+        accessors: &[super::AggregateDirectColumnAccessor],
+        rows: Option<&[usize]>,
+    ) -> Result<()> {
+        let values = self.primitive.as_slice::<T>();
+        let valid = &self.valid;
+        let mut update_row = |row| {
+            states.update_compact_measure_direct_row_with(accessors, row, |group, _specs| {
+                let measures = group.compact_measures_mut()?.values_mut();
+                // Admission fixes both positions before dispatch. Do not load
+                // or validate AVG before COUNT when COUNT is the first measure:
+                // failures must retain exactly the original partial state.
+                if COUNT_FIRST {
+                    measures[0].increment_count()?;
+                }
+                let value = values
+                    .get(row)
+                    .ok_or_else(|| failed("native typed row index was out of bounds"))?;
+                if ALL_VALID || valid.value(row) {
+                    measures[usize::from(COUNT_FIRST)].add_numeric(value.widen().numeric())?;
+                }
+                if !COUNT_FIRST {
+                    measures[1].increment_count()?;
+                }
+                Ok(())
+            })
+        };
+        if let Some(rows) = rows {
+            for &row in rows {
+                update_row(row)?;
+            }
+        } else {
+            for row in 0..values.len() {
+                update_row(row)?;
+            }
+        }
+        Ok(())
+    }
     fn integer_typed<T: Numeric, const ALL_VALID: bool>(
         &self,
         row: usize,

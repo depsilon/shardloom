@@ -2592,6 +2592,18 @@ and seven-candidate ship/drop packet are recorded. The finite packet has four
 retained and three dropped candidates. The rules below govern a separately
 admitted continuation, rather than automatically restarting exhausted experiments.
 
+The [quiet-workstation follow-up assessment](performance-quiet-intake-2026-09-30.md)
+records five experiment families and the maintainer's paused-workstreams
+clarification. That complete finite batch is now
+[implemented and validated](../benchmarks/quiet-runtime-results-2026-09-30.md):
+ingest grant configuration evidence, borrowed sort reads, concrete compact
+measure loops, scalar exact DISTINCT and two separately screened directory
+changes. Final paired Full43 passes 258 exact results with a 6.4668% reduction
+in the sum of per-query best times; all samples and the Q11 follow-up remain
+recorded. Workspace/native checks pass. Any next candidate needs separate
+admission under the existing PERF owners; broader obligations and CG status
+remain unchanged.
+
 1. Ground any separately admitted next candidate list in the
    [current-runtime observation and controls](../benchmarks/current-runtime-e2e-2026-09-30.md),
    [post-release paired measurements](performance-post033-intake-2026-09-30.md) and

@@ -1,7 +1,7 @@
 ---
-title: "Start local proof"
+title: "Install and run"
 description: "Install the published technical preview and inspect native execution evidence."
-sidebar: {"label":"Start local proof","order":1}
+sidebar: {"label":"Install and run","order":1}
 ---
 
 
@@ -18,17 +18,11 @@ python -m pip install shardloom
 brew install depsilon/tap/shardloom
 ```
 
-## Source Checkout
+## Develop from source
 
-For development and release validation, follow [source checkout installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md), then run:
+For development, follow [source checkout installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
 
-```powershell
-python scripts\release_dry_run_proof.py --rows 64 --iterations 1
-python scripts\check_production_usability_gate.py
-python examples\local-python-smoke\run.py --repo-root .
-```
-
-## Success Evidence
+## Verify execution
 
 - `fallback_attempted=false`
 - `external_engine_invoked=false`

@@ -1,0 +1,22 @@
+---
+import MobileMenuToggle from "@astrojs/starlight/components/MobileMenuToggle.astro";
+---
+
+<MobileMenuToggle />
+
+<script>
+  // Starlight 0.41 updates the host state but leaves the button's ARIA state stale.
+  // Keep the accessible control in sync with the existing menu and focus behavior.
+  const menu = document.querySelector("starlight-menu-button");
+  const button = menu?.querySelector("button");
+  if (menu && button) {
+    const syncExpanded = () => {
+      button.setAttribute("aria-expanded", String(menu.getAttribute("aria-expanded") === "true"));
+    };
+    new MutationObserver(syncExpanded).observe(menu, {
+      attributes: true,
+      attributeFilter: ["aria-expanded"],
+    });
+    syncExpanded();
+  }
+</script>

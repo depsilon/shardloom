@@ -107,9 +107,13 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "v1-supported-unsupported.md",
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
-        "stable_v1_example_local_csv",
-        "stable_v1_example_blocker_inspection",
-        "unsupported_example_broad_sql",
+        "ctx = sl.context()",
+        "ctx.read(path)",
+        "result.envelope",
+        "result.fallback_attempted",
+        "result.external_engine_invoked",
+        "docs/getting-started/examples.md",
+        "/field-guide/limitations",
     ),
 }
 

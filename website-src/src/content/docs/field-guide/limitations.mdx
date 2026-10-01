@@ -21,7 +21,14 @@ Package availability is separate from production readiness.
 
 See [runtime and I/O](/field-guide/runtime-and-io) for the shipped boundaries and linked evidence.
 
-## Not Claimed
+## External systems
+
+Remote output, table transactions, and production object-store or Foundry runtime are outside
+the local contract. Local fixtures, metadata inspection, and explicitly admitted local table-file
+reads do not establish live provider support. Network, credential, extension, UDF, API, and model
+effects require explicit admission; discovery does not execute them.
+
+## Not claimed
 
 - production support
 - broad SQL/DataFrame parity

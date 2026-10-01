@@ -16,6 +16,11 @@ coverage, and claim gating.
 - `publication_proof`: result-sink, replay, and human evidence rendering when included by the row formula.
 - `external_baseline`: comparison context only, never fallback execution.
 
+## External baselines
+
+External engines are comparison context only. Their execution never satisfies a ShardLoom
+execution contract or its no-fallback evidence. The [benchmarks page](/benchmarks) links to ClickBench.
+
 ## Claim Rules
 
 Do not compare rows without naming the timing surface, evidence tier, and claim gate. If

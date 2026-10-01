@@ -48,6 +48,14 @@ once when the evidence identifies a concrete correctable mechanism. Otherwise
 remove it, preserve the evidence and move on. No broad codec, topology, PGO or
 native-Python-binding sweep is authorized by this packet.
 
+The later [scalar-specific source review](performance-quiet-intake-2026-09-30.md)
+corrects the breadth of P033-5's original Q6 conclusion: source ownership and
+miss-only global promotion already existed on grouped paths, but scalar UTF8
+DISTINCT still promoted chunk values before incremental global-set insertion.
+That newly identified boundary was separately admitted and implemented in the
+[quiet-runtime batch](../benchmarks/quiet-runtime-results-2026-09-30.md).
+The historical P033-5 decision and its measurements remain preserved.
+
 ## First attribution run
 
 - Release source: `e15f2e66faf6d359bba944e9d295fc58ce3bf7d4` (0.3.3).

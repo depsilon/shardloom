@@ -1,0 +1,652 @@
+{
+  "schema": "shardloom.quiet_runtime_source_review.v1",
+  "status": "source_review_complete_experiments_not_run",
+  "created_at": "2026-09-30T21:51:05.783836+00:00",
+  "source_revision": "6bcec8e61acf6ca269e6f7a2789537797dbb3e6b",
+  "source_sha256": {
+    "Cargo.toml": "9f1f1aea714a491454f6034947396776eeab1fae2d8ca560e5719ec3ee81d694",
+    "Cargo.lock": "12bee6ea82fbfe059670f84a1fcf9a97be557b8a597f7eb2b99eee5a1a9b1605",
+    "benchmarks/clickbench/queries.sql": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+    "shardloom-vortex/src/ingest_cpu_lanes.rs": "9007b234f10591565a80058453e26020846608da5484c05338a4f84d68708dce",
+    "shardloom-vortex/src/vortex_ingest.rs": "1db03d8563c7ba919da57963bda1c4a6416ba3751b275aa88e7069cb3b2393ca",
+    "shardloom-vortex/src/local_primitives.rs": "de316e4f1cf2fdaffbff63bbf8369299eeb8895f7f2ce9e5d097f564b834786b",
+    "shardloom-vortex/src/local_primitives/native_sort_block.rs": "1a65dc45e3c6080b468da6cbe4f00b7c41d6141f39b941d174cdfc44ff740abb",
+    "shardloom-vortex/src/local_primitives/native_sort_block_tests.rs": "48e010d36ebaca193d96a713a48e30d2b3aa2e4149fdaa114bc603cad241aac1",
+    "shardloom-vortex/src/local_primitives/native_utf8.rs": "304ebd3ca295978298237a98c4bddcd23a2d7232782f84d011d32cbac784d141",
+    "shardloom-vortex/src/local_primitives/bound_numeric_updates.rs": "7b25d2f9fe72664ab0183277811e1392f83a360e096457fbb9844d66c3b8600b",
+    "shardloom-vortex/src/local_primitives/native_numeric_owner.rs": "245ed26d63e317535b582cd6b7cdea116ba20df8d0e16c51787d53d5a75e7435",
+    "shardloom-vortex/src/local_primitives/string_count_partitions.rs": "cd9a865a53854c0382e75231a809d1dbe25c447e137f4b615e7006353bea6c00",
+    "shardloom-vortex/src/local_primitives/string_count_partitions_tests.rs": "c065b530b71dada8779a46426571f5f42a9d258b4e22932919963321c04b8ffe",
+    "shardloom-vortex/src/local_primitives/aggregate_dense_pages.rs": "fdc7919ebe2cb32ec7656d64e9467de5b214683765edde1209bf4f043ced930d",
+    "shardloom-vortex/src/local_primitives/aggregate_count_workers.rs": "aa8c0d06b3ca533d5be649ee36da7cacb1d666eb3d77c27ea9a85c5a16551270"
+  },
+  "supporting_inventory_sha256": [
+    {
+      "file": "quiet-sort-directory-source-inventory.json",
+      "sha256": "5fb50d477638ef8aeae591467157f79a943fb2acea08e059a0e8e6aa1f84742b",
+      "reported_status": "COMPLETE"
+    },
+    {
+      "file": "quiet-measure-distinct-source-inventory.json",
+      "sha256": "ea9d55592fb7d041df1a241229683d345cc70c245274232558c1c4c0304b19b2",
+      "reported_status": "NEEDS_REASONING"
+    }
+  ],
+  "observation_receipt_sha256": "78026e80852b40415d78331e1f8b671ce353b1d732f638374731fcc5470bbeef",
+  "observation_record": "current-runtime-e2e-2026-09-30.json",
+  "operational_annotation": {
+    "source": "maintainer-supplied clarification in the September 30 pasted review",
+    "statement": "User-managed competing workstreams were paused for the fresh end-to-end run.",
+    "interpretation": "Use the P4 ingest and single Full43 pass as the current working baseline under that condition; preserve earlier mixed-load cohorts.",
+    "qualification": "Not proof of an exclusively idle host or a quantified causal attribution; no original timing/result/bundle changed."
+  },
+  "queries": [
+    {
+      "query": 1,
+      "wall_seconds": 0.02026850002584979,
+      "cpu_seconds": 0.016137,
+      "average_accounted_cpu_equivalents": 0.7961615304250137,
+      "peak_rss_bytes": 53280768
+    },
+    {
+      "query": 2,
+      "wall_seconds": 0.07477962499251589,
+      "cpu_seconds": 0.27627999999999997,
+      "average_accounted_cpu_equivalents": 3.694589268502626,
+      "peak_rss_bytes": 147423232
+    },
+    {
+      "query": 3,
+      "wall_seconds": 0.877703583042603,
+      "cpu_seconds": 0.991127,
+      "average_accounted_cpu_equivalents": 1.1292274740000594,
+      "peak_rss_bytes": 154648576
+    },
+    {
+      "query": 4,
+      "wall_seconds": 0.37269012501928955,
+      "cpu_seconds": 0.460429,
+      "average_accounted_cpu_equivalents": 1.235420444735876,
+      "peak_rss_bytes": 165609472
+    },
+    {
+      "query": 5,
+      "wall_seconds": 1.3482995420345105,
+      "cpu_seconds": 1.430563,
+      "average_accounted_cpu_equivalents": 1.0610127463526082,
+      "peak_rss_bytes": 1833025536
+    },
+    {
+      "query": 6,
+      "wall_seconds": 3.4288987499894574,
+      "cpu_seconds": 3.507852,
+      "average_accounted_cpu_equivalents": 1.023025833005651,
+      "peak_rss_bytes": 1154596864
+    },
+    {
+      "query": 7,
+      "wall_seconds": 0.017020333965774626,
+      "cpu_seconds": 0.016277999999999997,
+      "average_accounted_cpu_equivalents": 0.9563854641590845,
+      "peak_rss_bytes": 55640064
+    },
+    {
+      "query": 8,
+      "wall_seconds": 0.07926708302693442,
+      "cpu_seconds": 0.268127,
+      "average_accounted_cpu_equivalents": 3.382576849824186,
+      "peak_rss_bytes": 148291584
+    },
+    {
+      "query": 9,
+      "wall_seconds": 1.2527515409747139,
+      "cpu_seconds": 5.858222,
+      "average_accounted_cpu_equivalents": 4.6762840103489,
+      "peak_rss_bytes": 3880730624
+    },
+    {
+      "query": 10,
+      "wall_seconds": 2.3041569580091164,
+      "cpu_seconds": 3.612104,
+      "average_accounted_cpu_equivalents": 1.5676466776469091,
+      "peak_rss_bytes": 642301952
+    },
+    {
+      "query": 11,
+      "wall_seconds": 0.7570882090367377,
+      "cpu_seconds": 2.0357179999999997,
+      "average_accounted_cpu_equivalents": 2.6888782254185344,
+      "peak_rss_bytes": 289161216
+    },
+    {
+      "query": 12,
+      "wall_seconds": 1.3307631249772385,
+      "cpu_seconds": 2.00473,
+      "average_accounted_cpu_equivalents": 1.506451420521807,
+      "peak_rss_bytes": 296108032
+    },
+    {
+      "query": 13,
+      "wall_seconds": 0.5654891660087742,
+      "cpu_seconds": 4.023325,
+      "average_accounted_cpu_equivalents": 7.114769374622419,
+      "peak_rss_bytes": 1278509056
+    },
+    {
+      "query": 14,
+      "wall_seconds": 1.4394015839789063,
+      "cpu_seconds": 10.758763,
+      "average_accounted_cpu_equivalents": 7.474469334860524,
+      "peak_rss_bytes": 1826062336
+    },
+    {
+      "query": 15,
+      "wall_seconds": 1.4764896249980666,
+      "cpu_seconds": 10.602682000000001,
+      "average_accounted_cpu_equivalents": 7.181006774777632,
+      "peak_rss_bytes": 1469235200
+    },
+    {
+      "query": 16,
+      "wall_seconds": 2.3312914579873905,
+      "cpu_seconds": 4.017447,
+      "average_accounted_cpu_equivalents": 1.7232710162582037,
+      "peak_rss_bytes": 2300182528
+    },
+    {
+      "query": 17,
+      "wall_seconds": 2.690377166029066,
+      "cpu_seconds": 20.917139,
+      "average_accounted_cpu_equivalents": 7.774797996398851,
+      "peak_rss_bytes": 3076554752
+    },
+    {
+      "query": 18,
+      "wall_seconds": 0.2789332920219749,
+      "cpu_seconds": 0.424521,
+      "average_accounted_cpu_equivalents": 1.5219445370707323,
+      "peak_rss_bytes": 276512768
+    },
+    {
+      "query": 19,
+      "wall_seconds": 4.582343666988891,
+      "cpu_seconds": 8.480978,
+      "average_accounted_cpu_equivalents": 1.8507948369514036,
+      "peak_rss_bytes": 4292771840
+    },
+    {
+      "query": 20,
+      "wall_seconds": 0.07119654200505465,
+      "cpu_seconds": 0.299663,
+      "average_accounted_cpu_equivalents": 4.208954417740193,
+      "peak_rss_bytes": 165068800
+    },
+    {
+      "query": 21,
+      "wall_seconds": 0.8486431670025922,
+      "cpu_seconds": 7.021615000000001,
+      "average_accounted_cpu_equivalents": 8.273930991279109,
+      "peak_rss_bytes": 1559527424
+    },
+    {
+      "query": 22,
+      "wall_seconds": 1.3144304170273244,
+      "cpu_seconds": 7.430621,
+      "average_accounted_cpu_equivalents": 5.65311096254518,
+      "peak_rss_bytes": 1159643136
+    },
+    {
+      "query": 23,
+      "wall_seconds": 4.520917832967825,
+      "cpu_seconds": 12.618075000000001,
+      "average_accounted_cpu_equivalents": 2.7910427630392642,
+      "peak_rss_bytes": 2412806144
+    },
+    {
+      "query": 24,
+      "wall_seconds": 0.8802410420030355,
+      "cpu_seconds": 6.707768000000001,
+      "average_accounted_cpu_equivalents": 7.620376328665744,
+      "peak_rss_bytes": 1156923392
+    },
+    {
+      "query": 25,
+      "wall_seconds": 0.22335749998455867,
+      "cpu_seconds": 0.511541,
+      "average_accounted_cpu_equivalents": 2.2902342658534605,
+      "peak_rss_bytes": 254541824
+    },
+    {
+      "query": 26,
+      "wall_seconds": 1.743920042004902,
+      "cpu_seconds": 1.960329,
+      "average_accounted_cpu_equivalents": 1.1240933946411344,
+      "peak_rss_bytes": 252018688
+    },
+    {
+      "query": 27,
+      "wall_seconds": 1.710638916993048,
+      "cpu_seconds": 1.9841989999999998,
+      "average_accounted_cpu_equivalents": 1.1599169060691161,
+      "peak_rss_bytes": 318373888
+    },
+    {
+      "query": 28,
+      "wall_seconds": 2.147938750043977,
+      "cpu_seconds": 2.3953699999999998,
+      "average_accounted_cpu_equivalents": 1.1151947419128951,
+      "peak_rss_bytes": 420642816
+    },
+    {
+      "query": 29,
+      "wall_seconds": 4.9864421670208685,
+      "cpu_seconds": 10.165562,
+      "average_accounted_cpu_equivalents": 2.0386403089626883,
+      "peak_rss_bytes": 1532215296
+    },
+    {
+      "query": 30,
+      "wall_seconds": 0.21333566698012874,
+      "cpu_seconds": 0.28572,
+      "average_accounted_cpu_equivalents": 1.3392978494618695,
+      "peak_rss_bytes": 123076608
+    },
+    {
+      "query": 31,
+      "wall_seconds": 0.9176062920014374,
+      "cpu_seconds": 1.640526,
+      "average_accounted_cpu_equivalents": 1.7878321174343366,
+      "peak_rss_bytes": 879443968
+    },
+    {
+      "query": 32,
+      "wall_seconds": 1.1299515829887241,
+      "cpu_seconds": 1.992633,
+      "average_accounted_cpu_equivalents": 1.7634675945401854,
+      "peak_rss_bytes": 2380169216
+    },
+    {
+      "query": 33,
+      "wall_seconds": 1.9239599159918725,
+      "cpu_seconds": 6.723937,
+      "average_accounted_cpu_equivalents": 3.494842560965498,
+      "peak_rss_bytes": 2745810944
+    },
+    {
+      "query": 34,
+      "wall_seconds": 3.011716292006895,
+      "cpu_seconds": 18.472102,
+      "average_accounted_cpu_equivalents": 6.133413711319695,
+      "peak_rss_bytes": 4593778688
+    },
+    {
+      "query": 35,
+      "wall_seconds": 2.684496875037439,
+      "cpu_seconds": 17.546052,
+      "average_accounted_cpu_equivalents": 6.536067209895819,
+      "peak_rss_bytes": 4905385984
+    },
+    {
+      "query": 36,
+      "wall_seconds": 0.3208926669904031,
+      "cpu_seconds": 2.4685070000000002,
+      "average_accounted_cpu_equivalents": 7.692625148314236,
+      "peak_rss_bytes": 666238976
+    },
+    {
+      "query": 37,
+      "wall_seconds": 0.20747454196680337,
+      "cpu_seconds": 0.334493,
+      "average_accounted_cpu_equivalents": 1.612212259051619,
+      "peak_rss_bytes": 268500992
+    },
+    {
+      "query": 38,
+      "wall_seconds": 0.1438882079673931,
+      "cpu_seconds": 0.26228199999999996,
+      "average_accounted_cpu_equivalents": 1.82281789248106,
+      "peak_rss_bytes": 490733568
+    },
+    {
+      "query": 39,
+      "wall_seconds": 0.1009383340133354,
+      "cpu_seconds": 0.205684,
+      "average_accounted_cpu_equivalents": 2.037719385905717,
+      "peak_rss_bytes": 213794816
+    },
+    {
+      "query": 40,
+      "wall_seconds": 0.6383926669950597,
+      "cpu_seconds": 0.752726,
+      "average_accounted_cpu_equivalents": 1.179095623925494,
+      "peak_rss_bytes": 716406784
+    },
+    {
+      "query": 41,
+      "wall_seconds": 0.09834404202410951,
+      "cpu_seconds": 0.209095,
+      "average_accounted_cpu_equivalents": 2.1261582877459864,
+      "peak_rss_bytes": 228212736
+    },
+    {
+      "query": 42,
+      "wall_seconds": 0.08582516602473333,
+      "cpu_seconds": 0.187074,
+      "average_accounted_cpu_equivalents": 2.179710318836884,
+      "peak_rss_bytes": 168574976
+    },
+    {
+      "query": 43,
+      "wall_seconds": 0.09927549998974428,
+      "cpu_seconds": 0.20899999999999996,
+      "average_accounted_cpu_equivalents": 2.105252554976715,
+      "peak_rss_bytes": 327630848
+    }
+  ],
+  "verified_recorded_fields": {
+    "6": {
+      "raw_stdout_sha256": "1cc4def223a6d2ce429eaef8f7b564d46edd44f888505647817f4720de33b7d8",
+      "fields": {
+        "local_primitive_distinct_state_strategy": "dictionary_arc_direct_exact",
+        "local_primitive_aggregate_native_numeric_accessor_columns": "[]",
+        "local_primitive_aggregate_first_pass_scan_next_nanos": "22405609",
+        "local_primitive_aggregate_first_pass_accessor_nanos": "0",
+        "local_primitive_aggregate_first_pass_group_update_nanos": "0",
+        "local_primitive_aggregate_timing_scope": "disjoint_caller_elapsed_scopes_first_pass_scan_next_reader_evidence_compact_group_accessors_and_updates_plus_final_result_render_not_cpu_or_complete_wall;scan_next_includes_provider_progress;residual_row_updates_and_later_passes_not_instrumented",
+        "local_primitive_physical_policy_selected_max_parallelism": "10"
+      }
+    },
+    "28": {
+      "raw_stdout_sha256": "311dc613f52d33205ad51811b819b65407e9a9b7093492ccf21c102482816fa4",
+      "fields": {
+        "local_primitive_distinct_state_strategy": "none",
+        "local_primitive_aggregate_accessor_summary": "CounterID:direct_i64,__shardloom_derived_utf8_len_URL:direct_u64",
+        "local_primitive_embedded_derived_column_rewrites": "[\"__shardloom_derived_utf8_len_URL\"]",
+        "local_primitive_aggregate_native_numeric_accessor_columns": "[\"CounterID\",\"__shardloom_derived_utf8_len_URL\"]",
+        "local_primitive_compact_group_state_strategy": "compact_count_sum_avg_group_state",
+        "local_primitive_aggregate_first_pass_scan_next_nanos": "28202970",
+        "local_primitive_aggregate_first_pass_accessor_nanos": "40258343",
+        "local_primitive_aggregate_first_pass_group_update_nanos": "2042901515",
+        "local_primitive_aggregate_timing_scope": "disjoint_caller_elapsed_scopes_first_pass_scan_next_reader_evidence_compact_group_accessors_and_updates_plus_final_result_render_not_cpu_or_complete_wall;scan_next_includes_provider_progress;residual_row_updates_and_later_passes_not_instrumented",
+        "local_primitive_physical_policy_selected_max_parallelism": "10"
+      }
+    }
+  },
+  "machine_code": {
+    "binary_source_revision": "8385055894ba8c74bd4501ecbd833ae650a07895",
+    "binary_sha256": "7f92839c2598b29e06ce244b61b53d84197c885a59a262b5961877b882a6fd9a",
+    "build_profile": "release; ThinLTO; codegen-units=1; release-user-surfaces",
+    "command": [
+      "/Library/Developer/CommandLineTools/usr/bin/llvm-objdump",
+      "--disassemble",
+      "--demangle",
+      "--start-address=0x1013bbf98",
+      "--stop-address=0x1013bc108",
+      "<frozen-runtime>"
+    ],
+    "raw_output_sha256": "dc0f0e95365d0ddabb3856f3de54178a61e5da67d302a352f70c0ee0ac1d4d1c",
+    "portable_output_sha256": "99f61a85545c9dfa10b5abb664c0f1c162bdd2583e5baf0ca5706d3d76343644",
+    "disassembly": "\n<frozen-runtime>:\tfile format mach-o arm64\n\nDisassembly of section __TEXT,__text:\n\n00000001013bbf98 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row>:\n1013bbf98: d10183ff    \tsub\tsp, sp, #0x60\n1013bbf9c: a9025ff8    \tstp\tx24, x23, [sp, #0x20]\n1013bbfa0: a90357f6    \tstp\tx22, x21, [sp, #0x30]\n1013bbfa4: a9044ff4    \tstp\tx20, x19, [sp, #0x40]\n1013bbfa8: a9057bfd    \tstp\tx29, x30, [sp, #0x50]\n1013bbfac: 910143fd    \tadd\tx29, sp, #0x50\n1013bbfb0: aa0003f3    \tmov\tx19, x0\n1013bbfb4: f9400028    \tldr\tx8, [x1]\n1013bbfb8: d2800049    \tmov\tx9, #0x2                ; =2\n1013bbfbc: f2f00009    \tmovk\tx9, #0x8000, lsl #48\n1013bbfc0: eb09011f    \tcmp\tx8, x9\n1013bbfc4: 5400018b    \tb.lt\t0x1013bbff4 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x5c>\n1013bbfc8: aa0603f4    \tmov\tx20, x6\n1013bbfcc: b40003a7    \tcbz\tx7, 0x1013bc040 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0xa8>\n1013bbfd0: a940a8e9    \tldp\tx9, x10, [x7, #0x8]\n1013bbfd4: f8418028    \tldur\tx8, [x1, #0x18]\n1013bbfd8: b100051f    \tcmn\tx8, #0x1\n1013bbfdc: 54000440    \tb.eq\t0x1013bc064 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0xcc>\n1013bbfe0: a9422035    \tldp\tx21, x8, [x1, #0x20]\n1013bbfe4: eb0a011f    \tcmp\tx8, x10\n1013bbfe8: 9a8a3116    \tcsel\tx22, x8, x10, lo\n1013bbfec: b50004b6    \tcbnz\tx22, 0x1013bc080 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0xe8>\n1013bbff0: 14000032    \tb\t0x1013bc0b8 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x120>\n1013bbff4: 52800ca0    \tmov\tw0, #0x65               ; =101\n1013bbff8: 9472828b    \tbl\t0x10305ca24 <dyld_stub_binder+0x10305ca24>\n1013bbffc: b4000800    \tcbz\tx0, 0x1013bc0fc <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x164>\n1013bc000: f0011008    \tadrp\tx8, 0x1035bf000 <_anon.765863d88d7e988c6dd05b18c1ba5370.10289+0xc89>\n1013bc004: 91369508    \tadd\tx8, x8, #0xda5\n1013bc008: ad420500    \tldp\tq0, q1, [x8, #0x40]\n1013bc00c: ad020400    \tstp\tq0, q1, [x0, #0x40]\n1013bc010: f845d109    \tldur\tx9, [x8, #0x5d]\n1013bc014: f805d009    \tstur\tx9, [x0, #0x5d]\n1013bc018: ad400500    \tldp\tq0, q1, [x8]\n1013bc01c: ad000400    \tstp\tq0, q1, [x0]\n1013bc020: ad410101    \tldp\tq1, q0, [x8, #0x20]\n1013bc024: ad010001    \tstp\tq1, q0, [x0, #0x20]\n1013bc028: b0010668    \tadrp\tx8, 0x103489000 <_anon.a6e3bd653bac3806b92544fe9076b8f1.131+0x1182>\n1013bc02c: 3dc18100    \tldr\tq0, [x8, #0x600]\n1013bc030: 3d800260    \tstr\tq0, [x19]\n1013bc034: 52800ca8    \tmov\tw8, #0x65               ; =101\n1013bc038: a9012260    \tstp\tx0, x8, [x19, #0x10]\n1013bc03c: 14000024    \tb\t0x1013bc0cc <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x134>\n1013bc040: 91006021    \tadd\tx1, x1, #0x18\n1013bc044: aa1303e0    \tmov\tx0, x19\n1013bc048: aa1403e6    \tmov\tx6, x20\n1013bc04c: a9457bfd    \tldp\tx29, x30, [sp, #0x50]\n1013bc050: a9444ff4    \tldp\tx20, x19, [sp, #0x40]\n1013bc054: a94357f6    \tldp\tx22, x21, [sp, #0x30]\n1013bc058: a9425ff8    \tldp\tx24, x23, [sp, #0x20]\n1013bc05c: 910183ff    \tadd\tsp, sp, #0x60\n1013bc060: 14000350    \tb\t0x1013bcda0 <<shardloom_vortex::local_primitives::CompactAggregateMeasures>::update_from_direct_row>\n1013bc064: f9401828    \tldr\tx8, [x1, #0x30]\n1013bc068: f100151f    \tcmp\tx8, #0x5\n1013bc06c: 540003c2    \tb.hs\t0x1013bc0e4 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x14c>\n1013bc070: 9100e035    \tadd\tx21, x1, #0x38\n1013bc074: eb0a011f    \tcmp\tx8, x10\n1013bc078: 9a8a3116    \tcsel\tx22, x8, x10, lo\n1013bc07c: b40001f6    \tcbz\tx22, 0x1013bc0b8 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x120>\n1013bc080: 91002137    \tadd\tx23, x9, #0x8\n1013bc084: a97fa2e0    \tldp\tx0, x8, [x23, #-0x8]\n1013bc088: f9401509    \tldr\tx9, [x8, #0x28]\n1013bc08c: 910003e8    \tmov\tx8, sp\n1013bc090: aa1503e1    \tmov\tx1, x21\n1013bc094: aa1403e2    \tmov\tx2, x20\n1013bc098: d63f0120    \tblr\tx9\n1013bc09c: f94003e8    \tldr\tx8, [sp]\n1013bc0a0: b100051f    \tcmn\tx8, #0x1\n1013bc0a4: 54000101    \tb.ne\t0x1013bc0c4 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x12c>\n1013bc0a8: 910042f7    \tadd\tx23, x23, #0x10\n1013bc0ac: 910042b5    \tadd\tx21, x21, #0x10\n1013bc0b0: f10006d6    \tsubs\tx22, x22, #0x1\n1013bc0b4: 54fffe81    \tb.ne\t0x1013bc084 <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0xec>\n1013bc0b8: 92800008    \tmov\tx8, #-0x1               ; =-1\n1013bc0bc: f9000268    \tstr\tx8, [x19]\n1013bc0c0: 14000003    \tb\t0x1013bc0cc <<shardloom_vortex::local_primitives::GroupedAggregateState>::update_compact_measures_from_direct_row+0x134>\n1013bc0c4: ad4007e0    \tldp\tq0, q1, [sp]\n1013bc0c8: ad000660    \tstp\tq0, q1, [x19]\n1013bc0cc: a9457bfd    \tldp\tx29, x30, [sp, #0x50]\n1013bc0d0: a9444ff4    \tldp\tx20, x19, [sp, #0x40]\n1013bc0d4: a94357f6    \tldp\tx22, x21, [sp, #0x30]\n1013bc0d8: a9425ff8    \tldp\tx24, x23, [sp, #0x20]\n1013bc0dc: 910183ff    \tadd\tsp, sp, #0x60\n1013bc0e0: d65f03c0    \tret\n1013bc0e4: 90013d03    \tadrp\tx3, 0x103b5c000 <_anon.765863d88d7e988c6dd05b18c1ba5370.5759+0xce8>\n1013bc0e8: 911fc063    \tadd\tx3, x3, #0x7f0\n1013bc0ec: d2800000    \tmov\tx0, #0x0                ; =0\n1013bc0f0: aa0803e1    \tmov\tx1, x8\n1013bc0f4: 52800082    \tmov\tw2, #0x4                ; =4\n1013bc0f8: 946f7c70    \tbl\t0x102f9b2b8 <core::slice::index::slice_index_fail>\n1013bc0fc: 52800020    \tmov\tw0, #0x1                ; =1\n1013bc100: 52800ca1    \tmov\tw1, #0x65               ; =101\n1013bc104: 946f3d07    \tbl\t0x102f8b520 <alloc::raw_vec::handle_error>\n",
+    "finding": "The bound compact-measure loop loads the callback from its vtable at 0x1013bc088, calls it indirectly at 0x1013bc098, and repeats at 0x1013bc0b4. This proves remaining dispatch, not its runtime cost."
+  },
+  "external_reference": {
+    "url": "https://github.com/ClickHouse/ClickBench/blob/80d24dca3797ac5014cbf69ce3a2e6a67ef2f620/polars/results/20260824/c6a.4xlarge.json",
+    "raw_sha256": "b2d2ac6a0555cc4d3491b0c2a6d174353392db6aa0f8b88795c744a865599c1a",
+    "source_record": {
+      "system": "Polars (Parquet)",
+      "date": "2026-08-24",
+      "machine": "c6a.4xlarge",
+      "cluster_size": 1,
+      "proprietary": "no",
+      "hardware": "cpu",
+      "tuned": "no",
+      "tags": [
+        "column-oriented",
+        "stateless"
+      ],
+      "load_time": 10,
+      "data_size": 14779976446,
+      "concurrent_qps": 0.88,
+      "concurrent_error_ratio": 0,
+      "result": [
+        [
+          0.239,
+          0.001,
+          0.001
+        ],
+        [
+          0.256,
+          0.009,
+          0.008
+        ],
+        [
+          0.317,
+          0.035,
+          0.033
+        ],
+        [
+          0.538,
+          0.086,
+          0.087
+        ],
+        [
+          0.92,
+          0.593,
+          0.564
+        ],
+        [
+          1.126,
+          0.675,
+          0.679
+        ],
+        [
+          0.254,
+          0.023,
+          0.023
+        ],
+        [
+          0.291,
+          0.012,
+          0.011
+        ],
+        [
+          1.629,
+          1.244,
+          1.253
+        ],
+        [
+          1.844,
+          1.377,
+          1.377
+        ],
+        [
+          0.569,
+          0.105,
+          0.106
+        ],
+        [
+          0.593,
+          0.118,
+          0.112
+        ],
+        [
+          1.055,
+          0.602,
+          0.591
+        ],
+        [
+          2.583,
+          1.127,
+          1.121
+        ],
+        [
+          1.17,
+          0.67,
+          0.72
+        ],
+        [
+          1.062,
+          0.702,
+          0.693
+        ],
+        [
+          2.931,
+          2.022,
+          2.058
+        ],
+        [
+          2.902,
+          2.056,
+          2.048
+        ],
+        [
+          5.585,
+          3.431,
+          3.438
+        ],
+        [
+          0.473,
+          0.025,
+          0.024
+        ],
+        [
+          9.531,
+          0.749,
+          0.746
+        ],
+        [
+          11.031,
+          0.834,
+          0.822
+        ],
+        [
+          21.486,
+          3.364,
+          3.32
+        ],
+        [
+          45.486,
+          1.726,
+          1.707
+        ],
+        [
+          2.429,
+          0.312,
+          0.288
+        ],
+        [
+          0.775,
+          0.27,
+          0.251
+        ],
+        [
+          2.426,
+          0.392,
+          0.403
+        ],
+        [
+          9.539,
+          1.502,
+          1.475
+        ],
+        [
+          8.943,
+          8.133,
+          8.213
+        ],
+        [
+          0.453,
+          0.149,
+          0.145
+        ],
+        [
+          2.178,
+          0.621,
+          0.616
+        ],
+        [
+          5.569,
+          0.715,
+          0.736
+        ],
+        [
+          6.47,
+          3.762,
+          3.85
+        ],
+        [
+          11.142,
+          3.62,
+          3.665
+        ],
+        [
+          11.229,
+          3.604,
+          3.766
+        ],
+        [
+          1.27,
+          0.552,
+          0.558
+        ],
+        [
+          0.488,
+          0.098,
+          0.094
+        ],
+        [
+          0.401,
+          0.064,
+          0.058
+        ],
+        [
+          0.394,
+          0.038,
+          0.037
+        ],
+        [
+          0.55,
+          0.133,
+          0.131
+        ],
+        [
+          0.405,
+          0.015,
+          0.015
+        ],
+        [
+          0.379,
+          0.014,
+          0.013
+        ],
+        [
+          0.385,
+          0.012,
+          0.012
+        ]
+      ]
+    },
+    "aggregation": "sum of minimum second/third sample for each of 43 queries",
+    "hot_minimum_sum_seconds": 45.347,
+    "raw_gap_seconds": 9.904837461139074,
+    "current_time_reduction_fraction_to_equal_reference": 0.17926711429471573,
+    "q6_q26_q27_raw_gap_seconds": 5.565457708987408,
+    "q6_q26_q27_fraction_of_net_raw_gap": 0.5618928862611916,
+    "qualification": "Cross-machine, differently sampled observations. Engine version is not pinned in this result file. Not a same-hardware ranking, projected saving, or retention gate."
+  },
+  "primary_corrections": [
+    "Q6 performs incremental scalar set union during scanning; finalization reads set length. Existing grouped workers do not establish scalar admission.",
+    "Q6 promotes each used dictionary entry before set insertion; the lazy Arc cache is per entry, not global miss-only promotion across chunks.",
+    "The Q28 recorded derived numeric column resolves the leaf inventory uncertainty about Length versus an identity numeric owner.",
+    "Q6 actual source codec remains unpinned by scalar evidence fields; dictionary_arc_direct_exact does not distinguish native Dict from a constructed chunk dictionary.",
+    "P4/P6/P8 have one caller/source/conversion owner each, provider drivers 1/3/5, and prefetch slots 3/4/4 when the same one-source-worker path is admitted."
+  ],
+  "validation": {
+    "source_identities": "passed",
+    "both_leaf_inventory_hashes": "passed",
+    "q6_q28_original_raw_archive_hashes": "passed",
+    "frozen_binary_hash_and_indirect_loop": "passed",
+    "external_reference_arithmetic": "passed",
+    "native_build_test_or_benchmark_executed": false
+  }
+}

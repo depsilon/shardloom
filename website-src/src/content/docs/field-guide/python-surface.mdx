@@ -1,13 +1,14 @@
 ---
-title: "Python surface"
+title: "Python"
 description: "Current Python ETL scenario shape for the primary ShardLoom route."
-sidebar: {"label":"Python surface","order":2}
+sidebar: {"label":"Python","order":2}
 ---
 
 
-The Python surface is the current user-facing way to describe local ETL scenarios. It is a front door into ShardLoom route admission, not permission to use pandas, Polars, DuckDB, Spark, or DataFusion as fallback execution.
+Use Python to read local data, build queries, and inspect or export results. Admitted queries
+run in ShardLoom. Unsupported work returns a diagnostic without fallback execution.
 
-## Normal Package Shape
+## Run a local query
 
 Create the small CSV in the [getting-started walkthrough](/start) before running this example.
 The public `run()` report exposes a shared result envelope across admitted routes.
@@ -46,41 +47,8 @@ shared native result and sink contracts. Feature gates, supported types, and res
 See [runtime and I/O](/field-guide/runtime-and-io) and the
 [user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
 
-## Schema-Pinned Benchmark Shape
+## Next steps
 
-Markers for the copyable v1 guide examples: `stable_v1_example_local_csv`,
-`stable_v1_example_blocker_inspection`, and `unsupported_example_broad_sql`.
-
-```python
-import shardloom as sl
-
-ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
-
-prepared = ctx.prepare_vortex(
-    "data/fact.csv",
-    dim="data/dim.csv",
-    workspace="target/shardloom-prepared",
-    input_format="csv",
-    result_workspace="target/shardloom-results",
-    evidence_level="certified",
-    max_parallelism=1,
-)
-
-# selective filter
-result = prepared.query("selective filter").collect()
-prepared.query("filter + projection + limit").collect()
-prepared.query("group by aggregation").collect()
-prepared.query("hash join").collect()
-prepared.query("sort and top-k").collect()
-prepared.query("clean/cast/filter/write").collect()
-prepared.query("malformed timestamp / dirty CSV").collect()
-prepared.query("null-heavy aggregate").collect()
-prepared.query("nested JSON field scan").collect()
-
-print(result.batch.field("scenario_selective-filter_fallback_attempted"))
-print(result.batch.field("scenario_selective-filter_external_engine_invoked"))
-```
-
-## Boundary
-
-The primary route must emit ShardLoom evidence. Direct local-file execution is an internal smoke path; public scenario execution uses Vortex-prepared or native Vortex routes unless the current runtime returns a deterministic blocker.
+See [the examples](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md)
+for preparation, bounded collection, writes, and blocker inspection. The [limitations](/field-guide/limitations)
+page describes current coverage gaps.

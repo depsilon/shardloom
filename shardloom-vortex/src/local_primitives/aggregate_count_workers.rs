@@ -241,6 +241,9 @@ impl CountWorkers {
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
 pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+    if super::scalar_distinct_workers::request_may_be_admitted(request) {
+        return true;
+    }
     if super::dictionary_prepare_workers::request_may_be_admitted(request) {
         return true;
     }
@@ -1131,6 +1134,16 @@ impl SingleCountWorkers {
             );
         }
         if let Some(evidence) = self.partition_evidence.as_ref() {
+            #[cfg(test)]
+            for (name, value) in ["probes", "record_reads", "tag_rejections"]
+                .into_iter()
+                .zip(evidence.lookup)
+            {
+                object.insert(
+                    format!("aggregate_workers_test_lookup_{name}"),
+                    value.into(),
+                );
+            }
             for (name, value) in [
                 (
                     "partition_count",

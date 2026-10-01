@@ -294,75 +294,167 @@ fn native_sort_block_does_not_reinterpret_float_nan_all_ties_or_invalid_indices(
 #[test]
 fn native_sort_block_rejects_malformed_losing_utf8_but_ignores_null_payload_bytes() {
     use vortex::array::dtype::Nullability;
-    let make = |validity| {
-        // Build valid binary buffers, then inject malformed UTF8 through the
-        // native buffer-handle boundary. The UTF8 builder validates eagerly in
-        // debug builds, before this fixture can reach the sort consumer.
-        let binary = VarBinViewArray::from_iter_bin([&[0xff_u8][..], &b"valid"[..]]);
-        let invalid = VarBinViewArray::new_handle(
-            binary.views_handle().clone(),
-            binary.data_buffers().to_vec().into(),
-            DType::Utf8(Nullability::NonNullable),
-            Validity::NonNullable,
+    for malformed in [&[0xff_u8][..], &b"long external malformed value\xff"[..]] {
+        let make = |validity| {
+            // Build valid binary buffers, then inject malformed UTF8 through the
+            // native buffer-handle boundary. The UTF8 builder validates eagerly in
+            // debug builds, before this fixture can reach the sort consumer.
+            let binary = VarBinViewArray::from_iter_bin([malformed, &b"valid"[..]]);
+            let invalid = VarBinViewArray::new_handle(
+                binary.views_handle().clone(),
+                binary.data_buffers().to_vec().into(),
+                DType::Utf8(Nullability::NonNullable),
+                Validity::NonNullable,
+            )
+            .into_array();
+            StructArray::try_new(
+                ["metric", "text"].into(),
+                vec![
+                    PrimitiveArray::new(vec![100_i64, 200], Validity::NonNullable).into_array(),
+                    invalid,
+                ],
+                2,
+                validity,
+            )
+            .unwrap()
+            .into_array()
+        };
+        let names = ["metric".to_owned(), "text".to_owned()];
+        let order = [crate::VortexAggregateOrderExpr::new("metric", false)];
+        let mut candidates = vec![SortRowCandidate {
+            ordinal: 0,
+            source_partition_index: 0,
+            source_ordinal: 0,
+            values: vec![StatValue::Int64(0), StatValue::Utf8("cutoff".into())],
+        }];
+        let error = append(
+            &make(Validity::NonNullable),
+            &names,
+            &[0, 1],
+            &[0],
+            &order,
+            VortexSortTiePolicy::First,
+            1,
+            1,
+            0,
+            0,
+            None,
+            &mut candidates,
+            &mut vortex::array::legacy_session().create_execution_ctx(),
         )
-        .into_array();
-        StructArray::try_new(
-            ["metric", "text"].into(),
-            vec![
-                PrimitiveArray::new(vec![100_i64, 200], Validity::NonNullable).into_array(),
-                invalid,
-            ],
-            2,
-            validity,
+        .err()
+        .expect("losing-row malformed UTF8 must fail");
+        assert!(error.to_string().contains("invalid UTF8"));
+        assert_eq!(candidates.len(), 1);
+        let masked = make(Validity::from_iter([false, true]));
+        let work = append(
+            &masked,
+            &names,
+            &[0, 1],
+            &[0],
+            &order,
+            VortexSortTiePolicy::First,
+            1,
+            1,
+            0,
+            0,
+            None,
+            &mut candidates,
+            &mut vortex::array::legacy_session().create_execution_ctx(),
         )
         .unwrap()
-        .into_array()
-    };
-    let names = ["metric".to_owned(), "text".to_owned()];
-    let order = [crate::VortexAggregateOrderExpr::new("metric", false)];
-    let mut candidates = vec![SortRowCandidate {
-        ordinal: 0,
-        source_partition_index: 0,
-        source_ordinal: 0,
-        values: vec![StatValue::Int64(0), StatValue::Utf8("cutoff".into())],
-    }];
-    let error = append(
-        &make(Validity::NonNullable),
-        &names,
-        &[0, 1],
-        &[0],
-        &order,
-        VortexSortTiePolicy::First,
-        1,
-        1,
-        0,
-        0,
-        None,
-        &mut candidates,
-        &mut vortex::array::legacy_session().create_execution_ctx(),
-    )
-    .err()
-    .expect("losing-row malformed UTF8 must fail");
-    assert!(error.to_string().contains("invalid UTF8"));
-    assert_eq!(candidates.len(), 1);
-    let masked = make(Validity::from_iter([false, true]));
-    let work = append(
-        &masked,
-        &names,
-        &[0, 1],
-        &[0],
-        &order,
-        VortexSortTiePolicy::First,
-        1,
-        1,
-        0,
-        0,
-        None,
-        &mut candidates,
-        &mut vortex::array::legacy_session().create_execution_ctx(),
-    )
-    .unwrap()
-    .unwrap();
-    assert_eq!(work.candidate_rows, 1);
-    assert_eq!(candidates[1].values, vec![StatValue::Null, StatValue::Null]);
+        .unwrap();
+        assert_eq!(work.candidate_rows, 1);
+        assert_eq!(candidates[1].values, vec![StatValue::Null, StatValue::Null]);
+    }
+}
+
+#[test]
+fn native_sort_borrows_sliced_inline_and_external_views_but_retains_independent_results() {
+    use vortex::array::{arrays::varbinview::BinaryView, dtype::Nullability};
+    use vortex::buffer::{Buffer, ByteBuffer};
+
+    let first = "a-shared-prefix-東京-first";
+    let second = "z-shared-prefix-東京-second";
+    let values = ["outside", "123456789012", first, second, first, "", "tail"];
+    let seed = "m-cutoff-long-seed-東京";
+    for descending in [false, true] {
+        let mut candidates = vec![SortRowCandidate {
+            ordinal: 0,
+            source_partition_index: 0,
+            source_ordinal: 0,
+            values: vec![StatValue::Utf8(seed.to_owned())],
+        }];
+        let expected = values[1..6]
+            .iter()
+            .enumerate()
+            .filter(|(_, value)| {
+                if descending {
+                    **value > seed
+                } else {
+                    **value < seed
+                }
+            })
+            .map(|(row, value)| (row, (*value).to_owned()))
+            .collect::<Vec<_>>();
+        let work = {
+            let buffers = vec![
+                ByteBuffer::from(format!("pad{first}").into_bytes()),
+                ByteBuffer::from(format!("padding{second}").into_bytes()),
+            ];
+            let views = Buffer::from(vec![
+                BinaryView::new_inlined(values[0].as_bytes()),
+                BinaryView::new_inlined(values[1].as_bytes()),
+                BinaryView::make_view(first.as_bytes(), 0, 3),
+                BinaryView::make_view(second.as_bytes(), 1, 7),
+                BinaryView::make_view(first.as_bytes(), 0, 3),
+                BinaryView::new_inlined(values[5].as_bytes()),
+                BinaryView::new_inlined(values[6].as_bytes()),
+            ]);
+            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+            let source = VarBinViewArray::try_new(
+                views,
+                buffers.into(),
+                DType::Utf8(Nullability::NonNullable),
+                Validity::NonNullable,
+                &mut ctx,
+            )
+            .unwrap()
+            .into_array();
+            let sliced = source.slice(1..6).unwrap();
+            append(
+                &sliced,
+                &["renamed_text".to_owned()],
+                &[0],
+                &[0],
+                &[crate::VortexAggregateOrderExpr::new(
+                    "renamed_text",
+                    descending,
+                )],
+                VortexSortTiePolicy::First,
+                1,
+                1,
+                2,
+                50,
+                None,
+                &mut candidates,
+                &mut ctx,
+            )
+            .unwrap()
+            .unwrap()
+        }; // Native arrays, sliced view, buffers and execution context are gone.
+        assert_eq!(work.rows, 5);
+        assert_eq!(work.candidate_rows, expected.len() as u64);
+        assert_eq!(
+            work.copied_utf8_bytes,
+            expected.iter().map(|(_, s)| s.len() as u64).sum::<u64>()
+        );
+        assert_eq!(candidates.len(), expected.len() + 1);
+        for (actual, (row, text)) in candidates[1..].iter().zip(expected) {
+            assert_eq!(actual.values, vec![StatValue::Utf8(text)]);
+            assert_eq!(actual.ordinal, row + 1);
+            assert_eq!(actual.source_partition_index, 2);
+            assert_eq!(actual.source_ordinal, row + 50);
+        }
+    }
 }

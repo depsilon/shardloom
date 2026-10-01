@@ -34,6 +34,9 @@ mod bound_numeric_updates;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/bounded_numeric_reduction_experiment.rs"]
 mod bounded_numeric_reduction_experiment;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/compact_numeric_block.rs"]
+mod compact_numeric_block;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/compact_string_state.rs"]
 mod compact_string_state;
@@ -134,6 +137,12 @@ mod pair_partition_workers;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/scalar_distinct_partitions.rs"]
+mod scalar_distinct_partitions;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/scalar_distinct_workers.rs"]
+mod scalar_distinct_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/source_order_candidate_filter.rs"]
 mod source_order_candidate_filter;
@@ -20356,6 +20365,23 @@ fn read_lowered_vortex_simple_aggregate_scan(
         .with(std::cell::Cell::take)
         .unwrap_or(worker_admission_selected);
     let worker_admission_selected = input_scan_required && worker_admission_selected;
+    let mut scalar_workers = if worker_admission_selected
+        && scalar_distinct_workers::request_may_be_admitted(request)
+        && residual_evaluator.is_none()
+        && let (Some(states), Some(memory)) = (scalar_states.as_ref(), worker_memory)
+    {
+        scalar_distinct_workers::ScalarDistinctWorkers::admit(
+            states,
+            file.dtype(),
+            &declared_columns,
+            policy,
+            session,
+            memory,
+            cancellation,
+        )?
+    } else {
+        None
+    };
     let mut count_workers = if worker_admission_selected
         && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
@@ -20399,7 +20425,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
             // total budget of three (caller + dictionary + native progress).
             let (drivers, count) = runtime.provider_drivers(provider_parallelism)?;
             (Some(drivers), count)
-        } else if worker_memory.is_some() && count_workers.is_none() && input_scan_required {
+        } else if worker_memory.is_some()
+            && count_workers.is_none()
+            && scalar_workers.is_none()
+            && input_scan_required
+        {
             let (drivers, count) =
                 runtime.provider_drivers(policy.resource_envelope.max_parallelism)?;
             (Some(drivers), count)
@@ -20487,6 +20517,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
         let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;
         loop {
             check_cancelled()?;
+            if let Some(workers) = scalar_workers.as_mut() {
+                workers.before_next()?;
+            }
             if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut())
             {
                 workers.before_next(states)?;
@@ -20745,6 +20778,12 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         )
                     })?;
             } else {
+                let scalar_worker_updated = if let Some(workers) = scalar_workers.as_mut() {
+                    workers.submit(&chunk)?;
+                    true
+                } else {
+                    false
+                };
                 let worker_updated = if let (Some(workers), Some(states)) =
                     (count_workers.as_mut(), grouped_states.as_mut())
                 {
@@ -20763,7 +20802,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     provider_background_workers = count;
                     provider_resume_after_pair_retirement = true;
                 }
-                let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
+                let direct_scalar_updated = if scalar_worker_updated {
+                    true
+                } else if let Some(states) = scalar_states.as_mut() {
                     states.update_direct_from_chunk(
                         &chunk,
                         &declared_columns,
@@ -20817,6 +20858,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
     }
     check_cancelled()?;
+    if let (Some(workers), Some(states)) = (scalar_workers.as_mut(), scalar_states.as_mut()) {
+        workers.finish(states)?;
+    }
     if let (Some(workers), Some(states)) = (count_workers.as_mut(), grouped_states.as_mut()) {
         workers.finish(states)?;
     }
@@ -21279,6 +21323,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
         report.annotate(&mut result_summary)?;
     }
     if let Some(workers) = count_workers.as_ref() {
+        workers.annotate_summary(&mut result_summary)?;
+    }
+    if let Some(workers) = scalar_workers.as_ref() {
         workers.annotate_summary(&mut result_summary)?;
     }
     if provider_drivers.is_some() {
@@ -24572,6 +24619,7 @@ struct SimpleAggregateStates {
     fused_numeric_additive_updates: bool,
     fused_utf8_dictionary_transform_updates: bool,
     lazy_utf8_dictionary_minmax_updates: bool,
+    partition_distinct_completed: bool,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -24653,6 +24701,7 @@ impl SimpleAggregateStates {
             fused_numeric_additive_updates: false,
             fused_utf8_dictionary_transform_updates: false,
             lazy_utf8_dictionary_minmax_updates: false,
+            partition_distinct_completed: false,
         })
     }
 
@@ -25228,7 +25277,7 @@ impl SimpleAggregateStates {
             .iter()
             .map(|state| {
                 functions.push(state.function.as_str());
-                Ok((state.alias.clone(), state.result_json()?))
+                Ok((state.alias.clone(), self.state_result(state)?))
             })
             .collect()
     }
@@ -25245,8 +25294,18 @@ impl SimpleAggregateStates {
         self.states
             .iter()
             .find(|state| state.alias == alias)
-            .map(SimpleAggregateState::result_json)
+            .map(|state| self.state_result(state))
             .transpose()
+    }
+
+    fn state_result(&self, state: &SimpleAggregateState) -> Result<serde_json::Value> {
+        if self.partition_distinct_completed
+            && state.function == SimpleAggregateFunction::CountDistinct
+        {
+            Ok(state.count.into())
+        } else {
+            state.result_json()
+        }
     }
 
     fn result_row_count(&self, having: &[VortexAggregateHavingExpr]) -> Result<usize> {
@@ -25265,7 +25324,9 @@ impl SimpleAggregateStates {
             "rows": usize::from(matched),
             "functions": self.functions_summary(),
             "distinct_state_strategy": if self.has_count_distinct() {
-                if self.dense_integer_distinct_preunion_updates {
+                if self.partition_distinct_completed {
+                    "bounded_native_utf8_partition_exact"
+                } else if self.dense_integer_distinct_preunion_updates {
                     "typed_dense_integer_preunion_exact"
                 } else if self.dictionary_arc_distinct_updates {
                     "dictionary_arc_direct_exact"
@@ -25333,7 +25394,7 @@ impl SimpleAggregateStates {
             .filter(|state| state.function == SimpleAggregateFunction::CountDistinct)
             .try_fold(0_u64, |total, state| {
                 total
-                    .checked_add(usize_to_u64(state.distinct_values.len())?)
+                    .checked_add(if self.partition_distinct_completed { state.count } else { usize_to_u64(state.distinct_values.len())? })
                     .ok_or_else(|| {
                         ShardLoomError::InvalidOperation(
                             "local Vortex count-distinct state entry count overflowed u64; no fallback execution was attempted"
@@ -25369,6 +25430,10 @@ impl SimpleAggregateStates {
             capillary_work_units.push("dictionary_arc_distinct_state");
             pulseweave_pressure_signals.push("dictionary_string_clone_bypass");
         }
+        if self.partition_distinct_completed {
+            capillary_work_units.push("bounded_scalar_distinct_partitions");
+            pulseweave_pressure_signals.push("reserved_partition_capacity");
+        }
         if self.dense_integer_distinct_preunion_updates {
             capillary_work_units.push("dense_integer_distinct_preunion");
             pulseweave_pressure_signals.push("dense_integer_distinct_range");
@@ -25402,7 +25467,9 @@ impl SimpleAggregateStates {
             })?;
         Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
             if has_count_distinct {
-                if self.dense_integer_distinct_preunion_updates {
+                if self.partition_distinct_completed {
+                    "scalar_count_distinct_state+bounded_native_utf8_partitions"
+                } else if self.dense_integer_distinct_preunion_updates {
                     "scalar_count_distinct_state+direct_dictionary_or_typed+dense_integer_preunion"
                 } else if self.dictionary_arc_distinct_updates {
                     "scalar_count_distinct_state+direct_dictionary_arc"
@@ -25553,6 +25620,8 @@ struct GroupedAggregateStates<'a> {
     grouped_count_distinct_pair_preunion_chunk_group_partials: bool,
     grouped_count_distinct_pair_preunion_chunk_groups: u64,
     bound_numeric_recipe_chunks: u64,
+    compact_numeric_block_chunks: u64,
+    compact_numeric_block_input_rows: u64,
     string_count_topk_heavy_hitter_direct_updates: bool,
     string_count_distinct_topk_heavy_hitter_direct_updates: bool,
     chunk_dictionary_direct_updates: bool,
@@ -26729,16 +26798,21 @@ impl GroupedAggregateState {
         row_index: usize,
         bound: Option<&bound_numeric_updates::BoundCompactNumericUpdates<'_>>,
     ) -> Result<()> {
+        let measures = self.compact_measures_mut()?;
+        match bound {
+            Some(bound) => bound.update(measures, row_index),
+            None => measures.update_from_direct_row(specs, accessors, row_index),
+        }
+    }
+
+    fn compact_measures_mut(&mut self) -> Result<&mut CompactAggregateMeasures> {
         let Self::CompactMeasures { measures, .. } = self else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex grouped aggregate compact measure state was missing; no fallback execution was attempted"
                     .to_string(),
             ));
         };
-        match bound {
-            Some(bound) => bound.update(measures, row_index),
-            None => measures.update_from_direct_row(specs, accessors, row_index),
-        }
+        Ok(measures)
     }
 
     fn update_compact_measures_from_transformed_dictionary_plan(
@@ -28500,6 +28574,8 @@ impl<'a> GroupedAggregateStates<'a> {
             grouped_count_distinct_pair_preunion_chunk_group_partials: false,
             grouped_count_distinct_pair_preunion_chunk_groups: 0,
             bound_numeric_recipe_chunks: 0,
+            compact_numeric_block_chunks: 0,
+            compact_numeric_block_input_rows: 0,
             string_count_topk_heavy_hitter_direct_updates: false,
             string_count_distinct_topk_heavy_hitter_direct_updates: false,
             chunk_dictionary_direct_updates: false,
@@ -32014,6 +32090,10 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.compact_measure_specs.is_none() {
             return Ok(false);
         }
+        if compact_numeric_block::update(self, accessors, row_indices, chunk_rows)? {
+            self.compact_measure_direct_updates = true;
+            return Ok(true);
+        }
         let bound = self.compact_measure_specs.as_deref().and_then(|specs| {
             bound_numeric_updates::BoundCompactNumericUpdates::bind(specs, accessors, chunk_rows)
         });
@@ -33747,6 +33827,17 @@ impl<'a> GroupedAggregateStates<'a> {
         row_index: usize,
         bound: Option<&bound_numeric_updates::BoundCompactNumericUpdates<'_>>,
     ) -> Result<()> {
+        self.update_compact_measure_direct_row_with(accessors, row_index, |group, specs| {
+            group.update_compact_measures_from_direct_row(specs, accessors, row_index, bound)
+        })
+    }
+
+    fn update_compact_measure_direct_row_with(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+        update: impl FnOnce(&mut GroupedAggregateState, &[CompactAggregateMeasureSpec]) -> Result<()>,
+    ) -> Result<()> {
         if self.source_order_group_admission_closed() {
             let Some(key) = self.grouped_existing_key_for_direct_row(accessors, row_index)? else {
                 self.source_order_limited_group_admission = true;
@@ -33759,8 +33850,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 )
             })?;
             if let Some(group) = self.groups.get_mut(&key) {
-                group
-                    .update_compact_measures_from_direct_row(specs, accessors, row_index, bound)?;
+                update(group, specs)?;
             }
             self.source_order_limited_group_admission = true;
             return Ok(());
@@ -33790,7 +33880,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 ))
             }
         };
-        group.update_compact_measures_from_direct_row(specs, accessors, row_index, bound)
+        update(group, specs)
     }
 
     fn source_order_group_admission_limit(&self) -> Option<usize> {
@@ -34146,8 +34236,28 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok((rows, payload.to_string()))
     }
 
-    #[allow(clippy::too_many_lines)]
     fn result_row_count_and_payload(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<(usize, serde_json::Value)> {
+        let (rows, mut payload) = self.result_row_count_and_payload_inner(limit)?;
+        if self.compact_numeric_block_chunks != 0 {
+            json_object_insert_u64(
+                &mut payload,
+                "aggregate_compact_numeric_block_chunks",
+                self.compact_numeric_block_chunks,
+            )?;
+            json_object_insert_u64(
+                &mut payload,
+                "aggregate_compact_numeric_block_input_rows",
+                self.compact_numeric_block_input_rows,
+            )?;
+        }
+        Ok((rows, payload))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn result_row_count_and_payload_inner(
         &self,
         limit: Option<usize>,
     ) -> Result<(usize, serde_json::Value)> {

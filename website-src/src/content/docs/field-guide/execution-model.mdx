@@ -1,0 +1,50 @@
+---
+title: "Execution model"
+description: "How ShardLoom avoids data work and preserves its no-fallback contract."
+sidebar: {"label":"Execution model","order":3}
+---
+
+
+ShardLoom computes over Vortex-native, encoded columnar data. It is a local technical preview
+with Python, SQL, DataFrame-style, and CLI entry points into the same admitted execution families.
+
+## Avoid work first
+
+The engine tries to answer from metadata, prune irrelevant segments, and compute against encoded
+values before decoding or materializing rows. A dictionary or repeated value can let an operator
+work on fewer values while preserving exact results.
+
+Zero-decode means an operation preserves encoded values. Zero-copy means a boundary avoids copying
+buffers. They describe different things, and neither applies to every operation. Execution evidence
+records where reading, decoding, and materialization occur.
+
+## No fallback
+
+Unsupported plans return explicit diagnostics. ShardLoom does not delegate them to Spark,
+DataFusion, DuckDB, Polars, or another query engine.
+
+Approved upstream Vortex array, compute, scan, source, and sink APIs can supply native operations
+inside ShardLoom's feature and policy boundaries. Vortex integrations with external query engines
+are not execution providers.
+
+## Inputs and outputs
+
+Compatibility inputs such as CSV or Parquet enter through explicit adapters. Vortex is the native
+middle and the highest-fidelity persistence target. Compatibility outputs translate results and
+report metadata loss; choosing an output format does not choose another execution engine.
+
+See [execution routes](/field-guide/execution-routes) for preparation and reuse, and
+[runtime and I/O](/field-guide/runtime-and-io) for supported formats and limits.
+
+## Execution evidence
+
+Admitted execution reports `fallback_attempted=false` and `external_engine_invoked=false`.
+Certificates describe the admitted source, work, output, and materialization boundaries. Where
+included, sink digests and replay checks support result verification.
+
+`claim_gate_status` describes the scope of the evidence. A local smoke test, a capability report,
+and a reproducible benchmark answer different questions. A certificate alone does not establish
+production readiness or performance superiority.
+
+The [compute flow](/compute-engine-flow) shows the route in detail. Read
+[benchmark methodology](/field-guide/benchmark-methodology) before comparing timings.
