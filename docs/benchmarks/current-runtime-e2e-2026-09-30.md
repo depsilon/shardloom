@@ -40,7 +40,9 @@ causal attribution. Ordinary OS activity and the uncontrolled cache conditions
 recorded below still apply. The original machine-readable record, raw results,
 timing receipts, evidence bundle and hashes are unchanged. The
 [source-checked follow-up assessment](../architecture/performance-quiet-intake-2026-09-30.md)
-records the proposed experiments separately from completed measurements.
+records the subsequent experiments. Their
+[completed paired results](quiet-runtime-results-2026-09-30.md) use separate
+cohort identities and leave this single-workflow observation unchanged.
 
 ## Workload and identity
 

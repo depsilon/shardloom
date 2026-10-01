@@ -1,7 +1,11 @@
 # Source review of the quiet-workstation performance proposals
 
-Status: **admitted; experiments in progress**. The maintainer approved execution
-of the complete batch after the source review. This assessment checks
+Status: **complete; retained runtime validated**. The maintainer approved execution
+of the complete batch after the source review. The
+[results and evidence](../benchmarks/quiet-runtime-results-2026-09-30.md) record
+all six decisions, focused comparisons, complete Full43 acceptance and checks.
+Ingest remains configuration evidence with no default change; the five runtime
+mechanisms are retained. This original assessment checks
 the maintainer-supplied September 30 review against main
 `6bcec8e61acf6ca269e6f7a2789537797dbb3e6b`, the frozen measured executable and
 the original query evidence. It proposes a finite continuation under existing
@@ -292,7 +296,7 @@ and output, deterministic unsupported diagnostics and false fallback/external
 execution certificates remain required. Broader PERF obligations, CG-1 through
 CG-23 and paused format workloads keep their current status.
 
-## Review checks completed
+## Initial source-review checks
 
 The primary verified both independent source inventories against current files,
 read the material call sites, resolved Q28's lowering uncertainty from its
