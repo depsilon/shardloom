@@ -263,9 +263,10 @@ optimization and breadth work; retain the existing PERF owners and proceed throu
 the dependent workflow and family work without treating this first unit as the
 whole roadmap's completion.
 
-The next retained-execution and delivery unit is recorded in
+The retained-execution and delivery unit is implemented with local acceptance in
 [native unary workflows](native-unary-workflows-2026-10-01.md). It covers the ten
-existing unary families, complete bounded collection and local writers. General
+existing unary families, complete bounded collection and local writers, with 202
+public complete-result checks and 129/129 Full43 regression executions. General
 relational composition, wider type/adapter support and the remaining resource/spill
 contracts stay in the universal workflow queue; this unit does not close those items.
 

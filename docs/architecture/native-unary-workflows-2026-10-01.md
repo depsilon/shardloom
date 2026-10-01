@@ -2,8 +2,8 @@
 
 # Retained native unary workflows
 
-Status: implemented with local correctness acceptance under PERF-02/03/07/10/11/12;
-immutable release-build, Full43 and hosted-check acceptance are pending. This follows
+Status: implementation, immutable release-build and local Full43 acceptance complete
+under PERF-02/03/07/10/11/12. Hosted-check results are tracked on the PR. This follows
 the accepted aggregate/ordered [result stream](native-workflow-streaming-2026-10-01.md)
 and the [universal workflow plan](universal-workflow-completion-2026-10-01.md).
 It does not close the broader PERF or competitive gate checklists.
@@ -124,3 +124,49 @@ bring the positive complete-result checks to 202. It checks source generations,
 source/binary/harness/SDK hashes and no-fallback public evidence under the local
 storage and serial process guards. This is correctness/availability evidence,
 not a performance comparison or total RSS bound.
+
+## Local validation
+
+Runtime, Python and harness revision `959f2eb0711f95ad9aa9fd161d94770ec5cb0a75`
+was built with Rust 1.99 and `release-user-surfaces`. Frozen executable SHA-256:
+`a29108099aa2792fde4b1eb097d1cccf692080124d8d1e5fa4014cb8c8e63a0a`.
+
+| Check | Result |
+| --- | --- |
+| Default workspace all-target tests | 3,436 passed across 102 targets |
+| CLI all-target tests with `release-user-surfaces` | 1,529 passed across 75 targets |
+| Final native unary tests | 31 passed, including complete eight-format output and the final limited-deduplication evidence correction |
+| Python suite | 680 passed; 144 existing retired/environment-dependent skips; 824 total |
+| Formatting and default/native all-target Clippy | Passed, with warnings denied |
+| Public surface/status/productization docs and contribution governance | Passed |
+
+The broader native workspace and library runs also passed 4,816 and 2,103 tests,
+respectively, with 23 existing ignored tests in each. Those overlapping runs
+preceded the final public wiring and limited-deduplication evidence fixes; final
+CLI, focused unary and Clippy checks cover the affected paths. The evidence packet
+preserves this scope distinction and every retained validation log hash.
+
+The release-build Python receipt is
+`unary-workflows-20261001/logs/native_unary_20261001T231352940815Z/summary.json`,
+SHA-256 `ffaad74bcefda57a440f36c85b8338885a7ecf3900c75fa5b52cf56721fcac83`.
+It verifies all 202 complete results and the explicit collection row-bound denial.
+The packet includes all 367 public request envelopes, source identities/hashes,
+the unchanged binary/harness/SDK identities, and earlier failed-attempt receipts.
+
+Full43 passes **129/129** complete-value comparisons across all 43 queries.
+Receipt: `clickbench-100m-uat/logs/full43_20261001T231420055101Z/summary.json`,
+SHA-256 `a62583e2b0b0a2c3375cbe07514adff2ac7a19409a2944c95fe12efe39446a44`.
+Each query executes three times in a fresh process under a 24-GiB/12-worker policy.
+The resident 15,682,956,489-byte source is fully hashed before and after acceptance;
+all 43 retained reference identities and compressed/raw log hashes are checked.
+These references provide native regression evidence, not an independent oracle.
+OS page cache and ordinary host activity are uncontrolled. All guarded runs pass,
+all owned locks are released, and the frozen source/executable remain unchanged.
+
+The [portable acceptance packet](../benchmarks/evidence/native-unary-workflows-2026-10-01.json.xz)
+contains the build, local tests, public envelopes, Full43 records, reference
+identities, supervisors and verifier sources. Its SHA-256 is
+`6e12f60a0ce075357fd3f995188eacb79cbc8f9e62c4edbb86afd3932b6ec3ec`.
+Rebind path placeholders to resident local inputs when replaying the checked-in
+runner. This packet records local acceptance before hosted PR checks; its scope
+and timestamps remain immutable.

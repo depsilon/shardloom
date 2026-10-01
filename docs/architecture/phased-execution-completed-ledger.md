@@ -17,6 +17,27 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-02/03/07/10/11/12` complete retained native unary results and local delivery.
+  - Date: 2026-10-01 UTC. Runtime/SDK/harness revision `959f2eb0` covers DISTINCT,
+    deduplication, duplicate masks, tail, sampling, scalar rewrites, melt, explode,
+    pivot and source-order rolling. Prepared handles and public worker collection
+    reuse the native source/lowering while executing fresh state. Complete bounded
+    rows and admitted flat results reach all eight local output formats.
+  - The [contract and immutable acceptance](native-unary-workflows-2026-10-01.md)
+    record 202 complete public result checks, complete 65,541-row Vortex/JSONL
+    output, explicit collection denial, 129/129 Full43 comparisons, ownership,
+    cancellation, generation, pressure and cleanup proof. Predicates are preserved
+    before the eight admitted unary families; tail/mask predicates fail explicitly.
+  - Default workspace tests pass 3,436 cases; native CLI tests pass 1,529; all 31
+    unary tests pass. Python passes 680 tests with 144 existing skips. Formatting,
+    strict Clippy and public documentation/governance checks pass. Overlapping
+    broader native checks and the exact final-check scope remain in the packet.
+  - V1 scope classification: `required_for_v1`. This completes the finite unary
+    delivery unit, not the broader PERF owners or CG-1 through CG-23. General
+    relational composition, nested/extension breadth, broader adapters, state
+    spill and full resource-envelope accounting remain in the active queue.
+    No fallback, speedup, total-RSS, production or package-publication claim follows.
+
 - [x] `PERF-POST033` decide the seven post-release performance experiments.
   - Date: 2026-09-30 UTC. Retain P033-1/3/6/7; drop P033-2/4/5 at admission.
     PR #1493 merged the final query pair at `65c4e7b3` after all 40 checks passed.
