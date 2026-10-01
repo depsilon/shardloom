@@ -148,11 +148,11 @@ CLAIM_SURFACE_REFS = {
         '"Development Status :: 2 - Pre-Alpha"',
         'name = "shardloom"',
     ),
-    "website-src/src/pages/benchmarks.astro": (
+    "website-src/src/content/docs/field-guide/benchmark-methodology.mdx": (
         "https://benchmark.clickhouse.com/",
-        "stale local artifacts do not read as a",
-        "current public leaderboard",
-        "Performance claims stay explicit.",
+        "does not present a public ranking.",
+        "performance_claim_allowed=false",
+        "production readiness",
     ),
 }
 

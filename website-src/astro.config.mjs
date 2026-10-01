@@ -49,6 +49,7 @@ export default defineConfig({
           label: "Understand the engine",
           items: [
             { slug: "field-guide/execution-model" },
+            { slug: "field-guide/compute-flow" },
             { slug: "field-guide/execution-routes" },
             { slug: "field-guide/runtime-and-io" },
           ],
@@ -64,8 +65,6 @@ export default defineConfig({
           label: "Explore",
           items: [
             { label: "Website home", link: "/" },
-            { label: "Benchmarks", link: "/benchmarks" },
-            { label: "Compute flow", link: "/compute-engine-flow" },
           ],
         },
       ],

@@ -88,10 +88,10 @@ PUBLIC_DOC_MARKERS = {
         "closed_vortex_runtime_scope",
         DOC_PATH.as_posix(),
     ),
-    "website-src/src/pages/benchmarks.astro": (
+    "website-src/src/content/docs/field-guide/benchmark-methodology.mdx": (
         "ClickBench",
-        "No local leaderboard",
-        "public comparison surface",
+        "does not present a public ranking.",
+        "no-fallback evidence",
     ),
 }
 

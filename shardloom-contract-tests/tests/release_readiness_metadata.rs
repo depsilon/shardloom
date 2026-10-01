@@ -1197,9 +1197,9 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "`/`: parallax ShardLoom homepage experience from the productionized source-of-truth HTML",
         "`/about`: shipped differentiators, technical-preview support, and evidence pointers",
         "`/start`: package installation, a small CSV example, and a first local query",
-        "`/field-guide`: Starlight docs for installation, Python, runtime and I/O, benchmark methodology, limitations, and vocabulary",
-        "`/benchmarks`: ClickBench handoff and claim-safe public comparison posture",
-        "`/compute-engine-flow`: human-readable route translation",
+        "`/field-guide`: Starlight docs for installation, Python, execution, runtime and I/O, benchmarks, and current support boundaries",
+        "`/field-guide/benchmark-methodology`: ClickBench handoff",
+        "`/field-guide/compute-flow`: interactive query-path illustrations",
         "Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the",
         "`docs/use-cases/generated/`",
     ] {
@@ -1211,7 +1211,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 
     let redirects = read_repo_file("website/_redirects");
     for required in [
-        "/architecture.html /compute-engine-flow",
+        "/architecture.html /field-guide/compute-flow",
         "/use-cases.html /field-guide/python-surface",
         "/status.html /field-guide/limitations",
         "/docs.html /field-guide",
@@ -4178,7 +4178,8 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
 
     let astro_config = read_repo_file("website-src/astro.config.mjs");
     let site_layout = read_repo_file("website-src/src/layouts/SiteLayout.astro");
-    let benchmark_page = read_repo_file("website-src/src/pages/benchmarks.astro");
+    let benchmark_page =
+        read_repo_file("website-src/src/content/docs/field-guide/benchmark-methodology.mdx");
     let content_sync = read_repo_file("website-src/scripts/sync-content.mjs");
     for required in [
         "starlight(",
@@ -4218,9 +4219,9 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
     }
     for required in [
         "https://benchmark.clickhouse.com/",
-        "Use ClickBench as the public comparison surface.",
-        "old internal\n      benchmark dashboard has been removed",
-        "No local leaderboard on shardloom.io.",
+        "does not present a public ranking.",
+        "Current engineering evidence",
+        "performance_claim_allowed=false",
     ] {
         assert!(
             benchmark_page.contains(required),
@@ -4287,7 +4288,7 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Limitations",
+        "Support and limitations",
         "production support",
         "Spark displacement",
         "fallback engine",
@@ -4298,15 +4299,13 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Use ClickBench as the public comparison surface.",
         "Open ClickBench",
-        "No local leaderboard on shardloom.io.",
-        "Local benchmark artifacts remain useful for engineering validation",
-        "Public comparison belongs on ClickBench",
-        "ClickBench is the comparison target.",
-        "Repo artifacts are engineering evidence.",
-        "Performance claims stay explicit.",
-        "External engines are baselines only.",
+        "does not present a public ranking.",
+        "Current engineering evidence",
+        "What a timing includes",
+        "Comparing results",
+        "performance_claim_allowed=false",
+        "External engines may supply benchmark baselines",
     ] {
         assert!(
             benchmarks.contains(required),
@@ -4314,14 +4313,14 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "SQL and Python are front doors",
-        "prepared_vortex",
-        "VortexPreparedState",
-        "UniversalIngress",
-        "Rendered architecture diagrams",
-        "data-rendered-diagram",
-        "What must never happen",
-        "Raw Mermaid source",
+        "shardloom-compute-flow",
+        "Choose a query shape",
+        "Metadata count",
+        "Ordered top-K",
+        "Late payload gathering",
+        "PulseWeave",
+        "Conceptual illustrations",
+        "fallback_attempted=false",
     ] {
         assert!(
             flow.contains(required),
@@ -4332,7 +4331,7 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
     let redirects = read_repo_file("website/_redirects");
     for required in [
         "/field-guide.html /field-guide",
-        "/architecture.html /compute-engine-flow",
+        "/architecture.html /field-guide/compute-flow",
         "/use-cases.html /field-guide/python-surface",
         "/status.html /field-guide/limitations",
         "/docs.html /field-guide",
@@ -4371,7 +4370,7 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         "website-src/src/content.config.ts",
         "website-src/scripts/sync-content.mjs",
         "website-src/scripts/postbuild-static.mjs",
-        "website-src/src/pages/benchmarks.astro",
+        "website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
     ] {
         assert!(
             current_framework_decision.contains(required),
@@ -4489,8 +4488,8 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         "Get started",
         "Install and run",
         "Python",
-        "Benchmark methodology",
-        "Limitations",
+        "Benchmarks",
+        "Support and limitations",
         "Execution model",
         "Execution routes",
     ] {
@@ -4583,7 +4582,7 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
 
     let pagefind_entry = read_repo_file("website/pagefind/pagefind-entry.json");
     assert!(pagefind_entry.contains("\"version\":\"1.5.2\""));
-    assert!(pagefind_entry.contains("\"page_count\":8"));
+    assert!(pagefind_entry.contains("\"page_count\":9"));
 
     let headers = read_repo_file("website/_headers");
     for required in [

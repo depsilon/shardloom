@@ -136,10 +136,10 @@ PUBLIC_DOC_MARKERS = {
         DOC_PATH.as_posix(),
         "Scoped local CSV, JSON/JSONL/NDJSON, generated rows, local Vortex",
     ),
-    "website-src/src/pages/benchmarks.astro": (
+    "website-src/src/content/docs/field-guide/benchmark-methodology.mdx": (
         "ClickBench",
-        "No local leaderboard",
-        "public comparison surface",
+        "does not present a public ranking.",
+        "no-fallback evidence",
     ),
 }
 

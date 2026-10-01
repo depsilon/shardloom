@@ -4,21 +4,25 @@
 /index /
 /index/ / 301
 /index.html /
-/telemetry /benchmarks
-/telemetry/ /benchmarks 301
-/benchmark /benchmarks
-/benchmark/ /benchmarks 301
-/benchmarks.html /benchmarks
+/telemetry /field-guide/benchmark-methodology 301
+/telemetry/ /field-guide/benchmark-methodology 301
+/benchmark /field-guide/benchmark-methodology 301
+/benchmark/ /field-guide/benchmark-methodology 301
+/benchmarks /field-guide/benchmark-methodology 301
+/benchmarks/ /field-guide/benchmark-methodology 301
+/benchmarks.html /field-guide/benchmark-methodology 301
 /about.html /about
 /start.html /start
-/flow /compute-engine-flow
-/flow/ /compute-engine-flow 301
-/compute-flow /compute-engine-flow
-/compute-flow/ /compute-engine-flow 301
-/compute-engine-flow.html /compute-engine-flow
-/architecture /compute-engine-flow
-/architecture/ /compute-engine-flow 301
-/architecture.html /compute-engine-flow
+/flow /field-guide/compute-flow 301
+/flow/ /field-guide/compute-flow 301
+/compute-flow /field-guide/compute-flow 301
+/compute-flow/ /field-guide/compute-flow 301
+/compute-engine-flow /field-guide/compute-flow 301
+/compute-engine-flow/ /field-guide/compute-flow 301
+/compute-engine-flow.html /field-guide/compute-flow 301
+/architecture /field-guide/compute-flow 301
+/architecture/ /field-guide/compute-flow 301
+/architecture.html /field-guide/compute-flow 301
 /field-guide.html /field-guide
 /use-cases /field-guide/python-surface
 /use-cases/ /field-guide/python-surface 301

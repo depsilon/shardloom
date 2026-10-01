@@ -9,6 +9,8 @@ Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the sam
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
+Current capabilities, reviewed October 1, 2026.
+
 ## Native Execution
 
 Supported routes use exact metadata, segment pruning, encoded reductions, weighted dictionary
@@ -20,9 +22,11 @@ and shares partial construction between serial and bounded workers. Transformed 
 can overlap bounded dictionary preparation with native input progress and ordered consumption.
 See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
 
-Filters, projections, aggregates, sort/Top-K, and selected provider-backed join workflows are
-available. General joins, set operations, analytic windows, and subqueries still have native
-coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
+Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
+provider-backed join workflows execute today. Scoped duplicate handling, sampling, reshape,
+and source-order rolling operations also exist. Their composition, prepared execution, output,
+and spill coverage vary. General joins, set operations, analytic windows, and subqueries still
+have native coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
 
 ## Local Formats
@@ -56,9 +60,11 @@ encoding, or result delivery instantaneous.
 
 Supported owned results retain Vortex arrays, validity, and memory credits. Complete flat aggregate
 and sorted results reach the shared writers without rerunning the query or reparsing serialized
-JSON for binary export. General computed results still use bounded scalar-to-native construction:
-**65,536 rows, 128 fields, and 8 MiB**, subject to type and memory admission. This is not unbounded
-streaming or every-operator/every-sink parity. See the
+JSON for binary export. The general computed-result scalar-to-native handoff is bounded to
+**65,536 rows, 128 scalar fields, and 8 MiB**, subject to type and memory admission.
+These are limits of that handoff, not a dataset-size limit or a universal ceiling on native
+scans and streaming row exports. Nested/extension results and explicit aggregate/sort spill
+output remain outside that handoff. See the
 [I/O integration evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/public-io-route-repair-2026-09-27.md).
 
 ## Resources And Recovery

@@ -10884,11 +10884,21 @@ class ReleaseScriptTests(unittest.TestCase):
             'classifiers = ["Development Status :: 2 - Pre-Alpha"]\n',
             encoding="utf-8",
         )
-        (root / "website-src" / "src" / "pages").mkdir(parents=True, exist_ok=True)
-        (root / "website-src" / "src" / "pages" / "benchmarks.astro").write_text(
+        benchmark_methodology = (
+            root
+            / "website-src"
+            / "src"
+            / "content"
+            / "docs"
+            / "field-guide"
+            / "benchmark-methodology.mdx"
+        )
+        benchmark_methodology.parent.mkdir(parents=True, exist_ok=True)
+        benchmark_methodology.write_text(
             'const clickBenchUrl = "https://benchmark.clickhouse.com/";\n'
-            "stale local artifacts do not read as a current public leaderboard\n"
-            "Performance claims stay explicit.\n",
+            "does not present a public ranking.\n"
+            "performance_claim_allowed=false\n"
+            "production readiness\n",
             encoding="utf-8",
         )
         for name, path, schema in [

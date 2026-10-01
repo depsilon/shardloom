@@ -19,6 +19,7 @@ const requiredFiles = [
   "field-guide/benchmark-methodology/index.html",
   "field-guide/limitations/index.html",
   "field-guide/execution-model/index.html",
+  "field-guide/compute-flow/index.html",
   "field-guide/execution-routes/index.html",
   "benchmarks.html",
   "benchmarks/index.html",
@@ -145,6 +146,12 @@ for (const route of ["about", "start", "field-guide", "benchmarks", "compute-eng
     `${route}.html must be identical to the current canonical page; legacy content must not reappear`,
   );
 }
+for (const [legacy, current] of [
+  ["benchmarks", "field-guide/benchmark-methodology"],
+  ["compute-engine-flow", "field-guide/compute-flow"],
+]) {
+  assert(read(`${legacy}/index.html`) === read(`${current}/index.html`), `${legacy} must serve the current Field Guide content`);
+}
 for (const file of collectFiles(root)) {
   const size = fs.statSync(path.join(root, file)).size;
   assert(
@@ -206,7 +213,7 @@ for (const file of htmlFiles) {
   if (file === "index.html") {
     assert(content.includes('/assets/parallax-home.css'), `${file} must use parallax homepage CSS`);
     assert(content.includes('/assets/parallax-home.js'), `${file} must use parallax homepage JS`);
-  } else if (!file.startsWith("field-guide") && file !== "404.html") {
+  } else if (["about.html", "start.html"].includes(file)) {
     assert(content.includes('/assets/site.css'), `${file} must use shared CSS`);
   }
   assert(content.includes('<link rel="canonical"'), `${file} must include canonical URL`);
@@ -283,7 +290,7 @@ for (const required of [
   assert(index.includes(required), `parallax home page missing ${required}`);
 }
 assert(index.includes("View on GitHub"), "home page must link to GitHub");
-for (const route of ["/start", "/about", "/field-guide", "/benchmarks"]) {
+for (const route of ["/start", "/about", "/field-guide", "/field-guide/benchmark-methodology"]) {
   assert(index.includes(`href="${route}"`), `home page must expose current ${route} navigation`);
 }
 
@@ -292,9 +299,9 @@ for (const required of [
   "ClickBench",
   "Open ClickBench",
   "https://benchmark.clickhouse.com/",
-  "Use ClickBench as the public comparison surface.",
-  "Local benchmark artifacts remain useful for engineering validation",
-  "Public comparison belongs on ClickBench",
+  "Current engineering evidence",
+  "What a timing includes",
+  "performance_claim_allowed=false",
 ]) {
   assert(benchmarks.includes(required), `benchmarks page missing ${required}`);
 }
@@ -305,13 +312,15 @@ assert(
 
 const flow = read("compute-engine-flow.html");
 for (const required of [
-  "SQL and Python are front doors.",
-  "prepared_vortex",
-  "VortexPreparedState",
-  "UniversalIngress",
-  "Rendered architecture diagrams",
-  "data-rendered-diagram",
-  "Raw Mermaid source",
+  "shardloom-compute-flow",
+  'id="flow-group"',
+  'id="flow-count"',
+  'id="flow-topk"',
+  "Metadata count",
+  "Late payload gathering",
+  "PulseWeave",
+  "Conceptual illustrations",
+  "fallback_attempted=false",
 ]) {
   assert(flow.includes(required), `compute-flow page missing ${required}`);
 }
@@ -352,7 +361,7 @@ for (const required of [
 
 const benchmarkMethodology = read("field-guide/benchmark-methodology/index.html");
 for (const required of [
-  "Benchmark methodology",
+  "Benchmarks",
   "hot_runtime",
   "publication_proof",
   "external_baseline",
@@ -362,7 +371,7 @@ for (const required of [
 
 const limitations = read("field-guide/limitations/index.html");
 for (const required of [
-  "Limitations",
+  "Support and limitations",
   "production support",
   "Spark displacement",
   "fallback engine",
@@ -374,6 +383,14 @@ const redirects = read("_redirects");
 const redirectTargets = new Map(
   redirects.split("\n").filter((line) => line.trim().startsWith("/")).map((line) => line.trim().split(/\s+/).slice(0, 2)),
 );
+for (const [legacy, current] of [
+  ["benchmarks", "field-guide/benchmark-methodology"],
+  ["compute-engine-flow", "field-guide/compute-flow"],
+]) {
+  for (const suffix of ["", "/", ".html"]) {
+    assert(redirectTargets.get(`/${legacy}${suffix}`) === `/${current}`, `${legacy}${suffix} must redirect directly to the Field Guide`);
+  }
+}
 for (const route of ["home", "index", "telemetry", "benchmark", "flow", "compute-flow", "architecture", "use-cases", "can-i-use-this", "status", "docs", "readme"]) {
   assert(
     redirectTargets.get(`/${route}/`) === redirectTargets.get(`/${route}`) && redirectTargets.has(`/${route}/`),

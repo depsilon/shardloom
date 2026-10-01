@@ -1,802 +1,102 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Human-readable ShardLoom route architecture from UniversalIngress to claim gates."><meta name="robots" content="index,follow"><link rel="canonical" href="https://shardloom.io/compute-engine-flow"><link rel="icon" href="/assets/logo/shardloom-mark.svg"><meta property="og:title" content="Compute Flow | ShardLoom"><meta property="og:description" content="Human-readable ShardLoom route architecture from UniversalIngress to claim gates."><meta property="og:type" content="website"><meta property="og:url" content="https://shardloom.io/compute-engine-flow"><title>Compute Flow | ShardLoom</title><link rel="stylesheet" href="/assets/site.css"><style>.shardloom-brand:where(.astro-6bctqxxv){color:#edf4f9;letter-spacing:-.055em;white-space:nowrap;align-items:center;gap:11px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;font-size:21px;font-weight:630;line-height:1;text-decoration:none;display:inline-flex}svg:where(.astro-6bctqxxv){flex:none;width:23px;height:28px;display:block}sup:where(.astro-6bctqxxv){vertical-align:top;color:#badcff;margin-left:2px;font-size:12px}a:where(.astro-6bctqxxv):hover{color:#badcff}a:where(.astro-6bctqxxv):focus-visible{outline-offset:5px;outline:2px solid #badcff}
-</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body><header class="site-header"><a class="shardloom-brand astro-6bctqxxv" href="/" aria-label="ShardLoom home"><svg viewBox="0 0 24 30" width="24" height="30" aria-hidden="true" class="astro-6bctqxxv"><path d="M12 1 23 14 12 29 1 14Z" fill="none" stroke="#c6e5fd" stroke-width=".9" class="astro-6bctqxxv"></path><path d="m12 1-4 13 4 15 5-15Zm-11 13h22M8 14l9 0" fill="none" stroke="#94badb" stroke-width=".7" class="astro-6bctqxxv"></path><path d="m12 1 5 13-9 0Z" fill="#d0eaff" opacity=".25" class="astro-6bctqxxv"></path></svg><span class="astro-6bctqxxv">ShardLoom<sup class="astro-6bctqxxv">°</sup></span></a><nav aria-label="Primary navigation"><a href="/">Home</a><a href="/start">Start</a><a href="/benchmarks">Benchmarks</a><a href="/compute-engine-flow" class="active">Compute Flow</a><a href="/field-guide">Field Guide</a><a href="/about">About</a><a href="https://github.com/depsilon/shardloom">GitHub</a></nav></header><main><section class="page-hero"><p class="eyebrow">Architecture</p><h1>ShardLoom routes are evidence contracts.</h1><p class="lede">SQL and Python are front doors. The route is source admission, SourceState, vortex_ingest, VortexPreparedState, prepared_vortex or native_vortex execution, OutputPlan, SinkArtifact, evidence, and claim gate.</p></section><section><div class="route compact-route"><article class="route-step"><span>Access</span><h3>Python / SQL / CLI</h3><p>User surfaces express work; they are not the execution route.</p></article><article class="route-step"><span>Ingress</span><h3>UniversalIngress</h3><p>Recognizes sources and emits SourceState or deterministic blockers.</p></article><article class="route-step"><span>Prepare once</span><h3>vortex_ingest</h3><p>Non-Vortex input reaches prepared_vortex only through VortexPreparedState.</p></article><article class="route-step"><span>Execute</span><h3>prepared_vortex / native_vortex</h3><p>compatibility_import_certified is the certified cold ingest/stage route.</p></article><article class="route-step"><span>Output</span><h3>OutputPlan / SinkArtifact</h3><p>Output format and input format remain independent.</p></article><article class="route-step"><span>Boundary</span><h3>External engines are baselines only</h3><p>They never satisfy ShardLoom fallback or claim gates.</p></article></div></section><section class="section-grid"><div><p class="eyebrow">Boundaries</p><h2>What must never happen</h2><p class="narrow">Published packages provide a local technical preview. They do not establish production support, broad engine replacement, object-store/lakehouse or Foundry production runtime, or performance superiority. Unsupported execution must fail explicitly.</p></div><ul class="boundary-list as-list"><li>External engines are baseline-only.</li><li>Blocked and report-only paths remain visible.</li><li>Benchmark timing remains evidence, not a leaderboard.</li><li>Hot runtime, replay proof, and publication proof are separate timing surfaces.</li></ul></section><section><p class="eyebrow">Rendered architecture diagrams</p><h2>Rendered architecture diagrams</h2><div class="diagram-gallery"><article class="flow-diagram" data-rendered-diagram="diagram-1"><p class="diagram-kicker">Diagram 1</p><h3>At A Glance</h3><div class="diagram-track"><div class="diagram-node"><span>ACCESS</span><strong>Access</strong><p>CLI / Python / SQL / adapter</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>REQUEST</span><strong>Typed request</strong><p>source + workload + output intent</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>ADMISSION</span><strong>Admission</strong><p>policy + capability + semantics</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>SOURCE</span><strong>Source route</strong><p>UniversalIngress / SourceState</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>PREPARE</span><strong>Preparation</strong><p>vortex-prepare / VortexPreparedState</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>EXECUTE</span><strong>Execution route</strong><p>compatibility import / prepared Vortex / native Vortex</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>OUTPUT</span><strong>Output route</strong><p>OutputPlan / SinkArtifact</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>TIMING</span><strong>Timing surface</strong><p>hot_runtime / replay / publication</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>CLAIM</span><strong>Claim gate</strong><p>evidence + blockers + no fallback</p></div></div></article><article class="flow-diagram" data-rendered-diagram="diagram-2"><p class="diagram-kicker">Diagram 2</p><h3>Runtime Contract</h3><div class="diagram-track"><div class="diagram-node"><span>USER</span><strong>User intent</strong><p>CLI / Python / SQL / adapter</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>ENVELOPE</span><strong>Typed envelope</strong><p>source + workload + output</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>POLICY</span><strong>Policy check</strong><p>effects + credentials + no fallback</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>CAPABILITY</span><strong>Capability check</strong><p>source + operator + sink</p></div></div><div class="diagram-branches" aria-label="Related branches"><span><strong>Unsupported diagnostic</strong><em>UNSUPPORTED</em></span><span><strong>Admitted route</strong><em>ROUTE</em></span><span><strong>Evidence contract</strong><em>CERT</em></span></div></article><article class="flow-diagram" data-rendered-diagram="diagram-3"><p class="diagram-kicker">Diagram 3</p><h3>Source And Preparation</h3><div class="diagram-track"><div class="diagram-node"><span>INPUT</span><strong>Input descriptor</strong><p>file / Vortex / generated / remote ref</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>ADAPTER</span><strong>InputAdapter</strong><p>format-specific recognition</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>SOURCE</span><strong>SourceState</strong><p>metadata identity + schema + route</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>INGEST</span><strong>vortex_ingest</strong><p>local preparation boundary</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>PREPARED</span><strong>VortexPreparedState</strong><p>artifact ref + digest</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>PREPARED_ROUTE</span><strong>prepared_vortex</strong><p>warm prepared execution</p></div></div><div class="diagram-branches" aria-label="Related branches"><span><strong>Blocker</strong><em>BLOCK</em></span></div></article><article class="flow-diagram" data-rendered-diagram="diagram-4"><p class="diagram-kicker">Diagram 4</p><h3>Execution Mode Lanes</h3><div class="diagram-track"><div class="diagram-node"><span>SELECT</span><strong>selected_execution_mode</strong><p>with reason</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>COMPAT</span><strong>compatibility_import_certified</strong><p>cold certified lane</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>RESULT</span><strong>Result envelope</strong><p>route + evidence + claim status</p></div></div><div class="diagram-branches" aria-label="Related branches"><span><strong>requested_execution_mode</strong><em>REQUEST</em></span><span><strong>prepared_vortex</strong><em>PREPARED</em></span><span><strong>native_vortex</strong><em>NATIVE</em></span><span><strong>internal_local_source_smoke</strong><em>DIRECT</em></span><span><strong>external_baseline_only</strong><em>BASELINE</em></span></div></article><article class="flow-diagram" data-rendered-diagram="diagram-5"><p class="diagram-kicker">Diagram 5</p><h3>Engine Fabric</h3><div class="diagram-track"><div class="diagram-node"><span>SELECTED</span><strong>selected_engine_mode</strong><p>admitted or blocked</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>BATCH</span><strong>batch</strong><p>current local Vortex focus</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>EFFECTS</span><strong>Effect boundary</strong><p>side effects explicit</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>CLAIMS</span><strong>Claim boundary</strong><p>no production claim by default</p></div></div><div class="diagram-branches" aria-label="Related branches"><span><strong>Workload request</strong><em>WORKLOAD</em></span><span><strong>requested_engine_mode</strong><em>REQUESTED</em></span><span><strong>live</strong><em>LIVE</em></span><span><strong>hybrid</strong><em>HYBRID</em></span></div></article><article class="flow-diagram" data-rendered-diagram="diagram-6"><p class="diagram-kicker">Diagram 6</p><h3>Output And Materialization</h3><div class="diagram-track"><div class="diagram-node"><span>OUTPUT_PLAN</span><strong>OutputPlan</strong><p>format + sink + metadata</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>VORTEX_OUT</span><strong>Vortex output</strong><p>highest-fidelity target</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>SINK</span><strong>SinkArtifact</strong><p>path + digest + replay</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>EVIDENCE</span><strong>Output evidence</strong><p>materialization + decode boundary</p></div></div><div class="diagram-branches" aria-label="Related branches"><span><strong>Executed route</strong><em>EXECUTED</em></span><span><strong>ResultBatchState</strong><em>RESULT_BATCH</em></span><span><strong>Compatibility export</strong><em>COMPAT_OUT</em></span><span><strong>Metadata loss report</strong><em>LOSS</em></span></div></article><article class="flow-diagram" data-rendered-diagram="diagram-7"><p class="diagram-kicker">Diagram 7</p><h3>Timing And Stage Attribution</h3><div class="diagram-track"><div class="diagram-node"><span>SURFACE</span><strong>timing_surface</strong><p>hot_runtime / full_replay_proof / publication_proof</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>QUERY</span><strong>Query runtime</strong><p>scan + operator compute</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>HOT</span><strong>Hot route geomean</strong><p>primary perf grid</p></div></div><div class="diagram-branches" aria-label="Related branches"><span><strong>Benchmark row</strong><em>ROW</em></span><span><strong>Result sink</strong><em>SINK</em></span><span><strong>Evidence render</strong><em>RENDER</em></span><span><strong>Publication-proof route geomean</strong><em>PUB</em></span><span><strong>Stage attribution</strong><em>STAGE</em></span></div></article><article class="flow-diagram" data-rendered-diagram="diagram-8"><p class="diagram-kicker">Diagram 8</p><h3>Evidence And Claim Gate</h3><div class="diagram-track"><div class="diagram-node"><span>OUTCOME</span><strong>Execution outcome</strong><p>result or blocker</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>CORRECT</span><strong>Correctness evidence</strong><p>digest / replay / oracle where allowed</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>CERT</span><strong>Certificates</strong><p>execution + Native I/O + source/sink</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>NOFALLBACK</span><strong>No-fallback evidence</strong><p>fallback_attempted=false</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>TIMING</span><strong>Timing evidence</strong><p>surface + formula + stage rows</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>BLOCKERS</span><strong>Blocker matrix</strong><p>missing or disallowed claims</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>CLAIM</span><strong>claim_gate_status</strong><p>claim_grade / not_claim_grade / fixture_smoke_only</p></div><div class="diagram-arrow" aria-hidden="true">-&gt;</div><div class="diagram-node"><span>PUBLIC</span><strong>Public claim booleans</strong><p>performance / production / package / Spark-displacement</p></div></div></article></div></section><section><details class="drawer"><summary>Raw Mermaid source</summary><pre><code># ShardLoom Compute Engine Flow Reference
-
-## Purpose
-
-This file is the canonical ShardLoom compute-flow reference. It defines the public mental model,
-runtime route vocabulary, benchmark timing surfaces, and claim boundaries that the website,
-benchmarks, docs, and Codex agents should use.
-
-Keep this file compact. It is a reference atlas, not a phase ledger, benchmark appendix, or
-implementation history. Detailed work queues live in the phase plan and linked architecture docs.
-
-Canonical source:
-
-```text
-docs/architecture/compute-engine-flow-reference.md
-```
-
-Website sync:
-
-```text
-website-src/scripts/sync-content.mjs
--&gt; website/assets/data/compute-engine-flow-reference.md
--&gt; website-public/assets/data/compute-engine-flow-reference.md
--&gt; website/compute-engine-flow/index.html
--&gt; website/compute-engine-flow.html
-```
-
-Historical alignment review:
-
-```text
-docs/architecture/compute-engine-flow-overhaul-review.md
-```
-
-This reference, not the overhaul review, owns current compute-flow vocabulary. The overhaul review
-is historical alignment evidence and should not be used as a second active queue.
-
-## One-Sentence Model
-
-ShardLoom admits a request, chooses explicit route modes, executes only through ShardLoom-native
-and Vortex-native boundaries, records what materialized or decoded, emits certificates and no-fallback
-evidence, then blocks or allows a narrow claim.
-
-```text
-front door
--&gt; source route
--&gt; preparation route
--&gt; execution route
--&gt; output route
--&gt; timing surface
--&gt; evidence
--&gt; claim gate
-```
-
-Core identity:
-
-```text
-Vortex-first
-no external fallback
-encoded-columnar execution
-late materialization
-explicit unsupported diagnostics
-evidence-certified routes
-claim-gated benchmark reporting
-```
-
-SQL and Python are front doors. The execution route is the admitted source, preparation,
-execution-mode, output, timing, and evidence path behind those front doors.
-
-## Documentation Structure
-
-This reference uses a small set of source-grounded documentation rules:
-
-- Root READMEs should explain what the project does, why it is useful, how to get started, and
-  where to get more help or detail; long docs belong outside the README
-  ([GitHub README docs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)).
-- Architecture diagrams stay in Markdown Mermaid blocks so GitHub, pull requests, and the static
-  website can render them from the same source
-  ([GitHub diagram docs](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams)).
-- Reference material should be optimized for scanning, random access, complete examples, and
-  related links rather than narrative sprawl
-  ([Diataxis-style reference guidance](https://nix.dev/contributing/documentation/diataxis)).
-
-## How To Use This Reference
-
-| Reader | Start here | Stop when you can answer |
-| --- | --- | --- |
-| New user | At a glance, Route atlas, Current support snapshot | Which route am I using? |
-| Runtime implementer | Runtime contract, Execution mode lanes, Provider admission | Where is support decided? |
-| Benchmark reviewer | Timing surfaces, Stage attribution, Benchmark route labels | What was timed? |
-| Release reviewer | Evidence fields, Claim gate, What must never happen | Is a public claim allowed? |
-| Codex agent | Codex anchor prompt, Required invariants, Validation | Which invariant must my edit preserve? |
-
-Entry anatomy for future additions:
-
-```text
-term or route name
-one-sentence definition
-where it appears in the flow
-current posture
-required evidence fields
-claim boundary
-next owning doc or phase item
-```
-
-## At A Glance
-
-```mermaid
-flowchart LR
-    ACCESS[&quot;Access&lt;br/&gt;CLI / Python / SQL / adapter&quot;]
-    REQUEST[&quot;Typed request&lt;br/&gt;source + workload + output intent&quot;]
-    ADMISSION[&quot;Admission&lt;br/&gt;policy + capability + semantics&quot;]
-    SOURCE[&quot;Source route&lt;br/&gt;UniversalIngress / SourceState&quot;]
-    PREPARE[&quot;Preparation&lt;br/&gt;vortex-prepare / VortexPreparedState&quot;]
-    EXECUTE[&quot;Execution route&lt;br/&gt;compatibility import / prepared Vortex / native Vortex&quot;]
-    OUTPUT[&quot;Output route&lt;br/&gt;OutputPlan / SinkArtifact&quot;]
-    TIMING[&quot;Timing surface&lt;br/&gt;hot_runtime / replay / publication&quot;]
-    CLAIM[&quot;Claim gate&lt;br/&gt;evidence + blockers + no fallback&quot;]
-
-    ACCESS --&gt; REQUEST --&gt; ADMISSION --&gt; SOURCE --&gt; PREPARE --&gt; EXECUTE --&gt; OUTPUT --&gt; TIMING --&gt; CLAIM
-```
-
-## Required Invariants
-
-| Invariant | Meaning |
-| --- | --- |
-| No fallback execution | Unsupported work returns deterministic diagnostics with `fallback_attempted=false` and `external_engine_invoked=false`; Spark, DataFusion, DuckDB, Polars, pandas, Dask, Ray, Velox, Trino, databases, and warehouses do not execute ShardLoom work as fallback. |
-| Vortex is native | Vortex is the preferred input/output persistence target; compatibility formats are translation or import/export boundaries, not fallback execution engines. |
-| Front door is not route | CLI, Python, SQL, notebooks, adapters, and planned REST/event APIs express work; route evidence names the actual source/preparation/execution/output path. |
-| Preparation is visible | Non-Vortex inputs reach `prepared_vortex` only through `UniversalIngress`, `SourceState`, Vortex preparation, and `VortexPreparedState`. |
-| Claims are gated | Runtime support, claim-grade evidence, production support, package readiness, performance claims, and Spark-replacement claims are separate fields. |
-| Timing surface is explicit | `hot_runtime`, `full_replay_proof`, and `publication_proof` rows must never silently replace each other. |
-
-## Reference Groups
-
-| Group | Owns | Primary evidence |
-| --- | --- | --- |
-| Access and front doors | CLI, Python, SQL, adapters, planned API surfaces | typed request envelope, typed output envelope |
-| Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | metadata-first source identity, optional source-content digest proof, prepared-state IDs/digests, stream batch policy, source-unit hints, dictionary handoff posture, import certificates |
-| Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`; internal smoke is not a public lane | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
-| Engine fabric | batch, live, hybrid, auto engine mode | `requested_engine_mode`, `selected_engine_mode`, effect and state boundaries |
-| Output and materialization | `OutputPlan`, `SinkArtifact`, Vortex output, compatibility exports | decode/materialization status, result-sink replay, metadata preservation/loss |
-| Timing and benchmarks | route lanes, timing surfaces, stage attribution | `timing_surface`, `route_total_formula`, stage milliseconds, claim gate status |
-| Claims and release gates | hard release readiness, benchmark publication, package channel, public website | no-fallback fields, blockers, public claim booleans |
-
-## Route Atlas
-
-| Route | Starts from | Includes | Does not imply |
-| --- | --- | --- | --- |
-| `compatibility_import_certified` | A recognized compatibility source admitted through `UniversalIngress` | source read, parse/decode where required, Vortex preparation, Vortex write/reopen, scan/query, output/replay, certificates, claim-gate evidence | pure query-speed timing, broad SQL/DataFrame support, object-store/table production I/O |
-| `prepared_vortex` | Existing `VortexPreparedState` | warm prepared query work, provider admission, output route, evidence | direct CSV/JSONL/Parquet/database/object-store reads |
-| `native_vortex` | Existing Vortex artifact or native Vortex state | native Vortex scan/source path, provider admission, output route, evidence | compatibility import or external engine evaluation |
-| `internal_local_source_smoke` | Internal compatibility diagnostic | internal diagnostic one-shot local path with explicit materialization/decode status | public workflow runtime, prepared-state reuse, native Vortex claim, or claim-grade production runtime |
-| `vortex_middle` | Public local workflow policy | prepare local compatibility input into Vortex or use native Vortex input before execution | separate execution lane, hidden fallback, or direct local-source runtime |
-| `external_baseline_only` | Explicit benchmark baseline row | comparison-only timing or correctness reference | ShardLoom runtime support or fallback execution |
-
-## Native Operator Hot Path
-
-Native Vortex routes should consume ShardLoom techniques automatically; users should not need to
-call PulseWeave, capillary, or metadata-first APIs by hand.
-
-| Operator family | Current hot-path posture | Required evidence |
-| --- | --- | --- |
-| Aggregate/distinct | Direct typed/dictionary scalar `count`/`sum`/`avg`/`min`/`max` and `count_distinct`, direct nullable primitive accessors with typed validity masks, FxHash exact distinct state for scalar/direct routes, dense-ID per-chunk exact distinct pre-union for compact integer ranges, repeated numeric SUM/AVG expression fusion over shared accessors, exact dictionary distinct over used codes rather than unused dictionary values, null-aware Vortex and chunk-local UTF-8 dictionary grouping without row materialization, compact count/sum/avg grouped state including exact UTF-8 `length(...)` measures, typed numeric-pair state, typed numeric/minute/string count state, transformed dictionary URL-domain/length grouping, exact chunk-local UTF-8 dictionary grouping when Vortex dictionary codes are not surfaced, streaming count-star top-K finalization for exact count-only ordered groups, and residual-free pushdown-filtered admission into the same heavy-hitter/late-measure aggregate families. Accessor evidence separates true Vortex dictionary codes, direct nullable primitive masks, dense integer pre-union, chunk-local UTF-8 dictionaries, and materialized values; packed/proof-bound key paths require non-null proof when their key representation cannot encode nulls. State-budget evidence classifies observed in-memory pressure before any spill claim is made; `spill_supported=false` remains explicit until a real native spill-backed exact merge exists. | `aggregate_update_strategy`, `aggregate_accessor_summary`, `aggregate_accessor_materialization_status`, `aggregate_accessor_blockers`, `expression_fusion_strategy`, `expression_plan_fingerprint_status`, `aggregate_key_encoding_mode`, `compact_group_state_strategy`, `distinct_state_strategy`, `group_output_strategy`, `group_state_mode`, `state_pressure_class`, `state_budget_status`, `state_budget_diagnostic_code`, `capillary_work_units`, `pulseweave_pressure_signals`, `decoded_string_count`, `estimated_group_key_storage_bytes` |
-| String predicates | Safe Vortex pushdown first, embedded derived-column rewrites for exact non-empty string predicates when available, ShardLoom residual UTF-8 byte predicates where needed, null-aware host/Vortex/chunk-dictionary contains over encoded or direct UTF-8 values, selected-row masks and row references before materialization. Nullable string rows are skipped for positive and negated contains semantics rather than forcing materialized fallback. | `filter_pushdown_applied`, `residual_predicate_materialization`, `embedded_derived_column_rewrite_status`, selected/materialized row counts, `aggregate_accessor_summary`, `data_materialized` |
-| Bounded top-K/order | Capillary select-nth retained windows, source ordinals, embedded predicate rewrites before candidate scans, dynamic row-reference candidate scans for large bounded payload projections, final retained-row materialization from the single `.vortex` artifact. | `bounded_topk_strategy`, `retention_selection_strategy`, `candidate_rows_seen`, `retained_candidate_rows`, `late_output_materialization`, `row_ref_topk_materialization_policy`, `embedded_derived_column_rewrites` |
-| Metadata/layout | Vortex footer/statistics pruning before scan where available; expression-project collect, row-transform collect, materializing filter, filter-project, distinct, drop-duplicate, sample, and schema-known structured row exports can return or write an empty result without opening a scan when footer stats prove no rows match. Transform families apply source predicates before expression rewrite, melt/explode expansion, pivot state updates, or rolling-window state, while predicate-only columns stay out of visible output. Prepared `.vortex` artifacts now expose single-artifact OLAP posture from the artifact itself: writer/layout strategy, row-block sizing, root/layout encodings, segment-map membership, dictionary/domain status, derived layout-stat posture, row-position locality, and layout-reader cache status. Richer domain-specific indexes still require measured proof before any speed claim. | `embedded_layout_planner_consumption_status`, selected/skipped segments, `layout_encoding_inventory`, `segment_membership_status`, `domain_dictionary_status`, `row_position_locality_status`, `upstream_scan_called`, `data_read`, `data_decoded`, `data_materialized`, no-query-answer-cache posture |
-
-Public runtime envelopes also lift the compact evidence a caller needs to verify that the shared
-Vortex-normalized path was used: `local_primitive_metadata_elimination_stage`,
-`local_primitive_metadata_elimination_outcome`, `local_primitive_rows_avoided_by_metadata`,
-`local_primitive_decode_avoided_by_metadata`,
-`local_primitive_materialization_avoided_by_metadata`,
-`local_primitive_physical_policy_summary`,
-`local_primitive_evidence_collector_status`,
-`local_primitive_control_plane_micros`,
-`local_primitive_evidence_collection_micros`,
-`local_primitive_evidence_compact_signature_count`,
-`local_primitive_evidence_full_split_count`, and the selected resource-envelope budget fields. The
-compact evidence collector reports repeated layout/encoding signatures and representative split
-references while retaining the full replay split evidence required for proof lanes.
-Universal Ingest layout-advisor output must identify itself as the
-`universal_ingest_optimizer`, state that query-answer sidecars are disallowed, and record the
-single-artifact, compact-derived-metadata, membership-sketch, row-position-locality, and
-surface-unification policies.
-
-Universal Ingest source-state evidence now separates source-native units from emitted batches:
-`source_state_stream_batch_size`, `source_state_stream_unit_count_hint`,
-`source_state_stream_unit_hint_kind`, `source_state_stream_policy`, and
-`source_state_dictionary_preservation_status` identify whether the prepared Vortex artifact was fed
-by product columnar stream batches, Parquet row-group hints, Arrow IPC batch hints, or a scalar text
-adapter. Parquet product preparation can additionally report
-`source_state_ingest_executor_status=bounded_capillary_row_group_parallel_writer_budgeted` with a
-coalesced metadata-reused row-group task count when the requested parallelism leaves source-reader
-capacity after reserving Vortex-normalization and single `.vortex` writer/layout lanes. At
-`max_parallelism=2`, large-source preparation uses one source-to-Vortex normalization lane and one
-writer/layout lane; higher values admit additional coalesced row-group source work. Large columnar
-sources may use the
-`product_columnar_stream_batch_size_262144_rows` capillary stream policy to reduce writer handoff
-and segment metadata churn; smaller product sources keep the 65,536-row policy.
-
-Large streaming prepared artifacts keep the same single-file runtime contract and use the retained
-custom ShardLoom large-source writer strategy when the layout advisor admits it. UAT rejected the
-upstream Vortex default writer for this 100M streaming shape because it produced less temp output
-over the same safety window, so the default product route does not switch to upstream-default
-writer behavior. The active ingest optimization instead uses Capillary/PulseWeave-style source and
-writer overlap plus a source-text dictionary-Zstd writer profile: Parquet row-group workers emit
-ordered `RecordBatch` units as soon as they are read instead of buffering an entire coalesced task
-before the writer can proceed, and the Arrow-to-Vortex normalization layer uses a bounded
-`capillary_vortex_array_prefetch_window` when requested parallelism leaves a lane available. Known
-source text fields use Vortex dictionary-Zstd compression and typed/numeric fields stay on the
-faster flat/zoned/stat path. The layout advisor exposes source scale, profile family,
-text-domain/time-bucket/counter posture, prepared-layout family, high-cardinality/text/time key
-profile, dictionary profile, and source-profile-specific read/write tradeoff labels as first-class
-evidence rather than requiring downstream route checks to parse `workload_constitution`. Rejected
-variants include physical hidden derived-column synthesis for large Parquet streams, separate
-physical batch coalescing ahead of the source stream, and
-upstream-default writer substitution.
-
-Universal Ingest can also embed exact reusable derived columns in that same `.vortex` artifact when
-the source adapter can produce them without making large preparation slower. The retained derived
-families are compact `UInt32` UTF-8 byte length, dictionary-encoded URL/Referer/URI domain
-extraction for URL-like fields, and compact `UInt8` minute-of-hour keys plus `Int64` epoch-minute
-date-trunc buckets for admitted typed time-like fields. Large product columnar preparation uses a
-lean runtime profile first: URL, Referer, SearchPhrase, and EventTime helpers are retained because
-they feed shared SQL/Python/DataFrame predicate, aggregate, and top-K lanes; broader candidates such
-as OriginalURL, ClientEventTime, LocalEventTime, and Title length are omitted unless the adapter can
-provide a cheaper compact boundary. These columns are internal storage/layout features: user
-`select *` output hides
-`__shardloom_derived_*` fields, while native predicate, aggregate, bounded sort/top-K, and admitted
-row-export/sample planning can consume them for `length(...)`, URL-domain grouping,
-`extract(minute ...)`, `DATE_TRUNC(&#39;minute&#39;, ...)`, and non-empty string predicates before row
-export. Filter,
-filter-project, distinct, drop-duplicate, and sample row-export routes apply residual selected-row
-filters before deterministic sampling, exact row-key state, or compatibility writes; nested/list row
-keys stay encoded row-key state instead of being decoded as output columns. When footer statistics
-prove a filtered materializing route cannot match, expression-project and row-transform collect can
-return an empty bounded result and filter, filter-project, distinct, drop-duplicate, sample, and
-schema-known structured export routes write the requested empty sink without opening a Vortex scan
-or decoding rows. Expression-project source predicates are applied before typed rewrites so
-replacement, mask, and row-number transforms do not silently redefine source filtering. Melt,
-explode, pivot, and rolling-window routes now share the same Vortex-normalized predicate planning:
-source filters are pushed down or materialized before expansion/window/state updates, and
-predicate-only columns stay out of user-visible collect/export output. Row-expansion and window
-families remain separate semantic contracts because filtering before/after expansion changes
-cardinality and order. For URL-like fields, the admitted typed-text bridge derives byte length and
-domain in one pass over the source strings. Product columnar adapters keep the rejected broad
-per-row synthesis disabled, but public columnar preparation now applies a source-native
-dictionary/typed-time wrapper when the source already exposes a safe layout: dictionary-backed
-URL-like fields derive byte length and domain by transforming dictionary values once and remapping
-existing codes while preserving the source Arrow dictionary key width, and typed numeric/time
-fields plus Arrow timestamp columns across second/millisecond/microsecond/nanosecond units may
-derive compact minute keys when admitted by the lean or broader source-native profile. Plain UTF-8 columnar batches still report
-`source_native_embedded_derived_columns=not_available_for_current_arrow_layout` rather than paying a
-large preparation-time string scan.
-
-Common local prepared route:
-
-```text
-local non-Vortex input
--&gt; UniversalIngress / InputAdapter
--&gt; SourceState
--&gt; vortex-prepare
--&gt; VortexPreparedState
--&gt; prepared_vortex
--&gt; ExecutionPlan
--&gt; OutputPlan
--&gt; SinkArtifact
--&gt; evidence
--&gt; claim gate
-```
-
-Source-free route:
-
-```text
-generated source
--&gt; GeneratedSourceState or GeneratedSourceCertificate
--&gt; optional prepared/native route
--&gt; OutputPlan
--&gt; SinkArtifact
--&gt; evidence
--&gt; claim gate
-```
-
-Generated-source contract markers:
-
-```text
-schema=shardloom.generated_source_certificate_contract.v1
-no_dataset_smoke
-user_generated_source
-engine_native_generated_source
-not_applicable_no_generated_rows
-generated-source-user-rows
-generated-source-range
-generated-source-sequence
-ctx.from_rows([{&quot;id&quot;: 1}])
-ctx.range(0, 10)
-ctx.sequence([1, 2, 3])
-none_scoped_local_range_sequence_jsonl_csv_smoke_only
-shardloom.generated_source_api_admission.v1
-shardloom.generated_source_evidence_alignment.v1
-python_ctx_from_rows
-python_ctx_range
-python_ctx_sequence
-python_generated_source_write
-sql_values
-sql_dataframe_source_free
-foundry_generated_output
-dataframe_generated_with_column
-```
-
-Observability/export contract markers:
-
-```text
-shardloom.openlineage_facet_mapping.v1
-shardloom.opentelemetry_trace_export_contract.v1
-openlineage_export_enabled=false
-openlineage_facet_mapping_event_emitted=false
-openlineage_facet_mapping_network_call_performed=false
-opentelemetry_trace_export_trace_export_enabled=false
-opentelemetry_trace_export_otlp_exporter_configured=false
-opentelemetry_trace_export_network_exporter_enabled=false
-opentelemetry_trace_export_network_call_performed=false
-opentelemetry_export_enabled=false
-opentelemetry_network_exporter_enabled=false
-```
-
-Novel/advisory performance markers:
-
-```text
-GAR-NOVEL-1A
-GAR-NOVEL-1B
-GAR-NOVEL-1C
-GAR-NOVEL-1D
-shardloom.traditional_analytics.bayesian_claim_confidence.v1
-posterior_runtime_distribution=not_fit
-credible_interval=not_computed
-probability_of_regression=not_computed
-runtime_decision_applied=false
-layout_decision_applied=false
-benchmark_recomputed=false
-claim_gate_status=advisory_only_not_claim_grade
-bayesian_confidence_enabled=false
-```
-
-## Timing Surfaces
-
-Route timing rows must state their timing surface before any number is compared.
-
-| Timing surface | Evidence tier | Route-total meaning | Sink/render inclusion |
-| --- | --- | --- | --- |
-| `hot_runtime` | `metadata_sink` | Hot route geomean. Query runtime only, or query plus compact metadata sink when explicitly declared. | `sink_timing_included_in_route_total=false` unless the row declares compact metadata inclusion. |
-| `full_replay_proof` | `full_vortex_replay` | Full replay proof route total. Machine replay proof includes result-sink write/replay timing. | `sink_timing_included_in_route_total=true`. |
-| `publication_proof` | `publication_full` | Publication-proof route geomean. Includes proof/output work needed for human publication evidence. | `sink_timing_included_in_route_total=true`; evidence render may be included. |
-
-Required formula examples:
-
-```text
-route_total_formula=timing_surface=hot_runtime; query_runtime_millis
-route_total_formula=timing_surface=full_replay_proof; query_runtime_millis + result_sink_write_millis + replay_millis
-route_total_formula=timing_surface=publication_proof; preparation + query + result_sink_write + evidence_render
-```
-
-Stage attribution can show every measured piece, but each piece must be classified:
-
-```text
-included_hot_runtime
-included_publication_proof
-diagnostic_only
-```
-
-A `publication_full` row must not replace a missing hot-runtime row. If no hot-runtime row exists,
-show `hot runtime row missing`.
-
-## Benchmark Route Labels
-
-Public benchmark rows should use stable route lane labels:
-
-| Route lane id | Display label | Expected interpretation |
-| --- | --- | --- |
-| `cold_certified_route` | ShardLoom Cold Certified Route | Certified cold import/stage/query/output route. |
-| `prepare_once_first_query` | ShardLoom Prepare-Once First Query | First query after preparation is included or adjacent, depending on row formula. |
-| `prepare_once_batch` | ShardLoom Prepare-Once Batch | Amortized preparation plus child query rows with explicit attribution. |
-| `warm_prepared_query` | ShardLoom Warm Prepared Query | Query from existing `VortexPreparedState`. |
-| `native_vortex_query` | ShardLoom Native Vortex Query | Query from existing Vortex-native state/artifact. |
-| `direct_transient_route` | Internal Local Source Smoke Route | One-shot local transient path. |
-| `external_baseline_end_to_end` | External Baseline End-to-End | Comparison-only external baseline. |
-
-Benchmark artifacts and website rows must expose:
-
-```text
-route_runtime_status
-route_lane_id
-route_display_name
-actual_evidence_tier
-timing_surface
-claim_gate_status
-performance_claim_allowed=false
-production_claim_allowed=false
-spark_replacement_claim_allowed=false
-fallback_attempted=false
-external_engine_invoked=false
-public_front_door_benchmark_rows
-compute_flow_evidence
-```
-
-## Contract Test Anchors
-
-The following labels are intentionally kept as stable reference anchors for validators, benchmark
-artifacts, and website data. They are vocabulary contracts, not a second phase queue.
-
-Workflow anchors:
-
-```text
-one-shot compatibility query
-ingest/stage workflow
-prepared Vortex query
-native Vortex query
-benchmark baseline comparison
-explicit execution mode
-explicit materialization/decode boundaries
-evidence-certified execution
-claim-gated benchmark/reporting
-Transient compatibility boundary
-```
-
-Execution-mode transition anchors:
-
-```text
-SELECTED --&gt; DIRECT
-SELECTED --&gt; COMPAT
-SELECTED --&gt; PREPARED
-SELECTED --&gt; NATIVE
-```
-
-Provider and blocker anchors:
-
-```text
-vortex_native_claim_allowed
-compatibility_import_included
-vortex_prepare_included
-vortex_write_reopen_included
-direct_transient_execution
-claim_gate_status=not_claim_grade
-execution_mode_attribution_contract
-use_vortex_native_provider
-wrap_vortex_concept
-implement_shardloom_kernel
-baseline_or_oracle_only
-unsupported_until_vortex_or_shardloom_evidence
-operator_execution_class
-operator_blocker_id
-operator_encoded_native_claim_allowed
-persistent_runner_admission_gate
-process_startup_attribution
-Unsupported work must return deterministic unsupported diagnostics
-SQL local-source smoke
-scoped fixture-smoke local CSV/JSONL/flat JSON/Parquet/Arrow IPC/Avro/ORC
-Actionable implementation work must be represented in the active phase queue
-docs/architecture/compute-engine-flow-overhaul-review.md
-```
-
-Stage attribution anchors:
-
-```text
-total_runtime_millis
-source_stat_millis
-source_read_millis
-source_parse_millis
-compatibility_parse_millis
-source_to_columnar_millis
-source_state_materialization_layout
-source_state_parse_normalization
-source_state_columnar_preserved
-source_state_record_batch_count
-compatibility_to_vortex_import_millis
-compatibility_to_vortex_import_timing_scope
-vortex_array_build_millis
-vortex_array_build_provider_kind
-vortex_array_build_provider_surface
-vortex_array_build_strategy
-vortex_array_build_input_layout
-vortex_array_build_record_batch_count
-vortex_array_build_manual_scalar_copy_avoided
-vortex_write_millis
-vortex_digest_millis
-vortex_reopen_verify_millis
-vortex_reopen_millis
-vortex_scan_millis
-operator_compute_millis
-operator_compute_timing_scope
-result_sink_write_millis
-evidence_render_millis
-evidence_render_timing_status
-not_available
-not_applicable
-rows avoided
-stable correctness digest
-Native I/O certificate
-work_avoidance_evidence_schema
-python_harness_overhead_status
-```
-
-Source-state reuse anchors are owned by
-`docs/architecture/source-state-reuse-coverage-matrix.md`. Prepared/native batch evidence carries
-`source_state_coverage` fields and uses
-`source_state_digest_status=emitted_scoped_in_memory_source_state_digest` when scoped in-memory
-source-state digests are present.
-
-```text
-source_metadata_snapshot_status=per_batch_source_metadata_reused
-source_state_reuse_status=per_batch_dimension_label_state_reused
-source_state_reuse_status=per_batch_fact_metric_state_reused
-source_state_fact_metric_*
-source_state_reuse_status=per_batch_category_metric_state_reused
-source_state_category_metric_*
-source_state_reuse_status=per_batch_group_category_metric_state_reused
-source_state_group_category_metric_*
-source_state_reuse_status=per_batch_ranked_metric_state_reused
-source_state_ranked_metric_*
-source_state_reuse_status=per_batch_selective_filter_state_reused
-source_state_selective_filter_*
-source_state_reuse_status=per_batch_dirty_input_state_reused
-source_state_dirty_input_*
-source_state_reuse_status=per_batch_date_null_metric_state_reused
-source_state_date_null_metric_*
-```
-
-## Current Support Snapshot
-
-| Surface | Current posture | Claim boundary |
-| --- | --- | --- |
-| CLI and Python local smokes | Scoped local technical-preview paths exist. | Not package-readiness, production, or broad DataFrame/SQL support. |
-| Local compatibility inputs | CSV/JSONL/flat JSON and selected feature-gated local formats enter through `UniversalIngress`. | Compatibility import/export is not fallback execution. |
-| Vortex preparation | Feature-gated local `vortex-prepare` creates `VortexPreparedState` evidence. | Scoped local flat-schema evidence only. |
-| Prepared/native benchmark routes | Promoted artifacts separate cold, prepare-once, warm prepared, native, direct, and baseline lanes. | Claims depend on `timing_surface`, evidence tier, and claim gate. |
-| SQL/DataFrame front doors | Scoped fixture/local-source rows exist for selected expressions and outputs. | Not broad PySpark, pandas, Polars, SQL-standard/ANSI-style, or production parity. |
-| Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked. | No production platform claim. |
-| Package/release | Local no-publication rehearsals and gates exist. | Public package/release claims remain blocked until explicit release gates pass. |
-
-## Runtime Contract
-
-```mermaid
-flowchart LR
-    USER[&quot;User intent&lt;br/&gt;CLI / Python / SQL / adapter&quot;]
-    ENVELOPE[&quot;Typed envelope&lt;br/&gt;source + workload + output&quot;]
-    POLICY[&quot;Policy check&lt;br/&gt;effects + credentials + no fallback&quot;]
-    CAPABILITY[&quot;Capability check&lt;br/&gt;source + operator + sink&quot;]
-    UNSUPPORTED[&quot;Unsupported diagnostic&lt;br/&gt;deterministic blocker&quot;]
-    ROUTE[&quot;Admitted route&lt;br/&gt;source + preparation + execution&quot;]
-    CERT[&quot;Evidence contract&lt;br/&gt;certificates + no-fallback fields&quot;]
-
-    USER --&gt; ENVELOPE --&gt; POLICY --&gt; CAPABILITY
-    CAPABILITY --&gt; ROUTE --&gt; CERT
-    CAPABILITY --&gt; UNSUPPORTED --&gt; CERT
-```
-
-Admission happens before execution. Capability recognition is not runtime support. If a route is
-not admitted, the result is an unsupported diagnostic, not external execution.
-
-## Source And Preparation
-
-```mermaid
-flowchart LR
-    INPUT[&quot;Input descriptor&lt;br/&gt;file / Vortex / generated / remote ref&quot;]
-    ADAPTER[&quot;InputAdapter&lt;br/&gt;format-specific recognition&quot;]
-    SOURCE[&quot;SourceState&lt;br/&gt;metadata identity + schema + route&quot;]
-    INGEST[&quot;vortex_ingest&lt;br/&gt;local preparation boundary&quot;]
-    PREPARED[&quot;VortexPreparedState&lt;br/&gt;artifact ref + digest&quot;]
-    PREPARED_ROUTE[&quot;prepared_vortex&lt;br/&gt;warm prepared execution&quot;]
-    BLOCK[&quot;Blocker&lt;br/&gt;unsupported source or policy&quot;]
-
-    INPUT --&gt; ADAPTER --&gt; SOURCE --&gt; INGEST --&gt; PREPARED --&gt; PREPARED_ROUTE
-    ADAPTER --&gt; BLOCK
-    INGEST --&gt; BLOCK
-```
-
-`prepared_vortex` starts at `VortexPreparedState`. It does not become a parallel direct reader for
-CSV, JSONL, Parquet, databases, object-store objects, generated rows, or ad hoc Python values.
-
-## Execution Mode Lanes
-
-```mermaid
-flowchart LR
-    REQUEST[&quot;requested_execution_mode&lt;br/&gt;explicit concrete lane&quot;]
-    SELECT[&quot;selected_execution_mode&lt;br/&gt;with reason&quot;]
-    COMPAT[&quot;compatibility_import_certified&lt;br/&gt;cold certified lane&quot;]
-    PREPARED[&quot;prepared_vortex&lt;br/&gt;prepared-state lane&quot;]
-    NATIVE[&quot;native_vortex&lt;br/&gt;native Vortex lane&quot;]
-    DIRECT[&quot;internal_local_source_smoke&lt;br/&gt;internal diagnostic lane&quot;]
-    BASELINE[&quot;external_baseline_only&lt;br/&gt;comparison only&quot;]
-    RESULT[&quot;Result envelope&lt;br/&gt;route + evidence + claim status&quot;]
-
-    REQUEST --&gt; SELECT
-    SELECT --&gt; COMPAT --&gt; RESULT
-    SELECT --&gt; PREPARED --&gt; RESULT
-    SELECT --&gt; NATIVE --&gt; RESULT
-    SELECT -. internal diagnostics only .-&gt; DIRECT --&gt; RESULT
-    SELECT -. baseline only .-&gt; BASELINE --&gt; RESULT
-```
-
-`auto` is not a public execution lane. Legacy callers may request it as a compatibility alias, but
-facades normalize local-file workflow policy to `vortex_middle` and must report a concrete selected
-mode such as `prepared_vortex`, `native_vortex`, or `compatibility_import_certified`.
-`internal_local_source_smoke` must never appear as the product runtime middle.
-
-## Engine Fabric
-
-```mermaid
-flowchart LR
-    WORKLOAD[&quot;Workload request&lt;br/&gt;batch / live / hybrid intent&quot;]
-    REQUESTED[&quot;requested_engine_mode&lt;br/&gt;auto / batch / live / hybrid&quot;]
-    SELECTED[&quot;selected_engine_mode&lt;br/&gt;admitted or blocked&quot;]
-    BATCH[&quot;batch&lt;br/&gt;current local Vortex focus&quot;]
-    LIVE[&quot;live&lt;br/&gt;report-only or fixture-scoped&quot;]
-    HYBRID[&quot;hybrid&lt;br/&gt;overlay/report-only&quot;]
-    EFFECTS[&quot;Effect boundary&lt;br/&gt;side effects explicit&quot;]
-    CLAIMS[&quot;Claim boundary&lt;br/&gt;no production claim by default&quot;]
-
-    WORKLOAD --&gt; REQUESTED --&gt; SELECTED
-    SELECTED --&gt; BATCH --&gt; EFFECTS --&gt; CLAIMS
-    SELECTED --&gt; LIVE --&gt; EFFECTS
-    SELECTED --&gt; HYBRID --&gt; EFFECTS
-```
-
-Engine mode is about workload semantics. It is not permission to delegate to an external streaming
-system, database, warehouse, or lakehouse engine.
-
-## Output And Materialization
-
-```mermaid
-flowchart LR
-    EXECUTED[&quot;Executed route&lt;br/&gt;or unsupported diagnostic&quot;]
-    RESULT_BATCH[&quot;ResultBatchState&lt;br/&gt;bounded result state&quot;]
-    OUTPUT_PLAN[&quot;OutputPlan&lt;br/&gt;format + sink + metadata&quot;]
-    VORTEX_OUT[&quot;Vortex output&lt;br/&gt;highest-fidelity target&quot;]
-    COMPAT_OUT[&quot;Compatibility export&lt;br/&gt;JSONL / CSV / Parquet / Arrow IPC / other gated formats&quot;]
-    SINK[&quot;SinkArtifact&lt;br/&gt;path + digest + replay&quot;]
-    LOSS[&quot;Metadata loss report&lt;br/&gt;when compatibility output loses fidelity&quot;]
-    EVIDENCE[&quot;Output evidence&lt;br/&gt;materialization + decode boundary&quot;]
-
-    EXECUTED --&gt; RESULT_BATCH --&gt; OUTPUT_PLAN
-    OUTPUT_PLAN --&gt; VORTEX_OUT --&gt; SINK --&gt; EVIDENCE
-    OUTPUT_PLAN --&gt; COMPAT_OUT --&gt; LOSS --&gt; EVIDENCE
-```
-
-Input format and output format are independent. Vortex output is the highest-fidelity persistence
-target. Compatibility output must report metadata preservation or loss.
-
-## Timing And Stage Attribution
-
-```mermaid
-flowchart LR
-    ROW[&quot;Benchmark row&lt;br/&gt;route_lane_id + evidence tier&quot;]
-    SURFACE[&quot;timing_surface&lt;br/&gt;hot_runtime / full_replay_proof / publication_proof&quot;]
-    QUERY[&quot;Query runtime&lt;br/&gt;scan + operator compute&quot;]
-    SINK[&quot;Result sink&lt;br/&gt;write + replay&quot;]
-    RENDER[&quot;Evidence render&lt;br/&gt;human publication proof&quot;]
-    HOT[&quot;Hot route geomean&lt;br/&gt;primary perf grid&quot;]
-    PUB[&quot;Publication-proof route geomean&lt;br/&gt;proof-heavy grid&quot;]
-    STAGE[&quot;Stage attribution&lt;br/&gt;included or diagnostic&quot;]
-
-    ROW --&gt; SURFACE
-    SURFACE --&gt; QUERY --&gt; HOT
-    SURFACE --&gt; SINK --&gt; PUB
-    SURFACE --&gt; RENDER --&gt; PUB
-    QUERY --&gt; STAGE
-    SINK --&gt; STAGE
-    RENDER --&gt; STAGE
-```
-
-Hot runtime comparisons should use `timing_surface=hot_runtime`. Publication-proof rows can be
-slower because they include result-sink and human evidence-render work. That is extra proof work,
-not automatically a core runtime regression.
-
-## Evidence And Claim Gate
-
-```mermaid
-flowchart LR
-    OUTCOME[&quot;Execution outcome&lt;br/&gt;result or blocker&quot;]
-    CORRECT[&quot;Correctness evidence&lt;br/&gt;digest / replay / oracle where allowed&quot;]
-    CERT[&quot;Certificates&lt;br/&gt;execution + Native I/O + source/sink&quot;]
-    NOFALLBACK[&quot;No-fallback evidence&lt;br/&gt;fallback_attempted=false&quot;]
-    TIMING[&quot;Timing evidence&lt;br/&gt;surface + formula + stage rows&quot;]
-    BLOCKERS[&quot;Blocker matrix&lt;br/&gt;missing or disallowed claims&quot;]
-    CLAIM[&quot;claim_gate_status&lt;br/&gt;claim_grade / not_claim_grade / fixture_smoke_only&quot;]
-    PUBLIC[&quot;Public claim booleans&lt;br/&gt;performance / production / package / Spark-displacement&quot;]
-
-    OUTCOME --&gt; CORRECT --&gt; CERT --&gt; NOFALLBACK --&gt; TIMING --&gt; BLOCKERS --&gt; CLAIM --&gt; PUBLIC
-```
-
-Public claim booleans default to false:
-
-```text
-performance_claim_allowed=false
-production_claim_allowed=false
-spark_replacement_claim_allowed=false
-public_release_claim_allowed=false
-public_package_claim_allowed=false
-publication_attempted=false
-tag_created=false
-secrets_required=false
-fallback_attempted=false
-external_engine_invoked=false
-```
-
-## External Baseline Boundary
-
-External engines may appear only as comparison baselines, migration references, or correctness
-oracles in tests where the boundary is explicit.
-
-Allowed:
-
-- `external_baseline_only` benchmark rows.
-- Correctness/differential oracles that never satisfy runtime execution.
-- Migration notes explaining what ShardLoom does not yet support.
-
-Not allowed:
-
-- Executing unsupported ShardLoom work through Spark, DataFusion, DuckDB, Polars, pandas, Dask, Ray,
-  Velox, Trino, a database, or a warehouse.
-- Reporting an external engine&#39;s residual evaluation as ShardLoom execution.
-- Treating Vortex query-engine integrations as runtime fallback.
-
-## What Must Never Happen
-
-- Do not make `publication_full` rows drive the primary hot route grid.
-- Do not compare hot query runtime against publication-proof totals without saying so.
-- Do not call `prepared_vortex` a direct reader for compatibility files.
-- Do not hide source admission, preparation, materialization, decode, sink, or evidence-render costs.
-- Do not use `auto` to hide unsupported routes or mode substitution; normalize to
-  `vortex_middle` or a concrete execution lane before route evidence is emitted.
-- Do not let website copy imply production support, package publication, Spark-displacement, object-store/lakehouse runtime, Foundry production, or performance superiority without claim-grade evidence.
-- Do not keep outdated legacy docs on public pages when this reference, the phase plan, or promoted benchmark artifacts have moved on.
-
-## Optimization Direction
-
-Optimize remaining high-timing components by first separating route categories:
-
-| Work area | Optimize toward | Keep visible |
-| --- | --- | --- |
-| Hot query runtime | Vortex-native scans, encoded kernels, pruning, pushdown, residual minimization | `timing_surface=hot_runtime`, query-only formula, route lane ID |
-| Preparation | reusable `SourceState` and `VortexPreparedState`, narrow preparation timing, differential preparation | `prepared_state_lookup_or_create_ms`, `prepare_route_total_ms`, `prepare_cli_wall_ms` |
-| Result sink/replay | lower write/replay overhead where proof surfaces need it | `result_sink_write_millis`, replay status, sink inclusion flag |
-| Evidence render | avoid making human publication rendering part of hot runtime | `evidence_render_ms`, `included_publication_proof`, `diagnostic_only` |
-| CI hard gate | parallel producer evidence jobs plus strict final artifact verification | final release rehearsal, production usability, hard release report |
-
-## Codex Anchor Prompt
-
-Use this prompt when an agent is about to change runtime, benchmark, website, or claim-surface code:
-
-```text
-You are editing ShardLoom. Preserve the no-fallback and Vortex-native architecture.
-Before changing behavior, identify the front door, source route, preparation route,
-execution route, output route, timing surface, evidence fields, and claim gate.
-If unsupported, emit deterministic diagnostics with fallback_attempted=false and
-external_engine_invoked=false. If benchmarking, keep hot_runtime, full_replay_proof,
-and publication_proof rows separate. Do not make external baselines or publication
-proof work stand in for ShardLoom hot runtime.
-```
-
-## Validation
-
-After editing this file, sync and validate the website copies:
-
-```bash
-cd website-src
-npm run sync-content
-npm run build
-npm run check
-cd ..
-python scripts/check_website_readiness.py
-node website/validate_static_assets.js
-git diff --check
-```
-
-For CI gate changes, also run:
-
-```bash
-python scripts/check_ci_gate_matrix.py
-```
-
-## Related Sources
-
-- Active phase plan, kept as the repo-only source of truth for planned implementation work.
-- `docs/architecture/canonical-terminology.md`
-- `docs/architecture/universal-input-contract.md`
-- `docs/architecture/universal-ingress-route-taxonomy.md`
-- `docs/architecture/universal-compatibility-coverage-scoreboard.md`
-- `docs/architecture/capability-certification-sequencing.md`
-- `docs/benchmarks/local-taxonomy-benchmark.md`
-- `docs/benchmarks/baseline-comparison-boundary.md`
-- `benchmarks/traditional_analytics/README.md`
-- `docs/release/ci-gate-matrix.md`
-- `docs/release/hard-release-readiness-gate.md`
-
-## Footer
-
-This reference authorizes vocabulary and evidence shape. It does not authorize production claims,
-package publication, performance superiority, Spark-displacement, broad SQL/DataFrame support,
-object-store/lakehouse runtime, Foundry production support, or any external fallback execution.
-</code></pre></details><p class="source-link"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">Open canonical Markdown on GitHub</a></p></section></main><footer class="site-footer"><p>ShardLoom is a published technical preview for local Vortex-native compute.</p><a href="https://github.com/depsilon/shardloom">Open GitHub</a></footer></body></html>
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-vdxcvpsm"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Compute flow | ShardLoom</title><link rel="canonical" href="https://shardloom.io/field-guide/compute-flow"/><link rel="sitemap" href="/sitemap-index.xml"/><script>try{if(!localStorage.getItem('starlight-theme'))localStorage.setItem('starlight-theme','dark')}catch{}</script><link rel="shortcut icon" href="/assets/logo/shardloom-mark.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.2.9"/><meta name="generator" content="Starlight v0.41.10"/><meta property="og:title" content="Compute flow"/><meta property="og:type" content="article"/><meta property="og:url" content="https://shardloom.io/field-guide/compute-flow"/><meta property="og:locale" content="en"/><meta property="og:description" content="Follow a query from local input to native output, and see where ShardLoom avoids work."/><meta property="og:site_name" content="ShardLoom"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Follow a query from local input to native output, and see where ShardLoom avoids work."/><meta name="robots" content="index,follow"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.BUYbcTgA.css"><style>.shardloom-brand:where(.astro-6bctqxxv){color:#edf4f9;letter-spacing:-.055em;white-space:nowrap;align-items:center;gap:11px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;font-size:21px;font-weight:630;line-height:1;text-decoration:none;display:inline-flex}svg:where(.astro-6bctqxxv){flex:none;width:23px;height:28px;display:block}sup:where(.astro-6bctqxxv){vertical-align:top;color:#badcff;margin-left:2px;font-size:12px}a:where(.astro-6bctqxxv):hover{color:#badcff}a:where(.astro-6bctqxxv):focus-visible{outline-offset:5px;outline:2px solid #badcff}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script><link rel="stylesheet" href="/_astro/compute-flow.Bn1NQMYA.css"></head><body class="astro-vdxcvpsm"><a class="sl-skip-link astro-vxeigawq" href="#_top">Skip to content</a><div class="page sl-flex astro-gqpr5s5a"><header class="header astro-gqpr5s5a"><div class="header astro-nczgtkxc"><div class="title-wrapper sl-flex astro-nczgtkxc"><a class="shardloom-brand astro-6bctqxxv" href="/" aria-label="ShardLoom home"><svg viewBox="0 0 24 30" width="24" height="30" aria-hidden="true" class="astro-6bctqxxv"><path d="M12 1 23 14 12 29 1 14Z" fill="none" stroke="#c6e5fd" stroke-width=".9" class="astro-6bctqxxv"></path><path d="m12 1-4 13 4 15 5-15Zm-11 13h22M8 14l9 0" fill="none" stroke="#94badb" stroke-width=".7" class="astro-6bctqxxv"></path><path d="m12 1 5 13-9 0Z" fill="#d0eaff" opacity=".25" class="astro-6bctqxxv"></path></svg><span class="astro-6bctqxxv">ShardLoom<sup class="astro-6bctqxxv">°</sup></span></a></div><div class="sl-flex print:hidden astro-nczgtkxc"><site-search class="astro-nczgtkxc astro-r5ar4xm7" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-strip-trailing-slash><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-r5ar4xm7"><svg aria-hidden="true" class="astro-r5ar4xm7 astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-r5ar4xm7" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-r5ar4xm7" style="display: none;"><kbd class="astro-r5ar4xm7">Ctrl</kbd><kbd class="astro-r5ar4xm7">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-r5ar4xm7"><div class="dialog-frame sl-flex astro-r5ar4xm7"><button data-close-modal class="sl-flex md:sl-hidden astro-r5ar4xm7">Cancel</button><div class="search-container astro-r5ar4xm7"><div id="starlight__search" class="astro-r5ar4xm7"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.B-Vh4ymV.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-nczgtkxc"><div class="sl-flex social-icons astro-nczgtkxc"><a href="https://github.com/depsilon/shardloom" rel="me" class="sl-flex astro-cg55etiy"><span class="sr-only astro-cg55etiy">GitHub</span><svg aria-hidden="true" class="astro-cg55etiy astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 6.25em" class="astro-r2p65idu"><span class="sr-only astro-r2p65idu">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-r2p65idu"><option value="dark" class="astro-r2p65idu">Dark</option><option value="light" class="astro-r2p65idu">Light</option><option value="auto" selected class="astro-r2p65idu">Auto</option></select><svg aria-hidden="true" class="icon caret astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>
+	StarlightThemeProvider.updatePickers();
+</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden astro-gqpr5s5a" aria-label="Main"><starlight-menu-button class="print:hidden astro-vvx7mffu"><button aria-expanded="false" aria-label="Menu" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-vvx7mffu"><svg aria-hidden="true" class="open-menu astro-vvx7mffu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-vvx7mffu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg></button></starlight-menu-button><script type="module">var e=class extends HTMLElement{btn=this.querySelector(`button`);constructor(){super(),this.btn.addEventListener(`click`,()=>this.toggleExpanded());let e=this.closest(`nav`);e&&e.addEventListener(`keyup`,e=>this.closeOnEscape(e)),matchMedia(`(min-width: 50em)`).addEventListener(`change`,()=>this.setExpanded(!1))}setExpanded(e){this.setAttribute(`aria-expanded`,String(e)),document.body.toggleAttribute(`data-mobile-menu-expanded`,e),document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}toggleExpanded(){this.setExpanded(this.getAttribute(`aria-expanded`)!==`true`)}closeOnEscape(e){e.code===`Escape`&&(this.setExpanded(!1),this.btn.focus())}};customElements.define(`starlight-menu-button`,e);</script><script type="module">var e=document.querySelector(`starlight-menu-button`),t=e?.querySelector(`button`);if(e&&t){let n=()=>{t.setAttribute(`aria-expanded`,String(e.getAttribute(`aria-expanded`)===`true`))};new MutationObserver(n).observe(e,{attributes:!0,attributeFilter:[`aria-expanded`]}),n()}</script><div id="starlight__sidebar" class="sidebar-pane astro-gqpr5s5a"><div class="sidebar-content sl-flex astro-gqpr5s5a"><sl-sidebar-state-persist data-hash="0a825lb" class="astro-f5yvicm7"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ojxuodky"><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Start here</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/field-guide" class="astro-ojxuodky"><span class="astro-ojxuodky">Overview</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/start-local-proof" class="astro-ojxuodky"><span class="astro-ojxuodky">Install and run</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/python-surface" class="astro-ojxuodky"><span class="astro-ojxuodky">Python</span></a></li></ul></details></li><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Understand the engine</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/field-guide/execution-model" class="astro-ojxuodky"><span class="astro-ojxuodky">Execution model</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/compute-flow" aria-current="page" class="astro-ojxuodky"><span class="astro-ojxuodky">Compute flow</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/execution-routes" class="astro-ojxuodky"><span class="astro-ojxuodky">Execution routes</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/runtime-and-io" class="astro-ojxuodky"><span class="astro-ojxuodky">Runtime and I/O</span></a></li></ul></details></li><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Evidence and limits</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/field-guide/benchmark-methodology" class="astro-ojxuodky"><span class="astro-ojxuodky">Benchmarks</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/limitations" class="astro-ojxuodky"><span class="astro-ojxuodky">Support and limitations</span></a></li></ul></details></li><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Explore</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/" class="astro-ojxuodky"><span class="astro-ojxuodky">Website home</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-b5gddk54"><div class="social-icons astro-b5gddk54"><a href="https://github.com/depsilon/shardloom" rel="me" class="sl-flex astro-cg55etiy"><span class="sr-only astro-cg55etiy">GitHub</span><svg aria-hidden="true" class="astro-cg55etiy astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 6.25em" class="astro-r2p65idu"><span class="sr-only astro-r2p65idu">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-r2p65idu"><option value="dark" class="astro-r2p65idu">Dark</option><option value="light" class="astro-r2p65idu">Light</option><option value="auto" selected class="astro-r2p65idu">Auto</option></select><svg aria-hidden="true" class="icon caret astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>
+	StarlightThemeProvider.updatePickers();
+</script></div></div></div></div></nav><div class="main-frame astro-gqpr5s5a"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-abfeecmu"><aside class="right-sidebar-container print:hidden astro-abfeecmu"><div class="right-sidebar astro-abfeecmu"><div class="lg:sl-hidden astro-q5mffni3"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-5ulgm6bh"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-5ulgm6bh"><details id="starlight__mobile-toc" class="astro-5ulgm6bh"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-5ulgm6bh"><span class="toggle sl-flex astro-5ulgm6bh">On this page<svg aria-hidden="true" class="caret astro-5ulgm6bh astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-5ulgm6bh"></span></summary><div class="dropdown astro-5ulgm6bh"><ul class="isMobile astro-cxyftcne" style="--depth: 0;"><li style="--depth: 0;" class="astro-cxyftcne"><a href="#_top" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Overview</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#one-native-middle" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">One native middle</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#where-the-differentiators-apply" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Where the differentiators apply</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#evidence-travels-with-the-result" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Evidence travels with the result</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.BcSo_yiZ.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-q5mffni3"><div class="sl-container astro-q5mffni3"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-cxyftcne" style="--depth: 0;"><li style="--depth: 0;" class="astro-cxyftcne"><a href="#_top" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Overview</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#one-native-middle" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">One native middle</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#where-the-differentiators-apply" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Where the differentiators apply</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#evidence-travels-with-the-result" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Evidence travels with the result</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.Csloo1VZ.js"></script></div></div></div></aside><div class="main-pane astro-abfeecmu"><main data-pagefind-body class="astro-vdxcvpsm" lang="en" dir="ltr"><div class="content-panel astro-oil7k7jf"><div class="sl-container astro-oil7k7jf"><h1 id="_top" class="astro-2sm4b3ln">Compute flow</h1></div></div><div class="content-panel astro-oil7k7jf"><div class="sl-container astro-oil7k7jf"><div class="sl-markdown-content"><p>Follow the work that remains: validate the source, skip what can be proved unnecessary,
+compute over the admitted representation, and deliver a complete result.</p>
+<shardloom-compute-flow class="compute-flow not-content astro-gsqkdeo6"><fieldset class="flow-picker astro-gsqkdeo6" hidden><legend class="astro-gsqkdeo6">Choose a query shape</legend><div class="flow-options astro-gsqkdeo6"><label class="astro-gsqkdeo6"><input type="radio" name="compute-flow" value="group" checked aria-controls="flow-group" class="astro-gsqkdeo6"><span class="astro-gsqkdeo6">Filter &amp; group</span></label><label class="astro-gsqkdeo6"><input type="radio" name="compute-flow" value="count" aria-controls="flow-count" class="astro-gsqkdeo6"><span class="astro-gsqkdeo6">Metadata count</span></label><label class="astro-gsqkdeo6"><input type="radio" name="compute-flow" value="topk" aria-controls="flow-topk" class="astro-gsqkdeo6"><span class="astro-gsqkdeo6">Ordered top-K</span></label></div></fieldset><section id="flow-group" class="flow-panel astro-gsqkdeo6" aria-labelledby="flow-title-group"><div class="flow-intro astro-gsqkdeo6"><p class="flow-kicker astro-gsqkdeo6">An illustrated execution path</p><h2 id="flow-title-group" class="astro-gsqkdeo6">Count matching rows by category</h2><p class="flow-query astro-gsqkdeo6">Filter a date range → group by category → count</p></div><ol class="flow-stages astro-gsqkdeo6"><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">01</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Source → Vortex</span><h3 class="astro-gsqkdeo6">Prepare once</h3><p class="astro-gsqkdeo6">Reuse a validated Vortex artifact, or prepare an admitted local input. Each query starts with fresh execution state.</p></div><div class="flow-cells pattern-full astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">02</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Segment pruning</span><h3 class="astro-gsqkdeo6">Read less</h3><p class="astro-gsqkdeo6">Exact segment statistics can rule out data outside the filter. Read the columns and segments still needed.</p></div><div class="flow-cells pattern-prune astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">03</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Encoded aggregation</span><h3 class="astro-gsqkdeo6">Work on the encoding</h3><p class="astro-gsqkdeo6">Eligible dictionary grouping combines encoded identities and exact counts. Referenced values are decoded only where required.</p></div><div class="flow-cells pattern-encoded astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">04</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Late materialization</span><h3 class="astro-gsqkdeo6">Return the result</h3><p class="astro-gsqkdeo6">Resolve the surviving group values and send the complete result to an admitted sink, with execution evidence.</p></div><div class="flow-cells pattern-result astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li></ol><div class="flow-control astro-gsqkdeo6"><span class="astro-gsqkdeo6">Resource control</span><p class="astro-gsqkdeo6">Admitted local routes divide work into capillary units. PulseWeave can bound in-flight work inside the route’s resource and evidence policy.</p></div><p class="flow-takeaway astro-gsqkdeo6">Less source data read. Less repeated text expanded. One native result.</p></section><section id="flow-count" class="flow-panel astro-gsqkdeo6" aria-labelledby="flow-title-count"><div class="flow-intro astro-gsqkdeo6"><p class="flow-kicker astro-gsqkdeo6">An illustrated execution path</p><h2 id="flow-title-count" class="astro-gsqkdeo6">Count all rows in a native source</h2><p class="flow-query astro-gsqkdeo6">Native Vortex → unfiltered row count</p></div><ol class="flow-stages astro-gsqkdeo6"><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">01</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Source identity</span><h3 class="astro-gsqkdeo6">Validate the source</h3><p class="astro-gsqkdeo6">Open the admitted native source and check its identity. An unchanged prepared source can reuse retained handles.</p></div><div class="flow-cells pattern-full astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">02</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Metadata only</span><h3 class="astro-gsqkdeo6">Answer from metadata</h3><p class="astro-gsqkdeo6">For an eligible exact row count, use file metadata. No data-column payload needs to be read.</p></div><div class="flow-cells pattern-result astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li><li class="flow-stage is-bypass astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">03</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Payload work bypassed</span><h3 class="astro-gsqkdeo6">Skip the scan</h3><p class="astro-gsqkdeo6">No payload decoding, row materialization, or aggregate worker admission is needed for this metadata-only path.</p></div><div class="flow-cells pattern-bypass astro-gsqkdeo6" aria-hidden="true"><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">04</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Exact result</span><h3 class="astro-gsqkdeo6">Return one value</h3><p class="astro-gsqkdeo6">Return the exact count and evidence identifying the metadata path. Filters or other measures may require a different path.</p></div><div class="flow-cells pattern-result astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li></ol><div class="flow-control astro-gsqkdeo6"><span class="astro-gsqkdeo6">Resource control</span><p class="astro-gsqkdeo6">Metadata-only aggregates avoid payload and worker admission. The reserved metadata lane is an explicit option on the bounded serving policy.</p></div><p class="flow-takeaway astro-gsqkdeo6">The fastest stage is the one the query does not need.</p></section><section id="flow-topk" class="flow-panel astro-gsqkdeo6" aria-labelledby="flow-title-topk"><div class="flow-intro astro-gsqkdeo6"><p class="flow-kicker astro-gsqkdeo6">An illustrated execution path</p><h2 id="flow-title-topk" class="astro-gsqkdeo6">Find the first K rows in an exact order</h2><p class="flow-query astro-gsqkdeo6">Native Vortex → order by admitted keys → limit K</p></div><ol class="flow-stages astro-gsqkdeo6"><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">01</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Native source</span><h3 class="astro-gsqkdeo6">Start from Vortex</h3><p class="astro-gsqkdeo6">Use the native input or a validated prepared artifact. The query retains the same source generation through execution.</p></div><div class="flow-cells pattern-full astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">02</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Key-first scan</span><h3 class="astro-gsqkdeo6">Read the ordering keys</h3><p class="astro-gsqkdeo6">Inspect the keys required to select winners. Eligible bound proofs can skip segments; other segments must still be considered.</p></div><div class="flow-cells pattern-prune astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">03</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Exact selection</span><h3 class="astro-gsqkdeo6">Keep exact winners</h3><p class="astro-gsqkdeo6">Supported native Top-K paths retain candidate keys and row ordinals instead of materializing every candidate row’s payload.</p></div><div class="flow-cells pattern-encoded astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li><li class="flow-stage astro-gsqkdeo6"><span class="flow-number astro-gsqkdeo6" aria-hidden="true">04</span><div class="flow-stage-copy astro-gsqkdeo6"><span class="flow-mechanism astro-gsqkdeo6">Late payload gathering</span><h3 class="astro-gsqkdeo6">Gather winning payload</h3><p class="astro-gsqkdeo6">Fetch the requested values for selected rows, preserve the query’s order, and return the result through an admitted output route.</p></div><div class="flow-cells pattern-result astro-gsqkdeo6" aria-hidden="true"><span class="kept astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span><span class="astro-gsqkdeo6"></span></div></li></ol><div class="flow-control astro-gsqkdeo6"><span class="astro-gsqkdeo6">Resource control</span><p class="astro-gsqkdeo6">Worker, memory, and I/O admission bound the supported route. Available spill paths are operator-specific; unsupported pressure cases return a diagnostic.</p></div><p class="flow-takeaway astro-gsqkdeo6">Decide which rows win before gathering their payload.</p></section><p class="flow-caption astro-gsqkdeo6">Conceptual illustrations of eligible local paths. The tiles are visual cues, not measured row counts or runtime telemetry. Actual execution depends on the query, types, layout, and enabled features.</p></shardloom-compute-flow><script type="module">var e=class extends HTMLElement{connectedCallback(){let e=this.querySelector(`.flow-picker`),t=this.querySelectorAll(`.flow-panel`);if(!e)return;let n=()=>{let n=e.querySelector(`input:checked`);if(n)for(let e of t)e.hidden=e.id!==`flow-${n.value}`},r=()=>{let r;try{r=decodeURIComponent(window.location.hash.slice(1))}catch{return}let i=document.getElementById(r);if(!i)return;let a=[...t].find(e=>e.contains(i));if(a){for(let t of e.querySelectorAll(`input`))t.checked=a.id===`flow-${t.value}`;n()}};e.addEventListener(`change`,n),n(),r(),window.addEventListener(`hashchange`,r),e.hidden=!1}};customElements.get(`shardloom-compute-flow`)||customElements.define(`shardloom-compute-flow`,e);</script>
+<div class="sl-heading-wrapper level-h2"><h2 id="one-native-middle">One native middle</h2><a class="sl-anchor-link" href="#one-native-middle"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “One native middle”</span></a></div>
+<p>SQL, Python, and the DataFrame-style surface enter ShardLoom planning. Admitted local
+compatibility inputs prepare into Vortex; native Vortex inputs start there. Reuse validates
+the source and artifact generation. It does not reuse a previous query answer.</p>
+<p>Vortex remains the highest-fidelity persistence target. Parquet, Arrow IPC, Avro, ORC, CSV,
+and JSON writers are explicit output boundaries, with their own type and size limits.
+See <a href="/field-guide/execution-routes">execution routes</a> and <a href="/field-guide/runtime-and-io">runtime and I/O</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="where-the-differentiators-apply">Where the differentiators apply</h2><a class="sl-anchor-link" href="#where-the-differentiators-apply"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Where the differentiators apply”</span></a></div>
+<ul>
+<li><strong>Metadata and pruning:</strong> avoid payload reads only when exact evidence supports the answer or exclusion.</li>
+<li><strong>Encoded execution:</strong> dictionary identities, repeated values, and native typed accessors reduce expansion on eligible operations.</li>
+<li><strong>Capillary work units:</strong> divide admitted work into bounded pieces, including local preparation tasks.</li>
+<li><strong>PulseWeave:</strong> applies resource-aware control on certified local prepared/native and cold-preparation paths; other paths may report readiness without applying it.</li>
+<li><strong>Late materialization:</strong> defer group-value resolution or winning-row payload gathering until the result needs it.</li>
+</ul>
+<p>These mechanisms compose where the route supports them. They are not all active on every query.
+The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/pulseweave-runtime-control.md">PulseWeave contract</a>,
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md">native result contracts</a>,
+and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md">dictionary execution evidence</a>
+describe their implemented scope.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="evidence-travels-with-the-result">Evidence travels with the result</h2><a class="sl-anchor-link" href="#evidence-travels-with-the-result"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Evidence travels with the result”</span></a></div>
+<p>The result reports source identity, execution and materialization boundaries, and output evidence.
+Admitted work preserves <code dir="auto">fallback_attempted=false</code> and <code dir="auto">external_engine_invoked=false</code>.
+An unsupported operation returns an explicit diagnostic.</p>
+<p>Use <a href="/field-guide/limitations">support and limitations</a> to check a workload, and
+<a href="/field-guide/benchmark-methodology">benchmarks</a> to understand measured evidence.</p></div><footer class="sl-flex astro-xhxjzfa7"><div class="meta sl-flex astro-xhxjzfa7"></div><div class="pagination-links print:hidden astro-jgq3vlii" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

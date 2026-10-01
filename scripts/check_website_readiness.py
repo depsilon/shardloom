@@ -29,6 +29,7 @@ EXPECTED_PAGES = [
     "field-guide/python-surface/index.html",
     "field-guide/runtime-and-io/index.html",
     "field-guide/execution-model/index.html",
+    "field-guide/compute-flow/index.html",
     "field-guide/execution-routes/index.html",
     "field-guide/benchmark-methodology/index.html",
     "field-guide/limitations/index.html",
@@ -64,8 +65,8 @@ EXPECTED_NAV_PATHS = {
     "/about",
     "/start",
     "/field-guide",
-    "/benchmarks",
-    "/compute-engine-flow",
+    "/field-guide/benchmark-methodology",
+    "/field-guide/compute-flow",
 }
 STATUS_VOCABULARY = {
     "runtime_supported",
@@ -244,6 +245,10 @@ def expected_canonical_url(relative: str) -> str:
         canonical_path = relative.removesuffix(".html")
     else:
         canonical_path = relative
+    canonical_path = {
+        "benchmarks": "field-guide/benchmark-methodology",
+        "compute-engine-flow": "field-guide/compute-flow",
+    }.get(canonical_path, canonical_path)
     return f"https://shardloom.io/{canonical_path}".rstrip("/")
 
 
@@ -648,7 +653,7 @@ def main() -> int:
     expected_guide_pages = {
         "index.html", "start-local-proof/index.html", "python-surface/index.html",
         "runtime-and-io/index.html", "execution-model/index.html", "execution-routes/index.html",
-        "benchmark-methodology/index.html", "limitations/index.html",
+        "benchmark-methodology/index.html", "limitations/index.html", "compute-flow/index.html",
     }
     guide_root = website / "field-guide"
     actual_guide_pages = {path.relative_to(guide_root).as_posix() for path in guide_root.rglob("*.html")}

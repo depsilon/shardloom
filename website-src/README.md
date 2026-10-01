@@ -15,9 +15,9 @@ Public surface:
 - `/`: parallax ShardLoom homepage experience from the productionized source-of-truth HTML.
 - `/about`: shipped differentiators, technical-preview support, and evidence pointers.
 - `/start`: package installation, a small CSV example, and a first local query.
-- `/field-guide`: Starlight docs for installation, Python, runtime and I/O, benchmark methodology, limitations, and vocabulary.
-- `/benchmarks`: ClickBench handoff and claim-safe public comparison posture.
-- `/compute-engine-flow`: human-readable route translation.
+- `/field-guide`: Starlight docs for installation, Python, execution, runtime and I/O, benchmarks, and current support boundaries.
+- `/field-guide/benchmark-methodology`: ClickBench handoff, current engineering evidence, and measurement boundaries. `/benchmarks` redirects here.
+- `/field-guide/compute-flow`: interactive query-path illustrations. `/compute-engine-flow` redirects here.
 
 Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the repository under `docs/`.
 
@@ -31,7 +31,7 @@ npm run check
 
 The build must not run ShardLoom benchmarks, fetch runtime GitHub/raw content, publish packages, or
 expand support claims. The benchmark page links to ClickBench instead of rendering committed local
-artifact rows as a public leaderboard. `npm run sync-content` generates the eight public Field Guide
+artifact rows as a public leaderboard. `npm run sync-content` generates the nine public Field Guide
 pages from `website-src/scripts/sync-content.mjs`, and keeps repository use-case records under
 `docs/use-cases/generated/` for source-of-truth evidence instead of publishing a generated use-case
 browser. `website-src/src/data/field-guide.json` is retained as vocabulary and backlink metadata;
