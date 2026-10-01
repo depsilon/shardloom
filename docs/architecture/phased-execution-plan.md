@@ -860,10 +860,15 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     complete bounded values, and the native array sink persists them directly.
     Later bounded integer COUNT/DISTINCT and UTF8 COUNT results also finalize
     directly into owned arrays with Vortex/IPC/Parquet sink acceptance. Additional
-    computed and multi-source families still require migration; see the completed
-    ledger and combined September 12 UAT for the exact scope.
+    computed and multi-source families still require migration. The
+    [October 1 result-stream unit](native-workflow-streaming-2026-10-01.md) completes
+    executable flat-scalar aggregate and ordered output into bounded native
+    batches and all eight admitted local writers, including existing native
+    spill output. Complete Python SQL/DataFrame workflows and Full43 pass;
+    collection bounds and broader resource/operator obligations remain separate.
+    See the completed ledger and combined September 12 UAT for earlier scope.
   - Execution checklist:
-    - [ ] Complete bounded result streams for already executable flat-scalar
+    - [x] Complete bounded result streams for already executable flat-scalar
       aggregate and ordered-result families through downstream operators and
       admitted local writers, including typed empty results and native spill
       output. Use the [whole-workflow acceptance matrix](universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix)

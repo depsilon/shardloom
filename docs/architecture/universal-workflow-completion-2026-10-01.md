@@ -52,20 +52,26 @@ implemented support. This plan does not replace their capability records.
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs. | Broader typed/nested schemas, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
 | Operator composition | Native filters, projection, aggregates, DISTINCT and ordering; selected provider joins, reshape and source-order operations. | General joins, set operations, analytic windows and subqueries; prepared/public parity and supported chains. Use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
-| Results and writers | Owned Vortex arrays, shared local writers and bounded computed scalar handoff. | Bounded native result streams through chained operators and admitted writers, including spill output. | PERF-07/11; CG-3/19/21 |
+| Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output. | Extend result streams through the remaining operator/type families and broader chains. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
 
-The 65,536-row / 128-scalar-field / 8-MiB limit belongs to one computed-result
-scalar-to-native handoff. It is not an input-size limit. Raising it alone cannot
-establish scalable composition. Successful file ingestion alone cannot establish
-a successful query and output workflow.
+The 65,536-row / 128-scalar-field / 8-MiB limits remain on small computed-result
+collection. The [October 1 result-stream unit](native-workflow-streaming-2026-10-01.md)
+gives already executable flat-scalar aggregate and ordered local writes a separate
+bounded batch boundary, with complete output above the collection row and byte
+limits. Both still admit at most 128 flat scalar fields. These are not input-size
+limits. Remaining operator state, spill and
+composition gaps still need their own resource proof. Successful file ingestion
+alone cannot establish a successful query and output workflow.
 
 ## Cohesive implementation sequence
 
-The next runtime unit should complete bounded native result composition and local
-output for already executable flat-scalar aggregate and ordered-result families.
-It closes a reusable connection before expanding operator breadth. Freeze exact
+The first runtime unit connects bounded native result composition and local output
+for already executable flat-scalar aggregate and ordered-result families; its
+[contract and acceptance](native-workflow-streaming-2026-10-01.md) record exact
+coverage. Next, extend retained execution and result delivery through the existing
+unary families before adding missing relational/type families. Freeze exact
 expressions, sinks and pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only
 designation. Availability work ships on correctness and resource proof; a speedup is

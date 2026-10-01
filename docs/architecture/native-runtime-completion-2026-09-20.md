@@ -292,8 +292,8 @@ arbitrary callbacks, recursive SQL or external-effect/platform integrations.
 | Family | Execution to reuse | Remaining native availability |
 | --- | --- | --- |
 | Count/filter/project | Prepared count/count-where/projection and native scan lowering | Preserve admitted residual selections in owned collect; complete public parity |
-| Aggregates | Existing typed accessors, physical-key proofs, weighted counts, exact COUNT DISTINCT, SUM/AVG/MIN/MAX, HAVING and ordering | Broad owned computed results/sinks and general public lowering; wider spill transitions |
-| Sort/Top-N | Native exact ordering, secondary keys, partition selection and late payload gathering | Retained prepared handle/owned output and broader spill schemas |
+| Aggregates | Existing typed accessors, physical-key proofs, weighted counts, exact COUNT DISTINCT, SUM/AVG/MIN/MAX, HAVING and ordering; flat-scalar native result streams into local writers | Broader public composition/type coverage and wider spill transitions |
+| Sort/Top-N | Native exact ordering, secondary keys, partition selection, late payload gathering and flat-scalar native result streams, including admitted numeric spill | Retained prepared handles and broader spill schemas |
 | Distinct/deduplication/duplicate mask | Existing exact row-key and first/last/all survivor logic | Retained execution, owned survivor selection and row-state spill |
 | Tail/sample | Existing deterministic source ordinals and weighted/replacement sampling | Prepared/owned composition preserving repeated rows and seed semantics |
 | Expressions/casts/nested access | Existing typed rewrite and aggregate-transform kernels | Unify public lowering with native kernels; explicitly resolve parsed function/type gaps |
