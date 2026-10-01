@@ -1,41 +1,57 @@
 ---
-title: "Limitations"
-description: "Current public claim boundaries and unsupported behavior."
-sidebar: {"label":"Limitations","order":4}
+title: "Support and limitations"
+description: "What executes today, where coverage is partial, and which limits apply to your route."
+sidebar: {"label":"Support and limitations","order":4}
 ---
 
 
-ShardLoom 0.3.3 is available as a local technical preview through GitHub
-pre-release, PyPI, TestPyPI, and Homebrew. See the
-[publication record](https://github.com/depsilon/shardloom/blob/main/docs/release/v1-local-source-package-release.md)
-and [current support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md).
-Package availability is separate from production readiness.
+ShardLoom executes local queries over native and prepared Vortex data today.
+Coverage is specific to the operation, types, source layout, enabled features, and output route.
+
+Current capabilities, reviewed **October 1, 2026**. See the
+[public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
+for the detailed evidence behind this scope.
 
 ## Runtime Limits
 
-- General native joins, set operations, windows, and subqueries have remaining coverage gaps.
-- General computed-result exports are bounded to 65,536 rows, 128 fields, and 8 MiB; format and type restrictions apply.
-- Existing Vortex inputs preserve their layout during preparation; all-I/O physical-layout optimization remains unfinished.
-- Spill, memory reservations, and concurrent serving are scoped contracts, not universal spill support, an RSS ceiling, or production fairness proof.
-- Remote output, table/catalog writes, and lakehouse transactions are outside the local sink contract.
+| Area | Available in admitted routes | Remaining boundary |
+| --- | --- | --- |
+| Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
+| Relational and DataFrame operations | Selected provider-backed joins; scoped duplicate handling, sampling, melt/explode/pivot, and source-order rolling. | General joins, set operations, analytic windows, and subqueries are not complete native families. Prepared reuse, owned output, and spill parity also vary. |
+| Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
+| Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
+| Memory and recovery | Reservations, bounded serving admission, COUNT/DISTINCT and selected numeric-sort spill, cancellation and cleanup contracts. | Spill is operator-specific. Broad compound-key spill and spill-backed export remain incomplete; reservations are not a whole-process RSS ceiling. |
+| Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
-See [runtime and I/O](/field-guide/runtime-and-io) for the shipped boundaries and linked evidence.
+The **65,536-row / 128-scalar-field / 8-MiB** bound applies to the general computed-result
+scalar-to-native export handoff. It is not an input-size limit or a universal limit on native
+scans or streaming row exports. Nested and extension results, and explicit aggregate/sort spill
+output, remain outside that handoff. See the
+[output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
+
+Use [runtime and I/O](/field-guide/runtime-and-io), the
+[front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md),
+and the [native completion inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory)
+for exact scope. A familiar method name is not an every-shape support promise.
 
 ## External systems
 
-Remote output, table transactions, and production object-store or Foundry runtime are outside
-the local contract. Local fixtures, metadata inspection, and explicitly admitted local table-file
-reads do not establish live provider support. Network, credential, extension, UDF, API, and model
-effects require explicit admission; discovery does not execute them.
+The local workflow contract covers admitted files, local Vortex manifests and partitions,
+and scoped local table-file reads. Remote output, catalog/table transactions, and production
+object-store or Foundry runtime are outside it. Local fixtures and metadata inspection are
+separate from live provider execution.
 
-## Not claimed
+Arbitrary Python data callbacks and general extension/UDF execution are not implied by the
+DataFrame surface. Network, credential, API, and model effects require explicit admission;
+discovery does not execute them.
 
-- production support
-- broad SQL/DataFrame parity
-- Spark displacement
-- object-store or lakehouse production runtime
-- Foundry production runtime
-- performance superiority
+## Release and readiness
+
+The technical preview is published through GitHub pre-release, PyPI, TestPyPI, and Homebrew.
+That availability does not establish production support, broad SQL/DataFrame parity, or
+Spark displacement. Local runtime and benchmark evidence do not establish production
+distributed/live-hybrid service or performance superiority. Read the
+[benchmark evidence](/field-guide/benchmark-methodology) within its measured scope.
 
 ## Failure Behavior
 

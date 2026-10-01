@@ -33,11 +33,12 @@ artifacts remain repository evidence and must not be mirrored into a shardloom.i
 | `/` | Parallax product experience, route/evidence posture, next action | `website-src/src/pages/index.astro`, `website-public/assets/parallax-home.*`, README contracts |
 | `/about` | Short claim-safe overview of what ShardLoom is, is not, and where current evidence lives | `website-src/src/pages/about.astro`, README, compute-flow reference |
 | `/start` | Verified package installation and a first local query | repo getting-started docs and local scripts |
-| `/field-guide` | Eight focused guides for installation, Python, execution, I/O, evidence, and limitations | generated docs content and exact source references |
-| `/benchmarks` | ClickBench handoff and claim-safe public benchmark posture | `website-src/src/pages/benchmarks.astro` |
-| `/compute-engine-flow` | Human-readable route architecture | `docs/architecture/compute-engine-flow-reference.md` |
+| `/field-guide` | Nine focused guides for installation, Python, execution, I/O, evidence, and limitations | generated docs content and exact source references |
+| `/field-guide/benchmark-methodology` | ClickBench handoff, current engineering evidence, and measurement boundaries | `website-src/src/content/docs/field-guide/benchmark-methodology.mdx` |
+| `/field-guide/compute-flow` | Interactive metadata-count, grouping, and Top-K execution illustrations | `website-src/src/components/ComputeFlow.astro` and generated guide content |
 
-Removed public routes are redirected intentionally: `/architecture` to `/compute-engine-flow`,
+Removed public routes are redirected intentionally: `/architecture` and `/compute-engine-flow`
+to `/field-guide/compute-flow`, `/benchmarks` to `/field-guide/benchmark-methodology`,
 `/docs` to `/field-guide`, `/status` to `/field-guide/limitations`, and `/use-cases` to
 `/field-guide/python-surface` or repository use-case records. The generated use-case and status
 matrices remain repository evidence, not public website IA.
@@ -56,11 +57,17 @@ theme, and system typography. Search, a short sidebar, and section navigation re
 on desktop and mobile. Keep the shared documentation styles separate from the older product-page
 stylesheet so unrelated global selectors cannot override the guide.
 
-The public docs contain eight pages: overview, install and run, Python, execution model,
-execution routes, runtime and I/O, benchmark methodology, and limitations. The former 34 vocabulary
+The public docs contain nine pages: overview, install and run, Python, execution model,
+compute flow, execution routes, runtime and I/O, benchmarks, and support and limitations. The former 34 vocabulary
 dossiers are consolidated into these guides. Their URLs redirect to relevant sections; they must
 not remain as duplicate generated pages or search results. Vocabulary metadata remains in
 `website-src/src/data/field-guide.json` for repository use-case backlinks and redirect generation.
+
+Compute flow uses keyboard-accessible native radio controls to choose a conceptual local query
+path. All paths remain readable when JavaScript is unavailable. Illustrative tiles must never
+be presented as measured row counts or runtime telemetry. Legacy benchmark/flow HTML copies
+must be byte-identical to their current guide pages and canonicalize to those guide routes.
+Describe current capabilities directly; do not divide support by publication timing.
 
 Do not expose build validators, unused UI scripts, internal scenario labels, or repeated
 boilerplate dossiers in the guide. The static validator lives in `scripts/validate_static_assets.cjs`

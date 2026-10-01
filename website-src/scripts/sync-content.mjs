@@ -216,7 +216,7 @@ const durableDocsPages = [
   "title": "Execution model",
   "description": "How ShardLoom avoids data work and preserves its no-fallback contract.",
   "order": 3,
-  "body": "ShardLoom computes over Vortex-native, encoded columnar data. It is a local technical preview\nwith Python, SQL, DataFrame-style, and CLI entry points into the same admitted execution families.\n\n## Avoid work first\n\nThe engine tries to answer from metadata, prune irrelevant segments, and compute against encoded\nvalues before decoding or materializing rows. A dictionary or repeated value can let an operator\nwork on fewer values while preserving exact results.\n\nZero-decode means an operation preserves encoded values. Zero-copy means a boundary avoids copying\nbuffers. They describe different things, and neither applies to every operation. Execution evidence\nrecords where reading, decoding, and materialization occur.\n\n## No fallback\n\nUnsupported plans return explicit diagnostics. ShardLoom does not delegate them to Spark,\nDataFusion, DuckDB, Polars, or another query engine.\n\nApproved upstream Vortex array, compute, scan, source, and sink APIs can supply native operations\ninside ShardLoom's feature and policy boundaries. Vortex integrations with external query engines\nare not execution providers.\n\n## Inputs and outputs\n\nCompatibility inputs such as CSV or Parquet enter through explicit adapters. Vortex is the native\nmiddle and the highest-fidelity persistence target. Compatibility outputs translate results and\nreport metadata loss; choosing an output format does not choose another execution engine.\n\nSee [execution routes](/field-guide/execution-routes) for preparation and reuse, and\n[runtime and I/O](/field-guide/runtime-and-io) for supported formats and limits.\n\n## Execution evidence\n\nAdmitted execution reports `fallback_attempted=false` and `external_engine_invoked=false`.\nCertificates describe the admitted source, work, output, and materialization boundaries. Where\nincluded, sink digests and replay checks support result verification.\n\n`claim_gate_status` describes the scope of the evidence. A local smoke test, a capability report,\nand a reproducible benchmark answer different questions. A certificate alone does not establish\nproduction readiness or performance superiority.\n\nThe [compute flow](/compute-engine-flow) shows the route in detail. Read\n[benchmark methodology](/field-guide/benchmark-methodology) before comparing timings."
+  "body": "ShardLoom computes over Vortex-native, encoded columnar data. It is a local technical preview\nwith Python, SQL, DataFrame-style, and CLI entry points into the same admitted execution families.\n\n## Avoid work first\n\nThe engine tries to answer from metadata, prune irrelevant segments, and compute against encoded\nvalues before decoding or materializing rows. A dictionary or repeated value can let an operator\nwork on fewer values while preserving exact results.\n\nZero-decode means an operation preserves encoded values. Zero-copy means a boundary avoids copying\nbuffers. They describe different things, and neither applies to every operation. Execution evidence\nrecords where reading, decoding, and materialization occur.\n\n## No fallback\n\nUnsupported plans return explicit diagnostics. ShardLoom does not delegate them to Spark,\nDataFusion, DuckDB, Polars, or another query engine.\n\nApproved upstream Vortex array, compute, scan, source, and sink APIs can supply native operations\ninside ShardLoom's feature and policy boundaries. Vortex integrations with external query engines\nare not execution providers.\n\n## Inputs and outputs\n\nCompatibility inputs such as CSV or Parquet enter through explicit adapters. Vortex is the native\nmiddle and the highest-fidelity persistence target. Compatibility outputs translate results and\nreport metadata loss; choosing an output format does not choose another execution engine.\n\nSee [execution routes](/field-guide/execution-routes) for preparation and reuse, and\n[runtime and I/O](/field-guide/runtime-and-io) for supported formats and limits.\n\n## Execution evidence\n\nAdmitted execution reports `fallback_attempted=false` and `external_engine_invoked=false`.\nCertificates describe the admitted source, work, output, and materialization boundaries. Where\nincluded, sink digests and replay checks support result verification.\n\n`claim_gate_status` describes the scope of the evidence. A local smoke test, a capability report,\nand a reproducible benchmark answer different questions. A certificate alone does not establish\nproduction readiness or performance superiority.\n\nThe [compute flow](/field-guide/compute-flow) shows the route in detail. Read\n[benchmark methodology](/field-guide/benchmark-methodology) before comparing timings."
 }) },
   { slug: "execution-routes", content: docsPage({
   "title": "Execution routes",
@@ -225,6 +225,53 @@ const durableDocsPages = [
   "body": "Local files, prepared artifacts, and native Vortex files enter the same engine at different\npoints. The distinction matters for reuse and for what a timing measurement includes.\n\n## Source admission\n\n`UniversalIngress` identifies the input family and checks whether an adapter is available.\n`SourceState` records the source identity, schema, and adapter evidence. Unsupported formats or\noperations return a diagnostic before execution; a recognized file extension is not a promise of\nfull format support.\n\n## Prepare once\n\nFor an admitted compatibility input, `vortex_ingest` creates a `VortexPreparedState`.\nThe `prepared_vortex` route executes against that artifact.\n\nPreparation can be reused when the source, schema, and artifact identities match. Generation\nchecks span reuse and execution, and detected changes fail explicitly. Each query has fresh\nexecution state: prepared state is not a query-result cache.\n\n## Native Vortex\n\nThe `native_vortex` route starts with data already stored as Vortex. Preparation preserves its\nexisting layout. Operations still depend on supported types, encodings, and physical layouts;\nnative input does not eliminate computation or result delivery.\n\n## Generated rows\n\nA generated-source route creates deterministic rows without reading an input dataset. Its evidence\nmust distinguish row generation from source parsing and from query execution.\n\n## Cold and warm runs\n\nA certified cold route can include source reading, parsing, staging, Vortex construction,\nwrite/reopen checks, query execution, and output evidence. A prepared warm run begins after the\nprepared artifact exists. Compare only runs with the same measured boundary.\n\nThe [benchmark methodology](/field-guide/benchmark-methodology) explains timing surfaces.\nThe [Python guide](/field-guide/python-surface) shows the normal local query path.\nFor the full route vocabulary, see the\n[repository contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md)."
 }) },
 
+  {
+    slug: "compute-flow",
+    content: docsPage({
+      title: "Compute flow",
+      description: "Follow a query from local input to native output, and see where ShardLoom avoids work.",
+      order: 2,
+      body: `import ComputeFlow from '../../../components/ComputeFlow.astro';
+
+Follow the work that remains: validate the source, skip what can be proved unnecessary,
+compute over the admitted representation, and deliver a complete result.
+
+<ComputeFlow />
+
+## One native middle
+
+SQL, Python, and the DataFrame-style surface enter ShardLoom planning. Admitted local
+compatibility inputs prepare into Vortex; native Vortex inputs start there. Reuse validates
+the source and artifact generation. It does not reuse a previous query answer.
+
+Vortex remains the highest-fidelity persistence target. Parquet, Arrow IPC, Avro, ORC, CSV,
+and JSON writers are explicit output boundaries, with their own type and size limits.
+See [execution routes](/field-guide/execution-routes) and [runtime and I/O](/field-guide/runtime-and-io).
+
+## Where the differentiators apply
+
+- **Metadata and pruning:** avoid payload reads only when exact evidence supports the answer or exclusion.
+- **Encoded execution:** dictionary identities, repeated values, and native typed accessors reduce expansion on eligible operations.
+- **Capillary work units:** divide admitted work into bounded pieces, including local preparation tasks.
+- **PulseWeave:** applies resource-aware control on certified local prepared/native and cold-preparation paths; other paths may report readiness without applying it.
+- **Late materialization:** defer group-value resolution or winning-row payload gathering until the result needs it.
+
+These mechanisms compose where the route supports them. They are not all active on every query.
+The [PulseWeave contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/pulseweave-runtime-control.md),
+[native result contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
+and [dictionary execution evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md)
+describe their implemented scope.
+
+## Evidence travels with the result
+
+The result reports source identity, execution and materialization boundaries, and output evidence.
+Admitted work preserves \`fallback_attempted=false\` and \`external_engine_invoked=false\`.
+An unsupported operation returns an explicit diagnostic.
+
+Use [support and limitations](/field-guide/limitations) to check a workload, and
+[benchmarks](/field-guide/benchmark-methodology) to understand measured evidence.`,
+    }),
+  },
   {
     slug: "start-local-proof",
     content: docsPage({
@@ -257,7 +304,7 @@ For development, follow [source checkout installation](https://github.com/depsil
 
 ## Boundary
 
-Package publication and source execution have separate evidence. Check the
+Check the
 [supported surface](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/v1-supported-unsupported.md)
 and [troubleshooting guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/troubleshooting-support.md).
 Neither establishes production readiness, broad SQL/DataFrame parity, object-store runtime, or
@@ -329,6 +376,8 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
+Current capabilities, reviewed October 1, 2026.
+
 ## Native Execution
 
 Supported routes use exact metadata, segment pruning, encoded reductions, weighted dictionary
@@ -340,9 +389,11 @@ and shares partial construction between serial and bounded workers. Transformed 
 can overlap bounded dictionary preparation with native input progress and ordered consumption.
 See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
 
-Filters, projections, aggregates, sort/Top-K, and selected provider-backed join workflows are
-available. General joins, set operations, analytic windows, and subqueries still have native
-coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
+Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
+provider-backed join workflows execute today. Scoped duplicate handling, sampling, reshape,
+and source-order rolling operations also exist. Their composition, prepared execution, output,
+and spill coverage vary. General joins, set operations, analytic windows, and subqueries still
+have native coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
 
 ## Local Formats
@@ -376,9 +427,11 @@ encoding, or result delivery instantaneous.
 
 Supported owned results retain Vortex arrays, validity, and memory credits. Complete flat aggregate
 and sorted results reach the shared writers without rerunning the query or reparsing serialized
-JSON for binary export. General computed results still use bounded scalar-to-native construction:
-**65,536 rows, 128 fields, and 8 MiB**, subject to type and memory admission. This is not unbounded
-streaming or every-operator/every-sink parity. See the
+JSON for binary export. The general computed-result scalar-to-native handoff is bounded to
+**65,536 rows, 128 scalar fields, and 8 MiB**, subject to type and memory admission.
+These are limits of that handoff, not a dataset-size limit or a universal ceiling on native
+scans and streaming row exports. Nested/extension results and explicit aggregate/sort spill
+output remain outside that handoff. See the
 [I/O integration evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/public-io-route-repair-2026-09-27.md).
 
 ## Resources And Recovery
@@ -402,69 +455,110 @@ Every admitted execution preserves \`fallback_attempted=false\` and
   {
     slug: "benchmark-methodology",
     content: docsPage({
-      title: "Benchmark methodology",
-      description: "How to read hot runtime, publication proof, claim gates, and baseline rows.",
+      title: "Benchmarks",
+      description: "ClickBench comparisons, current engineering evidence, and how to read a measured result.",
       order: 3,
-      body: `The benchmark page is a ClickBench handoff, not a ShardLoom-hosted leaderboard.
-Local benchmark and UAT artifacts remain repository evidence for engineering validation, route
-coverage, and claim gating.
+      body: `Use ClickBench for public cross-engine OLAP comparisons. This guide explains ShardLoom's
+engineering evidence and measurement boundaries; it does not present a public ranking.
 
-## Timing Surfaces
+**[Open ClickBench ↗](https://benchmark.clickhouse.com/)**
 
-- \`hot_runtime\`: the default ShardLoom route grid for runtime timing.
-- \`full_replay_proof\`: machine replay proof when present.
-- \`publication_proof\`: result-sink, replay, and human evidence rendering when included by the row formula.
-- \`external_baseline\`: comparison context only, never fallback execution.
+## Current engineering evidence
+
+Reviewed October 1, 2026. Recent local work validates complete query results and measures
+individual changes against a frozen ShardLoom control:
+
+- [Native execution and ingestion comparisons](https://github.com/depsilon/shardloom/blob/main/docs/architecture/performance-quiet-intake-2026-09-30.md) — retained mechanisms, rejected experiments, and links to their acceptance evidence.
+- [Dictionary preparation](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md) — source-backed strings, bounded preparation overlap, and measured tradeoffs.
+- [Native runtime completion](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md) — complete-value Full43 regression runs, public-call checks, and the remaining availability inventory.
+
+These are workload- and machine-specific development results. A full 43-query regression run
+does not by itself establish an accepted ClickBench submission, cross-engine superiority,
+or production readiness. Earlier receipts remain historical evidence for their named builds.
+
+## What a timing includes
+
+| Measurement | Read it as |
+| --- | --- |
+| Cold preparation | Source read and parse, Vortex construction, persistence, and the checks included by that runner. Keep this separate from warm queries. |
+| Prepared/native query | Execution against an existing Vortex artifact. State whether setup, process startup, output, and verification are timed. |
+| Fresh-process complete query | A complete invocation and result, with startup and output costs. OS cache can still be warm. |
+| Resident call | A retained local worker or session; state which source handles and lowering are reused. Every query still executes. |
+| Replay/publication proof | Additional validation and evidence work, where the runner includes it. Do not silently fold it into or remove it from runtime. |
+
+Older artifacts use \`hot_runtime\`, \`full_replay_proof\`, \`publication_proof\`, and
+\`external_baseline\` labels. Use each artifact's exact formula and evidence tier rather than
+assuming those labels describe every current runner.
 
 ## External baselines
 
-External engines are comparison context only. Their execution never satisfies a ShardLoom
-execution contract or its no-fallback evidence. The [benchmarks page](/benchmarks) links to ClickBench.
+External engines may supply benchmark baselines or independent correctness references.
+Their execution never satisfies a ShardLoom execution contract or its no-fallback evidence.
 
-## Claim Rules
+## Comparing results
 
-Do not compare rows without naming the timing surface, evidence tier, and claim gate. If
-\`performance_claim_allowed=false\`, local artifacts may support engineering decisions but must not
-claim superiority.`,
+Compare the same query semantics, full results, dataset and layout, build, machine, resource
+caps, cache/setup state, and output boundary. Report repetitions and the chosen statistic;
+do not mix a sum of minima with a median or a separate ingest run.
+
+If \`performance_claim_allowed=false\`, local artifacts support engineering decisions without
+authorizing superiority claims. The [support and limitations](/field-guide/limitations) page
+separates executable scope from public readiness claims.`,
     }),
   },
   {
     slug: "limitations",
     content: docsPage({
-      title: "Limitations",
-      description: "Current public claim boundaries and unsupported behavior.",
+      title: "Support and limitations",
+      description: "What executes today, where coverage is partial, and which limits apply to your route.",
       order: 4,
-      body: `ShardLoom ${packageVersion} is available as a local technical preview through GitHub
-pre-release, PyPI, TestPyPI, and Homebrew. See the
-[publication record](https://github.com/depsilon/shardloom/blob/main/docs/release/v1-local-source-package-release.md)
-and [current support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md).
-Package availability is separate from production readiness.
+      body: `ShardLoom executes local queries over native and prepared Vortex data today.
+Coverage is specific to the operation, types, source layout, enabled features, and output route.
+
+Current capabilities, reviewed **October 1, 2026**. See the
+[public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
+for the detailed evidence behind this scope.
 
 ## Runtime Limits
 
-- General native joins, set operations, windows, and subqueries have remaining coverage gaps.
-- General computed-result exports are bounded to 65,536 rows, 128 fields, and 8 MiB; format and type restrictions apply.
-- Existing Vortex inputs preserve their layout during preparation; all-I/O physical-layout optimization remains unfinished.
-- Spill, memory reservations, and concurrent serving are scoped contracts, not universal spill support, an RSS ceiling, or production fairness proof.
-- Remote output, table/catalog writes, and lakehouse transactions are outside the local sink contract.
+| Area | Available in admitted routes | Remaining boundary |
+| --- | --- | --- |
+| Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
+| Relational and DataFrame operations | Selected provider-backed joins; scoped duplicate handling, sampling, melt/explode/pivot, and source-order rolling. | General joins, set operations, analytic windows, and subqueries are not complete native families. Prepared reuse, owned output, and spill parity also vary. |
+| Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
+| Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
+| Memory and recovery | Reservations, bounded serving admission, COUNT/DISTINCT and selected numeric-sort spill, cancellation and cleanup contracts. | Spill is operator-specific. Broad compound-key spill and spill-backed export remain incomplete; reservations are not a whole-process RSS ceiling. |
+| Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
-See [runtime and I/O](/field-guide/runtime-and-io) for the shipped boundaries and linked evidence.
+The **65,536-row / 128-scalar-field / 8-MiB** bound applies to the general computed-result
+scalar-to-native export handoff. It is not an input-size limit or a universal limit on native
+scans or streaming row exports. Nested and extension results, and explicit aggregate/sort spill
+output, remain outside that handoff. See the
+[output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
+
+Use [runtime and I/O](/field-guide/runtime-and-io), the
+[front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md),
+and the [native completion inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory)
+for exact scope. A familiar method name is not an every-shape support promise.
 
 ## External systems
 
-Remote output, table transactions, and production object-store or Foundry runtime are outside
-the local contract. Local fixtures, metadata inspection, and explicitly admitted local table-file
-reads do not establish live provider support. Network, credential, extension, UDF, API, and model
-effects require explicit admission; discovery does not execute them.
+The local workflow contract covers admitted files, local Vortex manifests and partitions,
+and scoped local table-file reads. Remote output, catalog/table transactions, and production
+object-store or Foundry runtime are outside it. Local fixtures and metadata inspection are
+separate from live provider execution.
 
-## Not claimed
+Arbitrary Python data callbacks and general extension/UDF execution are not implied by the
+DataFrame surface. Network, credential, API, and model effects require explicit admission;
+discovery does not execute them.
 
-- production support
-- broad SQL/DataFrame parity
-- Spark displacement
-- object-store or lakehouse production runtime
-- Foundry production runtime
-- performance superiority
+## Release and readiness
+
+The technical preview is published through GitHub pre-release, PyPI, TestPyPI, and Homebrew.
+That availability does not establish production support, broad SQL/DataFrame parity, or
+Spark displacement. Local runtime and benchmark evidence do not establish production
+distributed/live-hybrid service or performance superiority. Read the
+[benchmark evidence](/field-guide/benchmark-methodology) within its measured scope.
 
 ## Failure Behavior
 
@@ -478,7 +572,7 @@ function fieldGuideIndex() {
     title: "Field Guide",
     description: "Install ShardLoom, run local queries, and understand Vortex-native execution.",
     order: 0,
-    body: "A practical guide to local, Vortex-native compute. Start with a query, then follow the\nparts of the engine that matter to your workload.\n\n## Get started\n\n- [Install and run](/field-guide/start-local-proof) — install the technical preview and verify a local query.\n- [Python](/field-guide/python-surface) — read, filter, inspect results, and choose an output.\n\n## Understand the engine\n\n- [Execution model](/field-guide/execution-model) — encoded work, native Vortex, and the no-fallback contract.\n- [Execution routes](/field-guide/execution-routes) — source admission, preparation, and reuse.\n- [Runtime and I/O](/field-guide/runtime-and-io) — operators, formats, result limits, and resource boundaries.\n\n## Read the evidence\n\n- [Benchmark methodology](/field-guide/benchmark-methodology) — what a timing includes and how to compare it.\n- [Limitations](/field-guide/limitations) — current coverage gaps and failure behavior.\n\nFor the architecture diagram, open the [compute flow](/compute-engine-flow).\nThe [repository](https://github.com/depsilon/shardloom) holds detailed API references and implementation evidence.",
+    body: "A practical guide to local, Vortex-native compute. Start with a query, then follow the\nparts of the engine that matter to your workload.\n\n## Get started\n\n- [Install and run](/field-guide/start-local-proof) — install the technical preview and verify a local query.\n- [Python](/field-guide/python-surface) — read, filter, inspect results, and choose an output.\n\n## Understand the engine\n\n- [Execution model](/field-guide/execution-model) — encoded work, native Vortex, and the no-fallback contract.\n- [Execution routes](/field-guide/execution-routes) — source admission, preparation, and reuse.\n- [Runtime and I/O](/field-guide/runtime-and-io) — operators, formats, result limits, and resource boundaries.\n\n## Read the evidence\n\n- [Benchmarks](/field-guide/benchmark-methodology) — what a timing includes and how to compare it.\n- [Support and limitations](/field-guide/limitations) — what executes today and where coverage is partial.\n\nFor the architecture diagram, open the [compute flow](/field-guide/compute-flow).\nThe [repository](https://github.com/depsilon/shardloom) holds detailed API references and implementation evidence.",
   });
 }
 

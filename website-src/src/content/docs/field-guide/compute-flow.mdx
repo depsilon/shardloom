@@ -1,0 +1,46 @@
+---
+title: "Compute flow"
+description: "Follow a query from local input to native output, and see where ShardLoom avoids work."
+sidebar: {"label":"Compute flow","order":2}
+---
+
+
+import ComputeFlow from '../../../components/ComputeFlow.astro';
+
+Follow the work that remains: validate the source, skip what can be proved unnecessary,
+compute over the admitted representation, and deliver a complete result.
+
+<ComputeFlow />
+
+## One native middle
+
+SQL, Python, and the DataFrame-style surface enter ShardLoom planning. Admitted local
+compatibility inputs prepare into Vortex; native Vortex inputs start there. Reuse validates
+the source and artifact generation. It does not reuse a previous query answer.
+
+Vortex remains the highest-fidelity persistence target. Parquet, Arrow IPC, Avro, ORC, CSV,
+and JSON writers are explicit output boundaries, with their own type and size limits.
+See [execution routes](/field-guide/execution-routes) and [runtime and I/O](/field-guide/runtime-and-io).
+
+## Where the differentiators apply
+
+- **Metadata and pruning:** avoid payload reads only when exact evidence supports the answer or exclusion.
+- **Encoded execution:** dictionary identities, repeated values, and native typed accessors reduce expansion on eligible operations.
+- **Capillary work units:** divide admitted work into bounded pieces, including local preparation tasks.
+- **PulseWeave:** applies resource-aware control on certified local prepared/native and cold-preparation paths; other paths may report readiness without applying it.
+- **Late materialization:** defer group-value resolution or winning-row payload gathering until the result needs it.
+
+These mechanisms compose where the route supports them. They are not all active on every query.
+The [PulseWeave contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/pulseweave-runtime-control.md),
+[native result contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
+and [dictionary execution evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md)
+describe their implemented scope.
+
+## Evidence travels with the result
+
+The result reports source identity, execution and materialization boundaries, and output evidence.
+Admitted work preserves `fallback_attempted=false` and `external_engine_invoked=false`.
+An unsupported operation returns an explicit diagnostic.
+
+Use [support and limitations](/field-guide/limitations) to check a workload, and
+[benchmarks](/field-guide/benchmark-methodology) to understand measured evidence.

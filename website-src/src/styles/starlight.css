@@ -53,6 +53,8 @@ header.header { border-bottom: 1px solid #233342; }
 .header button[data-open-modal] kbd { color: #b5c6d3; background: #172532; }
 .header select { color: #edf4f9; }
 .header select option { color: #edf4f9; background: #0b141e; }
+/* The mobile section bar shares the dark header in both themes. */
+#starlight__mobile-toc .display-current { color: #edf4f9; }
 h1, h2, h3 { letter-spacing: -.04em; font-weight: 550; }
 .sl-markdown-content :is(h2, h3) { line-height: 1.25; }
 .sl-markdown-content h2 { margin-top: 2.5rem; }

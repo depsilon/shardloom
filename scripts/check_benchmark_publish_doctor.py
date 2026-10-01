@@ -399,7 +399,7 @@ def build_report(
                     "git diff --check",
                 ],
                 "relevant_files": [
-                    "website-src/src/pages/benchmarks.astro",
+                    "website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
                     "scripts/check_website_readiness.py",
                     "scripts/validate_static_assets.cjs",
                     "scripts/check_benchmark_publish_doctor.py",

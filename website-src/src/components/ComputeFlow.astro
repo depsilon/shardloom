@@ -1,0 +1,161 @@
+---
+const flows = [
+  {
+    id: "group", label: "Filter & group", title: "Count matching rows by category",
+    query: "Filter a date range → group by category → count",
+    stages: [
+      ["Prepare once", "Reuse a validated Vortex artifact, or prepare an admitted local input. Each query starts with fresh execution state.", "Source → Vortex", "full"],
+      ["Read less", "Exact segment statistics can rule out data outside the filter. Read the columns and segments still needed.", "Segment pruning", "prune"],
+      ["Work on the encoding", "Eligible dictionary grouping combines encoded identities and exact counts. Referenced values are decoded only where required.", "Encoded aggregation", "encoded"],
+      ["Return the result", "Resolve the surviving group values and send the complete result to an admitted sink, with execution evidence.", "Late materialization", "result"],
+    ],
+    control: "Admitted local routes divide work into capillary units. PulseWeave can bound in-flight work inside the route’s resource and evidence policy.",
+    takeaway: "Less source data read. Less repeated text expanded. One native result.",
+  },
+  {
+    id: "count", label: "Metadata count", title: "Count all rows in a native source",
+    query: "Native Vortex → unfiltered row count",
+    stages: [
+      ["Validate the source", "Open the admitted native source and check its identity. An unchanged prepared source can reuse retained handles.", "Source identity", "full"],
+      ["Answer from metadata", "For an eligible exact row count, use file metadata. No data-column payload needs to be read.", "Metadata only", "result"],
+      ["Skip the scan", "No payload decoding, row materialization, or aggregate worker admission is needed for this metadata-only path.", "Payload work bypassed", "bypass"],
+      ["Return one value", "Return the exact count and evidence identifying the metadata path. Filters or other measures may require a different path.", "Exact result", "result"],
+    ],
+    control: "Metadata-only aggregates avoid payload and worker admission. The reserved metadata lane is an explicit option on the bounded serving policy.",
+    takeaway: "The fastest stage is the one the query does not need.",
+  },
+  {
+    id: "topk", label: "Ordered top-K", title: "Find the first K rows in an exact order",
+    query: "Native Vortex → order by admitted keys → limit K",
+    stages: [
+      ["Start from Vortex", "Use the native input or a validated prepared artifact. The query retains the same source generation through execution.", "Native source", "full"],
+      ["Read the ordering keys", "Inspect the keys required to select winners. Eligible bound proofs can skip segments; other segments must still be considered.", "Key-first scan", "prune"],
+      ["Keep exact winners", "Supported native Top-K paths retain candidate keys and row ordinals instead of materializing every candidate row’s payload.", "Exact selection", "encoded"],
+      ["Gather winning payload", "Fetch the requested values for selected rows, preserve the query’s order, and return the result through an admitted output route.", "Late payload gathering", "result"],
+    ],
+    control: "Worker, memory, and I/O admission bound the supported route. Available spill paths are operator-specific; unsupported pressure cases return a diagnostic.",
+    takeaway: "Decide which rows win before gathering their payload.",
+  },
+];
+---
+
+<shardloom-compute-flow class="compute-flow not-content">
+  <fieldset class="flow-picker" hidden>
+    <legend>Choose a query shape</legend>
+    <div class="flow-options">
+      {flows.map((flow, index) => (
+        <label>
+          <input type="radio" name="compute-flow" value={flow.id} checked={index === 0} aria-controls={`flow-${flow.id}`} />
+          <span>{flow.label}</span>
+        </label>
+      ))}
+    </div>
+  </fieldset>
+  {flows.map((flow) => (
+    <section id={`flow-${flow.id}`} class="flow-panel" aria-labelledby={`flow-title-${flow.id}`}>
+      <div class="flow-intro">
+        <p class="flow-kicker">An illustrated execution path</p>
+        <h2 id={`flow-title-${flow.id}`}>{flow.title}</h2>
+        <p class="flow-query">{flow.query}</p>
+      </div>
+      <ol class="flow-stages">
+        {flow.stages.map(([title, description, mechanism, pattern], index) => (
+          <li class:list={['flow-stage', { 'is-bypass': pattern === 'bypass' }]}>
+            <span class="flow-number" aria-hidden="true">0{index + 1}</span>
+            <div class="flow-stage-copy">
+              <span class="flow-mechanism">{mechanism}</span>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </div>
+            <div class:list={['flow-cells', `pattern-${pattern}`]} aria-hidden="true">
+              {Array.from({length: 12}, (_, cell) => <span class:list={{ kept: pattern === 'full' || (pattern === 'prune' && cell % 3 === 0) || (pattern === 'encoded' && cell < 3) || (pattern === 'result' && cell === 0) }} />)}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div class="flow-control"><span>Resource control</span><p>{flow.control}</p></div>
+      <p class="flow-takeaway">{flow.takeaway}</p>
+    </section>
+  ))}
+  <p class="flow-caption">Conceptual illustrations of eligible local paths. The tiles are visual cues, not measured row counts or runtime telemetry. Actual execution depends on the query, types, layout, and enabled features.</p>
+</shardloom-compute-flow>
+
+<script>
+  class ShardLoomComputeFlow extends HTMLElement {
+    connectedCallback() {
+      const picker = this.querySelector<HTMLFieldSetElement>('.flow-picker');
+      const panels = this.querySelectorAll<HTMLElement>('.flow-panel');
+      if (!picker) return;
+      const update = () => {
+        const selected = picker.querySelector<HTMLInputElement>('input:checked');
+        if (!selected) return;
+        for (const panel of panels) panel.hidden = panel.id !== `flow-${selected.value}`;
+      };
+      const revealLinkedPanel = () => {
+        let fragment;
+        try { fragment = decodeURIComponent(window.location.hash.slice(1)); }
+        catch { return; }
+        const target = document.getElementById(fragment);
+        if (!target) return;
+        const panel = [...panels].find((entry) => entry.contains(target));
+        if (!panel) return;
+        for (const input of picker.querySelectorAll<HTMLInputElement>('input')) {
+          input.checked = panel.id === `flow-${input.value}`;
+        }
+        update();
+      };
+      picker.addEventListener('change', update);
+      update();
+      revealLinkedPanel();
+      window.addEventListener('hashchange', revealLinkedPanel);
+      picker.hidden = false;
+    }
+  }
+  if (!customElements.get('shardloom-compute-flow')) {
+    customElements.define('shardloom-compute-flow', ShardLoomComputeFlow);
+  }
+</script>
+
+<style>
+  .compute-flow { display: block; margin-block: 2rem; }
+  .compute-flow [hidden] { display: none; }
+  .flow-picker { border: 0; padding: 0; margin: 0 0 1.5rem; min-width: 0; }
+  .flow-picker legend { padding: 0; margin-bottom: .65rem; font-size: .85rem; color: var(--sl-color-gray-2); }
+  .flow-options { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .flow-options label { position: relative; cursor: pointer; }
+  .flow-options input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .flow-options span { display: flex; align-items: center; min-height: 44px; padding: .55rem .85rem; border: 1px solid var(--sl-color-gray-4); border-radius: 4px; font-size: .85rem; color: var(--sl-color-gray-2); }
+  .flow-options input:checked + span { color: var(--sl-color-white); border-color: var(--sl-color-accent); background: var(--sl-color-accent-low); }
+  .flow-options input:focus-visible + span { outline: 2px solid var(--sl-color-accent); outline-offset: 3px; }
+  .flow-intro { padding: 1.6rem; border: 1px solid var(--sl-color-hairline-light); border-bottom: 0; background: var(--sl-color-gray-6); }
+  .flow-kicker { font: .65rem var(--sl-font-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--sl-color-accent); margin: 0 0 .7rem; }
+  .flow-intro h2 { font-size: 1.4rem; line-height: 1.25; margin: 0; }
+  .flow-query { font: .8rem/1.65 var(--sl-font-mono); color: var(--sl-color-gray-2); margin: .75rem 0 0; }
+  .flow-stages { list-style: none; padding: 0; margin: 0; }
+  .flow-stage { position: relative; display: grid; grid-template-columns: 2rem minmax(0, 1fr) 4.5rem; gap: 1rem; align-items: start; padding: 1.45rem 1.6rem; border: 1px solid var(--sl-color-hairline-light); border-top-style: dashed; }
+  .flow-stage + .flow-stage { border-top: 0; }
+  .flow-number { font: .75rem var(--sl-font-mono); color: var(--sl-color-accent); padding-top: .15rem; }
+  .flow-stage:not(:last-child)::after { content: ''; position: absolute; bottom: -.2rem; left: 1.9rem; z-index: 1; width: .4rem; height: .4rem; border-left: 1px solid var(--sl-color-gray-3); border-bottom: 1px solid var(--sl-color-gray-3); transform: rotate(-45deg); background: var(--sl-color-bg); }
+  .flow-mechanism { display: block; font: .65rem/1.5 var(--sl-font-mono); color: var(--sl-color-accent); text-transform: uppercase; letter-spacing: .04em; }
+  .flow-stage h3 { font-size: 1.1rem; margin: .3rem 0 .5rem; line-height: 1.25; }
+  .flow-stage p { font-size: .85rem; line-height: 1.6; color: var(--sl-color-gray-2); margin: 0; }
+  .flow-cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; margin-top: .3rem; }
+  .flow-cells span { height: .8rem; border: 1px solid var(--sl-color-gray-4); opacity: .35; border-radius: 1px; }
+  .flow-cells .kept { background: var(--sl-color-accent); border-color: var(--sl-color-accent); opacity: 1; }
+  .pattern-encoded .kept { grid-column: 1 / -1; height: .45rem; }
+  .pattern-result .kept { grid-column: 1 / -1; height: 1rem; }
+  .pattern-bypass span { border-style: dashed; }
+  .is-bypass { background: var(--sl-color-gray-6); }
+  .flow-control { padding: 1rem 1.6rem; border: 1px solid var(--sl-color-hairline-light); border-top: 0; background: var(--sl-color-accent-low); }
+  .flow-control > span { font: .65rem var(--sl-font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--sl-color-accent-high); }
+  .flow-control p { margin: .35rem 0 0; font-size: .8rem; line-height: 1.6; }
+  .flow-takeaway { font-size: .95rem; font-weight: 600; margin: 1rem 0; }
+  .flow-caption { font-size: .75rem; line-height: 1.65; color: var(--sl-color-gray-2); margin: 0; }
+  @media (max-width: 30rem) {
+    .flow-intro, .flow-control { padding: 1.1rem; }
+    .flow-stage { padding: 1.2rem 1rem; grid-template-columns: 1.35rem minmax(0, 1fr); gap: .65rem; }
+    .flow-stage:not(:last-child)::after { left: 1.3rem; }
+    .flow-cells { grid-column: 2; width: 4.5rem; margin-top: 0; }
+    .flow-options span { padding-inline: .6rem; font-size: .78rem; }
+  }
+</style>

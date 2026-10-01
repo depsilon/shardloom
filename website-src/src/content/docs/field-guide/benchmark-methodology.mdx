@@ -1,28 +1,53 @@
 ---
-title: "Benchmark methodology"
-description: "How to read hot runtime, publication proof, claim gates, and baseline rows."
-sidebar: {"label":"Benchmark methodology","order":3}
+title: "Benchmarks"
+description: "ClickBench comparisons, current engineering evidence, and how to read a measured result."
+sidebar: {"label":"Benchmarks","order":3}
 ---
 
 
-The benchmark page is a ClickBench handoff, not a ShardLoom-hosted leaderboard.
-Local benchmark and UAT artifacts remain repository evidence for engineering validation, route
-coverage, and claim gating.
+Use ClickBench for public cross-engine OLAP comparisons. This guide explains ShardLoom's
+engineering evidence and measurement boundaries; it does not present a public ranking.
 
-## Timing Surfaces
+**[Open ClickBench ↗](https://benchmark.clickhouse.com/)**
 
-- `hot_runtime`: the default ShardLoom route grid for runtime timing.
-- `full_replay_proof`: machine replay proof when present.
-- `publication_proof`: result-sink, replay, and human evidence rendering when included by the row formula.
-- `external_baseline`: comparison context only, never fallback execution.
+## Current engineering evidence
+
+Reviewed October 1, 2026. Recent local work validates complete query results and measures
+individual changes against a frozen ShardLoom control:
+
+- [Native execution and ingestion comparisons](https://github.com/depsilon/shardloom/blob/main/docs/architecture/performance-quiet-intake-2026-09-30.md) — retained mechanisms, rejected experiments, and links to their acceptance evidence.
+- [Dictionary preparation](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md) — source-backed strings, bounded preparation overlap, and measured tradeoffs.
+- [Native runtime completion](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md) — complete-value Full43 regression runs, public-call checks, and the remaining availability inventory.
+
+These are workload- and machine-specific development results. A full 43-query regression run
+does not by itself establish an accepted ClickBench submission, cross-engine superiority,
+or production readiness. Earlier receipts remain historical evidence for their named builds.
+
+## What a timing includes
+
+| Measurement | Read it as |
+| --- | --- |
+| Cold preparation | Source read and parse, Vortex construction, persistence, and the checks included by that runner. Keep this separate from warm queries. |
+| Prepared/native query | Execution against an existing Vortex artifact. State whether setup, process startup, output, and verification are timed. |
+| Fresh-process complete query | A complete invocation and result, with startup and output costs. OS cache can still be warm. |
+| Resident call | A retained local worker or session; state which source handles and lowering are reused. Every query still executes. |
+| Replay/publication proof | Additional validation and evidence work, where the runner includes it. Do not silently fold it into or remove it from runtime. |
+
+Older artifacts use `hot_runtime`, `full_replay_proof`, `publication_proof`, and
+`external_baseline` labels. Use each artifact's exact formula and evidence tier rather than
+assuming those labels describe every current runner.
 
 ## External baselines
 
-External engines are comparison context only. Their execution never satisfies a ShardLoom
-execution contract or its no-fallback evidence. The [benchmarks page](/benchmarks) links to ClickBench.
+External engines may supply benchmark baselines or independent correctness references.
+Their execution never satisfies a ShardLoom execution contract or its no-fallback evidence.
 
-## Claim Rules
+## Comparing results
 
-Do not compare rows without naming the timing surface, evidence tier, and claim gate. If
-`performance_claim_allowed=false`, local artifacts may support engineering decisions but must not
-claim superiority.
+Compare the same query semantics, full results, dataset and layout, build, machine, resource
+caps, cache/setup state, and output boundary. Report repetitions and the chosen statistic;
+do not mix a sum of minima with a median or a separate ingest run.
+
+If `performance_claim_allowed=false`, local artifacts support engineering decisions without
+authorizing superiority claims. The [support and limitations](/field-guide/limitations) page
+separates executable scope from public readiness claims.

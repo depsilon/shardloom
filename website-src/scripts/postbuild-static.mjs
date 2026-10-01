@@ -28,10 +28,10 @@ function copyPublicPath(relativePath) {
 
 const publicRootPreCopyRemoved = removeDuplicateSuffixedArtifacts(publicRoot);
 
-function copyLegacyHtml(route) {
+function copyLegacyHtml(route, canonicalRoute = route) {
   const legacyDirectory = path.join(out, `${route}.html`);
   // Old bookmarks must serve the current page, never a separate legacy implementation.
-  const source = path.join(out, route, "index.html");
+  const source = path.join(out, canonicalRoute, "index.html");
   const target = path.join(out, `${route}.html`);
   if (!fs.existsSync(source)) {
     throw new Error(`missing source for legacy route ${route}: ${source}`);
@@ -39,17 +39,22 @@ function copyLegacyHtml(route) {
   const html = fs.readFileSync(source, "utf8");
   if (fs.existsSync(legacyDirectory)) fs.rmSync(legacyDirectory, { recursive: true, force: true });
   fs.writeFileSync(target, html, "utf8");
+  if (route !== canonicalRoute) {
+    const directory = path.join(out, route);
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, "index.html"), html, "utf8");
+  }
 }
 
 for (const route of [
   "about",
   "start",
   "field-guide",
-  "benchmarks",
-  "compute-engine-flow",
 ]) {
   copyLegacyHtml(route);
 }
+copyLegacyHtml("benchmarks", "field-guide/benchmark-methodology");
+copyLegacyHtml("compute-engine-flow", "field-guide/compute-flow");
 
 for (const relativePath of [
   "_headers",

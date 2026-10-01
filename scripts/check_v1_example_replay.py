@@ -83,14 +83,13 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         'ctx.read("data/orders.csv")',
         "print(result.fallback_attempted, result.external_engine_invoked)",
     ),
-    "website-src/src/pages/benchmarks.astro": (
+    "website-src/src/content/docs/field-guide/benchmark-methodology.mdx": (
         "https://benchmark.clickhouse.com/",
-        "Use ClickBench as the public comparison surface.",
-        "old internal",
-        "benchmark dashboard has been removed",
-        "not present them as current public ranking evidence",
-        "External engines are baselines only.",
-        "no-fallback execution boundary",
+        "Current engineering evidence",
+        "What a timing includes",
+        "performance_claim_allowed=false",
+        "External engines may supply benchmark baselines",
+        "no-fallback evidence",
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
         "import shardloom as sl",
