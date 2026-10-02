@@ -118,7 +118,7 @@ releases and paused large format/text experiments remain outside its scope.
 
 ## Allocation acceptance
 
-The final allocation implementation passes the following local checks. Counts
+The initial allocation implementation passed the following local checks. Counts
 overlap across feature configurations; ignored and skipped cases are not counted
 as successful executions.
 
@@ -161,11 +161,42 @@ unchanged through acceptance. Packet SHA-256:
 It preserves the initial twelve complete-artifact comparisons, original CPU/RSS
 observations, the failed timing criterion, failed development checks and repairs,
 raw-log hashes and verified cleanup. Larger allocation selection and fresh-query
-proof are separate from that historical timing cohort. Primary review found no
-remaining actionable defect in the accepted diff; hosted status is recorded
-separately after checks complete.
+proof are separate from that historical timing cohort. Subsequent hosted checks
+found the progress defect documented below, which required a runtime repair and
+fresh verification. Hosted status is recorded separately after checks complete.
 
 The initial hosted documentation gate found the new queue item missing from the
 v1 inclusion matrix. The required row and the preceding resource unit's merged
 status were aligned, and the complete public-status validator then passed.
 This documentation repair leaves the accepted runtime and source hashes unchanged.
+
+## Shared-executor progress repair
+
+Hosted lifecycle validation exposed three host-cap assumptions in test fixtures
+and a separate real progress defect. The latter was reproduced locally and a
+thread sample showed a conversion task inside `IngestSourceReader::next` driving
+the same executor: it entered the provider layout's synchronous iterator pull,
+which joined the still-active conversion task below it on the same stack.
+Additional CPU drivers cannot release this circular wait.
+
+The repair uses the pinned Vortex `ArrayStream`/`ArrayStreamAdapter` and existing
+async write API. Shared conversion completion is polled, so an unavailable input
+yields the layout task. The operation caller retains and drains the input owner
+after the provider write returns, including errors, rather than joining source
+or conversion tasks from a provider task's destructor. This adds no batch queue,
+worker pool, decode boundary, or dependency. Vortex's `AsyncWriteAdapter` and
+`futures::io::AllowStdIo` preserve the existing synchronous staging-file boundary.
+The decision remains `use_vortex_native_provider`; existing writer admission,
+layout, memory, publication and no-fallback certificates still apply.
+
+The earlier immutable evidence packet remains a record of its exact revision.
+Acceptance of the repaired runtime requires the expanded lifecycle repetition,
+native memory/cleanup matrix, full native suite and current-head hosted checks.
+
+The repaired runtime passes 100 repetitions of the four lifecycle tests,
+including 9,600 publication-collision cases across small and over-host grants.
+The deterministic regression test proves a queued conversion poll returns
+`Pending` without recursively driving the executor, then produces exact values
+when explicitly driven and retains cleanup ownership until caller drop. The
+full native suite passes 2,188 tests with 23 existing ignores; the nine-case
+pressure/mutation suite, public CLI suite and required workspace checks pass.

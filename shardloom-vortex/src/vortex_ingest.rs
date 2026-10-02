@@ -10725,7 +10725,11 @@ struct VortexPreparedStateFinalizeInput<'a> {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 struct VortexPreparedStateStreamFinalizeInput<I>
 where
-    I: vortex::array::iter::ArrayIterator + Send + 'static,
+    I: vortex::array::iter::ArrayIterator
+        + futures::Stream<Item = vortex::error::VortexResult<vortex::array::ArrayRef>>
+        + Unpin
+        + Send
+        + 'static,
 {
     target_path: PathBuf,
     prepared_source_binding: Option<String>,
@@ -10858,6 +10862,7 @@ struct StreamingColumnarVortexArrayIterator {
     stream_timing: VortexStreamingIngestTiming,
     next_batch_index: usize,
     native_memory: Option<NativeIngestMemory>,
+    stream_finished: bool,
 }
 
 /// Private handshake: the concrete producer lends one of its existing slots.
@@ -10977,6 +10982,7 @@ impl StreamingColumnarVortexArrayIterator {
                 task_bytes,
                 exhausted: false,
                 refill_after_handoff: true,
+                handoff_wait_started: None,
             };
             prefetch.fill_window()?;
             (None, Some(prefetch))
@@ -10994,6 +11000,7 @@ impl StreamingColumnarVortexArrayIterator {
             stream_timing,
             next_batch_index,
             native_memory,
+            stream_finished: false,
         })
     }
 
@@ -11104,6 +11111,47 @@ impl vortex::array::iter::ArrayIterator for StreamingColumnarVortexArrayIterator
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl futures::Stream for StreamingColumnarVortexArrayIterator {
+    type Item = vortex::error::VortexResult<vortex::array::ArrayRef>;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        if this.stream_finished {
+            return std::task::Poll::Ready(None);
+        }
+        if !this.prefetch.as_ref().is_some_and(|prefetch| {
+            matches!(
+                prefetch.pool,
+                shared_conversion::ConversionExecutor::Shared { .. }
+            )
+        }) {
+            return std::task::Poll::Ready(Iterator::next(this));
+        }
+        if let Some(array) = this.first_array.take() {
+            return std::task::Poll::Ready(Some(Ok(array)));
+        }
+        let result = futures::ready!(
+            this.prefetch
+                .as_mut()
+                .expect("shared prefetch checked above")
+                .poll_next_array(this.next_batch_index, cx)
+        );
+        if result.is_some() {
+            this.next_batch_index += 1;
+        }
+        if result.as_ref().is_none_or(std::result::Result::is_err) {
+            // The outer operation owns teardown. A provider task must never
+            // synchronously join a conversion task that may be driving it.
+            this.stream_finished = true;
+        }
+        std::task::Poll::Ready(result.map(|result| result.map_err(vortex_stream_error)))
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 type PrefetchedVortexArray = Option<(usize, vortex::array::ArrayRef)>;
 
 /// Bounds the entire pre-writer window, including completed out-of-order arrays.
@@ -11122,6 +11170,7 @@ struct StreamingColumnarVortexPrefetch {
     task_bytes: u64,
     exhausted: bool,
     refill_after_handoff: bool,
+    handoff_wait_started: Option<Instant>,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -11153,17 +11202,38 @@ impl StreamingColumnarVortexPrefetch {
     }
 
     fn next_array(&mut self, expected: usize) -> Option<Result<vortex::array::ArrayRef>> {
+        use vortex::io::runtime::BlockingRuntime as _;
+
+        let runtime = match &self.pool {
+            shared_conversion::ConversionExecutor::Shared { runtime, .. } => Some(runtime.clone()),
+            shared_conversion::ConversionExecutor::Dedicated(_) => None,
+        };
+        let next = futures::future::poll_fn(|cx| self.poll_next_array(expected, cx));
+        if let Some(runtime) = runtime {
+            runtime.runtime().block_on(next)
+        } else {
+            futures::executor::block_on(next)
+        }
+    }
+
+    fn poll_next_array(
+        &mut self,
+        expected: usize,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<vortex::array::ArrayRef>>> {
+        use std::task::Poll;
+
         if let Some(error) = self.context.failure.get() {
-            return Some(Err(error.clone()));
+            return Poll::Ready(Some(Err(error.clone())));
         }
         if let Err(error) = self.cancellation.check() {
-            return Some(Err(self.context.primary_failure_or(error)));
+            return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
         }
         if let Err(error) = self.fill_window() {
-            return Some(Err(self.context.primary_failure_or(error)));
+            return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
         }
         if let Some(error) = self.context.failure.get() {
-            return Some(Err(error.clone()));
+            return Poll::Ready(Some(Err(error.clone())));
         }
         loop {
             if let Some(array) = self.pending.remove(&expected) {
@@ -11173,23 +11243,35 @@ impl StreamingColumnarVortexPrefetch {
                 if self.refill_after_handoff
                     && let Err(error) = self.fill_window()
                 {
-                    return Some(Err(self.context.primary_failure_or(error)));
+                    return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
                 }
                 if let Some(error) = self.context.failure.get() {
-                    return Some(Err(error.clone()));
+                    return Poll::Ready(Some(Err(error.clone())));
                 }
-                return Some(Ok(array));
+                return Poll::Ready(Some(Ok(array)));
             }
-            let Some(task) = self.tasks.pop_front() else {
+            let Some(task) = self.tasks.front_mut() else {
                 if self.pending.is_empty() {
-                    return None;
+                    return Poll::Ready(None);
                 }
-                return Some(Err(ShardLoomError::InvalidOperation(format!(
+                return Poll::Ready(Some(Err(ShardLoomError::InvalidOperation(format!(
                     "ordered Vortex prefetch ended before batch {expected}; no fallback execution was attempted"
-                ))));
+                )))));
             };
-            let wait_started = Instant::now();
-            let result = task.join();
+            let wait_started = *self.handoff_wait_started.get_or_insert_with(Instant::now);
+            let result = match task {
+                shared_conversion::ConversionTask::Shared(task) => {
+                    let result = futures::ready!(task.poll_join(cx));
+                    self.tasks.pop_front();
+                    result.and_then(std::convert::identity)
+                }
+                shared_conversion::ConversionTask::Dedicated(_) => self
+                    .tasks
+                    .pop_front()
+                    .expect("front task checked above")
+                    .join(),
+            };
+            self.handoff_wait_started = None;
             self.context.stream_timing.stages.record(
                 Stage::OrderedHandoffWait,
                 wait_started.elapsed(),
@@ -11207,7 +11289,9 @@ impl StreamingColumnarVortexPrefetch {
                         None => self.exhausted = true,
                     }
                 }
-                Err(error) => return Some(Err(self.context.primary_failure_or(error))),
+                Err(error) => {
+                    return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
+                }
             }
         }
     }
@@ -11373,6 +11457,10 @@ impl StreamingColumnarVortexArrayWorker {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_shared_conversion.rs"]
 mod shared_conversion;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_shared_stream.rs"]
+mod shared_stream;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn vortex_stream_error(error: impl std::fmt::Display) -> vortex::error::VortexError {
@@ -11778,7 +11866,11 @@ fn finalize_vortex_prepared_state_stream_write<I>(
     input: VortexPreparedStateStreamFinalizeInput<I>,
 ) -> Result<VortexPreparedStateWriteReport>
 where
-    I: vortex::array::iter::ArrayIterator + Send + 'static,
+    I: vortex::array::iter::ArrayIterator
+        + futures::Stream<Item = vortex::error::VortexResult<vortex::array::ArrayRef>>
+        + Unpin
+        + Send
+        + 'static,
 {
     let mut capillary_prewrite_control = input.capillary_prewrite_control.clone();
     capillary_prewrite_control.apply_task_role_gate("vortex_segment_write", "write")?;
@@ -13736,7 +13828,11 @@ impl LocalVortexWriteContext {
         prepared_source_binding: Option<&str>,
     ) -> Result<LocalVortexWriteResult>
     where
-        I: vortex::array::iter::ArrayIterator + Send + 'static,
+        I: vortex::array::iter::ArrayIterator
+            + futures::Stream<Item = vortex::error::VortexResult<vortex::array::ArrayRef>>
+            + Unpin
+            + Send
+            + 'static,
     {
         let writer_context_reuse_status = self.next_reuse_status();
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
@@ -13791,10 +13887,12 @@ impl LocalVortexWriteContext {
                 "streaming local vortex_ingest artifact",
                 |writer| {
                     let segment_write_start = Instant::now();
-                    let result = write_options
-                        .blocking(&self.runtime)
-                        .write(writer, iter)
-                        .map_err(vortex_error);
+                    let result = if self.shared_ingest_drivers {
+                        shared_stream::write(&self.runtime, write_options, writer, iter)
+                    } else {
+                        write_options.blocking(&self.runtime).write(writer, iter)
+                    }
+                    .map_err(vortex_error);
                     vortex_segment_write_micros = segment_write_start.elapsed().as_micros();
                     result
                 },
@@ -14505,7 +14603,11 @@ fn write_vortex_array_iterator<I>(
     ingest_runtime: Option<&crate::ingest_runtime::IngestRuntime>,
 ) -> Result<LocalVortexWriteResult>
 where
-    I: vortex::array::iter::ArrayIterator + Send + 'static,
+    I: vortex::array::iter::ArrayIterator
+        + futures::Stream<Item = vortex::error::VortexResult<vortex::array::ArrayRef>>
+        + Unpin
+        + Send
+        + 'static,
 {
     let write = |context: &LocalVortexWriteContext| {
         context.write_array_iterator(
@@ -16508,6 +16610,7 @@ mod tests {
 
     #[test]
     fn local_flat_scalar_rows_use_source_text_large_source_layout_row_blocks_when_advised() {
+        let applied = shardloom_exec::compute_pool::bounded_cpu_parallelism(2);
         let path = std::env::temp_dir().join(format!(
             "shardloom-vortex-ingest-layout-advisor-large-{}-{}.vortex",
             std::process::id(),
@@ -16591,14 +16694,11 @@ mod tests {
                 .contains("compression_decision_count=1")
         );
         assert_eq!(report.writer_runtime_requested_parallelism, 2);
-        assert_eq!(report.writer_runtime_applied_parallelism, 2);
-        assert_eq!(report.writer_runtime_background_workers, 1);
-        assert_eq!(
-            report.writer_runtime_kind,
-            "vortex_current_thread_worker_pool"
-        );
-        assert_eq!(report.writer_compression_concurrency, 2);
-        assert_eq!(report.writer_stats_concurrency, 2);
+        assert_eq!(report.writer_runtime_applied_parallelism, applied);
+        assert_eq!(report.writer_runtime_background_workers, applied - 1);
+        assert_eq!(report.writer_runtime_kind, writer_runtime_kind(applied - 1));
+        assert_eq!(report.writer_compression_concurrency, applied);
+        assert_eq!(report.writer_stats_concurrency, applied);
         assert_eq!(
             report.writer_profile_selection_reason,
             "large_text_source_fast_zstd_profile"
@@ -16614,6 +16714,7 @@ mod tests {
 
     #[test]
     fn local_flat_scalar_rows_coalesce_very_large_high_cardinality_text_blocks() {
+        let applied = shardloom_exec::compute_pool::bounded_cpu_parallelism(2);
         let path = std::env::temp_dir().join(format!(
             "shardloom-vortex-ingest-layout-advisor-very-large-text-{}-{}.vortex",
             std::process::id(),
@@ -16657,7 +16758,7 @@ mod tests {
             report.writer_layout_strategy_applied,
             "vortex_write_strategy_row_block_262144_target_8mb_source_text_fast_zstd_no_dict_numeric_btrblocks_embedded_olap_layout_statistics"
         );
-        assert_eq!(report.writer_compression_concurrency, 2);
+        assert_eq!(report.writer_compression_concurrency, applied);
         assert_eq!(report.writer_compression_field_count(), 1);
         assert_eq!(report.writer_compression_field_names(), "URL");
         assert!(
@@ -16666,9 +16767,9 @@ mod tests {
                 .contains("field=URL;decision=compress;codec=zstd;level=-3;reason=large_source_artifact_size_guard_query_hot_text")
         );
         assert_eq!(report.writer_runtime_requested_parallelism, 2);
-        assert_eq!(report.writer_runtime_applied_parallelism, 2);
-        assert_eq!(report.writer_runtime_background_workers, 1);
-        assert_eq!(report.writer_stats_concurrency, 2);
+        assert_eq!(report.writer_runtime_applied_parallelism, applied);
+        assert_eq!(report.writer_runtime_background_workers, applied - 1);
+        assert_eq!(report.writer_stats_concurrency, applied);
         assert_eq!(
             report.writer_layout_block_target_bytes,
             VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_BLOCK_TARGET_BYTES

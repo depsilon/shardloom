@@ -182,7 +182,17 @@ impl Iterator for PressureIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         let item = self.inner.next();
-        if self.exhaust_after_first && item.as_ref().is_some_and(std::result::Result::is_ok) {
+        self.apply_pressure(item.as_ref());
+        item
+    }
+}
+
+impl PressureIterator {
+    fn apply_pressure(
+        &mut self,
+        item: Option<&vortex::error::VortexResult<vortex::array::ArrayRef>>,
+    ) {
+        if self.exhaust_after_first && item.is_some_and(std::result::Result::is_ok) {
             // This case runs at P1: no concurrent native owner can race the
             // snapshot. Inject contention in the existing shared pool only
             // after the actual writer consumes its first owned array.
@@ -195,13 +205,25 @@ impl Iterator for PressureIterator {
             self.pressure_applied.fetch_add(1, Ordering::SeqCst);
             self.exhaust_after_first = false;
         }
-        item
     }
 }
 
 impl vortex::array::iter::ArrayIterator for PressureIterator {
     fn dtype(&self) -> &vortex::array::dtype::DType {
         &self.inner.dtype
+    }
+}
+
+impl futures::Stream for PressureIterator {
+    type Item = vortex::error::VortexResult<vortex::array::ArrayRef>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let item = futures::ready!(std::pin::Pin::new(&mut self.inner).poll_next(cx));
+        self.apply_pressure(item.as_ref());
+        std::task::Poll::Ready(item)
     }
 }
 

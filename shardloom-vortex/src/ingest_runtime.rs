@@ -103,13 +103,11 @@ pub(crate) struct IngestTask<T> {
 }
 
 impl<T> IngestTask<T> {
-    /// Join while executing other ready native work. Callers close their queues
-    /// before draining, so no producer waits for a receiver held by this join.
-    pub(crate) fn join(mut self) -> Result<T> {
-        match self
-            .runtime
-            .block_on(futures::future::poll_fn(|cx| self.task.poll_join(cx)))
-        {
+    pub(crate) fn poll_join(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<T>> {
+        self.task.poll_join(cx).map(|outcome| match outcome {
             JoinOutcome::Completed(value) => Ok(value),
             JoinOutcome::Panicked(_) => Err(ShardLoomError::InvalidOperation(
                 "native ingest task panicked; no fallback execution was attempted".to_string(),
@@ -118,7 +116,14 @@ impl<T> IngestTask<T> {
                 "native ingest task stopped before completion; no fallback execution was attempted"
                     .to_string(),
             )),
-        }
+        })
+    }
+
+    /// Join while executing other ready native work. Callers close their queues
+    /// before draining, so no producer waits for a receiver held by this join.
+    pub(crate) fn join(mut self) -> Result<T> {
+        let runtime = self.runtime.clone();
+        runtime.block_on(futures::future::poll_fn(|cx| self.poll_join(cx)))
     }
 }
 
