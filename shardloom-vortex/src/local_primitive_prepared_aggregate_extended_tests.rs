@@ -28,6 +28,11 @@ fn write_columns(fixture: &Fixture, names: &[&str], columns: Vec<ArrayRef>, rows
 }
 
 fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json::Value) {
+    let expected_rows = match expected {
+        serde_json::Value::Array(rows) => rows.clone(),
+        serde_json::Value::Object(_) => vec![expected.clone()],
+        _ => panic!("aggregate expectations require grouped rows or one scalar row"),
+    };
     for parallelism in [1, 4] {
         let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
         let ordinary =
@@ -42,8 +47,296 @@ fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json:
             certified(&result, execution);
             assert_eq!(payload(&result.report)["values"], *expected);
         }
+        for execution in 4..=6 {
+            let collected = prepared
+                .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())
+                .unwrap();
+            certified(&collected.execution, execution);
+            let actual: Vec<serde_json::Value> = collected
+                .result_jsonl
+                .value()
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect();
+            assert_eq!(actual, expected_rows);
+            assert_eq!(
+                collected
+                    .execution
+                    .native_io_certificate
+                    .sink_requirement_report
+                    .target_format,
+                "bounded_json_rows"
+            );
+            let certificate = &collected.execution.native_io_certificate;
+            assert!(!certificate.sink_requirement_report.accepts_encoded);
+            assert!(certificate.sink_requirement_report.requires_rows);
+            assert!(!certificate.sink_requirement_report.supports_streaming);
+            assert_eq!(certificate.adapter_fidelity_report.sink_kind, "json");
+            assert!(!certificate.adapter_fidelity_report.metadata_preserved);
+            assert!(!certificate.adapter_fidelity_report.statistics_preserved);
+            assert!(
+                !certificate
+                    .adapter_fidelity_report
+                    .encoded_representation_preserved
+            );
+            assert!(certificate.adapter_fidelity_report.materialization_required);
+            let boundary = certificate.materialization_boundaries.last().unwrap();
+            assert_eq!(boundary.boundary_id, "resident_collect_json_sink");
+            assert_eq!(boundary.rows_materialized, expected_rows.len() as u64);
+            assert!(
+                owner.snapshot().memory.reserved_bytes
+                    >= collected.result_jsonl.value().capacity() as u64
+            );
+        }
         drop(prepared);
         assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership() {
+    use shardloom_exec::compute_pool::CancellationToken;
+    let fixture = Fixture::new();
+    // Native UTF8 is below 8 MiB; JSON escaping crosses the terminal byte bound.
+    let values = (0..600)
+        .map(|index| format!("{index:04}-{}", "\"\n\\".repeat(2500)))
+        .collect::<Vec<_>>();
+    write_columns(
+        &fixture,
+        &["key"],
+        vec![VarBinViewArray::from_iter_str(values.iter().map(String::as_str)).into_array()],
+        values.len(),
+    );
+    let request = fixture.request(
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("key").unwrap()],
+            vec![measure("count", None, "n")],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("key", false)]),
+    );
+    let prepared = prepare_aggregate(
+        &request,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    let owner = prepared.session.clone();
+    let baseline = owner.snapshot().memory.reserved_bytes;
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
+    assert!(prepared.collect_jsonl(&cancelled).is_err());
+    assert_eq!(owner.snapshot().completed_executions, 0);
+    assert_eq!(owner.snapshot().memory.reserved_bytes, baseline);
+    let error = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .err()
+        .unwrap();
+    assert!(
+        error.to_string().contains("collect exceeds 8 MiB"),
+        "{error}"
+    );
+    assert_eq!(owner.snapshot().completed_executions, 0);
+    assert_eq!(owner.snapshot().memory.reserved_bytes, baseline);
+    drop(prepared);
+    assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
+
+    let limited = prepare_aggregate(
+        &request.with_source_order_limit(1),
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    let memory = limited.session.memory().clone();
+    let collected = limited
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(collected.result_jsonl.value()).unwrap(),
+        serde_json::json!({"key": values[0], "n": 1}),
+    );
+    let capacity = collected.result_jsonl.value().capacity() as u64;
+    drop(limited);
+    assert!(memory.snapshot().reserved_bytes >= capacity);
+    drop(collected);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn aggregate_json_topk_reserves_retained_candidates_under_a_tight_budget() {
+    use shardloom_exec::compute_pool::CancellationToken;
+    use vortex::array::arrays::DictArray;
+    const GROUPS: usize = 2048;
+    const BUDGET: u64 = 32 << 20;
+    let phrase = "é".repeat(16 * 1024);
+    for signed in [true, false] {
+        let fixture = Fixture::new();
+        let timestamps = if signed {
+            PrimitiveArray::new(vec![-1_i64; GROUPS], Validity::NonNullable).into_array()
+        } else {
+            PrimitiveArray::new(vec![61_u64; GROUPS], Validity::NonNullable).into_array()
+        };
+        write_columns(
+            &fixture,
+            &["account", "phrase", "event_seconds"],
+            vec![
+                PrimitiveArray::new(
+                    (0..GROUPS)
+                        .map(|row| i64::try_from(row).unwrap())
+                        .collect::<Vec<_>>(),
+                    Validity::NonNullable,
+                )
+                .into_array(),
+                DictArray::try_new(
+                    PrimitiveArray::new(vec![0_u8; GROUPS], Validity::NonNullable).into_array(),
+                    VarBinViewArray::from_iter_str([phrase.as_str()]).into_array(),
+                )
+                .unwrap()
+                .into_array(),
+                timestamps,
+            ],
+            GROUPS,
+        );
+        let request = fixture
+            .request(
+                VortexSimpleAggregateRequest::grouped(
+                    ["account", "phrase"]
+                        .map(|name| ColumnRef::new(name).unwrap())
+                        .to_vec(),
+                    vec![measure("count", None, "frequency")],
+                )
+                .with_group_expressions(vec![VortexAggregateExpression::new(
+                    "minute_slot".into(),
+                    ColumnRef::new("event_seconds").unwrap(),
+                    "extract_minute",
+                )])
+                .with_order_by(vec![VortexAggregateOrderExpr::new("frequency", true)])
+                .with_offset(1),
+            )
+            .with_source_order_limit(3);
+        for parallelism in [1, 4] {
+            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            policy.resource_envelope.memory_budget_bytes = BUDGET;
+            let prepared = prepare_aggregate(&request, policy).unwrap();
+            let memory = prepared.session.memory().clone();
+            let baseline = memory.snapshot().reserved_bytes;
+            let collected = prepared
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            let rows = collected
+                .result_jsonl
+                .value()
+                .lines()
+                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                rows,
+                (1..4)
+                    .map(|account| serde_json::json!({
+                        "account": account, "phrase": phrase,
+                        "minute_slot": if signed { 59 } else { 1 }, "frequency": 1,
+                    }))
+                    .collect::<Vec<_>>()
+            );
+            let work = payload(&collected.execution.report);
+            assert_eq!(work["candidate_groups"], GROUPS);
+            assert_eq!(work["retained_candidate_groups"], 4);
+            assert_eq!(
+                work["group_output_strategy"],
+                "capillary_streaming_numeric_minute_string_count_topk"
+            );
+            certified(&collected.execution, 1);
+            assert!(memory.snapshot().peak_reserved_bytes < BUDGET);
+            drop(collected);
+            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+            drop(prepared);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn prepared_aggregate_explicit_null_order_keeps_measures_keys_and_windows_exact() {
+    use crate::relational_query::VortexRelationalNullOrder::{First, Last};
+    let fixture = Fixture::new();
+    write_columns(
+        &fixture,
+        &["cohort", "reading"],
+        vec![
+            VarBinViewArray::from_iter_nullable_str([
+                None,
+                Some("a"),
+                Some("b"),
+                Some("c"),
+                Some("d"),
+                Some("東京"),
+                None,
+                Some("a"),
+                Some("b"),
+                Some("c"),
+                Some("d"),
+                Some("東京"),
+            ])
+            .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(1_i64),
+                None,
+                Some(2),
+                None,
+                Some(1),
+                Some(-5),
+                Some(7),
+                None,
+                Some(6),
+                None,
+                Some(7),
+                Some(-1),
+            ])
+            .into_array(),
+        ],
+        12,
+    );
+    let rows = serde_json::json!([
+        {"cohort":null,"mean":4.0,"entries":2},
+        {"cohort":"a","mean":null,"entries":2},
+        {"cohort":"b","mean":4.0,"entries":2},
+        {"cohort":"c","mean":null,"entries":2},
+        {"cohort":"d","mean":4.0,"entries":2},
+        {"cohort":"東京","mean":-3.0,"entries":2},
+    ]);
+    // Full independently specified output order, including ties and all-null groups.
+    for (descending, nulls, indices) in [
+        (false, First, [1, 3, 5, 2, 4, 0]),
+        (true, First, [1, 3, 2, 4, 0, 5]),
+        (false, Last, [5, 2, 4, 0, 1, 3]),
+        (true, Last, [2, 4, 0, 5, 1, 3]),
+    ] {
+        for limited in [false, true] {
+            let mut aggregate = VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("cohort").unwrap()],
+                vec![
+                    measure("avg", Some("reading"), "mean"),
+                    measure("count", None, "entries"),
+                ],
+            )
+            .with_order_by(vec![
+                VortexAggregateOrderExpr::new("mean", descending).with_nulls(nulls),
+                VortexAggregateOrderExpr::new("cohort", false).with_nulls(Last),
+            ]);
+            if limited {
+                aggregate.offset = 1;
+            }
+            let mut request = fixture.request(aggregate);
+            if limited {
+                request.source_order_limit = Some(3);
+            }
+            let indices = if limited {
+                &indices[1..4]
+            } else {
+                &indices[..]
+            };
+            let expected = serde_json::Value::Array(
+                indices.iter().map(|&index| rows[index].clone()).collect(),
+            );
+            assert_repeated(&request, &expected);
+        }
     }
 }
 

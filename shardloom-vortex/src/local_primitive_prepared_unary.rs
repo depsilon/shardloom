@@ -11,8 +11,10 @@ use crate::resident_session::{
     ResidentVortexSession,
 };
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
+#[cfg(test)]
+use vortex::array::VortexSessionExecute as _;
 use vortex::array::{
-    ArrayRef, VortexSessionExecute as _,
+    ArrayRef,
     dtype::{DType, Nullability},
 };
 
@@ -469,22 +471,13 @@ impl PreparedVortexUnary {
     /// nonfinite numbers, memory pressure, cancellation and source invalidation.
     pub fn collect_jsonl(&self, cancellation: &CancellationToken) -> Result<CollectedVortexUnary> {
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
-        let execution = self.for_each_batch(cancellation, |array, context| {
-            let fields = array
-                .dtype()
-                .as_struct_fields_opt()
-                .ok_or_else(|| failed("unary collection requires a struct result"))?;
-            let mut scalar_context = context.native_session().create_execution_ctx();
-            sink.append(
-                &array,
-                fields.names().as_ref(),
-                &mut scalar_context,
-                context.cancellation(),
-            )
+        let mut execution = self.for_each_batch(cancellation, |array, context| {
+            sink.append_native(&array, context)
         })?;
+        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
         Ok(CollectedVortexUnary {
             execution,
-            result_jsonl: sink.finish()?,
+            result_jsonl,
         })
     }
 

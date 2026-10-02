@@ -1,7 +1,8 @@
 # Adaptive operation resource budget
 
-Status: local allocation acceptance passed; hosted checks pending under PERF-03/08/12 and
-CG-5/6/8/20/21. The October 2 maintainer request gives this unit priority over
+Status: finite allocation unit merged in [PR #1503](https://github.com/depsilon/shardloom/pull/1503)
+after all 40 hosted checks passed, under PERF-03/08/12 and CG-5/6/8/20/21.
+The October 2 maintainer request gave this unit priority over
 the remaining native operator work. P4/P6/P8 name CPU grants, not phase IDs.
 The [phased plan](phased-execution-plan.md) owns the active queue. The maintainer
 clarified that allocations may vary far beyond P4/P6/P8 and are supplied at the
@@ -208,5 +209,12 @@ the hosted failure, local reproduction, sampled circular wait, failed developmen
 checks, complete passing logs and repetition driver. Packet SHA-256:
 `fd292d5e155e7855bdb843e82c94c89357444b06622fbfa62655246ac96bdde6`.
 The initial allocation packet remains unchanged; the new packet establishes the
-repaired runtime's local acceptance. Current-head hosted acceptance is still
-required before this finite item moves to the completed ledger.
+repaired runtime's local acceptance. Tested head
+`b77c2c25bfd2a26ab0423e3a1636c65bc9c0676b` merged as
+`5200c4c82cd9e48a1a8fb6786925a44e2fba9ae1` after all 40 hosted checks passed.
+The tested and merged trees both equal `6e671766611c266e777625c36c2be2f4f15c8fae`.
+The four-CPU hosted runner passed 2,188 native tests with 23 existing ignores.
+Hosted Codex review was usage-limited and is not counted as approval; primary
+source review and the empty review-thread check remain separate from CI evidence.
+The completed ledger records this finite acceptance without closing whole PERF
+owners, competitive gates, or the remaining operator work.

@@ -156,31 +156,15 @@ pub(super) fn compare_key(
     right_null: bool,
     compare: impl FnOnce() -> Result<Ordering>,
 ) -> Result<Ordering> {
-    Ok(match (left_null, right_null) {
-        (true, true) => Ordering::Equal,
-        (true, false) => {
-            if key.nulls == Some(NullOrder::First) {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
-        }
-        (false, true) => {
-            if key.nulls == Some(NullOrder::First) {
-                Ordering::Greater
-            } else {
-                Ordering::Less
-            }
-        }
-        (false, false) => {
-            let order = compare()?;
-            if key.descending {
-                order.reverse()
-            } else {
-                order
-            }
-        }
-    })
+    let values = if left_null || right_null {
+        Ordering::Equal
+    } else {
+        compare()?
+    };
+    Ok(key
+        .nulls
+        .unwrap_or(NullOrder::Last)
+        .compare(key.descending, left_null, right_null, || values))
 }
 
 pub(super) fn gather(

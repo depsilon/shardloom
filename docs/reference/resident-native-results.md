@@ -44,7 +44,7 @@ worker attempts do not cancel the parent.
 
 ## Stream Computed Results
 
-With `vortex-write`, `PreparedVortexAggregate::for_each_batch(&cancellation,
+With `vortex-local-primitives`, `PreparedVortexAggregate::for_each_batch(&cancellation,
 consume)` executes once and synchronously delivers native arrays together with
 the borrowed `NativeExecutionContext`. A callback may use that context for
 downstream native filtering or projection. It must not acquire a second ordinary
@@ -58,9 +58,30 @@ until the callback returns. Delivered batches are provisional until the whole
 call succeeds, including final source-generation validation. Consumer errors and
 cancellation fail the operation; consumers must not publish a prefix as success.
 
+`PreparedVortexAggregate::collect_jsonl(&cancellation)` consumes those same native
+batches once and returns complete bounded JSONL with its execution report.
+Collection admits at most 65,536 rows and 8 MiB of serialized bytes, including
+escaping. Failure returns no partial result and releases its reservations; a
+successful `Budgeted<String>` retains its credits even after preparation/session
+handles are dropped. The shared aggregate, unary and relational JSON sink records
+the explicit row boundary and loss of physical dtype, encoding, statistics and
+metadata while retaining the native operation's source and execution evidence.
+Public aggregate consumers read the complete `result_jsonl` payload or Python
+`report.result_rows`. The diagnostic summary retains execution and spill metrics;
+streamed collection does not require a second copy of rows in that summary.
+
+SQL and DataFrame flat aggregate chains share admission across collection and
+local writers, preserving filters, groups, measures, HAVING, order, offset/limit
+and source declarations. Explicit `NULLS FIRST`/`NULLS LAST` applies independently
+of ASC/DESC during candidate selection and final delivery. The primitive API's
+omitted policy remains nulls first ascending and last descending; general
+relational binding keeps its existing explicit-null requirement on nullable keys.
+See the [aggregate contract](../architecture/native-aggregate-ordering-2026-10-02.md).
+
 `PreparedVortexAggregate::write(path, format, allow_overwrite)` and
 `write_controlled(path, format, allow_overwrite, &cancellation)` use the same
-typed result stream. Public aggregate and ordered-result file exports share these
+typed result stream and additionally require `vortex-write`.
+Public aggregate and ordered-result file exports share these
 writers. Vortex, JSON, JSONL and CSV are available with `vortex-write`; Parquet,
 Arrow IPC, Avro and ORC also require `universal-format-io`. Admitted weighted
 COUNT, integer DISTINCT and numeric-sort spills can complete through the writers.

@@ -74,17 +74,30 @@ impl Column {
         Ok(Self::Utf8(utf8, valid))
     }
 
-    fn compare_to(&self, row: usize, right: &StatValue) -> Result<Ordering> {
+    fn compare_to(
+        &self,
+        row: usize,
+        right: &StatValue,
+        order: &crate::VortexAggregateOrderExpr,
+    ) -> Result<Ordering> {
         match self {
-            Self::Integer(owner) => Ok(compare_sort_stat_values(&owner.stat_value(row)?, right)),
-            Self::Utf8(_, valid) if !valid.value(row) => {
-                Ok(compare_sort_stat_values(&StatValue::Null, right))
+            Self::Integer(owner) => {
+                let left = owner.stat_value(row)?;
+                Ok(order.compare(
+                    matches!(left, StatValue::Null),
+                    matches!(right, StatValue::Null),
+                    || compare_sort_stat_values(&left, right),
+                ))
             }
-            Self::Utf8(values, _) => Ok(match right {
-                StatValue::Utf8(right) => borrowed_bytes(values, row).cmp(right.as_bytes()),
-                // Existing ordering ranks UTF8 after null, bool and numeric.
-                _ => Ordering::Greater,
-            }),
+            Self::Utf8(values, valid) => Ok(order.compare(
+                !valid.value(row),
+                matches!(right, StatValue::Null),
+                || match right {
+                    StatValue::Utf8(right) => borrowed_bytes(values, row).cmp(right.as_bytes()),
+                    // Existing ordering ranks UTF8 after bool and numeric.
+                    _ => Ordering::Greater,
+                },
+            )),
         }
     }
 
@@ -224,14 +237,11 @@ pub(super) fn append(
             for (order, &index) in order_by.iter().zip(order_indices) {
                 let right = worst.values.get(index).unwrap_or(&StatValue::Null);
                 ordering = if let Some(&column) = value_indices.get(index) {
-                    columns[column].compare_to(row, right)?
+                    columns[column].compare_to(row, right, order)?
                 } else {
-                    compare_sort_stat_values(&StatValue::Null, right)
+                    order.compare(true, matches!(right, StatValue::Null), || Ordering::Equal)
                 };
                 if ordering != Ordering::Equal {
-                    if order.descending {
-                        ordering = ordering.reverse();
-                    }
                     break;
                 }
             }

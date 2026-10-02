@@ -24764,13 +24764,13 @@ fn compare_sort_row_candidates(
     for (order, &column_index) in order_by.iter().zip(order_column_indices) {
         let left_value = left.values.get(column_index).unwrap_or(&StatValue::Null);
         let right_value = right.values.get(column_index).unwrap_or(&StatValue::Null);
-        let ordering = compare_sort_stat_values(left_value, right_value);
+        let ordering = order.compare(
+            matches!(left_value, StatValue::Null),
+            matches!(right_value, StatValue::Null),
+            || compare_sort_stat_values(left_value, right_value),
+        );
         if ordering != std::cmp::Ordering::Equal {
-            return if order.descending {
-                ordering.reverse()
-            } else {
-                ordering
-            };
+            return ordering;
         }
     }
     match tie_policy {
@@ -34811,24 +34811,13 @@ impl<'a> GroupedAggregateStates<'a> {
         right: &TransformedDictionaryDenseGeneralOrderCandidate,
     ) -> std::cmp::Ordering {
         for (index, order) in self.request.order_by.iter().enumerate() {
-            let ordering = match (left.order_values.get(index), right.order_values.get(index)) {
-                (Some(left_value), Some(right_value)) => {
-                    compare_grouped_order_values(left_value, right_value)
-                }
-                (None, None) => std::cmp::Ordering::Equal,
-                (None, Some(right_value)) => {
-                    compare_grouped_order_values(&GroupedAggregateOrderValue::Null, right_value)
-                }
-                (Some(left_value), None) => {
-                    compare_grouped_order_values(left_value, &GroupedAggregateOrderValue::Null)
-                }
-            };
+            let ordering = compare_grouped_ordered_values(
+                order,
+                left.order_values.get(index),
+                right.order_values.get(index),
+            );
             if ordering != std::cmp::Ordering::Equal {
-                return if order.descending {
-                    ordering.reverse()
-                } else {
-                    ordering
-                };
+                return ordering;
             }
         }
         self.string_interner
@@ -35907,24 +35896,13 @@ impl<'a> GroupedAggregateStates<'a> {
         for (index, order) in self.request.order_by.iter().enumerate() {
             let left_value =
                 (index == 0).then_some(GroupedAggregateOrderValue::CountStar(left_count));
-            let ordering = match (left_value.as_ref(), right.order_values.get(index)) {
-                (Some(left_value), Some(right_value)) => {
-                    compare_grouped_order_values(left_value, right_value)
-                }
-                (None, None) => std::cmp::Ordering::Equal,
-                (None, Some(right_value)) => {
-                    compare_grouped_order_values(&GroupedAggregateOrderValue::Null, right_value)
-                }
-                (Some(left_value), None) => {
-                    compare_grouped_order_values(left_value, &GroupedAggregateOrderValue::Null)
-                }
-            };
+            let ordering = compare_grouped_ordered_values(
+                order,
+                left_value.as_ref(),
+                right.order_values.get(index),
+            );
             if ordering != std::cmp::Ordering::Equal {
-                return if order.descending {
-                    ordering.reverse()
-                } else {
-                    ordering
-                };
+                return ordering;
             }
         }
         compare_aggregate_group_keys(left_key, &right.key, &self.string_interner)
@@ -36390,6 +36368,11 @@ impl<'a> GroupedAggregateStates<'a> {
                     .to_string(),
             )
         })?;
+        let minute_signed = output
+            .as_ref()
+            .map(|output| output.integer_column_is_signed(roles.minute_group))
+            .transpose()?
+            .unwrap_or(false);
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex numeric-minute-string aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -36469,7 +36452,10 @@ impl<'a> GroupedAggregateStates<'a> {
                             != 0,
                     ))
                 } else if column == roles.minute_group {
-                    Ok(result_batch::Value::UInt(u64::from(candidate.key.minute())))
+                    Ok(result_batch::Value::integer(
+                        u64::from(candidate.key.minute()),
+                        minute_signed,
+                    ))
                 } else if column == roles.string_group {
                     Ok(result_batch::Value::Text(
                         self.string_interner.value(candidate.key.string_id)?.into(),
@@ -37837,24 +37823,13 @@ impl<'a> GroupedAggregateStates<'a> {
         right: &GroupedAggregateOrderCandidate,
     ) -> std::cmp::Ordering {
         for (index, order) in self.request.order_by.iter().enumerate() {
-            let ordering = match (left.order_values.get(index), right.order_values.get(index)) {
-                (Some(left_value), Some(right_value)) => {
-                    compare_grouped_order_values(left_value, right_value)
-                }
-                (None, None) => std::cmp::Ordering::Equal,
-                (None, Some(right_value)) => {
-                    compare_grouped_order_values(&GroupedAggregateOrderValue::Null, right_value)
-                }
-                (Some(left_value), None) => {
-                    compare_grouped_order_values(left_value, &GroupedAggregateOrderValue::Null)
-                }
-            };
+            let ordering = compare_grouped_ordered_values(
+                order,
+                left.order_values.get(index),
+                right.order_values.get(index),
+            );
             if ordering != std::cmp::Ordering::Equal {
-                return if order.descending {
-                    ordering.reverse()
-                } else {
-                    ordering
-                };
+                return ordering;
             }
         }
         compare_aggregate_group_keys(&left.key, &right.key, &self.string_interner)
@@ -38776,6 +38751,23 @@ fn compare_grouped_order_value_to_json(
         GroupedAggregateOrderValue::Float64(left) => compare_f64_json_value(*left, right),
         GroupedAggregateOrderValue::Json(left) => compare_json_values(left, right),
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn compare_grouped_ordered_values(
+    order: &crate::VortexAggregateOrderExpr,
+    left: Option<&GroupedAggregateOrderValue>,
+    right: Option<&GroupedAggregateOrderValue>,
+) -> std::cmp::Ordering {
+    let left = left.unwrap_or(&GroupedAggregateOrderValue::Null);
+    let right = right.unwrap_or(&GroupedAggregateOrderValue::Null);
+    let is_null = |value: &GroupedAggregateOrderValue| {
+        matches!(value, GroupedAggregateOrderValue::Null)
+            || matches!(value, GroupedAggregateOrderValue::Json(value) if value.is_null())
+    };
+    order.compare(is_null(left), is_null(right), || {
+        compare_grouped_order_values(left, right)
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]

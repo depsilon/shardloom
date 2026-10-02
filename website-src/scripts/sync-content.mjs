@@ -553,6 +553,13 @@ can exceed the collection row and byte limits. Type, resource, and write-policy 
 apply. Nested and extension results have separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
 
+Flat aggregate collection and writes use the same native admission, carrying the complete
+filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
+Explicit SQL \`NULLS FIRST\`/\`NULLS LAST\` and Python \`sort(..., nulls="first")\` or
+\`nulls="last"\` place nulls independently of ascending or descending values.
+JSON collection reports the final materialization boundary and metadata loss; exceeding its
+row or serialized-byte limit fails without returning a successful prefix.
+
 ## Resources And Recovery
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
@@ -655,7 +662,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 1, 2026**. See the
+Current capabilities, reviewed **October 2, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -663,7 +670,7 @@ for the detailed evidence behind this scope.
 
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
-| Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
+| Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
 | Relational and DataFrame operations | Current source builds add admitted flat-scalar joins, sets, windows, subqueries, and ordered composition to scoped duplicate handling, sampling, reshape, and source-order rolling. | Wider types, arbitrary SQL/DataFrame semantics, and separate unary-family composition still have gaps. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |

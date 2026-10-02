@@ -199,6 +199,39 @@ pub enum VortexRelationalNullOrder {
     Last,
 }
 
+impl VortexRelationalNullOrder {
+    /// Compare null placement separately from the direction of nonnull values.
+    #[cfg(feature = "vortex-local-primitives")]
+    pub(crate) fn compare(
+        self,
+        descending: bool,
+        left_null: bool,
+        right_null: bool,
+        values: impl FnOnce() -> std::cmp::Ordering,
+    ) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        match (left_null, right_null) {
+            (true, true) => Ordering::Equal,
+            (true, false) => match self {
+                Self::First => Ordering::Less,
+                Self::Last => Ordering::Greater,
+            },
+            (false, true) => match self {
+                Self::First => Ordering::Greater,
+                Self::Last => Ordering::Less,
+            },
+            (false, false) => {
+                let ordering = values();
+                if descending {
+                    ordering.reverse()
+                } else {
+                    ordering
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexRelationalOrderKey {
     pub column: ColumnRef,

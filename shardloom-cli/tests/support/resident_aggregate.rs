@@ -100,20 +100,29 @@ fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_result
 }
 
 fn values(result: &Value) -> Value {
-    let summary = result["human_text"]
-        .as_str()
-        .unwrap()
+    let rows = field(result, "result_jsonl")
         .lines()
-        .find_map(|line| line.strip_prefix("result summary: "))
-        .unwrap();
-    let payload: Value = serde_json::from_str(summary.rsplit_once(" values=").unwrap().1).unwrap();
-    payload["values"].clone()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    Value::Array(rows)
 }
 
 fn completed(result: &Value, expected: &Value, executions: &str, opened: bool) {
     assert_eq!(result["status"], "success", "{result}");
-    assert_eq!(&values(result), expected);
+    assert_eq!(
+        values(result),
+        if expected.is_array() {
+            expected.clone()
+        } else {
+            json!([expected])
+        }
+    );
     for (key, value) in [
+        ("result_payload_complete", "true"),
+        (
+            "result_materialization_boundary",
+            "bounded_native_batches_to_jsonl",
+        ),
         ("resident_source_opens", "1"),
         ("resident_completed_executions", executions),
         ("resident_aggregate_handle_retained", "true"),

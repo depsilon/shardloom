@@ -39,8 +39,9 @@ pub(super) enum AggregateOutput<'a> {
     General(super::completed_result::CompletedRows<'a>),
 }
 
-#[cfg(all(unix, feature = "vortex-write"))]
+#[cfg(unix)]
 impl<'a> AggregateOutput<'a> {
+    #[cfg(feature = "vortex-write")]
     pub(super) fn completed_rows(
         &mut self,
     ) -> Result<&mut super::completed_result::CompletedRows<'a>> {
@@ -103,16 +104,25 @@ impl AggregateOutput<'_> {
                 )?;
                 let finalized_stream =
                     output.is_streaming() && states.finalized_distinct_counts.is_some();
-                let max_utf8_len = if output.has_utf8() && !finalized_stream {
-                    grouped_output_max_utf8_len(states)?
-                } else {
-                    0
-                };
+                let compact_selection = output
+                    .is_streaming()
+                    .then(|| compact_selection_group_bound(states))
+                    .flatten();
+                let max_utf8_len =
+                    if output.has_utf8() && !finalized_stream && compact_selection.is_none() {
+                        grouped_output_max_utf8_len(states)?
+                    } else {
+                        0
+                    };
                 let _finalization = if output.is_streaming() {
                     if finalized_stream {
                         // The completed owner already reserves global selection.
                         // Only one window of borrowed references overlaps it.
                         output.reserve_selection(super::result_batch::VISITOR_ROWS, 0, 0)?
+                    } else if let Some(groups) = compact_selection {
+                        // These candidates retain numeric/interned keys or Arc
+                        // references, not copies of every group's UTF8 values.
+                        output.reserve_selection(groups, 0, 0)?
                     } else {
                         output.reserve_selection(
                             states.group_count(),
@@ -166,6 +176,54 @@ impl AggregateOutput<'_> {
             Self::General(output) => output.into_array(),
         }
     }
+}
+
+/// Match the compact finalizers' actual retained containers. `group_count()`
+/// can describe all completed partitions even after their selection owners have
+/// released those groups. It is evidence cardinality, not allocation capacity.
+/// The per-candidate reservation includes vector growth and stable-sort scratch.
+fn compact_selection_group_bound(states: &GroupedAggregateStates<'_>) -> Option<usize> {
+    let retained_cap = states.request.offset.saturating_add(states.result_limit?);
+    let adaptive = |groups: usize| {
+        if retained_cap
+            > GroupedAggregateStates::grouped_count_star_streaming_topk_linear_retention_cap()
+        {
+            groups
+        } else {
+            groups.min(retained_cap)
+        }
+    };
+    if let Some(groups) = &states.single_numeric_count_groups {
+        return Some(adaptive(groups.len()));
+    }
+    if states.numeric_pair_late_measure_count_groups.is_some()
+        || states
+            .numeric_pair_late_measure_candidate_group_count
+            .is_some()
+    {
+        return states
+            .numeric_pair_late_measure_retained_candidates
+            .as_ref()
+            .map(Vec::capacity);
+    }
+    if let Some(groups) = &states.numeric_pair_compact_groups {
+        return Some(adaptive(groups.len()));
+    }
+    if let Some(groups) = &states.numeric_minute_string_count_groups {
+        return Some(groups.len().min(retained_cap));
+    }
+    if let Some(groups) = &states.numeric_utf8_topk_exact_counts {
+        return Some(groups.len().min(retained_cap));
+    }
+    if let Some(groups) = &states.string_count_topk_exact_counts {
+        return Some(groups.len().min(retained_cap));
+    }
+    if let Some(groups) = &states.string_count_distinct_topk_exact_sets {
+        // This finalizer also constructs a complete numeric count map before
+        // retaining its bounded Arc-based candidates. Charge both containers.
+        return Some(groups.len().saturating_add(groups.len().min(retained_cap)));
+    }
+    None
 }
 
 fn stat_utf8_len(value: &super::StatValue) -> usize {

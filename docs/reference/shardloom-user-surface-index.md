@@ -92,12 +92,19 @@ ownership, source-change behavior, and examples. This is a bounded native Rust a
 CLI-backed transport surface; it does not add a native Python binding or establish
 performance claims.
 
-With `vortex-write`, prepared aggregates also expose synchronous `for_each_batch`,
+Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
+with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:
 `write` and cancellable `write_controlled`. Computed aggregate and ordered file
 outputs use bounded native batches through all eight admitted local formats,
 including existing COUNT/DISTINCT/numeric-sort spill families. These file writes
 can exceed the independent small-collection limits; they still require admitted
-flat types, resource grants and a new destination. See the
+flat types, resource grants and a new destination. Flat aggregate collection and
+all eight local writers share native aggregate admission, retaining complete
+filter/group/measure/HAVING/order/limit stages plus declared source schemas and
+resources. Explicit `NULLS FIRST` and `NULLS LAST` apply independently of sort
+direction; Python `sort(..., nulls="first")` and `sort(..., nulls="last")` carry that policy
+through. Small JSONL collection returns the complete result only within 65,536
+rows and 8 MiB; larger results use the existing streaming writers. See the
 [computed-result streaming contract](../architecture/native-workflow-streaming-2026-10-01.md).
 
 Single-file numeric sorting can use explicitly admitted temporary Vortex runs.
@@ -315,6 +322,12 @@ carries `memory_gb`, `max_parallelism` and optional `spill` through collection,
 route/run and local writer aliases. Composed ordering can flush and merge stable
 multi-key native rows with shared query memory/quota and verified cleanup.
 Specialized sort/aggregate providers keep their existing strategies and admission.
+Flat aggregates share admission across complete collection and the eight local
+writers, retaining filter/group/measure/HAVING/order/limit stages and declared
+source schemas/resources. Explicit null placement is independent of direction;
+Python's `sort` forwards the requested `nulls` policy. Small JSONL collection remains
+bounded to a complete 65,536-row/8-MiB result, while larger results use streaming
+writers.
 Arbitrary operator chains, lateral/scalar-value subqueries, general window frames,
 other relational state spill and relational fanout remain explicit boundaries.
 

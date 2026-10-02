@@ -155,6 +155,109 @@ fn native_sort_block_matches_complete_sort_across_epochs_ties_offsets_and_source
 }
 
 #[test]
+fn native_sort_block_explicit_null_order_survives_cutoff_and_stable_ties() {
+    use crate::relational_query::VortexRelationalNullOrder::{First, Last};
+    // Independent source ordinals, frozen before the candidate algorithm runs.
+    // Every block has MAX, 7, null, MIN, 7, -3, 0, 7. The second and later
+    // blocks encounter an existing cutoff, so a wrong null rule loses winners.
+    for (descending, nulls, first, last) in [
+        (false, First, [18, 26, 3], [10, 2, 27]),
+        (true, First, [18, 26, 0], [10, 2, 24]),
+        (false, Last, [19, 27, 5], [11, 3, 29]),
+        (true, Last, [16, 24, 1], [8, 0, 31]),
+    ] {
+        for (tie, expected) in [
+            (VortexSortTiePolicy::First, first),
+            (VortexSortTiePolicy::Last, last),
+        ] {
+            let order =
+                [crate::VortexAggregateOrderExpr::new("number", descending).with_nulls(nulls)];
+            let mut actual = Vec::new();
+            let mut work = Work::default();
+            for partition in 0..4 {
+                work.add(
+                    &append(
+                        &chunk(partition),
+                        &names(),
+                        &[1],
+                        &[0],
+                        &order,
+                        tie,
+                        5,
+                        partition * 8,
+                        partition,
+                        0,
+                        None,
+                        &mut actual,
+                        &mut vortex::array::legacy_session().create_execution_ctx(),
+                    )
+                    .unwrap()
+                    .unwrap(),
+                )
+                .unwrap();
+            }
+            sort_materialized_rows(&mut actual, &order, &[0], tie);
+            let selected = select_sort_rows_with_tie_policy(&actual, &[0], 2, 3, tie);
+            assert_eq!(
+                selected.iter().map(|row| row.ordinal).collect::<Vec<_>>(),
+                expected
+            );
+            assert!(work.candidate_rows < work.rows, "cutoff must execute");
+        }
+    }
+}
+
+#[test]
+fn native_sort_block_explicit_null_order_preserves_borrowed_utf8_cutoff() {
+    use crate::relational_query::VortexRelationalNullOrder::{First, Last};
+    let native = VarBinViewArray::from_iter_nullable_str([
+        Some("z\0"),
+        None,
+        Some("a"),
+        Some("東京"),
+        None,
+        Some("a"),
+        Some(""),
+    ])
+    .into_array();
+    for (descending, nulls, expected) in [
+        (false, First, [8, 11, 6]),
+        (true, First, [8, 11, 3]),
+        (false, Last, [2, 5, 9]),
+        (true, Last, [0, 7, 2]),
+    ] {
+        let order = [crate::VortexAggregateOrderExpr::new("text", descending).with_nulls(nulls)];
+        let mut actual = Vec::new();
+        for partition in 0..2 {
+            append(
+                &native,
+                &["text".into()],
+                &[0],
+                &[0],
+                &order,
+                VortexSortTiePolicy::First,
+                5,
+                partition * 7,
+                partition,
+                0,
+                None,
+                &mut actual,
+                &mut vortex::array::legacy_session().create_execution_ctx(),
+            )
+            .unwrap()
+            .unwrap();
+        }
+        sort_materialized_rows(&mut actual, &order, &[0], VortexSortTiePolicy::First);
+        let selected =
+            select_sort_rows_with_tie_policy(&actual, &[0], 2, 3, VortexSortTiePolicy::First);
+        assert_eq!(
+            selected.iter().map(|row| row.ordinal).collect::<Vec<_>>(),
+            expected
+        );
+    }
+}
+
+#[test]
 fn native_sort_block_preserves_nullable_parent_and_narrow_unsigned_extrema() {
     let array = StructArray::try_new(
         ["small", "large"].into(),

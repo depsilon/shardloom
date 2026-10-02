@@ -21,6 +21,7 @@ from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
 from native_relational_composition_cases import cases as composition_cases
 from native_relational_resource_cases import run as resource_cases
+from native_aggregate_ordering_cases import run as aggregate_cases
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -118,6 +119,7 @@ def main() -> int:
     client_code = code.parents[1] / "python/src/shardloom/client.py"
     composition_code = code.with_name("native_relational_composition_cases.py")
     resource_code = code.with_name("native_relational_resource_cases.py")
+    aggregate_code = code.with_name("native_aggregate_ordering_cases.py")
     renderer_code = query.with_name("_relational_sql.py")
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
@@ -127,6 +129,7 @@ def main() -> int:
         "python_client_sha256": file_sha256(client_code),
         "composition_cases_sha256": file_sha256(composition_code),
         "resource_cases_sha256": file_sha256(resource_code),
+        "aggregate_cases_sha256": file_sha256(aggregate_code),
         "python_relational_renderer_sha256": file_sha256(renderer_code),
         "external_engine_invoked": False, "performance_claim": False,
         "total_rss_bound": False, "csv_contract": "complete header/row text; null is an empty field",
@@ -284,6 +287,8 @@ def main() -> int:
 
         resource_cases(context, root / "data" / f"resources_{stamp}", guard,
                        accepted, complete, sources, identity)
+        aggregate_cases(context, root / "data" / f"aggregates_{stamp}", guard,
+                        accepted, complete, sources, identity)
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")
@@ -295,6 +300,7 @@ def main() -> int:
         for path, key in [(binary, "binary_sha256"), (code, "harness_sha256"), (query, "python_query_sha256"),
                           (client_code, "python_client_sha256"), (composition_code, "composition_cases_sha256"),
                           (resource_code, "resource_cases_sha256"),
+                          (aggregate_code, "aggregate_cases_sha256"),
                           (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")

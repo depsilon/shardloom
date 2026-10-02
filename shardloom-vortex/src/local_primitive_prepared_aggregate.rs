@@ -31,6 +31,12 @@ pub struct ExecutedVortexAggregate {
     pub runtime: ResidentSessionSnapshot,
 }
 
+/// Complete small row payload produced by the same native aggregate execution.
+pub struct CollectedVortexAggregate {
+    pub execution: ExecutedVortexAggregate,
+    pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
+}
+
 /// Complete typed payload and the same native execution certificate as reports.
 pub struct ExecutedOwnedVortexAggregate {
     pub execution: ExecutedVortexAggregate,
@@ -166,6 +172,19 @@ pub enum PreparedAggregateDisposition {
 pub struct UnretainedVortexAggregate(PreparedVortexAggregate);
 
 impl UnretainedVortexAggregate {
+    /// # Errors
+    /// Returns native execution, collection-bound, generation or certificate errors.
+    pub fn collect_jsonl(
+        self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<CollectedVortexAggregate> {
+        let mut collected = self.0.collect_jsonl(cancellation)?;
+        collected.execution.native_io_certificate.source_pushdown_report.proof_basis.push_str(
+            ";aggregate_preparation_disposition=unretained_source;aggregate_lowering_reused=false",
+        );
+        Ok(collected)
+    }
+
     /// # Errors
     /// Returns ordinary native execution, source-generation or certificate errors.
     pub fn execute(self) -> Result<ExecutedVortexAggregate> {
@@ -571,7 +590,6 @@ impl PreparedVortexAggregate {
     /// # Errors
     /// Rejects unsupported shapes, pressure, changed sources, cancellation or
     /// consumer errors. Delivered batches are provisional until this call succeeds.
-    #[cfg(feature = "vortex-write")]
     pub fn for_each_batch(
         &self,
         cancellation: &shardloom_exec::compute_pool::CancellationToken,
@@ -588,7 +606,6 @@ impl PreparedVortexAggregate {
         Ok(executed)
     }
 
-    #[cfg(feature = "vortex-write")]
     fn consume_native_in_context(
         &self,
         context: &NativeExecutionContext<'_>,
@@ -607,6 +624,27 @@ impl PreparedVortexAggregate {
         let scan = self.read_with_output_in_context(Some(&mut output), Some(context))?;
         context.check_cancelled()?;
         self.certify(&scan)
+    }
+
+    /// Collect complete rows from the shared aggregate result stream. This uses
+    /// the existing bounded JSON sink without reopening the source or replaying the query.
+    /// # Errors
+    /// Rejects output above 65,536 rows or 8 MiB, cancellation, source mutation,
+    /// resource pressure and result values unsupported by the JSON boundary.
+    pub fn collect_jsonl(
+        &self,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<CollectedVortexAggregate> {
+        let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
+        let mut execution = self.for_each_batch(cancellation, |array, context| {
+            sink.append_native(&array, context)
+        })?;
+        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
+        execution.runtime = self.snapshot();
+        Ok(CollectedVortexAggregate {
+            execution,
+            result_jsonl,
+        })
     }
 
     /// Execute and atomically publish complete output through the shared native

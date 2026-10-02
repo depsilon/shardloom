@@ -17,6 +17,33 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `ADAPTIVE-INGEST-BUDGET` honor supplied operation allocations and share native ingest work.
+  - Date: 2026-10-02 UTC. Repaired runtime `8f8a412d` and tested head
+    `b77c2c25bfd2a26ab0423e3a1636c65bc9c0676b` merged in
+    [PR #1503](https://github.com/depsilon/shardloom/pull/1503) as
+    `5200c4c82cd9e48a1a8fb6786925a44e2fba9ae1` after all 40 hosted checks passed.
+    Tested and merged trees match. Hosted Codex review was usage-limited and is
+    not counted as approval. The [contract and immutable evidence](adaptive-ingest-budget-2026-10-02.md)
+    preserve the initial hosted failures, locally reproduced circular wait and
+    async-stream/caller-drain repair.
+  - Rust, CLI and Python preserve CPU/memory allocations supplied at operation
+    start. Common process-capacity admission bounds native drivers; memory and
+    work availability can narrow windows. Source, conversion and provider work
+    share one existing Vortex executor with owned teardown and no query-engine fallback.
+    Complete fresh-output/query tests cover small, irregular and over-host requests;
+    independent policy grids cover larger available capacities without claiming
+    execution on larger hardware. P4/P6/P8 are example grants, not phases or limits.
+  - Local and four-CPU hosted native suites pass 2,188 tests with 23 existing ignores.
+    The local lifecycle repetition covers 9,600 publication collisions; workspace,
+    CLI, Python, strict lint, feature/MSRV and documentation checks pass. Twelve
+    initial prototype observations remain historical evidence: their 1.458%
+    geometric-mean fastest-call gain failed the original 5% target, with higher RSS.
+    No speedup or full-utilization claim is made.
+  - V1 scope classification: `required_for_v1`; finite promotion under
+    PERF-03/08/12 and CG-5/6/8/20/21. Fixed owner allocations do not promise live
+    pool resizing, machine-wide CPU quotas, total RSS bounds, broader accounting,
+    production certification, package publication or whole PERF/CG completion.
+
 - [x] `NATIVE-RELATIONAL-RESOURCES` share public resources and native ordering spill.
   - Date: 2026-10-02 UTC. Corrected runtime `c9bd23ca` and exact head
     `e8e1214ab0da05f8c052a67e7b988bb199514148` merged in

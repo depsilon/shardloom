@@ -50,6 +50,19 @@ def extract_result(envelope: dict):
         if field.get("key", "").endswith(("fallback_attempted", "external_engine_invoked")):
             if not (field.get("value") is False or field.get("value") == "false"):
                 raise ValueError(f"unsafe execution evidence: {field['key']}")
+    payloads = [field.get("value") for field in fields if field.get("key") == "result_jsonl"]
+    completions = [field.get("value") for field in fields if field.get("key") == "result_payload_complete"]
+    if payloads or completions:
+        counts = [field.get("value") for field in fields if field.get("key") == "output_row_count"]
+        if (len(payloads) != 1 or not isinstance(payloads[0], str)
+                or len(completions) != 1 or not (completions[0] is True or completions[0] == "true")
+                or len(counts) != 1 or type(counts[0]) not in (int, str)
+                or re.fullmatch(r"[0-9]+", str(counts[0])) is None):
+            raise ValueError("native JSONL requires one complete payload and an exact output row count")
+        rows = [strict_json(line) for line in payloads[0].splitlines()]
+        if len(rows) != int(counts[0]) or any(not isinstance(row, dict) for row in rows):
+            raise ValueError("native JSONL is truncated or has an invalid row shape")
+        return rows
     summaries = [line for line in envelope.get("human_text", "").splitlines()
                  if line.startswith(("result summary: ", "value summary: "))]
     if len(summaries) != 1:

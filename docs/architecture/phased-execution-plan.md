@@ -249,41 +249,34 @@ the ledger.
 
 ## Planned
 
-- [ ] `ADAPTIVE-INGEST-BUDGET` — honor the October 2 maintainer priority for
-  automatic CPU/memory selection and ingestion before remaining native operator
-  work. Allocations are supplied at each operation's start across Rust, CLI and
-  Python; P4/P6/P8 are examples, not the supported allocation range. Follow the
-  [adaptive ingestion contract](adaptive-ingest-budget-2026-10-02.md) under
-  PERF-03/08/12 and CG-5/6/8/20/21. Reuse the Vortex runtime, owned drivers,
-  bounded task windows and native writer; make ready source/conversion/provider
-  work share the supplied CPU grant while preserving memory admission, ordering,
-  source identity, publication and complete drain. P4/P6/P8 are grants, not phases.
+- [ ] `NATIVE-AGGREGATE-ORDERING` — align flat aggregate collection/writes and
+  explicit null ordering through existing optimized native components under
+  PERF-02/10/12 and CG-5/20/21. Follow the
+  [shared admission and ordering contract](native-aggregate-ordering-2026-10-02.md).
+  This extends the existing aggregate/sort implementations; Python and input
+  formats remain thin declarations into the same public facade.
   - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: apply bounded work inventory and scarcity to live
-    tasks; keep broader PulseWeave feedback and machine-wide quota claims gated.
+  - ShardLoom technique review: reuse native preparation, capillary candidate
+    selection, shared ordering and bounded result ownership across public surfaces.
   - Execution checklist:
-    - [x] Integrate shared CPU progress across the admitted source, conversion and
-      provider stages without adding an independent worker allowance.
-    - [x] Prove P1/P2/P4/P6/P8 progress, skew, work sharing, memory pressure,
-      cancellation, failures, source identity and joined teardown.
-    - [x] Align local CPU admission, explicit one-CPU settings, source batch
-      sizing and conversion windows for arbitrary supplied allocations.
-    - [x] Verify small, large and irregular CPU/memory selection plus complete
-      ingestion-to-query results; retain the initial twelve measured observations
-      without promoting the prototype's unproven performance claim.
-    - [x] Complete final workspace, native/CLI, Python and feature-boundary checks
-      after the broadened allocation work; current counts and exclusions are in
-      the allocation contract.
-    - [ ] Align public descriptions, review, complete hosted checks and move the
-      accepted finite record to the completed ledger. No whole PERF/CG completion,
-      package publication or paused format/text performance run is implied.
+    - [x] Carry complete flat aggregate stages, source declarations and resources
+      through common collect/write/inspection admission without moving input limits.
+    - [x] Share explicit null ordering across aggregate finalization, native sort,
+      candidate cutoff and relational ordering while retaining optimized strategies.
+    - [x] Prove complete nullable/multi-key/limit/output semantics and explicit
+      invalid-policy/source-declaration denial through native and public tests.
+    - [x] Complete workspace/native/Python/feature/doc checks, then freeze public
+      workflow and Full43 acceptance with exact source and build identities.
+    - [ ] Align references and evidence, complete review and hosted checks, and move
+      the finite accepted record to the completed ledger.
 
-The preceding `NATIVE-RELATIONAL-RESOURCES` unit merged in
-[PR #1502](https://github.com/depsilon/shardloom/pull/1502) after all 40 hosted
-checks passed. Its finite completion is recorded in the
-[completed ledger](phased-execution-completed-ledger.md). The prepared aggregate
-and ordering continuation is preserved while the October 2 allocation priority
-is completed; broader operator/type/adapter and resource obligations remain open.
+The preceding resource and allocation units merged in
+[PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
+[PR #1503](https://github.com/depsilon/shardloom/pull/1503), each after all 40
+hosted checks passed. Their finite completions are recorded in the
+[completed ledger](phased-execution-completed-ledger.md). The aggregate and
+ordering continuation now resumes on the shared per-operation allocation
+contract; broader operator/type/adapter and resource obligations remain open.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
@@ -2693,12 +2686,12 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-The October 2 maintainer instruction temporarily puts the finite
-`ADAPTIVE-INGEST-BUDGET` unit first: make P4/P6/P8 ingestion share the provided CPU
-budget, validate failure and memory behavior, and measure the new artifact through
-complete query acceptance. Resume the preserved native operator work afterward.
-This authorizes that guarded ingest/query comparison, without resuming the other
-paused large format/text experiments or declaring whole PERF/CG owners complete.
+The October 2 maintainer's finite `ADAPTIVE-INGEST-BUDGET` priority is complete in
+PR #1503: P4/P6/P8 ingestion shares the provided CPU budget, with failure, memory
+and complete query acceptance recorded in the completed ledger. Resume the
+preserved native operator work with `NATIVE-AGGREGATE-ORDERING`, then continue the
+dependent universal workflow queue below. The other large format/text experiments
+remain paused, and whole PERF/CG owners remain open.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)

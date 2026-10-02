@@ -12,7 +12,7 @@ use super::{
 use shardloom_vortex::{
     VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
     local_primitives::prepared_aggregate::{
-        ExecutedVortexAggregate, PreparedAggregateDisposition, PreparedVortexAggregate,
+        CollectedVortexAggregate, PreparedAggregateDisposition, PreparedVortexAggregate,
         prepare_aggregate_for_optional_reuse,
     },
 };
@@ -25,7 +25,7 @@ pub(super) struct PreparedPublicAggregate {
 }
 
 struct Executed {
-    value: ExecutedVortexAggregate,
+    value: CollectedVortexAggregate,
     primitive_arg: String,
     opened: bool,
     retained: bool,
@@ -60,7 +60,7 @@ pub(super) fn run(
         return ordinary(request, plan, format, extra_fields);
     }
     match execute(request, &binding, execution_session) {
-        Ok(Some(executed)) => render(request, plan, format, extra_fields, &binding, &executed),
+        Ok(Some(executed)) => render(request, plan, format, extra_fields, &binding, executed),
         Ok(None) => {
             execution_session.clear();
             ordinary(request, plan, format, extra_fields)
@@ -129,7 +129,9 @@ fn execute(
             None => return Ok(None),
             Some(PreparedAggregateDisposition::Unretained(operation)) => {
                 return Ok(Some(Executed {
-                    value: operation.execute()?,
+                    value: operation.collect_jsonl(
+                        &shardloom_exec::compute_pool::CancellationToken::default(),
+                    )?,
                     primitive_arg,
                     opened: true,
                     retained: false,
@@ -152,7 +154,9 @@ fn execute(
         )
     })?;
     Ok(Some(Executed {
-        value: prepared.operation.execute()?,
+        value: prepared
+            .operation
+            .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())?,
         primitive_arg,
         opened: !matches,
         retained: true,
@@ -170,12 +174,12 @@ fn render(
     format: OutputFormat,
     mut extra_fields: Vec<(String, String)>,
     binding: &NativeVortexInputBinding,
-    executed: &Executed,
+    executed: Executed,
 ) -> ExitCode {
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
-    let result = &executed.value;
+    let result = &executed.value.execution;
     append_native_vortex_materializing_primitive_fields(
         &mut fields,
         &result.report,
@@ -183,7 +187,14 @@ fn render(
         Some(&result.native_io_certificate),
         None,
     );
+    let (jsonl, _json_ownership) = executed.value.result_jsonl.into_parts();
     fields.extend([
+        ("result_jsonl".into(), jsonl),
+        ("result_payload_complete".into(), "true".into()),
+        (
+            "result_materialization_boundary".into(),
+            "bounded_native_batches_to_jsonl".into(),
+        ),
         (
             "resident_source_opens".into(),
             result.runtime.prepared_source_opens.to_string(),

@@ -94,7 +94,7 @@ pub(super) fn aggregate_fields(
     aggregate_fields_with_bounds(request, source, true)
 }
 
-#[cfg(all(unix, feature = "vortex-write"))]
+#[cfg(unix)]
 pub(super) fn aggregate_stream_fields(
     request: &VortexQueryPrimitiveRequest,
     source: &DType,
@@ -304,6 +304,21 @@ impl CompletedRows<'_> {
         self.fields
             .iter()
             .any(|(_, dtype)| matches!(dtype, DType::Utf8(_)))
+    }
+
+    /// Compact keys may store a nonnegative derived integer independently of
+    /// its declared signedness. Preserve the already-bound output dtype.
+    pub(super) fn integer_column_is_signed(&self, column: usize) -> Result<bool> {
+        match self.fields.get(column).map(|(_, dtype)| dtype) {
+            Some(DType::Primitive(ptype, _))
+                if ptype.is_signed_int() || ptype.is_unsigned_int() =>
+            {
+                Ok(ptype.is_signed_int())
+            }
+            _ => Err(failed(
+                "compact integer result requires a declared integer column",
+            )),
+        }
     }
 
     /// Admit and reserve the scalar-row bridge before its JSON/StatValue clones.
