@@ -89,6 +89,11 @@ new dependency or serialized-memory-file bridge.
   batches. Independent calls start fresh. Melt emits bounded expansion batches.
   Rolling keeps its existing centered/lookahead/null/min-period semantics and
   bounded window state over the immediately preceding stage.
+  Rewrite literals bind to the column's native dtype before execution, including
+  empty input. A null value cannot determine its own target type. Masking can
+  replace nulls with a compatible typed value; string, regex and arithmetic
+  rewrites preserve nulls, and scalar replacement leaves an unmatched null intact.
+  The same bound state serves direct file and composed calls.
 - The shared schema binder validates each stage before execution, including empty
   output, nullable fields, renamed columns and integer widths. Unknown, duplicate
   or incompatible columns fail explicitly. The flat-scalar binder must not be

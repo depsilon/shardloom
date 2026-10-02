@@ -13,6 +13,7 @@ use vortex::array::dtype::PType;
 
 struct Step {
     target: usize,
+    coercion_target: StatValue,
     predicate: Option<MaterializedPredicateEvaluator>,
     regex: Option<(regex::Regex, String)>,
 }
@@ -51,7 +52,7 @@ impl Plan {
             .iter()
             .map(|name| position(name))
             .collect::<Result<Vec<_>>>()?;
-        let mut fields = output
+        let mut fields = working
             .iter()
             .map(|name| {
                 let field = if columns.contains(name) {
@@ -65,11 +66,10 @@ impl Plan {
         let mut regex_memory = ReservedVec::new(memory)?;
         let mut steps = Vec::with_capacity(projection.rewrites.len());
         for rewrite in &projection.rewrites {
-            for (name, dtype) in &mut fields {
-                if name == rewrite.target_column().as_str() {
-                    *dtype = rewritten_dtype(dtype, rewrite)?;
-                }
-            }
+            let target = position(rewrite.target_column().as_str())?;
+            fields[target].1 = rewritten_dtype(&fields[target].1, rewrite)?;
+            let coercion_target = coercion_target(&fields[target].1)?;
+            validate_literals(rewrite, &coercion_target)?;
             let predicate = if let Rewrite::MaskScalar { predicate, .. } = rewrite {
                 Some(MaterializedPredicateEvaluator::compile(
                     predicate, &working,
@@ -84,13 +84,17 @@ impl Plan {
                 regex_memory.values.push(memory.reserve(24 * 1024 * 1024)?);
             }
             steps.push(Step {
-                target: position(rewrite.target_column().as_str())?,
+                target,
+                coercion_target,
                 predicate,
                 regex: super::super::expression_projection_regex_replacement(rewrite)?,
             });
         }
         Ok(Self {
-            fields,
+            fields: output_indices
+                .iter()
+                .map(|index| fields[*index].clone())
+                .collect(),
             source_indices: (0..columns.len()).collect(),
             output_indices,
             extra_columns: working.len() - columns.len(),
@@ -98,6 +102,50 @@ impl Plan {
             _regex_memory: regex_memory,
         })
     }
+}
+
+// Reuse the existing checked scalar conversion rules with a schema-bound type
+// witness, as the typed predicate helpers do. A null row carries no type evidence.
+fn coercion_target(dtype: &DType) -> Result<StatValue> {
+    match dtype {
+        DType::Bool(_) => Ok(StatValue::Boolean(false)),
+        DType::Utf8(_) => Ok(StatValue::Utf8(String::new())),
+        DType::Primitive(p, _) if p.is_signed_int() => Ok(StatValue::Int64(0)),
+        DType::Primitive(p, _) if p.is_unsigned_int() => Ok(StatValue::UInt64(0)),
+        DType::Primitive(PType::F32 | PType::F64, _) => Ok(StatValue::Float64(0.0)),
+        _ => Err(failed("rewrite requires a bound flat scalar target")),
+    }
+}
+
+fn validate_literals(rewrite: &Rewrite, target: &StatValue) -> Result<()> {
+    match rewrite {
+        Rewrite::MaskScalar { replacement, .. } => {
+            super::super::coerce_rewrite_value(target, replacement)?;
+        }
+        Rewrite::ReplaceScalar {
+            to_replace,
+            replacement,
+            ..
+        } => {
+            super::super::coerce_rewrite_value(target, to_replace)?;
+            super::super::coerce_rewrite_value(target, replacement)?;
+        }
+        Rewrite::NumericScalarArithmetic {
+            operator, operand, ..
+        } => {
+            if matches!(operand, StatValue::Null)
+                || !(matches!(operator.trim(), "+" | "-" | "*")
+                    || (matches!(target, StatValue::Float64(_)) && operator.trim() == "/"))
+            {
+                return Err(failed(
+                    "arithmetic rewrite requires an admitted operator and non-null operand",
+                ));
+            }
+            super::super::coerce_rewrite_value(target, operand)?;
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn rewritten_dtype(dtype: &DType, rewrite: &Rewrite) -> Result<DType> {
@@ -285,7 +333,7 @@ fn apply(
                 .as_ref()
                 .ok_or_else(|| failed("mask predicate is not bound"))?;
             if predicate.matches_with(&mut |column| Ok(&row.values()[column]))? {
-                coerce(current, replacement, memory)
+                coerce(&step.coercion_target, replacement, memory)
             } else {
                 OwnedStat::copy(current, memory)
             }
@@ -295,9 +343,9 @@ fn apply(
             replacement,
             ..
         } => {
-            let comparable = coerce(current, to_replace, memory)?;
+            let comparable = coerce(&step.coercion_target, to_replace, memory)?;
             if super::super::stat_value_equal(current, comparable.value()) {
-                coerce(current, replacement, memory)
+                coerce(&step.coercion_target, replacement, memory)
             } else {
                 OwnedStat::copy(current, memory)
             }
@@ -311,7 +359,11 @@ fn apply(
         Rewrite::NumericScalarArithmetic {
             operator, operand, ..
         } => OwnedStat::produce(memory, 0, || {
-            super::super::apply_numeric_scalar_arithmetic(current, operator, operand)
+            if matches!(current, StatValue::Null) {
+                Ok(StatValue::Null)
+            } else {
+                super::super::apply_numeric_scalar_arithmetic(current, operator, operand)
+            }
         }),
         Rewrite::ForwardFillNull { limit, .. } => {
             if matches!(current, StatValue::Null) {
@@ -361,6 +413,9 @@ fn replace_text(
     replacement: &str,
     memory: &LiveMemoryPool,
 ) -> Result<OwnedStat> {
+    if matches!(current, StatValue::Null) {
+        return OwnedStat::copy(current, memory);
+    }
     let StatValue::Utf8(text) = current else {
         return Err(failed("string replacement requires UTF8 input"));
     };
@@ -387,6 +442,9 @@ fn replace_text(
 }
 
 fn replace_regex(current: &StatValue, step: &Step, memory: &LiveMemoryPool) -> Result<OwnedStat> {
+    if matches!(current, StatValue::Null) {
+        return OwnedStat::copy(current, memory);
+    }
     let StatValue::Utf8(text) = current else {
         return Err(failed("regex replacement requires UTF8 input"));
     };

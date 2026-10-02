@@ -159,7 +159,7 @@ def _render_stages(
         elif kind == "limit":
             statement = f"SELECT * FROM {source} LIMIT {values[0]}"
         elif kind == "distinct":
-            statement = f"SELECT DISTINCT * FROM {source}"
+            statement = f"SELECT * FROM DISTINCT_ROWS(({statement}), '*') AS _sl_stage_{index}"
         elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window"}:
             if kind == "tail":
                 function, argument = "TAIL", values[0]

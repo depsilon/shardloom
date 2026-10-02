@@ -230,3 +230,99 @@ fn composed_unary_unknown_rolling_and_tail_keep_bounded_state() {
     assert_eq!(usage.items, 2);
     assert!(!usage.all_input_retained);
 }
+
+#[test]
+fn composed_unary_rewrites_bind_nullable_targets_before_looking_at_rows() {
+    use crate::{VortexExpressionProjectionRequest, VortexExpressionRewrite as Rewrite};
+    use vortex::array::arrays::VarBinViewArray;
+
+    let input = weighted(&[None, Some(3.0)]);
+    let mut request = VortexQueryPrimitiveRequest::for_relational_input(
+        VortexQueryPrimitiveKind::ExpressionProjectRows,
+        projection(&[VALUE]),
+    );
+    request.expression_projection = Some(VortexExpressionProjectionRequest::new(vec![
+        Rewrite::MaskScalar {
+            target_column: ColumnRef::new(VALUE).unwrap(),
+            predicate: PredicateExpr::AlwaysTrue,
+            replacement: StatValue::Int64(7),
+        },
+    ]));
+    let expected = vec![
+        serde_json::json!({VALUE:7.0}),
+        serde_json::json!({VALUE:7.0}),
+    ];
+    assert_eq!(consume(&request, &input, None, 1).unwrap().0, expected);
+    let fixture = Fixture::from_array(input.clone(), 1);
+    let mut direct = request.clone();
+    direct.source_uri = Some(fixture.uri());
+    assert_eq!(
+        json_rows(&prepare(&direct).execute_owned().unwrap().result),
+        expected
+    );
+    request.expression_projection = Some(VortexExpressionProjectionRequest::new(vec![
+        Rewrite::MaskScalar {
+            target_column: ColumnRef::new(VALUE).unwrap(),
+            predicate: PredicateExpr::AlwaysTrue,
+            replacement: StatValue::Utf8("invalid numeric replacement".into()),
+        },
+    ]));
+    assert!(
+        BoundUnary::for_relation(
+            &request,
+            input.slice(0..0).unwrap().dtype(),
+            ResidentVortexSession::new(32 << 20, 1).unwrap().memory(),
+        )
+        .is_err()
+    );
+    request.expression_projection = Some(VortexExpressionProjectionRequest::new(vec![
+        Rewrite::NumericScalarArithmetic {
+            target_column: ColumnRef::new(VALUE).unwrap(),
+            operator: "+".into(),
+            operand: StatValue::Int64(2),
+        },
+    ]));
+    assert_eq!(
+        consume(&request, &input, None, 1).unwrap().0,
+        vec![
+            serde_json::json!({VALUE:null}),
+            serde_json::json!({VALUE:5.0})
+        ]
+    );
+    let text = StructArray::new(
+        FieldNames::from([VALUE]),
+        vec![
+            VarBinViewArray::from_iter([None, Some("a'b")], DType::Utf8(Nullability::Nullable))
+                .into_array(),
+        ],
+        2,
+        Validity::NonNullable,
+    )
+    .into_array();
+    for rewrite in [
+        Rewrite::ReplaceScalar {
+            target_column: ColumnRef::new(VALUE).unwrap(),
+            to_replace: StatValue::Utf8("a'b".into()),
+            replacement: StatValue::Utf8("changed".into()),
+        },
+        Rewrite::StringReplaceScalar {
+            target_column: ColumnRef::new(VALUE).unwrap(),
+            needle: "a'b".into(),
+            replacement: "changed".into(),
+        },
+        Rewrite::RegexReplaceScalar {
+            target_column: ColumnRef::new(VALUE).unwrap(),
+            pattern: "a.b".into(),
+            replacement: "changed".into(),
+        },
+    ] {
+        request.expression_projection = Some(VortexExpressionProjectionRequest::new(vec![rewrite]));
+        assert_eq!(
+            consume(&request, &text, None, 1).unwrap().0,
+            vec![
+                serde_json::json!({VALUE:null}),
+                serde_json::json!({VALUE:"changed"})
+            ]
+        );
+    }
+}

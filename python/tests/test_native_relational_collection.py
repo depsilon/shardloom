@@ -292,6 +292,7 @@ class NativeRelationalCollectionTests(unittest.TestCase):
         original = self.context.read_csv("input.data", schema={"key": "int64", "amount": "int64"})
         prefix = original.sort("amount", descending=True).limit(4).select("key AS id", "amount AS value")
         calls = [
+            (prefix.select("id").distinct().select("id"), "DISTINCT_ROWS"),
             (prefix.tail(2).select("id"), "TAIL"),
             (prefix.sample(2, seed=7).select("id"), "SAMPLE"),
             (prefix.sample(frac=0.5, weights="value", random_state=11, replace=True).select("id"), "SAMPLE"),
