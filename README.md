@@ -91,9 +91,10 @@ contract defines the supported operations, types, and resource limits.
 - **Choose a format at the boundary.** Local I/O covers Vortex, Parquet, Arrow IPC, Avro, ORC,
   CSV, JSON, and JSONL through the enabled adapters and writers. Completed flat aggregate and
   sorted results reach the shared writers without rerunning the query or serializing and
-  reparsing JSON as the binary export substrate. General computed results still use bounded
-  scalar-to-native construction: 65,536 rows, 128 fields, and 8 MiB, with format-specific type
-  restrictions. Vortex preserves the most native structure; compatibility outputs report their
+  reparsing JSON as the binary export substrate. Small owned collection is bounded to
+  65,536 rows, 128 fields, and 8 MiB; complete admitted native file writes can exceed that row
+  bound through bounded batches, with format-specific type restrictions.
+  Vortex preserves the most native structure; compatibility outputs report their
   fidelity boundary. This is scoped format support, not every-operator/every-sink parity.
   See the [0.3.2 integration contract](docs/architecture/public-io-route-repair-2026-09-27.md)
   and [output methods and limits](docs/architecture/v1-local-output-sink-scope.md).
@@ -112,8 +113,12 @@ contract defines the supported operations, types, and resource limits.
   and [implemented spill boundary](docs/benchmarks/native-completion-boundaries-2026-09-12.md).
   Explicit COUNT/DISTINCT spill and
   [selected numeric sort spill](docs/reference/native-query-spill.md) have separate
-  admission, recovery, and cleanup contracts;
-  broad compound-key spill and spill-backed exports remain incomplete.
+  admission, recovery, and cleanup contracts. Composed relational ordering can also
+  spill stable multi-key native rows under an explicit workspace/quota policy and
+  deliver complete results through all eight local writers. SQL and DataFrame
+  collection and writers carry the same memory, parallelism and spill request.
+  See the [relational resource contract](docs/architecture/native-relational-resources-2026-10-02.md).
+  Other relational state spill and broader provider accounting remain incomplete.
 - **PulseWeave and capillary work units make control decisions inspectable.** Typed units carry
   source ranges, projection/filter and artifact references, ownership, and execution evidence.
   PulseWeave combines `FlowInventory`, `ScarcityLedger`, `EndoPulse`, and `ProofBound` to describe

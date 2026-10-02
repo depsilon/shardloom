@@ -64,6 +64,12 @@ typed result stream. Public aggregate and ordered-result file exports share thes
 writers. Vortex, JSON, JSONL and CSV are available with `vortex-write`; Parquet,
 Arrow IPC, Avro and ORC also require `universal-format-io`. Admitted weighted
 COUNT, integer DISTINCT and numeric-sort spills can complete through the writers.
+Composed relational ordering also uses those sinks after stable multi-key native
+row spill/merge under one query workspace, quota and resident memory grant. Public
+SQL and DataFrame collection/writers forward `memory_gb`, `max_parallelism` and
+optional `spill` to the selected native provider. Other relational state spill
+and relational fanout remain separate work. See the
+[relational resource contract](../architecture/native-relational-resources-2026-10-02.md).
 In-memory collection limits no longer cap these file outputs. Native writers
 request at most 8,192 rows per batch; text and compatibility writers request
 2,048. Ordered payload reads use selections of at most 512 source rows.

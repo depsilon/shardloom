@@ -1,7 +1,8 @@
 # Native relational composition
 
-Status: implementation and immutable local acceptance complete; hosted PR checks
-are pending. This continues
+Status: merged in [PR #1501](https://github.com/depsilon/shardloom/pull/1501) at
+`71036191` after all 40 hosted checks passed. The merged and tested trees match.
+Hosted Codex review was usage-limited; that is not a review approval. This continues
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)
 and the [native relational family](native-relational-workflows-2026-10-01.md)
 under PERF-02/07/10/11/12 and CG-5/20/21. It does not close the wider type,

@@ -11242,6 +11242,7 @@ class ShardLoomClient:
         vortex_sort_rows: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowRoute:
         """Return the side-effect-free public route envelope for a declared workflow."""
@@ -11308,6 +11309,7 @@ class ShardLoomClient:
             vortex_sort_rows=vortex_sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         )
         return PublicWorkflowRoute(self.run(args, check=check))
 
@@ -11357,6 +11359,7 @@ class ShardLoomClient:
         vortex_sort_rows: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
@@ -11406,6 +11409,7 @@ class ShardLoomClient:
             vortex_sort_rows=vortex_sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         )
         return PublicWorkflowExecution(self.run(args, check=check))
 
@@ -11490,6 +11494,7 @@ class ShardLoomClient:
         vortex_sort_rows: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
+        spill: Mapping[str, object] | str | None = None,
     ) -> list[CommandPart]:
         args: list[CommandPart] = [command, surface]
         if input_uri is not None:
@@ -11555,6 +11560,7 @@ class ShardLoomClient:
             vortex_sort_rows=vortex_sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         )
         return args
 
@@ -14584,7 +14590,10 @@ def _append_public_vortex_payload_args(
     vortex_sort_rows: str | None,
     memory_gb: int | None,
     max_parallelism: int | None,
+    spill: Mapping[str, object] | str | None = None,
 ) -> None:
+    if spill is not None:
+        args.extend(["--spill", json.dumps(dict(spill)) if isinstance(spill, Mapping) else spill])
     if native_vortex_operation_family is not None:
         args.extend(["--native-vortex-operation-family", native_vortex_operation_family])
     if native_vortex_provider_scenario is not None:

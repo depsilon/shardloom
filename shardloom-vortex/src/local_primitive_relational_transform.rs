@@ -67,17 +67,8 @@ impl PreparedVortexRelational {
                     consume(select_batch(&array, &node.fields, &rows.values, context)?)
                 },
             ),
-            NodeKind::Sort { input, spec } => {
-                let mut sort = native_relational_sort::Sort::new(spec, context.memory())?;
-                self.run(
-                    input,
-                    context,
-                    metrics,
-                    batch_rows,
-                    parameter,
-                    &mut |array| sort.build(array, context),
-                )?;
-                sort.finish(context, batch_rows, consume)
+            NodeKind::Sort { .. } => {
+                self.run_sort(node, context, metrics, batch_rows, parameter, consume)
             }
             NodeKind::Limit {
                 input,
@@ -109,5 +100,44 @@ impl PreparedVortexRelational {
             }
             _ => Err(failed("transform dispatch received another operator")),
         }
+    }
+
+    fn run_sort(
+        &self,
+        node: &Node,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let NodeKind::Sort { input, spec } = &node.kind else {
+            return Err(failed("sort dispatch received another operator"));
+        };
+        #[cfg(feature = "vortex-write")]
+        if let Some(spill) = &metrics.spill {
+            let mut sort = super::super::native_relational_spill::Ordering::new(
+                spec, spill, batch_rows, context,
+            )?;
+            self.run(
+                input,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                &mut |array| sort.build(array, context),
+            )?;
+            return sort.finish(context, batch_rows, consume);
+        }
+        let mut sort = native_relational_sort::Sort::new(spec, context.memory())?;
+        self.run(
+            input,
+            context,
+            metrics,
+            batch_rows,
+            parameter,
+            &mut |array| sort.build(array, context),
+        )?;
+        sort.finish(context, batch_rows, consume)
     }
 }

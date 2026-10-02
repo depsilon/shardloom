@@ -20,6 +20,7 @@ from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
 from native_relational_composition_cases import cases as composition_cases
+from native_relational_resource_cases import run as resource_cases
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -116,6 +117,7 @@ def main() -> int:
     query = code.parents[1] / "python/src/shardloom/query.py"
     client_code = code.parents[1] / "python/src/shardloom/client.py"
     composition_code = code.with_name("native_relational_composition_cases.py")
+    resource_code = code.with_name("native_relational_resource_cases.py")
     renderer_code = query.with_name("_relational_sql.py")
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
@@ -124,6 +126,7 @@ def main() -> int:
         "python_query_sha256": file_sha256(query), "fallback_attempted": False,
         "python_client_sha256": file_sha256(client_code),
         "composition_cases_sha256": file_sha256(composition_code),
+        "resource_cases_sha256": file_sha256(resource_code),
         "python_relational_renderer_sha256": file_sha256(renderer_code),
         "external_engine_invoked": False, "performance_claim": False,
         "total_rss_bound": False, "csv_contract": "complete header/row text; null is an empty field",
@@ -279,12 +282,19 @@ def main() -> int:
                 actual = [strict_json(line) for line in decoded.read_text().splitlines()]
             complete(name, actual, expected, destination)
 
+        resource_cases(context, root / "data" / f"resources_{stamp}", guard,
+                       accepted, complete, sources, identity)
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")
         summary["source_sha256"] = {path.name: digest for path, digest, _ in sources}
+        summary["source_files"] = [
+            {"path": str(path), "sha256": digest, "identity": generation}
+            for path, digest, generation in sources
+        ]
         for path, key in [(binary, "binary_sha256"), (code, "harness_sha256"), (query, "python_query_sha256"),
                           (client_code, "python_client_sha256"), (composition_code, "composition_cases_sha256"),
+                          (resource_code, "resource_cases_sha256"),
                           (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")

@@ -13,8 +13,10 @@ pub(super) fn certificate(
     rows: u64,
     batch_rows: usize,
     sources: usize,
+    spill: Option<&crate::relational_query::VortexRelationalSpillReport>,
 ) -> Result<NativeIoCertificate> {
     let data_work = metrics.data_scans.get() > 0;
+    let spilled = spill.is_some_and(|report| report.runs_written > 0);
     NativeIoCertificate::new(
         "native_relational.execution.v1",
         "native_vortex_sources_to_relational_batches",
@@ -87,16 +89,18 @@ pub(super) fn certificate(
         },
         if data_work {
             vec![NativeIoMaterializationBoundaryReport {
-            boundary_id: "native_relational.keys_and_selected_payload".into(),
-            from_state: RepresentationState::VortexEncoded,
-            to_state: RepresentationState::DecodedColumnar,
-            required_by: "typed_keys_and_bounded_native_result_consumption".into(),
-            reason: "native key execution and native take followed by explicit compact output copies; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound".into(),
-            bytes_decoded: 0,
-            rows_materialized: rows,
-            fidelity_loss: "none_for_bound_scalar_values".into(),
-            fallback_attempted: false,
-        }]
+                boundary_id: "native_relational.keys_and_selected_payload".into(),
+                from_state: RepresentationState::VortexEncoded,
+                to_state: RepresentationState::DecodedColumnar,
+                required_by: "typed_keys_and_bounded_native_result_consumption".into(),
+                reason: format!(
+                    "native key execution and native take followed by explicit compact output copies; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound"
+                ),
+                bytes_decoded: 0,
+                rows_materialized: rows,
+                fidelity_loss: "none_for_bound_scalar_values".into(),
+                fallback_attempted: false,
+            }]
         } else {
             vec![]
         },
@@ -107,8 +111,8 @@ pub(super) fn certificate(
             row_read: data_work,
             arrow_converted: false,
             object_store_io: false,
-            write_io: false,
-            spill_io_performed: false,
+            write_io: spilled,
+            spill_io_performed: spilled,
             external_effects_executed: false,
             fallback_attempted: false,
             fallback_execution_allowed: false,

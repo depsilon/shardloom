@@ -30,6 +30,12 @@ pub(super) fn prepare(
     )?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     let operation = operation.with_preparation_sources(sources.preparations)?;
+    #[cfg(feature = "vortex-write")]
+    let operation = if let Some(spill) = &request.spill {
+        operation.with_spill(spill.relational()?)?
+    } else {
+        operation
+    };
     Ok((operation, sources.normalized))
 }
 

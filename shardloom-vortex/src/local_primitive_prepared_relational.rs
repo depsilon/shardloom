@@ -67,6 +67,7 @@ pub struct ExecutedVortexRelational {
     pub bytes_decoded: Option<u64>,
     pub native_io_certificate: NativeIoCertificate,
     pub runtime: ResidentSessionSnapshot,
+    pub spill: Option<crate::relational_query::VortexRelationalSpillReport>,
     _metadata: MemoryLease,
 }
 
@@ -91,6 +92,10 @@ pub struct PreparedVortexRelational {
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     policy: VortexLocalPrimitiveExecutionPolicy,
     _metadata: MemoryLease,
+    #[cfg(feature = "vortex-write")]
+    spill: Option<crate::relational_query::VortexRelationalSpillPolicy>,
+    #[cfg(feature = "vortex-write")]
+    spill_metadata: Option<MemoryLease>,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     preparation_sources:
         Vec<std::sync::Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
@@ -222,6 +227,10 @@ pub fn prepare_relational_with_schema(
         root,
         policy,
         _metadata: metadata,
+        #[cfg(feature = "vortex-write")]
+        spill: None,
+        #[cfg(feature = "vortex-write")]
+        spill_metadata: None,
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         preparation_sources: Vec::new(),
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -254,6 +263,10 @@ pub fn prepare_relational_in_session(
         root,
         policy,
         _metadata: metadata,
+        #[cfg(feature = "vortex-write")]
+        spill: None,
+        #[cfg(feature = "vortex-write")]
+        spill_metadata: None,
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         preparation_sources: Vec::new(),
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -263,6 +276,8 @@ pub fn prepare_relational_in_session(
 
 #[derive(Default)]
 struct Metrics {
+    #[cfg(feature = "vortex-write")]
+    spill: Option<super::native_relational_spill::State>,
     scan_rows: Cell<u64>,
     scan_batches: Cell<u64>,
     scans_started: Cell<u64>,
@@ -282,6 +297,36 @@ fn add(counter: &Cell<u64>, value: u64) -> Result<()> {
 }
 
 impl PreparedVortexRelational {
+    /// Permit relational ordering runs inside this plan's existing resource grant.
+    /// This validates configuration only; execution validates the workspace.
+    /// # Errors
+    /// Rejects invalid configuration and a buffer threshold beyond the query grant.
+    #[cfg(feature = "vortex-write")]
+    pub fn with_spill(
+        mut self,
+        policy: crate::relational_query::VortexRelationalSpillPolicy,
+    ) -> Result<Self> {
+        let policy = crate::relational_query::VortexRelationalSpillPolicy::new(
+            policy.workspace,
+            policy.quota_bytes,
+            policy.buffer_bytes,
+        )?;
+        if policy.buffer_bytes > self.policy.resource_envelope.memory_budget_bytes {
+            return Err(failed(
+                "spill buffer threshold exceeds the query memory grant",
+            ));
+        }
+        self.spill_metadata = Some(
+            self.session.memory().reserve(
+                (policy.workspace.capacity() as u64)
+                    .checked_add(1024)
+                    .ok_or_else(|| failed("spill configuration capacity overflow"))?,
+            )?,
+        );
+        self.spill = Some(policy);
+        Ok(self)
+    }
+
     /// Attach the original compatibility generations to this normalized native plan.
     /// Checks cover collection, every writer's final commit and output aliases.
     /// # Errors
@@ -357,10 +402,26 @@ impl PreparedVortexRelational {
     ) -> Result<ExecutedVortexRelational> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources()?;
-        let metadata = context.memory().reserve(
-            65_536 + self.sources.len() as u64 * 4096 + self.root.fields.len() as u64 * 1024,
-        )?;
-        let metrics = Metrics::default();
+        let metadata_bytes =
+            65_536 + self.sources.len() as u64 * 4096 + self.root.fields.len() as u64 * 1024;
+        #[cfg(feature = "vortex-write")]
+        let metadata_bytes = metadata_bytes
+            .checked_add(
+                self.spill
+                    .as_ref()
+                    .map_or(0, |policy| policy.workspace.as_os_str().len() as u64),
+            )
+            .ok_or_else(|| failed("spill report metadata capacity overflow"))?;
+        let metadata = context.memory().reserve(metadata_bytes)?;
+        let metrics = Metrics {
+            #[cfg(feature = "vortex-write")]
+            spill: self
+                .spill
+                .as_ref()
+                .map(|policy| super::native_relational_spill::State::new(policy, context))
+                .transpose()?,
+            ..Metrics::default()
+        };
         let mut rows = 0u64;
         let mut batches = 0u64;
         let mut bytes = 0u64;
@@ -401,7 +462,21 @@ impl PreparedVortexRelational {
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources()?;
-        let certificate = report::certificate(&metrics, rows, batch_rows, self.sources.len())?;
+        #[cfg(feature = "vortex-write")]
+        let spill = metrics
+            .spill
+            .as_ref()
+            .map(super::native_relational_spill::State::finish)
+            .transpose()?;
+        #[cfg(not(feature = "vortex-write"))]
+        let spill: Option<crate::relational_query::VortexRelationalSpillReport> = None;
+        let certificate = report::certificate(
+            &metrics,
+            rows,
+            batch_rows,
+            self.sources.len(),
+            spill.as_ref(),
+        )?;
         Ok(ExecutedVortexRelational {
             output_rows: rows,
             output_batches: batches,
@@ -419,6 +494,7 @@ impl PreparedVortexRelational {
             bytes_decoded: None,
             native_io_certificate: certificate,
             runtime: self.snapshot(),
+            spill,
             _metadata: metadata,
         })
     }

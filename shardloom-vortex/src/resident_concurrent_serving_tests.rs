@@ -526,11 +526,8 @@ fn serving_cancelled_blocking_completion_keeps_io_and_buffer_owners_until_return
     drop(scope);
     drop(runtime);
     drop(budget);
-    // The job decrements pending and wakes the drain before Rust drops its
-    // final Arc<IoScope> field. The read and buffer are already gone, but that
-    // destructor epilogue can briefly retain the scope's metadata reservation.
-    // Require eventual release without racing that final field destruction.
-    wait_for(|| memory.snapshot().reserved_bytes == 0);
+    // Drain completion includes reservation-owning destructor fields, so the
+    // caller can reuse its full grant immediately without eventual polling.
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 

@@ -24,9 +24,11 @@ memory request, and at least 32 KiB of disk quota for ownership metadata.
 
 The admitted shape is one local file, one nonnullable Int64 or UInt64 sort key,
 no predicate, an explicit bounded output count, and first/last tie ordering.
-String/float/nullable keys, multiple keys, tie expansion, partitioned inputs and
-spill-backed exports fail explicitly. Supplying a spill policy does not enable
-other engine families or external execution.
+For this specialized row-reference strategy, string/float/nullable keys, multiple
+keys, tie expansion and partitioned inputs fail explicitly. Admitted completed
+results can stream through all eight local writers under the
+[native result contract](resident-native-results.md). Supplying this spill policy
+does not enable other engine families or external execution.
 
 The operator retains bounded key/row-ordinal candidates, writes sorted native runs,
 and performs balanced merges before materializing the selected final rows. Each
@@ -72,3 +74,42 @@ complete 131,072-row public-query results at 4 MiB with offset 123,456, large
 integer keys, ties, quota failure, cancellation, corrupt runs,
 interrupted cleanup and preservation of unknown files. This scoped operator does
 not close the whole PERF-06 shared-spill packet or establish a throughput claim.
+
+## Composed relational ordering
+
+Composed SQL and DataFrame ordering can spill full native rows, including multiple
+keys, nullable keys with explicit null order, finite floats, booleans, exact signed
+and unsigned integers, and UTF8. It shares native key comparison, stable ordering,
+run storage, memory ownership and sinks with the existing engine. Adjacent two-run
+merges preserve input order on ties. All ordering stages in one query share the
+same disk quota and resident grant; no nested stage creates another execution budget.
+
+Public `collect`, `run`, `route` and local writers carry `memory_gb`,
+`max_parallelism` and optional `spill`. The CLI spelling is:
+
+```sh
+--spill '{"workspace":"/tmp/shardloom-query-work","quota_bytes":67108864,"buffer_bytes":2097152}'
+```
+
+The directory must already exist for execution. Inspection is inert. Unknown
+fields, repeated flags, and simultaneous common and embedded spill declarations
+are rejected. The selected specialized numeric sort or aggregate provider retains
+its existing contract: the common `buffer_bytes` maps to that provider's
+`memory_bytes`, including the aggregate's 2 MiB minimum. For composed relational
+ordering it is a retained-input flush threshold, at least 1 MiB and no larger
+than the query grant. Run metadata, readers, native keys and output allocations
+also consume the same grant; a threshold is not a second budget or a guarantee
+that every physical source layout fits.
+
+Complete output can exceed collection limits through all eight local writers.
+Success requires validated native runs, original source generations and owned
+cleanup before output publication. Evidence records actual run writes/merges,
+simultaneous readers across nested stages, disk and reservation high-water, and
+completed cleanup. Upstream scratch and decoded bytes remain unmeasured; this
+does not establish zero-decode execution or a total RSS ceiling.
+
+`VortexRelationalSpillPolicy::cleanup_abandoned` recovers one explicitly selected
+owned directory through the same namespace/identity rules. It refuses active,
+unknown, replaced or symlinked entries. Aggregate, join, set and window state do
+not gain spill support from ordering permission. Relational fanout remains
+separate work. See the [contract and acceptance](../architecture/native-relational-resources-2026-10-02.md).

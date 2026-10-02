@@ -95,8 +95,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Relational and DataFrame operations</td>
-<td>Selected provider-backed joins; scoped duplicate handling, sampling, melt/explode/pivot, and source-order rolling.</td>
-<td>General joins, set operations, analytic windows, and subqueries are not complete native families. Prepared reuse, owned output, and spill parity also vary.</td>
+<td>Current source builds add admitted flat-scalar joins, sets, windows, subqueries, and ordered composition to scoped duplicate handling, sampling, reshape, and source-order rolling.</td>
+<td>Wider types, arbitrary SQL/DataFrame semantics, and separate unary-family composition still have gaps.</td>
 </tr>
 <tr>
 <td>Repeated queries</td>
@@ -110,8 +110,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Memory and recovery</td>
-<td>Reservations, bounded serving admission, COUNT/DISTINCT and selected numeric-sort spill, cancellation and cleanup contracts.</td>
-<td>Spill is operator-specific. Broad compound-key spill and spill-backed export remain incomplete; reservations are not a whole-process RSS ceiling.</td>
+<td>Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds.</td>
+<td>Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work.</td>
 </tr>
 <tr>
 <td>Physical layout</td>
@@ -120,10 +120,11 @@ for the detailed evidence behind this scope.</p>
 </tr>
 </tbody>
 </table>
-<p>The <strong>65,536-row / 128-scalar-field / 8-MiB</strong> bound applies to the general computed-result
-scalar-to-native export handoff. It is not an input-size limit or a universal limit on native
-scans or streaming row exports. Nested and extension results, and explicit aggregate/sort spill
-output, remain outside that handoff. See the
+<p>The <strong>65,536-row / 128-scalar-field / 8-MiB</strong> bound applies to small computed-result collection.
+Current source builds deliver complete admitted flat results through bounded native batches to
+all eight local writers, including admitted ordering spill, above the collection row and byte
+limits. Type, resource, and write-policy restrictions still apply. Nested and extension results
+have separate coverage limits. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md">output contract</a>.</p>
 <p>Use <a href="/field-guide/runtime-and-io">runtime and I/O</a>, the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md">front-door contract</a>,

@@ -111,6 +111,27 @@
     "query_answer_cache": false,
     "fallback_attempted": false
   },
+  "native_relational_order_spill": {
+    "reference": "docs/architecture/native-relational-resources-2026-10-02.md",
+    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_platform": "unix",
+    "public_resource_arguments": ["memory_gb", "max_parallelism", "spill"],
+    "spill_fields": ["workspace", "quota_bytes", "buffer_bytes"],
+    "minimum_buffer_bytes": 1048576,
+    "minimum_quota_bytes": 32768,
+    "buffer_semantics": "retained_order_input_flush_threshold_within_shared_query_grant",
+    "multiple_keys": true,
+    "stable_ties": true,
+    "explicit_null_order_required_for_null_values": true,
+    "run_payload": "bound_native_full_row_schema",
+    "local_writer_count": 8,
+    "cleanup_required_before_publication": true,
+    "other_relational_state_spill": false,
+    "relational_fanout": false,
+    "total_rss_bound": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
   "python": {
     "ordinary_import": "import shardloom as sl",
     "ordinary_context": "ctx = sl.context()",

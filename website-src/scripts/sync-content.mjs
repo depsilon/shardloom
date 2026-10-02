@@ -544,14 +544,14 @@ Native Vortex preparation preserves the existing layout. The shared all-I/O phys
 optimization policy remains follow-up work. Reading Vortex does not make parsing, computation,
 encoding, or result delivery instantaneous.
 
-Supported owned results retain Vortex arrays, validity, and memory credits. Complete flat aggregate
-and sorted results reach the shared writers without rerunning the query or reparsing serialized
-JSON for binary export. The general computed-result scalar-to-native handoff is bounded to
-**65,536 rows, 128 scalar fields, and 8 MiB**, subject to type and memory admission.
-These are limits of that handoff, not a dataset-size limit or a universal ceiling on native
-scans and streaming row exports. Nested/extension results and explicit aggregate/sort spill
-output remain outside that handoff. See the
-[I/O integration evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/public-io-route-repair-2026-09-27.md).
+Supported owned results retain Vortex arrays, validity, and memory credits. Current source builds
+stream admitted flat aggregate, ordered, unary, and relational results through all eight local
+writers without rerunning the query or reparsing serialized JSON for binary export. This includes
+admitted native ordering spill. Small computed-result collection remains bounded to
+**65,536 rows, 128 scalar fields, and 8 MiB**; complete writers use bounded native batches and
+can exceed the collection row and byte limits. Type, resource, and write-policy admission still
+apply. Nested and extension results have separate coverage limits. See the
+[output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
 
 ## Resources And Recovery
 
@@ -561,10 +561,18 @@ explicit reserved metadata lane. This does not establish production-scale fairne
 Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
 aggregates avoid payload and worker admission, including when no spare payload credit is available.
 
-COUNT/DISTINCT and selected numeric sort spill have specific admission, recovery, cancellation,
-and cleanup contracts. Broad compound-key spill and spill-backed export remain incomplete. See
+Current source builds carry the same \`memory_gb\` and \`max_parallelism\` request through SQL and
+DataFrame collection and local writers. Optional \`spill\` declares an existing local workspace,
+\`quota_bytes\`, and \`buffer_bytes\`. Nullable multi-key relational ordering can flush typed
+Vortex runs and merge them under the same query grant and disk quota, including composed inputs.
+The buffer is a flush threshold; it is not a second memory grant or a whole-process RSS ceiling.
+Verified cleanup must finish before an execution or writer reports success.
+
+COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies. Aggregate,
+join, and window state do not gain spill from relational ordering permission. Wider types and
+broader resource accounting remain separate work. See
 [COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
-[numeric sort spill](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),
+[native spill contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),
 and [serving evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/concurrent-native-serving-2026-09-20.md).
 
 Every admitted execution preserves \`fallback_attempted=false\` and
@@ -647,16 +655,17 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Selected provider-backed joins; scoped duplicate handling, sampling, melt/explode/pivot, and source-order rolling. | General joins, set operations, analytic windows, and subqueries are not complete native families. Prepared reuse, owned output, and spill parity also vary. |
+| Relational and DataFrame operations | Current source builds add admitted flat-scalar joins, sets, windows, subqueries, and ordered composition to scoped duplicate handling, sampling, reshape, and source-order rolling. | Wider types, arbitrary SQL/DataFrame semantics, and separate unary-family composition still have gaps. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
-| Memory and recovery | Reservations, bounded serving admission, COUNT/DISTINCT and selected numeric-sort spill, cancellation and cleanup contracts. | Spill is operator-specific. Broad compound-key spill and spill-backed export remain incomplete; reservations are not a whole-process RSS ceiling. |
+| Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
-The **65,536-row / 128-scalar-field / 8-MiB** bound applies to the general computed-result
-scalar-to-native export handoff. It is not an input-size limit or a universal limit on native
-scans or streaming row exports. Nested and extension results, and explicit aggregate/sort spill
-output, remain outside that handoff. See the
+The **65,536-row / 128-scalar-field / 8-MiB** bound applies to small computed-result collection.
+Current source builds deliver complete admitted flat results through bounded native batches to
+all eight local writers, including admitted ordering spill, above the collection row and byte
+limits. Type, resource, and write-policy restrictions still apply. Nested and extension results
+have separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
 
 Use [runtime and I/O](/field-guide/runtime-and-io), the

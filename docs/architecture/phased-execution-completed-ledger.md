@@ -19,7 +19,10 @@ phase plan first.
 
 - [x] `NATIVE-RELATIONAL-COMPOSITION` preserve operation order through native relational workflows.
   - Date: 2026-10-02 UTC. Runtime/SDK/harness revision `cf406611` has immutable
-    local acceptance; hosted PR checks are pending. The
+    local acceptance. [PR #1501](https://github.com/depsilon/shardloom/pull/1501)
+    merged at `7103619158bc3f3ae65780a79581aa8187f5bd87` after all 40 checks passed;
+    its tree equals tested head `006a47ece4086a23171e7e0129af40bea0edaeb1`.
+    Hosted Codex review was usage-limited and is not counted as approval. The
     [contract, reuse map and evidence](native-relational-composition-2026-10-02.md)
     cover derived SELECT/set inputs, scoped bindings, transformed joins/subqueries,
     post-set stages and computed-column replacement through the same native tree.

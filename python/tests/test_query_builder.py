@@ -22,7 +22,10 @@ from shardloom.query import (
     _sql_native_vortex_public_workflow_kwargs,
     _vortex_expression_scalar_payload,
 )
-from shardloom.runtime_defaults import DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM
+from shardloom.runtime_defaults import (
+    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+)
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -1448,6 +1451,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "production_admitted_local_workflow",
                     "--bounded",
                     "false",
+                    "--memory-gb",
+                    "__PUBLIC_MEMORY_GB__",
+                    "--max-parallelism",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -1478,6 +1485,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [{"key": key, "value": value} for key, value in fields],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MEMORY_GB__",
+                str(DEFAULT_LOCAL_RUNTIME_MEMORY_GB),
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             )
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
@@ -1740,7 +1753,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
                 assert args[args.index("--evidence-level") + 1] == "runtime_smoke", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
-                assert args[args.index("--max-parallelism") + 1] == "1", sys.argv
+                assert args[args.index("--memory-gb") + 1] == "__PUBLIC_MEMORY_GB__", sys.argv
+                assert args[args.index("--max-parallelism") + 1] == "__PUBLIC_MAX_PARALLELISM__", sys.argv
                 assert "--allow-overwrite" in args, sys.argv
                 assert args[-2:] == ["--format", "json"], sys.argv
                 fields = [
@@ -1773,6 +1787,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [{"key": key, "value": value} for key, value in fields],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MEMORY_GB__",
+                str(DEFAULT_LOCAL_RUNTIME_MEMORY_GB),
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -15541,8 +15561,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--bounded",
                     "true",
                     "--allow-overwrite",
+                    "--memory-gb",
+                    "__PUBLIC_MEMORY_GB__",
                     "--max-parallelism",
-                    "2",
+                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -15581,6 +15603,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }))
                 sys.exit(1)
                 """
+            ).replace(
+                "__PUBLIC_MEMORY_GB__",
+                str(DEFAULT_LOCAL_RUNTIME_MEMORY_GB),
+            ).replace(
+                "__PUBLIC_MAX_PARALLELISM__",
+                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             ),
             rewrite_public_run=False,
         )
@@ -20399,6 +20427,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "filter",
                     "--vortex-predicate",
                     "gte:metric:0",
+                    "--memory-gb",
+                    "__PUBLIC_MEMORY_GB__",
                     "--max-parallelism",
                     "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
@@ -20435,6 +20465,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MEMORY_GB__",
+                str(DEFAULT_LOCAL_RUNTIME_MEMORY_GB),
             ).replace(
                 "__PUBLIC_MAX_PARALLELISM__",
                 str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
@@ -20503,6 +20536,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "id,label",
                     "--vortex-source-order-limit",
                     "2",
+                    "--memory-gb",
+                    "__PUBLIC_MEMORY_GB__",
                     "--max-parallelism",
                     "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
@@ -20539,6 +20574,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
+            ).replace(
+                "__PUBLIC_MEMORY_GB__",
+                str(DEFAULT_LOCAL_RUNTIME_MEMORY_GB),
             ).replace(
                 "__PUBLIC_MAX_PARALLELISM__",
                 str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),

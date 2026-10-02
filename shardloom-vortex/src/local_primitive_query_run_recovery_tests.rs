@@ -17,6 +17,15 @@ fn policy(workspace: &Path, namespace: &str) -> QueryRunStorePolicy {
         "sort" => QueryRunStorePolicy::numeric_sort(
             &crate::VortexSortSpillPolicy::new(workspace, 32 << 20, 4 << 20).unwrap(),
         ),
+        "relational_order" => QueryRunStorePolicy::relational_order(
+            &crate::relational_query::VortexRelationalSpillPolicy::new(
+                workspace,
+                32 << 20,
+                1 << 20,
+            )
+            .unwrap(),
+            CancellationToken::default(),
+        ),
         _ => panic!("unknown recovery test namespace"),
     }
 }
@@ -77,7 +86,7 @@ fn directory_owner_releases_lock_while_inherited_descriptor_remains_open() {
 
 #[test]
 fn all_namespaces_reject_live_recovery_and_clean_after_process_exit() {
-    for namespace in ["sort", "distinct", "count"] {
+    for namespace in ["sort", "distinct", "count", "relational_order"] {
         let workspace = Workspace::new();
         let mut child = ChildOwner(
             Command::new(std::env::current_exe().unwrap())

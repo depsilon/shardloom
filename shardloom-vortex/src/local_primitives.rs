@@ -130,6 +130,9 @@ mod native_relational_set;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_sort.rs"]
 mod native_relational_sort;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/native_relational_spill.rs"]
+pub(crate) mod native_relational_spill;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_subquery.rs"]
 mod native_relational_subquery;

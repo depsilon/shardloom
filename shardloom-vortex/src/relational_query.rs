@@ -4,6 +4,64 @@
 use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, Expression, PredicateExpr};
 use shardloom_plan::ProjectionRequest;
 
+/// Explicit permission for query-local relational ordering runs. The buffer
+/// threshold controls flushing; the resident query pool remains the memory grant.
+/// Construction validates configuration without inspecting the filesystem.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexRelationalSpillPolicy {
+    pub workspace: std::path::PathBuf,
+    pub quota_bytes: u64,
+    pub buffer_bytes: u64,
+}
+
+impl VortexRelationalSpillPolicy {
+    /// # Errors
+    /// Rejects relative paths, less than 32 KiB disk quota, and a retained-input
+    /// threshold below 1 MiB. Execution requires an existing real directory.
+    pub fn new(
+        workspace: impl Into<std::path::PathBuf>,
+        quota_bytes: u64,
+        buffer_bytes: u64,
+    ) -> shardloom_core::Result<Self> {
+        let workspace = workspace.into();
+        if !workspace.is_absolute() || quota_bytes < 32 * 1024 || buffer_bytes < 1024 * 1024 {
+            return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                "native relational spill requires an absolute workspace, at least 32 KiB disk quota and a buffer threshold of at least 1 MiB; no fallback execution was attempted".into(),
+            ));
+        }
+        Ok(Self {
+            workspace,
+            quota_bytes,
+            buffer_bytes,
+        })
+    }
+
+    /// Remove only a verified abandoned relational-order run directory.
+    /// Unknown files, symlinks and replaced identities are preserved.
+    /// # Errors
+    /// Rejects invalid configuration or a directory that cannot prove ownership.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub fn cleanup_abandoned(&self, directory: &std::path::Path) -> shardloom_core::Result<()> {
+        crate::local_primitives::native_relational_spill::recover(self, directory)
+    }
+}
+
+/// Actual query-local relational ordering spill and verified cleanup evidence.
+/// The buffer threshold and shared reservation peak are not process RSS bounds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexRelationalSpillReport {
+    pub workspace: std::path::PathBuf,
+    pub quota_bytes: u64,
+    pub buffer_bytes: u64,
+    pub peak_disk_bytes: u64,
+    pub runs_written: u64,
+    pub runs_validated: u64,
+    pub merge_passes: u64,
+    pub max_open_runs: usize,
+    pub run_block_rows: usize,
+    pub owned_cleanup_completed: bool,
+}
+
 /// A native relational tree. Both inputs of an operator share one session grant.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VortexRelationalPlan {

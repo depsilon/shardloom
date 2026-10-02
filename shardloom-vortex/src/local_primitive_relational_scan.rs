@@ -5,6 +5,9 @@ use super::{
     NativeExecutionContext, PreparedVortexSource, ReservedVec, Result, add, failed, select_batch,
     vortex_error,
 };
+use vortex::io::runtime::BlockingRuntime as _;
+
+const SCAN_ROWS: usize = 8192;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
@@ -39,20 +42,39 @@ pub(super) fn run(
             .map_err(vortex_error)?
             .with_ordered(true)
             .with_concurrency(1)
-            .with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(8192));
+            .with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(SCAN_ROWS));
         if let Some(filter) = &plan.filter {
             scan = scan.with_filter(super::super::bind_vortex_scan_expr(file, filter)?);
         }
         if let Some(projection) = &plan.projection {
             scan = scan.with_projection(super::super::bind_vortex_scan_expr(file, projection)?);
         }
-        for array in scan
-            .into_array_iter(context.runtime())
-            .map_err(vortex_error)?
-        {
+        // Upstream stream concurrency is per host worker. Drive one task at a
+        // time instead, so retained order/join state cannot overlap with host-
+        // sized speculative reads. Bind once and execute bounded row ranges.
+        let split_bytes = file
+            .row_count()
+            .div_ceil(SCAN_ROWS as u64)
+            .checked_add(1)
+            .and_then(|splits| splits.checked_mul(16))
+            .and_then(|bytes| bytes.checked_add(4096))
+            .ok_or_else(|| failed("native scan split metadata capacity overflow"))?;
+        let _split_metadata = context.memory().reserve(split_bytes)?;
+        let scan = scan.prepare().map_err(vortex_error)?;
+        for start in (0..file.row_count()).step_by(SCAN_ROWS) {
             context.check_cancelled()?;
-            let array = array.map_err(vortex_error)?;
-            if array.len() > 8192 {
+            let end = start.saturating_add(SCAN_ROWS as u64).min(file.row_count());
+            let mut tasks = scan.execute(Some(start..end)).map_err(vortex_error)?;
+            if tasks.len() != 1 {
+                return Err(failed("native scan range changed its admitted task count"));
+            }
+            let task = tasks
+                .pop()
+                .ok_or_else(|| failed("native scan task is absent"))?;
+            let Some(array) = context.runtime().block_on(task).map_err(vortex_error)? else {
+                continue;
+            };
+            if array.len() > SCAN_ROWS {
                 return Err(failed("scan exceeded its admitted batch size"));
             }
             add(&metrics.scan_rows, array.len() as u64)?;

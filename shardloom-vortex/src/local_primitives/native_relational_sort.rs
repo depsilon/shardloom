@@ -38,6 +38,25 @@ impl<'a> Sort<'a> {
         })
     }
 
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn rows(&self) -> usize {
+        self.table.rows()
+    }
+
+    /// Conservative flush estimate, separate from actual shared-pool accounting.
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn incoming_bytes(&self, array: &ArrayRef) -> Result<u64> {
+        let row_bytes = (self.spec.names.len() as u64)
+            .checked_add(1)
+            .and_then(|keys| keys.checked_mul(32))
+            .and_then(|bytes| bytes.checked_mul(array.len() as u64))
+            .ok_or_else(|| failed("sort retained input estimate overflow"))?;
+        array
+            .nbytes()
+            .checked_add(row_bytes)
+            .ok_or_else(|| failed("sort retained input estimate overflow"))
+    }
+
     pub(super) fn build(
         &mut self,
         array: ArrayRef,
@@ -61,12 +80,10 @@ impl<'a> Sort<'a> {
         Ok(())
     }
 
-    pub(super) fn finish(
+    pub(super) fn ordered_rows(
         &self,
         context: &NativeExecutionContext<'_>,
-        batch_rows: usize,
-        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-    ) -> Result<()> {
+    ) -> Result<ReservedVec<usize>> {
         let mut ordinals = ReservedVec::new(context.memory())?;
         ordinals.reserve(self.table.rows())?;
         for row in 0..self.table.rows() {
@@ -80,7 +97,12 @@ impl<'a> Sort<'a> {
             context.cancellation(),
             |left, right| {
                 for (index, key) in self.spec.keys.iter().enumerate() {
-                    let order = self.compare(left, right, index, key)?;
+                    let order = compare_key(
+                        key,
+                        self.table.key_is_null(left, index)?,
+                        self.table.key_is_null(right, index)?,
+                        || self.table.compare_key(left, right, index),
+                    )?;
                     if order != Ordering::Equal {
                         return Ok(order);
                     }
@@ -88,71 +110,101 @@ impl<'a> Sort<'a> {
                 Ok(left.cmp(&right))
             },
         )?;
+        Ok(ordinals)
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn gather_rows(
+        &self,
+        rows: &[usize],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        let mut selected = ReservedVec::new(context.memory())?;
+        selected.reserve(rows.len())?;
+        selected.values.extend(rows.iter().map(|row| Some(*row)));
+        gather(&self.table, &selected.values, &self.spec.fields, context)
+    }
+
+    pub(super) fn finish(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let ordinals = self.ordered_rows(context)?;
         let mut rows = ReservedVec::new(context.memory())?;
         rows.reserve(batch_rows.min(self.table.rows()))?;
         for part in ordinals.values.chunks(batch_rows) {
             context.check_cancelled()?;
             rows.values.clear();
             rows.values.extend(part.iter().map(|row| Some(*row)));
-            let gather = self.table.gather(&rows.values, false, context)?;
-            let mut columns = ReservedVec::new(context.memory())?;
-            columns.reserve(self.spec.fields.len())?;
-            for (name, dtype) in &self.spec.fields {
-                columns.values.push(gather.column(name, dtype, context)?);
-            }
-            let (columns, _ownership) = columns.into_parts();
-            let array = StructArray::try_new(
-                self.spec
-                    .fields
-                    .iter()
-                    .map(|(name, _)| name.as_str())
-                    .collect::<FieldNames>(),
-                columns,
-                part.len(),
-                Validity::NonNullable,
-            )
-            .map_err(vortex_error)?;
-            consume(vortex::array::IntoArray::into_array(array))?;
+            consume(gather(
+                &self.table,
+                &rows.values,
+                &self.spec.fields,
+                context,
+            )?)?;
             context.check_cancelled()?;
         }
         Ok(())
     }
+}
 
-    fn compare(
-        &self,
-        left: usize,
-        right: usize,
-        index: usize,
-        key: &VortexRelationalOrderKey,
-    ) -> Result<Ordering> {
-        let nulls = (
-            self.table.key_is_null(left, index)?,
-            self.table.key_is_null(right, index)?,
-        );
-        Ok(match nulls {
-            (true, true) => Ordering::Equal,
-            (true, false) => {
-                if key.nulls == Some(NullOrder::First) {
-                    Ordering::Less
-                } else {
-                    Ordering::Greater
-                }
+pub(super) fn compare_key(
+    key: &VortexRelationalOrderKey,
+    left_null: bool,
+    right_null: bool,
+    compare: impl FnOnce() -> Result<Ordering>,
+) -> Result<Ordering> {
+    Ok(match (left_null, right_null) {
+        (true, true) => Ordering::Equal,
+        (true, false) => {
+            if key.nulls == Some(NullOrder::First) {
+                Ordering::Less
+            } else {
+                Ordering::Greater
             }
-            (false, true) => {
-                if key.nulls == Some(NullOrder::First) {
-                    Ordering::Greater
-                } else {
-                    Ordering::Less
-                }
+        }
+        (false, true) => {
+            if key.nulls == Some(NullOrder::First) {
+                Ordering::Greater
+            } else {
+                Ordering::Less
             }
-            (false, false) => {
-                let order = self.table.compare_key(left, right, index)?;
-                if key.descending {
-                    order.reverse()
-                } else {
-                    order
-                }
+        }
+        (false, false) => {
+            let order = compare()?;
+            if key.descending {
+                order.reverse()
+            } else {
+                order
             }
-        })
+        }
+    })
+}
+
+pub(super) fn gather(
+    table: &Table,
+    rows: &[Option<usize>],
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    let gather = table.gather(rows, false, context)?;
+    let mut columns = ReservedVec::new(context.memory())?;
+    columns.reserve(fields.len())?;
+    for (name, dtype) in fields {
+        columns.values.push(gather.column(name, dtype, context)?);
     }
+    let (columns, _ownership) = columns.into_parts();
+    let array = StructArray::try_new(
+        fields
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<FieldNames>(),
+        columns,
+        rows.len(),
+        Validity::NonNullable,
+    )
+    .map_err(vortex_error)?;
+    Ok(vortex::array::IntoArray::into_array(array))
 }

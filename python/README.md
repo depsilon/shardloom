@@ -203,6 +203,29 @@ The canonical local output/sink scope is `docs/architecture/v1-local-output-sink
 it with `ctx.local_output_sink_scope_report()` before treating a write helper as broader than its
 scoped local evidence.
 
+SQL and DataFrame collection, `run()`, `route()` and local writers accept the same
+`memory_gb` and `max_parallelism` request. Writer aliases preserve these settings.
+For admitted ordering, `spill` explicitly permits temporary native Vortex runs in
+an existing absolute local directory:
+
+```python
+spill = {"workspace": "/tmp/shardloom-query-work", "quota_bytes": 64 << 20,
+         "buffer_bytes": 2 << 20}
+ordered = ctx.read_vortex("shipments.vortex").limit(250_000).sort(
+    "priority", "label", nulls="last",
+)
+ordered.write_parquet("ordered.parquet", memory_gb=1, max_parallelism=2, spill=spill)
+```
+
+Create the workspace before execution. `route()` validates the declaration without
+probing or creating it. Composed relational order uses `buffer_bytes` as a retained
+input flush threshold within one query memory grant; specialized numeric sort and
+aggregate providers use their existing operator-memory admission. Supported keys,
+minimum buffers and spill families remain provider-specific. A spill request does
+not enable other relational state spill or fanout, relax collection limits, or
+establish an RSS bound. Successful writes require verified spill cleanup before
+publication. See `docs/reference/native-query-spill.md` for exact contracts.
+
 Bounded materialization is explicit. Local-source workflows can carry a `limit(...)` or pass
 `collect(limit=...)`; SQL workflows can also pass `collect(limit=...)` or chain
 `.limit(...).collect()`. Those admitted routes return typed report rows from the ShardLoom CLI
