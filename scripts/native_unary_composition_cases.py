@@ -93,7 +93,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         "rewrite-index": [{"id": row["id"], "position": index} for index, row in enumerate(prefix_rows)],
         "rewrite-fill": [{"id": key} for key in [3, 1, 1, 2, 1]],
         "rewrite-mask": [{"value": value} for value in [15, 14, 13, 0, 0]],
-        "rewrite-mask-null": [{"id": value} for value in [3, 1, 0, 0, 0]],
+        "rewrite-mask-null": [{"id": value} for value in [3, 1, 0, 2, 1]],
         "rewrite-replace": [{"value": value} for value in [15, 99, 13, 12, 11]],
         "rewrite-replace-null": [{"id": value} for value in [3, 9, None, 2, 9]],
         "melt": [{"id": row["id"], "variable": "value", "value": row["value"]} for row in prefix_rows],
@@ -152,7 +152,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         index = {"columns": ["id", "value"], "rewrites": [{"kind": "row_number", "target_column": "position", "start": 0}]}
         fill = {"columns": ["id", "value"], "rewrites": [{"kind": "forward_fill_null", "target_column": "id", "limit": 2}]}
         mask = {"columns": ["id", "value"], "rewrites": [{"kind": "mask_scalar", "target_column": "value", "predicate": "lt:value:13", "replacement": {"type": "int64", "value": 0}}]}
-        mask_null = {"columns": ["id", "value"], "rewrites": [{"kind": "mask_scalar", "target_column": "id", "predicate": "lt:value:14", "replacement": {"type": "int64", "value": 0}}]}
+        mask_null = {"columns": ["id", "value"], "rewrites": [{"kind": "mask_scalar", "target_column": "id", "predicate": "is_null:id", "replacement": {"type": "int64", "value": 0}}]}
         replace = {"columns": ["id", "value"], "rewrites": [{"kind": "replace_scalar", "target_column": "value", "to_replace": {"type": "int64", "value": 14}, "replacement": {"type": "int64", "value": 99}}]}
         replace_null = {"columns": ["id", "value"], "rewrites": [{"kind": "replace_scalar", "target_column": "id", "to_replace": {"type": "int64", "value": 1}, "replacement": {"type": "int64", "value": 9}}]}
         melt = {"id_columns": ["id"], "value_columns": ["value"], "variable_column": "variable", "value_column": "value"}
@@ -162,7 +162,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
             ("rewrite-index", prefix.reset_index().select("id", "index AS position"), table("REWRITE", payload(index), projection="id,position"), ["id", "position"]),
             ("rewrite-fill", prefix.fillna(method="ffill", limit=2).select("id"), table("REWRITE", payload(fill), projection="id"), ["id"]),
             ("rewrite-mask", prefix.mask(sl.col("value") < 13, 0).select("value"), table("REWRITE", payload(mask), projection="value"), ["value"]),
-            ("rewrite-mask-null", prefix.mask(sl.col("value") < 14, 0).select("id"), table("REWRITE", payload(mask_null), projection="id"), ["id"]),
+            ("rewrite-mask-null", prefix.mask(sl.col("id").is_null(), 0).select("id"), table("REWRITE", payload(mask_null), projection="id"), ["id"]),
             ("rewrite-replace", prefix.replace({"value": {14: 99}}).select("value"), table("REWRITE", payload(replace), projection="value"), ["value"]),
             ("rewrite-replace-null", prefix.replace({"id": {1: 9}}).select("id"), table("REWRITE", payload(replace_null), projection="id"), ["id"]),
             ("melt", prefix.melt(id_vars="id", value_vars="value").select("id", "variable", "value"), table("MELT", payload(melt)), ["id", "variable", "value"]),
@@ -208,13 +208,16 @@ def run(context, output, guard, accepted, complete, sources, identity):
         writer.writerows([(0, "isn't,(join)"), (1, "東京"), (2, "keep"), (3, None)])
     remember(quoted)
     text = context.read_csv(quoted, schema={"position": "int64", "label": "utf8"})
-    rewrite = text.sort("position").limit(2).filter(sl.col("label") == "isn't,(join)").replace({"label": {"isn't,(join)": "it's fine"}}).select("label")
+    rewrite = text.sort("position").limit(2).filter(
+        (sl.col("label") == "isn't,(join)") | (sl.col("label") == "東京")
+    ).replace({"label": {"isn't,(join)": "it's fine", "東京": "'東京's'"}}).select("label")
+    quoted_expected = [{"label": "it's fine"}, {"label": "'東京's'"}]
     for spelling, workflow in [("dataframe", rewrite), ("sql", SqlWorkflow(rewrite._relation_statement(), context.client, source_bindings=text._declared_sources()))]:
         family = f"unary-quoted-{spelling}"
         report = workflow.collect(check=False, **resources)
         verified(family, report)
-        equal(family, list(report.result_rows), [{"label": "it's fine"}])
-        write_all(family, workflow, [{"label": "it's fine"}], ["label"])
+        equal(family, list(report.result_rows), quoted_expected)
+        write_all(family, workflow, quoted_expected, ["label"])
     nullable_text = text.sort("position").limit(4).replace({"label": {"isn't,(join)": "it's fine"}}).select("label")
     nullable_expected = [{"label": value} for value in ["it's fine", "東京", "keep", None]]
     for spelling, workflow in [("dataframe", nullable_text), ("sql", SqlWorkflow(nullable_text._relation_statement(), context.client, source_bindings=text._declared_sources()))]:

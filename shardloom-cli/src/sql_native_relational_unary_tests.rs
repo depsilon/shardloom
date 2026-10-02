@@ -145,6 +145,32 @@ fn native_relational_sql_unary_parsing_is_inert_and_preserves_quoted_arguments()
 }
 
 #[test]
+fn native_relational_sql_unary_nested_literal_tokens_are_lossless() {
+    for value in ["isn't,(join)", "it's fine", "'東京'", "a''b", ""] {
+        let literal = value.replace('\'', "''");
+        assert_eq!(
+            parse_predicate(&format!("label = '{literal}'")).unwrap(),
+            ParsedPredicate::Compare {
+                column: "label".into(),
+                op: ComparisonOp::Eq,
+                value: ScalarValue::Utf8(value.into()),
+            }
+        );
+        let sql = format!(
+            "SELECT label FROM TAIL((SELECT * FROM (SELECT * FROM 'missing o''clock,(join).vortex' LIMIT 2) AS limited WHERE label = '{literal}'), 1) AS u"
+        );
+        assert!(is_relational(&sql).unwrap());
+        let leaves = source_leaves(&sql).unwrap();
+        assert_eq!(leaves.len(), 1);
+        assert_eq!(
+            leaves.iter().next().unwrap().path,
+            Path::new("missing o'clock,(join).vortex")
+        );
+    }
+    assert!(parse_predicate("label = 'isn't escaped'").is_err());
+}
+
+#[test]
 fn native_relational_sql_unary_malformed_arguments_fail_before_source_resolution() {
     for expression in [
         "TAIL((SELECT * FROM missing), 0)",

@@ -51,6 +51,14 @@ storage-error log remain unchanged. This recovered 198,561,792 allocated bytes
 before a fresh complete run; the
 [aggregate acceptance packet](../benchmarks/evidence/native-aggregate-ordering-2026-10-02.json.xz)
 retains both archive manifests and the failed observation.
+The subsequent unary-composition public matrix reached the same 192-MiB ceiling
+after 846 passing checks, following an earlier fixture-correction run. Its 2,756
+completed envelope files were archived losslessly with per-member hashes and
+unchanged summaries, recovering 199,368,704 allocated bytes. Both failed
+observations remain recorded. The public relational runner now accepts
+`--compress-logs`: each new envelope is stored as gzip, read back byte-for-byte,
+and recorded with its original and compressed hashes. This keeps the expanded
+matrix inside the unchanged storage guards.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

@@ -11,6 +11,8 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import gzip
+import hashlib
 import json
 from pathlib import Path
 import signal
@@ -103,6 +105,7 @@ def main() -> int:
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--build-commit", required=True)
     parser.add_argument("--family", choices=("all", "unary"), default="all")
+    parser.add_argument("--compress-logs", action="store_true")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
@@ -128,6 +131,8 @@ def main() -> int:
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
         "status": "running", "build_commit": args.build_commit, "cases": [],
         "acceptance_family": args.family,
+        "compressed_envelopes": args.compress_logs,
+        "envelope_files": [],
         "binary_sha256": file_sha256(binary), "harness_sha256": file_sha256(code),
         "python_query_sha256": file_sha256(query), "fallback_attempted": False,
         "python_client_sha256": file_sha256(client_code),
@@ -146,7 +151,23 @@ def main() -> int:
 
     def accepted(name, report):
         envelope = report.envelope
-        (output / f"{name}.envelope.json").write_text(json.dumps(envelope.raw, indent=2) + "\n")
+        raw = (json.dumps(envelope.raw, indent=2) + "\n").encode()
+        destination = output / f"{name}.envelope.json"
+        if args.compress_logs:
+            destination = destination.with_suffix(".json.gz")
+            stored = gzip.compress(raw, mtime=0)
+        else:
+            stored = raw
+        with destination.open("xb") as stream:
+            stream.write(stored)
+        persisted = destination.read_bytes()
+        if (gzip.decompress(persisted) if args.compress_logs else persisted) != raw:
+            raise ValueError(f"{name}: persisted evidence differs from its envelope")
+        summary["envelope_files"].append({
+            "path": str(destination), "raw_bytes": len(raw),
+            "raw_sha256": hashlib.sha256(raw).hexdigest(),
+            "stored_bytes": len(persisted), "stored_sha256": hashlib.sha256(persisted).hexdigest(),
+        })
         if envelope.status != "success" or envelope.fallback.attempted:
             raise ValueError(f"{name}: request failed: {envelope.raw}")
         if envelope.field("public_workflow_external_engine_invoked") != "false":

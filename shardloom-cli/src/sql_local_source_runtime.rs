@@ -35608,8 +35608,9 @@ fn find_sql_source_from_clause(raw: &str) -> Result<Option<usize>, ShardLoomErro
         }
         if depth == 0 && bracket_depth == 0 {
             let remaining = &raw[index..];
-            if remaining.len() >= "from".len()
-                && remaining[.."from".len()].eq_ignore_ascii_case("from")
+            if remaining
+                .get(.."from".len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case("from"))
                 && keyword_boundary(raw, index, "from".len())
                 && !from_keyword_belongs_to_null_safe_comparison(raw, index)?
             {
@@ -43936,6 +43937,9 @@ fn split_whitespace_outside_quotes(raw: &str) -> Result<Vec<String>, ShardLoomEr
     while let Some(ch) = chars.next() {
         match ch {
             '\'' if in_quote && chars.peek() == Some(&'\'') => {
+                // Tokenization preserves the SQL spelling. Literal parsing owns
+                // unescaping, including predicates inside a derived relation.
+                current.push('\'');
                 current.push('\'');
                 let _ = chars.next();
             }
@@ -43966,10 +43970,10 @@ fn strip_leading_keyword<'a>(
     keyword: &str,
 ) -> Result<Option<&'a str>, ShardLoomError> {
     let trimmed = raw.trim_start();
-    if trimmed.len() < keyword.len() {
-        return Ok(None);
-    }
-    if !trimmed[..keyword.len()].eq_ignore_ascii_case(keyword) {
+    if !trimmed
+        .get(..keyword.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
+    {
         return Ok(None);
     }
     if !keyword_boundary(trimmed, 0, keyword.len()) {
@@ -44161,8 +44165,9 @@ fn top_level_keyword_indexes(raw: &str, keyword: &str) -> Result<Vec<usize>, Sha
         }
         if depth == 0 {
             let remaining = &raw[index..];
-            if remaining.len() >= lower_keyword.len()
-                && remaining[..lower_keyword.len()].eq_ignore_ascii_case(&lower_keyword)
+            if remaining
+                .get(..lower_keyword.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(&lower_keyword))
                 && keyword_boundary(raw, index, lower_keyword.len())
             {
                 indexes.push(index);
@@ -44181,8 +44186,8 @@ fn top_level_keyword_indexes(raw: &str, keyword: &str) -> Result<Vec<usize>, Sha
 }
 
 fn starts_with_keyword(raw: &str, keyword: &str) -> bool {
-    raw.len() >= keyword.len()
-        && raw[..keyword.len()].eq_ignore_ascii_case(keyword)
+    raw.get(..keyword.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
         && keyword_boundary(raw, 0, keyword.len())
 }
 
@@ -44234,14 +44239,16 @@ fn find_keyword_outside_quotes_and_parentheses(
         if depth == 0 && bracket_depth == 0 {
             let remaining = &raw[index..];
             if lower_keyword == "and"
-                && remaining.len() >= "between".len()
-                && remaining[.."between".len()].eq_ignore_ascii_case("between")
+                && remaining
+                    .get(.."between".len())
+                    .is_some_and(|prefix| prefix.eq_ignore_ascii_case("between"))
                 && keyword_boundary(raw, index, "between".len())
             {
                 skip_next_and_for_between = true;
             }
-            if remaining.len() >= lower_keyword.len()
-                && remaining[..lower_keyword.len()].eq_ignore_ascii_case(&lower_keyword)
+            if remaining
+                .get(..lower_keyword.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(&lower_keyword))
                 && keyword_boundary(raw, index, lower_keyword.len())
             {
                 if lower_keyword == "and" && skip_next_and_for_between {
