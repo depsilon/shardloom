@@ -17,6 +17,32 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-AGGREGATE-ORDERING` complete flat aggregate collection and explicit null ordering.
+  - Date: 2026-10-02 UTC. Repaired runtime `59e658d8` and tested head
+    `10b39c2bab9b1d568e953ff9c0342b5af15410ee` merged in
+    [PR #1504](https://github.com/depsilon/shardloom/pull/1504) as
+    `1a6b5869725842992c3a8c346c83be0713c3716b` after all 40 hosted checks passed.
+    Tested and merged trees match. Hosted Codex review was usage-limited and is
+    not counted as approval. The [contract and immutable evidence](native-aggregate-ordering-2026-10-02.md)
+    preserve the compact-candidate reservation failure, signed minute dtype repair
+    and storage-guard stop alongside complete final acceptance.
+  - The existing native batch stream and shared JSON sink deliver complete flat
+    aggregate values with matching certificates and owned collection memory.
+    Shared ordering applies explicit null placement before candidate cutoff and
+    final delivery. SQL/DataFrame calls and declared compatibility sources reach
+    the same admission and all eight local writers.
+  - All 797 public complete-result checks pass, including 205 aggregate checks,
+    2,697,523 row comparisons and complete 65,541-group output through each
+    writer and public spelling. Full43 passes 129/129 complete comparisons.
+    Default tests pass 3,446; native Vortex 2,193 with 23 existing ignores;
+    native CLI 1,569; Python 709 with 144 existing skips. Counts overlap across
+    configurations. Formatting, strict lint, feature/MSRV, harness and docs/site
+    gates pass; verified archives preserve earlier completed call artifacts.
+  - V1 scope classification: `required_for_v1`; finite promotion under
+    PERF-02/10/12 and CG-5/20/21. Unary composition, wider types/adapters and
+    remaining resource/spill obligations stay open. No speedup, total-RSS bound,
+    production certification, publication or whole PERF/CG completion is claimed.
+
 - [x] `ADAPTIVE-INGEST-BUDGET` honor supplied operation allocations and share native ingest work.
   - Date: 2026-10-02 UTC. Repaired runtime `8f8a412d` and tested head
     `b77c2c25bfd2a26ab0423e3a1636c65bc9c0676b` merged in

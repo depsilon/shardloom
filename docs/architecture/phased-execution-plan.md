@@ -249,34 +249,38 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-AGGREGATE-ORDERING` — align flat aggregate collection/writes and
-  explicit null ordering through existing optimized native components under
-  PERF-02/10/12 and CG-5/20/21. Follow the
-  [shared admission and ordering contract](native-aggregate-ordering-2026-10-02.md).
-  This extends the existing aggregate/sort implementations; Python and input
-  formats remain thin declarations into the same public facade.
+- [ ] `NATIVE-UNARY-COMPOSITION` — connect existing flat-scalar unary kernels to
+  native relational inputs and consumers under PERF-02/03/07/10/11/12 and
+  CG-5/20/21. Follow the
+  [shared unary composition contract](native-unary-composition-2026-10-02.md).
+  Operation order, source declarations and one resource grant remain explicit;
+  existing kernels own semantics and Python remains a declaration layer.
   - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: reuse native preparation, capillary candidate
-    selection, shared ordering and bounded result ownership across public surfaces.
+  - ShardLoom technique review: reuse prepared native readers, existing unary
+    state and relational traversal, checked row bounds, shared reservations and
+    synchronous result ownership. Preserve applicable metadata/pruning strategies.
   - Execution checklist:
-    - [x] Carry complete flat aggregate stages, source declarations and resources
-      through common collect/write/inspection admission without moving input limits.
-    - [x] Share explicit null ordering across aggregate finalization, native sort,
-      candidate cutoff and relational ordering while retaining optimized strategies.
-    - [x] Prove complete nullable/multi-key/limit/output semantics and explicit
-      invalid-policy/source-declaration denial through native and public tests.
-    - [x] Complete workspace/native/Python/feature/doc checks, then freeze public
-      workflow and Full43 acceptance with exact source and build identities.
+    - [ ] Separate source binding from the shared unary operation state and admit
+      flat-scalar unary nodes in the existing native plan and resource context.
+    - [ ] Preserve tail, sample, duplicate, rewrite, melt and rolling semantics
+      across preceding/following stages, including unknown cardinality and ties.
+    - [ ] Carry SQL/DataFrame stages and source declarations through common
+      collect/write/inspection admission, with explicit invalid-shape denial.
+    - [ ] Prove full values, typed empties, retained ownership, pressure,
+      cancellation and complete eight-writer output, then freeze workspace,
+      native, Python, feature/doc, public workflow and Full43 acceptance.
     - [ ] Align references and evidence, complete review and hosted checks, and move
       the finite accepted record to the completed ledger.
 
-The preceding resource and allocation units merged in
+The preceding resource, allocation and aggregate units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
-[PR #1503](https://github.com/depsilon/shardloom/pull/1503), each after all 40
+[PR #1503](https://github.com/depsilon/shardloom/pull/1503), then
+[PR #1504](https://github.com/depsilon/shardloom/pull/1504), each after all 40
 hosted checks passed. Their finite completions are recorded in the
-[completed ledger](phased-execution-completed-ledger.md). The aggregate and
-ordering continuation now resumes on the shared per-operation allocation
-contract; broader operator/type/adapter and resource obligations remain open.
+[completed ledger](phased-execution-completed-ledger.md). Unary composition
+continues on the shared per-operation allocation and native delivery contracts;
+nested payloads, dynamic pivot schemas, broader adapters and resource obligations
+remain open under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
