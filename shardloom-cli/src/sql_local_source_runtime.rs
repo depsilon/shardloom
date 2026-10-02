@@ -43857,13 +43857,9 @@ fn split_csv_record(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     Ok(values)
 }
 
+/// Split raw SQL expressions without decoding their string literals. Each
+/// expression parser owns the single unescape, including nested query arguments.
 fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
-    split_sql_csv_literals(raw, false)
-}
-
-/// Nested query and JSON arguments must retain doubled SQL quotes until their
-/// own parser consumes them. Existing projection callers keep their contract.
-fn split_sql_csv_literals(raw: &str, preserve_quotes: bool) -> Result<Vec<String>, ShardLoomError> {
     let mut values = Vec::new();
     let mut current = String::new();
     let mut chars = raw.chars().peekable();
@@ -43874,9 +43870,7 @@ fn split_sql_csv_literals(raw: &str, preserve_quotes: bool) -> Result<Vec<String
         match ch {
             '\'' if in_quote && chars.peek() == Some(&'\'') => {
                 current.push('\'');
-                if preserve_quotes {
-                    current.push('\'');
-                }
+                current.push('\'');
                 let _ = chars.next();
             }
             '\'' => {

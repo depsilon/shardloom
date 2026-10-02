@@ -41,7 +41,7 @@ pub(super) fn parse(raw: &str) -> Result<Option<ParsedRelationUnary>, ShardLoomE
             "unexpected text or trailing comma in table expression",
         ));
     }
-    let args = split_sql_csv_literals(&raw[open + 1..close], true)?;
+    let args = split_sql_csv(&raw[open + 1..close])?;
     let required = if matches!(kind, Kind::DropDuplicateRows | Kind::DuplicateMaskRows) {
         3
     } else {

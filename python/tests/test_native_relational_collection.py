@@ -354,6 +354,31 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                     self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
                     self.assertEqual(set(run.call_args.kwargs["source_bindings"]), {"o'clock.data", "right.vortex"})
 
+    def test_melt_without_id_columns_uses_the_preceding_output(self) -> None:
+        source = self.context.read_vortex("missing.vortex", schema={"identifier": "uint64"})
+        prefix = (source.sort("identifier", descending=True).select("identifier").distinct()
+                  .drop_duplicates("identifier").tail(65_541).sample(frac=1.0, seed=7)
+                  .duplicated("identifier").reset_index()
+                  .rolling(3, min_periods=1, center=True).sum("index", alias="total"))
+        with mock.patch.object(self.client, "public_workflow_run") as run, mock.patch.object(
+            self.client, "vortex_prepare"
+        ) as prepare, mock.patch.object(
+            sl.LazyFrame, "_unsupported_operation", side_effect=AssertionError("melt rejected")
+        ):
+            for options in [{"value_vars": "total"}, {}, {"value_vars": "total", "ignore_index": False}, {"ignore_index": False}]:
+                with self.subTest(options=options):
+                    result = prefix.melt(**options)
+                    statement = result._relation_statement()
+                    self.assertIn('"value_columns":["total"]', statement)
+                    expected_ids = '["index"]' if options.get("ignore_index") is False else '[]'
+                    self.assertIn('"id_columns":' + expected_ids, statement)
+                    self.assertIn("FROM MELT((SELECT * FROM", statement)
+                    self.assertIn("FROM ROLLING((", statement)
+            unknown = self.context.read_vortex("unknown.vortex").limit(2).melt(value_vars="total")
+            self.assertIn('"id_columns":[]', unknown._relation_statement())
+            run.assert_not_called()
+            prepare.assert_not_called()
+
     def test_unary_binds_unknown_schemas_natively_without_preparation(self) -> None:
         source = self.context.read_vortex("missing.vortex").limit(3)
         with mock.patch.object(self.client, "public_workflow_run") as run, mock.patch.object(self.client, "vortex_prepare") as prepare:

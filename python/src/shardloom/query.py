@@ -4788,18 +4788,17 @@ def _vortex_melt_projection_payload(
     value_name: object | None,
     kwargs: Mapping[str, object],
 ) -> str | None:
-    if kwargs or id_vars is None or value_vars is None:
+    if kwargs or value_vars is None:
         return None
     try:
-        id_columns = _normalize_columns((id_vars,))
+        id_columns = _normalize_optional_columns(id_vars)
         value_columns = _normalize_columns((value_vars,))
     except (TypeError, ValueError):
         return None
     variable_column = "variable" if var_name is None else str(var_name).strip()
     value_column = "value" if value_name is None else str(value_name).strip()
     if (
-        not id_columns
-        or not value_columns
+        not value_columns
         or not variable_column
         or not value_column
         or variable_column == value_column
@@ -5848,7 +5847,7 @@ class LazyFrame:
             kwargs=kwargs,
         )
         effective_value_vars = value_vars
-        if effective_value_vars is None and id_vars is not None and not kwargs and ignore_index:
+        if effective_value_vars is None and not kwargs and ignore_index:
             effective_value_vars = self._schema_declared_melt_value_columns(id_vars)
         if not ignore_index and not kwargs:
             try:
@@ -5856,7 +5855,7 @@ class LazyFrame:
                 value_columns = (
                     _normalize_columns((value_vars,))
                     if value_vars is not None
-                    else self._schema_declared_melt_value_columns(original_id_columns)
+                    else self._schema_declared_melt_value_columns(id_vars)
                 )
             except (TypeError, ValueError):
                 value_columns = None
@@ -10752,16 +10751,16 @@ class LazyFrame:
 
     def _schema_declared_melt_value_columns(
         self,
-        id_vars: object,
+        id_vars: object | None,
     ) -> tuple[str, ...] | None:
         projection_columns = self._unary_projection_columns()
         if projection_columns is None or projection_columns == ("*",):
             return None
         try:
-            id_columns = _normalize_columns((id_vars,))
+            id_columns = _normalize_optional_columns(id_vars)
         except (TypeError, ValueError):
             return None
-        if not id_columns or any(not _is_sql_identifier(column) for column in id_columns):
+        if any(not _is_sql_identifier(column) for column in id_columns):
             return None
         missing = tuple(column for column in id_columns if column not in projection_columns)
         if missing:

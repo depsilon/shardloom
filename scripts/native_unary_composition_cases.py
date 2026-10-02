@@ -210,14 +210,14 @@ def run(context, output, guard, accepted, complete, sources, identity):
     text = context.read_csv(quoted, schema={"position": "int64", "label": "utf8"})
     rewrite = text.sort("position").limit(2).filter(
         (sl.col("label") == "isn't,(join)") | (sl.col("label") == "東京")
-    ).replace({"label": {"isn't,(join)": "it's fine", "東京": "'東京's'"}}).select("label")
-    quoted_expected = [{"label": "it's fine"}, {"label": "'東京's'"}]
+    ).replace({"label": {"isn't,(join)": "it's fine", "東京": "'東京's'"}}).select("label", "'o''clock 東京' AS marker")
+    quoted_expected = [{"label": label, "marker": "o'clock 東京"} for label in ["it's fine", "'東京's'"]]
     for spelling, workflow in [("dataframe", rewrite), ("sql", SqlWorkflow(rewrite._relation_statement(), context.client, source_bindings=text._declared_sources()))]:
         family = f"unary-quoted-{spelling}"
         report = workflow.collect(check=False, **resources)
         verified(family, report)
         equal(family, list(report.result_rows), quoted_expected)
-        write_all(family, workflow, quoted_expected, ["label"])
+        write_all(family, workflow, quoted_expected, ["label", "marker"])
     nullable_text = text.sort("position").limit(4).replace({"label": {"isn't,(join)": "it's fine"}}).select("label")
     nullable_expected = [{"label": value} for value in ["it's fine", "東京", "keep", None]]
     for spelling, workflow in [("dataframe", nullable_text), ("sql", SqlWorkflow(nullable_text._relation_statement(), context.client, source_bindings=text._declared_sources()))]:

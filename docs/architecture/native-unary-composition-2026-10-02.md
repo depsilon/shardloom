@@ -107,6 +107,15 @@ leaves; function arguments must not be mistaken for paths. The Python renderer
 uses this same syntax, and malformed or conflicting declarations fail before a
 writer creates output.
 
+SQL token splitters preserve quoted lexemes until the literal parser decodes
+them once. This applies to nested arguments, projections and membership lists;
+keyword lookahead must also respect UTF8 character boundaries. Public fixtures
+include apostrophes, consecutive apostrophes, Unicode and punctuation in paths,
+predicates, rewrite values and projected literals. Python melt declarations may
+omit ID columns, matching the native request; inferred value columns come from
+the immediately preceding output, including rolling output. Retaining the row
+index still adds the existing explicit row-number stage.
+
 The SQL spelling is fixed as the following table expressions. Each input is one
 parenthesized SELECT or set query, and each expression requires an `AS` alias.
 

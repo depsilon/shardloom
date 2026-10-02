@@ -171,6 +171,18 @@ fn native_relational_sql_unary_nested_literal_tokens_are_lossless() {
 }
 
 #[test]
+fn native_relational_sql_unary_quoted_projection_and_membership_keep_literal_values() {
+    let source = fixture();
+    for value in ["isn't,(join)", "it's fine", "'東京'", "a''b", ""] {
+        let literal = value.replace('\'', "''");
+        let sql = format!(
+            "SELECT label FROM TAIL((SELECT '{literal}' AS label FROM '{source}' LIMIT 1), 1) AS u WHERE label IN ('{literal}')"
+        );
+        verify(&sql, &json!([{"label":value}]));
+    }
+}
+
+#[test]
 fn native_relational_sql_unary_malformed_arguments_fail_before_source_resolution() {
     for expression in [
         "TAIL((SELECT * FROM missing), 0)",
