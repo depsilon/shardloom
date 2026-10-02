@@ -2686,12 +2686,12 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-The October 2 maintainer instruction temporarily puts the finite
-`ADAPTIVE-INGEST-BUDGET` unit first: make P4/P6/P8 ingestion share the provided CPU
-budget, validate failure and memory behavior, and measure the new artifact through
-complete query acceptance. Resume the preserved native operator work afterward.
-This authorizes that guarded ingest/query comparison, without resuming the other
-paused large format/text experiments or declaring whole PERF/CG owners complete.
+The October 2 maintainer's finite `ADAPTIVE-INGEST-BUDGET` priority is complete in
+PR #1503: P4/P6/P8 ingestion shares the provided CPU budget, with failure, memory
+and complete query acceptance recorded in the completed ledger. Resume the
+preserved native operator work with `NATIVE-AGGREGATE-ORDERING`, then continue the
+dependent universal workflow queue below. The other large format/text experiments
+remain paused, and whole PERF/CG owners remain open.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)

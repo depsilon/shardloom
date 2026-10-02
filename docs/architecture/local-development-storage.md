@@ -35,6 +35,14 @@ raising the 256 MiB guard. The C2.b benchmark packet retains the compaction rece
 The C5 compiler packet additionally retains the verified compaction of 760 old
 held-out call logs into `completed-call-logs-c5-20260927.tar.xz`, recovering about
 3 MiB of allocated space with the original summary and per-member manifest kept.
+Before the October 2 aggregate acceptance, 3,096 completed per-call files from
+six successful Full43 cohorts were compacted into
+`completed-call-logs-aggregate-20261002.tar.xz` archives beside their unchanged
+summaries. Each archive has a per-member size/SHA-256 manifest; every archived
+byte and original file identity was verified before removing its original.
+This recovered 10,620,928 allocated bytes. Failed-run logs remain intact and the
+storage ceilings were unchanged. The aggregate acceptance packet records the
+six archive identities, source summaries and full compaction receipt.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

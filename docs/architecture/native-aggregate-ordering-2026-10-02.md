@@ -52,6 +52,15 @@ Byte-bound denial must account for JSON escaping, release every failed output
 reservation and return no completed result. A successfully returned payload must
 remain charged after its preparation and session handles are dropped.
 
+Streaming finalization must reserve the containers its selected strategy actually
+retains. Completed partition cardinality is diagnostic evidence and can exceed
+the remaining candidate map by many orders of magnitude. Compact numeric and
+interned/Arc-based Top-K strategies reserve their retained candidates and sort
+scratch; large-window numeric selection still reserves the complete candidate
+vector, and string distinct finalization includes its complete numeric count map.
+Payload buffers keep their separate leases. Compact minute keys must also preserve
+the declared signed or unsigned result dtype at the native output boundary.
+
 The Vortex-first decision is `implement_shardloom_kernel`: this extends existing
 ShardLoom finalization/admission over its current Vortex 0.85 arrays, validity,
 scan and owned result providers. It adds no competing aggregate, sort, source,

@@ -36368,6 +36368,11 @@ impl<'a> GroupedAggregateStates<'a> {
                     .to_string(),
             )
         })?;
+        let minute_signed = output
+            .as_ref()
+            .map(|output| output.integer_column_is_signed(roles.minute_group))
+            .transpose()?
+            .unwrap_or(false);
         let Some(limit) = limit else {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex numeric-minute-string aggregate requires a bounded ordered result; no fallback execution was attempted"
@@ -36447,7 +36452,10 @@ impl<'a> GroupedAggregateStates<'a> {
                             != 0,
                     ))
                 } else if column == roles.minute_group {
-                    Ok(result_batch::Value::UInt(u64::from(candidate.key.minute())))
+                    Ok(result_batch::Value::integer(
+                        u64::from(candidate.key.minute()),
+                        minute_signed,
+                    ))
                 } else if column == roles.string_group {
                     Ok(result_batch::Value::Text(
                         self.string_interner.value(candidate.key.string_id)?.into(),

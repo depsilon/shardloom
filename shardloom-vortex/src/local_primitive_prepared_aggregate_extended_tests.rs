@@ -160,6 +160,99 @@ fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership
 }
 
 #[test]
+fn aggregate_json_topk_reserves_retained_candidates_under_a_tight_budget() {
+    use shardloom_exec::compute_pool::CancellationToken;
+    use vortex::array::arrays::DictArray;
+    const GROUPS: usize = 2048;
+    const BUDGET: u64 = 32 << 20;
+    let phrase = "é".repeat(16 * 1024);
+    for signed in [true, false] {
+        let fixture = Fixture::new();
+        let timestamps = if signed {
+            PrimitiveArray::new(vec![-1_i64; GROUPS], Validity::NonNullable).into_array()
+        } else {
+            PrimitiveArray::new(vec![61_u64; GROUPS], Validity::NonNullable).into_array()
+        };
+        write_columns(
+            &fixture,
+            &["account", "phrase", "event_seconds"],
+            vec![
+                PrimitiveArray::new(
+                    (0..GROUPS)
+                        .map(|row| i64::try_from(row).unwrap())
+                        .collect::<Vec<_>>(),
+                    Validity::NonNullable,
+                )
+                .into_array(),
+                DictArray::try_new(
+                    PrimitiveArray::new(vec![0_u8; GROUPS], Validity::NonNullable).into_array(),
+                    VarBinViewArray::from_iter_str([phrase.as_str()]).into_array(),
+                )
+                .unwrap()
+                .into_array(),
+                timestamps,
+            ],
+            GROUPS,
+        );
+        let request = fixture
+            .request(
+                VortexSimpleAggregateRequest::grouped(
+                    ["account", "phrase"]
+                        .map(|name| ColumnRef::new(name).unwrap())
+                        .to_vec(),
+                    vec![measure("count", None, "frequency")],
+                )
+                .with_group_expressions(vec![VortexAggregateExpression::new(
+                    "minute_slot".into(),
+                    ColumnRef::new("event_seconds").unwrap(),
+                    "extract_minute",
+                )])
+                .with_order_by(vec![VortexAggregateOrderExpr::new("frequency", true)])
+                .with_offset(1),
+            )
+            .with_source_order_limit(3);
+        for parallelism in [1, 4] {
+            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            policy.resource_envelope.memory_budget_bytes = BUDGET;
+            let prepared = prepare_aggregate(&request, policy).unwrap();
+            let memory = prepared.session.memory().clone();
+            let baseline = memory.snapshot().reserved_bytes;
+            let collected = prepared
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            let rows = collected
+                .result_jsonl
+                .value()
+                .lines()
+                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                rows,
+                (1..4)
+                    .map(|account| serde_json::json!({
+                        "account": account, "phrase": phrase,
+                        "minute_slot": if signed { 59 } else { 1 }, "frequency": 1,
+                    }))
+                    .collect::<Vec<_>>()
+            );
+            let work = payload(&collected.execution.report);
+            assert_eq!(work["candidate_groups"], GROUPS);
+            assert_eq!(work["retained_candidate_groups"], 4);
+            assert_eq!(
+                work["group_output_strategy"],
+                "capillary_streaming_numeric_minute_string_count_topk"
+            );
+            certified(&collected.execution, 1);
+            assert!(memory.snapshot().peak_reserved_bytes < BUDGET);
+            drop(collected);
+            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+            drop(prepared);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn prepared_aggregate_explicit_null_order_keeps_measures_keys_and_windows_exact() {
     use crate::relational_query::VortexRelationalNullOrder::{First, Last};
     let fixture = Fixture::new();
