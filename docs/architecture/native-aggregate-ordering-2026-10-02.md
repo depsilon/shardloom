@@ -2,7 +2,7 @@
 
 # Shared aggregate admission and null ordering
 
-Status: implementation and acceptance in progress. This finite continuation belongs
+Status: local acceptance passed; hosted acceptance pending. This finite continuation belongs
 to PERF-02/10/12 and CG-5/20/21; it closes neither their whole scope nor production
 certification. The preceding [resource unit](native-relational-resources-2026-10-02.md)
 identified a flat aggregate collection gap while its composed aggregate passed.
@@ -97,3 +97,61 @@ operator-state spill, native Python binding, paused large text/format performanc
 runs and package publication remain outside this finite unit and with their
 existing owners. All execution retains `fallback_attempted=false` and
 `external_engine_invoked=false`.
+
+## Local acceptance
+
+The repaired runtime is frozen at
+`59e658d821a96dbf6cec5dc9eb13e5741e65b8b3`, built with Rust 1.99 and
+`release-user-surfaces`. Executable SHA-256:
+`7bf0d873f688d31d812bbe984e5a1a7b87c0c2dc2dafed841c532e61c296e1b7`.
+
+| Check | Result |
+| --- | --- |
+| Default workspace all-target tests | 3,446 passed |
+| Native Vortex library | 2,193 passed; 23 existing ignored tests |
+| Native CLI all-target tests | 1,569 passed |
+| Python suite | 709 passed; 144 existing skips; 853 total |
+| Query comparison and paired-run harness tests | 19 passed |
+| Resident, held-out and native-output harness tests | 27 passed; 1 optional PyArrow fixture skipped |
+| Formatting, default/native strict Clippy, native-without-write, lean workspace and Rust 1.96 lean/native builds | Passed |
+
+The repaired executable passes **797 complete public-result checks**, including
+205 aggregate checks and 2,697,523 row comparisons across repeated calls and
+writers. Native Vortex and declared nullable CSV sources use both SQL and
+DataFrame spelling, all four direction/null-placement combinations, scalar
+aggregates, HAVING, empty output, multiple ordering keys and stage-preserving
+input limits. Each of the eight local writers returns and reopens the complete
+65,541-group result through both public spellings. Nine expected denials retain no
+success certificate or published artifact; 18 route inspections remain inert.
+
+The initial Full43 run stopped at query 19 after 54 successful comparisons. The
+streaming finalizer tried to reserve 135,831,101,734 bytes against a 24-GiB grant,
+using complete partition cardinality and a worst-case string length for an
+already reduced compact candidate set. A 32-MiB regression fixture reproduced
+the denial. Corrected reservation then exposed the signed minute output mismatch;
+the shared finalizer now preserves its declared dtype. The test passes with
+signed negative and unsigned timestamps, long shared UTF8, nonzero offset, tied
+counts, two worker settings, complete values and ownership release.
+
+The first repaired public rerun stopped at the unchanged 192-MiB accumulated-log
+limit after 342 passing checks. Before the successful fresh 797-check run, all
+3,811 completed call artifacts from the earlier two cohorts were archived
+losslessly. Per-member hashes were verified before removal, summaries and the
+storage-error log remain unchanged, and 198,561,792 allocated bytes were recovered.
+This does not discard failed-run evidence or raise a guard.
+
+Full43 passes **129/129 complete retained-result comparisons** on this same
+repaired executable. This is regression evidence against historical native
+results, not a fresh independent oracle or a performance comparison. The public
+fixtures specify their expected values independently. Source generations, complete
+writer payloads and frozen executable/frontend/harness identities are verified.
+
+The immutable [acceptance packet](../benchmarks/evidence/native-aggregate-ordering-2026-10-02.json.xz)
+has SHA-256
+`ea5e8ae63cdf689da71b858bbb65872c02b8feb597449cb904f4ba8f9ca2a7a7`.
+It records all 22 local validation gates, complete result evidence, failed
+observations, verified archive manifests, source identities and acceptance drivers.
+
+Hosted acceptance remains pending. The source, tests and failed observations
+remain retained; no speedup, total-RSS bound, whole PERF/CG completion, production
+certification or package publication is claimed.

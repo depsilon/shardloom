@@ -265,7 +265,7 @@ the ledger.
       candidate cutoff and relational ordering while retaining optimized strategies.
     - [x] Prove complete nullable/multi-key/limit/output semantics and explicit
       invalid-policy/source-declaration denial through native and public tests.
-    - [ ] Complete workspace/native/Python/feature/doc checks, then freeze public
+    - [x] Complete workspace/native/Python/feature/doc checks, then freeze public
       workflow and Full43 acceptance with exact source and build identities.
     - [ ] Align references and evidence, complete review and hosted checks, and move
       the finite accepted record to the completed ledger.

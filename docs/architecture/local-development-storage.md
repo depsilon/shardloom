@@ -43,6 +43,14 @@ byte and original file identity was verified before removing its original.
 This recovered 10,620,928 allocated bytes. Failed-run logs remain intact and the
 storage ceilings were unchanged. The aggregate acceptance packet records the
 six archive identities, source summaries and full compaction receipt.
+The repaired public aggregate rerun subsequently reached its unchanged 192-MiB
+log ceiling after 342 passing checks. The earlier complete and interrupted public
+cohorts' 3,811 completed call artifacts were archived losslessly, with per-member
+hashes and original identities verified before removal. Their summaries and the
+storage-error log remain unchanged. This recovered 198,561,792 allocated bytes
+before a fresh complete run; the
+[aggregate acceptance packet](../benchmarks/evidence/native-aggregate-ordering-2026-10-02.json.xz)
+retains both archive manifests and the failed observation.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 
