@@ -129,6 +129,35 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 workflow.collect(check=True)
             run.assert_not_called()
 
+    def test_sql_composition_preserves_primary_typed_source_binding(self) -> None:
+        from shardloom.query import SqlWorkflow
+
+        typed = self.context.read_csv("typed.data", schema={"key": "utf8"})
+        source = SqlWorkflow("SELECT key FROM 'typed.data'", self.client,
+                             input_uri="typed.data", input_format="csv",
+                             source_bindings=(typed.source,))
+        result = source.union_all(typed.select("key")).filter(sl.col("key") == "001")
+        with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run:
+            result.collect(check=True)
+            self.assertEqual(run.call_args.kwargs["source_bindings"], {
+                "typed.data": {"input_format": "csv", "source_schema": typed.source.schema},
+            })
+        conflict = SqlWorkflow(source.statement, self.client, input_uri="typed.data",
+                               input_format="json", source_bindings=(typed.source,))
+        with self.assertRaisesRegex(ValueError, "conflicting format or schema"):
+            conflict.union(typed)
+
+    def test_sql_having_never_moves_across_order_limit_or_set_stages(self) -> None:
+        frame = self.context.read_vortex("left.vortex").select("key")
+        grouped = frame.union_all(frame).group_by("key").agg(n="count(*)")
+        self.assertIn("HAVING n > 1", grouped.having(sl.col("n") > 1).statement)
+        for workflow in [grouped.limit(1), grouped.sort("n"), grouped.union_all(grouped)]:
+            with self.subTest(statement=workflow.statement), self.assertRaisesRegex(ValueError, "HAVING must follow"):
+                workflow.having(sl.col("n") > 1)
+        later_filter = grouped.limit(1).filter(sl.col("n") > 1)
+        self.assertIn("LIMIT 1) AS", later_filter.statement)
+        self.assertTrue(later_filter.statement.endswith("WHERE n > 1"))
+
     def test_typed_compatibility_join_without_limit_uses_every_native_writer(self) -> None:
         left = self.context.read_csv("left.csv", schema={"key": "utf8"})
         right = self.context.read_csv("right.data", schema={"key": "utf8"})
@@ -179,10 +208,9 @@ class NativeRelationalCollectionTests(unittest.TestCase):
     def test_subquery_helpers_never_discard_transformed_source_operations(self) -> None:
         source = self.context.read_vortex("right.vortex")
         for transformed in [source.filter(sl.col("key") > 5), source.limit(1), source.select("key")]:
-            with self.subTest(operations=transformed.operations), self.assertRaisesRegex(
-                ValueError, "require an untransformed source"
-            ):
-                sl.col("key").isin_source(transformed, "key")
+            with self.subTest(operations=transformed.operations):
+                predicate = sl.col("key").isin_source(transformed, "key")
+                self.assertIn(f"({transformed._relation_statement()}) AS _sl_subquery", predicate.sql)
         self.assertIn("right.vortex", sl.col("key").isin_source(source, "key").sql)
 
     def test_flat_join_renderer_never_moves_input_stages_after_the_join(self) -> None:
@@ -192,7 +220,73 @@ class NativeRelationalCollectionTests(unittest.TestCase):
             for kind in ["inner", "left", "right", "full"]:
                 workflow = before.join(right, on="key", how=kind).select("f.key", "d.key")
                 with self.subTest(operations=before.operations, kind=kind):
-                    self.assertIsNone(workflow._native_relational_statement())
+                    statement = workflow._native_relational_statement()
+                    self.assertIsNotNone(statement)
+                    self.assertIn("FROM (SELECT", statement)
+                    self.assertLess(statement.index("left.vortex"), statement.index("JOIN"))
+
+    def test_transformed_right_operand_keeps_sql_and_source_declarations(self) -> None:
+        left = self.context.read_vortex("left.vortex")
+        right = self.context.read_csv("right.data", schema={"key": "utf8"}).sort("key").limit(2)
+        workflow = left.limit(3).join(right, on="key", how="left").select("f.key AS key")
+        statement = workflow._native_relational_statement()
+        self.assertIn(f"({right._relation_statement()}) AS d", statement)
+        with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run:
+            workflow.collect(check=True)
+            self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+            self.assertEqual(run.call_args.kwargs["source_bindings"]["right.data"], {
+                "input_format": "csv", "source_schema": right.source.schema,
+            })
+
+    def test_repeated_stages_and_set_branch_limits_preserve_nesting(self) -> None:
+        frame = self.context.read_vortex("left.vortex")
+        stages = (
+            frame.sort("key").limit(2).filter(sl.col("key") > 0).select("key")
+            .window("ROW_NUMBER() OVER (ORDER BY key DESC) AS ranked")
+            .filter(sl.col("ranked") <= 1).select("key")
+        )
+        statement = stages._native_relational_statement()
+        self.assertGreater(statement.count("SELECT"), 5)
+        self.assertIn("LIMIT 2) AS", statement)
+        self.assertIn("WHERE ranked <= 1", statement)
+        union = frame.limit(2).union_all(frame.sort("key", descending=True).limit(1))
+        self.assertIn("LIMIT 2) AS _sl_set_left", union.statement)
+        self.assertIn("LIMIT 1) AS _sl_set_right", union.statement)
+
+    def test_set_results_compose_and_retain_all_input_declarations_without_io(self) -> None:
+        left = self.context.read_vortex("left.vortex").select("key")
+        right = self.context.read_csv("right.data", schema={"key": "utf8"}).select("key")
+        combined = left.union_all(right).limit(4)
+        with mock.patch.object(self.client, "public_workflow_run") as run, mock.patch.object(
+            self.client, "vortex_prepare"
+        ) as prepare:
+            result = (combined.filter(sl.col("key") != "missing").distinct().sort("key")
+                      .with_column("label", sl.col("key")).select("key", "label"))
+            grouped = result.group_by("label").agg(n="count(*)").having(sl.col("n") > 1)
+            joined = left.join(combined, on="key").select("f.key")
+            repeated = combined.intersect(left).union(right).except_(left)
+            predicate = sl.col("key").isin_source(combined, "key")
+            for statement in [result.statement, grouped.statement, joined._relation_statement(), repeated.statement, predicate.sql]:
+                self.assertIn("LIMIT 4", statement)
+                self.assertIn("right.data", statement)
+            run.assert_not_called()
+            prepare.assert_not_called()
+        with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run:
+            grouped.collect(check=True)
+            self.assertEqual(run.call_args.kwargs["source_bindings"]["right.data"], {
+                "input_format": "csv", "source_schema": right.source.schema,
+            })
+            combined.limit(0).collect(check=True)
+            self.assertTrue(run.call_args.kwargs["sql_statement"].endswith("LIMIT 0"))
+
+    def test_unknown_schema_computed_replacement_is_explicit_and_keeps_stage_dependencies(self) -> None:
+        frame = self.context.read_vortex("input.vortex")
+        changed = frame.limit(2).with_column("key", sl.col("key") + 1).with_column("key", sl.col("key") * 2)
+        statement = changed._relation_statement()
+        self.assertEqual(statement.count("REPLACE OR ADD"), 2)
+        self.assertIn("REPLACE OR ADD (key + 1 AS key)", statement)
+        self.assertIn("REPLACE OR ADD (key * 2 AS key)", statement)
+        self.assertIn("LIMIT 2)", statement)
 
 
 if __name__ == "__main__":

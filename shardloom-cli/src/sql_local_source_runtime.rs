@@ -13,6 +13,12 @@
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 mod whole_json_typed;
 
+#[path = "sql_relation_sources.rs"]
+mod relation_sources;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+use relation_sources::ParsedRelationQuery;
+use relation_sources::{ParsedRelationLeaf, ParsedRelationSource};
+
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "sql_native_relational.rs"]
 pub(crate) mod native_relational;
@@ -1717,6 +1723,7 @@ impl SqlLocalSourceOutputFormat {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedSqlLocalSource {
     distinct_projection: bool,
+    replace_or_add_projection: bool,
     projection_order: Vec<ParsedProjectionOutput>,
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
@@ -1744,7 +1751,7 @@ struct ParsedSqlLocalSource {
     having_aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
-    source_path: PathBuf,
+    source: ParsedRelationSource,
     source_alias: Option<String>,
     join: Option<ParsedJoin>,
     predicate: ParsedPredicate,
@@ -2122,7 +2129,7 @@ struct ParsedOrderKey {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedJoin {
     join_type: ParsedJoinType,
-    right_source_path: PathBuf,
+    right_source: ParsedRelationSource,
     right_alias: String,
     key_pairs: Vec<ParsedJoinKeyPair>,
     on_predicate: Option<ParsedPredicate>,
@@ -2164,7 +2171,7 @@ struct ParsedJoinOn {
 
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedSourceClause {
-    source_path: PathBuf,
+    source: ParsedRelationSource,
     source_alias: Option<String>,
     join: Option<ParsedJoin>,
 }
@@ -2304,6 +2311,7 @@ impl SortValue {
 
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedProjectionList {
+    replace_or_add: bool,
     projection_order: Vec<ParsedProjectionOutput>,
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
@@ -2388,7 +2396,7 @@ impl ParsedProjectionOutput {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedInSubquery {
     source_column: String,
-    source_path: PathBuf,
+    source: ParsedRelationSource,
     source_qualifier: Option<String>,
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
@@ -2403,7 +2411,7 @@ struct ParsedInSubquery {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedLocalSubquerySourceRef {
-    path: PathBuf,
+    leaf: ParsedRelationLeaf,
     qualifier: Option<String>,
 }
 
@@ -2446,7 +2454,7 @@ impl ParsedQuantifiedSubqueryQuantifier {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedRowValueInSubquery {
     source_columns: Vec<String>,
-    source_path: PathBuf,
+    source: ParsedRelationSource,
     source_qualifier: Option<String>,
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
@@ -2480,7 +2488,7 @@ impl ParsedExistsSubqueryProjectionKind {
 struct ParsedExistsSubquery {
     projection_kind: ParsedExistsSubqueryProjectionKind,
     selected_columns: Vec<String>,
-    source_path: PathBuf,
+    source: ParsedRelationSource,
     source_qualifier: Option<String>,
     predicate: Box<ParsedPredicate>,
     order_by: Option<ParsedOrderBy>,
@@ -12031,7 +12039,7 @@ fn prepare_sql_local_source_evaluation(
     validate_sql_local_source_output_limit(&parsed, read_limits)?;
     let source_read_plan = source_read_plan_for_sql(&parsed);
     let mut source = read_local_source_with_plan_and_format(
-        &parsed.source_path,
+        parsed.source.local_path()?,
         &source_read_plan,
         source_format_override,
         read_limits,
@@ -12041,7 +12049,7 @@ fn prepare_sql_local_source_evaluation(
         .as_ref()
         .map(|join| {
             read_local_source_with_plan_and_format(
-                &join.right_source_path,
+                join.right_source.local_path()?,
                 &LocalSourceReadPlan::full("full_right_source_state_join"),
                 source_format_override,
                 read_limits,
@@ -13170,7 +13178,7 @@ fn materialize_in_subquery(
         "in_subquery_required_source_columns",
     );
     let mut source = read_local_source_with_plan_and_format(
-        &subquery.source_path,
+        subquery.source.local_path()?,
         &source_read_plan,
         source_format_override,
         read_limits,
@@ -13293,7 +13301,7 @@ fn materialize_row_value_in_subquery(
         "row_value_in_subquery_required_source_columns",
     );
     let mut source = read_local_source_with_plan_and_format(
-        &subquery.source_path,
+        subquery.source.local_path()?,
         &source_read_plan,
         source_format_override,
         read_limits,
@@ -13412,7 +13420,7 @@ fn materialize_exists_subquery(
         "exists_subquery_required_source_columns",
     );
     let mut source = read_local_source_with_plan_and_format(
-        &subquery.source_path,
+        subquery.source.local_path()?,
         &source_read_plan,
         source_format_override,
         read_limits,
@@ -13462,7 +13470,7 @@ fn materialize_projected_exists_subquery(
     }
     subquery.projection_kind = projection_kind;
     subquery.selected_columns = selected_columns;
-    subquery.source_path.clone_from(&parsed.source_path);
+    subquery.source.clone_from(&parsed.source);
     *subquery.predicate = parsed.predicate.clone();
     subquery.order_by.clone_from(&parsed.order_by);
     subquery.limit = Some(parsed.limit);
@@ -18555,6 +18563,11 @@ fn bind_sql_local_source(
     header: &[String],
     right_header: Option<&[String]>,
 ) -> Result<(), ShardLoomError> {
+    if parsed.replace_or_add_projection {
+        return Err(unsupported_sql_error(
+            "REPLACE OR ADD requires the native relational binder; decoded reference execution is not admitted",
+        ));
+    }
     if parsed.is_join() {
         return bind_join_sql_local_source(parsed, header, right_header);
     }
@@ -22675,7 +22688,7 @@ fn scalar_in_subquery_plan_digest_fragment(subquery: &ParsedInSubquery) -> Strin
     );
     format!(
         "{}:{}:{}:{}:{}:{}:{}:{}:{}",
-        subquery.source_path.display(),
+        subquery.source,
         subquery
             .source_qualifier
             .as_deref()
@@ -22705,7 +22718,7 @@ fn row_value_in_subquery_plan_digest_fragment(subquery: &ParsedRowValueInSubquer
     );
     format!(
         "{}:{}:{}:{}:{}:{}:{}:{}:{}",
-        subquery.source_path.display(),
+        subquery.source,
         subquery
             .source_qualifier
             .as_deref()
@@ -22739,7 +22752,7 @@ fn quantified_subquery_plan_digest_fragment(
     );
     format!(
         "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
-        subquery.source_path.display(),
+        subquery.source,
         subquery
             .source_qualifier
             .as_deref()
@@ -22771,7 +22784,7 @@ fn exists_subquery_plan_digest_fragment(subquery: &ParsedExistsSubquery) -> Stri
     );
     format!(
         "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
-        subquery.source_path.display(),
+        subquery.source,
         subquery
             .source_qualifier
             .as_deref()
@@ -29489,7 +29502,7 @@ impl SqlLocalSourceUnionReport {
         csv_or_not_applicable(
             self.branch_reports
                 .iter()
-                .map(|report| report.parsed.source_path.display().to_string()),
+                .map(|report| report.parsed.source.to_string()),
         )
     }
 
@@ -30074,7 +30087,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "source_path".to_string(),
-                self.parsed.source_path.display().to_string(),
+                self.parsed.source.to_string(),
             ),
             (
                 "source_alias".to_string(),
@@ -30120,7 +30133,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "source_read_many_small_file_batching_status".to_string(),
-                if self.parsed.source_path.is_dir() {
+                if matches!(&self.parsed.source, ParsedRelationSource::Local(leaf) if leaf.path.is_dir()) {
                     "partition_directory_sorted_sequential_batches"
                 } else {
                     "not_applicable_single_file"
@@ -30251,7 +30264,7 @@ impl SqlLocalSourceReport {
             (
                 "right_source_path".to_string(),
                 self.parsed.join.as_ref().map_or_else(String::new, |join| {
-                    join.right_source_path.display().to_string()
+                    join.right_source.to_string()
                 }),
             ),
             (
@@ -32747,7 +32760,7 @@ impl SqlLocalSourceReport {
         format!(
             "SQL local-source runtime\nschema_version: {SCHEMA_VERSION}\nroute: {}\nsource: {}\nrows read: {}\nrows selected: {}\nrows output: {}\noutput: {output}{fanout}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: {}",
             self.request.runtime_profile.route_id(),
-            self.parsed.source_path.display(),
+            self.parsed.source,
             self.source.rows.len(),
             self.selected_row_count,
             self.output_rows.len(),
@@ -35932,6 +35945,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
     } = parts;
     ParsedSqlLocalSource {
         distinct_projection,
+        replace_or_add_projection: projection_list.replace_or_add,
         projection_order: projection_list.projection_order,
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
@@ -35959,7 +35973,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         having_aggregates,
         group_by,
         order_by,
-        source_path: source_clause.source_path,
+        source: source_clause.source,
         source_alias: source_clause.source_alias,
         join: source_clause.join,
         predicate,
@@ -36011,6 +36025,7 @@ fn normalize_and_validate_sql_statement(raw: &str) -> Result<String, ShardLoomEr
 }
 
 fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
+    relation_sources::validate_query_structure(raw)?;
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Err(unsupported_sql_error("SQL statement must not be empty"));
@@ -36237,11 +36252,7 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
             "union dtype casts are not admitted by the current complex dtype profile",
         ));
     }
-    if !allow_sql_union
-        && ["union", "intersect", "except"]
-            .iter()
-            .any(|keyword| contains_keyword_outside_quotes(statement, keyword))
-    {
+    if !allow_sql_union && !top_level_sql_union_operators(statement)?.is_empty() {
         return Err(unsupported_sql_error(
             "SQL set operations are not admitted in single SELECT branch parsing; use the scoped top-level set-operation runtime path",
         ));
@@ -36437,6 +36448,44 @@ fn sanitize_having_aggregate_alias(value: &str) -> String {
 
 #[allow(clippy::too_many_lines)]
 fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomError> {
+    const KEYWORD: &str = "replace or add";
+    if let Some(modifier) = raw.trim().strip_prefix('*') {
+        let modifier = modifier.trim_start();
+        if modifier
+            .get(..KEYWORD.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(KEYWORD))
+        {
+            let entries = modifier[KEYWORD.len()..].trim();
+            if !entries.starts_with('(')
+                || matching_closing_parenthesis(entries, 0)? != Some(entries.len() - 1)
+            {
+                return Err(unsupported_sql_error(
+                    "REPLACE OR ADD requires one parenthesized expression list",
+                ));
+            }
+            let mut parsed = parse_projection_list(&entries[1..entries.len() - 1])?;
+            let mut aliases = BTreeSet::new();
+            if parsed.replace_or_add
+                || !parsed.aggregates.is_empty()
+                || !parsed.window_projections.is_empty()
+                || parsed.projection_order.iter().any(|output| {
+                    output
+                        .computed_alias()
+                        .is_none_or(|alias| !aliases.insert(alias.to_owned()))
+                })
+            {
+                return Err(unsupported_sql_error(
+                    "REPLACE OR ADD requires scalar expressions with distinct explicit aliases",
+                ));
+            }
+            parsed.replace_or_add = true;
+            parsed
+                .projection_order
+                .insert(0, ParsedProjectionOutput::Raw("*".into()));
+            parsed.projections.insert(0, "*".into());
+            return Ok(parsed);
+        }
+    }
     let entries = split_sql_csv(raw)?;
     if entries.is_empty() {
         return Err(unsupported_sql_error("SELECT list must not be empty"));
@@ -36616,6 +36665,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         }
     }
     Ok(ParsedProjectionList {
+        replace_or_add: false,
         projection_order,
         projections,
         literal_projections,
@@ -39739,78 +39789,10 @@ fn parse_sort_null_ordering(raw: &str) -> Result<Option<SortNullOrdering>, Shard
 }
 
 fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> {
-    let Some((join_index, join_keyword_len, join_type)) = find_join_keyword(raw) else {
-        return Ok(ParsedSourceClause {
-            source_path: parse_source_path(raw)?,
-            source_alias: None,
-            join: None,
-        });
-    };
-    let left_raw = raw[..join_index].trim();
-    let join_tail = raw[join_index + join_keyword_len..].trim();
-    let (right_raw, join_on) = if join_type.requires_equi_on() {
-        let on_index = find_keyword_outside_quotes(join_tail, "on").ok_or_else(|| {
-            unsupported_sql_error("JOIN smoke requires an ON <left> = <right> clause")
-        })?;
-        let right_raw = join_tail[..on_index].trim();
-        let on_raw = join_tail[on_index + "on".len()..].trim();
-        (right_raw, parse_join_on(on_raw)?)
-    } else {
-        if find_keyword_outside_quotes(join_tail, "on").is_some() {
-            return Err(unsupported_sql_error(
-                "CROSS JOIN smoke does not admit an ON clause; use WHERE for scoped filters",
-            ));
-        }
-        (
-            join_tail,
-            ParsedJoinOn {
-                key_pairs: Vec::new(),
-                predicate: None,
-                predicate_family: ParsedJoinOnPredicateFamily::NotApplicable,
-            },
-        )
-    };
-    if join_type != ParsedJoinType::InnerEqui
-        && join_on
-            .predicate
-            .as_ref()
-            .is_some_and(ParsedPredicate::contains_logical_or)
-    {
-        return Err(unsupported_sql_error(
-            "logical OR JOIN ON predicates are admitted only for INNER JOIN in this runtime slice; outer/semi/anti OR join semantics remain deterministic blockers",
-        ));
-    }
-    let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
-    let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
-    if left_alias == right_alias {
-        return Err(unsupported_sql_error(
-            "JOIN smoke requires distinct left and right aliases",
-        ));
-    }
-    if join_on
-        .key_pairs
-        .iter()
-        .any(|pair| pair.left.alias != left_alias || pair.right.alias != right_alias)
-    {
-        return Err(unsupported_sql_error(
-            "JOIN ON predicates must be ordered as <left_alias>.<column> = <right_alias>.<column>",
-        ));
-    }
-    Ok(ParsedSourceClause {
-        source_path,
-        source_alias: Some(left_alias),
-        join: Some(ParsedJoin {
-            join_type,
-            right_source_path,
-            right_alias,
-            key_pairs: join_on.key_pairs,
-            on_predicate: join_on.predicate,
-            on_predicate_family: join_on.predicate_family,
-        }),
-    })
+    relation_sources::parse_source_clause(raw)
 }
 
-fn find_join_keyword(raw: &str) -> Option<(usize, usize, ParsedJoinType)> {
+fn find_join_keyword(raw: &str) -> Result<Option<(usize, usize, ParsedJoinType)>, ShardLoomError> {
     let mut best = None;
     for (keyword, join_type) in [
         ("left outer join", ParsedJoinType::LeftOuterEqui),
@@ -39827,7 +39809,7 @@ fn find_join_keyword(raw: &str) -> Option<(usize, usize, ParsedJoinType)> {
         ("inner join", ParsedJoinType::InnerEqui),
         ("join", ParsedJoinType::InnerEqui),
     ] {
-        let Some(index) = find_keyword_outside_quotes(raw, keyword) else {
+        let Some(index) = find_keyword_outside_quotes_and_parentheses(raw, keyword)? else {
             continue;
         };
         let candidate = (index, keyword.len(), join_type);
@@ -39837,23 +39819,7 @@ fn find_join_keyword(raw: &str) -> Option<(usize, usize, ParsedJoinType)> {
             best = Some(candidate);
         }
     }
-    best
-}
-
-fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), ShardLoomError> {
-    let tokens = split_whitespace_outside_quotes(raw)?;
-    let [path_raw, as_keyword, alias] = tokens.as_slice() else {
-        return Err(unsupported_sql_error(&format!(
-            "JOIN smoke requires {side} source syntax <local-source> AS <alias>"
-        )));
-    };
-    if !as_keyword.eq_ignore_ascii_case("as") {
-        return Err(unsupported_sql_error(&format!(
-            "JOIN smoke requires {side} source alias with AS"
-        )));
-    }
-    validate_sql_identifier(alias)?;
-    Ok((parse_source_path(path_raw)?, alias.clone()))
+    Ok(best)
 }
 
 fn parse_join_on(raw: &str) -> Result<ParsedJoinOn, ShardLoomError> {
@@ -40041,6 +40007,11 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_exists_subquery_predicate(raw)? {
         return Ok(predicate);
     }
+    // A nested SELECT owns its operators; '*' inside an IN relation is not
+    // multiplication in the enclosing scalar predicate.
+    if let Some(predicate) = parse_in_list_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_null_safe_comparison_predicate(raw)? {
         return Ok(predicate);
     }
@@ -40090,9 +40061,6 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         return Ok(predicate);
     }
     if let Some(predicate) = parse_regex_function_predicate(raw)? {
-        return Ok(predicate);
-    }
-    if let Some(predicate) = parse_in_list_predicate(raw)? {
         return Ok(predicate);
     }
     parse_quantified_subquery_blocker(raw)?;
@@ -41855,7 +41823,7 @@ fn parse_sql_timestamp_literal(raw: &str) -> Result<ScalarValue, ShardLoomError>
 }
 
 fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
-    let Some(in_index) = find_keyword_outside_quotes(raw, "in") else {
+    let Some(in_index) = find_keyword_outside_quotes_and_parentheses(raw, "in")? else {
         return Ok(None);
     };
     let column_raw = raw[..in_index].trim();
@@ -42070,7 +42038,7 @@ fn parse_row_value_in_subquery_predicate(
         columns,
         subquery: Box::new(ParsedRowValueInSubquery {
             source_columns,
-            source_path: source_ref.path,
+            source: ParsedRelationSource::Local(source_ref.leaf),
             source_qualifier: source_ref.qualifier,
             predicate: Box::new(predicate),
             order_by,
@@ -42108,7 +42076,7 @@ fn parse_projected_row_value_in_subquery_predicate(
         columns,
         subquery: Box::new(ParsedRowValueInSubquery {
             source_columns,
-            source_path: projected_plan.source_path.clone(),
+            source: projected_plan.source.clone(),
             source_qualifier: None,
             predicate: Box::new(ParsedPredicate::All),
             order_by: projected_plan.order_by.clone(),
@@ -42294,7 +42262,7 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
         column: column.to_string(),
         subquery: Box::new(ParsedInSubquery {
             source_column: select_column.clone(),
-            source_path: source_ref.path,
+            source: ParsedRelationSource::Local(source_ref.leaf),
             source_qualifier: source_ref.qualifier,
             predicate: Box::new(predicate),
             order_by,
@@ -42324,7 +42292,7 @@ fn parse_projected_in_subquery_predicate(
         column: column.to_string(),
         subquery: Box::new(ParsedInSubquery {
             source_column: source_column.clone(),
-            source_path: projected_plan.source_path.clone(),
+            source: projected_plan.source.clone(),
             source_qualifier: None,
             predicate: Box::new(ParsedPredicate::All),
             order_by: projected_plan.order_by.clone(),
@@ -42349,6 +42317,9 @@ fn is_projected_local_source_subquery(raw: &str) -> Result<bool, ShardLoomError>
     }
     let from = find_keyword_outside_quotes_and_parentheses(raw, "from")?
         .ok_or_else(|| unsupported_sql_error("source subquery requires FROM"))?;
+    if raw[from + "from".len()..].trim_start().starts_with('(') {
+        return Ok(true);
+    }
     let select = raw["select".len()..from].trim();
     if find_keyword_outside_quotes_and_parentheses(select, "distinct")? == Some(0) {
         return Ok(true);
@@ -42622,7 +42593,7 @@ fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomErr
     Ok(ParsedExistsSubquery {
         projection_kind,
         selected_columns,
-        source_path: source_ref.path,
+        source: ParsedRelationSource::Local(source_ref.leaf),
         source_qualifier: source_ref.qualifier,
         predicate: Box::new(predicate),
         order_by,
@@ -42638,7 +42609,20 @@ fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomErr
 }
 
 fn parse_projected_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomError> {
-    let statement = bounded_projected_subquery_statement(raw)?;
+    let from = find_keyword_outside_quotes_and_parentheses(raw, "from")?
+        .ok_or_else(|| unsupported_sql_error("EXISTS source subquery requires FROM"))?;
+    let selected = raw["select".len()..from].trim();
+    // EXISTS observes presence, including for NULL or other admitted constants.
+    // Give a bare literal an internal output name before the general SELECT
+    // parser, which otherwise requires every computed output to have an alias.
+    let literal_statement;
+    let parsed_raw = if parse_projection_literal_value(selected).is_ok() {
+        literal_statement = format!("SELECT 1 AS __shardloom_exists_literal {}", &raw[from..]);
+        literal_statement.as_str()
+    } else {
+        raw
+    };
+    let statement = bounded_projected_subquery_statement(parsed_raw)?;
     let mut projected_plan = parse_sql_local_source_statement(&statement)?;
     projected_plan.limit_is_synthetic =
         find_keyword_outside_quotes_and_parentheses(raw, "limit")?.is_none();
@@ -42648,7 +42632,7 @@ fn parse_projected_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, Sh
     Ok(ParsedExistsSubquery {
         projection_kind,
         selected_columns,
-        source_path: projected_plan.source_path.clone(),
+        source: projected_plan.source.clone(),
         source_qualifier: None,
         predicate: Box::new(ParsedPredicate::All),
         order_by: projected_plan.order_by.clone(),
@@ -42865,16 +42849,13 @@ fn parse_local_subquery_source_ref(
         ));
     }
     let (source_path_raw, explicit_alias) = parse_optional_local_subquery_alias(source_raw)?;
-    let source_path = parse_source_path(&source_path_raw)?;
+    let leaf = ParsedRelationLeaf::parse(&source_path_raw)?;
     let qualifier = if let Some(alias) = explicit_alias {
         Some(alias)
     } else {
-        inferred_local_source_qualifier(&source_path)?
+        inferred_local_source_qualifier(&leaf.path)?
     };
-    Ok(ParsedLocalSubquerySourceRef {
-        path: source_path,
-        qualifier,
-    })
+    Ok(ParsedLocalSubquerySourceRef { leaf, qualifier })
 }
 
 fn parse_optional_local_subquery_alias(
@@ -48339,7 +48320,10 @@ mod tests {
         );
         assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
-        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/input.csv")
+        );
         assert_eq!(parsed.limit, 5);
         assert!(matches!(
             parsed.predicate,
@@ -48364,7 +48348,10 @@ mod tests {
         );
         assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
-        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/input.csv")
+        );
         assert_eq!(parsed.limit, 5);
         assert!(parsed.predicate.is_all());
         assert_eq!(parsed.statement_kind(), "local_source_projection_limit");
@@ -49197,7 +49184,8 @@ mod tests {
     #[test]
     fn parser_uses_earliest_join_keyword_for_join_type() {
         let raw = "'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.id = d.id LEFT JOIN tail";
-        let (index, keyword_len, join_type) = find_join_keyword(raw).expect("join keyword found");
+        let (index, keyword_len, join_type) =
+            find_join_keyword(raw).unwrap().expect("join keyword found");
 
         assert_eq!(&raw[index..index + keyword_len], "JOIN");
         assert_eq!(join_type, ParsedJoinType::InnerEqui);
@@ -50372,7 +50360,10 @@ mod tests {
         assert_eq!(parsed.aggregates[2].output_name(), "avg_amount");
         assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
-        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/input.csv")
+        );
         assert_eq!(
             parsed.statement_kind(),
             "local_source_aggregate_filter_limit"
@@ -50507,7 +50498,7 @@ mod tests {
             parsed.having,
             ParsedPredicate::ExistsSubquery { ref subquery }
                 if subquery.projection_kind == ParsedExistsSubqueryProjectionKind::Wildcard
-                    && subquery.source_path == Path::new("target/allowed.csv")
+                    && subquery.source.local_path().unwrap() == Path::new("target/allowed.csv")
                     && matches!(
                         subquery.predicate.as_ref(),
                         ParsedPredicate::BooleanPredicate {
@@ -50558,7 +50549,7 @@ mod tests {
                 ref subquery,
             } if column == "total"
                 && subquery.source_column == "threshold"
-                && subquery.source_path == Path::new("target/thresholds.csv")
+                && subquery.source.local_path().unwrap() == Path::new("target/thresholds.csv")
                 && matches!(
                     subquery.predicate.as_ref(),
                     ParsedPredicate::BooleanPredicate {
@@ -52929,7 +52920,10 @@ mod tests {
         .expect("cast predicate statement parses");
 
         assert_eq!(parsed.projections, vec!["id", "amount"]);
-        assert_eq!(parsed.source_path, PathBuf::from("target/input.jsonl"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/input.jsonl")
+        );
         assert!(matches!(
             parsed.predicate,
             ParsedPredicate::CastCompare {
@@ -53237,7 +53231,10 @@ mod tests {
         .expect("IN predicate statement parses");
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
-        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/input.csv")
+        );
         assert!(matches!(
             parsed.predicate,
             ParsedPredicate::InList {
@@ -53380,7 +53377,7 @@ mod tests {
                 ref subquery
             } if column == "id"
                 && subquery.source_column == "id"
-                && subquery.source_path == Path::new("target/allowed.csv")
+                && subquery.source.local_path().unwrap() == Path::new("target/allowed.csv")
                 && subquery.values.is_empty()
         ));
         assert_eq!(parsed.predicate.family(), "in_subquery");
@@ -53442,7 +53439,7 @@ mod tests {
                 ref subquery
             } if column == "id"
                 && subquery.source_column == "allowed_id"
-                && subquery.source_path == Path::new("target/allowed.csv")
+                && subquery.source.local_path().unwrap() == Path::new("target/allowed.csv")
                 && matches!(
                     subquery.predicate.as_ref(),
                     ParsedPredicate::InSubquery {
@@ -53450,7 +53447,7 @@ mod tests {
                         subquery
                     } if column == "allowed_id"
                         && subquery.source_column == "id"
-                        && subquery.source_path == Path::new("target/nested.csv")
+                        && subquery.source.local_path().unwrap() == Path::new("target/nested.csv")
                 )
         ));
         assert!(parsed.predicate.uses_subquery_predicate());
@@ -53475,7 +53472,7 @@ mod tests {
                 ref subquery,
             } if column == "amount"
                 && subquery.source_column == "threshold"
-                && subquery.source_path == Path::new("target/allowed.csv")
+                && subquery.source.local_path().unwrap() == Path::new("target/allowed.csv")
                 && matches!(
                     subquery.predicate.as_ref(),
                     ParsedPredicate::BooleanPredicate {
@@ -53537,7 +53534,7 @@ mod tests {
             parsed.predicate,
             ParsedPredicate::ExistsSubquery { ref subquery }
                 if subquery.projection_kind == ParsedExistsSubqueryProjectionKind::Wildcard
-                    && subquery.source_path == Path::new("target/allowed.csv")
+                    && subquery.source.local_path().unwrap() == Path::new("target/allowed.csv")
                     && matches!(
                         subquery.predicate.as_ref(),
                         ParsedPredicate::BooleanPredicate {
@@ -53588,7 +53585,7 @@ mod tests {
                     inner.as_ref(),
                     ParsedPredicate::ExistsSubquery { subquery }
                         if subquery.projection_kind == ParsedExistsSubqueryProjectionKind::Literal
-                            && subquery.source_path == Path::new("target/blocked.csv")
+                            && subquery.source.local_path().unwrap() == Path::new("target/blocked.csv")
                             && subquery.limit == Some(1)
                 )
         ));
@@ -53616,7 +53613,7 @@ mod tests {
             } if columns == &vec!["id".to_string(), "label".to_string()]
                 && subquery.source_columns
                     == vec!["allowed_id".to_string(), "allowed_label".to_string()]
-                && subquery.source_path == Path::new("target/allowed.csv")
+                && subquery.source.local_path().unwrap() == Path::new("target/allowed.csv")
                 && subquery.tuples.is_empty()
         ));
         assert_eq!(parsed.predicate.family(), "row_value_in_subquery");
@@ -54147,7 +54144,9 @@ mod tests {
                 column: "id".to_string(),
                 subquery: Box::new(ParsedInSubquery {
                     source_column: "id".to_string(),
-                    source_path: PathBuf::from("target/allowed.csv"),
+                    source: ParsedRelationSource::Local(
+                        ParsedRelationLeaf::parse("target/allowed.csv").unwrap(),
+                    ),
                     source_qualifier: None,
                     predicate: Box::new(ParsedPredicate::All),
                     order_by: None,
@@ -58084,7 +58083,10 @@ mod tests {
         )
         .expect("regex-like identifiers are ordinary columns");
 
-        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/input.csv")
+        );
         assert_eq!(parsed.limit, 5);
     }
 
@@ -59038,10 +59040,16 @@ mod tests {
         );
         assert_eq!(parsed.group_by, [] as [String; 0]);
         assert!(parsed.order_by.is_none());
-        assert_eq!(parsed.source_path, PathBuf::from("target/fact.csv"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/fact.csv")
+        );
         assert_eq!(parsed.source_alias.as_deref(), Some("f"));
         let join = parsed.join.as_ref().expect("join parsed");
-        assert_eq!(join.right_source_path, PathBuf::from("target/dim.csv"));
+        assert_eq!(
+            join.right_source.local_path().unwrap(),
+            Path::new("target/dim.csv")
+        );
         assert_eq!(join.right_alias, "d");
         assert_eq!(join.left_key_refs(), "f.customer_id");
         assert_eq!(join.right_key_refs(), "d.customer_id");
@@ -59391,10 +59399,16 @@ mod tests {
         assert_eq!(parsed.projections, vec!["d.segment"]);
         assert_eq!(parsed.group_by, vec!["d.segment"]);
         assert!(parsed.order_by.is_none());
-        assert_eq!(parsed.source_path, PathBuf::from("target/fact.csv"));
+        assert_eq!(
+            parsed.source.local_path().unwrap(),
+            Path::new("target/fact.csv")
+        );
         assert_eq!(parsed.source_alias.as_deref(), Some("f"));
         let join = parsed.join.as_ref().expect("join parsed");
-        assert_eq!(join.right_source_path, PathBuf::from("target/dim.csv"));
+        assert_eq!(
+            join.right_source.local_path().unwrap(),
+            Path::new("target/dim.csv")
+        );
         assert_eq!(join.right_alias, "d");
         assert_eq!(join.left_key_refs(), "f.customer_id,f.region");
         assert_eq!(join.right_key_refs(), "d.customer_id,d.region");

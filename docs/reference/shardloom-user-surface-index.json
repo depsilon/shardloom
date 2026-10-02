@@ -375,6 +375,10 @@
       "projection, filter, group-by, having, order, limit",
       "admitted joins and set operations",
       "bounded source subquery predicates",
+      "derived SELECT and set inputs with scoped aliases",
+      "ordered supported DataFrame stages and transformed join/subquery inputs",
+      "post-set projection, filter, aggregate, window, join, ordering and limit",
+      "native computed-column replacement through SELECT * REPLACE OR ADD",
       "source-free VALUES",
       "source-free literal SELECT",
       "generated range or generate_series forms where admitted"

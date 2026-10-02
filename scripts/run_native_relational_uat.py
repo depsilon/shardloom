@@ -19,6 +19,7 @@ import sys
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
+from native_relational_composition_cases import cases as composition_cases
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -90,7 +91,7 @@ def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, t
             typed_dimension, select=1, where=(sl.col("key") == sl.col("outer.key"))
             & sl.col("key").isin_source(typed_frame, "key", where=sl.col("amount") == 3))),
          [{"key": "1"}], 2),
-    ]
+    ] + composition_cases(context, left, right, raw_right, typed_left, typed_right)
 
 
 def main() -> int:
@@ -114,12 +115,16 @@ def main() -> int:
     code = Path(__file__).resolve()
     query = code.parents[1] / "python/src/shardloom/query.py"
     client_code = code.parents[1] / "python/src/shardloom/client.py"
+    composition_code = code.with_name("native_relational_composition_cases.py")
+    renderer_code = query.with_name("_relational_sql.py")
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
         "status": "running", "build_commit": args.build_commit, "cases": [],
         "binary_sha256": file_sha256(binary), "harness_sha256": file_sha256(code),
         "python_query_sha256": file_sha256(query), "fallback_attempted": False,
         "python_client_sha256": file_sha256(client_code),
+        "composition_cases_sha256": file_sha256(composition_code),
+        "python_relational_renderer_sha256": file_sha256(renderer_code),
         "external_engine_invoked": False, "performance_claim": False,
         "total_rss_bound": False, "csv_contract": "complete header/row text; null is an empty field",
     }
@@ -154,6 +159,7 @@ def main() -> int:
         output.mkdir(parents=True)
         sys.path.insert(0, str(code.parents[1] / "python/src"))
         import shardloom as sl
+        from shardloom.query import SqlWorkflow
 
         context = sl.context(binary=str(binary), cwd=output, timeout=120)
         client = context.client
@@ -171,6 +177,9 @@ def main() -> int:
             sources.extend((path, file_sha256(path), identity(path)) for path in [raw, native])
 
         for family, workflow, expected, opens in cases(context, left, right, raw_right, typed_left, typed_right):
+            columns = list(expected[0]) if expected else {
+                "sql-empty": ["cargo_id"], "composition-empty-window": ["renamed", "rn"],
+            }[family]
             for execution in range(1, 4):
                 guard()
                 name = f"{family}-collect-{execution}"
@@ -178,12 +187,20 @@ def main() -> int:
                 envelope = accepted(name, report)
                 complete(name, list(report.result_rows), expected)
                 for field, value in {
+                    "output_columns": ",".join(columns),
                     "resident_source_opens": str(opens), "resident_completed_executions": str(execution),
                     "resident_relational_handle_retained": "true", "result_payload_complete": "true",
                     "resident_relational_lowering_reused": str(execution > 1).lower(),
                 }.items():
                     if envelope.field(field) != value:
                         raise ValueError(f"{name}: {field}={envelope.field(field)!r}; expected {value!r}")
+            sql_workflow = SqlWorkflow(
+                workflow._relation_statement(), client, source_bindings=workflow._declared_sources(),
+            )
+            name = f"{family}-sql-parity"
+            sql_report = sql_workflow.collect(check=False)
+            accepted(name, sql_report)
+            complete(name, list(sql_report.result_rows), expected)
             for extension in ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"]:
                 guard()
                 name = f"{family}-{extension}"
@@ -191,7 +208,10 @@ def main() -> int:
                 accepted(name, getattr(workflow, f"write_{extension}")(destination, check=False))
                 if extension == "csv":
                     with destination.open(newline="") as stream:
-                        actual = list(csv.DictReader(stream))
+                        reader = csv.DictReader(stream)
+                        if reader.fieldnames != columns:
+                            raise ValueError(f"{name}: CSV column order differs: {reader.fieldnames!r} != {columns!r}")
+                        actual = list(reader)
                     complete(name, actual, [{k: csv_cell(v) for k, v in row.items()} for row in expected], destination)
                     continue
                 if extension == "json":
@@ -204,16 +224,68 @@ def main() -> int:
                             native = output / f"{name}-normalized.vortex"
                             accepted(f"{name}-prepare", getattr(context, f"read_{extension}")(
                                 destination).prepare(native, check=False))
+                        schema = accepted(f"{name}-schema", context.sql(
+                            f"SELECT * FROM (SELECT * FROM '{native}') AS reopened LIMIT 0"
+                        ).collect(check=False))
+                        if schema.field("output_columns") != ",".join(columns):
+                            raise ValueError(f"{name}: reopened schema column order differs")
                         decoded = output / f"{name}-reopened.jsonl"
                         accepted(f"{name}-reopen", context.read_vortex(native).write_jsonl(decoded, check=False))
                     actual = [strict_json(line) for line in decoded.read_text().splitlines()]
                 complete(name, actual, expected, destination)
+        # A finite input can still exceed the small collection boundary. Derived
+        # stages must preserve complete streaming output beyond that boundary.
+        large_raw, large = output / "large.jsonl", output / "large.vortex"
+        count = 65_541
+        with large_raw.open("x") as stream:
+            for value in range(count):
+                stream.write(json.dumps({"identifier": value}) + "\n")
+        accepted("large-prepare", context.read_json(large_raw).prepare(large, check=False))
+        sources.extend((path, file_sha256(path), identity(path)) for path in [large_raw, large])
+        workflow = (context.read_vortex(large).limit(count)
+                    .with_column("identifier", sl.col("identifier") + 1).filter(sl.col("identifier") > 0))
+        denial = workflow.collect(check=False).envelope
+        (output / "large-collect-denial.envelope.json").write_text(json.dumps(denial.raw, indent=2) + "\n")
+        if (denial.status != "error" or denial.fallback.attempted
+                or not any("collect exceeds 65,536 rows" in item.get("reason", "")
+                           for item in denial.raw.get("diagnostics", []))):
+            raise ValueError("large derived collection did not enforce its existing row boundary")
+        expected = [{"identifier": value} for value in range(1, count + 1)]
+        for extension in ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"]:
+            guard()
+            name = f"composition-large-{extension}"
+            destination = output / f"{name}.{extension}"
+            accepted(name, getattr(workflow, f"write_{extension}")(destination, check=False))
+            if extension == "csv":
+                with destination.open(newline="") as stream:
+                    reader = csv.DictReader(stream)
+                    if reader.fieldnames != ["identifier"]:
+                        raise ValueError("large CSV schema differs")
+                    actual = list(reader)
+                complete(name, actual, [{"identifier": str(row["identifier"])} for row in expected], destination)
+                continue
+            if extension == "json":
+                actual = strict_json(destination.read_text())
+            else:
+                decoded = destination
+                if extension != "jsonl":
+                    native = destination
+                    if extension != "vortex":
+                        native = output / f"{name}-normalized.vortex"
+                        accepted(f"{name}-prepare", getattr(context, f"read_{extension}")(
+                            destination).prepare(native, check=False))
+                    decoded = output / f"{name}-reopened.jsonl"
+                    accepted(f"{name}-reopen", context.read_vortex(native).write_jsonl(decoded, check=False))
+                actual = [strict_json(line) for line in decoded.read_text().splitlines()]
+            complete(name, actual, expected, destination)
+
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")
         summary["source_sha256"] = {path.name: digest for path, digest, _ in sources}
         for path, key in [(binary, "binary_sha256"), (code, "harness_sha256"), (query, "python_query_sha256"),
-                          (client_code, "python_client_sha256")]:
+                          (client_code, "python_client_sha256"), (composition_code, "composition_cases_sha256"),
+                          (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")
         summary["status"] = "passed"

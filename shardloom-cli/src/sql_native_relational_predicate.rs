@@ -3,16 +3,16 @@
 use super::{
     ColumnRef, ComparisonOp, ExprId, Expression, ExpressionKind, JoinKey, Lowered, Lowerer,
     NativeResult, ParsedInSubquery, ParsedOrderBy, ParsedPredicate,
-    ParsedQuantifiedSubqueryQuantifier, ParsedSqlLocalSource, Path, Plan, Quantifier, ScalarValue,
-    Subquery, SubqueryKind, UnaryOp, column, is_outer_correlation_ref, map_columns,
-    unsupported_sql_error,
+    ParsedQuantifiedSubqueryQuantifier, ParsedRelationSource, ParsedSqlLocalSource, Plan,
+    Quantifier, ScalarValue, Subquery, SubqueryKind, UnaryOp, column, is_outer_correlation_ref,
+    map_columns, unsupported_sql_error,
 };
 
 pub(super) fn declared_sources(
     predicate: &ParsedPredicate,
-    paths: &mut std::collections::BTreeSet<std::path::PathBuf>,
+    paths: &mut std::collections::BTreeSet<super::ParsedRelationLeaf>,
 ) {
-    let (path, filter, projected) = match predicate {
+    let (source, filter, projected) = match predicate {
         ParsedPredicate::Logical { left, right, .. } => {
             declared_sources(left, paths);
             declared_sources(right, paths);
@@ -24,23 +24,23 @@ pub(super) fn declared_sources(
         }
         ParsedPredicate::InSubquery { subquery, .. }
         | ParsedPredicate::QuantifiedSubquery { subquery, .. } => (
-            &subquery.source_path,
+            &subquery.source,
             subquery.predicate.as_ref(),
             subquery.projected_plan.as_deref(),
         ),
         ParsedPredicate::RowValueInSubquery { subquery, .. } => (
-            &subquery.source_path,
+            &subquery.source,
             subquery.predicate.as_ref(),
             subquery.projected_plan.as_deref(),
         ),
         ParsedPredicate::ExistsSubquery { subquery } => (
-            &subquery.source_path,
+            &subquery.source,
             subquery.predicate.as_ref(),
             subquery.projected_plan.as_deref(),
         ),
         _ => return,
     };
-    paths.insert(path.clone());
+    super::declared_relation_sources(source, paths);
     declared_sources(filter, paths);
     if let Some(projected) = projected {
         super::declared_sources(projected, paths);
@@ -76,7 +76,7 @@ fn direct_outer(predicate: &ParsedPredicate) -> bool {
 
 #[derive(Clone, Copy)]
 struct Inner<'a> {
-    path: &'a Path,
+    source: &'a ParsedRelationSource,
     selected: &'a [String],
     predicate: &'a ParsedPredicate,
     projected: Option<&'a ParsedSqlLocalSource>,
@@ -151,7 +151,7 @@ impl Lowerer<'_, '_> {
                 self.subquery(
                     input,
                     Inner {
-                        path: &subquery.source_path,
+                        source: &subquery.source,
                         selected: &subquery.source_columns,
                         predicate: &subquery.predicate,
                         projected: subquery.projected_plan.as_deref(),
@@ -164,7 +164,7 @@ impl Lowerer<'_, '_> {
             ParsedPredicate::ExistsSubquery { subquery } => self.subquery(
                 input,
                 Inner {
-                    path: &subquery.source_path,
+                    source: &subquery.source,
                     selected: &subquery.selected_columns,
                     predicate: &subquery.predicate,
                     projected: subquery.projected_plan.as_deref(),
@@ -220,7 +220,7 @@ impl Lowerer<'_, '_> {
         self.subquery(
             input,
             Inner {
-                path: &subquery.source_path,
+                source: &subquery.source,
                 selected: std::slice::from_ref(&subquery.source_column),
                 predicate: &subquery.predicate,
                 projected: subquery.projected_plan.as_deref(),
@@ -245,7 +245,7 @@ impl Lowerer<'_, '_> {
         let relation = if let Some(parsed) = inner.projected {
             self.select(parsed, outer, !parsed.limit_is_synthetic)?
         } else {
-            let relation = self.scan(inner.path)?;
+            let relation = self.relation(inner.source)?;
             for selected in inner.selected {
                 relation.resolve(selected)?;
             }

@@ -8063,7 +8063,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_schema_declared_dataframe_rename_blocks_until_alias_preserving_vortex_projection(
+    def test_schema_declared_dataframe_rename_keeps_later_predicate_in_output_scope(
         self,
     ) -> None:
         binary = self.fake_cli(
@@ -8078,8 +8078,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "target/input.csv",
                     "--input-format",
                     "csv",
+                    "--source-bindings",
+                    json.dumps({"target/input.csv": {"input_format": "csv", "source_schema": "id:int64,amount:int64,label:utf8"}}, separators=(",", ":")),
                     "--sql",
-                    "SELECT id,amount AS order_amount,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
+                    "SELECT * FROM (SELECT * FROM (SELECT id,amount AS order_amount,label FROM (SELECT * FROM 'target/input.csv') AS _sl_stage_0) AS _sl_stage_1 WHERE amount >= 10) AS _sl_stage_2 LIMIT 2",
                     "--plan",
                     "read_csv(target/input.csv) -> select(id,amount AS order_amount,label) -> filter(amount >= 10) -> limit(2)",
                     "--request",
@@ -9024,49 +9026,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(smallest_report.top_n_runtime_execution)
         self.assertEqual(smallest_report.sort_direction, "asc")
 
-    def test_local_csv_query_builder_top_n_after_limit_fails_closed(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-
-                assert sys.argv[1] == "workflow-unsupported-plan", sys.argv
-                assert sys.argv[2] in {"nlargest", "nsmallest"}, sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "workflow-unsupported-plan",
-                    "status": "unsupported",
-                    "summary": "unsupported top-n",
-                    "human_text": "unsupported top-n",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "operation", "value": sys.argv[2]},
-                        {"key": "blocker_id", "value": "workflow.top_n.unsupported"},
-                        {"key": "runtime_execution", "value": "false"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            )
-        )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+    def test_local_csv_query_builder_top_n_after_limit_preserves_input_bound(self) -> None:
+        ctx = ShardLoomContext(ShardLoomClient(binary="unused-shardloom"))
         source = ctx.read_csv("target/input.csv").select("id", "amount").limit(10)
 
         largest = source.nlargest(5, "amount")
         smallest = source.nsmallest(3, "amount")
 
-        self.assertIsInstance(largest, sl.UnsupportedWorkflowOperationReport)
-        self.assertEqual(largest.operation, "nlargest")
-        self.assertFalse(largest.runtime_execution)
-        self.assertFalse(largest.fallback_attempted)
-        self.assertFalse(largest.external_engine_invoked)
-        self.assertIsInstance(smallest, sl.UnsupportedWorkflowOperationReport)
-        self.assertEqual(smallest.operation, "nsmallest")
-        self.assertFalse(smallest.runtime_execution)
-        self.assertFalse(smallest.fallback_attempted)
-        self.assertFalse(smallest.external_engine_invoked)
+        for workflow, direction, count in [(largest, "DESC", 5), (smallest, "ASC", 3)]:
+            self.assertIsInstance(workflow, LazyFrame)
+            statement = workflow._relation_statement()
+            self.assertIn("LIMIT 10)", statement)
+            self.assertIn(f"ORDER BY amount {direction}", statement)
+            self.assertTrue(statement.endswith(f"LIMIT {count}"))
 
     def test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -15637,7 +15609,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 args = sys.argv[1:]
                 assert args[:6] == ["run", "dataframe", "--input", "target/input.csv", "--input-format", "csv"], sys.argv
-                assert args[args.index("--sql") + 1] == "SELECT id,amount + 5 AS adjusted FROM 'target/input.csv' LIMIT 2", sys.argv
+                assert args[args.index("--sql") + 1] == "SELECT * FROM (SELECT id,amount + 5 AS adjusted FROM (SELECT id FROM (SELECT * FROM 'target/input.csv') AS _sl_stage_0) AS _sl_stage_1) AS _sl_stage_2 LIMIT 2", sys.argv
                 assert args[args.index("--plan") + 1] == "read_csv(target/input.csv) -> select(id) -> with_column(adjusted,amount + 5) -> limit(2)", sys.argv
                 assert args[args.index("--request") + 1] == "write_parquet", sys.argv
                 assert args[args.index("--output") + 1] == "target/out.parquet", sys.argv
@@ -18718,12 +18690,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.sql_execute("select * from events"),
             ctx.sql("SELECT * FROM remote_table").schema(),
             ctx.sql("SELECT * FROM remote_table").preview(limit=5),
-            workflow.join(
-                sl.read_csv("dim.csv", client=ShardLoomClient(binary=binary)).filter("id > 0"),
-                on=("id", "other_id"),
-                how="left",
-            ),
-            workflow.sort("amount").window("row_number() over (partition by id)"),
             workflow.data_quality_check("regex:id"),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).preview(limit=5),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).head(limit=5),
@@ -18732,8 +18698,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 41)
-        for report in reports:
+        self.assertEqual(len(reports), 39)
+        for index, report in enumerate(reports):
+            self.assertIsInstance(report, sl.UnsupportedWorkflowOperationReport, f"entry {index}: {report}")
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
             self.assertTrue(report.blocker_id)
@@ -18893,7 +18860,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(by_operation["sql-bind"].envelope.field_bool("runtime_required"))
         self.assertFalse(by_operation["sql-plan"].envelope.field_bool("runtime_required"))
         self.assertTrue(by_operation["sql-execute"].envelope.field_bool("runtime_required"))
-        self.assertEqual(by_operation["window"].envelope.field("workflow_operation"), "window")
         self.assertFalse(by_operation["data-quality"].envelope.field_bool("runtime_required"))
         self.assertTrue(by_operation["preview"].envelope.field_bool("materialization_required"))
         self.assertTrue(by_operation["head"].envelope.field_bool("materialization_required"))

@@ -40,6 +40,18 @@ ClickBench is one regression and comparison workload. Its schema, row count, que
 set and scenario names must not determine product capability. New support is admitted
 by reusable operator and type semantics, with complete workflow evidence.
 
+The October 2 maintainer clarification applies this reuse requirement to every new
+shape and optimization lane. Each implementation packet must identify the existing
+component and callers, document the remaining semantic gap, and extend that shared
+component or its strategy before introducing another implementation. Different
+format/frontend wrappers must not own duplicate scan, predicate, aggregate, join,
+ordering, memory or delivery algorithms. Shared infrastructure alone does not prove
+that general composition uses every specialized ClickBench strategy; the
+[composition ownership map](native-relational-composition-2026-10-02.md#reuse-ownership)
+records the current distinction. Reuse validation must cover existing callers and
+an independently specified composed workflow, alongside measured retain/drop evidence
+for performance changes.
+
 ## Current implementation and completion gaps
 
 The [native family inventory](native-runtime-completion-2026-09-20.md#finite-availability-inventory),

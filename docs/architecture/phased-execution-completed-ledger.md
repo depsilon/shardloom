@@ -17,6 +17,46 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-RELATIONAL-COMPOSITION` preserve operation order through native relational workflows.
+  - Date: 2026-10-02 UTC. Runtime/SDK/harness revision `cf406611` has immutable
+    local acceptance; hosted PR checks are pending. The
+    [contract, reuse map and evidence](native-relational-composition-2026-10-02.md)
+    cover derived SELECT/set inputs, scoped bindings, transformed joins/subqueries,
+    post-set stages and computed-column replacement through the same native tree.
+  - The 46-case matrix passes 560 complete-result checks, including all eight
+    writers above the small collection boundary; 1,217 public envelopes retain
+    the expected collection denial. Full43 passes 129/129 complete comparisons.
+    Source, executable, frontend and harness identities are verified unchanged.
+  - Default workspace tests pass 3,439; native Vortex tests pass 2,167 with 23
+    existing ignores; native CLI tests pass 1,562; Python passes 699 with 144
+    existing skips. Formatting, strict Clippy, lean/MSRV builds and four public
+    documentation validators pass. Counts overlap across feature configurations.
+  - V1 scope classification: `required_for_v1`; finite promotion from
+    PERF-02/07/10/11/12. Shared source/key/order/resource/sink owners are explicit;
+    no format-specific executor, Python evaluator or new row kernel is added.
+    Wider types, separate unary-family composition, fanout, broader adapters and
+    pressure/spill transitions remain open. CG-1 through CG-23 remain visible;
+    no speedup, total-RSS, production or publication claim follows.
+
+- [x] `PERF-02/03/06/07/10/11/12` complete retained native relational family delivery.
+  - Date: 2026-10-02 UTC. [PR #1500](https://github.com/depsilon/shardloom/pull/1500)
+    merged at `588bf4c7be6c42262f3e2dd2022422efd994e5c8` after all 40 checks passed.
+    Its tree equals tested head `d6329c9aca3317b3c82740d10e68b7b22c6459ef`.
+    The [contract and immutable evidence](native-relational-workflows-2026-10-01.md)
+    cover joins, sets, analytic windows and scoped predicate subqueries, native
+    expression/group/order nodes, declared mixed inputs and complete local delivery.
+  - Independent public acceptance passes 176 complete result checks across 16 cases
+    and all eight writers; Full43 passes 129/129 complete regression comparisons.
+    Workspace/native/Python checks, no-default builds and MSRV checks pass. The lean
+    Serde derive correction produces the identical accepted release executable;
+    its separate evidence packet preserves the original CI failures and repair.
+  - No open review threads remained. Hosted Codex review was usage-limited; this
+    records primary review and passing checks without claiming hosted approval.
+  - V1 scope classification: `required_for_v1`. General public composition is
+    promoted in Planned; wider types, adapters, fanout and resource/spill work
+    remain under their existing owners. CG-1 through CG-23 remain open as applicable.
+    No fallback, performance gain, total-RSS, production or publication claim follows.
+
 - [x] `PERF-02/03/07/10/11/12` complete retained native unary results and local delivery.
   - Date: 2026-10-01 UTC. Runtime/SDK/harness revision `959f2eb0` covers DISTINCT,
     deduplication, duplicate masks, tail, sampling, scalar rewrites, melt, explode,

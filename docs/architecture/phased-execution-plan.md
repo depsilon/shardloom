@@ -76,6 +76,11 @@
   middle it should reuse the same prepared-state, writer, segment-layout, metadata, physical-plan,
   operator, sink, and evidence helpers wherever semantics allow. Do not create CSV/Parquet/JSONL,
   SQL/Python/DataFrame, benchmark/UAT, or ClickBench-only variants for the same runtime behavior.
+- The October 2 modularity clarification requires a concrete reuse map for each new shape or
+  optimization lane: existing component and callers, remaining semantic gap, shared extension or
+  strategy, and verification across existing and composed workloads. Sharing a crate or allocator
+  alone is insufficient proof of algorithm reuse. Preserve justified semantic/physical strategies
+  inside shared components and apply the measured retain/drop gate to performance changes.
 - Focused validation entries must use exact test targets before broad gates. Rust unit filters must
   target the exact crate surface: `cargo test -p <crate> --bin <name> <filter>` for binary crates
   and `cargo test -p <crate> --lib <filter>` for library crates. Rust integration filters must use
@@ -275,9 +280,20 @@ joins, set operations, analytic windows and scoped subqueries to retained native
 readers and typed batches, including native expression/group/order composition,
 mixed-source normalization and declared schema propagation. Its 16-case public
 matrix passes 176 complete-result checks through all eight local writers on the
-frozen build, with 129/129 Full43 regression executions; hosted PR checks are pending.
+frozen build, with 129/129 Full43 regression executions. PR #1500 merged at
+`588bf4c7` after all 40 hosted checks passed; the merged and tested trees match.
 General composition, type/adapter expansion and resource/spill obligations remain
 under the same PERF owners; this continuation does not mark those whole gates complete.
+
+The [operation-order composition unit](native-relational-composition-2026-10-02.md)
+is locally accepted on `cf406611`: 560 complete public results across 46 workflows
+and eight larger-than-collection writes, plus 129/129 Full43 comparisons. Derived
+inputs, transformed join/subquery operands and post-set DataFrame stages share
+the existing native plan, source preparation, resources and writers. Its component
+reuse map also governs later optimization lanes. Hosted checks remain pending;
+the completed finite implementation record is in the ledger. Wider types, separate
+unary-family composition, relational fanout and remaining resource/spill/adapter
+work stay under PERF-02/03/06/07/10/11/12. This does not complete those whole owners.
 
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
