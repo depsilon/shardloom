@@ -2,9 +2,9 @@
 
 # Native relational resource and ordering continuation
 
-Status: initial finite local acceptance complete on `15f9d329`; hosted validation
-exposed the I/O cleanup race documented below. Corrected acceptance and merge
-remain pending. This follows the
+Status: corrected finite local acceptance complete on `c9bd23ca`; hosted validation
+and merge remain pending. The initial run and subsequent I/O cleanup repair are
+retained below. This follows the
 [ordered composition unit](native-relational-composition-2026-10-02.md) under
 PERF-03/06/07/10/12 and the existing CG-5/20/21 obligations. Active ordering belongs
 to the [phase plan](phased-execution-plan.md). This contract does not close broader
@@ -236,3 +236,19 @@ This changes the shared native file-execution boundary, so acceptance requires
 fresh workspace/native gates, a new frozen executable, the complete public matrix
 and Full43. The original immutable packet and failed hosted/local reproductions
 remain retained. The repair introduces no new execution provider or dependency.
+
+Corrected runtime `c9bd23ca9c7ed89c283332639e15fe82ce6bf354` passes all 592 public
+complete-result checks and all 129 Full43 comparisons again. Its frozen executable
+SHA-256 is `839609044aa63a5925e912b3174001d4f6b327ea3aa918c3f33963c340852294`.
+Fresh required workspace checks pass with 3,440 default tests, 2,180 native Vortex
+tests (23 existing ignored), 1,565 native CLI tests, default/native strict Clippy,
+formatting, lean/MSRV builds and all four documentation validators. The unchanged
+Python and website checks retain their previously verified results. Source, query,
+reference, executable and public output hashes were rechecked; all owned locks and
+spill directories are clean.
+
+The immutable [corrected acceptance packet](../benchmarks/evidence/native-relational-resources-io-repair-2026-10-02.json.xz)
+has SHA-256 `1ff29ca868f23ebecce9133d532cd508e7d70ad8c554714905bead2aaf9a9da1`.
+It links the initial packet, preserves the hosted failure and deterministic
+before/after tests, and records the fresh build and complete acceptance matrix.
+The same performance, provider-accounting and broader capability limits apply.

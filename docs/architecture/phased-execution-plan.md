@@ -268,8 +268,9 @@ the ledger.
       cleanup and writer-publication failure contracts in focused native tests.
     - [x] Complete broad workspace, native provider, Python, recovery and feature gates.
     - [x] Freeze public pressure/complete-output and Full43 regression evidence:
-      `15f9d329` passes 592 public complete-result checks and 129/129 Full43
-      comparisons; the contract links the immutable local acceptance packet.
+      corrected runtime `c9bd23ca` passes 592 public complete-result checks and
+      129/129 Full43 comparisons; the contract retains both immutable packets
+      and the I/O cleanup repair exposed by the initial hosted run.
     - [ ] Align public references/site, complete review and hosted checks, then
       move the accepted finite record to the completed ledger.
 
