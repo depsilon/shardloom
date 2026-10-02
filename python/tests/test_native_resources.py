@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -103,6 +105,75 @@ class NativeResourceTransportTests(unittest.TestCase):
         frame.select("key").limit(9).filter("key > 1").count(**self.resources)
         self.assertEqual(len(self.commands), 1)
         self.assert_resources(self.commands[-1])
+
+    def test_session_terminals_keep_each_operations_cpu_and_memory_allocation(self) -> None:
+        session = self.context.session()
+        self.addCleanup(session.close)
+        workflows = [
+            session.read_vortex(str(self.root / "session.vortex")).select("key").limit(9),
+            session.read_csv(str(self.root / "session.csv"), schema={"key": "int64"}).select("key").limit(9),
+            session.sql(f"SELECT key FROM '{self.root / 'session.vortex'}' LIMIT 9"),
+            session.sql(f"SELECT key FROM '{self.root / 'session.csv'}' LIMIT 9"),
+        ]
+        for grant, memory in [(1, 3), (17, 1), (128, 64)]:
+            resources = {"memory_gb": memory, "max_parallelism": grant}
+            for index, workflow in enumerate(workflows):
+                with self.subTest(grant=grant, memory=memory, workflow=index):
+                    self.commands.clear()
+                    workflow.collect(check=True, **resources)
+                    for output in ["vortex", "json", "jsonl", "csv", "parquet", "arrow_ipc", "avro", "orc"]:
+                        getattr(workflow, f"write_{output}")(self.root / f"session-result.{output}", **resources)
+                    workflow.fanout({"jsonl": self.root / "session-one.jsonl", "csv": self.root / "session-two.csv"}, **resources)
+                    self.assertGreaterEqual(len(self.commands), 10)
+                    for command in self.commands:
+                        self.assertEqual(command[command.index("--memory-gb") + 1], str(memory), command)
+                        self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant), command)
+            self.commands.clear()
+            session.read_csv(str(self.root / "count.csv"), schema={"key": "int64"}).count(check=True, **resources)
+            self.assertTrue(self.commands)
+            for command in self.commands:
+                self.assertEqual(command[command.index("--memory-gb") + 1], str(memory), command)
+                self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant), command)
+
+    def test_session_reuse_does_not_replace_a_new_resource_allocation(self) -> None:
+        source = self.root / "cached.csv"
+        source.write_text("key\n1\n", encoding="utf-8")
+        for as_sql in [False, True]:
+            session = self.context.session()
+            self.addCleanup(session.close)
+            workflow = (
+                session.sql(f"SELECT key FROM '{source}' LIMIT 9") if as_sql else
+                session.read_csv(str(source), schema={"key": "int64"}).select("key").limit(9)
+            )
+            self.commands.clear()
+            for memory, grant in [(3, 1), (3, 17), (8, 17)]:
+                resources = {"memory_gb": memory, "max_parallelism": grant}
+                previous = len(self.commands)
+                fresh = workflow.collect(check=True, **resources)
+                self.assertFalse(fresh.reuse_hit)
+                self.assertGreater(len(self.commands), previous)
+                for command in self.commands[previous:]:
+                    self.assertEqual(command[command.index("--memory-gb") + 1], str(memory))
+                    self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant))
+                executed = len(self.commands)
+                repeated = workflow.collect(check=True, **resources)
+                self.assertTrue(repeated.reuse_hit)
+                self.assertEqual(len(self.commands), executed)
+
+    def test_environment_defaults_preserve_one_cpu_and_large_allocations(self) -> None:
+        for supplied, expected in [("1", 1), ("3", 3), ("17", 17), ("128", 128), ("0", 2), ("invalid", 2)]:
+            with self.subTest(supplied=supplied):
+                environment = {
+                    **os.environ,
+                    "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+                    "SHARDLOOM_MEMORY_GB": "3",
+                    "SHARDLOOM_MAX_PARALLELISM": supplied,
+                }
+                result = subprocess.run([
+                    sys.executable, "-B", "-c",
+                    "import json; from shardloom.runtime_defaults import DEFAULT_LOCAL_RUNTIME_MEMORY_GB as m, DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM as p; print(json.dumps([m,p]))",
+                ], env=environment, check=True, capture_output=True, text=True)
+                self.assertEqual(json.loads(result.stdout), [3, expected])
 
 
 if __name__ == "__main__":

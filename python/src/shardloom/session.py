@@ -829,7 +829,12 @@ class SessionLazyFrame:
             )
         result = self.aggregate("count(*)", check=check)
         if isinstance(result, SessionLazyFrame):
-            return result.limit(1).collect(reuse=reuse, check=check)
+            return result.limit(1).collect(
+                reuse=reuse,
+                check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+            )
         return result
 
     def write(
@@ -840,6 +845,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write this workflow through the session's scoped output reuse cache."""
 
@@ -850,6 +857,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_jsonl(
@@ -859,6 +868,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="jsonl")`."""
 
@@ -868,6 +879,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_json(
@@ -877,6 +890,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
@@ -886,6 +901,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_csv(
@@ -895,6 +912,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="csv")`."""
 
@@ -904,6 +923,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_parquet(
@@ -913,6 +934,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`."""
 
@@ -922,6 +945,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_arrow_ipc(
@@ -931,6 +956,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`."""
 
@@ -940,6 +967,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_avro(
@@ -949,6 +978,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`."""
 
@@ -958,6 +989,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_orc(
@@ -967,6 +1000,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`."""
 
@@ -976,6 +1011,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_vortex(
@@ -985,6 +1022,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="vortex")`."""
 
@@ -994,6 +1033,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def fanout(
@@ -1003,6 +1044,8 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write this workflow to fanout sinks through the session cache."""
 
@@ -1012,6 +1055,8 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def to_python_objects(
@@ -1166,6 +1211,7 @@ class SessionSqlWorkflow:
             ),
             output_paths=(),
             reuse=reuse,
+            resource_key=(memory_gb, max_parallelism),
         )
 
     def limit(self, count: int) -> "SessionSqlWorkflow":
@@ -1184,6 +1230,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1200,6 +1248,8 @@ class SessionSqlWorkflow:
                 output_format=normalized_output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             )
         return self.session._sql_result(
             operation="write",
@@ -1209,10 +1259,13 @@ class SessionSqlWorkflow:
                 output_format=normalized_output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             ),
             output_paths=(target_uri,),
             reuse=reuse,
             output_key=(normalized_output_format, _normalized_path(target_uri)),
+            resource_key=(memory_gb, max_parallelism),
         )
 
     def write_jsonl(
@@ -1222,6 +1275,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1236,6 +1291,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_json(
@@ -1245,6 +1302,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1259,6 +1318,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_csv(
@@ -1268,6 +1329,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1282,6 +1345,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_parquet(
@@ -1291,6 +1356,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1305,6 +1372,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_arrow_ipc(
@@ -1314,6 +1383,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1328,6 +1399,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_avro(
@@ -1337,6 +1410,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1351,6 +1426,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_orc(
@@ -1360,6 +1437,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1374,6 +1453,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def write_vortex(
@@ -1383,6 +1464,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1397,6 +1480,8 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
 
     def fanout(
@@ -1406,6 +1491,8 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
         SessionSqlResult
         | GeneratedSourceWriteReport
@@ -1421,6 +1508,8 @@ class SessionSqlWorkflow:
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             )
         output_paths = tuple(path for _, path in normalized_outputs)
         output_key = tuple(
@@ -1434,10 +1523,13 @@ class SessionSqlWorkflow:
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             ),
             output_paths=output_paths,
             reuse=reuse,
             output_key=output_key,
+            resource_key=(memory_gb, max_parallelism),
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -1900,6 +1992,7 @@ class ShardLoomSession:
             ),
             output_paths=(),
             reuse=reuse,
+            resource_key=(memory_gb, max_parallelism),
         )
 
     def write(
@@ -1911,6 +2004,8 @@ class ShardLoomSession:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write an admitted local query-builder result with session output reuse."""
 
@@ -1922,6 +2017,8 @@ class ShardLoomSession:
                 output_format=output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             )
         normalized_output_format = _normalize_local_output_format(output_format)
         return self._sql_result(
@@ -1932,10 +2029,13 @@ class ShardLoomSession:
                 output_format=normalized_output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             ),
             output_paths=(target_uri,),
             reuse=reuse,
             output_key=(normalized_output_format, _normalized_path(target_uri)),
+            resource_key=(memory_gb, max_parallelism),
         )
 
     def fanout(
@@ -1946,6 +2046,8 @@ class ShardLoomSession:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write an admitted local query-builder result to fanout sinks with session reuse."""
 
@@ -1957,6 +2059,8 @@ class ShardLoomSession:
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             )
         output_paths = tuple(path for _, path in normalized_outputs)
         output_key = tuple(
@@ -1970,10 +2074,13 @@ class ShardLoomSession:
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
                 check=check,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
             ),
             output_paths=output_paths,
             reuse=reuse,
             output_key=output_key,
+            resource_key=(memory_gb, max_parallelism),
         )
 
     def close(self) -> dict[str, Any]:
@@ -2031,6 +2138,7 @@ class ShardLoomSession:
         execute: Any,
         output_paths: tuple[str | os.PathLike[str], ...],
         reuse: bool,
+        resource_key: tuple[int, int],
         output_key: object = (),
     ) -> SessionSqlResult:
         source_fingerprints = _source_fingerprints(statement)
@@ -2039,6 +2147,7 @@ class ShardLoomSession:
             operation,
             statement,
             output_key,
+            resource_key,
         )
         entry = self._sql_cache.get(key)
         if reuse and entry is not None:

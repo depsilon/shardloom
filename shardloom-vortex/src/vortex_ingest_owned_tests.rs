@@ -76,6 +76,8 @@ fn source(batches: Vec<RecordBatch>, error: bool) -> FlatLocalColumnarStreamSour
         ingest_executor_applied_parallelism: 1,
         ingest_executor_unit_count_hint: Some(count),
         source_identities: Vec::new(),
+        #[cfg(feature = "vortex-write")]
+        ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
         reader: Box::new(RecordBatchIterator::new(batches, schema)),
@@ -442,6 +444,23 @@ impl vortex::array::iter::ArrayIterator for ObservedPipelineIterator {
     }
 }
 
+impl futures::Stream for ObservedPipelineIterator {
+    type Item = vortex::error::VortexResult<vortex::array::ArrayRef>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let next = futures::ready!(std::pin::Pin::new(&mut self.inner).poll_next(cx));
+        if next.as_ref().is_some_and(std::result::Result::is_ok)
+            && let Some(entered) = self.entered_writer.take()
+        {
+            entered.send(()).unwrap();
+        }
+        std::task::Poll::Ready(next)
+    }
+}
+
 fn assert_pipeline_complete_values(output: &Path) {
     let expected = [batch(0), batch(1).slice(0, 1)]
         .into_iter()
@@ -481,8 +500,80 @@ fn assert_pipeline_complete_values(output: &Path) {
     assert!(reference.next().is_none());
 }
 
+#[test]
+fn shared_stream_poll_yields_without_driving_conversion_and_retains_teardown_owner() {
+    use futures::Stream as _;
+    use std::{pin::Pin, task::Context};
+
+    // No background driver: a poll must report Pending, rather than entering
+    // the executor recursively to complete the conversion it is waiting for.
+    let runtime = crate::ingest_runtime::IngestRuntime::new(1);
+    let input = source(vec![batch(1)], false);
+    let shape = validate_flat_columnar_stream_source_shape(&input).unwrap();
+    let first = arrow_record_batch_to_vortex_array(batch(0)).unwrap();
+    let completed = Arc::new(AtomicUsize::new(1));
+    let mut input = StreamingColumnarVortexArrayIterator::with_runtime(
+        first.dtype().clone(),
+        first,
+        input.reader,
+        input.reader_projection_columns,
+        shape,
+        Arc::clone(&completed),
+        VortexStreamingIngestTiming::default(),
+        2,
+        1,
+        1,
+        8 << 20,
+        None,
+        Some(runtime.clone()),
+    )
+    .unwrap();
+    let owner = Arc::downgrade(&input.prefetch.as_ref().unwrap().context);
+    let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+    assert!(matches!(
+        Pin::new(&mut input).poll_next(&mut cx),
+        std::task::Poll::Ready(Some(Ok(_)))
+    ));
+    assert!(Pin::new(&mut input).poll_next(&mut cx).is_pending());
+    assert_eq!(completed.load(Ordering::SeqCst), 1);
+
+    let actual = runtime
+        .runtime()
+        .block_on(futures::future::poll_fn(|cx| {
+            Pin::new(&mut input).poll_next(cx)
+        }))
+        .unwrap()
+        .unwrap();
+    let expected = arrow_record_batch_to_vortex_array(batch(1)).unwrap();
+    let session = vortex::session::VortexSession::default();
+    assert_eq!(actual.len(), expected.len());
+    for row in 0..expected.len() {
+        assert_eq!(
+            actual
+                .execute_scalar(row, &mut session.create_execution_ctx())
+                .unwrap(),
+            expected
+                .execute_scalar(row, &mut session.create_execution_ctx())
+                .unwrap()
+        );
+    }
+    assert!(
+        runtime
+            .runtime()
+            .block_on(futures::future::poll_fn(|cx| {
+                Pin::new(&mut input).poll_next(cx)
+            }))
+            .is_none()
+    );
+    assert!(owner.upgrade().is_some());
+    drop(input);
+    assert!(owner.upgrade().is_none());
+}
+
 #[allow(clippy::too_many_lines)]
 fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: bool) {
+    let applied = shardloom_exec::compute_pool::bounded_cpu_parallelism(grant);
+    let conversion_window = if applied == 1 { 0 } else { applied };
     let directory =
         path(&format!("pipeline-{grant}-{end:?}-codec-{parallel_codec}")).with_extension("dir");
     fs::create_dir(&directory).unwrap();
@@ -545,17 +636,21 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         )
         .unwrap();
         if parallel_codec {
-            assert_eq!(grant, 4);
             let design = &decision.writer_physical_design;
+            assert_eq!(input.ingest_executor_requested_parallelism, grant);
             assert_eq!(input.ingest_executor_applied_parallelism, 1);
-            assert_eq!(design.array_build_worker_count, 1);
-            assert_eq!(design.array_build_prefetch_window, 3);
-            assert_eq!(design.writer_runtime_background_workers, 1);
-            assert_eq!(design.writer_compression_concurrency, 4);
+            assert_eq!(design.array_build_worker_count, conversion_window);
+            assert_eq!(design.array_build_prefetch_window, conversion_window);
+            assert_eq!(design.writer_runtime_background_workers, applied - 1);
+            assert_eq!(design.writer_compression_concurrency, applied);
             assert!(!design.fallback_attempted);
             assert!(!design.external_engine_invoked);
         }
-        let memory = NativeIngestMemory::new(32 << 20).unwrap();
+        let runtime = input.ingest_runtime.clone();
+        let drivers = runtime
+            .as_ref()
+            .map(|runtime| runtime.start_drivers().unwrap());
+        let memory = NativeIngestMemory::with_runtime(32 << 20, runtime.as_ref()).unwrap();
         let timing = VortexStreamingIngestTiming::default();
         let first_batch = input.reader.next().unwrap().unwrap();
         let mut lease = memory.reserve_input(1).unwrap();
@@ -567,7 +662,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         )
         .unwrap();
         drop((first_batch, lease));
-        let mut iterator = StreamingColumnarVortexArrayIterator::new(
+        let mut iterator = StreamingColumnarVortexArrayIterator::with_runtime(
             first.dtype().clone(),
             first,
             input.reader,
@@ -580,10 +675,11 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             decision.writer_physical_design.array_build_worker_count,
             8 << 20,
             Some(memory.clone()),
+            runtime.clone(),
         )
         .unwrap();
         let writer_input_lookahead = iterator.share_input_slot_with_writer(&decision);
-        if parallel_codec {
+        if parallel_codec && applied > 1 {
             assert!(writer_input_lookahead.is_some());
         }
         let conversion_owner = iterator
@@ -614,7 +710,9 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             &[],
             writer_input_lookahead,
             None,
+            runtime.as_ref(),
         );
+        drop(drivers);
         let snapshot = memory.pool.snapshot();
         assert!(snapshot.peak_reserved_bytes > 0);
         assert!(snapshot.peak_reserved_bytes <= snapshot.limit_bytes);
@@ -623,8 +721,8 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         if end == PipelineEnd::Complete {
             if parallel_codec {
                 let report = result.as_ref().unwrap();
-                assert_eq!(report.writer_runtime_background_workers, 1);
-                assert_eq!(report.writer_compression_concurrency, 4);
+                assert_eq!(report.writer_runtime_background_workers, applied - 1);
+                assert_eq!(report.writer_compression_concurrency, applied);
                 assert_eq!(report.writer_row_count, 4);
             }
             assert_pipeline_complete_values(&worker_output);
@@ -633,9 +731,20 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             .send(result.map(|_| ()).map_err(|error| error.to_string()))
             .unwrap();
     });
-    let cancellation = ready_rx.recv_timeout(Duration::from_secs(20)).unwrap();
-    entered_rx.recv_timeout(Duration::from_secs(20)).unwrap();
-    blocked_rx.recv_timeout(Duration::from_secs(20)).unwrap();
+    let receive_error = |phase, error| -> ! {
+        panic!(
+            "pipeline grant={grant}, applied={applied}, end={end:?}, codec={parallel_codec}, phase={phase}: {error}"
+        )
+    };
+    let cancellation = ready_rx
+        .recv_timeout(Duration::from_secs(20))
+        .unwrap_or_else(|error| receive_error("ready", error));
+    entered_rx
+        .recv_timeout(Duration::from_secs(20))
+        .unwrap_or_else(|error| receive_error("writer entered", error));
+    blocked_rx
+        .recv_timeout(Duration::from_secs(20))
+        .unwrap_or_else(|error| receive_error("source blocked", error));
     let unpublished = !output.exists();
     let staging_exists = fs::read_dir(&directory).unwrap().count() == 1;
     if end == PipelineEnd::Cancel {
@@ -646,7 +755,9 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
     // Release simulated blocking I/O before asserting. Cancellation is
     // cooperative once the source read returns; it does not interrupt I/O.
     release.send(()).unwrap();
-    let result = finished_rx.recv_timeout(Duration::from_secs(20)).unwrap();
+    let result = finished_rx
+        .recv_timeout(Duration::from_secs(20))
+        .unwrap_or_else(|error| receive_error("write and joined teardown", error));
     worker.join().unwrap();
     assert!(unpublished, "publication must wait for the complete source");
     assert!(staging_exists, "the real writer must have entered staging");
@@ -682,14 +793,30 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
 
 #[test]
 fn streaming_pipeline_final_partial_and_empty_batches_wait_for_complete_publication() {
-    for (grant, parallel_codec) in [(1, false), (4, false), (4, true)] {
+    for (grant, parallel_codec) in [
+        (1, false),
+        (2, true),
+        (4, false),
+        (4, true),
+        (6, true),
+        (8, true),
+        (17, true),
+    ] {
         check_streaming_pipeline_end(grant, PipelineEnd::Complete, parallel_codec);
     }
 }
 
 #[test]
 fn streaming_pipeline_primary_failures_join_sources_and_release_owned_memory() {
-    for (grant, parallel_codec) in [(1, false), (4, false), (4, true)] {
+    for (grant, parallel_codec) in [
+        (1, false),
+        (2, true),
+        (4, false),
+        (4, true),
+        (6, true),
+        (8, true),
+        (17, true),
+    ] {
         for end in [PipelineEnd::SourceError, PipelineEnd::ConversionError] {
             check_streaming_pipeline_end(grant, end, parallel_codec);
         }
@@ -698,16 +825,38 @@ fn streaming_pipeline_primary_failures_join_sources_and_release_owned_memory() {
 
 #[test]
 fn streaming_pipeline_cancellation_drains_after_blocked_source_returns() {
-    // Both retained P4 writer profiles have the existing conversion-prefetch
-    // owner and token. Neither token interrupts a blocking source I/O call.
-    for parallel_codec in [false, true] {
-        check_streaming_pipeline_end(4, PipelineEnd::Cancel, parallel_codec);
+    // Cancellation is cooperative after blocking source I/O returns.
+    // One caller has no asynchronous conversion owner to cancel; its complete
+    // delivery and failure paths are exercised by the adjacent tests.
+    if shardloom_exec::compute_pool::bounded_cpu_parallelism(2) == 1 {
+        return;
+    }
+    for (grant, parallel_codec) in [
+        (2, true),
+        (4, false),
+        (4, true),
+        (6, true),
+        (8, true),
+        (17, true),
+    ] {
+        check_streaming_pipeline_end(grant, PipelineEnd::Cancel, parallel_codec);
     }
 }
 
 #[test]
 fn streaming_pipeline_concurrent_destination_is_preserved_and_staging_released() {
-    for parallel_codec in [false, true] {
-        check_streaming_pipeline_end(4, PipelineEnd::DestinationAppeared, parallel_codec);
+    // Repeated publication collisions exercise scheduling and joined teardown,
+    // including requests above the test host's available CPU capacity.
+    for _ in 0..16 {
+        for (grant, parallel_codec) in [
+            (2, true),
+            (4, false),
+            (4, true),
+            (6, true),
+            (8, true),
+            (17, true),
+        ] {
+            check_streaming_pipeline_end(grant, PipelineEnd::DestinationAppeared, parallel_codec);
+        }
     }
 }

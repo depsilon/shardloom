@@ -256,6 +256,8 @@ the ledger.
   This extends the existing aggregate/sort implementations; Python and input
   formats remain thin declarations into the same public facade.
   - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: reuse native preparation, capillary candidate
+    selection, shared ordering and bounded result ownership across public surfaces.
   - Execution checklist:
     - [ ] Carry complete flat aggregate stages, source declarations and resources
       through common collect/write/inspection admission without moving input limits.
@@ -267,6 +269,14 @@ the ledger.
       workflow and Full43 acceptance with exact source and build identities.
     - [ ] Align references and evidence, complete review and hosted checks, and move
       the finite accepted record to the completed ledger.
+
+The preceding resource and allocation units merged in
+[PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
+[PR #1503](https://github.com/depsilon/shardloom/pull/1503), each after all 40
+hosted checks passed. Their finite completions are recorded in the
+[completed ledger](phased-execution-completed-ledger.md). The aggregate and
+ordering continuation now resumes on the shared per-operation allocation
+contract; broader operator/type/adapter and resource obligations remain open.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
@@ -2675,6 +2685,13 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     sink-parity evidence.
 
 Current autonomous execution order:
+
+The October 2 maintainer instruction temporarily puts the finite
+`ADAPTIVE-INGEST-BUDGET` unit first: make P4/P6/P8 ingestion share the provided CPU
+budget, validate failure and memory behavior, and measure the new artifact through
+complete query acceptance. Resume the preserved native operator work afterward.
+This authorizes that guarded ingest/query comparison, without resuming the other
+paused large format/text experiments or declaring whole PERF/CG owners complete.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)

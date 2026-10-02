@@ -156,7 +156,7 @@ fn assert_policy(stream: &StreamingColumnarVortexArrayIterator, window: usize) {
     if let Some(prefetch) = &stream.prefetch {
         assert_eq!(prefetch.window, window);
         assert_eq!(prefetch.task_bytes, TASK_BYTES);
-        assert_eq!(prefetch.pool.snapshot().workers_created, 1);
+        assert_eq!(prefetch.pool.dedicated().snapshot().workers_created, 1);
         assert!(!prefetch.refill_after_handoff);
         assert!(producer_slots(stream) <= window);
     }

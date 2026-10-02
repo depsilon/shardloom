@@ -23,6 +23,7 @@ pub(crate) struct IngestCpuLanes {
     conversion_workers: usize,
     provider_drivers: usize,
     prefetch_slots: usize,
+    shared_runtime: bool,
 }
 
 /// Actual ownership observations required before replacing a live plan. A zero
@@ -66,6 +67,7 @@ impl IngestCpuLanes {
     /// Initial measured-candidate recipe. Source work has one ordered producer,
     /// conversion has one worker when there is room, and the native writer gets
     /// the remaining grant. This is a policy choice, not a claim of optimality.
+    #[cfg(any(test, not(feature = "vortex-write")))]
     pub(crate) fn pipeline(requested: usize, source_task_capacity: usize) -> Self {
         Self::partition(
             requested.max(1),
@@ -78,16 +80,72 @@ impl IngestCpuLanes {
     /// conversion/provider owner. Unknown external reader threads are excluded.
     #[cfg(any(test, feature = "vortex-write"))]
     pub(crate) fn with_admitted_source(requested: usize, source_workers: usize) -> Result<Self> {
-        if source_workers > requested.saturating_sub(Self::CALLER_LANES) {
+        if requested == 0 {
+            return Err(lane_error("requested CPU grant must be positive"));
+        }
+        let applied = shardloom_exec::compute_pool::bounded_cpu_parallelism(requested);
+        if source_workers > applied.saturating_sub(Self::CALLER_LANES) {
             return Err(lane_error(
                 "existing source workers exceed the requested grant",
             ));
         }
-        Self::allocate(
-            requested,
+        let mut lanes = Self::allocate(
+            applied,
             source_workers,
-            Self::pipeline_demand(requested, source_workers),
-        )
+            Self::pipeline_demand(applied, source_workers),
+        )?;
+        lanes.requested = requested;
+        Ok(lanes)
+    }
+
+    /// Ready source/conversion/provider tasks share every native driver. Task
+    /// window sizes are not additional thread grants.
+    #[cfg(feature = "vortex-write")]
+    pub(crate) fn shared(requested: usize, applied: usize) -> Result<Self> {
+        if applied == 0 || applied > requested {
+            return Err(lane_error(
+                "applied CPU grant must be positive and within the requested maximum",
+            ));
+        }
+        Ok(Self {
+            requested,
+            source_workers: 0,
+            conversion_workers: 0,
+            provider_drivers: applied - Self::CALLER_LANES,
+            prefetch_slots: if applied == 1 { 0 } else { applied },
+            shared_runtime: true,
+        })
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(crate) const fn shares_runtime(self) -> bool {
+        self.shared_runtime
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(crate) const fn conversion_task_limit(self) -> usize {
+        if self.shared_runtime {
+            self.prefetch_slots
+        } else {
+            self.conversion_workers
+        }
+    }
+
+    /// Bound unfinished conversions by both CPU demand and observed input size.
+    /// Each slot allows the existing two-input conversion headroom plus a 2x
+    /// batch-size margin. Later skew still passes the per-batch admission check;
+    /// this estimate does not authorize unbounded growth or silently retry work.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(crate) fn admit_conversion_memory(&mut self, budget_bytes: u64, batch_bytes: u64) {
+        if self.shared_runtime {
+            let Some(slot_bytes) = batch_bytes.checked_mul(4) else {
+                self.prefetch_slots = 0;
+                return;
+            };
+            let slot_bytes = slot_bytes.max(1);
+            let admitted = usize::try_from(budget_bytes / slot_bytes).unwrap_or(usize::MAX);
+            self.prefetch_slots = self.prefetch_slots.min(admitted);
+        }
     }
 
     fn pipeline_demand(requested: usize, source_workers: usize) -> IngestCpuDemand {
@@ -125,6 +183,7 @@ impl IngestCpuLanes {
             } else {
                 demand.prefetch_slots
             },
+            shared_runtime: false,
         }
     }
 

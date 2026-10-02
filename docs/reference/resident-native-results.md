@@ -368,6 +368,23 @@ formats retain their separately admitted execution paths.
 
 ## Bounded Compatibility Ingest Ownership
 
+The supplied CPU and memory limits apply to the operation, across Rust, CLI and
+Python entrypoints. CPU owners select at most the supplied `max_parallelism` and
+the capacity available to the process; explicit one-CPU settings are preserved.
+Budgets may differ between operations. Existing owners are not resized mid-call.
+Serial input, limited independent work and memory pressure may reduce useful
+parallelism; this contract does not promise full CPU utilization for every input.
+
+Streaming ingestion shares one native executor across source tasks, conversion,
+statistics, compression and layout work. Its caller and joined background drivers
+fit one CPU grant. Full bounded queues release their drivers to other ready work.
+Source task windows follow natural reader work; conversion windows follow the
+applied CPU grant and observed batch memory needs, without fixed P4/P6/P8 tiers
+or a 32-conversion ceiling. Requested and applied counts remain distinct evidence.
+Blocking I/O services and source-library internal threads remain outside this
+scoped CPU-driver accounting. See the
+[allocation contract](../architecture/adaptive-ingest-budget-2026-10-02.md).
+
 With `vortex-write` and `universal-format-io`, the streaming Rust ingest request
 accepts `shared_native_memory_budget_bytes(bytes)`. Public bounded compatibility
 ingest forwards its memory budget to this option. Imported Arrow value, offset,
@@ -401,6 +418,11 @@ field to the existing literal:
 ```rust
 source_identities: Vec::new(),
 ```
+
+The shared ingest executor adds `ingest_runtime` when `vortex-write` is enabled.
+Manual custom-reader literals use `ingest_runtime: None`; wrappers must preserve
+the adapter-produced handle when keeping that adapter's reader. Cloning the
+handle starts no workers and cannot admit overlapping writer driver groups.
 
 This is a field fragment, not a complete construction example. An empty vector
 does not certify source immutability. When wrapping an adapter-produced source,
