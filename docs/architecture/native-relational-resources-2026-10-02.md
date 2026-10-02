@@ -2,7 +2,8 @@
 
 # Native relational resource and ordering continuation
 
-Status: implementation contract; acceptance is pending. This follows the
+Status: finite local acceptance complete on `15f9d329`; hosted checks and merge
+remain pending. This follows the
 [ordered composition unit](native-relational-composition-2026-10-02.md) under
 PERF-03/06/07/10/12 and the existing CG-5/20/21 obligations. Active ordering belongs
 to the [phase plan](phased-execution-plan.md). This contract does not close broader
@@ -164,3 +165,49 @@ multi-key ordering can still be rejected by the older flat aggregate frontend;
 that public-family routing gap belongs to the continuing PERF-02/10 breadth work,
 along with the separate unary-family composition gaps. This unit does not claim
 that every flat aggregate shape accepts relational ordering spill permission.
+
+## Local acceptance
+
+Runtime, Python and harness revision
+`15f9d329ddf58114c453c26b470df374a9651acc` was built with Rust 1.99 and
+`release-user-surfaces`. Frozen executable SHA-256:
+`d5bb030764c6ec4ff9e69951d5d2b4a3c315d37d349403ff8c9c5230f87693a2`.
+
+| Check | Result |
+| --- | --- |
+| Default workspace all-target tests | 3,440 passed |
+| Native Vortex library | 2,178 passed; 23 existing ignored tests |
+| Native CLI all-target tests | 1,565 passed |
+| Python suite | 702 passed; 144 existing skips; 846 total |
+| Formatting, default/native strict Clippy, lean workspace and Rust 1.96 lean/native builds | Passed |
+| Public reference/status/front-door validators and website check/build/assets/readiness | Passed |
+
+The frozen public matrix passes **592 complete-result checks**, retaining the
+previous 560 cases and adding 32 resource cases. These include repeated SQL and
+DataFrame collection, complete 70,017-row output through all eight writers,
+compatibility-source preparation, transformed join/set/aggregate inputs, nested
+ordering, order/limit/filter chains and execution below the spill threshold.
+Five expected denials retain no success certificate or output artifact; two route
+inspections leave a nonexistent workspace untouched. The native pressure test
+delivers all 240,003 ordered rows to a slow consumer within an 8 MiB shared
+reservation grant and a 1 MiB flush threshold; the same resident sort is denied.
+Nested order tests measure reader overlap and deny simultaneous input/output runs
+when their shared disk quota is one byte below the observed peak. Cleanup failure
+prevents publication through each writer and preserves foreign workspace entries.
+
+Full43 passes **129/129 complete retained-result comparisons**. This is regression
+evidence against historical native results, not a fresh independent oracle or a
+performance comparison. The resident 15,682,956,489-byte Vortex source, all 43
+references, query file, executable, public source generations, frontend/harness
+files and complete writer outputs were rechecked by hash. Owned run directories
+and acceptance locks are clean. The public fixture's expected values are specified
+independently in the checked-in resource harness.
+
+The immutable [portable evidence packet](../benchmarks/evidence/native-relational-resources-2026-10-02.json.xz)
+has SHA-256 `464770a12ca72853517e78901b1ade861c14d0d2a398027efb2c7994b486641a`.
+It retains exact check commands/logs, build and source identities, public envelopes,
+complete-output hashes, verified Full43 log archives, primary review, guards and
+resolved development failures. Feature-configuration test counts overlap.
+Hosted review and CI remain separate acceptance steps. This finite unit establishes
+no total-RSS bound, wider operator spill, speedup, whole competitive-gate completion,
+production certification or package publication.

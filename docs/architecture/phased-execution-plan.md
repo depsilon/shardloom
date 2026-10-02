@@ -267,7 +267,9 @@ the ledger.
     - [x] Exercise pressure, exact values, source/run corruption, cancellation,
       cleanup and writer-publication failure contracts in focused native tests.
     - [x] Complete broad workspace, native provider, Python, recovery and feature gates.
-    - [ ] Freeze public pressure/complete-output and Full43 regression evidence.
+    - [x] Freeze public pressure/complete-output and Full43 regression evidence:
+      `15f9d329` passes 592 public complete-result checks and 129/129 Full43
+      comparisons; the contract links the immutable local acceptance packet.
     - [ ] Align public references/site, complete review and hosted checks, then
       move the accepted finite record to the completed ledger.
 
