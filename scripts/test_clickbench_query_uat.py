@@ -82,6 +82,42 @@ class ClickBenchUatTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             extract_result(unsafe)
 
+    def test_complete_jsonl_payload_is_independent_of_diagnostic_summary(self):
+        for rows in ([], [{"identifier": (1 << 63) + 7, "label": "東京\nλ", "missing": None}],
+                     [{"n": 2}, {"n": 3}]):
+            with self.subTest(rows=rows):
+                result = envelope('result summary: aggregate values={"rows":99,"values":null}')
+                result["fields"].extend([
+                    {"key": "result_jsonl", "value": "".join(json.dumps(row) + "\n" for row in rows)},
+                    {"key": "result_payload_complete", "value": "true"},
+                    {"key": "output_row_count", "value": str(len(rows))},
+                ])
+                self.assertEqual(extract_result(result), rows)
+
+    def test_jsonl_rejects_missing_ambiguous_truncated_or_invalid_payloads(self):
+        valid = [
+            {"key": "result_jsonl", "value": '{"n":2}\n'},
+            {"key": "result_payload_complete", "value": "true"},
+            {"key": "output_row_count", "value": "1"},
+        ]
+        invalid = [valid[:index] + valid[index + 1:] for index in range(len(valid))]
+        invalid.extend(valid + [item] for item in valid)
+        for key, value in (
+            ("result_payload_complete", "false"), ("result_payload_complete", 1),
+            ("output_row_count", "2"), ("output_row_count", True),
+            ("output_row_count", "-1"), ("output_row_count", "unknown"),
+            ("result_jsonl", None), ("result_jsonl", ""),
+            ("result_jsonl", "[2]\n"), ("result_jsonl", '{"n":NaN}\n'),
+            ("result_jsonl", '{"n":1e999}\n'), ("result_jsonl", '{"n":2}\n\n'),
+        ):
+            invalid.append([dict(item, value=value) if item["key"] == key else item for item in valid])
+        for fields in invalid:
+            with self.subTest(fields=fields):
+                result = envelope('result summary: aggregate values={"rows":1,"values":[{"n":2}]}')
+                result["fields"].extend(fields)
+                with self.assertRaises(ValueError):
+                    extract_result(result)
+
     def test_result_comparison_handles_order_nulls_and_float_tolerance(self):
         self.assertFalse(equivalent([1, 2], [2, 1]))
         self.assertFalse(equivalent(435090932899640449, float(435090932899640449)))
