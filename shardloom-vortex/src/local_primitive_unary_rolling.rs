@@ -2,8 +2,8 @@
 //! ready values synchronously. Centered lookahead never retains the whole input.
 
 use super::{
-    BATCH_ROWS, DType, NativeBatch, NativeExecutionContext, Nullability, PreparedVortexUnary,
-    ReservedVec, Result, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
+    BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, Nullability, ReservedVec,
+    Result, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
 };
 use shardloom_exec::live_memory::MemoryLease;
 
@@ -38,9 +38,9 @@ impl Rolling {
         }
     }
     pub(super) fn new(
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
-        source_rows: u64,
+        source_rows: Option<u64>,
     ) -> Result<Self> {
         let request = super::super::required_rolling_window(&plan.request)?;
         // One-row feeding bounds lookahead to one window. Cover growth overlap
@@ -48,7 +48,13 @@ impl Rolling {
         // allocates. The pending output vector has its own capacity owner.
         let capacity = request
             .window_size
-            .min(usize::try_from(source_rows).map_err(vortex_error)?)
+            .min(
+                source_rows
+                    .map(usize::try_from)
+                    .transpose()
+                    .map_err(vortex_error)?
+                    .unwrap_or(request.window_size),
+            )
             .checked_add(1)
             .ok_or_else(|| failed("rolling capacity overflow"))?;
         let bytes = capacity
@@ -83,7 +89,7 @@ impl Rolling {
 
     pub(super) fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,
@@ -138,7 +144,7 @@ impl Rolling {
 
     fn deliver(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         ready: Vec<super::StatValue>,
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<()> {
@@ -174,7 +180,7 @@ impl Rolling {
 
     pub(super) fn finish(
         mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<usize> {

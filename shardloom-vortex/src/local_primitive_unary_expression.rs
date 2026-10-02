@@ -3,8 +3,8 @@
 
 use super::super::{MaterializedPredicateEvaluator, VortexExpressionRewrite as Rewrite};
 use super::{
-    BATCH_ROWS, DType, NativeBatch, NativeExecutionContext, Nullability, PreparedVortexUnary,
-    ReservedVec, Result, StatValue, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed,
+    BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, Nullability, ReservedVec,
+    Result, StatValue, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed,
     values::{OwnedRow, OwnedStat},
     vortex_error,
 };
@@ -159,10 +159,7 @@ impl Expression {
             all_input_retained: false,
         }
     }
-    pub(super) fn new(
-        plan: &PreparedVortexUnary,
-        context: &NativeExecutionContext<'_>,
-    ) -> Result<Self> {
+    pub(super) fn new(plan: &BoundUnary, context: &NativeExecutionContext<'_>) -> Result<Self> {
         let mut fills = ReservedVec::new(context.memory())?;
         let compiled = plan
             .expression
@@ -179,7 +176,7 @@ impl Expression {
 
     pub(super) fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,
@@ -221,7 +218,7 @@ impl Expression {
 
     fn flush(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         compiled: &Plan,
         rows: &mut ReservedVec<OwnedRow>,
         context: &NativeExecutionContext<'_>,

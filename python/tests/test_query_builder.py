@@ -4112,8 +4112,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.row_in(["id", "label"], [(1,)])
         with self.assertRaises(ValueError):
             sl.col("id").isin_source("target/allowed.csv", "bad column")
-        with self.assertRaises(ValueError):
-            sl.col("id").isin_source("target/has'quote.csv", "id")
+        self.assertIn(
+            "FROM 'target/has''quote.csv'",
+            sl.col("id").isin_source("target/has'quote.csv", "id").sql,
+        )
         with self.assertRaises(ValueError):
             sl.col("amount").between(None, 10)
         with self.assertRaises(ValueError):
@@ -14102,8 +14104,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 ignore_index=False,
             )
         )
-        self.assertIsInstance(indexed, sl.UnsupportedWorkflowOperationReport)
-        self.assertEqual(indexed.operation, "melt")
+        self.assertIsInstance(indexed, sl.LazyFrame)
+        self.assertIn("FROM MELT((", indexed._native_relational_statement())
+        self.assertIn('"id_columns":["index","id"]', indexed._native_relational_statement())
+        # Native preparation rejects Variant output for composed flat-scalar
+        # relations; declarations do not infer output types or read the source.
 
     def test_local_csv_query_builder_explode_routes_through_prepared_vortex_explode(
         self,
@@ -18959,8 +18964,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         reset_explicit_index = indexed.reset_index()
         reset_drop_explicit_index = indexed.reset_index(drop=True)
 
-        self.assertIsInstance(reset_materialized, sl.UnsupportedWorkflowOperationReport)
-        self.assertEqual(reset_materialized.operation, "reset-index")
+        self.assertIsInstance(reset_materialized, sl.LazyFrame)
+        self.assertEqual(reset_materialized.operations[-1].kind, "expression_project")
+        self.assertEqual(json.loads(reset_materialized.operations[-1].values[0])["rewrites"], [
+            {"kind": "row_number", "start": 0, "target_column": "index"},
+        ])
         self.assertIsInstance(descending_sort, sl.UnsupportedWorkflowOperationReport)
         self.assertEqual(descending_sort.operation, "sort-index")
         self.assertFalse(descending_sort.fallback_attempted)
@@ -18980,8 +18988,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertIsInstance(reset_explicit_index, sl.LazyFrame)
         self.assertEqual(
-            reset_explicit_index.operation_summary,
-            "read_csv(events.csv) -> filter(id > 0) -> select(id,amount)",
+            reset_explicit_index.operations,
+            reset_materialized.operations,
         )
         self.assertIsInstance(reset_drop_explicit_index, sl.LazyFrame)
         self.assertEqual(

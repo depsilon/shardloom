@@ -1,9 +1,9 @@
 //! Exact row selectors. Future-dependent policies retain at most one row per key.
 
 use super::{
-    BATCH_ROWS, NativeBatch, NativeExecutionContext, PreparedVortexUnary, ReservedVec, Result,
-    UnaryOutput, Value, VortexDuplicateKeepPolicy as Keep, VortexQueryPrimitiveKind as Kind,
-    failed, memory::KeyIndex, values::OwnedRow,
+    BATCH_ROWS, BoundUnary, NativeBatch, NativeExecutionContext, ReservedVec, Result, UnaryOutput,
+    Value, VortexDuplicateKeepPolicy as Keep, VortexQueryPrimitiveKind as Kind, failed,
+    memory::KeyIndex, values::OwnedRow,
 };
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 
@@ -57,6 +57,7 @@ impl Keys {
 
 pub(super) enum State {
     Select(Selector),
+    Tail(Tail),
     Sample(super::sample::Sample),
     Rolling(super::rolling::Rolling),
     Expression(super::expression::Expression),
@@ -86,6 +87,10 @@ impl State {
                         == state.ordinal,
             },
             Self::Sample(state) => state.usage(),
+            Self::Tail(state) => super::report::StateUsage {
+                items: state.rows.values.len(),
+                all_input_retained: state.seen > 0 && state.seen == state.rows.values.len(),
+            },
             Self::Rolling(state) => state.usage(),
             Self::Expression(state) => state.usage(),
             Self::Melt(_) | Self::Explode(_) => super::report::StateUsage::default(),
@@ -93,10 +98,18 @@ impl State {
         }
     }
     pub(super) fn new(
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
-        rows: u64,
+        rows: Option<u64>,
+        suffix_selected: bool,
     ) -> Result<Self> {
+        if plan.request.kind == Kind::TailRows && !suffix_selected {
+            return Ok(Self::Tail(Tail {
+                rows: ReservedVec::new(context.memory())?,
+                next: 0,
+                seen: 0,
+            }));
+        }
         if plan.request.kind == Kind::SampleRows {
             return super::sample::Sample::new(plan, context, rows).map(Self::Sample);
         }
@@ -119,14 +132,17 @@ impl State {
             keys: Keys::new(context.memory())?,
             ordinal: 0,
             visited: 0,
-            source_rows: usize::try_from(rows).map_err(super::vortex_error)?,
+            source_rows: rows
+                .map(usize::try_from)
+                .transpose()
+                .map_err(super::vortex_error)?,
             identities: ReservedVec::new(context.memory())?,
         }))
     }
 
     pub(super) fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,
@@ -134,6 +150,7 @@ impl State {
     ) -> Result<bool> {
         match self {
             Self::Select(state) => state.consume(plan, batch, rows, context, output),
+            Self::Tail(state) => state.consume(plan, batch, rows, context),
             Self::Rolling(state) => state.consume(plan, batch, rows, context, output),
             Self::Expression(state) => state.consume(plan, batch, rows, context, output),
             Self::Melt(state) => state.consume(plan, batch, rows, context, output),
@@ -151,12 +168,13 @@ impl State {
 
     pub(super) fn finish(
         self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<usize> {
         match self {
             Self::Select(state) => state.finish(plan, context, output),
+            Self::Tail(state) => state.finish(context, output),
             Self::Sample(state) => state.finish(plan, context, output),
             Self::Rolling(state) => state.finish(plan, context, output),
             Self::Expression(state) => state.finish(),
@@ -169,18 +187,74 @@ impl State {
     }
 }
 
+/// A produced relation has no file suffix range. Retain exactly the requested
+/// suffix, with each payload and vector capacity charged to the same context.
+pub(super) struct Tail {
+    rows: ReservedVec<OwnedRow>,
+    next: usize,
+    seen: usize,
+}
+
+impl Tail {
+    fn consume(
+        &mut self,
+        plan: &BoundUnary,
+        batch: &mut NativeBatch,
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<bool> {
+        let limit = plan
+            .request
+            .source_order_limit
+            .ok_or_else(|| failed("tail limit is absent"))?;
+        self.seen = self
+            .seen
+            .checked_add(rows)
+            .ok_or_else(|| failed("tail row count overflow"))?;
+        for row in 0..rows {
+            if row % 256 == 0 {
+                context.check_cancelled()?;
+            }
+            if self.rows.values.len() < limit {
+                self.rows.reserve_one()?;
+                self.rows.values.push(batch.row(&plan.output_indices, row)?);
+            } else {
+                self.rows.values[self.next] = batch.row(&plan.output_indices, row)?;
+                self.next = (self.next + 1) % limit;
+            }
+        }
+        Ok(false)
+    }
+
+    fn finish(
+        self,
+        context: &NativeExecutionContext<'_>,
+        output: &mut UnaryOutput<'_, '_>,
+    ) -> Result<usize> {
+        let count = self.rows.values.len();
+        for start in (0..count).step_by(BATCH_ROWS) {
+            context.check_cancelled()?;
+            output.emit((count - start).min(BATCH_ROWS), |row, column| {
+                let index = (self.next + start + row) % count;
+                Ok(Value::from(&self.rows.values[index].values()[column]))
+            })?;
+        }
+        Ok(self.seen)
+    }
+}
+
 pub(super) struct Selector {
     keys: Keys,
     ordinal: usize,
     visited: usize,
-    source_rows: usize,
+    source_rows: Option<usize>,
     identities: ReservedVec<(usize, usize)>,
 }
 
 impl Selector {
     fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,
@@ -281,7 +355,7 @@ impl Selector {
 
     fn finish(
         self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<usize> {
@@ -289,7 +363,9 @@ impl Selector {
         let limit = plan.request.source_order_limit.unwrap_or(usize::MAX);
         match plan.request.kind {
             Kind::DistinctRows => Ok(self.keys.entries.values.len()),
-            Kind::TailRows => Ok(self.source_rows),
+            Kind::TailRows => self
+                .source_rows
+                .ok_or_else(|| failed("file tail source count is absent")),
             Kind::DuplicateMaskRows => {
                 for batch in self.identities.values.chunks(BATCH_ROWS) {
                     context.check_cancelled()?;

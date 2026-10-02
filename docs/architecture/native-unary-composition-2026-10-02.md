@@ -25,6 +25,9 @@ data-dependent pivot providers retain their existing standalone contracts.
 Their wider composition requires, respectively, owned nested payload gathering
 and execution-time schema binding. These are concrete type/ownership boundaries
 for the following work, not inferred support from a flat-scalar result.
+Mixed-domain melt values that produce Vortex Variant share the nested/type
+boundary. This unit admits melt with an existing common scalar output type;
+incompatible mixed domains are rejected during preparation.
 
 The current small collection bounds, complete local writer boundary, source
 generation checks and fixed per-operation CPU/memory allocation remain shared.
@@ -70,13 +73,18 @@ new dependency or serialized-memory-file bridge.
 - File-backed tail retains native suffix-range avoidance. A tail over a produced
   relation retains only the requested final rows, with reserved payload ownership
   and source-order delivery. A late downstream limit must not move before tail.
-- Sampling preserves the existing seed, weight, replacement and tie rules. A
+- Sampling preserves the existing seed, score, weight and replacement rules. A
   conservative input bound may size the same candidate strategy but is not an
   actual population count. Fixed-count sampling retains bounded candidates;
   replacement and any required complete population retention remain explicitly
   charged and reported. Unknown cardinality must not trigger a second execution.
   Complete small fixtures must expose score ties and filters that change the
   population, not merely repeat one random seed.
+  Equal scores prefer the earlier input ordinal. This corrects the previous
+  candidate-slot tie behavior: replacing the first minimum slot could change a
+  weighted result when only the metadata bound changed. Extreme positive finite
+  weights can produce tied infinite scores. Non-tied seeded results are unchanged;
+  both native and legacy reference helpers use the same ordinal tie contract.
 - Scalar rewrites retain their own row ordinal and forward-fill state across
   batches. Independent calls start fresh. Melt emits bounded expansion batches.
   Rolling keeps its existing centered/lookahead/null/min-period semantics and
@@ -93,6 +101,27 @@ size, nesting and node limits apply. Source declarations attach only to actual
 leaves; function arguments must not be mistaken for paths. The Python renderer
 uses this same syntax, and malformed or conflicting declarations fail before a
 writer creates output.
+
+The SQL spelling is fixed as the following table expressions. Each input is one
+parenthesized SELECT or set query, and each expression requires an `AS` alias.
+
+| Expression | Arguments after the input query |
+| --- | --- |
+| `DISTINCT_ROWS` | A quoted comma-separated projection, or `'*'`. |
+| `DROP_DUPLICATES` | Quoted key columns (`'*'` means all input columns), then `'first'`, `'last'` or `'false'`. Output retains every input column. |
+| `DUPLICATED` | The same key and keep arguments; output is the boolean `duplicated` column. |
+| `TAIL` | A positive integer row count. |
+| `SAMPLE` | One quoted JSON object: exactly one of positive `n` or `fraction` in `(0, 1]`; optional UInt64 `seed`, boolean `replace`, weight-column `weights` and projection `columns` (default `'*'`). |
+| `REWRITE` | The existing typed scalar expression-projection JSON payload. |
+| `MELT` | The existing melt JSON payload. |
+| `ROLLING` | The existing rolling JSON payload. |
+
+For example, `SELECT * FROM TAIL((SELECT amount FROM 'input.vortex' ORDER BY
+amount), 3) AS suffix` orders before selecting the final three rows. Payload
+parsing reuses the current primitive parsers with an absent file URI. Source
+leaves remain exclusively inside the input query. This syntax does not admit
+nested/structured rewrites or dynamic pivot composition. Existing valid direct
+file declarations keep their source pushdown and suffix-range strategies.
 
 ## Acceptance
 

@@ -5873,7 +5873,8 @@ class LazyFrame:
                     )
                     if payload is not None:
                         candidate = indexed._append(WorkflowOperation("melt", (payload,)))
-                        if candidate._vortex_primitive_shape() is not None:
+                        if (candidate._vortex_primitive_shape() is not None
+                                or candidate._native_relational_statement() is not None):
                             return candidate
         if ignore_index and (
             payload := _vortex_melt_projection_payload(
@@ -6571,9 +6572,7 @@ class LazyFrame:
 
         if not kwargs:
             normalized_keep = _normalize_duplicate_keep_value(keep)
-            projection_columns = self._projection_columns_for_schema_or_explicit_selection(
-                allowed_operations={"filter"}
-            )
+            projection_columns = self._unary_projection_columns()
             try:
                 subset_columns = (
                     projection_columns
@@ -6586,8 +6585,9 @@ class LazyFrame:
                 normalized_keep in {"first", "last", "false"}
                 and projection_columns is not None
                 and subset_columns
-                and all(_is_sql_identifier(column) for column in projection_columns)
-                and all(column in projection_columns for column in subset_columns)
+                and (subset_columns == ("*",) or all(_is_sql_identifier(column) for column in subset_columns))
+                and all(column == "*" or _is_sql_identifier(column) for column in projection_columns)
+                and (projection_columns == ("*",) or all(column in projection_columns for column in subset_columns))
             ):
                 return self._append(
                     WorkflowOperation(
@@ -6748,6 +6748,8 @@ class LazyFrame:
         from ._relational_sql import computed_projection
 
         columns = self._expression_project_projection_columns(())
+        if columns == ("*",):
+            return WorkflowOperation("with_column", (name, expression))
         return WorkflowOperation(
             "expression_project", (payload,),
             projection_sql=computed_projection(columns, name, expression) if columns is not None else None,
@@ -9717,86 +9719,11 @@ class LazyFrame:
                     or rolling_window is not None
                 ):
                     return None
-                if any("=" in value for value in operation.values):
-                    parsed_sample: int | None = None
-                    parsed_fraction: float | None = None
-                    parsed_seed = 0
-                    parsed_replacement = False
-                    parsed_weight_column: str | None = None
-                    for value in operation.values:
-                        if value in {"replacement", "replace=true"}:
-                            if parsed_replacement:
-                                return None
-                            parsed_replacement = True
-                        elif value.startswith("n="):
-                            if parsed_sample is not None:
-                                return None
-                            parsed_sample = int(value.removeprefix("n="))
-                        elif value.startswith("fraction=") or value.startswith("frac="):
-                            if parsed_fraction is not None:
-                                return None
-                            _, raw_fraction = value.split("=", 1)
-                            parsed_fraction = float(raw_fraction)
-                        elif value.startswith("seed=") or value.startswith("random_state="):
-                            _, raw_seed = value.split("=", 1)
-                            parsed_seed = int(raw_seed)
-                        elif value.startswith("weights=") or value.startswith("weight="):
-                            if parsed_weight_column is not None:
-                                return None
-                            _, raw_weight_column = value.split("=", 1)
-                            if not _is_sql_identifier(raw_weight_column):
-                                return None
-                            parsed_weight_column = raw_weight_column
-                        else:
-                            return None
-                    if (parsed_sample is None) == (parsed_fraction is None):
-                        return None
-                    if parsed_sample is not None and parsed_sample <= 0:
-                        return None
-                    if parsed_fraction is not None and (
-                        not math.isfinite(parsed_fraction)
-                        or parsed_fraction <= 0
-                        or parsed_fraction > 1
-                    ):
-                        return None
-                    if parsed_seed < 0:
-                        return None
-                    sample_count = parsed_sample
-                    sample_fraction = parsed_fraction
-                    sample_seed = parsed_seed
-                    sample_with_replacement = parsed_replacement
-                    sample_weight_column = parsed_weight_column
-                elif operation.values and operation.values[0] == "fraction":
-                    if len(operation.values) < 2:
-                        return None
-                    parsed_fraction = float(operation.values[1])
-                    parsed_seed = int(operation.values[2]) if len(operation.values) > 2 else 0
-                    parsed_replacement = (
-                        len(operation.values) > 3 and operation.values[3] == "replacement"
-                    )
-                    if len(operation.values) > (4 if parsed_replacement else 3):
-                        return None
-                    if (
-                        not math.isfinite(parsed_fraction)
-                        or parsed_fraction <= 0
-                        or parsed_fraction > 1
-                        or parsed_seed < 0
-                    ):
-                        return None
-                    sample_fraction = parsed_fraction
-                    sample_seed = parsed_seed
-                    sample_with_replacement = parsed_replacement
-                else:
-                    parsed_sample = int(operation.values[0])
-                    parsed_seed = int(operation.values[1]) if len(operation.values) > 1 else 0
-                    parsed_replacement = len(operation.values) > 2 and operation.values[2] == "replacement"
-                    if len(operation.values) > (3 if parsed_replacement else 2):
-                        return None
-                    if parsed_sample <= 0 or parsed_seed < 0:
-                        return None
-                    sample_count = parsed_sample
-                    sample_seed = parsed_seed
-                    sample_with_replacement = parsed_replacement
+                parts = _sample_operation_parts(operation.values)
+                if parts is None:
+                    return None
+                (sample_count, sample_fraction, sample_seed,
+                 sample_with_replacement, sample_weight_column) = parts
             elif operation.kind == "expression_project":
                 if (
                     limit is not None
@@ -10279,29 +10206,25 @@ class LazyFrame:
             return other._relation_statement() is not None
         return _source_format_for_local_source_ref(str(other)) is not None
 
+    def _unary_projection_columns(self) -> tuple[str, ...] | None:
+        from ._relational_sql import frame_stages
+
+        rendered = frame_stages(self)
+        if rendered is None:
+            return None
+        return rendered.columns if rendered.columns is not None else ("*",)
+
     def _expression_project_projection_columns(
         self,
         required_columns: tuple[str, ...],
     ) -> tuple[str, ...] | None:
-        if not self.source.schema:
+        projection_columns = self._unary_projection_columns()
+        if projection_columns is None:
             return None
-        declared_columns = tuple(name for name, _dtype in self.source.schema)
-        if not declared_columns or any(not _is_sql_identifier(name) for name in declared_columns):
-            return None
-        projection_columns = declared_columns
-        for operation in self.operations:
-            if operation.kind == "select":
-                if any(not _is_sql_identifier(value) for value in operation.values):
-                    return None
-                projection_columns = operation.values
-            elif operation.kind in {"set_index", "filter"}:
-                continue
-            else:
-                return None
         required = tuple(dict.fromkeys(required_columns))
         if any(not _is_sql_identifier(column) for column in required):
             return None
-        if any(column not in projection_columns for column in required):
+        if projection_columns != ("*",) and any(column not in projection_columns for column in required):
             return None
         return projection_columns
 
@@ -10309,27 +10232,15 @@ class LazyFrame:
         self,
         subset: object | None,
     ) -> tuple[str, ...] | None:
-        if not self.source.schema:
+        projection_columns = self._unary_projection_columns()
+        if projection_columns is None:
             return None
-        declared_columns = tuple(name for name, _dtype in self.source.schema)
-        if not declared_columns or any(not _is_sql_identifier(name) for name in declared_columns):
-            return None
-        projection_columns = declared_columns
-        for operation in self.operations:
-            if operation.kind == "select":
-                if any(not _is_sql_identifier(value) for value in operation.values):
-                    return None
-                projection_columns = operation.values
-            elif operation.kind == "set_index":
-                continue
-            else:
-                return None
         if subset is None:
             return projection_columns
         subset_columns = _normalize_columns((subset,))
         if not subset_columns or any(not _is_sql_identifier(column) for column in subset_columns):
             return None
-        missing = tuple(column for column in subset_columns if column not in projection_columns)
+        missing = tuple(column for column in subset_columns if column not in projection_columns) if projection_columns != ("*",) else ()
         if missing:
             raise ValueError(
                 "duplicated subset referenced unknown declared/projection column(s): "
@@ -10346,7 +10257,13 @@ class LazyFrame:
         projection_columns = self._expression_project_projection_columns(required_columns)
         if projection_columns is None:
             return None
-        schema = self.source.schema_map
+        # Declared source types remain hints only while stages preserve those
+        # fields. Derived expressions bind their types in the native executor.
+        schema = self.source.schema_map if all(
+            operation.kind in {"filter", "select", "set_index", "sort", "limit", "tail", "sample", "distinct", "drop_duplicates"}
+            and (operation.kind != "select" or all(_is_sql_identifier(value) for value in operation.values))
+            for operation in self.operations
+        ) else {}
         rewrites: list[dict[str, object]] = []
         for spec in rewrite_specs:
             kind = str(spec.get("kind", "")).strip()
@@ -10366,8 +10283,6 @@ class LazyFrame:
                 )
                 continue
             target_dtype = schema.get(target_column)
-            if target_dtype is None:
-                return None
             if kind == "mask_scalar":
                 predicate = str(spec.get("predicate", "")).strip()
                 replacement = _vortex_expression_scalar_payload(
@@ -10405,11 +10320,11 @@ class LazyFrame:
                     }
                 )
             elif kind == "string_replace_scalar":
-                dtype = target_dtype.strip().lower().replace("-", "_")
+                dtype = target_dtype.strip().lower().replace("-", "_") if target_dtype else None
                 needle = spec.get("needle")
                 replacement = spec.get("replacement")
                 if (
-                    dtype not in {"utf8", "string", "str"}
+                    dtype not in {None, "utf8", "string", "str"}
                     or not isinstance(needle, str)
                     or needle == ""
                     or not isinstance(replacement, str)
@@ -10424,11 +10339,11 @@ class LazyFrame:
                     }
                 )
             elif kind == "regex_replace_scalar":
-                dtype = target_dtype.strip().lower().replace("-", "_")
+                dtype = target_dtype.strip().lower().replace("-", "_") if target_dtype else None
                 pattern = spec.get("pattern")
                 replacement = spec.get("replacement")
                 if (
-                    dtype not in {"utf8", "string", "str"}
+                    dtype not in {None, "utf8", "string", "str"}
                     or not isinstance(pattern, str)
                     or pattern == ""
                     or not isinstance(replacement, str)
@@ -10477,7 +10392,7 @@ class LazyFrame:
         if not rewrites:
             return None
         payload = {
-            "columns": list(projection_columns),
+            "columns": "*" if projection_columns == ("*",) else list(projection_columns),
             "rewrites": rewrites,
         }
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -10505,7 +10420,7 @@ class LazyFrame:
         limit: int | None,
     ) -> str | None:
         projection_columns = self._expression_project_projection_columns(())
-        if projection_columns is None:
+        if projection_columns is None or projection_columns == ("*",):
             return None
         return self._expression_project_payload(
             tuple(
@@ -10839,8 +10754,8 @@ class LazyFrame:
         self,
         id_vars: object,
     ) -> tuple[str, ...] | None:
-        projection_columns = self._projection_columns_for_schema_or_explicit_selection()
-        if projection_columns is None:
+        projection_columns = self._unary_projection_columns()
+        if projection_columns is None or projection_columns == ("*",):
             return None
         try:
             id_columns = _normalize_columns((id_vars,))
@@ -10858,15 +10773,6 @@ class LazyFrame:
             column for column in projection_columns if column not in set(id_columns)
         )
         if not value_columns:
-            return None
-        schema = self.source.schema_map
-        if any(column not in schema for column in value_columns):
-            return None
-        dtypes = {
-            schema[column].strip().lower().replace("-", "_")
-            for column in value_columns
-        }
-        if len(dtypes) != 1:
             return None
         return value_columns
 
@@ -11038,8 +10944,9 @@ class LazyFrame:
 
         if self._has_structured_binary_export_shape():
             return None
-        if any(operation.kind in {"expression_project", "set_index"} for operation in self.operations):
-            ordinary = tuple(operation for operation in self.operations if operation.kind not in {"expression_project", "set_index"})
+        unary = {"expression_project", "set_index", "distinct", "tail", "sample", "drop_duplicates", "duplicate_mask", "melt", "rolling_window"}
+        if any(operation.kind in unary for operation in self.operations):
+            ordinary = tuple(operation for operation in self.operations if operation.kind not in unary)
             if flat_order_is_safe(ordinary):
                 native = self
                 if self.source.source_format != "vortex":
@@ -13438,6 +13345,101 @@ def _normalize_sample_weight_column(weights: object | None) -> str | None:
     return column
 
 
+def _sample_operation_parts(
+    values: tuple[str, ...],
+) -> tuple[int | None, float | None, int, bool, str | None] | None:
+    """One declaration parser for standalone and composed native sampling."""
+    sample_count = None
+    sample_fraction = None
+    sample_seed = 0
+    sample_with_replacement = False
+    sample_weight_column = None
+    try:
+        if any("=" in value for value in values):
+            parsed_sample: int | None = None
+            parsed_fraction: float | None = None
+            parsed_seed = 0
+            parsed_replacement = False
+            parsed_weight_column: str | None = None
+            for value in values:
+                if value in {"replacement", "replace=true"}:
+                    if parsed_replacement:
+                        return None
+                    parsed_replacement = True
+                elif value.startswith("n="):
+                    if parsed_sample is not None:
+                        return None
+                    parsed_sample = int(value.removeprefix("n="))
+                elif value.startswith("fraction=") or value.startswith("frac="):
+                    if parsed_fraction is not None:
+                        return None
+                    _, raw_fraction = value.split("=", 1)
+                    parsed_fraction = float(raw_fraction)
+                elif value.startswith("seed=") or value.startswith("random_state="):
+                    _, raw_seed = value.split("=", 1)
+                    parsed_seed = int(raw_seed)
+                elif value.startswith("weights=") or value.startswith("weight="):
+                    if parsed_weight_column is not None:
+                        return None
+                    _, raw_weight_column = value.split("=", 1)
+                    if not _is_sql_identifier(raw_weight_column):
+                        return None
+                    parsed_weight_column = raw_weight_column
+                else:
+                    return None
+            if (parsed_sample is None) == (parsed_fraction is None):
+                return None
+            if parsed_sample is not None and parsed_sample <= 0:
+                return None
+            if parsed_fraction is not None and (
+                not math.isfinite(parsed_fraction)
+                or parsed_fraction <= 0
+                or parsed_fraction > 1
+            ):
+                return None
+            if parsed_seed < 0:
+                return None
+            sample_count = parsed_sample
+            sample_fraction = parsed_fraction
+            sample_seed = parsed_seed
+            sample_with_replacement = parsed_replacement
+            sample_weight_column = parsed_weight_column
+        elif values and values[0] == "fraction":
+            if len(values) < 2:
+                return None
+            parsed_fraction = float(values[1])
+            parsed_seed = int(values[2]) if len(values) > 2 else 0
+            parsed_replacement = (
+                len(values) > 3 and values[3] == "replacement"
+            )
+            if len(values) > (4 if parsed_replacement else 3):
+                return None
+            if (
+                not math.isfinite(parsed_fraction)
+                or parsed_fraction <= 0
+                or parsed_fraction > 1
+                or parsed_seed < 0
+            ):
+                return None
+            sample_fraction = parsed_fraction
+            sample_seed = parsed_seed
+            sample_with_replacement = parsed_replacement
+        else:
+            parsed_sample = int(values[0])
+            parsed_seed = int(values[1]) if len(values) > 1 else 0
+            parsed_replacement = len(values) > 2 and values[2] == "replacement"
+            if len(values) > (3 if parsed_replacement else 2):
+                return None
+            if parsed_sample <= 0 or parsed_seed < 0:
+                return None
+            sample_count = parsed_sample
+            sample_seed = parsed_seed
+            sample_with_replacement = parsed_replacement
+    except (ValueError, TypeError, IndexError):
+        return None
+    return sample_count, sample_fraction, sample_seed, sample_with_replacement, sample_weight_column
+
+
 def _normalize_sample_seed_alias(
     *,
     seed: int | None,
@@ -14431,9 +14433,23 @@ def _sql_literal(value: object) -> str:
 def _vortex_expression_scalar_payload(
     value: object,
     *,
-    target_dtype: str,
+    target_dtype: str | None,
     allow_null: bool = True,
 ) -> dict[str, object] | None:
+    if target_dtype is None:
+        # Literal typing is independent of input schema; native binding and
+        # checked coercion remain authoritative for the produced column.
+        if value is None:
+            return {"type": "null", "value": None} if allow_null else None
+        if isinstance(value, bool):
+            return {"type": "boolean", "value": value}
+        if isinstance(value, int) and -(1 << 63) <= value < (1 << 64):
+            return {"type": "int64" if value < (1 << 63) else "uint64", "value": value}
+        if isinstance(value, float) and math.isfinite(value):
+            return {"type": "float64", "value": value}
+        if isinstance(value, str):
+            return {"type": "utf8", "value": value}
+        return None
     dtype = target_dtype.strip().lower().replace("-", "_")
     supported_dtype = dtype in {
         "bool",
@@ -15914,7 +15930,7 @@ def _duplicate_mask_operation_parts(
             columns.append(value)
     if keep not in {"first", "last", "false"}:
         return None, "first"
-    if not columns or any(not _is_sql_identifier(column) for column in columns):
+    if not columns or (columns != ["*"] and any(not _is_sql_identifier(column) for column in columns)):
         return None, keep
     return tuple(columns), keep
 
@@ -17165,12 +17181,7 @@ def _is_sql_identifier(value: str) -> bool:
 
 def _quote_sql_local_source_path(value: str) -> str:
     path = _require_non_empty("SQL local-source path", value)
-    if "'" in path:
-        raise ValueError(
-            "SQL local-source paths containing single quotes are not supported "
-            "by the scoped Python query-builder smoke"
-        )
-    return f"'{path}'"
+    return _sql_string_literal(path)
 
 
 def _normalize_join_condition(value: object) -> str:

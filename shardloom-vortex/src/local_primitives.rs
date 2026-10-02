@@ -8569,7 +8569,9 @@ fn insert_sample_row_export_candidate(
     let Some((replace_index, lowest_score)) = selected
         .iter()
         .enumerate()
-        .min_by_key(|(_index, (candidate_score, _row_index, _row))| *candidate_score)
+        .min_by_key(|(_index, (candidate_score, row_index, _row))| {
+            (*candidate_score, std::cmp::Reverse(*row_index))
+        })
         .map(|(index, (candidate_score, _row_index, _row))| (index, *candidate_score))
     else {
         return;
@@ -8598,11 +8600,12 @@ fn insert_weighted_sample_row_export_candidate(
         .iter()
         .enumerate()
         .min_by(
-            |(_left_index, (left_score, _left_row_index, _left_row)),
-             (_right_index, (right_score, _right_row_index, _right_row))| {
+            |(_left_index, (left_score, left_row_index, _left_row)),
+             (_right_index, (right_score, right_row_index, _right_row))| {
                 left_score
                     .partial_cmp(right_score)
                     .unwrap_or(std::cmp::Ordering::Equal)
+                    .then(right_row_index.cmp(left_row_index))
             },
         )
         .map(|(index, (candidate_score, _row_index, _row))| (index, *candidate_score))
@@ -8688,7 +8691,7 @@ fn truncate_sample_candidates_to_target(
     sample_rows: &mut Vec<(u64, usize, Vec<StatValue>)>,
     target_count: usize,
 ) {
-    sample_rows.sort_by_key(|(score, _row_index, _row)| std::cmp::Reverse(*score));
+    sample_rows.sort_by_key(|(score, row_index, _row)| (std::cmp::Reverse(*score), *row_index));
     sample_rows.truncate(target_count);
     sample_rows.sort_by_key(|(_score, row_index, _row)| *row_index);
 }
@@ -8699,10 +8702,11 @@ fn truncate_weighted_sample_candidates_to_target(
     target_count: usize,
 ) {
     sample_rows.sort_by(
-        |(left_score, _left_row_index, _left_row), (right_score, _right_row_index, _right_row)| {
+        |(left_score, left_row_index, _left_row), (right_score, right_row_index, _right_row)| {
             right_score
                 .partial_cmp(left_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
+                .then(left_row_index.cmp(right_row_index))
         },
     );
     sample_rows.truncate(target_count);
@@ -8876,16 +8880,7 @@ fn expression_projection_output_columns(
     source_columns: &[String],
     expression_projection: &VortexExpressionProjectionRequest,
 ) -> Vec<String> {
-    let mut columns = source_columns.to_vec();
-    for rewrite in &expression_projection.rewrites {
-        if let VortexExpressionRewrite::RowNumber { target_column, .. } = rewrite {
-            let target = target_column.as_str();
-            if !columns.iter().any(|column| column == target) {
-                columns.push(target.to_string());
-            }
-        }
-    }
-    columns
+    expression_projection.output_columns(source_columns)
 }
 
 #[cfg(feature = "vortex-local-primitives")]

@@ -288,6 +288,86 @@ class NativeRelationalCollectionTests(unittest.TestCase):
         self.assertIn("REPLACE OR ADD (key * 2 AS key)", statement)
         self.assertIn("LIMIT 2)", statement)
 
+    def test_unary_families_compose_after_renamed_ordered_limited_inputs(self) -> None:
+        original = self.context.read_csv("input.data", schema={"key": "int64", "amount": "int64"})
+        prefix = original.sort("amount", descending=True).limit(4).select("key AS id", "amount AS value")
+        calls = [
+            (prefix.tail(2).select("id"), "TAIL"),
+            (prefix.sample(2, seed=7).select("id"), "SAMPLE"),
+            (prefix.sample(frac=0.5, weights="value", random_state=11, replace=True).select("id"), "SAMPLE"),
+            (prefix.drop_duplicates("id", keep="last").select("value"), "DROP_DUPLICATES"),
+            (prefix.duplicated("id", keep=False).select("duplicated"), "DUPLICATED"),
+            (prefix.mask(sl.col("value") < 3, 0).select("value"), "REWRITE"),
+            (prefix.fillna(method="ffill", limit=2).select("value"), "REWRITE"),
+            (prefix.replace({"value": {3: 9}}).select("value"), "REWRITE"),
+            (prefix.reset_index().select("index", "id"), "REWRITE"),
+            (prefix.melt(id_vars="id").select("variable", "value"), "MELT"),
+            (prefix.rolling(2, min_periods=1, center=True).sum("value", alias="total").select("total"), "ROLLING"),
+        ]
+        for workflow, function in calls:
+            with self.subTest(function=function, operations=workflow.operations):
+                statement = workflow._native_relational_statement()
+                self.assertIn(f"FROM {function}((", statement)
+                self.assertIn("LIMIT 4)", statement)
+                self.assertIn("key AS id,amount AS value", statement)
+                with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run, mock.patch.object(self.client, "vortex_prepare") as prepare:
+                    workflow.collect(check=True, memory_gb=3, max_parallelism=2)
+                    self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+                    self.assertEqual(run.call_args.kwargs["source_bindings"], {"input.data": {"input_format": "csv", "source_schema": original.source.schema}})
+                    self.assertEqual(run.call_args.kwargs["memory_gb"], 3)
+                    self.assertEqual(run.call_args.kwargs["max_parallelism"], 2)
+                    prepare.assert_not_called()
+
+    def test_successive_unary_stages_share_output_names_and_keep_their_positions(self) -> None:
+        source = self.context.read_csv("input.csv", schema={"id": "int64", "value": "int64"})
+        suffix = source.sort("value").limit(4).tail(2)
+        result = suffix.drop_duplicates("id").reset_index().fillna(method="ffill")
+        statement = result._relation_statement()
+        self.assertEqual(statement.count("FROM REWRITE(("), 2)
+        self.assertIn("FROM DROP_DUPLICATES((SELECT * FROM TAIL((", statement)
+        self.assertIn('"target_column":"index"', statement)
+        self.assertIn('"columns":["id","value","index"]', statement)
+        left = source.tail(2).limit(1)._relation_statement()
+        right = source.limit(1).tail(2)._relation_statement()
+        self.assertIn("TAIL((SELECT * FROM 'input.csv'), 2)", left)
+        self.assertTrue(left.endswith("LIMIT 1"))
+        self.assertIn("LIMIT 1), 2)", right)
+        indexed = suffix.melt(id_vars="id", value_vars="value", ignore_index=False)
+        self.assertIn('"id_columns":["index","id"]', indexed._relation_statement())
+
+    def test_unary_rendering_retains_escaped_json_and_join_set_operands(self) -> None:
+        source = self.context.read_csv("o'clock.data", schema={"key": "utf8", "value": "utf8"})
+        changed = source.sort("key").limit(3).replace({"value": {"isn't,(join)": "it's fine"}})
+        statement = changed._relation_statement()
+        self.assertIn("o''clock.data", statement)
+        self.assertIn("isn''t,(join)", statement)
+        self.assertIn("it''s fine", statement)
+        right = self.context.read_vortex("right.vortex").select("key").tail(2)
+        for result in [changed.join(right, on="key").select("f.key"), changed.select("key").union_all(right)]:
+            statement = result._relation_statement()
+            self.assertIn("TAIL((", statement)
+            self.assertIn("REWRITE((", statement)
+            with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run:
+                for extension in ["vortex", "json", "jsonl", "csv", "parquet", "arrow_ipc", "avro", "orc"]:
+                    getattr(result, f"write_{extension}")(f"out.{extension}", check=True)
+                    self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+                    self.assertEqual(set(run.call_args.kwargs["source_bindings"]), {"o'clock.data", "right.vortex"})
+
+    def test_unary_binds_unknown_schemas_natively_without_preparation(self) -> None:
+        source = self.context.read_vortex("missing.vortex").limit(3)
+        with mock.patch.object(self.client, "public_workflow_run") as run, mock.patch.object(self.client, "vortex_prepare") as prepare:
+            for result in [source.drop_duplicates(), source.duplicated(), source.mask(sl.col("x") > 0, 0), source.reset_index()]:
+                self.assertIsNotNone(result._native_relational_statement())
+            run.assert_not_called()
+            prepare.assert_not_called()
+
+    def test_standalone_unary_strategies_remain_selected_where_order_is_admitted(self) -> None:
+        source = self.context.read_vortex("input.vortex", schema={"id": "int64", "value": "int64"})
+        for result in [source.tail(2), source.select("id").sample(2, seed=7), source.drop_duplicates("id").limit(2), source.duplicated("id").limit(2), source.reset_index().limit(2), source.melt(id_vars="id", value_vars="value").limit(2), source.rolling(2).sum("value").limit(2)]:
+            with self.subTest(operations=result.operations):
+                self.assertIsNotNone(result._vortex_primitive_shape())
+                self.assertIsNone(result._native_relational_statement())
+
 
 if __name__ == "__main__":
     unittest.main()

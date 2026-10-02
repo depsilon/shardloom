@@ -28,15 +28,16 @@ impl PreparedVortexUnary {
         cancellation: &CancellationToken,
     ) -> Result<VortexLocalPrimitiveRowExportReport> {
         let uri = self
+            .bound
             .request
             .source_uri
             .as_ref()
             .ok_or_else(|| failed("source URI is absent"))?;
-        let source_path = super::super::local_vortex_path(uri, self.request.kind)?
+        let source_path = super::super::local_vortex_path(uri, self.bound.request.kind)?
             .map(std::fs::canonicalize)
             .transpose()
             .map_err(super::vortex_error)?;
-        if self.pivot.is_some() {
+        if self.bound.pivot.is_some() {
             return self
                 .source
                 .with_native_execution_controlled(cancellation, |file, context| {
@@ -61,7 +62,7 @@ impl PreparedVortexUnary {
                         if delivered {
                             return Err(failed("pivot result producer was invoked twice"));
                         }
-                        completed.emit(self, context, batch_rows, &mut |array| {
+                        completed.emit(&self.bound, context, batch_rows, &mut |array| {
                             if !consume(array)? {
                                 return Err(failed(
                                     "pivot result consumer stopped before completion",
@@ -74,7 +75,7 @@ impl PreparedVortexUnary {
                     };
                     let report = super::super::completed_result::write_stream_admitted(
                         plan,
-                        &self.request,
+                        &self.bound.request,
                         path,
                         format,
                         allow_overwrite,
@@ -92,7 +93,7 @@ impl PreparedVortexUnary {
         let upper_rows = self.upper_output_rows()?;
         let plan = super::super::native_sink::NativeSinkPlan::produced(
             self.session.clone(),
-            super::DType::struct_(self.fields.clone(), super::Nullability::NonNullable),
+            super::DType::struct_(self.bound.fields.clone(), super::Nullability::NonNullable),
             upper_rows,
             source_path,
             Some(self.source.clone()),
@@ -117,7 +118,7 @@ impl PreparedVortexUnary {
             };
         let report = super::super::completed_result::write_stream(
             plan,
-            &self.request,
+            &self.bound.request,
             path,
             format,
             allow_overwrite,
@@ -143,16 +144,18 @@ impl PreparedVortexUnary {
             .source_order_limit_input_rows
             .unwrap_or(report.rows_written);
         if let Some(evidence) = report.evidence.native_array_sink.as_mut() {
-            evidence.pre_limit_result_row_count_exact = self.request.source_order_limit.is_none()
-                || matches!(
-                    self.request.kind,
-                    super::VortexQueryPrimitiveKind::TailRows
-                        | super::VortexQueryPrimitiveKind::SampleRows
-                        | super::VortexQueryPrimitiveKind::PivotRows
-                )
-                || (self.request.kind == super::VortexQueryPrimitiveKind::DropDuplicateRows
-                    && self.request.duplicate_keep
-                        != super::super::VortexDuplicateKeepPolicy::First);
+            evidence.pre_limit_result_row_count_exact =
+                self.bound.request.source_order_limit.is_none()
+                    || matches!(
+                        self.bound.request.kind,
+                        super::VortexQueryPrimitiveKind::TailRows
+                            | super::VortexQueryPrimitiveKind::SampleRows
+                            | super::VortexQueryPrimitiveKind::PivotRows
+                    )
+                    || (self.bound.request.kind
+                        == super::VortexQueryPrimitiveKind::DropDuplicateRows
+                        && self.bound.request.duplicate_keep
+                            != super::super::VortexDuplicateKeepPolicy::First);
         }
         report.state_budget = execution.state_budget;
         report.physical_policy = execution.physical_policy;
@@ -172,23 +175,23 @@ impl PreparedVortexUnary {
 
     fn upper_output_rows(&self) -> Result<u64> {
         let source_rows = self.source.file().row_count();
-        if self.request.kind == super::VortexQueryPrimitiveKind::ExplodeRows {
+        if self.bound.request.kind == super::VortexQueryPrimitiveKind::ExplodeRows {
             // Variable list lengths are discovered during execution. The writer
             // grows reserved metadata by actual batches; no guessed expansion
             // factor or source-row count may truncate the native result.
-            return Ok(self.request.source_order_limit.unwrap_or(usize::MAX) as u64);
+            return Ok(self.bound.request.source_order_limit.unwrap_or(usize::MAX) as u64);
         }
-        if self.request.kind == super::VortexQueryPrimitiveKind::SampleRows {
+        if self.bound.request.kind == super::VortexQueryPrimitiveKind::SampleRows {
             return super::super::sample_target_count(
-                &self.request,
+                &self.bound.request,
                 usize::try_from(source_rows).map_err(super::vortex_error)?,
             )
             .and_then(|rows| u64::try_from(rows).map_err(super::vortex_error));
         }
-        let upper_rows = if self.request.kind == super::VortexQueryPrimitiveKind::MeltRows {
+        let upper_rows = if self.bound.request.kind == super::VortexQueryPrimitiveKind::MeltRows {
             source_rows
                 .checked_mul(
-                    super::super::required_melt_projection(&self.request)?
+                    super::super::required_melt_projection(&self.bound.request)?
                         .value_columns
                         .len() as u64,
                 )
@@ -197,7 +200,8 @@ impl PreparedVortexUnary {
             source_rows
         };
         Ok(upper_rows.min(
-            self.request
+            self.bound
+                .request
                 .source_order_limit
                 .map_or(u64::MAX, |n| n as u64),
         ))

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from dataclasses import dataclass
+import json
 import re
 
 if TYPE_CHECKING:
@@ -37,17 +39,28 @@ def computed_projection(
     return projection if name in columns else (*projection, f"{expression} AS {name}")
 
 
-def render_frame(frame: LazyFrame) -> str | None:
+@dataclass(frozen=True)
+class RenderedStages:
+    statement: str
+    columns: tuple[str, ...] | None
+
+
+def frame_stages(frame: LazyFrame) -> RenderedStages | None:
     # Deferred import keeps the public dataclasses in query.py as the sole owners.
     from . import query as q
 
     if not (q._is_declared_local_source(frame.source) or frame.source.source_format == "vortex"):
         return None
-    return render_stages(
+    return _render_stages(
         f"SELECT * FROM {q._quote_sql_local_source_path(frame.source.uri)}",
         frame.operations,
         tuple(name for name, _dtype in frame.source.schema) or None,
     )
+
+
+def render_frame(frame: LazyFrame) -> str | None:
+    rendered = frame_stages(frame)
+    return rendered.statement if rendered is not None else None
 
 
 def _output_names(
@@ -74,6 +87,14 @@ def render_stages(
     statement: str, operations: tuple[WorkflowOperation, ...],
     columns: tuple[str, ...] | None = None,
 ) -> str | None:
+    rendered = _render_stages(statement, operations, columns)
+    return rendered.statement if rendered is not None else None
+
+
+def _render_stages(
+    statement: str, operations: tuple[WorkflowOperation, ...],
+    columns: tuple[str, ...] | None = None,
+) -> RenderedStages | None:
     from . import query as q
 
     statement = statement.strip().removesuffix(";").strip()
@@ -107,7 +128,7 @@ def render_stages(
             if not aggregate_stage:
                 return None
             statement += f" HAVING {values[0]}"
-        elif kind in {"select", "expression_project"}:
+        elif kind == "select" or (kind == "expression_project" and operation.projection_sql is not None):
             projection = values if kind == "select" else operation.projection_sql
             if projection is None:
                 return None
@@ -139,6 +160,44 @@ def render_stages(
             statement = f"SELECT * FROM {source} LIMIT {values[0]}"
         elif kind == "distinct":
             statement = f"SELECT DISTINCT * FROM {source}"
+        elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window"}:
+            if kind == "tail":
+                function, argument = "TAIL", values[0]
+            elif kind == "sample":
+                parts = q._sample_operation_parts(values)
+                if parts is None:
+                    return None
+                count, fraction, seed, replace, weights = parts
+                payload = {"seed": seed, "replace": replace}
+                payload["n" if count is not None else "fraction"] = count if count is not None else fraction
+                if weights is not None:
+                    payload["weights"] = weights
+                function, argument = "SAMPLE", q._sql_string_literal(json.dumps(payload, separators=(",", ":")))
+            elif kind in {"drop_duplicates", "duplicate_mask"}:
+                keys, keep = q._duplicate_mask_operation_parts(values)
+                if keys is None:
+                    return None
+                function = "DROP_DUPLICATES" if kind == "drop_duplicates" else "DUPLICATED"
+                argument = f"{q._sql_string_literal(','.join(keys))}, {q._sql_string_literal(keep)}"
+                if kind == "duplicate_mask":
+                    columns = ("duplicated",)
+            else:
+                payload = json.loads(values[0])
+                function = {"expression_project": "REWRITE", "melt": "MELT", "rolling_window": "ROLLING"}[kind]
+                argument = q._sql_string_literal(values[0])
+                if kind == "expression_project":
+                    selected = payload["columns"]
+                    if selected != "*":
+                        columns = tuple(selected.split(",") if isinstance(selected, str) else selected)
+                    if columns is not None:
+                        for rewrite in payload["rewrites"]:
+                            if rewrite["kind"] == "row_number" and rewrite["target_column"] not in columns:
+                                columns = (*columns, rewrite["target_column"])
+                elif kind == "melt":
+                    columns = (*payload["id_columns"], payload["variable_column"], payload["value_column"])
+                else:
+                    columns = (payload["output_column"],)
+            statement = f"SELECT * FROM {function}(({statement}), {argument}) AS _sl_stage_{index}"
         elif kind == "join":
             if len(values) not in (6, 7):
                 return None
@@ -172,4 +231,4 @@ def render_stages(
         else:
             return None
         aggregate_stage = kind == "aggregate"
-    return statement if group_by is None else None
+    return RenderedStages(statement, columns) if group_by is None else None

@@ -97,6 +97,28 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::Sort(sort) => self.sort(sort, depth),
             VortexRelationalPlan::Limit(limit) => self.limit(limit, depth),
             VortexRelationalPlan::Aggregate(aggregate) => self.aggregate(aggregate, depth),
+            VortexRelationalPlan::Unary(unary) => {
+                let input = Box::new(self.bind(&unary.input, depth + 1)?);
+                let operation = BoundUnary::for_relation(
+                    &unary.request,
+                    &DType::struct_(input.fields.clone(), Nullability::NonNullable),
+                    self.session.memory(),
+                )?;
+                validate_width(operation.fields().len())?;
+                for (name, dtype) in operation.fields() {
+                    validate_name(name)?;
+                    validate_scalar(dtype)?;
+                }
+                validate_unique(operation.fields())?;
+                self.charge(operation.fields().len() * 4096)?;
+                Ok(Node {
+                    fields: operation.fields().to_vec(),
+                    kind: NodeKind::Unary {
+                        input,
+                        operation: Box::new(operation),
+                    },
+                })
+            }
         }
     }
 

@@ -1,8 +1,8 @@
 //! Seed-compatible bounded top-k sampling and explicitly budgeted replacement population.
 
 use super::{
-    BATCH_ROWS, NativeBatch, NativeExecutionContext, PreparedVortexUnary, ReservedVec, Result,
-    UnaryOutput, Value, failed, values::OwnedRow,
+    BATCH_ROWS, BoundUnary, NativeBatch, NativeExecutionContext, ReservedVec, Result, UnaryOutput,
+    Value, failed, values::OwnedRow,
 };
 use std::{borrow::Borrow as _, cmp::Ordering};
 
@@ -23,7 +23,6 @@ impl Score {
 
 struct Candidate {
     score: Score,
-    slot: usize,
     ordinal: usize,
     cumulative_weight: f64,
     row: Option<OwnedRow>,
@@ -51,16 +50,25 @@ impl Sample {
         }
     }
     pub(super) fn new(
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
-        rows: u64,
+        rows: Option<u64>,
     ) -> Result<Self> {
         Ok(Self {
             candidates: ReservedVec::new(context.memory())?,
-            cap: super::super::sample_target_count(
-                &plan.request,
-                usize::try_from(rows).map_err(super::vortex_error)?,
-            )?,
+            cap: match rows {
+                Some(rows) => super::super::sample_target_count(
+                    &plan.request,
+                    usize::try_from(rows).map_err(super::vortex_error)?,
+                )?,
+                // An unknown fractional population must be retained under the
+                // same grant; sampling never executes its input twice.
+                None if plan.request.sample_fraction.is_some() => usize::MAX,
+                None => plan
+                    .request
+                    .source_order_limit
+                    .ok_or_else(|| failed("sample count is absent"))?,
+            },
             seen: 0,
             total_weight: 0.0,
         })
@@ -68,7 +76,7 @@ impl Sample {
 
     pub(super) fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,
@@ -109,7 +117,6 @@ impl Sample {
                 self.candidates.reserve_one()?;
                 self.candidates.values.push(Candidate {
                     score,
-                    slot: ordinal,
                     ordinal,
                     cumulative_weight: self.total_weight,
                     row: payload
@@ -121,7 +128,6 @@ impl Sample {
                 let slot = self.candidates.values.len();
                 self.candidates.values.push(Candidate {
                     score,
-                    slot,
                     ordinal,
                     cumulative_weight: 0.0,
                     row: payload
@@ -132,10 +138,8 @@ impl Sample {
             } else if self.cap > 0
                 && score.cmp(self.candidates.values[0].score) == Ordering::Greater
             {
-                let slot = self.candidates.values[0].slot;
                 self.candidates.values[0] = Candidate {
                     score,
-                    slot,
                     ordinal,
                     cumulative_weight: 0.0,
                     row: payload
@@ -148,12 +152,12 @@ impl Sample {
         Ok(())
     }
 
-    // Original selection replaces the first lowest-scoring slot. Carry that
-    // slot through heap swaps so ties preserve the existing exact seed contract.
+    // The later input ordinal is the worse tied candidate. This total ordering
+    // makes fractional selection independent of conservative/unknown row bounds.
     fn less(&self, a: usize, b: usize) -> bool {
         let a = &self.candidates.values[a];
         let b = &self.candidates.values[b];
-        a.score.cmp(b.score).then(a.slot.cmp(&b.slot)) == Ordering::Less
+        a.score.cmp(b.score).then(b.ordinal.cmp(&a.ordinal)) == Ordering::Less
     }
     fn sift_up(&mut self, mut child: usize) {
         while child > 0 {
@@ -188,7 +192,7 @@ impl Sample {
 
     pub(super) fn finish(
         mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<usize> {
@@ -196,7 +200,7 @@ impl Sample {
         if !plan.request.sample_with_replacement {
             self.candidates
                 .values
-                .sort_unstable_by(|a, b| b.score.cmp(a.score).then(a.slot.cmp(&b.slot)));
+                .sort_unstable_by(|a, b| b.score.cmp(a.score).then(a.ordinal.cmp(&b.ordinal)));
             self.candidates.values.truncate(target);
             self.candidates
                 .values

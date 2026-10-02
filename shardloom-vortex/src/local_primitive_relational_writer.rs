@@ -3,8 +3,7 @@
 use super::super::{VortexLocalPrimitiveRowExportFormat, VortexLocalPrimitiveRowExportReport};
 use super::{
     ArrayRef, BATCH_ROWS, CancellationToken, ExecutedVortexRelational, NativeExecutionContext,
-    Node, NodeKind, PreparedVortexRelational, Result, SetKind, VortexQueryPrimitiveRequest, failed,
-    vortex_error,
+    PreparedVortexRelational, Result, VortexQueryPrimitiveRequest, failed, vortex_error,
 };
 use shardloom_core::{ColumnRef, DatasetUri};
 
@@ -57,7 +56,7 @@ impl PreparedVortexRelational {
         let plan = super::super::native_sink::NativeSinkPlan::produced_sources(
             self.session.clone(),
             self.output_dtype(),
-            self.upper_rows(&self.root),
+            self.root.upper_rows(&self.sources).unwrap_or(u64::MAX),
             None,
             self.sources.clone(),
         )?;
@@ -118,55 +117,5 @@ impl PreparedVortexRelational {
         output.rows_scanned = execution.scan_rows_delivered;
         output.arrays_read_count = arrays_read;
         Ok(WrittenVortexRelational { execution, output })
-    }
-
-    fn upper_rows(&self, node: &Node) -> u64 {
-        match &node.kind {
-            NodeKind::Outer => 1,
-            NodeKind::Scan { source, .. } => self.sources[*source].file().row_count(),
-            NodeKind::Aggregate { input, spec } => {
-                if spec.group_names.is_empty() {
-                    1
-                } else {
-                    self.upper_rows(input)
-                }
-            }
-            NodeKind::Window { input, .. }
-            | NodeKind::Subquery { input, .. }
-            | NodeKind::Project { input, .. }
-            | NodeKind::Filter { input, .. }
-            | NodeKind::Sort { input, .. } => self.upper_rows(input),
-            NodeKind::Limit {
-                input,
-                offset,
-                count,
-            } => self
-                .upper_rows(input)
-                .saturating_sub(*offset as u64)
-                .min(*count as u64),
-            NodeKind::Join { left, right, spec } => {
-                use crate::relational_query::VortexRelationalJoinKind as Kind;
-                let left = self.upper_rows(left);
-                let right = self.upper_rows(right);
-                match spec.kind {
-                    Kind::LeftSemi | Kind::LeftAnti => left,
-                    Kind::Inner | Kind::Cross => left.saturating_mul(right),
-                    Kind::Left => left.saturating_mul(right).max(left),
-                    Kind::Right => left.saturating_mul(right).max(right),
-                    Kind::Full => left
-                        .saturating_mul(right)
-                        .saturating_add(left)
-                        .saturating_add(right),
-                }
-            }
-            NodeKind::Set {
-                left, right, kind, ..
-            } => match kind {
-                SetKind::UnionAll | SetKind::UnionDistinct => {
-                    self.upper_rows(left).saturating_add(self.upper_rows(right))
-                }
-                SetKind::Intersect | SetKind::Except => self.upper_rows(left),
-            },
-        }
     }
 }

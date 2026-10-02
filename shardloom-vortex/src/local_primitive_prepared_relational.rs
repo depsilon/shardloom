@@ -8,8 +8,9 @@ use super::{
     native_relational_batch::{failed, index_array, take_column},
     native_relational_expression, native_relational_join,
     native_relational_set::RowSet,
-    native_relational_sort, native_relational_subquery, native_relational_window, result_batch,
-    vortex_error,
+    native_relational_sort, native_relational_subquery, native_relational_window,
+    prepared_unary::BoundUnary,
+    result_batch, vortex_error,
 };
 use crate::{
     relational_query::{VortexRelationalPlan, VortexRelationalSetKind as SetKind},
@@ -110,8 +111,75 @@ struct Node {
     kind: NodeKind,
 }
 
+impl Node {
+    /// Propagate only conservative bounds from already held metadata. An
+    /// overflowing or unknown bound stays unknown; no input is sampled/replayed.
+    fn upper_rows(&self, sources: &[PreparedVortexSource]) -> Option<u64> {
+        use crate::relational_query::VortexRelationalJoinKind as JoinKind;
+        match &self.kind {
+            NodeKind::Outer => Some(1),
+            NodeKind::Scan { source, .. } => Some(sources[*source].file().row_count()),
+            NodeKind::Project { input, .. }
+            | NodeKind::Filter { input, .. }
+            | NodeKind::Sort { input, .. }
+            | NodeKind::Window { input, .. }
+            | NodeKind::Subquery { input, .. } => input.upper_rows(sources),
+            NodeKind::Unary { input, operation } => {
+                operation.upper_output_rows(input.upper_rows(sources))
+            }
+            NodeKind::Aggregate { input, spec } => {
+                if spec.groups.is_empty() {
+                    Some(1)
+                } else {
+                    input.upper_rows(sources)
+                }
+            }
+            NodeKind::Limit {
+                input,
+                offset,
+                count,
+            } => Some(input.upper_rows(sources).map_or(*count as u64, |rows| {
+                rows.saturating_sub(*offset as u64).min(*count as u64)
+            })),
+            NodeKind::Set {
+                left, right, kind, ..
+            } => match kind {
+                SetKind::UnionAll | SetKind::UnionDistinct => left
+                    .upper_rows(sources)?
+                    .checked_add(right.upper_rows(sources)?),
+                SetKind::Except => left.upper_rows(sources),
+                SetKind::Intersect => match (left.upper_rows(sources), right.upper_rows(sources)) {
+                    (Some(left), Some(right)) => Some(left.min(right)),
+                    (left, right) => left.or(right),
+                },
+            },
+            NodeKind::Join { left, right, spec } => {
+                if matches!(spec.kind, JoinKind::LeftSemi | JoinKind::LeftAnti) {
+                    return left.upper_rows(sources);
+                }
+                let left = left.upper_rows(sources)?;
+                let right = right.upper_rows(sources)?;
+                match spec.kind {
+                    JoinKind::Inner | JoinKind::Cross => left.checked_mul(right),
+                    JoinKind::Left => left.checked_mul(right.max(1)),
+                    JoinKind::Right => left.max(1).checked_mul(right),
+                    JoinKind::Full => left
+                        .checked_mul(right)?
+                        .checked_add(left)?
+                        .checked_add(right),
+                    JoinKind::LeftSemi | JoinKind::LeftAnti => Some(left),
+                }
+            }
+        }
+    }
+}
+
 enum NodeKind {
     Outer,
+    Unary {
+        input: Box<Node>,
+        operation: Box<BoundUnary>,
+    },
     Aggregate {
         input: Box<Node>,
         spec: native_relational_aggregate::Spec,
@@ -286,6 +354,20 @@ struct Metrics {
     scans_pruned: Cell<u64>,
     data_scans: Cell<u64>,
     residual_batches: Cell<u64>,
+    unary_stages: Cell<u64>,
+    unary_state_items: Cell<u64>,
+    unary_population_retention: Cell<u64>,
+}
+
+impl Metrics {
+    fn record_unary(&self, state_items: usize, all_input_retained: bool) -> Result<()> {
+        add(&self.unary_stages, 1)?;
+        add(&self.unary_state_items, state_items as u64)?;
+        add(
+            &self.unary_population_retention,
+            u64::from(all_input_retained),
+        )
+    }
 }
 
 fn add(counter: &Cell<u64>, value: u64) -> Result<()> {
@@ -512,6 +594,16 @@ impl PreparedVortexRelational {
     ) -> Result<()> {
         context.check_cancelled()?;
         match &node.kind {
+            NodeKind::Unary { input, operation } => {
+                let usage = operation.consume_relation(
+                    context,
+                    input.upper_rows(&self.sources),
+                    batch_rows,
+                    |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                    consume,
+                )?;
+                metrics.record_unary(usage.items, usage.all_input_retained)
+            }
             NodeKind::Outer => {
                 let array = parameter.ok_or_else(|| failed("outer row binding is absent"))?;
                 if array.len() != 1

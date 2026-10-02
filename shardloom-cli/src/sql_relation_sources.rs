@@ -3,6 +3,9 @@
 use super::*;
 use std::sync::Arc;
 
+#[path = "sql_relation_unary.rs"]
+mod unary;
+
 pub(super) fn validate_query_structure(raw: &str) -> Result<(), ShardLoomError> {
     if raw.len() > 256 * 1024 {
         return Err(unsupported_sql_error("SQL exceeds 256 KiB"));
@@ -47,6 +50,13 @@ pub(super) fn validate_query_structure(raw: &str) -> Result<(), ShardLoomError> 
 pub(super) enum ParsedRelationSource {
     Local(ParsedRelationLeaf),
     Derived(Arc<ParsedRelationQuery>),
+    Unary(Box<ParsedRelationUnary>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct ParsedRelationUnary {
+    pub(super) input: Arc<ParsedRelationQuery>,
+    pub(super) request: shardloom_vortex::VortexQueryPrimitiveRequest,
 }
 
 /// Keep a declared table identifier distinct from an exact quoted file path.
@@ -77,7 +87,7 @@ impl ParsedRelationSource {
     pub(super) fn local_path(&self) -> Result<&Path, ShardLoomError> {
         match self {
             Self::Local(leaf) => Ok(&leaf.path),
-            Self::Derived(_) => Err(unsupported_sql_error(
+            Self::Derived(_) | Self::Unary(_) => Err(unsupported_sql_error(
                 "derived relations require the native relational runtime; decoded-reference execution is not admitted",
             )),
         }
@@ -89,6 +99,12 @@ impl std::fmt::Display for ParsedRelationSource {
         match self {
             Self::Local(leaf) => leaf.path.display().fmt(formatter),
             Self::Derived(query) => write!(formatter, "derived({})", query.statement()),
+            Self::Unary(operation) => write!(
+                formatter,
+                "unary({:?}; {})",
+                operation.request.kind,
+                operation.input.statement()
+            ),
         }
     }
 }
@@ -228,6 +244,13 @@ fn parse_source(
             ));
         }
         ParsedRelationSource::Derived(Arc::new(ParsedRelationQuery::parse(&relation[1..close])?))
+    } else if let Some(unary) = unary::parse(relation)? {
+        if alias.is_none() {
+            return Err(unsupported_sql_error(
+                "unary table expressions require AS <alias>",
+            ));
+        }
+        ParsedRelationSource::Unary(Box::new(unary))
     } else {
         ParsedRelationSource::Local(ParsedRelationLeaf::parse(relation)?)
     };

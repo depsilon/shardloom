@@ -7,9 +7,9 @@ use super::{
 };
 
 #[derive(Clone, Copy, Default)]
-pub(super) struct StateUsage {
-    pub(super) items: usize,
-    pub(super) all_input_retained: bool,
+pub(in crate::local_primitives) struct StateUsage {
+    pub(in crate::local_primitives) items: usize,
+    pub(in crate::local_primitives) all_input_retained: bool,
 }
 
 impl PreparedVortexUnary {
@@ -18,29 +18,30 @@ impl PreparedVortexUnary {
         scan: &LocalVortexScan,
         usage: StateUsage,
     ) -> Result<VortexLocalPrimitiveExecutionReport> {
-        let mut report = match self.request.kind {
-            Kind::DistinctRows => super::super::distinct_rows_report(self.request.kind, scan),
+        let mut report = match self.bound.request.kind {
+            Kind::DistinctRows => super::super::distinct_rows_report(self.bound.request.kind, scan),
             Kind::DropDuplicateRows => {
-                super::super::drop_duplicate_rows_report(scan, &self.request)
+                super::super::drop_duplicate_rows_report(scan, &self.bound.request)
             }
             Kind::DuplicateMaskRows => {
-                super::super::duplicate_mask_rows_report(scan, &self.request)
+                super::super::duplicate_mask_rows_report(scan, &self.bound.request)
             }
-            Kind::TailRows => super::super::tail_rows_report(self.request.kind, scan),
-            Kind::SampleRows => super::super::sample_rows_report(&self.request, scan),
+            Kind::TailRows => super::super::tail_rows_report(self.bound.request.kind, scan),
+            Kind::SampleRows => super::super::sample_rows_report(&self.bound.request, scan),
             Kind::RollingWindowRows => {
-                super::super::rolling_window_rows_report(&self.request, scan)
+                super::super::rolling_window_rows_report(&self.bound.request, scan)
             }
             Kind::ExpressionProjectRows => {
-                super::super::expression_project_rows_report(&self.request, scan)
+                super::super::expression_project_rows_report(&self.bound.request, scan)
             }
-            Kind::MeltRows => super::super::melt_rows_report(&self.request, scan),
-            Kind::ExplodeRows => super::super::explode_rows_report(&self.request, scan),
-            Kind::PivotRows => super::super::pivot_rows_report(&self.request, scan),
+            Kind::MeltRows => super::super::melt_rows_report(&self.bound.request, scan),
+            Kind::ExplodeRows => super::super::explode_rows_report(&self.bound.request, scan),
+            Kind::PivotRows => super::super::pivot_rows_report(&self.bound.request, scan),
             _ => Err(failed("operator report is not admitted")),
         }?
         .with_physical_policy(self.physical_policy.clone());
-        let provider_work = scan.empty_provider_filter_work(self.request.predicate.as_ref())?;
+        let provider_work =
+            scan.empty_provider_filter_work(self.bound.request.predicate.as_ref())?;
         let data_work = scan.data_read() || provider_work;
         report.full_stream_collected = usage.all_input_retained;
         report.data_read = data_work;
@@ -51,9 +52,9 @@ impl PreparedVortexUnary {
         if provider_work && let Some(summary) = &mut report.result_summary {
             summary.push_str(" scan_side_effect_scope=provider_filter_may_read_decode_materialize_not_observed_bytes");
         }
-        if self.request.kind != Kind::TailRows {
-            let family = match self.request.kind {
-                Kind::SampleRows if self.request.sample_with_replacement => {
+        if self.bound.request.kind != Kind::TailRows {
+            let family = match self.bound.request.kind {
+                Kind::SampleRows if self.bound.request.sample_with_replacement => {
                     "sample_replacement_population"
                 }
                 Kind::SampleRows => "bounded_top_k_sample_state",
