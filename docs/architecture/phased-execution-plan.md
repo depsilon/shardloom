@@ -255,18 +255,20 @@ the ledger.
   [shared unary composition contract](native-unary-composition-2026-10-02.md).
   Operation order, source declarations and one resource grant remain explicit;
   existing kernels own semantics and Python remains a declaration layer.
+  Local acceptance on `e1133f69` passes 1,963 public complete-result checks
+  (1,166 unary) and 129/129 Full43 comparisons; hosted acceptance remains pending.
   - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: reuse prepared native readers, existing unary
     state and relational traversal, checked row bounds, shared reservations and
     synchronous result ownership. Preserve applicable metadata/pruning strategies.
   - Execution checklist:
-    - [ ] Separate source binding from the shared unary operation state and admit
+    - [x] Separate source binding from the shared unary operation state and admit
       flat-scalar unary nodes in the existing native plan and resource context.
-    - [ ] Preserve tail, sample, duplicate, rewrite, melt and rolling semantics
+    - [x] Preserve tail, sample, duplicate, rewrite, melt and rolling semantics
       across preceding/following stages, including unknown cardinality and ties.
-    - [ ] Carry SQL/DataFrame stages and source declarations through common
+    - [x] Carry SQL/DataFrame stages and source declarations through common
       collect/write/inspection admission, with explicit invalid-shape denial.
-    - [ ] Prove full values, typed empties, retained ownership, pressure,
+    - [x] Prove full values, typed empties, retained ownership, pressure,
       cancellation and complete eight-writer output, then freeze workspace,
       native, Python, feature/doc, public workflow and Full43 acceptance.
     - [ ] Align references and evidence, complete review and hosted checks, and move
@@ -315,7 +317,7 @@ mixed-source normalization and declared schema propagation. Its 16-case public
 matrix passes 176 complete-result checks through all eight local writers on the
 frozen build, with 129/129 Full43 regression executions. PR #1500 merged at
 `588bf4c7` after all 40 hosted checks passed; the merged and tested trees match.
-General composition, type/adapter expansion and resource/spill obligations remain
+Wider composition, type/adapter expansion and resource/spill obligations remain
 under the same PERF owners; this continuation does not mark those whole gates complete.
 
 The [operation-order composition unit](native-relational-composition-2026-10-02.md)
@@ -325,8 +327,9 @@ inputs, transformed join/subquery operands and post-set DataFrame stages share
 the existing native plan, source preparation, resources and writers. Its component
 reuse map also governs later optimization lanes. PR #1501 merged at `71036191`
 after all 40 hosted checks passed; the tested and merged trees match. The completed
-finite implementation record is in the ledger. Wider types, separate
-unary-family composition, relational fanout and remaining resource/spill/adapter
+finite implementation record is in the ledger. The eight flat-scalar unary
+families now have the local acceptance above. Wider types, nested/dynamic unary
+composition, relational fanout and remaining resource/spill/adapter
 work stay under PERF-02/03/06/07/10/11/12. This does not complete those whole owners.
 
 September 29 scope override: the maintainer resumed the remaining ship/drop

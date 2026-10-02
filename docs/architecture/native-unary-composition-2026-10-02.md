@@ -2,7 +2,8 @@
 
 # Native unary operation composition
 
-Status: implementation contract; no new availability is claimed. This continuation
+Status: implementation and frozen-build local acceptance complete; hosted review
+and checks remain pending. This continuation
 belongs to PERF-02/03/07/10/11/12 and CG-5/20/21 in the
 [universal workflow plan](universal-workflow-completion-2026-10-01.md). It follows
 the accepted relational composition, resource and aggregate units. It does not
@@ -173,3 +174,53 @@ performance runs and package publication retain their existing owners. All new
 execution must preserve `fallback_attempted=false` and
 `external_engine_invoked=false`. Real Vortex payload proof remains distinct from
 placeholder artifacts, and CG-1 through CG-23 remain visible in the phase plan.
+
+## Local acceptance
+
+Runtime, Python and harness source is frozen at
+`e1133f6981833b461e1dd6a131385a61285c6468`, built with Rust 1.99 and
+`release-user-surfaces`. Executable SHA-256:
+`7cfffec4f65ab2df146c2d567186d7bdc8b5a2c94abd29ec9aebdd9498cfdceb`.
+
+| Check | Result |
+| --- | --- |
+| Default workspace all-target tests | 3,446 passed |
+| Native Vortex library | 2,204 passed; 23 existing ignored tests |
+| Native CLI all-target tests | 1,576 passed |
+| Python suite | 715 passed; 144 existing skips; 859 total |
+| Query comparison and paired-run harness tests | 19 passed |
+| Resident, held-out and native-output harness tests | 27 passed; 1 optional PyArrow fixture skipped |
+| Formatting, default/native strict Clippy, native-without-write, lean workspace and Rust 1.96 lean/native builds | Passed |
+
+The complete public matrix passes **1,963 checks and 3,750,635 row comparisons**,
+including **1,166 unary checks**. Its 26 basic family/policy cases run over native
+Vortex and explicitly declared nullable CSV, through SQL and DataFrame spelling,
+with two collection worker settings and all eight write/reopen paths. Additional
+fixtures cover quoted paths/predicates/JSON, Unicode and projected apostrophes,
+nullable text, extreme tied weights, replacement and fractional sampling. An
+eight-family chain produces 65,541 rows through both spellings and all eight
+writers; the same query's small collection fails at its unchanged row limit.
+The combined matrix checks 122 inert route inspections and 15 expected denials
+without output artifacts or success certificates. The focused unary run also
+passed independently on the same frozen executable.
+
+Full43 passes **129/129 complete retained-result comparisons** on that executable
+and the unchanged resident Vortex artifact. Full43 is native regression evidence;
+the new workflow fixtures specify their expected values independently. All source
+generations, executable/source hashes and complete output hashes are verified.
+This establishes finite availability and correctness, not a speedup or total RSS bound.
+
+The matrix exposed nullable rewrite literals losing their target type, sampling
+ties depending on candidate capacity, quoted SQL lexemes being decoded too early,
+UTF8 keyword lookahead panics, composed DISTINCT using grouping order, and Python
+requiring an ID column for an already admitted no-ID native melt. Focused failing
+regressions and repaired suites cover the applicable defects. One initial mask
+fixture named a different condition column and was corrected; another run stopped
+at the unchanged log ceiling. Complete earlier call artifacts were compacted
+losslessly, and later envelopes retain verified compressed and original hashes.
+
+The [portable acceptance packet](../benchmarks/evidence/native-unary-composition-2026-10-02.json.xz)
+records local validation gates, full public envelopes, frozen identities, every
+failed observation, compaction manifests and Full43 results. Later documentation
+and generated-site edits do not change the frozen runtime. Hosted CI and merge
+acceptance remain separate from this local evidence.

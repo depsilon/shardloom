@@ -108,10 +108,12 @@ writes; public write requests currently create their own admitted execution.
 All ten families reach Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV for
 supported flat scalar schemas. Source filters precede DISTINCT, deduplication,
 sampling, scalar rewrites, melt, explode, pivot and rolling computation. Public
-normalization preserves the predicate for both collection and writing. Tail and
-duplicate masks still reject a source predicate explicitly; their existing public
-unfiltered forms are covered. Filtering after an operation, arbitrary chains,
-general nested/extension results and unary state spill remain separate work.
+normalization preserves the predicate for both collection and writing. The original
+standalone tail and duplicate-mask requests reject a source predicate. The
+[October 2 composition unit](native-unary-composition-2026-10-02.md) now carries
+preceding filters and downstream consumers through eight admitted flat-scalar
+unary families in the shared relational execution. General nested/extension
+results, composed explode/dynamic pivot and unary state spill remain separate work.
 Heterogeneous scalar Variant results retain their native/text admission and do not
 gain binary compatibility admission from the flat-scalar matrix. Existing native
 structured projections and nested explode providers keep their distinct contracts.

@@ -23,10 +23,15 @@ can overlap bounded dictionary preparation with native input progress and ordere
 See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
 
 Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
-provider-backed join workflows execute today. Scoped duplicate handling, sampling, reshape,
-and source-order rolling operations also exist. Their composition, prepared execution, output,
-and spill coverage vary. General joins, set operations, analytic windows, and subqueries still
-have native coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
+provider-backed join workflows execute today. Current source builds compose eight admitted
+flat-scalar unary families—DISTINCT, duplicate removal and masks, tail, sampling, scalar
+rewrites, melt, and rolling—with native relational stages and all eight local writers.
+Operations consume the preceding stage's rows and column names while retaining source
+declarations and the operation's CPU/memory allocation. See the
+[composition scope and complete-result evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-unary-composition-2026-10-02.md).
+Nested explode, dynamic pivot, wider types and operator state spill have separate boundaries.
+General joins, set operations, analytic windows, and subqueries still have native coverage
+gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
 
 ## Local Formats
