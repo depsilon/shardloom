@@ -11,8 +11,10 @@ use crate::resident_session::{
     ResidentVortexSession,
 };
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
+#[cfg(test)]
+use vortex::array::VortexSessionExecute as _;
 use vortex::array::{
-    ArrayRef, VortexSessionExecute as _,
+    ArrayRef,
     dtype::{DType, Nullability},
 };
 

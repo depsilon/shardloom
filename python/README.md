@@ -205,6 +205,13 @@ scoped local evidence.
 
 SQL and DataFrame collection, `run()`, `route()` and local writers accept the same
 `memory_gb` and `max_parallelism` request. Writer aliases preserve these settings.
+Flat aggregate chains retain filters, grouping, measures, HAVING, ordering and
+limits through the same native admission for collection and all eight writers.
+Declared compatibility schemas are preserved, including files whose names do not
+identify their format. SQL `NULLS FIRST`/`NULLS LAST` and DataFrame
+`sort(..., nulls="first")` or `nulls="last"` place nulls independently of ASC/DESC.
+Small aggregate collection returns every row within 65,536 rows and 8 MiB of
+JSONL, including escaping; larger complete results use the existing writers.
 For admitted ordering, `spill` explicitly permits temporary native Vortex runs in
 an existing absolute local directory:
 

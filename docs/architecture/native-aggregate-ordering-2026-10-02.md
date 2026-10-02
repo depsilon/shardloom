@@ -43,6 +43,8 @@ collection. The returned JSONL owns its memory reservation until response
 emission and keeps the 65,536-row/8-MiB complete-result boundary. In-memory batch
 delivery requires the native primitives feature; file writes and spill still
 require their existing write feature. The report-only aggregate API is unchanged.
+Public row consumers read `result_jsonl` or Python `report.result_rows`; diagnostic
+summaries retain metrics without requiring duplicate row payloads for streaming.
 The same JSON sink records its terminal row-materialization boundary and loss of
 physical dtype, encoding, statistics and metadata for aggregate, unary and
 relational collection, preserving each operation's source and execution proof.

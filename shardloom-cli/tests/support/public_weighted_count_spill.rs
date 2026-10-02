@@ -56,9 +56,9 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
         .take(7)
         .map(|(text, count)| serde_json::json!({"category":text,"frequency":count}))
         .collect::<Vec<_>>();
-    let payload = serde_json::json!({"group_by":["category"],"measures":[{"function":"count","alias":"frequency"}],"order_by":[{"column":"frequency","descending":true},{"column":"category","descending":false}],"offset":7,"spill":{"workspace":workspace,"quota_bytes":67_108_864_u64,"memory_bytes":8_388_608_u64}}).to_string();
+    let payload = serde_json::json!({"group_by":["category"],"measures":[{"function":"count","alias":"frequency"}],"order_by":[{"column":"frequency","descending":true,"nulls":"first"},{"column":"category","descending":false,"nulls":"last"}],"offset":7,"spill":{"workspace":workspace,"quota_bytes":67_108_864_u64,"memory_bytes":8_388_608_u64}}).to_string();
     let sql = format!(
-        "SELECT category, COUNT(*) AS frequency FROM '{}' GROUP BY category ORDER BY frequency DESC, category ASC LIMIT 7 OFFSET 7",
+        "SELECT category, COUNT(*) AS frequency FROM '{}' GROUP BY category ORDER BY frequency DESC NULLS FIRST, category ASC NULLS LAST LIMIT 7 OFFSET 7",
         source.display()
     );
     let stdout = run_route(&[
@@ -125,7 +125,23 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
             .unwrap();
         let result: serde_json::Value =
             serde_json::from_str(summary.split_once(" values=").unwrap().1).unwrap();
-        assert_eq!(result["values"], serde_json::json!(expected));
+        let rows = envelope["fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|field| field["key"] == "result_jsonl")
+            .unwrap()["value"]
+            .as_str()
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(rows, expected);
+        assert!(stdout.contains(&field("result_payload_complete", "true")));
+        assert!(stdout.contains(&field(
+            "result_materialization_boundary",
+            "bounded_native_batches_to_jsonl"
+        )));
         let spill = &result["weighted_count_spill"];
         assert!(spill["runs_written"].as_u64().unwrap() >= 2);
         assert_eq!(spill["runs_written"], spill["runs_validated"]);

@@ -5704,7 +5704,10 @@ impl PublicWorkflowRouteRequest {
             .and_then(parse_native_vortex_sql_single_source_shape)
             .ok_or_else(invalid)?;
         if self.source_bindings.len() != 1
-            || self.input_uri.as_deref() != Some(shape.source_ref.as_str())
+            || self
+                .input_uri
+                .as_ref()
+                .is_some_and(|uri| uri != &shape.source_ref)
         {
             return Err(invalid());
         }
@@ -5723,6 +5726,7 @@ impl PublicWorkflowRouteRequest {
         {
             return Err(invalid());
         }
+        self.input_uri = Some(shape.source_ref);
         self.input_format = Some(binding.input_format.clone());
         self.source_schema.clone_from(&binding.source_schema);
         Ok(())
@@ -15162,39 +15166,50 @@ mod tests {
 
     #[test]
     fn flat_source_bindings_retain_schema_and_reject_conflicts_without_io() {
-        let parse = |bindings: &str, extra: &[&str]| {
-            let mut args = vec![
-                "dataframe",
-                "--sql",
-                "SELECT label, count(*) AS n FROM 'absent.csv' GROUP BY label ORDER BY n DESC NULLS FIRST LIMIT 2",
-                "--source-bindings",
-                bindings,
-            ];
+        let parse = |source: &str, bindings: &str, extra: &[&str]| {
+            let statement = format!(
+                "SELECT label, count(*) AS n FROM '{source}' GROUP BY label ORDER BY n DESC NULLS FIRST LIMIT 2"
+            );
+            let mut args = vec!["sql", "--sql", &statement, "--source-bindings", bindings];
             args.extend_from_slice(extra);
             PublicWorkflowRouteRequest::parse(args.into_iter().map(str::to_owned))
         };
-        let bindings = r#"{"absent.csv":{"input_format":"csv","source_schema":"label:utf8"}}"#;
-        let request = parse(bindings, &[]).unwrap();
-        assert_eq!(request.input_uri.as_deref(), Some("absent.csv"));
-        assert_eq!(request.input_format.as_deref(), Some("csv"));
-        assert_eq!(request.source_schema.as_deref(), Some("label:utf8"));
-        let prepared = prepared_local_workflow_native_request(&request).unwrap();
-        assert_eq!(
-            prepared.request.vortex_primitive.as_deref(),
-            Some("aggregate")
-        );
-        assert!(!prepared.left_target.exists());
-        for extra in [
-            vec!["--input", "other.csv"],
-            vec!["--input-format", "jsonl"],
-            vec!["--source-schema", "label:int64"],
-            vec!["--request", "prepare"],
-        ] {
-            assert!(parse(bindings, &extra).is_err(), "{extra:?}");
+        for source in ["absent.csv", "declared.data"] {
+            let bindings =
+                format!(r#"{{"{source}":{{"input_format":"csv","source_schema":"label:utf8"}}}}"#);
+            let request = parse(source, &bindings, &[]).unwrap();
+            assert_eq!(request.input_uri.as_deref(), Some(source));
+            assert_eq!(request.input_format.as_deref(), Some("csv"));
+            assert_eq!(request.source_schema.as_deref(), Some("label:utf8"));
+            let prepared = prepared_local_workflow_native_request(&request).unwrap();
+            assert_eq!(
+                prepared.request.vortex_primitive.as_deref(),
+                Some("aggregate")
+            );
+            assert!(!prepared.left_target.exists());
+            for extra in [
+                vec!["--input", "other.csv"],
+                vec!["--input-format", "jsonl"],
+                vec!["--source-schema", "label:int64"],
+                vec!["--request", "prepare"],
+            ] {
+                assert!(
+                    parse(source, &bindings, &extra).is_err(),
+                    "{source} {extra:?}"
+                );
+            }
         }
-        assert!(parse(r#"{"unused.csv":{"input_format":"csv"}}"#, &[]).is_err());
         assert!(
             parse(
+                "absent.csv",
+                r#"{"unused.csv":{"input_format":"csv"}}"#,
+                &[]
+            )
+            .is_err()
+        );
+        assert!(
+            parse(
+                "absent.csv",
                 r#"{"absent.csv":{"input_format":"csv"},"unused.csv":{"input_format":"csv"}}"#,
                 &[]
             )

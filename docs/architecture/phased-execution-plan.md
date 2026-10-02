@@ -259,11 +259,11 @@ the ledger.
   - ShardLoom technique review: reuse native preparation, capillary candidate
     selection, shared ordering and bounded result ownership across public surfaces.
   - Execution checklist:
-    - [ ] Carry complete flat aggregate stages, source declarations and resources
+    - [x] Carry complete flat aggregate stages, source declarations and resources
       through common collect/write/inspection admission without moving input limits.
-    - [ ] Share explicit null ordering across aggregate finalization, native sort,
+    - [x] Share explicit null ordering across aggregate finalization, native sort,
       candidate cutoff and relational ordering while retaining optimized strategies.
-    - [ ] Prove complete nullable/multi-key/limit/output semantics and explicit
+    - [x] Prove complete nullable/multi-key/limit/output semantics and explicit
       invalid-policy/source-declaration denial through native and public tests.
     - [ ] Complete workspace/native/Python/feature/doc checks, then freeze public
       workflow and Full43 acceptance with exact source and build identities.

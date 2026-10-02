@@ -74,10 +74,10 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
         .map(|(group, count)| serde_json::json!({"cohort":group,"members":count}))
         .collect::<Vec<_>>();
     let payload = serde_json::json!({"group_by":["cohort"],"measures":[{"function":"count_distinct","column":"member","alias":"members"}],
-        "order_by":[{"column":"members","descending":true},{"column":"cohort","descending":false}],"offset":123,
+        "order_by":[{"column":"members","descending":true,"nulls":"first"},{"column":"cohort","descending":false,"nulls":"last"}],"offset":123,
         "spill":{"workspace":workspace,"quota_bytes":67_108_864_u64,"memory_bytes":4_194_304_u64}}).to_string();
     let sql = format!(
-        "SELECT cohort, COUNT(DISTINCT member) AS members FROM '{}' GROUP BY cohort ORDER BY members DESC, cohort ASC LIMIT 7 OFFSET 123",
+        "SELECT cohort, COUNT(DISTINCT member) AS members FROM '{}' GROUP BY cohort ORDER BY members DESC NULLS FIRST, cohort ASC NULLS LAST LIMIT 7 OFFSET 123",
         source.display()
     );
     let stdout = run_route(&[
@@ -146,7 +146,23 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
             .unwrap();
         let result: serde_json::Value =
             serde_json::from_str(summary.split_once(" values=").unwrap().1).unwrap();
-        assert_eq!(result["values"], serde_json::json!(expected));
+        let rows = envelope["fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|field| field["key"] == "result_jsonl")
+            .unwrap()["value"]
+            .as_str()
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(rows, expected);
+        assert!(stdout.contains(&field("result_payload_complete", "true")));
+        assert!(stdout.contains(&field(
+            "result_materialization_boundary",
+            "bounded_native_batches_to_jsonl"
+        )));
         assert!(result["aggregate_spill_runs_written"].as_u64().unwrap() >= 4);
         assert_eq!(
             result["aggregate_spill_runs_written"],

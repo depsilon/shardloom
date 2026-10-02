@@ -24,8 +24,10 @@ use shardloom_exec::{
     live_memory::{Budgeted, MemoryLease},
 };
 use std::{cell::Cell, path::PathBuf};
+#[cfg(test)]
+use vortex::array::VortexSessionExecute as _;
 use vortex::array::{
-    ArrayRef, VortexSessionExecute as _,
+    ArrayRef,
     arrays::StructArray,
     dtype::{DType, FieldNames, Nullability},
     memory::MemorySessionExt as _,

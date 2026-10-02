@@ -120,7 +120,7 @@ impl ResidentVortexSession {
 
     /// Array-backed queries share the same outer admission and completion
     /// accounting as file queries, without asserting a filesystem generation.
-    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn with_owned_execution<T>(
         &self,
         cancellation: &CancellationToken,

@@ -165,10 +165,11 @@ performance runs, native Python bindings and package publication remain separate
 
 The resource matrix's aggregate input includes a source-order input limit, so
 it uses the composed relational plan. A plain DataFrame aggregate followed by
-multi-key ordering can still be rejected by the older flat aggregate frontend;
-that public-family routing gap belongs to the continuing PERF-02/10 breadth work,
-along with the separate unary-family composition gaps. This unit does not claim
-that every flat aggregate shape accepts relational ordering spill permission.
+multi-key ordering was still rejected by the older flat aggregate frontend when
+this resource unit completed. The following
+[aggregate admission unit](native-aggregate-ordering-2026-10-02.md) addresses that
+gap under PERF-02/10. Separate unary-family composition remains broader work;
+flat aggregate admission does not give every shape relational ordering spill permission.
 
 ## Initial local acceptance
 
