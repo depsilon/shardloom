@@ -2,7 +2,8 @@
 
 # Native relational resource and ordering continuation
 
-Status: finite local acceptance complete on `15f9d329`; hosted checks and merge
+Status: initial finite local acceptance complete on `15f9d329`; hosted validation
+exposed the I/O cleanup race documented below. Corrected acceptance and merge
 remain pending. This follows the
 [ordered composition unit](native-relational-composition-2026-10-02.md) under
 PERF-03/06/07/10/12 and the existing CG-5/20/21 obligations. Active ordering belongs
@@ -166,7 +167,7 @@ that public-family routing gap belongs to the continuing PERF-02/10 breadth work
 along with the separate unary-family composition gaps. This unit does not claim
 that every flat aggregate shape accepts relational ordering spill permission.
 
-## Local acceptance
+## Initial local acceptance
 
 Runtime, Python and harness revision
 `15f9d329ddf58114c453c26b470df374a9651acc` was built with Rust 1.99 and
@@ -211,3 +212,27 @@ resolved development failures. Feature-configuration test counts overlap.
 Hosted review and CI remain separate acceptance steps. This finite unit establishes
 no total-RSS bound, wider operator spill, speedup, whole competitive-gate completion,
 production certification or package publication.
+
+## Hosted cleanup repair
+
+The first hosted native Vortex lane on `d9395a1b` rejected the existing
+source-replacement test: execution failed correctly, but its immediate memory
+snapshot still observed 96 reserved bytes. The shared I/O scope decremented its
+reader/read counters and woke the drain before Rust dropped the notifying owner's
+remaining fields. A caller could therefore return while the last scope or reader
+metadata reservation was still alive. The same destructor ordering already had
+an eventual-release allowance in the serving test.
+
+Two deterministic tests now release the caller's scope inside the drain wake
+callback, before the notifying destructor can resume. Both fail on the old
+ordering without sleeps or probabilistic repetition. The fix gives completion
+signaling a separate lifetime and releases the scope and reader reservations
+under the counter lock before publishing completion. This also protects a caller
+already polling the counter. Native buffers still precede their read-job guards
+in destruction order; no payload credit is released early. The serving assertion
+now requires immediate release instead of eventual polling.
+
+This changes the shared native file-execution boundary, so acceptance requires
+fresh workspace/native gates, a new frozen executable, the complete public matrix
+and Full43. The original immutable packet and failed hosted/local reproductions
+remain retained. The repair introduces no new execution provider or dependency.

@@ -49,23 +49,31 @@ struct ScopeState {
     closed: bool,
     pending: usize,
     readers: usize,
-    metadata: MemoryLease,
+}
+
+// Completion signals must outlive the reservation-owning scope: a waiting
+// caller can release its grant as soon as it observes both counters at zero.
+struct IoCompletion {
+    state: Mutex<ScopeState>,
+    waker: AtomicWaker,
 }
 
 pub(super) struct IoScope {
-    state: Mutex<ScopeState>,
-    waker: AtomicWaker,
+    completion: Arc<IoCompletion>,
     budget: Arc<IoBudget>,
     cancellation: CancellationToken,
+    metadata: Mutex<MemoryLease>,
 }
 
 impl IoScope {
+    const METADATA_BYTES: u64 = (size_of::<Self>() + size_of::<IoCompletion>()) as u64;
+
     pub(super) fn new(
         budget: Arc<IoBudget>,
         memory: &LiveMemoryPool,
         cancellation: CancellationToken,
     ) -> Result<Arc<Self>> {
-        let metadata = memory.reserve(size_of::<Self>() as u64)?;
+        let metadata = memory.reserve(Self::METADATA_BYTES)?;
         Ok(Self::with_metadata(budget, cancellation, metadata))
     }
 
@@ -89,15 +97,17 @@ impl IoScope {
         metadata: MemoryLease,
     ) -> Arc<Self> {
         Arc::new(Self {
-            state: Mutex::new(ScopeState {
-                closed: false,
-                pending: 0,
-                readers: 0,
-                metadata,
+            completion: Arc::new(IoCompletion {
+                state: Mutex::new(ScopeState {
+                    closed: false,
+                    pending: 0,
+                    readers: 0,
+                }),
+                waker: AtomicWaker::new(),
             }),
-            waker: AtomicWaker::new(),
             budget,
             cancellation,
+            metadata: Mutex::new(metadata),
         })
     }
 
@@ -105,6 +115,7 @@ impl IoScope {
         self.cancellation.check()?;
         let bytes = u64::try_from(length).map_err(native_error)?;
         let mut scope = self
+            .completion
             .state
             .lock()
             .map_err(|_| resident_error("native I/O scope poisoned"))?;
@@ -122,14 +133,14 @@ impl IoScope {
                 "native I/O is closed or exceeds its shared request/byte envelope",
             ));
         }
-        scope.metadata.resize(size_of::<Self>() as u64)?;
+        self.reserve_metadata()?;
         scope.pending += 1;
         total.active_requests += 1;
         total.active_bytes += bytes;
         total.peak_requests = total.peak_requests.max(total.active_requests);
         total.peak_bytes = total.peak_bytes.max(total.active_bytes);
         Ok(ReadJob {
-            scope: Arc::clone(self),
+            scope: Some(Arc::clone(self)),
             bytes,
         })
     }
@@ -143,31 +154,41 @@ impl IoScope {
     ) -> Result<Arc<ReaderOwner>> {
         let metadata = memory.reserve(size_of::<ReaderOwner>() as u64)?;
         let mut state = self
+            .completion
             .state
             .lock()
             .map_err(|_| resident_error("native I/O scope poisoned"))?;
         if state.closed {
             return Err(resident_error("native I/O scope is closed"));
         }
-        state.metadata.resize(size_of::<Self>() as u64)?;
+        self.reserve_metadata()?;
         state.readers += 1;
         Ok(Arc::new(ReaderOwner {
-            scope: Arc::clone(self),
-            _metadata: metadata,
+            scope: Some(Arc::clone(self)),
+            metadata: Some(metadata),
         }))
+    }
+
+    fn reserve_metadata(&self) -> Result<()> {
+        self.metadata
+            .lock()
+            .map_err(|_| resident_error("native I/O metadata poisoned"))?
+            .resize(Self::METADATA_BYTES)
     }
 
     /// Closing prevents late provider work from registering reads. The caller
     /// drives provider cleanup until actual blocking completions release their
     /// guards. Running OS reads are cooperative and cannot be interrupted.
     pub(super) fn close_and_drain(&self, runtime: &CurrentThreadRuntime) {
-        self.state
+        self.completion
+            .state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .closed = true;
         runtime.block_on(futures::future::poll_fn(|cx| {
-            self.waker.register(cx.waker());
+            self.completion.waker.register(cx.waker());
             let state = self
+                .completion
                 .state
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -181,53 +202,68 @@ impl IoScope {
 }
 
 pub(super) struct ReaderOwner {
-    scope: Arc<IoScope>,
-    _metadata: MemoryLease,
+    scope: Option<Arc<IoScope>>,
+    metadata: Option<MemoryLease>,
 }
 
 impl Drop for ReaderOwner {
     fn drop(&mut self) {
-        let mut state = self
-            .scope
+        let Some(scope) = self.scope.take() else {
+            return;
+        };
+        let completion = Arc::clone(&scope.completion);
+        let mut state = completion
             .state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // Refund both owners before publishing the zero count. Keeping the
+        // counter lock through release also protects a concurrently polling
+        // waiter, not only one awakened by the notification below.
+        drop(self.metadata.take());
+        drop(scope);
         state.readers -= 1;
         drop(state);
-        self.scope.waker.wake();
+        completion.waker.wake();
     }
 }
 
 pub(super) struct ReadJob {
-    scope: Arc<IoScope>,
+    scope: Option<Arc<IoScope>>,
     bytes: u64,
 }
 
 impl ReadJob {
     pub(super) fn check_cancelled(&self) -> Result<()> {
-        self.scope.cancellation.check()
+        self.scope
+            .as_ref()
+            .expect("a live native I/O job owns its scope")
+            .cancellation
+            .check()
     }
 }
 
 impl Drop for ReadJob {
     fn drop(&mut self) {
-        let mut scope = self
-            .scope
+        let Some(scope) = self.scope.take() else {
+            return;
+        };
+        let completion = Arc::clone(&scope.completion);
+        let budget = Arc::clone(&scope.budget);
+        let mut state = completion
             .state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut total = self
-            .scope
-            .budget
+        let mut total = budget
             .state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        scope.pending -= 1;
+        drop(scope);
+        state.pending -= 1;
         total.active_requests -= 1;
         total.active_bytes -= self.bytes;
         drop(total);
-        drop(scope);
-        self.scope.waker.wake();
+        drop(state);
+        completion.waker.wake();
     }
 }
 
@@ -235,4 +271,70 @@ pub(super) struct ReadCompletion<T> {
     // Release a discarded buffer before declaring its blocking job drained.
     pub(super) result: T,
     pub(super) _job: Option<ReadJob>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        sync::atomic::{AtomicU64, Ordering},
+        task::{Wake, Waker},
+    };
+
+    struct DrainAtWake {
+        scope: Mutex<Option<Arc<IoScope>>>,
+        memory: LiveMemoryPool,
+        observed_bytes: AtomicU64,
+    }
+
+    impl Wake for DrainAtWake {
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
+
+        fn wake_by_ref(self: &Arc<Self>) {
+            // Model a caller that observes drained work and releases its grant
+            // immediately, before the notifying destructor resumes. No sleeps
+            // or thread scheduling are needed to expose late credit release.
+            let scope = self.scope.lock().unwrap().take();
+            drop(scope);
+            self.observed_bytes
+                .store(self.memory.snapshot().reserved_bytes, Ordering::Release);
+        }
+    }
+
+    fn assert_release_before_wake<T>(create: impl FnOnce(&Arc<IoScope>, &LiveMemoryPool) -> T) {
+        let memory = LiveMemoryPool::new(4096).unwrap();
+        let scope = IoScope::new(
+            IoBudget::new(1, 4096),
+            &memory,
+            CancellationToken::default(),
+        )
+        .unwrap();
+        let owner = create(&scope, &memory);
+        assert!(memory.snapshot().reserved_bytes > 0);
+        let probe = Arc::new(DrainAtWake {
+            scope: Mutex::new(Some(Arc::clone(&scope))),
+            memory: memory.clone(),
+            observed_bytes: AtomicU64::new(u64::MAX),
+        });
+        scope
+            .completion
+            .waker
+            .register(&Waker::from(Arc::clone(&probe)));
+        drop(scope);
+        drop(owner);
+        assert_eq!(probe.observed_bytes.load(Ordering::Acquire), 0);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn read_job_releases_scope_metadata_before_notifying_drain() {
+        assert_release_before_wake(|scope, _| scope.admit(1).unwrap());
+    }
+
+    #[test]
+    fn reader_releases_all_metadata_before_notifying_drain() {
+        assert_release_before_wake(|scope, memory| scope.retain_reader(memory).unwrap());
+    }
 }
