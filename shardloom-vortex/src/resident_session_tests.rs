@@ -132,6 +132,83 @@ fn construction_context_reuses_source_owner_without_nested_admission_or_query_co
     assert_eq!(retained.snapshot().memory.reserved_bytes, 0);
 }
 
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn native_relational_sources_share_one_admission_and_one_completed_call() {
+    let left = Fixture::new();
+    let right = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let sources = [
+        session.prepare_file(left.input()).unwrap(),
+        session.prepare_file(right.input()).unwrap(),
+    ];
+    let rows = session
+        .with_sources_execution(&sources, &CancellationToken::default(), |context| {
+            sources.iter().try_fold(0, |rows, source| {
+                source
+                    .with_admitted_native_execution(context, |file, _| Ok(rows + file.row_count()))
+            })
+        })
+        .unwrap();
+    assert_eq!(rows, 10);
+    assert_eq!(session.snapshot().prepared_source_opens, 2);
+    assert_eq!(session.snapshot().completed_executions, 1);
+    drop(sources);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn native_relational_sources_reject_foreign_owners_before_the_consumer() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let foreign = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let sources = [
+        session.prepare_file(fixture.input()).unwrap(),
+        foreign.prepare_file(fixture.input()).unwrap(),
+    ];
+    let entered = std::cell::Cell::new(false);
+    let error = session
+        .with_sources_execution(&sources, &CancellationToken::default(), |_| {
+            entered.set(true);
+            Ok(())
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("different session"));
+    assert!(!entered.get());
+    assert_eq!(session.snapshot().completed_executions, 0);
+    drop(sources);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+    assert_eq!(foreign.snapshot().memory.reserved_bytes, 0);
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn native_relational_sources_validate_the_second_generation_after_consumption() {
+    let left = Fixture::new();
+    let right = Fixture::new();
+    let replacement = right.0.join("replacement.vortex");
+    std::fs::copy(right.input(), &replacement).unwrap();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let sources = [
+        session.prepare_file(left.input()).unwrap(),
+        session.prepare_file(right.input()).unwrap(),
+    ];
+    assert!(
+        session
+            .with_sources_execution(&sources, &CancellationToken::default(), |_| {
+                std::fs::rename(&replacement, right.input()).unwrap();
+                Ok(())
+            })
+            .is_err()
+    );
+    sources[0].validate_generation().unwrap();
+    assert!(sources[1].validate_generation().is_err());
+    assert_eq!(session.snapshot().completed_executions, 0);
+    drop(sources);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
 #[test]
 fn construction_context_rejects_cancellation_before_and_after_callback() {
     let session =

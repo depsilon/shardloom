@@ -65,6 +65,32 @@ impl Value<'_> {
     }
 }
 
+/// Read only a selected native value at an explicit result boundary. Text keeps
+/// its native buffer owner; this does not build a decoded row table.
+#[cfg(unix)]
+pub(super) fn scalar_value(
+    array: &ArrayRef,
+    row: usize,
+    context: &mut vortex::array::ExecutionCtx,
+) -> Result<Value<'static>> {
+    use vortex::array::scalar::ScalarValue;
+    let scalar = array.execute_scalar(row, context).map_err(vortex_error)?;
+    Ok(match scalar.value() {
+        None => Value::Null,
+        Some(ScalarValue::Bool(value)) => Value::Bool(*value),
+        Some(ScalarValue::Primitive(value)) => Value::from(
+            super::vortex_pvalue_to_stat_value(*value)
+                .ok_or_else(|| failed("unsupported primitive result dtype"))?,
+        ),
+        Some(ScalarValue::Utf8(value)) => Value::SharedText(value.clone()),
+        _ => {
+            return Err(failed(
+                "native scalar result requires an admitted flat dtype",
+            ));
+        }
+    })
+}
+
 /// Reports serialize values only at their terminal delivery boundary. Native
 /// consumers instead receive arrays and a null values field in the descriptor.
 pub(super) struct Rows {
@@ -321,7 +347,7 @@ fn copy_text(buffer: &mut WritableHostBuffer, start: usize, value: &str) -> Resu
     Ok(next)
 }
 
-fn build_column<'a>(
+pub(super) fn build_column<'a>(
     dtype: &DType,
     rows: usize,
     allocator: &HostAllocatorRef,

@@ -124,7 +124,11 @@ Arrow IPC, Avro, and ORC writers through shared native result ownership, without
 reconstruction or another query execution. The [ten unary families](native-unary-workflows-2026-10-01.md)
 also carry complete bounded collection values and flat scalar results through all eight
 writers. Small computed collection is bounded to 65,536 rows, 128 fields and 8 MiB;
-admitted aggregate, ordered and unary file output instead uses bounded native batches
+the [native relational unit](native-relational-workflows-2026-10-01.md) adds typed
+joins, sets, analytic windows and scoped predicate subqueries to complete collection
+and all eight writers. Its SQL and DataFrame calls retain each declared source's
+adapter/schema through native normalization and reuse. Admitted aggregate, ordered,
+unary and relational file output uses bounded native batches
 and can exceed the collection row/byte bounds. Format-specific type and memory admission
 still applies. See the
 [local output contract](v1-local-output-sink-scope.md) for exact sink coverage.
@@ -215,8 +219,11 @@ with runtime and release evidence:
 - Object-store, lakehouse/table, catalog, remote API, Foundry, live/hybrid, distributed, and
   production platform workflows unless the matching v1 candidate item is completed with evidence.
 
-Unsupported forms must fail before data is read, materialized, written, or delegated. The report
-must include deterministic blocker information and preserve:
+Unsupported syntax and policy fail before source access. Source-dependent schema/type
+admission can require metadata and compatibility normalization during execution;
+route inspection remains free of source I/O. Failed execution never publishes a
+result or delegates work. The report must include deterministic blocker information
+and preserve:
 
 ```text
 runtime_execution=false

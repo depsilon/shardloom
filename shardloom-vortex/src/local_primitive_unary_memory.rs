@@ -3,6 +3,8 @@
 use super::{Result, ShardLoomError, vortex_error};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 
+pub(super) use super::super::native_capacity::ReservedVec;
+
 fn failed() -> ShardLoomError {
     ShardLoomError::InvalidOperation(
         "native unary state capacity overflow; no fallback execution was attempted".into(),
@@ -14,58 +16,6 @@ fn bytes<T>(capacity: usize) -> Result<u64> {
         .checked_mul(std::mem::size_of::<T>())
         .and_then(|value| u64::try_from(value).ok())
         .ok_or_else(failed)
-}
-
-/// Reserve both old and new allocations during growth. Values drop before the
-/// container lease, and payload owners stored in the vector keep their own leases.
-pub(super) struct ReservedVec<T> {
-    pub(super) values: Vec<T>,
-    lease: MemoryLease,
-}
-
-impl<T> ReservedVec<T> {
-    pub(super) fn new(memory: &LiveMemoryPool) -> Result<Self> {
-        Ok(Self {
-            values: Vec::new(),
-            lease: memory.reserve(0)?,
-        })
-    }
-
-    pub(super) fn reserve_one(&mut self) -> Result<()> {
-        if self.values.len() < self.values.capacity() {
-            return Ok(());
-        }
-        let capacity = self
-            .values
-            .capacity()
-            .max(4)
-            .checked_mul(2)
-            .ok_or_else(failed)?;
-        let new_bytes = bytes::<T>(capacity)?;
-        self.lease.resize(
-            self.lease
-                .bytes()
-                .checked_add(new_bytes)
-                .ok_or_else(failed)?,
-        )?;
-        self.values
-            .try_reserve_exact(capacity - self.values.len())
-            .map_err(vortex_error)?;
-        if self.values.capacity() > capacity {
-            return Err(failed());
-        }
-        self.lease.resize(new_bytes)
-    }
-
-    pub(super) fn push(&mut self, value: T) -> Result<()> {
-        self.reserve_one()?;
-        self.values.push(value);
-        Ok(())
-    }
-
-    pub(super) fn into_parts(self) -> (Vec<T>, MemoryLease) {
-        (self.values, self.lease)
-    }
 }
 
 /// The table owns no payload copies during growth. Its capacity credit covers

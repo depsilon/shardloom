@@ -116,6 +116,11 @@ independent 65,536-row / 128-field / 8-MiB bounds. Heterogeneous scalar Variant 
 retain native/text admission only. General nested and extension results, unary
 state spill and broader spill families remain outside this handoff. Resource denial or a value
 outside a format's admission fails the complete write before publication.
+The [native relational unit](native-relational-workflows-2026-10-01.md) also sends
+admitted joins, sets, analytic windows and scoped subquery results directly to all
+eight writers, including empty schemas and original-source mutation checks. These
+relational states currently require memory admission and do not gain spill support
+from the aggregate/sort contract. Relational fanout remains explicitly blocked.
 These computed writers atomically create a new destination and reject existing
 files even with overwrite enabled. See the
 [streaming contract](native-workflow-streaming-2026-10-01.md) for ownership,
@@ -139,6 +144,7 @@ The route ids covered by this scope are:
 | `local_file_prepare_once_batch` | Batch prepared query result, bounded report, or local result sink. |
 | `prepared_vortex_warm_query` | Prepared Vortex query result, bounded report, or local result sink. |
 | `native_vortex_query` | Native local Vortex result/report route with scoped result sink evidence. |
+| `native_vortex_relational_write` | Complete flat-scalar native relational batches through all eight local writers; same-execution certificate, all-source validation and create-if-absent publication. No relational fanout or state-spill claim. |
 | `native_vortex_primitive_row_export` | Native/prepared Vortex row export to JSON array/JSONL/CSV; flat computed aggregate/sort and ten unary-family result streams to all eight formats, including admitted aggregate/sort spill; bounded flat projections to Vortex/Parquet/Arrow IPC/Avro/ORC; existing structured projections retain their typed admission. Explicit decode/materialization evidence; fanout remains JSONL/CSV only. |
 | `generated_rows_local_output` | Local JSON-array/JSONL/CSV, feature-gated structured/Vortex output, artifact-adjacent prepared-state reuse manifest, and fanout. |
 | `quarantine_output_route` | Local quarantine sink for admitted schema/data-quality rows. |

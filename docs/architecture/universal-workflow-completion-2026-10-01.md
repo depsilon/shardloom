@@ -48,6 +48,13 @@ The [native family inventory](native-runtime-completion-2026-09-20.md#finite-ava
 [result composition contract](native-result-composition-2026-09-20.md) own exact
 implemented support. This plan does not replace their capability records.
 
+The [retained unary unit](native-unary-workflows-2026-10-01.md) and
+[native relational unit](native-relational-workflows-2026-10-01.md) extend complete
+collection and all eight local writers through their admitted flat-scalar families.
+Relational source declarations also survive mixed-input joins, sets and nested
+predicate helpers. General public composition, wider types/adapters and remaining
+resource/spill transitions still require the concrete work below.
+
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs. | Broader typed/nested schemas, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |

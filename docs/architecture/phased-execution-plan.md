@@ -270,6 +270,15 @@ public complete-result checks and 129/129 Full43 regression executions. General
 relational composition, wider type/adapter support and the remaining resource/spill
 contracts stay in the universal workflow queue; this unit does not close those items.
 
+The [relational continuation](native-relational-workflows-2026-10-01.md) now binds
+joins, set operations, analytic windows and scoped subqueries to retained native
+readers and typed batches, including native expression/group/order composition,
+mixed-source normalization and declared schema propagation. Its 16-case public
+matrix passes 176 complete-result checks through all eight local writers. Final
+immutable-build, Full43 and hosted acceptance are in progress. General composition,
+type/adapter expansion and resource/spill obligations remain under the same PERF
+owners; this continuation does not mark those whole gates complete.
+
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
 completed UAT/test artifacts. R2.a, R3.a and R3.b are retained with Full43 and ownership
@@ -764,8 +773,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     lowering. Its construction, cancellation and validation boundaries are in
     `native-result-composition-2026-09-20.md`; this does not close native joins or
     the remaining prepared/public families.
-    Native Python binding remains parked; migration of additional operator
-    families and general native joins remains open.
+    The [relational continuation](native-relational-workflows-2026-10-01.md) adds
+    retained typed joins, sets, analytic windows and scoped subqueries plus public
+    collection/writers. Native Python binding remains parked; broader composition,
+    types, sources and per-family pressure transitions remain open.
   - Execution checklist:
     - [ ] Extend prepared native execution to the remaining operator families.
     - [ ] Complete the native Python prototype/binding decision and migration;
@@ -873,6 +884,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     batches and all eight admitted local writers, including existing native
     spill output. Complete Python SQL/DataFrame workflows and Full43 pass;
     collection bounds and broader resource/operator obligations remain separate.
+    The later unary and relational units carry their admitted flat-scalar families
+    through these same writer contracts; their linked acceptance records govern
+    exact scope and remaining native state/spill work.
     See the completed ledger and combined September 12 UAT for earlier scope.
   - Execution checklist:
     - [x] Complete bounded result streams for already executable flat-scalar

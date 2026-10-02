@@ -3852,8 +3852,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.exists_source("target/allowed.csv", source_alias="outer")
         with self.assertRaisesRegex(ValueError, "HAVING requires group_by"):
             sl.exists_source("target/allowed.csv", having="count(*) >= 1")
-        with self.assertRaisesRegex(ValueError, "at most 32"):
-            sl.exists_source("target/allowed.csv", group_by="id", limit=33)
+        self.assertEqual(
+            str(sl.exists_source("target/allowed.csv", select=1, group_by="id", limit=33)),
+            "EXISTS (SELECT 1 FROM 'target/allowed.csv' GROUP BY id LIMIT 33)",
+        )
         self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",
@@ -10878,7 +10880,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
-    def test_local_csv_query_builder_window_blocks_post_window_reordering(self) -> None:
+    def test_local_csv_query_builder_window_admits_final_sort(self) -> None:
         workflow = sl.read_csv(
             "target/input.csv",
             binary=["definitely-missing-shardloom"],
@@ -10894,7 +10896,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertIsNone(workflow.select("id").limit(5)._sql_local_source_statement())
         self.assertIsNone(workflow.filter("amount > 1").limit(5)._sql_local_source_statement())
-        self.assertIsNone(workflow.sort("amount").limit(5)._sql_local_source_statement())
+        self.assertEqual(
+            workflow.sort("amount").limit(5)._sql_local_source_statement(),
+            "SELECT *,ROW_NUMBER() OVER (ORDER BY amount ASC) AS rn FROM 'target/input.csv' ORDER BY amount ASC LIMIT 5",
+        )
 
     def test_local_csv_query_builder_distinct_window_invokes_sql_smoke(self) -> None:
         statement = "SELECT DISTINCT region,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r FROM 'target/input.csv' LIMIT 2"
@@ -19333,6 +19338,55 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
+                if (
+                    args[:2] == ["run", "dataframe"]
+                    and "--sql" in args
+                    and " JOIN " in args[args.index("--sql") + 1]
+                    and "--native-vortex-provider-scenario" not in args
+                ):
+                    sql_statement = args[args.index("--sql") + 1]
+                    assert sql_statement == (
+                        "SELECT f.id,d.dim_label,f.metric FROM 'fact.vortex' AS f "
+                        "INNER JOIN 'dim.vortex' AS d ON f.dim_key = d.dim_key LIMIT 100"
+                    ), args
+                    assert args[args.index("--input") + 1] == "fact.vortex", args
+                    assert args[args.index("--input-format") + 1] == "vortex", args
+                    assert args[args.index("--request") + 1] == "collect", args
+                    assert args[args.index("--execution-policy") + 1] == "vortex_middle", args
+                    assert args[args.index("--materialization-policy") + 1] == "bounded", args
+                    assert args[args.index("--evidence-level") + 1] == "production_admitted_local_workflow", args
+                    assert args[args.index("--bounded") + 1] == "true", args
+                    assert args[args.index("--memory-gb") + 1] == "4", args
+                    assert args[args.index("--max-parallelism") + 1] == "2", args
+                    assert "--native-vortex-operation-family" not in args, args
+                    assert "--native-vortex-provider-scenario" not in args, args
+                    assert "--native-vortex-right-input" not in args, args
+                    assert "--vortex-primitive" not in args, args
+                    assert args[-2:] == ["--format", "json"], args
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "run",
+                        "status": "success",
+                        "summary": "native Vortex relational collect",
+                        "human_text": "native Vortex relational collect",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "public_workflow_route_attached", "value": "true"},
+                            {"key": "public_workflow_route_id", "value": "native_vortex_relational_collect"},
+                            {"key": "public_workflow_resolved_internal_command", "value": "native-vortex-relational"},
+                            {"key": "result_jsonl", "value": json.dumps({"id": 1, "dim_label": "alpha", "metric": 10}, separators=(",", ":")) + chr(10)},
+                            {"key": "result_payload_complete", "value": "true"},
+                            {"key": "output_row_count", "value": "1"},
+                            {"key": "data_read", "value": "true"},
+                            {"key": "data_decoded", "value": "true"},
+                            {"key": "data_materialized", "value": "true"},
+                            {"key": "runtime_required", "value": "true"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
+                        ],
+                    }))
+                    sys.exit(0)
                 assert args[:2] == ["run", "dataframe"], args
                 assert args[args.index("--input-format") + 1] == "vortex", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
@@ -19417,7 +19471,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
-            )
+            ),
+            rewrite_public_run=False,
         )
         client = ShardLoomClient(binary=binary)
         fact = sl.read_vortex("fact.vortex", client=client)
@@ -19461,28 +19516,43 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         expected = (
-            ("aggregate", "group-by-aggregation"),
-            ("aggregate", "null-heavy-aggregate"),
-            ("join", "hash-join"),
-            ("top_n", "sort-and-top-k"),
-            ("cast", "clean-cast-filter-write"),
-            ("cast", "malformed-timestamp-dirty-csv"),
-            ("contains", "nested-json-field-scan"),
-            ("sink", "clean-cast-filter-write"),
-            ("sink", "clean-cast-filter-write"),
+            ("provider", "aggregate", "group-by-aggregation"),
+            ("provider", "aggregate", "null-heavy-aggregate"),
+            ("relational", "join", "hash-join"),
+            ("provider", "top_n", "sort-and-top-k"),
+            ("provider", "cast", "clean-cast-filter-write"),
+            ("provider", "cast", "malformed-timestamp-dirty-csv"),
+            ("provider", "contains", "nested-json-field-scan"),
+            ("provider", "sink", "clean-cast-filter-write"),
+            ("provider", "sink", "clean-cast-filter-write"),
         )
-        for report, (family, scenario) in zip(reports, expected):
+        for report, (runtime_kind, family, scenario) in zip(reports, expected):
             self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
             self.assertEqual(report.envelope.command, "run")
-            self.assertEqual(report.command, "vortex-production-runtime-run")
-            self.assertEqual(
-                report.envelope.field("public_workflow_native_vortex_operation_family"),
-                family,
-            )
-            self.assertEqual(
-                report.envelope.field("public_workflow_native_vortex_provider_scenario"),
-                scenario,
-            )
+            if runtime_kind == "relational":
+                self.assertEqual(report.command, "native-vortex-relational")
+                self.assertEqual(
+                    report.envelope.field("public_workflow_route_id"),
+                    "native_vortex_relational_collect",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_resolved_internal_command"),
+                    "native-vortex-relational",
+                )
+                self.assertEqual(
+                    report.result_jsonl,
+                    '{"id":1,"dim_label":"alpha","metric":10}\n',
+                )
+            else:
+                self.assertEqual(report.command, "vortex-production-runtime-run")
+                self.assertEqual(
+                    report.envelope.field("public_workflow_native_vortex_operation_family"),
+                    family,
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_native_vortex_provider_scenario"),
+                    scenario,
+                )
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 
@@ -19493,6 +19563,55 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
+                if (
+                    args[:2] == ["run", "sql"]
+                    and "--sql" in args
+                    and " JOIN " in args[args.index("--sql") + 1]
+                    and "--native-vortex-provider-scenario" not in args
+                ):
+                    sql_statement = args[args.index("--sql") + 1]
+                    assert sql_statement == (
+                        "SELECT f.id, d.dim_label, f.metric FROM 'fact.vortex' AS f "
+                        "JOIN 'dim.vortex' AS d ON f.dim_key = d.dim_key LIMIT 100"
+                    ), args
+                    assert "--input" not in args, args
+                    assert "--input-format" not in args, args
+                    assert args[args.index("--request") + 1] == "collect", args
+                    assert args[args.index("--execution-policy") + 1] == "vortex_middle", args
+                    assert args[args.index("--materialization-policy") + 1] == "bounded", args
+                    assert args[args.index("--evidence-level") + 1] == "production_admitted_local_workflow", args
+                    assert args[args.index("--bounded") + 1] == "true", args
+                    assert args[args.index("--memory-gb") + 1] == "4", args
+                    assert args[args.index("--max-parallelism") + 1] == "1", args
+                    assert "--native-vortex-operation-family" not in args, args
+                    assert "--native-vortex-provider-scenario" not in args, args
+                    assert "--native-vortex-right-input" not in args, args
+                    assert "--vortex-primitive" not in args, args
+                    assert args[-2:] == ["--format", "json"], args
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "run",
+                        "status": "success",
+                        "summary": "native Vortex relational collect",
+                        "human_text": "native Vortex relational collect",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "public_workflow_route_attached", "value": "true"},
+                            {"key": "public_workflow_route_id", "value": "native_vortex_relational_collect"},
+                            {"key": "public_workflow_resolved_internal_command", "value": "native-vortex-relational"},
+                            {"key": "result_jsonl", "value": json.dumps({"id": 1, "dim_label": "alpha", "metric": 10}, separators=(",", ":")) + chr(10)},
+                            {"key": "result_payload_complete", "value": "true"},
+                            {"key": "output_row_count", "value": "1"},
+                            {"key": "data_read", "value": "true"},
+                            {"key": "data_decoded", "value": "true"},
+                            {"key": "data_materialized", "value": "true"},
+                            {"key": "runtime_required", "value": "true"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
+                        ],
+                    }))
+                    sys.exit(0)
                 assert args[:2] == ["run", "sql"], args
                 assert args[args.index("--input-format") + 1] == "vortex", args
                 assert args[args.index("--execution-policy") + 1] == "native_vortex", args
@@ -19580,7 +19699,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ],
                 }))
                 """
-            )
+            ),
+            rewrite_public_run=False,
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
         group_sql = (
@@ -19629,7 +19749,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         expected = (
             ("provider", "aggregate", "group-by-aggregation"),
             ("provider", "aggregate", "null-heavy-aggregate"),
-            ("provider", "join", "hash-join"),
+            ("relational", "join", "hash-join"),
             ("primitive", "sort_rows", "10"),
             ("provider", "cast", "clean-cast-filter-write"),
             ("provider", "cast", "malformed-timestamp-dirty-csv"),
@@ -19663,6 +19783,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 self.assertEqual(
                     report.envelope.field("public_workflow_resolved_internal_command"),
                     "vortex-local-primitive",
+                )
+            elif runtime_kind == "relational":
+                self.assertEqual(report.command, "native-vortex-relational")
+                self.assertEqual(
+                    report.envelope.field("public_workflow_route_id"),
+                    "native_vortex_relational_collect",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_resolved_internal_command"),
+                    "native-vortex-relational",
+                )
+                self.assertEqual(
+                    report.result_jsonl,
+                    '{"id":1,"dim_label":"alpha","metric":10}\n',
                 )
             else:
                 self.assertEqual(report.command, "vortex-production-runtime-run")

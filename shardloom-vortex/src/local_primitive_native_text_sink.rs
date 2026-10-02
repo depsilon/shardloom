@@ -42,7 +42,7 @@ pub(super) fn write(
         return Err(failed("requires JSON, JSONL or CSV output"));
     }
     cancellation.check()?;
-    plan.source.validate_generation()?;
+    plan.validate_destination(path)?;
     let mut scratch = plan.session.memory().reserve(128 * 1024)?;
     let mut output = OwnedOutput::new(path, overwrite)?;
     let mut rows = 0_u64;
@@ -119,7 +119,16 @@ pub(super) fn write(
                                 .checked_add(usize_to_u64(text.len())?)
                                 .ok_or_else(|| failed("text copy counter overflow"))?;
                         }
-                        write_value(&mut writer, value, format)?;
+                        if format == Format::Csv
+                            && plan.columns.len() == 1
+                            && value == StatValue::Null
+                        {
+                            // A bare newline is skipped as a blank record by CSV
+                            // readers. A quoted empty cell keeps this null row.
+                            csv_text(&mut writer, "")?;
+                        } else {
+                            write_value(&mut writer, value, format)?;
+                        }
                     }
                     writer
                         .write_all(if format == Format::Csv { b"\n" } else { b"}\n" })

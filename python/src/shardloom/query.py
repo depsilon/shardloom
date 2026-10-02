@@ -106,6 +106,7 @@ class WorkflowOperation:
 
     kind: str
     values: tuple[str, ...]
+    source_bindings: tuple[WorkflowSource, ...] = ()
 
     def to_summary(self) -> str:
         """Return a deterministic operation summary."""
@@ -158,6 +159,7 @@ class PredicateExpression:
     """A scoped SQL predicate expression for ShardLoom local-source smokes."""
 
     sql: str
+    source_bindings: tuple[WorkflowSource, ...] = ()
 
     def __str__(self) -> str:
         return self.sql
@@ -165,17 +167,21 @@ class PredicateExpression:
     def __and__(self, other: object) -> "PredicateExpression":
         """Return a scoped logical AND predicate."""
 
-        return PredicateExpression(f"({self.sql} AND {_predicate_sql(other)})")
+        return PredicateExpression(
+            f"({self.sql} AND {_predicate_sql(other)})", _predicate_sources(self, other)
+        )
 
     def __or__(self, other: object) -> "PredicateExpression":
         """Return a scoped logical OR predicate."""
 
-        return PredicateExpression(f"({self.sql} OR {_predicate_sql(other)})")
+        return PredicateExpression(
+            f"({self.sql} OR {_predicate_sql(other)})", _predicate_sources(self, other)
+        )
 
     def __invert__(self) -> "PredicateExpression":
         """Return a scoped logical NOT predicate."""
 
-        return PredicateExpression(f"NOT {self.sql}")
+        return PredicateExpression(f"NOT {self.sql}", self.source_bindings)
 
 
 @dataclass(frozen=True, slots=True)
@@ -594,7 +600,8 @@ class ColumnExpression:
             limit=limit,
         )
         return PredicateExpression(
-            f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})"
+            f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})",
+            _predicate_sources(source, where, having),
         )
 
     def any_source(
@@ -692,7 +699,8 @@ class ColumnExpression:
             limit=limit,
         )
         return PredicateExpression(
-            f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref}{tail})"
+            f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref}{tail})",
+            _predicate_sources(source, where, having),
         )
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
@@ -1915,6 +1923,7 @@ class SqlWorkflow:
     client: ShardLoomClient
     input_uri: str | None = None
     input_format: str | None = None
+    source_bindings: tuple[WorkflowSource, ...] = ()
 
     @property
     def operation_summary(self) -> str:
@@ -2026,6 +2035,16 @@ class SqlWorkflow:
                 "source_free_sql_collect_requires_write_output",
                 check=check,
             )
+        if _native_relational_sql_candidate(self.statement):
+            envelope = _collect_native_relational(
+                self.client, self.statement, surface="sql",
+                plan_summary=self.operation_summary,
+                input_kwargs=self._declared_or_embedded_vortex_input_kwargs(),
+                check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
+            )
+            return VortexWorkflowExecutionReport(
+                workflow=self._report_workflow(), operation="collect", envelope=envelope,
+            )
         if report := self._vortex_sql_primitive_collect_report(
             check=check,
             memory_gb=memory_gb,
@@ -2095,16 +2114,19 @@ class SqlWorkflow:
             client=self.client,
             input_uri=self.input_uri,
             input_format=self.input_format,
+            source_bindings=self.source_bindings,
         )
 
     def _declared_input_kwargs(self) -> dict[str, Any]:
         """Return public workflow input kwargs declared outside the SQL text."""
 
-        if self.input_uri is None:
-            return {}
-        payload: dict[str, Any] = {"input_uri": self.input_uri}
+        payload: dict[str, Any] = {}
+        if self.input_uri is not None:
+            payload["input_uri"] = self.input_uri
         if self.input_format is not None:
             payload["input_format"] = self.input_format
+        if self.source_bindings:
+            payload["source_bindings"] = _workflow_source_bindings(self.source_bindings)
         return payload
 
     def _declared_or_embedded_vortex_input_kwargs(self) -> dict[str, Any]:
@@ -2756,7 +2778,8 @@ class SqlWorkflow:
         | VortexWorkflowExecutionReport
         | UnsupportedWorkflowOperationReport
     ):
-        if (requested_output in {"write_vortex", "write_jsonl", "write_csv"}
+        if (not _native_relational_sql_candidate(self.statement)
+                and requested_output in {"write_vortex", "write_jsonl", "write_csv"}
                 and _vortex_sql_user_route_shape(self.statement) is not None):
             return self._vortex_sql_user_route_write_report(
                 target_uri, requested_output=requested_output,
@@ -3086,6 +3109,10 @@ class SqlWorkflow:
         limit: int | None,
         check: bool,
     ) -> SqlLocalSourceSmokeReport | None:
+        if _native_relational_sql_candidate(self.statement):
+            workflow = self if limit is None else self.limit(limit)
+            report = workflow.collect(check=check)
+            return SqlLocalSourceSmokeReport(report.envelope) if report.status == "success" else None
         statement = self._bounded_local_source_statement(default_limit=limit)
         if statement is None:
             return None
@@ -3103,7 +3130,8 @@ class SqlWorkflow:
         if default_limit is not None:
             _validate_positive_row_count("materialization limit", default_limit)
         normalized = self.statement.strip().rstrip(";").strip()
-        if not _is_local_source_sql_statement(normalized):
+        relational = _native_relational_sql_candidate(normalized)
+        if not _is_local_source_sql_statement(normalized) and not relational:
             return None
         limit_index = _find_top_level_sql_keyword_outside_quotes(normalized, "limit")
         if limit_index is not None:
@@ -3111,7 +3139,7 @@ class SqlWorkflow:
                 return normalized
             return _cap_top_level_sql_limit(normalized, limit_index, default_limit)
         if default_limit is None:
-            return None
+            return normalized if relational else None
         return f"{normalized} LIMIT {default_limit}"
 
     def _vortex_sql_primitive_collect_report(
@@ -5112,8 +5140,8 @@ class LazyFrame:
 
         value = _normalize_raw_or_typed_predicate("filter predicate", predicate)
         if self._can_append_having():
-            return self._append(WorkflowOperation("having", (value,)))
-        return self._append(WorkflowOperation("filter", (value,)))
+            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate)))
+        return self._append(WorkflowOperation("filter", (value,), _predicate_sources(predicate)))
 
     def where(self, predicate: object) -> "LazyFrame":
         """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
@@ -5144,7 +5172,7 @@ class LazyFrame:
 
         value = _normalize_raw_or_typed_predicate("HAVING predicate", predicate)
         if self._can_append_having():
-            return self._append(WorkflowOperation("having", (value,)))
+            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate)))
         return self._unsupported_operation("having", value, check=check)
 
     def select(self, *columns: object) -> "LazyFrame":
@@ -5419,6 +5447,7 @@ class LazyFrame:
                 return SqlWorkflow(
                     statement=f"{left} UNION ALL {right}",
                     client=self.client,
+                    source_bindings=(*self._declared_sources(), *other._declared_sources()),
                 )
         return self._unsupported_operation("concat", target_ref, check=check)
 
@@ -6451,7 +6480,7 @@ class LazyFrame:
     ) -> dict[str, Any]:
         """Return exact native Vortex route payloads inferred from this lazy plan."""
 
-        if self.source.source_format != "vortex":
+        if self._native_relational_statement() is not None or self.source.source_format != "vortex":
             return {}
         if requested_output == "profile":
             return {"native_vortex_operation_family": "profile"}
@@ -6546,11 +6575,16 @@ class LazyFrame:
             if execution_policy is None
             else execution_policy
         )
+        relational_statement = self._native_relational_statement()
         return self.client.public_workflow_route(
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
-            sql_statement=self._sql_local_source_statement(),
+            sql_statement=relational_statement or self._sql_local_source_statement(),
+            source_bindings=(
+                _workflow_source_bindings(self._declared_sources())
+                if relational_statement else None
+            ),
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
@@ -6588,11 +6622,16 @@ class LazyFrame:
             if execution_policy is None
             else execution_policy
         )
+        relational_statement = self._native_relational_statement()
         return self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
-            sql_statement=self._sql_local_source_statement(),
+            sql_statement=relational_statement or self._sql_local_source_statement(),
+            source_bindings=(
+                _workflow_source_bindings(self._declared_sources())
+                if relational_statement else None
+            ),
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
@@ -6718,6 +6757,16 @@ class LazyFrame:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             )
+        if statement := self._native_relational_statement():
+            envelope = _collect_native_relational(
+                self.client, statement, surface="dataframe",
+                plan_summary=self.operation_summary,
+                input_kwargs={"input_uri": self.source.uri,
+                              "input_format": _public_workflow_input_format(self.source),
+                              "source_bindings": _workflow_source_bindings(self._declared_sources())},
+                check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
+            )
+            return VortexWorkflowExecutionReport(workflow=self, operation="collect", envelope=envelope)
         if report := self._vortex_user_route_collect_report(
             check=check,
             memory_gb=memory_gb,
@@ -6799,7 +6848,8 @@ class LazyFrame:
                 check=check,
             )
         requested_output = _public_write_request_for_format(normalized_output_format)
-        if self._sql_local_source_statement() is not None:
+        if (self._native_relational_statement() is not None
+                or self._sql_local_source_statement() is not None):
             return self._public_workflow_write_report(
                 target_uri, requested_output=requested_output,
                 allow_overwrite=allow_overwrite, check=check,
@@ -7000,7 +7050,8 @@ class LazyFrame:
         output_format, output_path = normalized_outputs[0]
         requested_output = _public_write_request_for_format(output_format)
         fanout_outputs = normalized_outputs[1:]
-        if self.source.schema and self._sql_local_source_statement() is not None:
+        if (self._native_relational_statement() is not None
+                or self.source.schema and self._sql_local_source_statement() is not None):
             return self._public_workflow_write_report(
                 output_path,
                 requested_output=requested_output,
@@ -7154,7 +7205,8 @@ class LazyFrame:
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source workflows."""
 
-        if any(operation.kind in _NATIVE_UNARY_PRIMITIVES for operation in self.operations):
+        if (self._native_relational_statement() is not None
+                or any(operation.kind in _NATIVE_UNARY_PRIMITIVES for operation in self.operations)):
             report = self.collect(check=check)
             if (isinstance(report, VortexWorkflowExecutionReport) and report.status == "success"
                     and report.envelope.field("result_jsonl") is not None):
@@ -7290,7 +7342,8 @@ class LazyFrame:
         return ShardLoom's deterministic Vortex sink blocker.
         """
 
-        if self._sql_local_source_statement() is not None:
+        if (self._native_relational_statement() is not None
+                or self._sql_local_source_statement() is not None):
             return self._public_workflow_write_report(
                 target_uri, requested_output="write_vortex",
                 allow_overwrite=allow_overwrite, check=check,
@@ -7377,7 +7430,7 @@ class LazyFrame:
         check: bool,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> SqlLocalSourceSmokeReport:
-        statement = self._native_vortex_aggregate_statement()
+        statement = self._native_relational_statement() or self._native_vortex_aggregate_statement()
         if statement is None:
             statement = self._sql_local_source_statement(allow_native_source=True)
         if statement is None:
@@ -7392,6 +7445,10 @@ class LazyFrame:
                 (self.source.schema or None)
                 if self.source.source_format != "vortex"
                 else None
+            ),
+            source_bindings=(
+                _workflow_source_bindings(self._declared_sources())
+                if _native_relational_sql_candidate(statement) else None
             ),
             sql_statement=statement,
             plan_summary=self.operation_summary,
@@ -7454,7 +7511,7 @@ class LazyFrame:
             right_uri = other.source.uri
             right_summary = other.operation_summary
             right_operations = other.operations
-            right_source_local = _is_query_builder_local_source(other.source)
+            right_source_local = _is_declared_local_source(other.source)
             right_source_vortex = other.source.source_format == "vortex"
         else:
             right_uri = _require_non_empty("join right source", other)
@@ -7464,10 +7521,8 @@ class LazyFrame:
         target = f"{normalized_how}:{columns}:{normalized_condition or ''}:{right_summary}"
         if (
             (
-                _is_query_builder_local_source(self.source)
-                and right_source_local
-                or self.source.source_format == "vortex"
-                and right_source_vortex
+                (_is_declared_local_source(self.source) or self.source.source_format == "vortex")
+                and (right_source_local or right_source_vortex)
             )
             and not right_operations
             and (normalized_columns or normalized_condition is not None or normalized_how == "cross")
@@ -7484,6 +7539,7 @@ class LazyFrame:
                         "d",
                         normalized_condition or "",
                     ),
+                    source_bindings=_predicate_sources(other, condition),
                 )
             )
         if self.source.source_format == "vortex" or right_source_vortex:
@@ -7896,6 +7952,7 @@ class LazyFrame:
                 WorkflowOperation(
                     "filter",
                     (f"({operation.values[0]}) AND ({predicate})",),
+                    source_bindings=operation.source_bindings,
                 )
             )
         if not filter_seen:
@@ -7933,6 +7990,7 @@ class LazyFrame:
                 return SqlWorkflow(
                     statement=f"{left} {keyword} {right}",
                     client=self.client,
+                    source_bindings=(*self._declared_sources(), *other._declared_sources()),
                 )
             target = f"{self.operation_summary};{other.operation_summary}"
         else:
@@ -8805,7 +8863,8 @@ class LazyFrame:
         check: bool,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
-        if self._native_vortex_aggregate_statement() is not None:
+        if (self._native_relational_statement() is not None
+                or self._native_vortex_aggregate_statement() is not None):
             report = self._public_workflow_write_report(
                 target_uri,
                 requested_output=requested_output,
@@ -9622,13 +9681,14 @@ class LazyFrame:
             return all(operation.kind != "sort" for operation in self.operations)
         if self.source.source_format == "vortex":
             return all(
-                operation.kind in {"filter", "select", "set_index", "group_by", "aggregate", "having"}
+                operation.kind in {"filter", "select", "set_index", "group_by", "aggregate", "having", "window", "join"}
                 for operation in self.operations
             )
         return False
 
     def _can_append_window(self, expressions: tuple[str, ...]) -> bool:
-        if not _is_query_builder_local_source(self.source) or not expressions:
+        if (not (_is_query_builder_local_source(self.source) or self.source.source_format == "vortex")
+                or not expressions):
             return False
         for operation in self.operations:
             if operation.kind in {"select", "filter", "window"}:
@@ -10384,6 +10444,9 @@ class LazyFrame:
     ) -> SqlLocalSourceSmokeReport | None:
         if limit is not None:
             _validate_positive_row_count("materialization limit", limit)
+        if self._native_relational_statement() is not None:
+            report = self.collect(limit=limit, check=check)
+            return SqlLocalSourceSmokeReport(report.envelope) if report.status == "success" else None
         statement = self._sql_local_source_statement(default_limit=limit)
         if statement is None:
             return None
@@ -10450,6 +10513,14 @@ class LazyFrame:
             engine_mode=self.engine_mode,
         )
 
+    def _declared_sources(self) -> tuple[WorkflowSource, ...]:
+        return (self.source, *(source for operation in self.operations
+                               for source in operation.source_bindings))
+
+    def _native_relational_statement(self) -> str | None:
+        statement = self._sql_local_source_statement(allow_native_source=True, require_limit=False)
+        return statement if statement and _native_relational_sql_candidate(statement) else None
+
     def _native_vortex_aggregate_statement(self) -> str | None:
         """Lower a complete ordered aggregate chain without moving input limits."""
         if self.source.source_format != "vortex":
@@ -10476,7 +10547,9 @@ class LazyFrame:
         require_limit: bool = True,
     ) -> str | None:
         if not _is_query_builder_local_source(self.source) and not (
-            allow_native_source and self.source.source_format == "vortex"
+            allow_native_source and (
+                self.source.source_format == "vortex" or _is_declared_local_source(self.source)
+            )
         ):
             return None
         projection_list: tuple[str, ...] | None = None
@@ -10555,8 +10628,6 @@ class LazyFrame:
                     return None
                 window_expressions.extend(operation.values)
             elif operation.kind == "sort" and sort_key is None:
-                if window_expressions:
-                    return None
                 sort_key = _parse_sort_operation_values(operation.values)
                 if any(
                     not _sql_fragment_admitted_for_local_source_statement(
@@ -10566,7 +10637,11 @@ class LazyFrame:
                 ):
                     return None
             elif operation.kind == "join" and join_info is None:
-                if aggregate_list is not None or group_by_list is not None or distinct_requested:
+                if (aggregate_list is not None or group_by_list is not None or distinct_requested
+                        or predicate is not None or sort_key is not None or limit is not None
+                        or projection_list is not None or literal_columns or window_expressions):
+                    # This flat SQL renderer cannot move a preceding input stage
+                    # across a join; doing so can change rows and null extension.
                     return None
                 join_info = operation.values  # type: ignore[assignment]
             elif operation.kind == "distinct" and not distinct_requested:
@@ -10726,7 +10801,7 @@ class LazyFrame:
     def _sql_local_source_union_branch_statement(self) -> str | None:
         if any(operation.kind in {"limit", "sort"} for operation in self.operations):
             return None
-        statement = self._sql_local_source_statement(default_limit=1)
+        statement = self._sql_local_source_statement(default_limit=1, allow_native_source=True)
         suffix = " LIMIT 1"
         if statement is None or not statement.endswith(suffix):
             return None
@@ -14744,6 +14819,16 @@ def _predicate_sql(value: object) -> str:
     return _normalize_raw_or_typed_predicate("predicate expression", value)
 
 
+def _predicate_sources(*values: object) -> tuple[WorkflowSource, ...]:
+    sources: list[WorkflowSource] = []
+    for value in values:
+        if isinstance(value, PredicateExpression):
+            sources.extend(value.source_bindings)
+        elif isinstance(value, LazyFrame):
+            sources.extend(value._declared_sources())
+    return tuple(sources)
+
+
 def _normalize_raw_or_typed_predicate(name: str, value: object) -> str:
     if isinstance(value, PredicateExpression):
         return value.sql
@@ -14901,7 +14986,8 @@ def _row_value_in_source_predicate(
     )
     operator = "NOT IN" if negated else "IN"
     return PredicateExpression(
-        f"({column_sql}) {operator} (SELECT {source_column_sql} FROM {source_ref}{tail})"
+        f"({column_sql}) {operator} (SELECT {source_column_sql} FROM {source_ref}{tail})",
+        _predicate_sources(source, where, having),
     )
 
 
@@ -14922,7 +15008,6 @@ def _exists_source_predicate(
     source_ref = _sql_local_subquery_source(
         source, "EXISTS subquery source", source_alias=source_alias
     )
-    max_limit = 32 if group_by is not None or having is not None else 10_000
     tail = _sql_local_subquery_tail(
         where=where,
         group_by=group_by,
@@ -14931,12 +15016,12 @@ def _exists_source_predicate(
         descending=descending,
         limit=limit,
         limit_name="EXISTS subquery limit",
-        max_limit=max_limit,
         positive_limit=False,
     )
     operator = "NOT EXISTS" if negated else "EXISTS"
     return PredicateExpression(
-        f"{operator} (SELECT {projection_sql} FROM {source_ref}{tail})"
+        f"{operator} (SELECT {projection_sql} FROM {source_ref}{tail})",
+        _predicate_sources(source, where, having),
     )
 
 
@@ -14968,12 +15053,12 @@ def _quantified_source_predicate(
         descending=descending,
         limit=limit,
         limit_name="ANY/ALL subquery limit",
-        max_limit=32,
         positive_limit=True,
     )
     return PredicateExpression(
         f"{column_sql} {operator} {quantifier} "
-        f"(SELECT {source_column_sql} FROM {source_ref}{tail})"
+        f"(SELECT {source_column_sql} FROM {source_ref}{tail})",
+        _predicate_sources(source, where, having),
     )
 
 
@@ -15071,6 +15156,11 @@ def _sql_local_subquery_source(
     source: object, name: str, *, source_alias: object | None = None
 ) -> str:
     if isinstance(source, LazyFrame):
+        if source.operations:
+            raise ValueError(
+                "source subquery helpers require an untransformed source; use the helper's "
+                "where/group_by/having/order_by/limit arguments or an explicit SQL subquery"
+            )
         source_ref = _quote_sql_local_source_path(source.source.uri)
     else:
         source_ref = _quote_sql_local_source_path(_require_non_empty(name, source))
@@ -15099,7 +15189,6 @@ def _sql_in_subquery_tail(
         descending=descending,
         limit=limit,
         limit_name="IN subquery limit",
-        max_limit=32,
         positive_limit=True,
     )
 
@@ -15113,7 +15202,6 @@ def _sql_local_subquery_tail(
     descending: bool,
     limit: int | None,
     limit_name: str,
-    max_limit: int,
     positive_limit: bool,
 ) -> str:
     tail = ""
@@ -15135,8 +15223,6 @@ def _sql_local_subquery_tail(
             normalized_limit = _normalize_positive_int(limit_name, limit)
         else:
             normalized_limit = _normalize_non_negative_int(limit_name, limit)
-        if normalized_limit > max_limit:
-            raise ValueError(f"{limit_name} admits at most {max_limit} rows")
         tail = f"{tail} LIMIT {normalized_limit}"
     return tail
 
@@ -15555,6 +15641,8 @@ def _embedded_vortex_input_uri(statement: str) -> str | None:
 def _vortex_sql_primitive_shape(
     statement: str,
 ) -> _VortexSqlPrimitiveWorkflowShape | None:
+    if _native_relational_sql_candidate(statement):
+        return None
     normalized = statement.strip().rstrip(";").strip()
     if not _starts_with_sql_keyword(normalized, "select"):
         return None
@@ -15650,6 +15738,8 @@ def _vortex_sql_primitive_shape(
 def _vortex_sql_user_route_shape(
     statement: str,
 ) -> _NativeVortexSqlUserRouteShape | None:
+    if _native_relational_sql_candidate(statement):
+        return None
     normalized = statement.strip().rstrip(";").strip()
     if not _starts_with_sql_keyword(normalized, "select"):
         return None
@@ -16210,6 +16300,19 @@ def _public_workflow_input_format(source: WorkflowSource) -> str:
     return source.source_format
 
 
+def _workflow_source_bindings(sources: Sequence[WorkflowSource]) -> dict[str, dict[str, object]]:
+    """Retain each source's adapter contract across relational SQL lowering."""
+    bindings: dict[str, dict[str, object]] = {}
+    for source in sources:
+        binding: dict[str, object] = {"input_format": _public_workflow_input_format(source)}
+        if source.schema and source.source_format != "vortex":
+            binding["source_schema"] = source.schema
+        previous = bindings.setdefault(source.uri, binding)
+        if previous != binding:
+            raise ValueError(f"conflicting format or schema declarations for source {source.uri!r}")
+    return bindings
+
+
 def _prepare_vortex_schema_hints(source: WorkflowSource) -> Mapping[str, object] | None:
     """Return CLI schema hints only for text adapters that accept them."""
 
@@ -16242,6 +16345,15 @@ def _is_local_avro_source_ref(value: str) -> bool:
 
 def _is_local_orc_source_ref(value: str) -> bool:
     return _source_format_for_local_source_ref(value) == "orc"
+
+
+def _is_declared_local_source(source: WorkflowSource) -> bool:
+    uri = source.uri.strip().lower()
+    return (
+        source.source_format in {"csv", "json", "parquet", "arrow-ipc", "avro", "orc"}
+        and "://" not in uri
+        and not uri.startswith(("s3:", "gs:", "abfs:", "abfss:"))
+    )
 
 
 def _is_query_builder_local_source(source: WorkflowSource) -> bool:
@@ -16285,6 +16397,30 @@ def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
             in_quote = True
         index += 1
     return tuple(values)
+
+
+def _native_relational_sql_candidate(statement: str) -> bool:
+    """Syntax-only dispatch; Rust parses and admits the full native plan."""
+    if any(_contains_sql_keyword_outside_quotes(statement, keyword)
+           for keyword in ("join", "union", "intersect", "except", "over")):
+        return True
+    first = _find_sql_keyword_outside_quotes(statement, "select")
+    return first is not None and _contains_sql_keyword_outside_quotes(statement[first + 6:], "select")
+
+
+def _collect_native_relational(
+    client: ShardLoomClient, statement: str, *, surface: str,
+    plan_summary: str, input_kwargs: Mapping[str, Any], check: bool,
+    memory_gb: int, max_parallelism: int,
+) -> OutputEnvelope:
+    return client.public_workflow_run(
+        surface, sql_statement=statement, plan_summary=plan_summary,
+        requested_output="collect", execution_policy="vortex_middle",
+        materialization_policy="bounded", evidence_level="production_admitted_local_workflow",
+        bounded=True, memory_gb=_normalize_positive_int("memory_gb", memory_gb),
+        max_parallelism=_normalize_positive_int("max_parallelism", max_parallelism),
+        check=check, **input_kwargs,
+    ).envelope
 
 
 def _sql_source_refs(statement: str) -> tuple[str, ...]:

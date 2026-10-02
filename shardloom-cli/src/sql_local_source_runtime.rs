@@ -13,6 +13,10 @@
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 mod whole_json_typed;
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "sql_native_relational.rs"]
+pub(crate) mod native_relational;
+
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
@@ -1746,6 +1750,8 @@ struct ParsedSqlLocalSource {
     predicate: ParsedPredicate,
     having: ParsedPredicate,
     limit: usize,
+    /// Parser-only bounds for the decoded reference must not truncate native SQL.
+    limit_is_synthetic: bool,
     normalized_statement: String,
 }
 
@@ -5137,7 +5143,8 @@ pub(crate) struct PublicWorkflowVortexPreparation {
     pub(crate) target_path: PathBuf,
     pub(crate) fields: Vec<(String, String)>,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-    identity: Option<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>,
+    pub(crate) identity:
+        Option<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>,
 }
 
 impl PublicWorkflowVortexPreparation {
@@ -13146,6 +13153,7 @@ fn materialize_in_subquery(
     source_format_override: Option<LocalSourceFormat>,
     read_limits: LocalSourceReadLimits,
 ) -> Result<(), ShardLoomError> {
+    validate_reference_subquery_limit(subquery.limit)?;
     if subquery.source_format.is_some() {
         return Ok(());
     }
@@ -13264,6 +13272,7 @@ fn materialize_row_value_in_subquery(
     source_format_override: Option<LocalSourceFormat>,
     read_limits: LocalSourceReadLimits,
 ) -> Result<(), ShardLoomError> {
+    validate_reference_subquery_limit(subquery.limit)?;
     if subquery.source_format.is_some() {
         return Ok(());
     }
@@ -13431,6 +13440,7 @@ fn materialize_projected_exists_subquery(
     source_format_override: Option<LocalSourceFormat>,
     read_limits: LocalSourceReadLimits,
 ) -> Result<(), ShardLoomError> {
+    validate_reference_subquery_limit(subquery.limit)?;
     let plan = subquery.projected_plan.take().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "projected EXISTS subquery materializer called without a projected plan".to_string(),
@@ -35955,6 +35965,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         predicate,
         having,
         limit,
+        limit_is_synthetic: false,
         normalized_statement: statement,
     }
 }
@@ -37602,6 +37613,20 @@ fn parse_generic_expression_projection(
     let alias = raw[as_index + "as".len()..].trim();
     if expression_raw.is_empty() || alias.is_empty() {
         return Ok(None);
+    }
+    if validate_sql_column_ref(expression_raw).is_ok() && parse_sql_literal(expression_raw).is_err()
+    {
+        validate_sql_identifier(alias)?;
+        return Ok(Some(ParsedGenericExpressionProjection {
+            alias: alias.to_string(),
+            expression: Expression::column(
+                ExprId::new(format!("project.alias.{alias}"))?,
+                ColumnRef::new(expression_raw)?,
+            ),
+            source_columns: vec![expression_raw.to_owned()],
+            operator_families: Vec::new(),
+            binary_operator_count: 0,
+        }));
     }
     let contains_temporal_difference =
         expression_contains_temporal_difference_call(expression_raw)?;
@@ -39918,9 +39943,9 @@ fn parse_join_on_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError>
     if let Some(predicate) = parse_generic_expression_predicate(raw)? {
         return Ok(predicate);
     }
-    Err(unsupported_sql_error(
-        "JOIN smoke admits equi-key, column-comparison, or numeric expression ON predicates only",
-    ))
+    // A qualified column compared with a literal is an ON residual, evaluated
+    // before outer null extension just like a column-to-column comparison.
+    parse_token_predicate(raw)
 }
 
 fn parse_join_on_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
@@ -39967,6 +39992,9 @@ fn parse_join_on_column_compare_predicate(
     let [left, op_raw, right] = tokens.as_slice() else {
         return Ok(None);
     };
+    if parse_sql_literal(left).is_ok() || parse_sql_literal(right).is_ok() {
+        return Ok(None);
+    }
     validate_sql_column_ref(left)?;
     validate_sql_column_ref(right)?;
     Ok(Some(ParsedPredicate::ColumnCompare {
@@ -42313,21 +42341,33 @@ fn parse_projected_in_subquery_predicate(
 
 fn is_projected_local_source_subquery(raw: &str) -> Result<bool, ShardLoomError> {
     validate_in_subquery_select_prefix(raw)?;
-    Ok(
-        find_keyword_outside_quotes_and_parentheses(raw, "join")?.is_some()
-            || find_keyword_outside_quotes_and_parentheses(raw, "group by")?.is_some()
-            || find_keyword_outside_quotes_and_parentheses(raw, "having")?.is_some(),
-    )
+    if find_keyword_outside_quotes_and_parentheses(raw, "join")?.is_some()
+        || find_keyword_outside_quotes_and_parentheses(raw, "group by")?.is_some()
+        || find_keyword_outside_quotes_and_parentheses(raw, "having")?.is_some()
+    {
+        return Ok(true);
+    }
+    let from = find_keyword_outside_quotes_and_parentheses(raw, "from")?
+        .ok_or_else(|| unsupported_sql_error("source subquery requires FROM"))?;
+    let select = raw["select".len()..from].trim();
+    if find_keyword_outside_quotes_and_parentheses(select, "distinct")? == Some(0) {
+        return Ok(true);
+    }
+    for expression in split_sql_csv(select)? {
+        if find_keyword_outside_quotes_and_parentheses(&expression, "as")?.is_some()
+            || parse_aggregate_projection(&expression)?.is_some()
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn parse_projected_subquery_plan(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
     let statement = bounded_projected_subquery_statement(raw)?;
-    let projected_plan = parse_sql_local_source_statement(&statement)?;
-    if projected_plan.limit > MAX_IN_LIST_VALUES {
-        return Err(unsupported_sql_error(&format!(
-            "IN projected subquery LIMIT admits at most {MAX_IN_LIST_VALUES} rows in this scoped runtime slice"
-        )));
-    }
+    let mut projected_plan = parse_sql_local_source_statement(&statement)?;
+    projected_plan.limit_is_synthetic =
+        find_keyword_outside_quotes_and_parentheses(raw, "limit")?.is_none();
     let _output_columns = projected_subquery_output_columns(&projected_plan)?;
     validate_projected_subquery_outer_correlation_shapes(&projected_plan, "IN")?;
     Ok(projected_plan)
@@ -42599,12 +42639,9 @@ fn parse_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomErr
 
 fn parse_projected_exists_subquery(raw: &str) -> Result<ParsedExistsSubquery, ShardLoomError> {
     let statement = bounded_projected_subquery_statement(raw)?;
-    let projected_plan = parse_sql_local_source_statement(&statement)?;
-    if projected_plan.limit > MAX_IN_LIST_VALUES {
-        return Err(unsupported_sql_error(&format!(
-            "EXISTS projected subquery LIMIT admits at most {MAX_IN_LIST_VALUES} rows in this scoped runtime slice"
-        )));
-    }
+    let mut projected_plan = parse_sql_local_source_statement(&statement)?;
+    projected_plan.limit_is_synthetic =
+        find_keyword_outside_quotes_and_parentheses(raw, "limit")?.is_none();
     validate_projected_subquery_outer_correlation_shapes(&projected_plan, "EXISTS")?;
     let (projection_kind, selected_columns) =
         projected_exists_subquery_projection(&projected_plan)?;
@@ -43136,16 +43173,20 @@ fn parse_in_subquery_limit(
     let limit = if let Some(index) = limit_clause {
         let limit_raw = raw[index + "limit".len()..].trim();
         let limit = parse_limit(limit_raw)?;
-        if limit > MAX_IN_LIST_VALUES {
-            return Err(unsupported_sql_error(&format!(
-                "IN subquery LIMIT admits at most {MAX_IN_LIST_VALUES} rows in this scoped runtime slice"
-            )));
-        }
         Some(limit)
     } else {
         None
     };
     Ok(limit)
+}
+
+fn validate_reference_subquery_limit(limit: Option<usize>) -> Result<(), ShardLoomError> {
+    if limit.is_some_and(|limit| limit > MAX_IN_LIST_VALUES) {
+        return Err(unsupported_sql_error(&format!(
+            "decoded reference subquery LIMIT admits at most {MAX_IN_LIST_VALUES} rows; native relational execution uses its resource policy"
+        )));
+    }
+    Ok(())
 }
 
 fn validate_in_subquery_clause_order(

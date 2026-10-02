@@ -299,10 +299,10 @@ arbitrary callbacks, recursive SQL or external-effect/platform integrations.
 | Expressions/casts/nested access | Retained typed rewrite execution and existing aggregate-transform kernels; public source predicates preserved | Broader function/type and chain coverage; general nested/extension results |
 | Melt/explode/pivot | Prepared native batches for flat melt, admitted scalar list/FSL explode and single-index/value pivot; complete public values and writers | Wider pivot/nested shapes, broader chains and state spill |
 | Source-order rolling | Prepared sum/mean/count/min/max and centered lookahead with source order, nulls and min-periods preserved | Broader composition and pressure/spill transitions |
-| General joins | Native typed key owners, exact byte equality, row ordinals and native take | Duplicate-preserving equijoins first; then existing cross/non-equi shapes with explicit semantics |
-| Set operations | Native batches and exact retained-row membership | UNION ALL/DISTINCT, INTERSECT and EXCEPT with explicit null, dtype and multiplicity rules |
-| Analytic windows | Native partition/sort keys and late payload gathers | Existing parsed ranking, navigation and distribution functions; frame semantics remain explicit |
-| Scoped subqueries | Native membership, semi/anti joins, scalar results and aggregates | Lower existing parsed forms with three-valued logic, scalar cardinality checks and explicit correlation scope |
+| General joins | Retained duplicate-preserving equality, cross and non-equi native joins; ON before outer null extension; complete collection/writers | Wider public composition/type coverage, costed strategies and native state spill |
+| Set operations | Retained UNION ALL/DISTINCT, INTERSECT and EXCEPT with lossless schema binding, null-equal membership and complete delivery | Broader branch composition/types and state spill |
+| Analytic windows | Retained parsed ranking, navigation and distribution functions with shared partition/order state and complete delivery | Wider frames/default expressions, public chains and native state spill |
+| Scoped subqueries | Retained IN/NOT IN, row membership, ANY/ALL and EXISTS with three-valued logic and nearest outer scope; nested/grouped inner plans | Scalar-value subqueries, decorrelation, broader public composition/types and state spill |
 
 For each row, acceptance must cover native execution, resident reuse, CLI, SQL,
 DataFrame/Python, owned output/sinks, pressure/spill applicability, cancellation/
@@ -312,6 +312,9 @@ ordinary anti-join without retaining the right-side null/empty-set information.
 The [October 1 unary unit](native-unary-workflows-2026-10-01.md) records the exact
 prepared/public result and writer coverage; it does not close every obligation in
 these rows.
+The [relational unit](native-relational-workflows-2026-10-01.md) records the later
+native/public promotion of those four families, with its exact syntax, resource
+and writer boundaries. It does not close the broader requirements in this table.
 
 Source anchors: `shardloom-vortex/src/query_primitive.rs`,
 `local_primitive_collect.rs`, `local_primitive_aggregate_owned.rs`,
