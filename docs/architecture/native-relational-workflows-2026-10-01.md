@@ -271,3 +271,20 @@ runner. This packet records local acceptance before hosted PR checks; its scope
 and timestamps remain immutable. It does not establish a performance improvement,
 total-RSS limit, broader type/spill support, competitive-gate completion or package
 publication.
+
+### Lean-build correction
+
+Hosted CI exposed a missing direct Serde `derive` feature in the CLI manifest.
+The all-target test dependencies and native providers had enabled it transitively,
+masking the omission in the initial local checks. The lean workspace check reproduced
+the failure. Revision `eeb0e0cf1b76e964f73d23ee4618527def567d5c` enables that already
+locked feature explicitly. No Rust, Python, harness or lockfile source changed.
+
+Default and no-default workspace checks, Rust 1.96 no-default and native all-target
+checks, a plain CLI build, formatting, default/native all-target Clippy and default
+workspace tests all pass after the correction. Rebuilding `release-user-surfaces`
+produces exactly the frozen executable bytes above; a complete file comparison and
+SHA-256 verification confirm that the original workflow and Full43 runtime evidence
+still applies. The [CI correction packet](../benchmarks/evidence/native-relational-ci-2026-10-02.json.xz)
+preserves the failure, nine successful local checks, build and byte-comparison proof.
+Its SHA-256 is `a0f682c82aa959b8731b51cc1af1201658e4e1841e31dea00285ec834c6a5b5e`.
