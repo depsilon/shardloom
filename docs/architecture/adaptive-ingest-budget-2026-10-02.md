@@ -200,3 +200,13 @@ The deterministic regression test proves a queued conversion poll returns
 when explicitly driven and retains cleanup ownership until caller drop. The
 full native suite passes 2,188 tests with 23 existing ignores; the nine-case
 pressure/mutation suite, public CLI suite and required workspace checks pass.
+
+The immutable [progress-repair evidence packet](../benchmarks/evidence/adaptive-operation-progress-repair-2026-10-02.json.xz)
+binds final verification to runtime revision
+`8f8a412d1dcde36f80e16889cc938b7670be6d05` and 773 source-file hashes. It retains
+the hosted failure, local reproduction, sampled circular wait, failed development
+checks, complete passing logs and repetition driver. Packet SHA-256:
+`fd292d5e155e7855bdb843e82c94c89357444b06622fbfa62655246ac96bdde6`.
+The initial allocation packet remains unchanged; the new packet establishes the
+repaired runtime's local acceptance. Current-head hosted acceptance is still
+required before this finite item moves to the completed ledger.
