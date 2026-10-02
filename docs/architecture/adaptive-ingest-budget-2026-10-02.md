@@ -164,3 +164,8 @@ raw-log hashes and verified cleanup. Larger allocation selection and fresh-query
 proof are separate from that historical timing cohort. Primary review found no
 remaining actionable defect in the accepted diff; hosted status is recorded
 separately after checks complete.
+
+The initial hosted documentation gate found the new queue item missing from the
+v1 inclusion matrix. The required row and the preceding resource unit's merged
+status were aligned, and the complete public-status validator then passed.
+This documentation repair leaves the accepted runtime and source hashes unchanged.
