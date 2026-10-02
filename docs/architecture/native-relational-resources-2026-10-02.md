@@ -2,9 +2,12 @@
 
 # Native relational resource and ordering continuation
 
-Status: corrected finite local acceptance complete on `c9bd23ca`; hosted validation
-and merge remain pending. The initial run and subsequent I/O cleanup repair are
-retained below. This follows the
+Status: corrected finite acceptance complete on `c9bd23ca` and merged in
+[PR #1502](https://github.com/depsilon/shardloom/pull/1502) at
+`4b9af399755b8b16ac696809ae3025c9e94974b5`. All 40 hosted checks passed for exact head
+`e8e1214ab0da05f8c052a67e7b988bb199514148`; the tested and merged trees match.
+Hosted Codex review was usage-limited and is not counted as approval. The initial
+run and subsequent I/O cleanup repair are retained below. This follows the
 [ordered composition unit](native-relational-composition-2026-10-02.md) under
 PERF-03/06/07/10/12 and the existing CG-5/20/21 obligations. Active ordering belongs
 to the [phase plan](phased-execution-plan.md). This contract does not close broader

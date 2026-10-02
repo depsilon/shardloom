@@ -94,7 +94,7 @@ pub(super) fn aggregate_fields(
     aggregate_fields_with_bounds(request, source, true)
 }
 
-#[cfg(all(unix, feature = "vortex-write"))]
+#[cfg(unix)]
 pub(super) fn aggregate_stream_fields(
     request: &VortexQueryPrimitiveRequest,
     source: &DType,

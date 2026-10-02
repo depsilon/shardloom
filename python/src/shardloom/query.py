@@ -2241,7 +2241,8 @@ class SqlWorkflow:
                 "source_free_sql_collect_requires_write_output",
                 check=check,
             )
-        if _native_relational_sql_candidate(self.statement):
+        if (_native_relational_sql_candidate(self.statement)
+                or _native_flat_aggregate_sql_candidate(self.statement)):
             envelope = _collect_native_relational(
                 self.client, self.statement, surface="sql",
                 plan_summary=self.operation_summary,
@@ -4272,6 +4273,9 @@ def _sql_native_vortex_public_workflow_kwargs(
 ) -> dict[str, Any]:
     """Return exact native Vortex route payloads inferred from a SQL workflow."""
 
+    if (_native_relational_sql_candidate(statement)
+            or _native_flat_aggregate_sql_candidate(statement)):
+        return {}
     if requested_output in _NATIVE_WRITE_REQUESTS:
         provider_shape = _vortex_sql_user_route_shape(statement)
         if provider_shape is not None:
@@ -11029,6 +11033,7 @@ class LazyFrame:
                                for source in operation.source_bindings))
 
     def _native_relational_statement(self) -> str | None:
+        """Complete SQL for shared native admission, including flat aggregates."""
         from ._relational_sql import flat_order_is_safe, render_frame
 
         if self._has_structured_binary_export_shape():
@@ -11051,7 +11056,9 @@ class LazyFrame:
         )
         if statement is None:
             statement = render_frame(self)
-        return statement if statement and _native_relational_sql_candidate(statement) else None
+        if statement and _native_relational_sql_candidate(statement):
+            return statement
+        return self._native_vortex_aggregate_statement()
 
     def _relation_statement(self) -> str | None:
         """Render this complete input, including its order and limits, without I/O."""
@@ -11065,8 +11072,6 @@ class LazyFrame:
 
     def _native_vortex_aggregate_statement(self) -> str | None:
         """Lower a complete ordered aggregate chain without moving input limits."""
-        if self.source.source_format != "vortex":
-            return None
         stages = ("filter", "group_by", "aggregate", "having", "sort", "limit")
         position = -1
         saw_aggregate = False
@@ -16968,6 +16973,24 @@ def _native_relational_sql_candidate(statement: str) -> bool:
         return True
     first = _find_sql_keyword_outside_quotes(statement, "select")
     return first is not None and _contains_sql_keyword_outside_quotes(statement[first + 6:], "select")
+
+
+def _native_flat_aggregate_sql_candidate(statement: str) -> bool:
+    """Dispatch aggregate syntax to Rust without selecting an aggregate strategy."""
+    source = _find_top_level_sql_keyword_outside_quotes(statement, "from")
+    select = _find_top_level_sql_keyword_outside_quotes(statement, "select")
+    if source is None or select is None or source <= select:
+        return False
+    projection = statement[select + len("select"):source].strip()
+    grouped = _contains_sql_keyword_outside_quotes(statement, "group by")
+    # Preserve the established metadata COUNT(*) collection route. Any other
+    # aggregate clause needs complete SQL admission, including HAVING/ordering.
+    if (_is_sql_count_star_projection(projection) and not grouped
+            and not any(_contains_sql_keyword_outside_quotes(statement, clause)
+                        for clause in ("having", "order by", "offset"))):
+        return False
+    return grouped or any(_contains_sql_keyword_outside_quotes(projection, function)
+                          for function in ("count", "sum", "avg", "min", "max"))
 
 
 def _terminal_resource_kwargs(

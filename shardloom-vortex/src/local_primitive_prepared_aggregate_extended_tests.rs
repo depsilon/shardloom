@@ -42,8 +42,121 @@ fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json:
             certified(&result, execution);
             assert_eq!(payload(&result.report)["values"], *expected);
         }
+        for execution in 4..=6 {
+            let collected = prepared
+                .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())
+                .unwrap();
+            certified(&collected.execution, execution);
+            let actual: Vec<serde_json::Value> = collected
+                .result_jsonl
+                .value()
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect();
+            assert_eq!(serde_json::Value::Array(actual), *expected);
+            assert_eq!(
+                collected
+                    .execution
+                    .native_io_certificate
+                    .sink_requirement_report
+                    .target_format,
+                "bounded_json_rows"
+            );
+            assert!(
+                owner.snapshot().memory.reserved_bytes
+                    >= collected.result_jsonl.value().capacity() as u64
+            );
+        }
         drop(prepared);
         assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn prepared_aggregate_explicit_null_order_keeps_measures_keys_and_windows_exact() {
+    use crate::relational_query::VortexRelationalNullOrder::{First, Last};
+    let fixture = Fixture::new();
+    write_columns(
+        &fixture,
+        &["cohort", "reading"],
+        vec![
+            VarBinViewArray::from_iter_nullable_str([
+                None,
+                Some("a"),
+                Some("b"),
+                Some("c"),
+                Some("d"),
+                Some("東京"),
+                None,
+                Some("a"),
+                Some("b"),
+                Some("c"),
+                Some("d"),
+                Some("東京"),
+            ])
+            .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(1_i64),
+                None,
+                Some(2),
+                None,
+                Some(1),
+                Some(-5),
+                Some(7),
+                None,
+                Some(6),
+                None,
+                Some(7),
+                Some(-1),
+            ])
+            .into_array(),
+        ],
+        12,
+    );
+    let rows = serde_json::json!([
+        {"cohort":null,"mean":4.0,"entries":2},
+        {"cohort":"a","mean":null,"entries":2},
+        {"cohort":"b","mean":4.0,"entries":2},
+        {"cohort":"c","mean":null,"entries":2},
+        {"cohort":"d","mean":4.0,"entries":2},
+        {"cohort":"東京","mean":-3.0,"entries":2},
+    ]);
+    // Full independently specified output order, including ties and all-null groups.
+    for (descending, nulls, indices) in [
+        (false, First, [1, 3, 5, 2, 4, 0]),
+        (true, First, [1, 3, 2, 4, 0, 5]),
+        (false, Last, [5, 2, 4, 0, 1, 3]),
+        (true, Last, [2, 4, 0, 5, 1, 3]),
+    ] {
+        for limited in [false, true] {
+            let mut aggregate = VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("cohort").unwrap()],
+                vec![
+                    measure("avg", Some("reading"), "mean"),
+                    measure("count", None, "entries"),
+                ],
+            )
+            .with_order_by(vec![
+                VortexAggregateOrderExpr::new("mean", descending).with_nulls(nulls),
+                VortexAggregateOrderExpr::new("cohort", false).with_nulls(Last),
+            ]);
+            if limited {
+                aggregate.offset = 1;
+            }
+            let mut request = fixture.request(aggregate);
+            if limited {
+                request.source_order_limit = Some(3);
+            }
+            let indices = if limited {
+                &indices[1..4]
+            } else {
+                &indices[..]
+            };
+            let expected = serde_json::Value::Array(
+                indices.iter().map(|&index| rows[index].clone()).collect(),
+            );
+            assert_repeated(&request, &expected);
+        }
     }
 }
 

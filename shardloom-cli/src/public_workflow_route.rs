@@ -5665,16 +5665,19 @@ impl PublicWorkflowRouteRequest {
         }
 
         request.infer_defaults();
-        if !request.source_bindings.is_empty()
-            && (request.requested_output == "prepare"
-                || request
-                    .sql_statement
-                    .as_deref()
-                    .is_none_or(|sql| !native_relational_sql_candidate(sql)))
-        {
-            return Err(ShardLoomError::InvalidOperation(
-                "source bindings require an admitted relational SQL statement; no declaration is silently ignored and no fallback execution was attempted".into(),
-            ));
+        if !request.source_bindings.is_empty() {
+            if request.requested_output == "prepare" {
+                return Err(ShardLoomError::InvalidOperation(
+                    "source bindings require an admitted SQL statement, not a preparation-only request; no fallback execution was attempted".into(),
+                ));
+            }
+            if request
+                .sql_statement
+                .as_deref()
+                .is_none_or(|sql| !native_relational_sql_candidate(sql))
+            {
+                request.bind_flat_source()?;
+            }
         }
         if request.source_schema.is_some()
             && (request.generated_source_kind.is_some()
@@ -5685,6 +5688,44 @@ impl PublicWorkflowRouteRequest {
             ));
         }
         Ok(request)
+    }
+
+    /// Reuse a single flat SQL declaration as the existing normalization input.
+    /// All checks are syntactic: inspection must not open the source or target.
+    fn bind_flat_source(&mut self) -> Result<(), ShardLoomError> {
+        let invalid = || {
+            ShardLoomError::InvalidOperation(
+            "flat SQL source bindings require exactly one used source with matching input, format and schema declarations; no declaration is silently ignored and no fallback execution was attempted".into(),
+        )
+        };
+        let shape = self
+            .sql_statement
+            .as_deref()
+            .and_then(parse_native_vortex_sql_single_source_shape)
+            .ok_or_else(invalid)?;
+        if self.source_bindings.len() != 1
+            || self.input_uri.as_deref() != Some(shape.source_ref.as_str())
+        {
+            return Err(invalid());
+        }
+        let binding = self
+            .source_bindings
+            .get(&shape.source_ref)
+            .ok_or_else(invalid)?;
+        if self
+            .input_format
+            .as_ref()
+            .is_some_and(|format| format != &binding.input_format)
+            || self
+                .source_schema
+                .as_ref()
+                .is_some_and(|schema| Some(schema) != binding.source_schema.as_ref())
+        {
+            return Err(invalid());
+        }
+        self.input_format = Some(binding.input_format.clone());
+        self.source_schema.clone_from(&binding.source_schema);
+        Ok(())
     }
 
     fn new(surface: String) -> Self {
@@ -7957,8 +7998,8 @@ fn infer_native_vortex_sql_payload(
     if native_relational_sql_candidate(statement) {
         return None;
     }
-    infer_native_vortex_sql_provider_payload(statement, is_write_request(request))
-        .or_else(|| infer_native_vortex_sql_primitive_payload(statement, request))
+    infer_native_vortex_sql_primitive_payload(statement, request)
+        .or_else(|| infer_native_vortex_sql_provider_payload(statement, is_write_request(request)))
 }
 
 /// Lexical dispatch only; native parsing still admits the complete statement.
@@ -7984,6 +8025,14 @@ fn infer_native_vortex_sql_provider_payload(
     statement: &str,
     write_request: bool,
 ) -> Option<InferredNativeVortexRoutePayload> {
+    // A failed complete aggregate/order lowering must stay rejected. Legacy
+    // provider spellings do not implement residual aggregate/order clauses.
+    if ["GROUP BY", "HAVING", "ORDER BY", "OFFSET"]
+        .into_iter()
+        .any(|keyword| find_sql_keyword_outside_quotes_and_parens(statement, keyword).is_some())
+    {
+        return None;
+    }
     let refs = quoted_source_refs(statement)
         .into_iter()
         .filter(|ref_| infer_input_format_from_ref(ref_) == Some("vortex"))
@@ -7993,31 +8042,15 @@ fn infer_native_vortex_sql_provider_payload(
         return None;
     }
     let compact = compact_ascii_lower(&sql_without_string_literal_contents(statement));
-    let (family, provider_scenario) = if compact.contains("nullable_metric_00isnotnull")
-        && compact.contains("groupbygroup_key")
-        && compact.contains("sum(nullable_metric_00)astotal_nullable_metric")
-    {
-        (
-            NativeVortexOperationFamily::Aggregate,
-            "null-heavy-aggregate",
-        )
-    } else if compact.contains("groupbygroup_key")
-        && compact.contains("count(*)asrows")
-        && compact.contains("sum(metric)astotal_metric")
-    {
-        (
-            NativeVortexOperationFamily::Aggregate,
-            "group-by-aggregation",
-        )
-    } else if compact.contains("join")
+    // Aggregate and ordering SQL must pass complete primitive lowering; schema
+    // names must never select a provider that can omit a clause or null policy.
+    let (family, provider_scenario) = if compact.contains("join")
         && compact.contains("f.id")
         && compact.contains("d.dim_label")
         && compact.contains("f.metric")
         && compact.contains("f.dim_key=d.dim_key")
     {
         (NativeVortexOperationFamily::Join, "hash-join")
-    } else if compact.contains("orderbymetricdesc") && compact.contains("limit10") {
-        (NativeVortexOperationFamily::TopN, "sort-and-top-k")
     } else if compact.contains("cast(dirty_numericasfloat64)asamount_float")
         && compact.contains("amount_float>=0")
     {
@@ -8102,7 +8135,13 @@ fn infer_native_vortex_sql_primitive_payload(
     let projection = compact_ascii_lower(&shape.projection);
     // Collection keeps its metadata/encoded count route. A file sink needs a
     // typed result column, supplied by the same native aggregate lowering below.
-    if projection == "count(*)" && !is_write_request(request) {
+    if projection == "count(*)"
+        && !is_write_request(request)
+        && shape.group_by.is_none()
+        && shape.having.is_none()
+        && shape.order_by.is_none()
+        && shape.offset.is_none()
+    {
         let predicate = match shape.where_clause.as_deref() {
             Some(where_clause) => Some(summary_tiny_predicate_from_sql(where_clause)?),
             None => None,
@@ -8131,45 +8170,6 @@ fn infer_native_vortex_sql_primitive_payload(
             rolling_window: None,
             aggregate: None,
             sort_rows: None,
-            right_input: None,
-        });
-    }
-    if shape.group_by.is_none()
-        && let (Some(order_by), Some(limit)) = (shape.order_by.as_deref(), shape.limit.as_deref())
-    {
-        let columns = if shape.projection.trim() == "*" {
-            None
-        } else {
-            Some(normalize_sql_projection_columns(&shape.projection)?)
-        };
-        let predicate = match shape.where_clause.as_deref() {
-            Some(where_clause) => Some(summary_tiny_predicate_from_sql(where_clause)?),
-            None => None,
-        };
-        return Some(InferredNativeVortexRoutePayload {
-            family: NativeVortexOperationFamily::TopN,
-            provider_scenario: None,
-            primitive: Some(PublicVortexPrimitive::SortRows),
-            predicate,
-            columns,
-            source_order_limit: Some(limit.to_string()),
-            sample_seed: None,
-            sample_fraction: None,
-            sample_replacement: false,
-            sample_weight_column: None,
-            duplicate_keep: None,
-
-            deduplicate_key_columns: None,
-            expression_projection: None,
-            explode_projection: None,
-            pivot_projection: None,
-            rolling_window: None,
-            aggregate: None,
-            sort_rows: Some(sort_rows_payload_from_sql_order_by(
-                order_by,
-                shape.offset.as_deref(),
-                limit,
-            )?),
             right_input: None,
         });
     }
@@ -8207,7 +8207,50 @@ fn infer_native_vortex_sql_primitive_payload(
             right_input: None,
         });
     }
-    if shape.group_by.is_some() || shape.order_by.is_some() || shape.offset.is_some() {
+    if shape.group_by.is_none()
+        && shape.having.is_none()
+        && let (Some(order_by), Some(limit)) = (shape.order_by.as_deref(), shape.limit.as_deref())
+    {
+        let columns = if shape.projection.trim() == "*" {
+            None
+        } else {
+            Some(normalize_sql_projection_columns(&shape.projection)?)
+        };
+        let predicate = match shape.where_clause.as_deref() {
+            Some(where_clause) => Some(summary_tiny_predicate_from_sql(where_clause)?),
+            None => None,
+        };
+        return Some(InferredNativeVortexRoutePayload {
+            family: NativeVortexOperationFamily::TopN,
+            provider_scenario: None,
+            primitive: Some(PublicVortexPrimitive::SortRows),
+            predicate,
+            columns,
+            source_order_limit: Some(limit.to_string()),
+            sample_seed: None,
+            sample_fraction: None,
+            sample_replacement: false,
+            sample_weight_column: None,
+            duplicate_keep: None,
+            deduplicate_key_columns: None,
+            expression_projection: None,
+            explode_projection: None,
+            pivot_projection: None,
+            rolling_window: None,
+            aggregate: None,
+            sort_rows: Some(sort_rows_payload_from_sql_order_by(
+                order_by,
+                shape.offset.as_deref(),
+                limit,
+            )?),
+            right_input: None,
+        });
+    }
+    if shape.group_by.is_some()
+        || shape.having.is_some()
+        || shape.order_by.is_some()
+        || shape.offset.is_some()
+    {
         return None;
     }
     // A bare star is the existing native all-column projection. Keep filtered
@@ -8307,7 +8350,9 @@ fn native_vortex_sql_source_ref_matches_request(
     source_ref: &str,
     request: &PublicWorkflowRouteRequest,
 ) -> bool {
-    if infer_input_format_from_ref(source_ref) == Some("vortex") {
+    if request.input_format.as_deref() == Some("vortex")
+        && request.input_uri.as_deref() == Some(source_ref)
+    {
         return true;
     }
     is_summary_identifier(source_ref)
@@ -8549,12 +8594,16 @@ fn sort_rows_payload_from_sql_order_by(
     let order_by = split_sql_projection_list(order_by)
         .into_iter()
         .map(|item| {
-            let (expression, descending) = parse_sql_order_item(item);
+            let (expression, descending, nulls) = parse_sql_order_item(item);
             let column = normalize_sql_group_item(strip_sql_alias(expression).trim())?;
-            Some(serde_json::json!({
+            let mut order = serde_json::json!({
                 "column": column,
                 "descending": descending
-            }))
+            });
+            if let Some(nulls) = nulls {
+                order["nulls"] = nulls.into();
+            }
+            Some(order)
         })
         .collect::<Option<Vec<_>>>()?;
     if order_by.is_empty() {
@@ -9049,7 +9098,7 @@ fn parse_sql_aggregate_order_by(
     split_sql_projection_list(order_by)
         .into_iter()
         .map(|item| {
-            let (expression, descending) = parse_sql_order_item(item);
+            let (expression, descending, nulls) = parse_sql_order_item(item);
             let expression = strip_sql_alias(expression).trim();
             let column = normalize_sql_group_item(expression)
                 .filter(|column| group_spec.columns.iter().any(|group| group == column))
@@ -9073,10 +9122,14 @@ fn parse_sql_aggregate_order_by(
                         })
                         .map(|measure| measure.alias.clone())
                 })?;
-            Some(serde_json::json!({
+            let mut order = serde_json::json!({
                 "column": column,
                 "descending": descending
-            }))
+            });
+            if let Some(nulls) = nulls {
+                order["nulls"] = nulls.into();
+            }
+            Some(order)
         })
         .collect()
 }
@@ -9120,15 +9173,24 @@ fn parse_sql_aggregate_having(
         .collect()
 }
 
-fn parse_sql_order_item(item: &str) -> (&str, bool) {
+fn parse_sql_order_item(item: &str) -> (&str, bool, Option<&'static str>) {
     let item = item.trim();
+    let (item, nulls) = ["first", "last"]
+        .into_iter()
+        .find_map(|placement| {
+            let position = find_sql_trailing_keyword(item, placement)?;
+            let preceding = item[..position].trim();
+            let nulls_position = find_sql_trailing_keyword(preceding, "NULLS")?;
+            Some((preceding[..nulls_position].trim(), Some(placement)))
+        })
+        .unwrap_or((item, None));
     if let Some(position) = find_sql_trailing_keyword(item, "DESC") {
-        return (item[..position].trim(), true);
+        return (item[..position].trim(), true, nulls);
     }
     if let Some(position) = find_sql_trailing_keyword(item, "ASC") {
-        return (item[..position].trim(), false);
+        return (item[..position].trim(), false, nulls);
     }
-    (item, false)
+    (item, false, nulls)
 }
 
 fn find_sql_trailing_keyword(value: &str, keyword: &str) -> Option<usize> {
@@ -15028,6 +15090,119 @@ mod tests {
     }
 
     #[test]
+    fn flat_aggregate_and_sort_sql_preserve_explicit_null_order() {
+        let lower = |statement: &str| {
+            let request = PublicWorkflowRouteRequest::parse(
+                ["sql", "--sql", statement, "--bounded", "true"]
+                    .into_iter()
+                    .map(str::to_owned),
+            )
+            .unwrap();
+            effective_public_workflow_request(&request)
+        };
+        for descending in [false, true] {
+            for nulls in ["FIRST", "LAST"] {
+                let direction = if descending { "DESC" } else { "ASC" };
+                let statement = format!(
+                    "SELECT cohort, AVG(reading) AS mean, COUNT(*) AS n FROM 'absent.vortex' GROUP BY cohort HAVING n > 1 ORDER BY mean {direction} NULLS {nulls}, cohort ASC NULLS LAST LIMIT 7 OFFSET 2"
+                );
+                let request = lower(&statement);
+                let aggregate: serde_json::Value =
+                    serde_json::from_str(request.vortex_aggregate.as_deref().unwrap()).unwrap();
+                assert_eq!(
+                    aggregate["order_by"],
+                    serde_json::json!([
+                        {"column":"mean","descending":descending,"nulls":nulls.to_ascii_lowercase()},
+                        {"column":"cohort","descending":false,"nulls":"last"},
+                    ])
+                );
+                assert_eq!(aggregate["offset"], 2);
+                assert_eq!(request.vortex_source_order_limit.as_deref(), Some("7"));
+                assert!(request.native_vortex_provider_scenario.is_none());
+                let scalar = lower(&format!(
+                    "SELECT AVG(reading) AS mean FROM 'absent.vortex' ORDER BY mean {direction} NULLS {nulls} LIMIT 1"
+                ));
+                assert_eq!(scalar.vortex_primitive.as_deref(), Some("aggregate"));
+                let sorted = lower(&format!(
+                    "SELECT metric FROM 'absent.vortex' ORDER BY metric {direction} NULLS {nulls} LIMIT 10"
+                ));
+                let sort: serde_json::Value =
+                    serde_json::from_str(sorted.vortex_sort_rows.as_deref().unwrap()).unwrap();
+                assert_eq!(sort["order_by"][0]["nulls"], nulls.to_ascii_lowercase());
+                assert!(sorted.native_vortex_provider_scenario.is_none());
+            }
+        }
+        // Historical provider schema names must not hide unsupported clauses.
+        for suffix in ["NULLS MIDDLE", "NULLS FIRST NULLS LAST", "DESC EXTRA"] {
+            let request = lower(&format!(
+                "SELECT group_key, count(*) AS rows, sum(metric) AS total_metric FROM 'absent.vortex' GROUP BY group_key ORDER BY total_metric {suffix} LIMIT 10"
+            ));
+            assert!(request.vortex_primitive.is_none());
+            assert!(request.native_vortex_provider_scenario.is_none());
+            assert_ne!(
+                plan_public_workflow_route(&request).status,
+                CommandStatus::Success
+            );
+        }
+        let request = lower(
+            "SELECT group_key, count(*) AS rows, sum(metric) AS total_metric FROM 'absent.vortex' GROUP BY group_key ORDER BY total_metric DESC NULLS FIRST LIMIT 10",
+        );
+        assert_eq!(request.vortex_primitive.as_deref(), Some("aggregate"));
+        assert!(request.native_vortex_provider_scenario.is_none());
+        let request = lower(
+            "SELECT COUNT(*) AS n FROM 'absent.vortex' WHERE nested_payload LIKE '%target%' ORDER BY n NULLS MIDDLE LIMIT 10",
+        );
+        assert!(request.vortex_primitive.is_none());
+        assert!(request.native_vortex_provider_scenario.is_none());
+        assert_ne!(
+            plan_public_workflow_route(&request).status,
+            CommandStatus::Success
+        );
+    }
+
+    #[test]
+    fn flat_source_bindings_retain_schema_and_reject_conflicts_without_io() {
+        let parse = |bindings: &str, extra: &[&str]| {
+            let mut args = vec![
+                "dataframe",
+                "--sql",
+                "SELECT label, count(*) AS n FROM 'absent.csv' GROUP BY label ORDER BY n DESC NULLS FIRST LIMIT 2",
+                "--source-bindings",
+                bindings,
+            ];
+            args.extend_from_slice(extra);
+            PublicWorkflowRouteRequest::parse(args.into_iter().map(str::to_owned))
+        };
+        let bindings = r#"{"absent.csv":{"input_format":"csv","source_schema":"label:utf8"}}"#;
+        let request = parse(bindings, &[]).unwrap();
+        assert_eq!(request.input_uri.as_deref(), Some("absent.csv"));
+        assert_eq!(request.input_format.as_deref(), Some("csv"));
+        assert_eq!(request.source_schema.as_deref(), Some("label:utf8"));
+        let prepared = prepared_local_workflow_native_request(&request).unwrap();
+        assert_eq!(
+            prepared.request.vortex_primitive.as_deref(),
+            Some("aggregate")
+        );
+        assert!(!prepared.left_target.exists());
+        for extra in [
+            vec!["--input", "other.csv"],
+            vec!["--input-format", "jsonl"],
+            vec!["--source-schema", "label:int64"],
+            vec!["--request", "prepare"],
+        ] {
+            assert!(parse(bindings, &extra).is_err(), "{extra:?}");
+        }
+        assert!(parse(r#"{"unused.csv":{"input_format":"csv"}}"#, &[]).is_err());
+        assert!(
+            parse(
+                r#"{"absent.csv":{"input_format":"csv"},"unused.csv":{"input_format":"csv"}}"#,
+                &[]
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn source_schema_admission_and_automatic_targets_are_explicit() {
         let parse = |source: &str, schema: &str| {
             PublicWorkflowRouteRequest::parse(
@@ -17720,7 +17895,7 @@ mod tests {
 
     #[cfg(feature = "vortex-production-runtime")]
     #[test]
-    fn route_planner_infers_native_vortex_sql_nested_payload_contains_provider_route() {
+    fn route_planner_infers_native_vortex_sql_nested_payload_shared_filter_route() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -17746,12 +17921,16 @@ mod tests {
         let fields = route_fields(&request, &plan);
 
         assert_eq!(plan.status, CommandStatus::Success);
-        assert_eq!(plan.route_id, "native_vortex_user_contains");
+        assert_eq!(plan.route_id, "native_vortex_filter_project");
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "vortex_primitive"), "filter_project");
+        let lowered = effective_public_workflow_request(&request);
         assert_eq!(
-            field(&fields, "native_vortex_provider_scenario"),
-            "nested-json-field-scan"
+            lowered.vortex_predicate.as_deref(),
+            Some("contains:nested_payload:target")
         );
-        assert_eq!(field(&fields, "native_vortex_operation_family"), "contains");
+        assert_eq!(lowered.vortex_columns.as_deref(), Some("id,nested_payload"));
+        assert_eq!(lowered.vortex_source_order_limit.as_deref(), Some("100"));
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }

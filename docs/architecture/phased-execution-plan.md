@@ -249,30 +249,24 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-RELATIONAL-RESOURCES` — complete shared public resource propagation
-  and native relational ordering pressure under PERF-03/06/07/10/12 and CG-5/20/21.
-  Follow the [resource and ordering contract](native-relational-resources-2026-10-02.md):
-  one resident grant and query-local run store, native typed spill/merge, exact stable
-  ordering, collection/writer parity and verified failure/cleanup behavior. Reuse the
-  existing key/order, native run-store and sink components; preserve specialized
-  numeric sort and aggregate strategies. Require the frozen public pressure matrix,
-  shared-provider regressions and Full43 before closing this finite unit. Broader
-  resource accounting and other operator spill remain with their existing owners.
+- [ ] `NATIVE-AGGREGATE-ORDERING` — align flat aggregate collection/writes and
+  explicit null ordering through existing optimized native components under
+  PERF-02/10/12 and CG-5/20/21. Follow the
+  [shared admission and ordering contract](native-aggregate-ordering-2026-10-02.md).
+  This extends the existing aggregate/sort implementations; Python and input
+  formats remain thin declarations into the same public facade.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [x] Carry memory/parallelism/spill permission through the shared public facade
-      and every SQL/DataFrame collection and local writer alias.
-    - [x] Reuse native ordering, gather and query-run storage for stable full-row
-      spill/merge under one query grant and disk quota, including nested order stages.
-    - [x] Exercise pressure, exact values, source/run corruption, cancellation,
-      cleanup and writer-publication failure contracts in focused native tests.
-    - [x] Complete broad workspace, native provider, Python, recovery and feature gates.
-    - [x] Freeze public pressure/complete-output and Full43 regression evidence:
-      corrected runtime `c9bd23ca` passes 592 public complete-result checks and
-      129/129 Full43 comparisons; the contract retains both immutable packets
-      and the I/O cleanup repair exposed by the initial hosted run.
-    - [ ] Align public references/site, complete review and hosted checks, then
-      move the accepted finite record to the completed ledger.
+    - [ ] Carry complete flat aggregate stages, source declarations and resources
+      through common collect/write/inspection admission without moving input limits.
+    - [ ] Share explicit null ordering across aggregate finalization, native sort,
+      candidate cutoff and relational ordering while retaining optimized strategies.
+    - [ ] Prove complete nullable/multi-key/limit/output semantics and explicit
+      invalid-policy/source-declaration denial through native and public tests.
+    - [ ] Complete workspace/native/Python/feature/doc checks, then freeze public
+      workflow and Full43 acceptance with exact source and build identities.
+    - [ ] Align references and evidence, complete review and hosted checks, and move
+      the finite accepted record to the completed ledger.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one

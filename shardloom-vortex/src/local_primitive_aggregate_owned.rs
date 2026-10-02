@@ -39,8 +39,9 @@ pub(super) enum AggregateOutput<'a> {
     General(super::completed_result::CompletedRows<'a>),
 }
 
-#[cfg(all(unix, feature = "vortex-write"))]
+#[cfg(unix)]
 impl<'a> AggregateOutput<'a> {
+    #[cfg(feature = "vortex-write")]
     pub(super) fn completed_rows(
         &mut self,
     ) -> Result<&mut super::completed_result::CompletedRows<'a>> {

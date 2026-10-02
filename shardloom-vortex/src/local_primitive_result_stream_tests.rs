@@ -81,6 +81,14 @@ fn result_stream_complete_aggregate_exceeds_collect_rows_and_reopens_every_nativ
     )
     .unwrap();
     assert!(prepared.execute_owned().is_err());
+    let error = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .err()
+        .unwrap();
+    assert!(
+        error.to_string().contains("collect exceeds 65,536 rows"),
+        "{error}"
+    );
     let mut next = 0;
     let mut batches = 0;
     let executed = prepared

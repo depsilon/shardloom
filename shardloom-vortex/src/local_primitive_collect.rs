@@ -365,6 +365,24 @@ pub(super) struct JsonRows {
 }
 
 impl JsonRows {
+    pub(super) fn append_native(
+        &mut self,
+        array: &ArrayRef,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        use vortex::array::VortexSessionExecute as _;
+        let fields = array
+            .dtype()
+            .as_struct_fields_opt()
+            .ok_or_else(|| collect_error("result requires a struct schema"))?;
+        self.append(
+            array,
+            fields.names().as_ref(),
+            &mut context.native_session().create_execution_ctx(),
+            context.cancellation(),
+        )
+    }
+
     pub(super) fn new(memory: &LiveMemoryPool, max_bytes: usize, lines: bool) -> Result<Self> {
         if max_bytes == 0 || max_bytes > MAX_JSON_BYTES {
             return Err(collect_error("JSON collection requires a 1..=8 MiB bound"));

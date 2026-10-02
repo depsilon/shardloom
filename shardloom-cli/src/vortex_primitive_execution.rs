@@ -3640,7 +3640,18 @@ fn json_optional_aggregate_order_array_field_any(
                 let column = json_string_field_any(order, &["column", "alias", "by"])?;
                 let descending =
                     json_optional_bool_field_any(order, &["descending", "desc"])?.unwrap_or(false);
-                out.push(VortexAggregateOrderExpr::new(column, descending));
+                let mut expression = VortexAggregateOrderExpr::new(column, descending);
+                if let Some(nulls) = order.get("nulls") {
+                    use shardloom_vortex::relational_query::VortexRelationalNullOrder;
+                    expression = expression.with_nulls(match nulls.as_str() {
+                        Some(value) if value.eq_ignore_ascii_case("first") => VortexRelationalNullOrder::First,
+                        Some(value) if value.eq_ignore_ascii_case("last") => VortexRelationalNullOrder::Last,
+                        _ => return Err(ShardLoomError::InvalidOperation(
+                            "aggregate/sort order_by nulls must be 'first' or 'last'; no fallback execution was attempted".into(),
+                        )),
+                    });
+                }
+                out.push(expression);
             }
             return Ok(Some(out));
         }
@@ -8849,6 +8860,58 @@ fn handle_vortex_count_local_encoded(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn aggregate_and_sort_null_order_payloads_are_explicit_and_checked() {
+        use shardloom_vortex::relational_query::VortexRelationalNullOrder::{First, Last};
+        for (name, nulls) in [("first", First), ("last", Last)] {
+            for descending in [false, true] {
+                let order =
+                    serde_json::json!([{"column":"cohort","descending":descending,"nulls":name}]);
+                let aggregate = serde_json::json!({"group_by":["cohort"],"measures":[{"function":"count","alias":"n"}],"order_by":order});
+                let request = parse_simple_aggregate_primitive_request(
+                    DatasetUri::new("absent.vortex").unwrap(),
+                    &aggregate.to_string(),
+                )
+                .unwrap();
+                let bound = &request.simple_aggregate.unwrap().order_by[0];
+                assert_eq!(bound.nulls, Some(nulls));
+                assert_eq!(bound.descending, descending);
+                assert!(bound.summary().ends_with(&format!("nulls {name}")));
+                let sort = serde_json::json!({"order_by":order,"limit":3});
+                let request = parse_sort_rows_primitive_request(
+                    DatasetUri::new("absent.vortex").unwrap(),
+                    &sort.to_string(),
+                    None,
+                    None,
+                )
+                .unwrap();
+                assert_eq!(request.sort_rows.unwrap().order_by[0], *bound);
+            }
+        }
+        for value in [
+            serde_json::json!("middle"),
+            serde_json::json!(false),
+            serde_json::json!(0),
+            serde_json::Value::Null,
+        ] {
+            let object = serde_json::json!({"order_by":[{"column":"cohort","nulls":value}]})
+                .as_object()
+                .unwrap()
+                .clone();
+            let error =
+                json_optional_aggregate_order_array_field_any(&object, &["order_by"]).unwrap_err();
+            assert!(error.to_string().contains("nulls must be"));
+        }
+        assert_eq!(
+            VortexAggregateOrderExpr::new("cohort", false).summary(),
+            "cohort asc"
+        );
+        assert_eq!(
+            VortexAggregateOrderExpr::new("cohort", true).summary(),
+            "cohort desc"
+        );
+    }
 
     #[test]
     fn native_sort_spill_parser_admits_explicit_bytes_without_workspace_effects() {

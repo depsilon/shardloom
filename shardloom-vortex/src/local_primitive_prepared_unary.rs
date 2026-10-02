@@ -470,17 +470,7 @@ impl PreparedVortexUnary {
     pub fn collect_jsonl(&self, cancellation: &CancellationToken) -> Result<CollectedVortexUnary> {
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
         let execution = self.for_each_batch(cancellation, |array, context| {
-            let fields = array
-                .dtype()
-                .as_struct_fields_opt()
-                .ok_or_else(|| failed("unary collection requires a struct result"))?;
-            let mut scalar_context = context.native_session().create_execution_ctx();
-            sink.append(
-                &array,
-                fields.names().as_ref(),
-                &mut scalar_context,
-                context.cancellation(),
-            )
+            sink.append_native(&array, context)
         })?;
         Ok(CollectedVortexUnary {
             execution,

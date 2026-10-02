@@ -678,6 +678,9 @@ impl VortexSimpleAggregateMeasure {
 pub struct VortexAggregateOrderExpr {
     pub column: String,
     pub descending: bool,
+    /// Explicit null placement, independent of value direction. Omission keeps
+    /// the primitive contract: nulls first ascending and last descending.
+    pub nulls: Option<crate::relational_query::VortexRelationalNullOrder>,
 }
 impl VortexAggregateOrderExpr {
     #[must_use]
@@ -685,15 +688,45 @@ impl VortexAggregateOrderExpr {
         Self {
             column: column.into(),
             descending,
+            nulls: None,
         }
+    }
+
+    /// Set null placement without changing ascending/descending value order.
+    #[must_use]
+    pub fn with_nulls(mut self, nulls: crate::relational_query::VortexRelationalNullOrder) -> Self {
+        self.nulls = Some(nulls);
+        self
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    pub(crate) fn compare(
+        &self,
+        left_null: bool,
+        right_null: bool,
+        values: impl FnOnce() -> std::cmp::Ordering,
+    ) -> std::cmp::Ordering {
+        use crate::relational_query::VortexRelationalNullOrder;
+        self.nulls
+            .unwrap_or(if self.descending {
+                VortexRelationalNullOrder::Last
+            } else {
+                VortexRelationalNullOrder::First
+            })
+            .compare(self.descending, left_null, right_null, values)
     }
 
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "{} {}",
+            "{} {}{}",
             self.column,
-            if self.descending { "desc" } else { "asc" }
+            if self.descending { "desc" } else { "asc" },
+            match self.nulls {
+                None => "",
+                Some(crate::relational_query::VortexRelationalNullOrder::First) => " nulls first",
+                Some(crate::relational_query::VortexRelationalNullOrder::Last) => " nulls last",
+            }
         )
     }
 }
