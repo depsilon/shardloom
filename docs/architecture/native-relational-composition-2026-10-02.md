@@ -1,6 +1,7 @@
 # Native relational composition
 
-Status: implementation contract; acceptance is pending. This continues
+Status: implementation and immutable local acceptance complete; hosted PR checks
+are pending. This continues
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)
 and the [native relational family](native-relational-workflows-2026-10-01.md)
 under PERF-02/07/10/11/12 and CG-5/20/21. It does not close the wider type,
@@ -137,3 +138,62 @@ Freeze the final implementation, executable, sources and harness before public U
 and Full43 regression acceptance. Large checks remain serial under the local storage
 and process guards. Full43 is regression evidence; the new independent result matrix
 establishes composition correctness. No package publication or speedup is implied.
+
+## Local validation
+
+Runtime, Python and harness revision `cf406611d97a4eb23cc3e26e199e0553f4371b67`
+was built with Rust 1.99 and `release-user-surfaces`. Frozen executable SHA-256:
+`92d03b93899ecfc54e60e2ea4ec75af4f8d48056a069da8ffedba5f3167d72e4`.
+
+| Check | Result |
+| --- | --- |
+| Default workspace all-target tests | 3,439 passed |
+| Native Vortex library with `release-user-surfaces` | 2,167 passed; 23 existing ignored tests |
+| Native CLI all-target tests | 1,562 passed |
+| Python suite | 699 passed; 144 existing retired/environment-dependent skips; 843 total |
+| Formatting and default/native all-target Clippy | Passed, with warnings denied |
+| No-default-feature workspace and Rust 1.96 lean/native builds | Passed |
+| Public surface index, front-door, local-sink and route validators | Passed |
+
+The 46-case public matrix passes **560 complete-result checks**: three retained
+collections, SQL parity and all eight reopened local writers for each case, plus
+eight complete writes of a 65,541-row derived result. The latter collection fails
+explicitly at its unchanged 65,536-row limit. The packet retains all 1,217 public
+envelopes, including that expected diagnostic with no partial result or success
+certificate. Source generations and hashes, the executable, Python client, query
+builder, shared stage renderer and both harness files are unchanged after the run.
+Receipt:
+`native-composition-20261002/python-uat/logs/native_relational_20261002T090434501005Z/summary.json`,
+SHA-256 `1ab31c49a669f84fd91a4e72157d09830a44a4af29fc30d36c6c0960f7baa8c8`.
+
+The new CLI tests cover empty output schemas, unknown/ambiguous scope, inert
+source discovery, resource denial, failed consumers, midstream cancellation,
+repeated execution and nested-source mutation. Every writer rejects native source
+paths, hardlinks and symlink aliases. Existing shared sink tests, rerun in the
+native suite, verify late errors, cancellation and mutation of native or original
+compatibility inputs leave no published prefix, leaked reservations or owned files.
+Derived SQL adds no second writer implementation to obtain this behavior.
+
+Full43 passes **129/129 complete-value comparisons** across all 43 queries, each
+executed three times in a fresh process under the existing 24-GiB/12-worker policy.
+Receipt: `clickbench-100m-uat/logs/full43_20261002T090515037416Z/summary.json`,
+SHA-256 `b5e80493dcb499d59cebc0b65fd1a3b9ce1f9810db3ca3e876818b7997fea75b`.
+The resident 15,682,956,489-byte input is fully hashed before and after acceptance;
+all 43 retained reference identities and compressed/raw output-log hashes match.
+These are native regression references, not an independent oracle. OS page cache
+and ordinary host activity are uncontrolled. Owned locks are released.
+
+The [portable acceptance packet](../benchmarks/evidence/native-relational-composition-2026-10-02.json.xz)
+contains the build, complete public envelopes, local checks and resolved gate
+failures, Full43 records, reference identities, supervisors and verification code.
+Its SHA-256 is `a926eba8e723f98c78cf3c1ee880c6330a18ee3276ae6c1af7f793159ec535e9`.
+Rebind path placeholders to resident local inputs when replaying the checked-in
+runner. This immutable packet predates hosted PR checks. Earlier development
+attempts and their guard failures remain separate retained evidence; the final
+matrix uses a fresh admitted workspace without raising storage limits.
+
+The admitted SQL remains bounded to 256 KiB and 24 nesting levels. This unit does
+not add the separate unary reshape/sampling/rolling nodes to the relational tree,
+wider payload types, relational spill or fanout. It does not establish a speedup,
+total-RSS bound, production certification, competitive-gate completion or package
+publication. Those obligations remain with the existing PERF and CG owners.

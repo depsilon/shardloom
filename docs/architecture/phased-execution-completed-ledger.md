@@ -17,6 +17,27 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-RELATIONAL-COMPOSITION` preserve operation order through native relational workflows.
+  - Date: 2026-10-02 UTC. Runtime/SDK/harness revision `cf406611` has immutable
+    local acceptance; hosted PR checks are pending. The
+    [contract, reuse map and evidence](native-relational-composition-2026-10-02.md)
+    cover derived SELECT/set inputs, scoped bindings, transformed joins/subqueries,
+    post-set stages and computed-column replacement through the same native tree.
+  - The 46-case matrix passes 560 complete-result checks, including all eight
+    writers above the small collection boundary; 1,217 public envelopes retain
+    the expected collection denial. Full43 passes 129/129 complete comparisons.
+    Source, executable, frontend and harness identities are verified unchanged.
+  - Default workspace tests pass 3,439; native Vortex tests pass 2,167 with 23
+    existing ignores; native CLI tests pass 1,562; Python passes 699 with 144
+    existing skips. Formatting, strict Clippy, lean/MSRV builds and four public
+    documentation validators pass. Counts overlap across feature configurations.
+  - V1 scope classification: `required_for_v1`; finite promotion from
+    PERF-02/07/10/11/12. Shared source/key/order/resource/sink owners are explicit;
+    no format-specific executor, Python evaluator or new row kernel is added.
+    Wider types, separate unary-family composition, fanout, broader adapters and
+    pressure/spill transitions remain open. CG-1 through CG-23 remain visible;
+    no speedup, total-RSS, production or publication claim follows.
+
 - [x] `PERF-02/03/06/07/10/11/12` complete retained native relational family delivery.
   - Date: 2026-10-02 UTC. [PR #1500](https://github.com/depsilon/shardloom/pull/1500)
     merged at `588bf4c7be6c42262f3e2dd2022422efd994e5c8` after all 40 checks passed.
