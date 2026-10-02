@@ -89,6 +89,7 @@ struct PublicWorkflowRouteRequest {
     vortex_sort_rows: Option<String>,
     memory_gb: Option<String>,
     max_parallelism: Option<String>,
+    spill: Option<spill::Options>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -148,6 +149,9 @@ struct PublicWorkflowRoutePlan {
 }
 
 type PublicWorkflowRoutePlanResult<T> = Result<T, Box<PublicWorkflowRoutePlan>>;
+
+#[path = "public_workflow_spill.rs"]
+mod spill;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "public_resident_count.rs"]
@@ -480,6 +484,7 @@ fn native_vortex_primitive_row_export_execution(
     let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
     let mut primitive_request =
         vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
+    spill::attach(request, &mut primitive_request)?;
     attach_native_unary_source_predicate(request, &mut primitive_request)?;
     if let Some(limit) = request.vortex_source_order_limit.as_deref() {
         primitive_request = primitive_request
@@ -3256,6 +3261,7 @@ fn native_vortex_bound_request_and_arg(
     let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
     let mut primitive_request =
         vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
+    spill::attach(request, &mut primitive_request)?;
     attach_native_unary_source_predicate(request, &mut primitive_request)?;
     if let Some(limit) = request.vortex_source_order_limit.as_ref() {
         primitive_request = primitive_request
@@ -5647,7 +5653,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--source-schema <name:dtype,...>] [--source-bindings <json-uri-to-format-and-schema>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <vortex_middle|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--source-fingerprint-policy <metadata_only|content_digest>] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--source-schema <name:dtype,...>] [--source-bindings <json-uri-to-format-and-schema>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <vortex_middle|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--source-fingerprint-policy <metadata_only|content_digest>] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--spill <workspace-quota-buffer-json>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -5728,6 +5734,7 @@ impl PublicWorkflowRouteRequest {
             vortex_sort_rows: None,
             memory_gb: None,
             max_parallelism: None,
+            spill: None,
         }
     }
 
@@ -5738,6 +5745,15 @@ impl PublicWorkflowRouteRequest {
         args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
     ) -> Result<(), ShardLoomError> {
         match flag {
+            "--spill" => {
+                if self.spill.is_some() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "--spill may be declared only once; no fallback execution was attempted"
+                            .into(),
+                    ));
+                }
+                self.spill = Some(spill::Options::parse(&required_value(args, flag)?)?);
+            }
             "--input" => self.input_uri = Some(required_value(args, "--input")?),
             "--input-format" => {
                 self.input_format = Some(normalize_input_format(&required_value(
@@ -5926,6 +5942,12 @@ impl PublicWorkflowRouteRequest {
 }
 
 fn plan_public_workflow_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
+    spill::validate_route(request, plan_public_workflow_route_inner(request))
+}
+
+fn plan_public_workflow_route_inner(
+    request: &PublicWorkflowRouteRequest,
+) -> PublicWorkflowRoutePlan {
     if matches!(request.requested_output.as_str(), "collect") && !request.fanout_outputs.is_empty()
     {
         return collect_fanout_blocked_route();
@@ -11616,6 +11638,7 @@ fn add_route_native_vortex_resource_fields(
     fields: &mut Vec<(String, String)>,
     request: &PublicWorkflowRouteRequest,
 ) {
+    spill::append_request_fields(fields, request);
     push_field(
         fields,
         "memory_gb",
@@ -13058,6 +13081,7 @@ fn execution_attachment_fields(
         ),
     ];
     push_native_vortex_contract_fields(&mut fields, "public_workflow_", &effective_request, plan);
+    spill::append_request_fields(&mut fields, &effective_request);
     fields
 }
 

@@ -120,6 +120,29 @@ impl Batch {
             .ok_or_else(|| failed("bound key is absent"))?
             .is_null(row)
     }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn compare_key(
+        &self,
+        row: usize,
+        other: &Self,
+        other_row: usize,
+        key: usize,
+    ) -> Result<std::cmp::Ordering> {
+        self.keys
+            .values
+            .get(key)
+            .ok_or_else(|| failed("bound order key is absent"))?
+            .compare_at(
+                row,
+                other
+                    .keys
+                    .values
+                    .get(key)
+                    .ok_or_else(|| failed("bound order key is absent"))?,
+                other_row,
+            )
+    }
 }
 
 struct Segment {

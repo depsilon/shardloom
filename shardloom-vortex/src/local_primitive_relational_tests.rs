@@ -29,6 +29,8 @@ mod correlated_tests;
 mod expression_tests;
 #[path = "local_primitive_relational_join_condition_tests.rs"]
 mod join_condition_tests;
+#[path = "local_primitive_relational_spill_tests.rs"]
+mod spill_tests;
 #[path = "local_primitive_relational_subquery_tests.rs"]
 mod subquery_tests;
 #[path = "local_primitive_relational_window_tests.rs"]

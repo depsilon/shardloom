@@ -64,6 +64,9 @@ REQUIRED_JSON_POINTERS = (
     "semantic_claim_surface.disallowed_broad_claims",
     "sql.entrypoints",
     "guardrails.no_fallback_policy",
+    "native_relational_order_spill.reference",
+    "native_relational_order_spill.public_resource_arguments",
+    "native_relational_order_spill.spill_fields",
 )
 
 REQUIRED_COMMANDS = (
@@ -211,6 +214,15 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     for entrypoint in REQUIRED_SQL_ENTRYPOINTS:
         if entrypoint not in sql_entrypoints:
             blockers.append(f"{JSON_PATH}: missing SQL entrypoint {entrypoint}")
+
+    relational_spill = payload.get("native_relational_order_spill", {})
+    for field in ("cleanup_required_before_publication", "stable_ties", "multiple_keys"):
+        if relational_spill.get(field) is not True:
+            blockers.append(f"{JSON_PATH}: native_relational_order_spill.{field} must be true")
+    for field in ("other_relational_state_spill", "relational_fanout", "total_rss_bound",
+                  "fallback_attempted", "external_engine_invoked"):
+        if relational_spill.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_relational_order_spill.{field} must be false")
 
     guardrails = payload["guardrails"]
     for field in (

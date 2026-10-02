@@ -324,6 +324,145 @@ fn native_relational_windows_write_complete_output_above_the_collection_limit() 
 }
 
 #[test]
+fn native_relational_spill_writes_complete_ordered_output_through_all_eight_sinks() {
+    use crate::relational_query::{
+        VortexRelationalNullOrder, VortexRelationalOrderKey, VortexRelationalSort,
+        VortexRelationalSpillPolicy,
+    };
+    use std::fmt::Write as _;
+    let fixture = Fixture::new(
+        single(
+            "value",
+            PrimitiveArray::from_iter((0_u32..70_017).rev()).into_array(),
+        ),
+        4096,
+    );
+    let plan = VortexRelationalPlan::Sort(Box::new(VortexRelationalSort {
+        input: fixture.scan(),
+        keys: vec![VortexRelationalOrderKey {
+            column: ColumnRef::new("value").unwrap(),
+            descending: false,
+            nulls: Some(VortexRelationalNullOrder::Last),
+        }],
+    }));
+    let prepared = prepare_relational(&plan, policy())
+        .unwrap()
+        .with_spill(VortexRelationalSpillPolicy::new(&fixture.0, 64 << 20, 1 << 20).unwrap())
+        .unwrap();
+    assert!(
+        prepared
+            .collect_jsonl(&CancellationToken::default())
+            .is_err()
+    );
+    assert_eq!(prepared.snapshot().completed_executions, 0);
+    let expected = (0..70_017)
+        .map(|value| serde_json::json!({"value":value}))
+        .collect::<Vec<_>>();
+    let mut csv = String::from("value\n");
+    for value in 0..70_017 {
+        writeln!(&mut csv, "{value}").unwrap();
+    }
+    let baseline = prepared.snapshot().memory.reserved_bytes;
+    for (index, format) in FORMATS.into_iter().enumerate() {
+        let path = fixture.0.join(format!("ordered-spill.{}", format.as_str()));
+        let written = prepared.write(&path, format, false).unwrap();
+        assert_eq!(written.execution.output_rows, 70_017);
+        assert_eq!(written.output.rows_written, 70_017);
+        assert_eq!(
+            written.execution.runtime.completed_executions,
+            (index + 1) as u64
+        );
+        let spill = written.execution.spill.as_ref().unwrap();
+        assert!(spill.runs_written > 1);
+        assert!(spill.owned_cleanup_completed);
+        assert!(spill.peak_disk_bytes <= spill.quota_bytes);
+        if format == Format::Csv {
+            assert_eq!(fs::read_to_string(&path).unwrap(), csv);
+        } else {
+            assert_eq!(
+                read_rows(&path, format, &prepared.output_dtype()),
+                expected,
+                "{format:?}"
+            );
+        }
+        drop(written);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert!(!fs::read_dir(&fixture.0).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("shardloom-query-")
+        }));
+    }
+}
+
+#[test]
+fn native_relational_spill_cleanup_failure_prevents_publication_and_preserves_foreign_entries() {
+    use crate::{
+        local_primitives::native_relational_spill::BEFORE_RUN_OPEN,
+        relational_query::{
+            VortexRelationalNullOrder, VortexRelationalOrderKey, VortexRelationalSort,
+            VortexRelationalSpillPolicy,
+        },
+    };
+    let fixture = Fixture::new(
+        single(
+            "value",
+            PrimitiveArray::from_iter((0_u32..24_001).rev()).into_array(),
+        ),
+        1024,
+    );
+    let plan = VortexRelationalPlan::Sort(Box::new(VortexRelationalSort {
+        input: fixture.scan(),
+        keys: vec![VortexRelationalOrderKey {
+            column: ColumnRef::new("value").unwrap(),
+            descending: false,
+            nulls: Some(VortexRelationalNullOrder::Last),
+        }],
+    }));
+    let prepared = prepare_relational(&plan, policy())
+        .unwrap()
+        .with_spill(VortexRelationalSpillPolicy::new(&fixture.0, 64 << 20, 1 << 20).unwrap())
+        .unwrap();
+    let baseline = prepared.snapshot().memory.reserved_bytes;
+    for format in FORMATS {
+        let output = fixture.0.join(format!("unchanged.{}", format.as_str()));
+        let foreign = std::rc::Rc::new(std::cell::RefCell::new(None));
+        let captured = std::rc::Rc::clone(&foreign);
+        BEFORE_RUN_OPEN.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move |run| {
+                let path = run.parent().unwrap().join("not-owned-by-query");
+                fs::write(&path, b"foreign content").unwrap();
+                *captured.borrow_mut() = Some(path);
+            }));
+        });
+        let error = prepared
+            .write(&output, format, false)
+            .err()
+            .expect("cleanup must fail");
+        assert!(!output.exists(), "{format:?}: {error}");
+        let foreign = foreign
+            .borrow()
+            .clone()
+            .unwrap_or_else(|| panic!("{format:?} did not open a spill run: {error}"));
+        assert_eq!(fs::read(&foreign).unwrap(), b"foreign content");
+        assert_eq!(prepared.snapshot().completed_executions, 0);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        // Test-owned interruption artifact; production cleanup must preserve it.
+        fs::remove_file(&foreign).unwrap();
+        fs::remove_dir(foreign.parent().unwrap()).unwrap();
+        assert!(!fs::read_dir(&fixture.0).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("shardloom-query-")
+        }));
+    }
+}
+
+#[test]
 fn native_relational_join_window_set_and_subquery_compose_through_every_writer() {
     use crate::relational_query::{
         VortexRelationalNullOrder, VortexRelationalOrderKey, VortexRelationalSubquery,

@@ -310,8 +310,13 @@ stages, transformed join/subquery operands and post-set transformations. Compute
 column replacement preserves column position and binds against the preceding stage;
 undeclared schemas use the explicit ShardLoom `SELECT * REPLACE OR ADD (...)`
 modifier. These frontend wrappers add no format-specific execution engine.
+The [resource contract](../architecture/native-relational-resources-2026-10-02.md)
+carries `memory_gb`, `max_parallelism` and optional `spill` through collection,
+route/run and local writer aliases. Composed ordering can flush and merge stable
+multi-key native rows with shared query memory/quota and verified cleanup.
+Specialized sort/aggregate providers keep their existing strategies and admission.
 Arbitrary operator chains, lateral/scalar-value subqueries, general window frames,
-relational state spill and relational fanout remain explicit boundaries.
+other relational state spill and relational fanout remain explicit boundaries.
 
 Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
 subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,

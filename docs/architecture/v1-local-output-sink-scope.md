@@ -119,8 +119,11 @@ outside a format's admission fails the complete write before publication.
 The [native relational unit](native-relational-workflows-2026-10-01.md) also sends
 admitted joins, sets, analytic windows and scoped subquery results directly to all
 eight writers, including empty schemas and original-source mutation checks. These
-relational states currently require memory admission and do not gain spill support
-from the aggregate/sort contract. Relational fanout remains explicitly blocked.
+relational states require shared memory admission. An explicit relational ordering
+policy now admits stable multi-key full-row native spill/merge and requires cleanup
+before any of these writers publishes. Aggregate, join, set and window state do
+not gain spill support from that ordering policy. Relational fanout remains
+explicitly blocked. See the [resource contract](native-relational-resources-2026-10-02.md).
 These computed writers atomically create a new destination and reject existing
 files even with overwrite enabled. See the
 [streaming contract](native-workflow-streaming-2026-10-01.md) for ownership,
@@ -144,7 +147,7 @@ The route ids covered by this scope are:
 | `local_file_prepare_once_batch` | Batch prepared query result, bounded report, or local result sink. |
 | `prepared_vortex_warm_query` | Prepared Vortex query result, bounded report, or local result sink. |
 | `native_vortex_query` | Native local Vortex result/report route with scoped result sink evidence. |
-| `native_vortex_relational_write` | Complete flat-scalar native relational batches through all eight local writers; same-execution certificate, all-source validation and create-if-absent publication. No relational fanout or state-spill claim. |
+| `native_vortex_relational_write` | Complete flat-scalar native relational batches through all eight local writers; same-execution certificate, all-source validation and create-if-absent publication. Explicit stable native ordering spill requires verified cleanup before publication. No other relational state spill or fanout claim. |
 | `native_vortex_primitive_row_export` | Native/prepared Vortex row export to JSON array/JSONL/CSV; flat computed aggregate/sort and ten unary-family result streams to all eight formats, including admitted aggregate/sort spill; bounded flat projections to Vortex/Parquet/Arrow IPC/Avro/ORC; existing structured projections retain their typed admission. Explicit decode/materialization evidence; fanout remains JSONL/CSV only. |
 | `generated_rows_local_output` | Local JSON-array/JSONL/CSV, feature-gated structured/Vortex output, artifact-adjacent prepared-state reuse manifest, and fanout. |
 | `quarantine_output_route` | Local quarantine sink for admitted schema/data-quality rows. |

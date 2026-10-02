@@ -2136,6 +2136,9 @@ class SqlWorkflow:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = False,
     ) -> PublicWorkflowRoute:
         """Return the shared public route envelope for this SQL workflow."""
@@ -2163,6 +2166,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             **workflow_kwargs,
         )
 
@@ -2175,6 +2179,9 @@ class SqlWorkflow:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run this SQL workflow through the shared public route facade."""
@@ -2202,6 +2209,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             **workflow_kwargs,
         )
 
@@ -2212,6 +2220,7 @@ class SqlWorkflow:
         check: bool = False,
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
     ) -> (
         SqlLocalSourceSmokeReport
         | VortexWorkflowExecutionReport
@@ -2224,6 +2233,7 @@ class SqlWorkflow:
                 check=check,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
             )
         if _is_source_free_sql_statement(self.statement):
             return self._unsupported_operation(
@@ -2237,6 +2247,7 @@ class SqlWorkflow:
                 plan_summary=self.operation_summary,
                 input_kwargs=self._declared_or_embedded_vortex_input_kwargs(),
                 check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
+                spill=spill,
             )
             return VortexWorkflowExecutionReport(
                 workflow=self._report_workflow(), operation="collect", envelope=envelope,
@@ -2245,12 +2256,14 @@ class SqlWorkflow:
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         if report := self._vortex_sql_user_route_collect_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         native_input_kwargs = self._declared_or_embedded_vortex_input_kwargs()
@@ -2268,8 +2281,7 @@ class SqlWorkflow:
                 materialization_policy="bounded",
                 evidence_level="runtime_smoke",
                 bounded=True,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
+                **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
                 check=check,
             )
             return VortexWorkflowExecutionReport(
@@ -2290,6 +2302,7 @@ class SqlWorkflow:
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         if _is_local_source_sql_statement(self.statement):
@@ -2297,6 +2310,9 @@ class SqlWorkflow:
                 operation="native-vortex-sql-local-source",
                 target_ref="local_source_sql_requires_vortex_preparation_and_admitted_native_route",
                 requested_output="collect",
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         return self._unsupported_operation("sql", self.statement, check=check)
@@ -2730,6 +2746,9 @@ class SqlWorkflow:
         *,
         output_format: str = "jsonl",
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         GeneratedSourceWriteReport
@@ -2744,6 +2763,9 @@ class SqlWorkflow:
             target_uri,
             requested_output=_public_write_request_for_format(normalized_output_format),
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2752,6 +2774,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         GeneratedSourceWriteReport
@@ -2765,6 +2790,9 @@ class SqlWorkflow:
             target_uri,
             output_format="jsonl",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2773,6 +2801,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         GeneratedSourceWriteReport
@@ -2786,6 +2817,9 @@ class SqlWorkflow:
             target_uri,
             output_format="json",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2794,6 +2828,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         GeneratedSourceWriteReport
@@ -2807,6 +2844,9 @@ class SqlWorkflow:
             target_uri,
             output_format="csv",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2815,6 +2855,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`.
@@ -2828,6 +2871,9 @@ class SqlWorkflow:
             target_uri,
             requested_output="write_parquet",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2836,6 +2882,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`.
@@ -2849,6 +2898,9 @@ class SqlWorkflow:
             target_uri,
             output_format="arrow-ipc",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2857,6 +2909,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`.
@@ -2870,6 +2925,9 @@ class SqlWorkflow:
             target_uri,
             output_format="avro",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2878,6 +2936,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`.
@@ -2891,6 +2952,9 @@ class SqlWorkflow:
             target_uri,
             output_format="orc",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2899,6 +2963,9 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         GeneratedSourceWriteReport
@@ -2920,6 +2987,9 @@ class SqlWorkflow:
             target_uri,
             requested_output="write_vortex",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -2928,6 +2998,9 @@ class SqlWorkflow:
         outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         GeneratedSourceWriteReport
@@ -2952,19 +3025,20 @@ class SqlWorkflow:
                 bounded=True,
                 allow_overwrite=allow_overwrite,
                 fanout_outputs=fanout_outputs,
-                max_parallelism=DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
+                **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
                 check=check,
             )
             return GeneratedSourceWriteReport(execution.envelope)
-        if _is_local_source_sql_statement(self.statement):
-            return self._public_workflow_write_report(
-                output_path,
-                requested_output=requested_output,
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                check=check,
-            )
-        return self._unsupported_operation("fanout", self.statement, check=check)
+        return self._public_workflow_write_report(
+            output_path,
+            requested_output=requested_output,
+            allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def _public_workflow_write_report(
         self,
@@ -2973,6 +3047,9 @@ class SqlWorkflow:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> (
         GeneratedSourceWriteReport
@@ -2987,6 +3064,9 @@ class SqlWorkflow:
                 target_uri, requested_output=requested_output,
                 allow_overwrite=allow_overwrite, check=check,
                 fanout_outputs=fanout_outputs,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
             )
         # The CLI owns source preparation and native operator/sink admission.
         # Sending the original statement preserves optimized aggregate/sort paths
@@ -3003,7 +3083,7 @@ class SqlWorkflow:
             evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
             **self._declared_or_embedded_vortex_input_kwargs(),
         )
@@ -3024,6 +3104,9 @@ class SqlWorkflow:
         output_ref: str | os.PathLike[str] | None = None,
         allow_overwrite: bool = False,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = False,
     ) -> UnsupportedWorkflowOperationReport:
         execution = self.client.public_workflow_run(
@@ -3038,7 +3121,7 @@ class SqlWorkflow:
             evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         )
         return UnsupportedWorkflowOperationReport(
@@ -3053,6 +3136,7 @@ class SqlWorkflow:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         candidate = _local_source_auto_vortex_sql_candidate(
             self.statement,
@@ -3082,12 +3166,14 @@ class SqlWorkflow:
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         )
         if report is None:
             report = candidate.workflow._vortex_sql_user_route_collect_report(
                 check=check,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
             )
         if report is None or report.envelope.status != "success":
             return None
@@ -3179,6 +3265,9 @@ class SqlWorkflow:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         candidate = _local_source_auto_vortex_sql_candidate(
@@ -3200,8 +3289,8 @@ class SqlWorkflow:
         preparation = self._prepare_local_sql_vortex_sources(
             candidate,
             check=check,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
         if preparation is not None and preparation.status != "success":
             return VortexWorkflowExecutionReport(
@@ -3216,6 +3305,9 @@ class SqlWorkflow:
             allow_overwrite=allow_overwrite,
             fanout_outputs=fanout_outputs,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
         )
         if report is None:
             return None
@@ -3232,11 +3324,17 @@ class SqlWorkflow:
         *,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         return self._local_source_auto_vortex_sql_write_report(
             target_uri,
             requested_output="write_vortex",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -3350,6 +3448,7 @@ class SqlWorkflow:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         shape = _vortex_sql_primitive_shape(self.statement)
         if shape is None:
@@ -3397,8 +3496,7 @@ class SqlWorkflow:
             vortex_columns=columns,
             vortex_source_order_limit=shape.limit,
             vortex_sort_rows=shape.sort_rows,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         ).envelope
         return VortexWorkflowExecutionReport(
@@ -3413,6 +3511,7 @@ class SqlWorkflow:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         shape = _vortex_sql_user_route_shape(self.statement)
         if shape is None:
@@ -3433,8 +3532,7 @@ class SqlWorkflow:
             native_vortex_operation_family=shape.operation_family,
             native_vortex_provider_scenario=shape.provider_scenario,
             native_vortex_right_input=shape.right_input,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         ).envelope
         return VortexWorkflowExecutionReport(
@@ -3450,6 +3548,9 @@ class SqlWorkflow:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         shape = _vortex_sql_user_route_shape(self.statement)
@@ -3476,7 +3577,7 @@ class SqlWorkflow:
                 evidence_level="runtime_smoke",
                 bounded=True,
                 allow_overwrite=allow_overwrite,
-                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+                **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
                 check=check,
                 **primitive_payload,
             ).envelope
@@ -3502,7 +3603,7 @@ class SqlWorkflow:
             native_vortex_operation_family="sink",
             native_vortex_provider_scenario=shape.provider_scenario,
             native_vortex_right_input=shape.right_input,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         ).envelope
         return VortexWorkflowExecutionReport(
@@ -3517,12 +3618,18 @@ class SqlWorkflow:
         *,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         return self._vortex_sql_user_route_write_report(
             target_uri,
             requested_output="write_vortex",
             allow_overwrite=allow_overwrite,
             check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
         )
 
     def _report_workflow(self) -> "LazyFrame":
@@ -6763,6 +6870,9 @@ class LazyFrame:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = False,
     ) -> PublicWorkflowRoute:
         """Return the shared public route envelope for this lazy workflow."""
@@ -6804,6 +6914,7 @@ class LazyFrame:
             evidence_level=effective_evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             **native_vortex_kwargs,
         )
 
@@ -6816,6 +6927,9 @@ class LazyFrame:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run this lazy workflow through the shared public route facade."""
@@ -6850,8 +6964,7 @@ class LazyFrame:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=normalized_bounded,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
             **native_vortex_kwargs,
         )
@@ -6954,6 +7067,7 @@ class LazyFrame:
         check: bool = False,
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
     ) -> (
         SqlLocalSourceSmokeReport
         | VortexWorkflowExecutionReport
@@ -6967,6 +7081,7 @@ class LazyFrame:
                 check=check,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
             )
         if statement := self._native_relational_statement():
             envelope = _collect_native_relational(
@@ -6976,30 +7091,37 @@ class LazyFrame:
                               "input_format": _public_workflow_input_format(self.source),
                               "source_bindings": _workflow_source_bindings(self._declared_sources())},
                 check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
+                spill=spill,
             )
             return VortexWorkflowExecutionReport(workflow=self, operation="collect", envelope=envelope)
         if report := self._vortex_user_route_collect_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         if report := self._vortex_local_primitive_collect_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         if report := self._local_source_auto_vortex_collect_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         if _is_query_builder_local_source(self.source):
             return self._public_workflow_blocked_report(
                 operation="collect",
                 requested_output="collect",
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         return self._unsupported_operation("collect", check=check)
@@ -7010,6 +7132,7 @@ class LazyFrame:
         check: bool = False,
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
     ) -> (
         SqlLocalSourceSmokeReport
         | VortexWorkflowExecutionReport
@@ -7021,19 +7144,26 @@ class LazyFrame:
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         if report := self._local_source_auto_vortex_count_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         ):
             return report
         if self._can_append_scalar_aggregate():
             return (
                 self._append(WorkflowOperation("aggregate", ("count(*)",)))
                 .limit(1)
-                .collect(check=check)
+                .collect(
+                    check=check,
+                    memory_gb=memory_gb,
+                    max_parallelism=max_parallelism,
+                    spill=spill,
+                )
             )
         return self._unsupported_operation("count", check=check)
 
@@ -7043,6 +7173,9 @@ class LazyFrame:
         *,
         output_format: str = "jsonl",
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         VortexWorkflowExecutionReport
@@ -7056,6 +7189,9 @@ class LazyFrame:
             return self.write_vortex(
                 target_uri,
                 allow_overwrite=allow_overwrite,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         requested_output = _public_write_request_for_format(normalized_output_format)
@@ -7063,7 +7199,8 @@ class LazyFrame:
                 or self._sql_local_source_statement() is not None):
             return self._public_workflow_write_report(
                 target_uri, requested_output=requested_output,
-                allow_overwrite=allow_overwrite, check=check,
+                allow_overwrite=allow_overwrite, memory_gb=memory_gb,
+                max_parallelism=max_parallelism, spill=spill, check=check,
             )
         if self.source.source_format == "vortex":
             return self._vortex_user_route_write_report(
@@ -7071,6 +7208,9 @@ class LazyFrame:
                 requested_output=requested_output,
                 operation=f"write_{normalized_output_format.replace('-', '_')}",
                 allow_overwrite=allow_overwrite,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         if report := self._local_source_auto_vortex_write_report(
@@ -7078,6 +7218,9 @@ class LazyFrame:
             requested_output=requested_output,
             operation=f"write_{normalized_output_format.replace('-', '_')}",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         ):
             return report
@@ -7088,6 +7231,9 @@ class LazyFrame:
                 requested_output=requested_output,
                 output_ref=target_uri,
                 allow_overwrite=allow_overwrite,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         statement = self._sql_local_source_statement()
@@ -7113,6 +7259,9 @@ class LazyFrame:
             target_uri,
             requested_output=requested_output,
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7121,6 +7270,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="jsonl")`."""
@@ -7129,6 +7281,9 @@ class LazyFrame:
             target_uri,
             output_format="jsonl",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7137,6 +7292,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="json")` (one JSON array)."""
@@ -7145,6 +7303,9 @@ class LazyFrame:
             target_uri,
             output_format="json",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7153,6 +7314,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="csv")`."""
@@ -7161,6 +7325,9 @@ class LazyFrame:
             target_uri,
             output_format="csv",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7169,6 +7336,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`.
@@ -7181,6 +7351,9 @@ class LazyFrame:
             target_uri,
             output_format="parquet",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7189,6 +7362,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`.
@@ -7201,6 +7377,9 @@ class LazyFrame:
             target_uri,
             output_format="arrow-ipc",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7209,6 +7388,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`.
@@ -7221,6 +7403,9 @@ class LazyFrame:
             target_uri,
             output_format="avro",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7229,6 +7414,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`.
@@ -7241,6 +7429,9 @@ class LazyFrame:
             target_uri,
             output_format="orc",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7249,6 +7440,9 @@ class LazyFrame:
         outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
         SqlLocalSourceSmokeReport
@@ -7268,6 +7462,9 @@ class LazyFrame:
                 requested_output=requested_output,
                 allow_overwrite=allow_overwrite,
                 fanout_outputs=fanout_outputs,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         if self.source.source_format == "vortex":
@@ -7277,6 +7474,9 @@ class LazyFrame:
                 operation=f"fanout_{output_format.replace('-', '_')}",
                 allow_overwrite=allow_overwrite,
                 fanout_outputs=fanout_outputs,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         if report := self._local_source_auto_vortex_write_report(
@@ -7285,6 +7485,9 @@ class LazyFrame:
             operation=f"fanout_{output_format.replace('-', '_')}",
             allow_overwrite=allow_overwrite,
             fanout_outputs=fanout_outputs,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         ):
             return report
@@ -7296,6 +7499,9 @@ class LazyFrame:
                 output_ref=output_path,
                 allow_overwrite=allow_overwrite,
                 fanout_outputs=fanout_outputs,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         return self._unsupported_operation(
@@ -7545,6 +7751,9 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Write an admitted local source result to a scoped local Vortex sink.
@@ -7557,17 +7766,24 @@ class LazyFrame:
                 or self._sql_local_source_statement() is not None):
             return self._public_workflow_write_report(
                 target_uri, requested_output="write_vortex",
-                allow_overwrite=allow_overwrite, check=check,
+                allow_overwrite=allow_overwrite, memory_gb=memory_gb,
+                max_parallelism=max_parallelism, spill=spill, check=check,
             )
         if self.source.source_format == "vortex":
             return self._vortex_user_route_write_vortex_report(
                 target_uri,
                 allow_overwrite=allow_overwrite,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         if report := self._local_source_auto_vortex_write_vortex_report(
             target_uri,
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         ):
             return report
@@ -7578,6 +7794,9 @@ class LazyFrame:
                 requested_output="write_vortex",
                 output_ref=target_uri,
                 allow_overwrite=allow_overwrite,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         if self._sql_local_source_statement() is None:
@@ -7586,6 +7805,9 @@ class LazyFrame:
             target_uri,
             requested_output="write_vortex",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -7598,6 +7820,9 @@ class LazyFrame:
         output_ref: str | os.PathLike[str] | None = None,
         allow_overwrite: bool = False,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         check: bool = False,
     ) -> UnsupportedWorkflowOperationReport:
         # The public SQL facade cannot infer a replacement for a declared schema.
@@ -7618,12 +7843,7 @@ class LazyFrame:
             bounded=True,
             allow_overwrite=allow_overwrite,
             fanout_outputs=fanout_outputs,
-            memory_gb=(
-                DEFAULT_LOCAL_RUNTIME_MEMORY_GB
-                if requested_output in {"collect", "profile"}
-                else None
-            ),
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         )
         return UnsupportedWorkflowOperationReport(
@@ -7639,6 +7859,9 @@ class LazyFrame:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> SqlLocalSourceSmokeReport:
         statement = self._native_relational_statement() or self._native_vortex_aggregate_statement()
@@ -7670,7 +7893,7 @@ class LazyFrame:
             evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         )
         return SqlLocalSourceSmokeReport(execution.envelope)
@@ -8300,6 +8523,7 @@ class LazyFrame:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
         if candidate is None:
@@ -8326,12 +8550,14 @@ class LazyFrame:
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         )
         if report is None:
             report = candidate.frame._vortex_user_route_collect_report(
                 check=check,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
             )
         if report is None or report.envelope.status != "success":
             return None
@@ -8348,6 +8574,7 @@ class LazyFrame:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
         if candidate is None or candidate.frame._vortex_primitive_shape() is None:
@@ -8369,6 +8596,7 @@ class LazyFrame:
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+            spill=spill,
         )
         if report is None or report.envelope.status != "success":
             return None
@@ -8385,12 +8613,18 @@ class LazyFrame:
         *,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         return self._local_source_auto_vortex_write_report(
             target_uri,
             requested_output="write_vortex",
             operation="write_vortex",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -8402,6 +8636,9 @@ class LazyFrame:
         operation: str,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
@@ -8430,8 +8667,8 @@ class LazyFrame:
         preparation = self._prepare_vortex_candidate(
             candidate,
             check=check,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
         if preparation.envelope.status != "success":
             return VortexWorkflowExecutionReport(
@@ -8446,6 +8683,9 @@ class LazyFrame:
             operation=operation,
             allow_overwrite=allow_overwrite,
             fanout_outputs=fanout_outputs,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
         if report is None or isinstance(report, UnsupportedWorkflowOperationReport):
@@ -8659,6 +8899,7 @@ class LazyFrame:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         shape = self._vortex_primitive_shape()
         if shape is None:
@@ -8683,6 +8924,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.melt_projection is not None:
@@ -8702,6 +8944,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.explode_projection is not None:
@@ -8721,6 +8964,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.pivot_projection is not None:
@@ -8740,6 +8984,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.rolling_window is not None:
@@ -8759,6 +9004,7 @@ class LazyFrame:
                 rolling_window=shape.rolling_window,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.sort_rows is not None:
@@ -8778,6 +9024,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
                 sort_rows=shape.sort_rows,
             )
@@ -8798,6 +9045,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
                 sample_weight_column=shape.sample_weight_column,
             )
@@ -8818,6 +9066,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
                 sample_weight_column=shape.sample_weight_column,
             )
@@ -8838,6 +9087,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.distinct:
@@ -8857,6 +9107,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.drop_duplicates:
@@ -8876,6 +9127,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
                 deduplicate_key_columns=shape.deduplicate_key_columns,
             )
@@ -8896,6 +9148,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.predicate and shape.columns:
@@ -8915,6 +9168,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.predicate:
@@ -8934,6 +9188,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         elif shape.columns:
@@ -8953,6 +9208,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         if envelope is None:
@@ -8969,6 +9225,7 @@ class LazyFrame:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         shape = self._vortex_primitive_shape()
         if (
@@ -9007,6 +9264,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         else:
@@ -9026,6 +9284,7 @@ class LazyFrame:
                 rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
             )
         return VortexWorkflowExecutionReport(
@@ -9040,6 +9299,7 @@ class LazyFrame:
         check: bool,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         shape = self._native_vortex_user_route_shape()
         if shape is None:
@@ -9059,8 +9319,7 @@ class LazyFrame:
             native_vortex_operation_family=shape.operation_family,
             native_vortex_provider_scenario=shape.provider_scenario,
             native_vortex_right_input=shape.right_input,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         ).envelope
         return VortexWorkflowExecutionReport(
@@ -9075,12 +9334,18 @@ class LazyFrame:
         *,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         return self._vortex_user_route_write_report(
             target_uri,
             requested_output="write_vortex",
             operation="write_vortex",
             allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            spill=spill,
             check=check,
         )
 
@@ -9092,6 +9357,9 @@ class LazyFrame:
         operation: str,
         allow_overwrite: bool,
         check: bool,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         if (self._native_relational_statement() is not None
@@ -9100,6 +9368,9 @@ class LazyFrame:
                 target_uri,
                 requested_output=requested_output,
                 allow_overwrite=allow_overwrite,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                spill=spill,
                 check=check,
                 fanout_outputs=fanout_outputs,
             )
@@ -9127,7 +9398,7 @@ class LazyFrame:
                         evidence_level="runtime_smoke",
                         bounded=True,
                         allow_overwrite=allow_overwrite,
-                        max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+                        **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
                         check=check,
                         **primitive_payload,
                     ).envelope
@@ -9155,7 +9426,7 @@ class LazyFrame:
                     evidence_level="runtime_smoke",
                     bounded=True,
                     allow_overwrite=allow_overwrite,
-                    max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+                    **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
                     check=check,
                     **structured_payload,
                 ).envelope
@@ -9186,7 +9457,7 @@ class LazyFrame:
             native_vortex_operation_family="sink",
             native_vortex_provider_scenario=shape.provider_scenario,
             native_vortex_right_input=shape.right_input,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         ).envelope
         return VortexWorkflowExecutionReport(
@@ -9213,6 +9484,7 @@ class LazyFrame:
         rolling_window: str | None,
         memory_gb: int,
         max_parallelism: int,
+        spill: Mapping[str, object] | str | None = None,
         check: bool,
         sort_rows: str | None = None,
         sample_weight_column: str | None = None,
@@ -9249,8 +9521,7 @@ class LazyFrame:
             vortex_pivot_projection=pivot_projection,
             vortex_rolling_window=rolling_window,
             vortex_sort_rows=sort_rows,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         ).envelope
 
@@ -16699,17 +16970,34 @@ def _native_relational_sql_candidate(statement: str) -> bool:
     return first is not None and _contains_sql_keyword_outside_quotes(statement[first + 6:], "select")
 
 
+def _terminal_resource_kwargs(
+    memory_gb: int,
+    max_parallelism: int,
+    spill: Mapping[str, object] | str | None = None,
+) -> dict[str, object]:
+    """Build terminal runtime kwargs while leaving spill policy opaque."""
+
+    kwargs: dict[str, object] = {
+        "memory_gb": _normalize_positive_int("memory_gb", memory_gb),
+        "max_parallelism": _normalize_positive_int("max_parallelism", max_parallelism),
+    }
+    if spill is not None:
+        kwargs["spill"] = spill
+    return kwargs
+
+
 def _collect_native_relational(
     client: ShardLoomClient, statement: str, *, surface: str,
     plan_summary: str, input_kwargs: Mapping[str, Any], check: bool,
     memory_gb: int, max_parallelism: int,
+    spill: Mapping[str, object] | str | None = None,
 ) -> OutputEnvelope:
     return client.public_workflow_run(
         surface, sql_statement=statement, plan_summary=plan_summary,
         requested_output="collect", execution_policy="vortex_middle",
         materialization_policy="bounded", evidence_level="production_admitted_local_workflow",
-        bounded=True, memory_gb=_normalize_positive_int("memory_gb", memory_gb),
-        max_parallelism=_normalize_positive_int("max_parallelism", max_parallelism),
+        bounded=True,
+        **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
         check=check, **input_kwargs,
     ).envelope
 

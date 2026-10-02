@@ -233,16 +233,76 @@ fn execute(
     Ok(())
 }
 
+fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
+    fields.push((
+        "relational_spill_requested".into(),
+        result.spill.is_some().to_string(),
+    ));
+    if let Some(spill) = &result.spill {
+        fields.extend([
+            (
+                "relational_spill_strategy".into(),
+                "stable_native_full_row_two_run_merge".into(),
+            ),
+            (
+                "relational_spill_workspace".into(),
+                spill.workspace.display().to_string(),
+            ),
+            (
+                "relational_spill_quota_bytes".into(),
+                spill.quota_bytes.to_string(),
+            ),
+            (
+                "relational_spill_buffer_bytes".into(),
+                spill.buffer_bytes.to_string(),
+            ),
+            (
+                "relational_spill_peak_disk_bytes".into(),
+                spill.peak_disk_bytes.to_string(),
+            ),
+            (
+                "relational_spill_runs_written".into(),
+                spill.runs_written.to_string(),
+            ),
+            (
+                "relational_spill_runs_validated".into(),
+                spill.runs_validated.to_string(),
+            ),
+            (
+                "relational_spill_merge_passes".into(),
+                spill.merge_passes.to_string(),
+            ),
+            (
+                "relational_spill_max_open_runs".into(),
+                spill.max_open_runs.to_string(),
+            ),
+            (
+                "relational_spill_run_block_rows".into(),
+                spill.run_block_rows.to_string(),
+            ),
+            (
+                "relational_spill_owned_cleanup_completed".into(),
+                spill.owned_cleanup_completed.to_string(),
+            ),
+        ]);
+    }
+}
+
 fn append_execution(
     fields: &mut Vec<(String, String)>,
     result: &ExecutedVortexRelational,
     reused: bool,
 ) {
+    append_spill(fields, result);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
         fields,
         Some(&result.native_io_certificate),
     );
     let effects = &result.native_io_certificate.side_effects;
+    let write_io = effects.write_io
+        || fields
+            .iter()
+            .any(|(key, value)| key == "write_io_performed" && value == "true");
     let execution_fields = [
         ("runtime_execution".into(), "true".into()),
         (
@@ -252,6 +312,11 @@ fn append_execution(
         ("source_io_performed".into(), "true".into()),
         ("fallback_attempted".into(), "false".into()),
         ("external_engine_invoked".into(), "false".into()),
+        (
+            "spill_io_performed".into(),
+            effects.spill_io_performed.to_string(),
+        ),
+        ("write_io_performed".into(), write_io.to_string()),
         ("data_read".into(), effects.data_read.to_string()),
         ("data_decoded".into(), effects.data_decoded.to_string()),
         (
@@ -295,6 +360,10 @@ fn append_execution(
         (
             "resident_peak_reserved_buffer_bytes".into(),
             result.runtime.memory.peak_reserved_bytes.to_string(),
+        ),
+        (
+            "resident_memory_limit_bytes".into(),
+            result.runtime.memory.limit_bytes.to_string(),
         ),
         (
             "resident_footer_open_performed_this_call".into(),

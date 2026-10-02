@@ -249,6 +249,28 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-RELATIONAL-RESOURCES` — complete shared public resource propagation
+  and native relational ordering pressure under PERF-03/06/07/10/12 and CG-5/20/21.
+  Follow the [resource and ordering contract](native-relational-resources-2026-10-02.md):
+  one resident grant and query-local run store, native typed spill/merge, exact stable
+  ordering, collection/writer parity and verified failure/cleanup behavior. Reuse the
+  existing key/order, native run-store and sink components; preserve specialized
+  numeric sort and aggregate strategies. Require the frozen public pressure matrix,
+  shared-provider regressions and Full43 before closing this finite unit. Broader
+  resource accounting and other operator spill remain with their existing owners.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] Carry memory/parallelism/spill permission through the shared public facade
+      and every SQL/DataFrame collection and local writer alias.
+    - [x] Reuse native ordering, gather and query-run storage for stable full-row
+      spill/merge under one query grant and disk quota, including nested order stages.
+    - [x] Exercise pressure, exact values, source/run corruption, cancellation,
+      cleanup and writer-publication failure contracts in focused native tests.
+    - [x] Complete broad workspace, native provider, Python, recovery and feature gates.
+    - [ ] Freeze public pressure/complete-output and Full43 regression evidence.
+    - [ ] Align public references/site, complete review and hosted checks, then
+      move the accepted finite record to the completed ledger.
+
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
 acceptance workload. Source/prepared/native diagnostic names describe lifecycle;
@@ -290,8 +312,9 @@ is locally accepted on `cf406611`: 560 complete public results across 46 workflo
 and eight larger-than-collection writes, plus 129/129 Full43 comparisons. Derived
 inputs, transformed join/subquery operands and post-set DataFrame stages share
 the existing native plan, source preparation, resources and writers. Its component
-reuse map also governs later optimization lanes. Hosted checks remain pending;
-the completed finite implementation record is in the ledger. Wider types, separate
+reuse map also governs later optimization lanes. PR #1501 merged at `71036191`
+after all 40 hosted checks passed; the tested and merged trees match. The completed
+finite implementation record is in the ledger. Wider types, separate
 unary-family composition, relational fanout and remaining resource/spill/adapter
 work stay under PERF-02/03/06/07/10/11/12. This does not complete those whole owners.
 

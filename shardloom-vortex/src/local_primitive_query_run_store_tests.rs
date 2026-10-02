@@ -363,16 +363,42 @@ fn schema_and_block_shape_mismatch_never_publish_a_run() {
 fn cancellation_stops_reader_and_mid_write_then_owned_cleanup_releases_every_credit() {
     let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
     let session = VortexSession::default().with_handle(runtime.handle());
-    for during_write in [false, true] {
+    for (during_write, relational_parent) in
+        [(false, false), (true, false), (false, true), (true, true)]
+    {
         let workspace = Workspace::new();
         let memory = LiveMemoryPool::new(4 << 20).unwrap();
         let work = Arc::new(memory.reserve(1 << 20).unwrap());
-        let mut store = store(&workspace, &memory);
-        let cancellation = Arc::clone(&store.policy.cancellation);
+        let parent = CancellationToken::default();
+        let mut store = if relational_parent {
+            let policy = crate::relational_query::VortexRelationalSpillPolicy::new(
+                &workspace.0,
+                32 << 20,
+                1 << 20,
+            )
+            .unwrap();
+            let token = CancellationToken::from_shared_flag_with_parent(
+                Arc::new(AtomicBool::new(false)),
+                &parent,
+            );
+            QueryRunStore::new(
+                QueryRunStorePolicy::relational_order(&policy, token),
+                memory.clone(),
+                memory.reserve(128 << 10).unwrap(),
+            )
+            .unwrap()
+        } else {
+            store(&workspace, &memory)
+        };
+        let cancellation = if relational_parent {
+            parent
+        } else {
+            store.policy.cancellation.clone()
+        };
         if during_write {
             let blocks = arrays(&[1, 2, 3, 4]).enumerate().map(|(index, block)| {
                 if index == 1 {
-                    cancellation.store(true, Ordering::Release);
+                    cancellation.cancel();
                 }
                 block
             });
@@ -391,7 +417,7 @@ fn cancellation_stops_reader_and_mid_write_then_owned_cleanup_releases_every_cre
                 .open(&run, &spec(0).dtype, &runtime, &session, Arc::clone(&work))
                 .unwrap();
             let first = reader.next_block(&runtime).unwrap().unwrap();
-            cancellation.store(true, Ordering::Release);
+            cancellation.cancel();
             assert!(
                 reader
                     .next_block(&runtime)

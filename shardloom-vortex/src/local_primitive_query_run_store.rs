@@ -16,6 +16,7 @@
 
 use super::{Result, ShardLoomError, native_flat_layout, vortex_error};
 use sha2::{Digest, Sha256};
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 #[cfg(feature = "vortex-write")]
 use std::io::Read;
@@ -85,6 +86,8 @@ impl RunSourceGeneration {
 #[derive(Clone, Copy)]
 enum RunNamespace {
     NumericSort,
+    #[cfg(all(feature = "vortex-write", unix))]
+    RelationalOrder,
     ExactIntegerDistinct,
     #[cfg(all(feature = "vortex-write", unix))]
     WeightedUtf8Count,
@@ -99,6 +102,8 @@ impl RunNamespace {
         // Context is never used to classify or retry an operation.
         let operator = match self {
             Self::NumericSort => unreachable!("numeric errors returned above"),
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::RelationalOrder => "native relational ordering spill run store",
             Self::ExactIntegerDistinct => "native exact integer COUNT DISTINCT spill run store",
             #[cfg(all(feature = "vortex-write", unix))]
             Self::WeightedUtf8Count => "native weighted complete-key COUNT spill run store",
@@ -117,6 +122,8 @@ impl RunNamespace {
     const fn prefix(self) -> &'static str {
         match self {
             Self::NumericSort => "shardloom-query-sort-",
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::RelationalOrder => "shardloom-query-relational-order-",
             Self::ExactIntegerDistinct => "shardloom-query-integer-distinct-",
             #[cfg(all(feature = "vortex-write", unix))]
             Self::WeightedUtf8Count => "shardloom-query-weighted-count-",
@@ -126,6 +133,8 @@ impl RunNamespace {
     const fn schema(self) -> &'static str {
         match self {
             Self::NumericSort => "shardloom.native_numeric_sort_workspace.v1",
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::RelationalOrder => "shardloom.native_relational_order_workspace.v1",
             Self::ExactIntegerDistinct => "shardloom.native_integer_distinct_workspace.v1",
             #[cfg(all(feature = "vortex-write", unix))]
             Self::WeightedUtf8Count => "shardloom.native_weighted_count_workspace.v1",
@@ -139,11 +148,24 @@ impl RunNamespace {
 pub(super) struct QueryRunStorePolicy {
     workspace: PathBuf,
     quota_bytes: u64,
-    cancellation: Arc<AtomicBool>,
+    cancellation: CancellationToken,
     namespace: RunNamespace,
 }
 
 impl QueryRunStorePolicy {
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn relational_order(
+        policy: &crate::relational_query::VortexRelationalSpillPolicy,
+        cancellation: CancellationToken,
+    ) -> Self {
+        Self {
+            workspace: policy.workspace.clone(),
+            quota_bytes: policy.quota_bytes,
+            cancellation,
+            namespace: RunNamespace::RelationalOrder,
+        }
+    }
+
     #[cfg(all(feature = "vortex-write", unix))]
     pub(super) fn weighted_utf8_count(
         workspace: PathBuf,
@@ -153,7 +175,7 @@ impl QueryRunStorePolicy {
         Self {
             workspace,
             quota_bytes,
-            cancellation,
+            cancellation: CancellationToken::from_shared_flag(cancellation),
             namespace: RunNamespace::WeightedUtf8Count,
         }
     }
@@ -162,7 +184,7 @@ impl QueryRunStorePolicy {
         Self {
             workspace: policy.workspace.clone(),
             quota_bytes: policy.quota_bytes,
-            cancellation: Arc::clone(&policy.cancellation),
+            cancellation: CancellationToken::from_shared_flag(Arc::clone(&policy.cancellation)),
             namespace: RunNamespace::NumericSort,
         }
     }
@@ -176,13 +198,13 @@ impl QueryRunStorePolicy {
         Self {
             workspace,
             quota_bytes,
-            cancellation,
+            cancellation: CancellationToken::from_shared_flag(cancellation),
             namespace: RunNamespace::ExactIntegerDistinct,
         }
     }
 
     fn check_cancelled(&self) -> Result<()> {
-        if self.cancellation.load(Ordering::Acquire) {
+        if self.cancellation.is_cancelled() {
             Err(self
                 .namespace
                 .context(spill_error("native sort execution cancelled")))
@@ -550,7 +572,7 @@ impl QueryRunStore {
             runtime,
             session,
             work,
-            Arc::clone(&self.policy.cancellation),
+            self.policy.cancellation.clone(),
             path_credit,
             self.policy.namespace,
         )
@@ -742,7 +764,7 @@ pub(super) struct QueryRunReader {
     block_rows: usize,
     metadata: Arc<MemoryLease>,
     work: Arc<MemoryLease>,
-    cancellation: Arc<AtomicBool>,
+    cancellation: CancellationToken,
     path_credit: Arc<MemoryLease>,
     namespace: RunNamespace,
 }
@@ -754,7 +776,7 @@ impl QueryRunReader {
         runtime: &impl BlockingRuntime,
         session: &VortexSession,
         work: Arc<MemoryLease>,
-        cancellation: Arc<AtomicBool>,
+        cancellation: CancellationToken,
         path_credit: Arc<MemoryLease>,
         namespace: RunNamespace,
     ) -> Result<Self> {
@@ -789,7 +811,7 @@ impl QueryRunReader {
         self.source
             .validate()
             .map_err(|error| self.namespace.context(error))?;
-        if self.cancellation.load(Ordering::Acquire) {
+        if self.cancellation.is_cancelled() {
             return Err(self
                 .namespace
                 .context(spill_error("native sort execution cancelled")));
