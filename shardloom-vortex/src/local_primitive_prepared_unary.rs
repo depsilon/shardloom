@@ -469,12 +469,13 @@ impl PreparedVortexUnary {
     /// nonfinite numbers, memory pressure, cancellation and source invalidation.
     pub fn collect_jsonl(&self, cancellation: &CancellationToken) -> Result<CollectedVortexUnary> {
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
-        let execution = self.for_each_batch(cancellation, |array, context| {
+        let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
+        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
         Ok(CollectedVortexUnary {
             execution,
-            result_jsonl: sink.finish()?,
+            result_jsonl,
         })
     }
 

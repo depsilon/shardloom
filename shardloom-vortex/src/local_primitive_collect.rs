@@ -260,9 +260,9 @@ fn certificate_for_origin(
     in_memory: bool,
 ) -> Result<shardloom_core::NativeIoCertificate> {
     use shardloom_core::{
-        NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoMaterializationBoundaryReport,
-        NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
-        NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
+        NativeIoCertificate, NativeIoMaterializationBoundaryReport,
+        NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSourceCapabilityReport,
+        NativeIoSourcePushdownReport, RepresentationState,
     };
     let mut accepted = vec!["projection".to_string()];
     if filtered {
@@ -306,20 +306,8 @@ fn certificate_for_origin(
             unsafe_rejected_reason: None, fallback_attempted: false,
         },
         vec![NativeIoRepresentationTransition::new(representation, RepresentationState::MaterializedRows, true)],
-        NativeIoSinkRequirementReport {
-            target_format: "bounded_json_rows".into(), accepts_encoded: false,
-            requires_decoded_columnar: false, requires_rows: true, preserves_metadata: false,
-            requires_ordering: true, requires_partitioning: false, requires_commit: false,
-            supports_streaming: false, max_chunk_size: Some(8 * 1024 * 1024),
-            backpressure_policy: "65536_row_and_8mib_complete_result_bounds_with_owned_buffer_reservations".into(),
-        },
-        NativeIoAdapterFidelityReport {
-            adapter_id: "shardloom.resident_vortex.json_sink.v1".into(), source_kind: "vortex".into(),
-            sink_kind: "json".into(), metadata_preserved: false, statistics_preserved: false,
-            encoded_representation_preserved: false, materialization_required: true,
-            fidelity_loss: "JSON preserves admitted scalar values, not physical dtype or encoding".into(),
-            metadata_loss: "Vortex physical encodings, statistics and metadata not exported".into(), fallback_attempted: false,
-        },
+        json_sink_requirements(),
+        json_sink_fidelity(),
         vec![NativeIoMaterializationBoundaryReport {
             boundary_id: "resident_collect_json_sink".into(), from_state: representation,
             to_state: RepresentationState::MaterializedRows, required_by: "explicit_json_collect".into(),
@@ -334,6 +322,39 @@ fn certificate_for_origin(
         },
         diagnostics,
     )
+}
+
+fn json_sink_requirements() -> shardloom_core::NativeIoSinkRequirementReport {
+    shardloom_core::NativeIoSinkRequirementReport {
+        target_format: "bounded_json_rows".into(),
+        accepts_encoded: false,
+        requires_decoded_columnar: false,
+        requires_rows: true,
+        preserves_metadata: false,
+        requires_ordering: true,
+        requires_partitioning: false,
+        requires_commit: false,
+        supports_streaming: false,
+        max_chunk_size: Some(MAX_JSON_BYTES as u64),
+        backpressure_policy:
+            "65536_row_and_8mib_complete_result_bounds_with_owned_buffer_reservations".into(),
+    }
+}
+
+fn json_sink_fidelity() -> shardloom_core::NativeIoAdapterFidelityReport {
+    shardloom_core::NativeIoAdapterFidelityReport {
+        adapter_id: "shardloom.resident_vortex.json_sink.v1".into(),
+        source_kind: "vortex".into(),
+        sink_kind: "json".into(),
+        metadata_preserved: false,
+        statistics_preserved: false,
+        encoded_representation_preserved: false,
+        materialization_required: true,
+        fidelity_loss: "JSON preserves admitted scalar values, not physical dtype or encoding"
+            .into(),
+        metadata_loss: "Vortex physical encodings, statistics and metadata not exported".into(),
+        fallback_attempted: false,
+    }
 }
 
 pub(crate) fn render_owned_json(
@@ -465,6 +486,58 @@ impl JsonRows {
             self.rows += 1;
         }
         Ok(())
+    }
+
+    /// Preserve execution/source evidence and record the actual terminal sink.
+    pub(super) fn finish_certified(
+        self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) -> Result<Budgeted<String>> {
+        use shardloom_core::{
+            NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
+            RepresentationState,
+        };
+        if !certificate.is_certified() {
+            return Err(collect_error(
+                "JSON collection requires certified native execution",
+            ));
+        }
+        let rows = self.rows;
+        let output = self.finish()?;
+        let from_state = certificate
+            .representation_transitions
+            .last()
+            .map_or(RepresentationState::DecodedColumnar, |transition| {
+                transition.to_state
+            });
+        certificate
+            .representation_transitions
+            .push(NativeIoRepresentationTransition::new(
+                from_state,
+                RepresentationState::MaterializedRows,
+                true,
+            ));
+        certificate.sink_requirement_report = json_sink_requirements();
+        certificate.adapter_fidelity_report = json_sink_fidelity();
+        certificate.materialization_boundaries.push(NativeIoMaterializationBoundaryReport {
+            boundary_id: "resident_collect_json_sink".into(),
+            from_state,
+            to_state: RepresentationState::MaterializedRows,
+            required_by: "explicit_json_collect".into(),
+            reason: "native scalar evaluation at requested sink; decoded byte volume is not instrumented".into(),
+            bytes_decoded: 0,
+            rows_materialized: rows,
+            fidelity_loss: "physical dtype, encoding and statistics are not JSON values".into(),
+            fallback_attempted: false,
+        });
+        certificate.side_effects.data_decoded |= rows > 0;
+        certificate.side_effects.data_materialized |= rows > 0;
+        certificate.side_effects.row_read |= rows > 0;
+        certificate
+            .source_pushdown_report
+            .proof_basis
+            .push_str(";complete_native_batches_to_bounded_jsonl;no_query_replay=true");
+        Ok(output)
     }
 
     pub(super) fn finish(mut self) -> Result<Budgeted<String>> {

@@ -693,12 +693,13 @@ impl PreparedVortexRelational {
         cancellation: &CancellationToken,
     ) -> Result<CollectedVortexRelational> {
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
-        let execution = self.for_each_batch(cancellation, |array, context| {
+        let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
+        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
         Ok(CollectedVortexRelational {
             execution,
-            result_jsonl: sink.finish()?,
+            result_jsonl,
         })
     }
 

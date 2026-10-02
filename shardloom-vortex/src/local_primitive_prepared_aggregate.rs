@@ -639,18 +639,7 @@ impl PreparedVortexAggregate {
         let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
-        let result_jsonl = sink.finish()?;
-        let certificate = &mut execution.native_io_certificate;
-        certificate.sink_requirement_report.target_format = "bounded_json_rows".into();
-        certificate.sink_requirement_report.preserves_metadata = false;
-        certificate.sink_requirement_report.requires_ordering = true;
-        certificate.sink_requirement_report.max_chunk_size = Some(8 * 1024 * 1024);
-        certificate.sink_requirement_report.backpressure_policy =
-            "65536_row_and_8mib_complete_result_bounds_with_owned_buffer_reservations".into();
-        certificate
-            .source_pushdown_report
-            .proof_basis
-            .push_str(";complete_native_aggregate_batches_to_bounded_jsonl;no_query_replay=true");
+        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
         execution.runtime = self.snapshot();
         Ok(CollectedVortexAggregate {
             execution,

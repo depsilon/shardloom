@@ -28,6 +28,11 @@ fn write_columns(fixture: &Fixture, names: &[&str], columns: Vec<ArrayRef>, rows
 }
 
 fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json::Value) {
+    let expected_rows = match expected {
+        serde_json::Value::Array(rows) => rows.clone(),
+        serde_json::Value::Object(_) => vec![expected.clone()],
+        _ => panic!("aggregate expectations require grouped rows or one scalar row"),
+    };
     for parallelism in [1, 4] {
         let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
         let ordinary =
@@ -53,7 +58,7 @@ fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json:
                 .lines()
                 .map(|line| serde_json::from_str(line).unwrap())
                 .collect();
-            assert_eq!(serde_json::Value::Array(actual), *expected);
+            assert_eq!(actual, expected_rows);
             assert_eq!(
                 collected
                     .execution
@@ -62,6 +67,22 @@ fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json:
                     .target_format,
                 "bounded_json_rows"
             );
+            let certificate = &collected.execution.native_io_certificate;
+            assert!(!certificate.sink_requirement_report.accepts_encoded);
+            assert!(certificate.sink_requirement_report.requires_rows);
+            assert!(!certificate.sink_requirement_report.supports_streaming);
+            assert_eq!(certificate.adapter_fidelity_report.sink_kind, "json");
+            assert!(!certificate.adapter_fidelity_report.metadata_preserved);
+            assert!(!certificate.adapter_fidelity_report.statistics_preserved);
+            assert!(
+                !certificate
+                    .adapter_fidelity_report
+                    .encoded_representation_preserved
+            );
+            assert!(certificate.adapter_fidelity_report.materialization_required);
+            let boundary = certificate.materialization_boundaries.last().unwrap();
+            assert_eq!(boundary.boundary_id, "resident_collect_json_sink");
+            assert_eq!(boundary.rows_materialized, expected_rows.len() as u64);
             assert!(
                 owner.snapshot().memory.reserved_bytes
                     >= collected.result_jsonl.value().capacity() as u64
@@ -70,6 +91,72 @@ fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json:
         drop(prepared);
         assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
     }
+}
+
+#[test]
+fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership() {
+    use shardloom_exec::compute_pool::CancellationToken;
+    let fixture = Fixture::new();
+    // Native UTF8 is below 8 MiB; JSON escaping crosses the terminal byte bound.
+    let values = (0..600)
+        .map(|index| format!("{index:04}-{}", "\"\n\\".repeat(2500)))
+        .collect::<Vec<_>>();
+    write_columns(
+        &fixture,
+        &["key"],
+        vec![VarBinViewArray::from_iter_str(values.iter().map(String::as_str)).into_array()],
+        values.len(),
+    );
+    let request = fixture.request(
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("key").unwrap()],
+            vec![measure("count", None, "n")],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("key", false)]),
+    );
+    let prepared = prepare_aggregate(
+        &request,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    let owner = prepared.session.clone();
+    let baseline = owner.snapshot().memory.reserved_bytes;
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
+    assert!(prepared.collect_jsonl(&cancelled).is_err());
+    assert_eq!(owner.snapshot().completed_executions, 0);
+    assert_eq!(owner.snapshot().memory.reserved_bytes, baseline);
+    let error = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .err()
+        .unwrap();
+    assert!(
+        error.to_string().contains("collect exceeds 8 MiB"),
+        "{error}"
+    );
+    assert_eq!(owner.snapshot().completed_executions, 0);
+    assert_eq!(owner.snapshot().memory.reserved_bytes, baseline);
+    drop(prepared);
+    assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
+
+    let limited = prepare_aggregate(
+        &request.with_source_order_limit(1),
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    let memory = limited.session.memory().clone();
+    let collected = limited
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(collected.result_jsonl.value()).unwrap(),
+        serde_json::json!({"key": values[0], "n": 1}),
+    );
+    let capacity = collected.result_jsonl.value().capacity() as u64;
+    drop(limited);
+    assert!(memory.snapshot().reserved_bytes >= capacity);
+    drop(collected);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

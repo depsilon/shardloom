@@ -43,6 +43,12 @@ collection. The returned JSONL owns its memory reservation until response
 emission and keeps the 65,536-row/8-MiB complete-result boundary. In-memory batch
 delivery requires the native primitives feature; file writes and spill still
 require their existing write feature. The report-only aggregate API is unchanged.
+The same JSON sink records its terminal row-materialization boundary and loss of
+physical dtype, encoding, statistics and metadata for aggregate, unary and
+relational collection, preserving each operation's source and execution proof.
+Byte-bound denial must account for JSON escaping, release every failed output
+reservation and return no completed result. A successfully returned payload must
+remain charged after its preparation and session handles are dropped.
 
 The Vortex-first decision is `implement_shardloom_kernel`: this extends existing
 ShardLoom finalization/admission over its current Vortex 0.85 arrays, validity,

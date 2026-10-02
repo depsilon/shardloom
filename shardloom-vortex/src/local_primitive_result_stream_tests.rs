@@ -75,6 +75,24 @@ fn result_stream_complete_aggregate_exceeds_collect_rows_and_reopens_every_nativ
     const ROWS: usize = 70_017;
     let fixture = Fixture::new();
     let path = large_source(&fixture, ROWS);
+    let at_bound = prepare_aggregate(
+        &count_query(&path, 65_536),
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    let collected = at_bound
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let mut count = 0_u64;
+    for line in collected.result_jsonl.value().lines() {
+        let row: serde_json::Value = serde_json::from_str(line).unwrap();
+        assert_eq!(row[KEY], count);
+        assert_eq!(row["n"], 1);
+        count += 1;
+    }
+    assert_eq!(count, 65_536);
+    drop(collected);
+    drop(at_bound);
     let prepared = prepare_aggregate(
         &count_query(&path, ROWS),
         VortexLocalPrimitiveExecutionPolicy::single_threaded(),
