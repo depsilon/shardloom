@@ -76,6 +76,8 @@ fn source(batches: Vec<RecordBatch>, error: bool) -> FlatLocalColumnarStreamSour
         ingest_executor_applied_parallelism: 1,
         ingest_executor_unit_count_hint: Some(count),
         source_identities: Vec::new(),
+        #[cfg(feature = "vortex-write")]
+        ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
         reader: Box::new(RecordBatchIterator::new(batches, schema)),
@@ -545,17 +547,20 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         )
         .unwrap();
         if parallel_codec {
-            assert_eq!(grant, 4);
             let design = &decision.writer_physical_design;
             assert_eq!(input.ingest_executor_applied_parallelism, 1);
-            assert_eq!(design.array_build_worker_count, 1);
-            assert_eq!(design.array_build_prefetch_window, 3);
-            assert_eq!(design.writer_runtime_background_workers, 1);
-            assert_eq!(design.writer_compression_concurrency, 4);
+            assert_eq!(design.array_build_worker_count, grant);
+            assert_eq!(design.array_build_prefetch_window, grant);
+            assert_eq!(design.writer_runtime_background_workers, grant - 1);
+            assert_eq!(design.writer_compression_concurrency, grant);
             assert!(!design.fallback_attempted);
             assert!(!design.external_engine_invoked);
         }
-        let memory = NativeIngestMemory::new(32 << 20).unwrap();
+        let runtime = input.ingest_runtime.clone();
+        let drivers = runtime
+            .as_ref()
+            .map(|runtime| runtime.start_drivers().unwrap());
+        let memory = NativeIngestMemory::with_runtime(32 << 20, runtime.as_ref()).unwrap();
         let timing = VortexStreamingIngestTiming::default();
         let first_batch = input.reader.next().unwrap().unwrap();
         let mut lease = memory.reserve_input(1).unwrap();
@@ -567,7 +572,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         )
         .unwrap();
         drop((first_batch, lease));
-        let mut iterator = StreamingColumnarVortexArrayIterator::new(
+        let mut iterator = StreamingColumnarVortexArrayIterator::with_runtime(
             first.dtype().clone(),
             first,
             input.reader,
@@ -580,6 +585,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             decision.writer_physical_design.array_build_worker_count,
             8 << 20,
             Some(memory.clone()),
+            runtime.clone(),
         )
         .unwrap();
         let writer_input_lookahead = iterator.share_input_slot_with_writer(&decision);
@@ -614,7 +620,9 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             &[],
             writer_input_lookahead,
             None,
+            runtime.as_ref(),
         );
+        drop(drivers);
         let snapshot = memory.pool.snapshot();
         assert!(snapshot.peak_reserved_bytes > 0);
         assert!(snapshot.peak_reserved_bytes <= snapshot.limit_bytes);
@@ -623,8 +631,8 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         if end == PipelineEnd::Complete {
             if parallel_codec {
                 let report = result.as_ref().unwrap();
-                assert_eq!(report.writer_runtime_background_workers, 1);
-                assert_eq!(report.writer_compression_concurrency, 4);
+                assert_eq!(report.writer_runtime_background_workers, grant - 1);
+                assert_eq!(report.writer_compression_concurrency, grant);
                 assert_eq!(report.writer_row_count, 4);
             }
             assert_pipeline_complete_values(&worker_output);
@@ -682,14 +690,28 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
 
 #[test]
 fn streaming_pipeline_final_partial_and_empty_batches_wait_for_complete_publication() {
-    for (grant, parallel_codec) in [(1, false), (4, false), (4, true)] {
+    for (grant, parallel_codec) in [
+        (1, false),
+        (2, true),
+        (4, false),
+        (4, true),
+        (6, true),
+        (8, true),
+    ] {
         check_streaming_pipeline_end(grant, PipelineEnd::Complete, parallel_codec);
     }
 }
 
 #[test]
 fn streaming_pipeline_primary_failures_join_sources_and_release_owned_memory() {
-    for (grant, parallel_codec) in [(1, false), (4, false), (4, true)] {
+    for (grant, parallel_codec) in [
+        (1, false),
+        (2, true),
+        (4, false),
+        (4, true),
+        (6, true),
+        (8, true),
+    ] {
         for end in [PipelineEnd::SourceError, PipelineEnd::ConversionError] {
             check_streaming_pipeline_end(grant, end, parallel_codec);
         }
@@ -698,16 +720,15 @@ fn streaming_pipeline_primary_failures_join_sources_and_release_owned_memory() {
 
 #[test]
 fn streaming_pipeline_cancellation_drains_after_blocked_source_returns() {
-    // Both retained P4 writer profiles have the existing conversion-prefetch
-    // owner and token. Neither token interrupts a blocking source I/O call.
-    for parallel_codec in [false, true] {
-        check_streaming_pipeline_end(4, PipelineEnd::Cancel, parallel_codec);
+    // Cancellation is cooperative after blocking source I/O returns.
+    for (grant, parallel_codec) in [(2, true), (4, false), (4, true), (6, true), (8, true)] {
+        check_streaming_pipeline_end(grant, PipelineEnd::Cancel, parallel_codec);
     }
 }
 
 #[test]
 fn streaming_pipeline_concurrent_destination_is_preserved_and_staging_released() {
-    for parallel_codec in [false, true] {
-        check_streaming_pipeline_end(4, PipelineEnd::DestinationAppeared, parallel_codec);
+    for (grant, parallel_codec) in [(2, true), (4, false), (4, true), (6, true), (8, true)] {
+        check_streaming_pipeline_end(grant, PipelineEnd::DestinationAppeared, parallel_codec);
     }
 }

@@ -27,7 +27,10 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use std::sync::{Mutex, OnceLock, atomic::AtomicUsize};
+use std::sync::{OnceLock, atomic::AtomicUsize};
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+use std::sync::Mutex;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use shardloom_exec::{
@@ -110,21 +113,31 @@ struct NativeIngestMemory {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl NativeIngestMemory {
+    #[cfg(test)]
     fn new(limit_bytes: u64) -> Result<Self> {
+        Self::with_runtime(limit_bytes, None)
+    }
+
+    fn with_runtime(
+        limit_bytes: u64,
+        runtime: Option<&crate::ingest_runtime::IngestRuntime>,
+    ) -> Result<Self> {
         use vortex::{
             VortexSessionDefault as _, array::memory::MemorySessionExt as _,
             io::runtime::BlockingRuntime as _, io::session::RuntimeSessionExt as _,
         };
         let pool = LiveMemoryPool::new(limit_bytes)?;
-        let session = LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
-            // Session clones share configuration. Create an independent
-            // artifact session while reusing the established runtime handle.
-            vortex::session::VortexSession::default()
-                .with_handle(context.borrow().runtime.handle())
-                .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
-                    pool.clone(),
-                )))
-        });
+        let handle = runtime.map_or_else(
+            || LOCAL_VORTEX_WRITE_CONTEXT.with(|context| context.borrow().runtime.handle()),
+            |runtime| runtime.runtime().handle(),
+        );
+        // An artifact session shares its source/writer executor, with its own
+        // allocator admission. Session clones must not mutate another artifact.
+        let session = vortex::session::VortexSession::default()
+            .with_handle(handle)
+            .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
+                pool.clone(),
+            )));
         Ok(Self {
             pool,
             session,
@@ -6259,10 +6272,20 @@ impl VortexWriterPhysicalDesignSourceInput {
             }
             _ => 0,
         };
-        let cpu_lanes = crate::ingest_cpu_lanes::IngestCpuLanes::with_admitted_source(
-            source.ingest_executor_requested_parallelism.max(1),
-            source_workers,
-        )?;
+        let requested = source.ingest_executor_requested_parallelism.max(1);
+        let cpu_lanes = if let Some(runtime) = &source.ingest_runtime {
+            if runtime.parallelism() != requested || source_workers > 0 {
+                return Err(ShardLoomError::InvalidOperation(
+                    "ingest CPU lane admission: existing source runtime exceeds or differs from the requested grant; no fallback execution was attempted".to_string(),
+                ));
+            }
+            crate::ingest_cpu_lanes::IngestCpuLanes::shared(requested)?
+        } else {
+            crate::ingest_cpu_lanes::IngestCpuLanes::with_admitted_source(
+                requested,
+                source_workers,
+            )?
+        };
         Ok(Self {
             cpu_lanes: Some(cpu_lanes),
             source_kind: "streaming_arrow_record_batch_source_state",
@@ -6376,6 +6399,8 @@ impl VortexWriterPhysicalDesignPlan {
         let (writer_runtime_requested_parallelism, writer_runtime_applied_parallelism) =
             planned_writer_runtime_parallelism(&source, 1);
         let writer_runtime_background_workers = writer_runtime_applied_parallelism - 1;
+        let writer_runtime_kind =
+            planned_writer_runtime_kind(&source, writer_runtime_background_workers);
         let array_build_stage_plan = planned_array_build_stage(
             &source,
             array_build_prefetch_window,
@@ -6448,7 +6473,7 @@ impl VortexWriterPhysicalDesignPlan {
             writer_compression_concurrency:
                 VORTEX_PREPARED_OLAP_WRITER_DEFAULT_COMPRESSION_CONCURRENCY,
             writer_stats_concurrency: VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY,
-            writer_runtime_kind: writer_runtime_kind(writer_runtime_background_workers).to_string(),
+            writer_runtime_kind: writer_runtime_kind.to_string(),
             writer_runtime_requested_parallelism,
             writer_runtime_applied_parallelism,
             writer_runtime_background_workers,
@@ -6497,7 +6522,8 @@ impl VortexWriterPhysicalDesignPlan {
             );
         let writer_runtime_background_workers =
             writer_runtime_applied_parallelism.saturating_sub(1);
-        let writer_runtime_kind = writer_runtime_kind(writer_runtime_background_workers);
+        let writer_runtime_kind =
+            planned_writer_runtime_kind(&source, writer_runtime_background_workers);
         let writer_profile_selection_reason =
             admitted_layout_writer_profile_selection_reason(advisor);
         let writer_profile_regression_guard =
@@ -7015,7 +7041,7 @@ fn planned_array_build_worker_count(source: &VortexWriterPhysicalDesignSourceInp
     {
         return source.cpu_lanes.map_or(
             0,
-            crate::ingest_cpu_lanes::IngestCpuLanes::conversion_workers,
+            crate::ingest_cpu_lanes::IngestCpuLanes::conversion_task_limit,
         );
     }
     #[allow(unreachable_code)]
@@ -7045,6 +7071,22 @@ fn writer_runtime_kind(background_workers: usize) -> &'static str {
     } else {
         "vortex_current_thread_runtime"
     }
+}
+
+#[cfg(feature = "vortex-write")]
+fn planned_writer_runtime_kind(
+    source: &VortexWriterPhysicalDesignSourceInput,
+    background_workers: usize,
+) -> &'static str {
+    #[cfg(feature = "universal-format-io")]
+    if source
+        .cpu_lanes
+        .is_some_and(crate::ingest_cpu_lanes::IngestCpuLanes::shares_runtime)
+    {
+        return "vortex_shared_ingest_runtime";
+    }
+    let _ = source;
+    writer_runtime_kind(background_workers)
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7113,6 +7155,14 @@ fn planned_writer_queue_topology(
     );
     #[cfg(feature = "universal-format-io")]
     if let Some(lanes) = source.cpu_lanes {
+        if lanes.shares_runtime() {
+            return format!(
+                "{topology};ingest_cpu_requested={};ingest_cpu_configured={};ingest_cpu_caller=1;ingest_cpu_source_drivers=0;ingest_cpu_conversion_drivers=0;ingest_cpu_provider_drivers={};ingest_cpu_scope=shardloom_owned_drivers_excludes_blocking_io_and_source_library_internal_threads;driver_lifetime=joined_before_artifact_call_returns;lane_reassignment=ready_source_conversion_and_provider_tasks_share_executor;array_build_workers_scope=concurrent_tasks_not_dedicated_threads",
+                lanes.requested(),
+                lanes.configured_cpu_lanes(),
+                lanes.provider_drivers(),
+            );
+        }
         return format!(
             "{topology};ingest_cpu_requested={};ingest_cpu_configured={};ingest_cpu_caller=1;ingest_cpu_source_drivers={};ingest_cpu_conversion_drivers={};ingest_cpu_provider_drivers={};ingest_cpu_scope=shardloom_owned_drivers_excludes_blocking_io_and_source_library_internal_threads;driver_lifetime=joined_before_artifact_call_returns;lane_reassignment=none",
             lanes.requested(),
@@ -10216,9 +10266,16 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
 
     let source_shape = validate_flat_columnar_stream_source_shape(&request.source)?;
     let column_families = columnar_column_families_from_schema(&source_shape)?;
+    let mut writer_physical_design_source =
+        VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source)?;
+    let ingest_runtime = request.source.ingest_runtime.clone();
+    let _drivers = ingest_runtime
+        .as_ref()
+        .map(crate::ingest_runtime::IngestRuntime::start_drivers)
+        .transpose()?;
     let native_memory = request
         .shared_native_memory_budget_bytes
-        .map(NativeIngestMemory::new)
+        .map(|bytes| NativeIngestMemory::with_runtime(bytes, ingest_runtime.as_ref()))
         .transpose()?;
     let mut first_input_lease = native_memory
         .as_ref()
@@ -10232,8 +10289,6 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     capillary_prewrite_control.apply_task_role_gate("columnarize_encode", "array_build")?;
 
     let embedded_derived_build_micros = Arc::clone(&request.source.embedded_derived_build_micros);
-    let writer_physical_design_source =
-        VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source)?;
     let source_identities = request.source.source_identities;
     for identity in &source_identities {
         identity.validate()?;
@@ -10248,6 +10303,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         match next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")? {
             Some(batch) => batch,
             None if native_memory.is_some()
+                || ingest_runtime.is_some()
                 || !source_identities.is_empty()
                 || request.prepared_source_binding.is_some() =>
             {
@@ -10280,6 +10336,23 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             }
         };
     stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
+    let prefetch_memory_bytes = native_memory.as_ref().map_or_else(
+        || {
+            request
+                .capillary_prewrite_input
+                .as_ref()
+                .map_or(1024 * 1024 * 1024, |input| {
+                    (input.memory_budget_bytes / 4).max(1)
+                })
+        },
+        |memory| (memory.pool.snapshot().limit_bytes / 4).max(1),
+    );
+    if let Some(lanes) = writer_physical_design_source.cpu_lanes.as_mut() {
+        lanes.admit_conversion_memory(
+            prefetch_memory_bytes,
+            u64::try_from(first_batch.get_array_memory_size()).unwrap_or(u64::MAX),
+        );
+    }
     let first_array_convert_start = Instant::now();
     validate_stream_record_batch_shape_profiled(
         &first_batch,
@@ -10332,7 +10405,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     } else {
         "vortex_from_arrow_record_batch_stream"
     };
-    let mut stream_iter = StreamingColumnarVortexArrayIterator::new(
+    let mut stream_iter = StreamingColumnarVortexArrayIterator::with_runtime(
         dtype,
         first_array,
         reader,
@@ -10343,18 +10416,9 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         2,
         array_build_prefetch_window,
         array_build_worker_count,
-        native_memory.as_ref().map_or_else(
-            || {
-                request
-                    .capillary_prewrite_input
-                    .as_ref()
-                    .map_or(1024 * 1024 * 1024, |input| {
-                        (input.memory_budget_bytes / 4).max(1)
-                    })
-            },
-            |memory| (memory.pool.snapshot().limit_bytes / 4).max(1),
-        ),
+        prefetch_memory_bytes,
         native_memory.clone(),
+        ingest_runtime.clone(),
     )?;
     let writer_input_lookahead = stream_iter.share_input_slot_with_writer(&layout_write_decision);
     let array_build_micros = array_build_start.elapsed().as_micros();
@@ -10378,6 +10442,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         writer_input_lookahead,
         source_identities,
         native_memory,
+        ingest_runtime,
         emitted_record_batch_count: batch_count,
         stream_timing,
         array_build_micros,
@@ -10668,6 +10733,7 @@ where
     writer_input_lookahead: Option<WriterInputLookahead>,
     source_identities: Vec<Arc<SourceIdentity>>,
     native_memory: Option<NativeIngestMemory>,
+    ingest_runtime: Option<crate::ingest_runtime::IngestRuntime>,
     emitted_record_batch_count: Arc<AtomicUsize>,
     stream_timing: VortexStreamingIngestTiming,
     array_build_micros: u128,
@@ -10798,6 +10864,7 @@ struct WriterInputLookahead;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl StreamingColumnarVortexArrayIterator {
+    #[cfg(test)]
     #[allow(clippy::too_many_arguments)]
     fn new(
         dtype: vortex::array::dtype::DType,
@@ -10813,10 +10880,51 @@ impl StreamingColumnarVortexArrayIterator {
         prefetch_memory_bytes: u64,
         native_memory: Option<NativeIngestMemory>,
     ) -> Result<Self> {
+        Self::with_runtime(
+            dtype,
+            first_array,
+            reader,
+            reader_projection_columns,
+            source_shape,
+            batch_count,
+            stream_timing,
+            next_batch_index,
+            vortex_array_prefetch_window,
+            vortex_array_worker_count,
+            prefetch_memory_bytes,
+            native_memory,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn with_runtime(
+        dtype: vortex::array::dtype::DType,
+        first_array: vortex::array::ArrayRef,
+        reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+        reader_projection_columns: Vec<String>,
+        source_shape: FlatColumnarSourceShape,
+        batch_count: Arc<AtomicUsize>,
+        stream_timing: VortexStreamingIngestTiming,
+        next_batch_index: usize,
+        vortex_array_prefetch_window: usize,
+        vortex_array_worker_count: usize,
+        prefetch_memory_bytes: u64,
+        native_memory: Option<NativeIngestMemory>,
+        runtime: Option<crate::ingest_runtime::IngestRuntime>,
+    ) -> Result<Self> {
+        let max_window =
+            runtime
+                .as_ref()
+                .map_or(VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW, |runtime| {
+                    runtime
+                        .parallelism()
+                        .min(crate::ingest_runtime::IngestRuntime::MAX_CONVERSION_TASKS)
+                });
         if (vortex_array_prefetch_window == 0 && vortex_array_worker_count != 0)
             || (vortex_array_prefetch_window > 0
                 && (!(1..=vortex_array_prefetch_window).contains(&vortex_array_worker_count)
-                    || vortex_array_prefetch_window > VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW))
+                    || vortex_array_prefetch_window > max_window))
         {
             return Err(ShardLoomError::InvalidOperation(
                 "native ingest conversion workers must match the admitted bounded queue; no fallback execution was attempted".to_string(),
@@ -10835,11 +10943,13 @@ impl StreamingColumnarVortexArrayIterator {
                 .map(|state| state.pool.clone())
                 .map_or_else(|| LiveMemoryPool::new(prefetch_memory_bytes), Ok)?;
             let context = Arc::new(StreamingColumnarVortexArrayWorker {
-                reader: Mutex::new(StreamingColumnarVortexArraySharedReader {
-                    reader,
-                    next_batch_index,
-                    stopped: false,
-                }),
+                reader: Arc::new(futures::lock::Mutex::new(
+                    StreamingColumnarVortexArraySharedReader {
+                        reader,
+                        next_batch_index,
+                        stopped: false,
+                    },
+                )),
                 reader_projection_columns: reader_projection_columns.clone(),
                 source_shape: source_shape.clone(),
                 dtype: dtype.clone(),
@@ -10849,12 +10959,16 @@ impl StreamingColumnarVortexArrayIterator {
                 failure: OnceLock::new(),
             });
             let mut prefetch = StreamingColumnarVortexPrefetch {
-                pool: ComputePool::new(
-                    vortex_array_worker_count,
-                    window,
-                    prefetch_memory_bytes,
-                    memory,
-                )?,
+                pool: if let Some(runtime) = runtime {
+                    shared_conversion::ConversionExecutor::Shared { runtime, memory }
+                } else {
+                    shared_conversion::ConversionExecutor::Dedicated(ComputePool::new(
+                        vortex_array_worker_count,
+                        window,
+                        prefetch_memory_bytes,
+                        memory,
+                    )?)
+                },
                 context,
                 tasks: std::collections::VecDeque::new(),
                 pending: BTreeMap::new(),
@@ -10999,9 +11113,9 @@ type PrefetchedVortexArray = Option<(usize, vortex::array::ArrayRef)>;
 /// allocator and reader internals are a separate scope.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 struct StreamingColumnarVortexPrefetch {
-    pool: ComputePool,
+    pool: shared_conversion::ConversionExecutor,
     context: Arc<StreamingColumnarVortexArrayWorker>,
-    tasks: std::collections::VecDeque<ComputeTask<PrefetchedVortexArray>>,
+    tasks: std::collections::VecDeque<shared_conversion::ConversionTask>,
     pending: BTreeMap<usize, Budgeted<vortex::array::ArrayRef>>,
     cancellation: CancellationToken,
     window: usize,
@@ -11023,15 +11137,9 @@ impl StreamingColumnarVortexPrefetch {
                 Err(_) if self.context.failure.get().is_some() => break,
                 Err(error) => return Err(error),
             };
-            let task = self.pool.submit(
-                Budgeted::new(
-                    move |worker: &WorkerContext, lease: &mut MemoryLease| {
-                        context.read_convert(worker, lease)
-                    },
-                    lease,
-                ),
-                self.cancellation.clone(),
-            );
+            let task = self
+                .pool
+                .submit_read(context, lease, self.cancellation.clone());
             match task {
                 Ok(task) => self.tasks.push_back(task),
                 // A source failure can cancel submission while the initial
@@ -11125,7 +11233,7 @@ struct StreamingColumnarVortexArraySharedReader {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 struct StreamingColumnarVortexArrayWorker {
-    reader: Mutex<StreamingColumnarVortexArraySharedReader>,
+    reader: Arc<futures::lock::Mutex<StreamingColumnarVortexArraySharedReader>>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
     dtype: vortex::array::dtype::DType,
@@ -11152,17 +11260,17 @@ impl StreamingColumnarVortexArrayWorker {
         worker: &WorkerContext,
         lease: &mut MemoryLease,
     ) -> Result<PrefetchedVortexArray> {
+        futures::executor::block_on(self.read_convert_checked(|| worker.check_cancelled(), lease))
+    }
+
+    async fn read_convert_checked(
+        &self,
+        check_cancelled: impl Fn() -> Result<()> + Send,
+        lease: &mut MemoryLease,
+    ) -> Result<PrefetchedVortexArray> {
         let (index, batch) = {
             let lock_started = Instant::now();
-            let mut reader = self
-                .reader
-                .lock()
-                .map_err(|_| {
-                    ShardLoomError::InvalidOperation(
-                        "Vortex prefetch reader lock poisoned".to_string(),
-                    )
-                })
-                .inspect_err(|error| self.remember_failure(error))?;
+            let mut reader = self.reader.lock().await;
             self.stream_timing.stages.record(
                 Stage::ReaderLockWait,
                 lock_started.elapsed(),
@@ -11170,33 +11278,43 @@ impl StreamingColumnarVortexArrayWorker {
                 0,
                 0,
             );
-            worker.check_cancelled()?;
-            if reader.stopped {
+            check_cancelled()?;
+            let Some(batch) = self.read_batch(&mut reader)? else {
                 return Ok(None);
-            }
-            let started = Instant::now();
-            let batch = next_streaming_record_batch(reader.reader.as_mut(), "Vortex prefetch");
-            self.stream_timing
-                .add_source_pull_elapsed(started.elapsed());
-            let batch = match batch {
-                Ok(Some(batch)) => batch,
-                Ok(None) => {
-                    reader.stopped = true;
-                    return Ok(None);
-                }
-                Err(error) => {
-                    reader.stopped = true;
-                    self.remember_failure(&error);
-                    return Err(error);
-                }
             };
-            let index = reader.next_batch_index;
-            reader.next_batch_index += 1;
-            (index, batch)
+            batch
         };
-        worker.check_cancelled()?;
+        check_cancelled()?;
         self.convert_batch(index, &batch, lease)
             .inspect_err(|error| self.remember_failure(error))
+    }
+
+    fn read_batch(
+        &self,
+        reader: &mut StreamingColumnarVortexArraySharedReader,
+    ) -> Result<Option<(usize, RecordBatch)>> {
+        if reader.stopped {
+            return Ok(None);
+        }
+        let started = Instant::now();
+        let batch = next_streaming_record_batch(reader.reader.as_mut(), "Vortex prefetch");
+        self.stream_timing
+            .add_source_pull_elapsed(started.elapsed());
+        let batch = match batch {
+            Ok(Some(batch)) => batch,
+            Ok(None) => {
+                reader.stopped = true;
+                return Ok(None);
+            }
+            Err(error) => {
+                reader.stopped = true;
+                self.remember_failure(&error);
+                return Err(error);
+            }
+        };
+        let index = reader.next_batch_index;
+        reader.next_batch_index += 1;
+        Ok(Some((index, batch)))
     }
 
     fn convert_batch(
@@ -11251,6 +11369,10 @@ impl StreamingColumnarVortexArrayWorker {
         Ok(Some((index, array)))
     }
 }
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_shared_conversion.rs"]
+mod shared_conversion;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn vortex_stream_error(error: impl std::fmt::Display) -> vortex::error::VortexError {
@@ -11676,6 +11798,7 @@ where
         &input.source_identities,
         input.writer_input_lookahead,
         input.prepared_source_binding.as_deref(),
+        input.ingest_runtime.as_ref(),
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&target_path)?;
     if let Some(expected_rows) = row_count_hint
@@ -13397,6 +13520,7 @@ struct LocalVortexWriteContext {
     session: vortex::session::VortexSession,
     open_micros: u128,
     writes_started: Cell<u64>,
+    shared_ingest_drivers: bool,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -13425,10 +13549,32 @@ impl LocalVortexWriteContext {
             session,
             open_micros: open_start.elapsed().as_micros(),
             writes_started: Cell::new(0),
+            shared_ingest_drivers: false,
+        }
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn for_ingest(runtime: &crate::ingest_runtime::IngestRuntime) -> Self {
+        use vortex::{
+            VortexSessionDefault as _, io::runtime::BlockingRuntime as _,
+            io::session::RuntimeSessionExt as _,
+        };
+        let started = Instant::now();
+        let runtime = runtime.runtime().clone();
+        let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
+        Self {
+            runtime,
+            session,
+            open_micros: started.elapsed().as_micros(),
+            writes_started: Cell::new(0),
+            shared_ingest_drivers: true,
         }
     }
 
     fn next_reuse_status(&self) -> &'static str {
+        if self.shared_ingest_drivers {
+            return "artifact_source_conversion_writer_share_native_runtime";
+        }
         let previous = self.writes_started.get();
         self.writes_started.set(previous.saturating_add(1));
         if previous == 0 {
@@ -13443,7 +13589,7 @@ impl LocalVortexWriteContext {
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
     ) -> Result<(
         LocalVortexWriterRuntimePolicy,
-        crate::resident_worker_group::ResidentWorkerGroup,
+        Option<crate::resident_worker_group::ResidentWorkerGroup>,
     )> {
         let requested_parallelism = layout_write_decision
             .writer_runtime_requested_parallelism
@@ -13452,13 +13598,21 @@ impl LocalVortexWriteContext {
             .writer_runtime_applied_parallelism
             .max(1);
         let background_workers = applied_parallelism.saturating_sub(1);
-        let drivers = crate::resident_worker_group::ResidentWorkerGroup::new(&self.runtime, background_workers)
+        let drivers = if self.shared_ingest_drivers {
+            None
+        } else {
+            Some(crate::resident_worker_group::ResidentWorkerGroup::new(&self.runtime, background_workers)
             .map_err(|error| ShardLoomError::InvalidOperation(format!(
                 "failed to start owned native ingest CPU drivers: {error}; all started drivers joined; no fallback execution was attempted"
-            )))?;
+            )))?)
+        };
         Ok((
             LocalVortexWriterRuntimePolicy {
-                kind: writer_runtime_kind(background_workers),
+                kind: if self.shared_ingest_drivers {
+                    "vortex_shared_ingest_runtime"
+                } else {
+                    writer_runtime_kind(background_workers)
+                },
                 requested_parallelism,
                 applied_parallelism,
                 background_workers,
@@ -14348,12 +14502,12 @@ fn write_vortex_array_iterator<I>(
     source_identities: &[Arc<SourceIdentity>],
     writer_input_lookahead: Option<WriterInputLookahead>,
     prepared_source_binding: Option<&str>,
+    ingest_runtime: Option<&crate::ingest_runtime::IngestRuntime>,
 ) -> Result<LocalVortexWriteResult>
 where
     I: vortex::array::iter::ArrayIterator + Send + 'static,
 {
-    LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
-        let context = context.borrow();
+    let write = |context: &LocalVortexWriteContext| {
         context.write_array_iterator(
             path,
             iter,
@@ -14365,7 +14519,12 @@ where
             writer_input_lookahead,
             prepared_source_binding,
         )
-    })
+    };
+    if let Some(runtime) = ingest_runtime {
+        write(&LocalVortexWriteContext::for_ingest(runtime))
+    } else {
+        LOCAL_VORTEX_WRITE_CONTEXT.with(|context| write(&context.borrow()))
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -16943,6 +17102,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
@@ -17119,6 +17280,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
@@ -17420,6 +17583,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
@@ -17556,6 +17721,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(0),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
@@ -18690,6 +18857,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros:
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),

@@ -249,6 +249,28 @@ the ledger.
 
 ## Planned
 
+- [ ] `ADAPTIVE-INGEST-BUDGET` — honor the October 2 maintainer priority for
+  P4/P6/P8 ingestion before remaining native operator work. Follow the
+  [adaptive ingestion contract](adaptive-ingest-budget-2026-10-02.md) under
+  PERF-03/08/12 and CG-5/6/8/20/21. Reuse the Vortex runtime, owned drivers,
+  bounded task windows and native writer; make ready source/conversion/provider
+  work share the supplied CPU grant while preserving memory admission, ordering,
+  source identity, publication and complete drain. P4/P6/P8 are grants, not phases.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: apply bounded work inventory and scarcity to live
+    tasks; keep broader PulseWeave feedback and machine-wide quota claims gated.
+  - Execution checklist:
+    - [x] Integrate shared CPU progress across the admitted source, conversion and
+      provider stages without adding an independent worker allowance.
+    - [x] Prove P1/P2/P4/P6/P8 progress, skew, work sharing, memory pressure,
+      cancellation, failures, source identity and joined teardown.
+    - [x] Complete workspace, native/CLI, Python and feature-boundary checks.
+    - [ ] Freeze guarded ingestion comparisons and complete query acceptance on
+      newly ingested output; retain all observations and exact-result evidence.
+    - [ ] Align public descriptions, review, complete hosted checks and move the
+      accepted finite record to the completed ledger. No whole PERF/CG completion,
+      package publication or paused format/text performance run is implied.
+
 - [ ] `NATIVE-RELATIONAL-RESOURCES` — complete shared public resource propagation
   and native relational ordering pressure under PERF-03/06/07/10/12 and CG-5/20/21.
   Follow the [resource and ordering contract](native-relational-resources-2026-10-02.md):
@@ -2681,6 +2703,13 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     sink-parity evidence.
 
 Current autonomous execution order:
+
+The October 2 maintainer instruction temporarily puts the finite
+`ADAPTIVE-INGEST-BUDGET` unit first: make P4/P6/P8 ingestion share the provided CPU
+budget, validate failure and memory behavior, and measure the new artifact through
+complete query acceptance. Resume the preserved native operator work afterward.
+This authorizes that guarded ingest/query comparison, without resuming the other
+paused large format/text experiments or declaring whole PERF/CG owners complete.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)

@@ -16,12 +16,19 @@ use std::{
     path::Path,
     rc::Rc,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{AtomicU64, Ordering},
+    },
+    time::Instant,
+};
+
+#[cfg(any(test, not(feature = "vortex-write")))]
+use std::{
+    sync::{
+        Mutex,
         mpsc::{self, Receiver, SyncSender},
     },
     thread::{self, JoinHandle},
-    time::Instant,
 };
 
 use arrow_array::{
@@ -226,10 +233,18 @@ pub struct FlatLocalColumnarStreamSource {
     /// In-memory sources leave this empty; partition adapters retain every
     /// contributing identity. Unix Parquet adapters populate it automatically.
     pub source_identities: Vec<Arc<SourceIdentity>>,
+    /// Shared native source/conversion/writer CPU executor. Custom readers may
+    /// leave this absent; the writer then admits their declared source owners.
+    #[cfg(feature = "vortex-write")]
+    pub ingest_runtime: Option<crate::universal_format_io::IngestRuntime>,
     /// Streaming Arrow batch reader consumed by the Vortex writer.
     pub reader: Box<dyn RecordBatchReader + Send>,
 }
 
+#[cfg(feature = "vortex-write")]
+pub use crate::ingest_runtime::IngestRuntime;
+
+#[cfg(any(test, not(feature = "vortex-write")))]
 struct CapillaryPrefetchRecordBatchReader {
     schema: SchemaRef,
     receiver: Option<Receiver<std::result::Result<RecordBatch, ArrowError>>>,
@@ -307,6 +322,7 @@ fn open_parquet_generation_file(path: &Path, identity: Option<&SourceIdentity>) 
     )
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl CapillaryPrefetchRecordBatchReader {
     fn new(inner: Box<dyn RecordBatchReader + Send>, max_in_flight_batches: usize) -> Self {
         let schema = inner.schema();
@@ -336,6 +352,7 @@ impl CapillaryPrefetchRecordBatchReader {
     }
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl Iterator for CapillaryPrefetchRecordBatchReader {
     type Item = std::result::Result<RecordBatch, ArrowError>;
 
@@ -354,12 +371,14 @@ impl Iterator for CapillaryPrefetchRecordBatchReader {
     }
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl RecordBatchReader for CapillaryPrefetchRecordBatchReader {
     fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)
     }
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl Drop for CapillaryPrefetchRecordBatchReader {
     fn drop(&mut self) {
         self.close_and_join();
@@ -521,17 +540,20 @@ struct ParquetRowGroupReadTask {
     row_groups: Vec<usize>,
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 enum ParquetRowGroupReadResult {
     Batch(std::result::Result<RecordBatch, ArrowError>),
     TaskComplete,
     TaskError(ArrowError),
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 struct ParquetRowGroupReadJob {
     task: ParquetRowGroupReadTask,
     sender: SyncSender<ParquetRowGroupReadResult>,
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 struct ParquetRowGroupParallelRecordBatchReader {
     schema: SchemaRef,
     task_sender: Option<SyncSender<ParquetRowGroupReadJob>>,
@@ -541,6 +563,7 @@ struct ParquetRowGroupParallelRecordBatchReader {
     task_window: usize,
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl ParquetRowGroupParallelRecordBatchReader {
     fn new(
         path: &Path,
@@ -664,6 +687,7 @@ impl ParquetRowGroupParallelRecordBatchReader {
     }
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl Iterator for ParquetRowGroupParallelRecordBatchReader {
     type Item = std::result::Result<RecordBatch, ArrowError>;
 
@@ -701,12 +725,14 @@ impl Iterator for ParquetRowGroupParallelRecordBatchReader {
     }
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl RecordBatchReader for ParquetRowGroupParallelRecordBatchReader {
     fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)
     }
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 impl Drop for ParquetRowGroupParallelRecordBatchReader {
     fn drop(&mut self) {
         self.close_and_join();
@@ -1161,11 +1187,13 @@ fn annotate_parquet_extent_plan_source(
     source
 }
 
+#[cfg(not(feature = "vortex-write"))]
 fn parquet_row_group_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
     crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(requested_max_parallelism, usize::MAX)
         .source_workers()
 }
 
+#[cfg(any(test, not(feature = "vortex-write")))]
 fn stream_parquet_row_group_batches(
     path: &Path,
     source_identity: Option<&SourceIdentity>,
@@ -1336,6 +1364,8 @@ fn flat_columnar_stream_source_from_reader(
             .source_unit_count_hint
             .or(stream_plan.record_batch_count_hint),
         source_identities: Vec::new(),
+        #[cfg(feature = "vortex-write")]
+        ingest_runtime: None,
         embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
         reader,
     };
@@ -2788,6 +2818,18 @@ pub fn with_capillary_prefetch_columnar_stream_source(
     mut source: FlatLocalColumnarStreamSource,
     requested_max_parallelism: usize,
 ) -> FlatLocalColumnarStreamSource {
+    #[cfg(feature = "vortex-write")]
+    if requested_max_parallelism > 1
+        && source
+            .ingest_runtime
+            .as_ref()
+            .is_some_and(|runtime| runtime.parallelism() == 1)
+    {
+        // P1 is a direct pull reader with no queued source tasks or drivers.
+        // The common adapter may safely admit this drained source at its final
+        // public grant (including partition readers initially opened at P1).
+        return with_shared_runtime_columnar_source(source, requested_max_parallelism);
+    }
     if columnar_stream_source_already_has_capillary_executor(&source) {
         // Keep the existing owner, never wrap it in another source thread. A
         // stricter later request must still constrain conversion/writer lanes;
@@ -2798,6 +2840,21 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             .min(requested_max_parallelism.max(1));
         return source;
     }
+    #[cfg(feature = "vortex-write")]
+    {
+        with_shared_runtime_columnar_source(source, requested_max_parallelism)
+    }
+    #[cfg(not(feature = "vortex-write"))]
+    {
+        with_dedicated_source_prefetch(source, requested_max_parallelism)
+    }
+}
+
+#[cfg(not(feature = "vortex-write"))]
+fn with_dedicated_source_prefetch(
+    source: FlatLocalColumnarStreamSource,
+    requested_max_parallelism: usize,
+) -> FlatLocalColumnarStreamSource {
     let requested_max_parallelism = requested_max_parallelism.max(1);
     let FlatLocalColumnarStreamSource {
         header,
@@ -2886,6 +2943,34 @@ pub fn with_capillary_prefetch_columnar_stream_source(
     }
 }
 
+#[cfg(feature = "vortex-write")]
+fn with_shared_runtime_columnar_source(
+    mut source: FlatLocalColumnarStreamSource,
+    requested: usize,
+) -> FlatLocalColumnarStreamSource {
+    let runtime = IngestRuntime::new(requested);
+    if runtime.parallelism() > 1 {
+        let schema = source.reader.schema();
+        let reader = source.reader;
+        source.reader = Box::new(crate::ingest_source::IngestSourceReader::new(
+            schema,
+            runtime.clone(),
+            vec![Box::new(move || Ok(reader))],
+            1,
+        ));
+    }
+    source.ingest_executor_status = "bounded_shared_runtime_source".to_string();
+    source.ingest_executor_kind =
+        "ordered_source_tasks_on_shared_native_ingest_runtime".to_string();
+    source.ingest_executor_requested_parallelism = runtime.parallelism();
+    source.ingest_executor_applied_parallelism = 1;
+    source.ingest_executor_unit_count_hint = source
+        .ingest_executor_unit_count_hint
+        .or(source.record_batch_count_hint);
+    source.ingest_runtime = Some(runtime);
+    source
+}
+
 fn columnar_stream_source_already_has_capillary_executor(
     source: &FlatLocalColumnarStreamSource,
 ) -> bool {
@@ -2894,9 +2979,11 @@ fn columnar_stream_source_already_has_capillary_executor(
         "bounded_capillary_prefetch_active"
             | "bounded_capillary_row_group_parallel_active"
             | "bounded_capillary_row_group_parallel_writer_budgeted"
+            | "bounded_shared_runtime_source"
     )
 }
 
+#[cfg(not(feature = "vortex-write"))]
 fn columnar_prefetch_source_parallelism_budget(requested_max_parallelism: usize) -> usize {
     // This adapter owns exactly one thread. Queue depth is not CPU parallelism.
     crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(requested_max_parallelism, 1).source_workers()
@@ -2962,6 +3049,8 @@ pub fn stream_flat_text_rows_columnar_source(
                 ingest_executor_applied_parallelism: 1,
                 ingest_executor_unit_count_hint: Some(0),
                 source_identities: Vec::new(),
+                #[cfg(feature = "vortex-write")]
+                ingest_runtime: None,
                 embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
                 reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::new())),
             },
@@ -2992,6 +3081,8 @@ pub fn stream_flat_text_rows_columnar_source(
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(record_batch_count),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TextRowsRecordBatchReader::new(
                 schema, header, rows, batch_size, context,
@@ -3193,8 +3284,11 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         .source_unit_row_ranges
         .clone_from(&row_group_metadata.ranges);
     let requested_max_parallelism = requested_max_parallelism.max(1);
+    #[cfg(not(feature = "vortex-write"))]
     let source_parallelism_budget =
         parquet_row_group_source_parallelism_budget(requested_max_parallelism);
+    #[cfg(feature = "vortex-write")]
+    let source_parallelism_budget = requested_max_parallelism;
     if requested_max_parallelism > 1 && row_group_count > 1 && source_parallelism_budget > 0 {
         let stream_batch_size = stream_plan.stream_batch_size;
         let tasks = parquet_row_group_read_tasks(
@@ -3209,6 +3303,50 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         stream_plan.source_unit_row_ranges =
             parquet_row_group_task_row_ranges(&tasks, row_group_metadata.ranges.as_deref());
         let task_byte_ranges = extent_plan.task_byte_ranges(&tasks);
+        #[cfg(feature = "vortex-write")]
+        let runtime = IngestRuntime::new(requested_max_parallelism);
+        #[cfg(feature = "vortex-write")]
+        let reader = {
+            let factories = tasks
+                .into_iter()
+                .map(|task| {
+                    let path = path.to_path_buf();
+                    let identity = source_identity.clone();
+                    let metadata = reader_metadata.clone();
+                    let task_index = task.task_index;
+                    Box::new(move || {
+                        let file = open_parquet_generation_file(&path, identity.as_deref())
+                            .map_err(generation_arrow_error)?;
+                        let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(file, metadata)
+                            .with_batch_size(stream_batch_size.max(1))
+                            .with_row_groups(task.row_groups)
+                            .build()
+                            .map_err(|error| ArrowError::ParquetError(format!("Parquet source task {task_index}: {error}")))?;
+                        Ok(Box::new(reader) as Box<dyn RecordBatchReader + Send>)
+                    }) as crate::ingest_source::ReaderFactory
+                })
+                .collect();
+            Box::new(crate::ingest_source::IngestSourceReader::new(
+                Arc::clone(&schema_plan.stream_schema),
+                runtime.clone(),
+                factories,
+                applied_parallelism,
+            )) as Box<dyn RecordBatchReader + Send>
+        };
+        #[cfg(not(feature = "vortex-write"))]
+        let reader = Box::new(ParquetRowGroupParallelRecordBatchReader::new(
+            path,
+            source_identity.clone(),
+            Arc::clone(&schema_plan.stream_schema),
+            tasks,
+            stream_batch_size,
+            applied_parallelism,
+            &reader_metadata,
+        ).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to start bounded Parquet source workers: {error}; no fallback execution was attempted"
+            ))
+        })?);
         let mut source = flat_columnar_stream_source_from_reader(
             schema_plan.stream_schema.as_ref(),
             header.clone(),
@@ -3216,19 +3354,7 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
             header,
             row_count_hint,
             &stream_plan,
-            Box::new(ParquetRowGroupParallelRecordBatchReader::new(
-                path,
-                source_identity.clone(),
-                Arc::clone(&schema_plan.stream_schema),
-                tasks,
-                stream_batch_size,
-                applied_parallelism,
-                &reader_metadata,
-            ).map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "failed to start bounded Parquet source workers: {error}; no fallback execution was attempted"
-                ))
-            })?),
+            reader,
         );
         source.source_stream_policy = format!(
             "{};parquet_ordered_task_window={applied_parallelism};parquet_result_queue_batches_per_task={PARQUET_ROW_GROUP_RESULT_QUEUE_BATCHES_PER_WORKER};parquet_max_retained_decoded_batches={};parquet_source_byte_bound=not_enforced_includes_unaccounted_provider_buffers",
@@ -3244,6 +3370,13 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         source.ingest_executor_requested_parallelism = requested_max_parallelism;
         source.ingest_executor_applied_parallelism = applied_parallelism;
         source.ingest_executor_unit_count_hint = Some(task_count);
+        #[cfg(feature = "vortex-write")]
+        {
+            source.ingest_runtime = Some(runtime);
+            source.ingest_executor_status = "bounded_shared_runtime_source".to_string();
+            source.ingest_executor_kind =
+                "parquet_ordered_source_tasks_on_shared_native_ingest_runtime".to_string();
+        }
         return Ok(generation_checked_parquet_source(
             annotate_parquet_extent_plan_source(source, &extent_plan, task_byte_ranges.as_deref()),
             source_identity,
@@ -6933,6 +7066,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -7062,6 +7197,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -7161,6 +7298,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -7276,6 +7415,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
@@ -7435,6 +7576,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(2),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
@@ -7444,18 +7587,32 @@ mod tests {
 
         let mut source = with_capillary_prefetch_columnar_stream_source(source, 4);
 
-        assert_eq!(
-            source.ingest_executor_status,
-            "bounded_capillary_prefetch_active"
-        );
-        assert_eq!(
-            source.ingest_executor_kind,
-            "source_reader_to_vortex_writer_prefetch_pipeline"
-        );
+        #[cfg(feature = "vortex-write")]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_shared_runtime_source"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "ordered_source_tasks_on_shared_native_ingest_runtime"
+            );
+        }
+        #[cfg(not(feature = "vortex-write"))]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_capillary_prefetch_active"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "source_reader_to_vortex_writer_prefetch_pipeline"
+            );
+        }
         assert_eq!(source.ingest_executor_requested_parallelism, 4);
         assert_eq!(
             source.ingest_executor_applied_parallelism, 1,
-            "the prefetch adapter owns one source thread"
+            "the admitted ordered source-task window has one task"
         );
         assert_eq!(source.ingest_executor_unit_count_hint, Some(2));
         assert_eq!(source.source_stream_batch_size, 0);
@@ -7519,6 +7676,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
@@ -7528,14 +7687,28 @@ mod tests {
 
         let mut source = with_capillary_prefetch_columnar_stream_source(source, 2);
 
-        assert_eq!(
-            source.ingest_executor_status,
-            "bounded_capillary_prefetch_active"
-        );
-        assert_eq!(
-            source.ingest_executor_kind,
-            "source_reader_to_vortex_writer_prefetch_pipeline"
-        );
+        #[cfg(feature = "vortex-write")]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_shared_runtime_source"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "ordered_source_tasks_on_shared_native_ingest_runtime"
+            );
+        }
+        #[cfg(not(feature = "vortex-write"))]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_capillary_prefetch_active"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "source_reader_to_vortex_writer_prefetch_pipeline"
+            );
+        }
         assert_eq!(source.ingest_executor_requested_parallelism, 2);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
         assert_eq!(
@@ -7575,6 +7748,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(TestRecordBatchReader {
                 schema,
@@ -7822,14 +7997,28 @@ mod tests {
         let mut source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 3)
             .expect("stream parquet");
 
-        assert_eq!(
-            source.ingest_executor_status,
-            "bounded_capillary_row_group_parallel_writer_budgeted"
-        );
-        assert_eq!(
-            source.ingest_executor_kind,
-            "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved"
-        );
+        #[cfg(feature = "vortex-write")]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_shared_runtime_source"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "parquet_ordered_source_tasks_on_shared_native_ingest_runtime"
+            );
+        }
+        #[cfg(not(feature = "vortex-write"))]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_capillary_row_group_parallel_writer_budgeted"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved"
+            );
+        }
         assert_eq!(source.ingest_executor_requested_parallelism, 3);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
         assert_eq!(source.ingest_executor_unit_count_hint, Some(1));
@@ -7959,14 +8148,28 @@ mod tests {
         let mut source = stream_flat_parquet_columnar_source_with_parallelism(&path, usize::MAX, 2)
             .expect("stream parquet");
 
-        assert_eq!(
-            source.ingest_executor_status,
-            "bounded_capillary_row_group_parallel_writer_budgeted"
-        );
-        assert_eq!(
-            source.ingest_executor_kind,
-            "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved"
-        );
+        #[cfg(feature = "vortex-write")]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_shared_runtime_source"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "parquet_ordered_source_tasks_on_shared_native_ingest_runtime"
+            );
+        }
+        #[cfg(not(feature = "vortex-write"))]
+        {
+            assert_eq!(
+                source.ingest_executor_status,
+                "bounded_capillary_row_group_parallel_writer_budgeted"
+            );
+            assert_eq!(
+                source.ingest_executor_kind,
+                "parquet_row_group_adaptive_coalesced_metadata_reused_reader_to_vortex_writer_with_writer_slot_reserved"
+            );
+        }
         assert_eq!(source.ingest_executor_requested_parallelism, 2);
         assert_eq!(source.ingest_executor_applied_parallelism, 1);
         assert_eq!(source.ingest_executor_unit_count_hint, Some(1));
@@ -8318,6 +8521,8 @@ mod tests {
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint: Some(1),
             source_identities: Vec::new(),
+            #[cfg(feature = "vortex-write")]
+            ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };

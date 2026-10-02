@@ -123,7 +123,7 @@ fn verify_complete(path: &Path, schema: &Schema) {
 fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_sources() {
     let root = Directory::new();
     let (input, schema) = fixture(&root.0);
-    for grant in [1, 2, 4, 8] {
+    for grant in [1, 2, 4, 6, 8] {
         for single_prefetch in [false, true] {
             let source =
                 crate::universal_format_io::stream_flat_parquet_columnar_source_with_parallelism(
@@ -147,10 +147,13 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
             let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
                 .shared_native_memory_budget_bytes(32 << 20);
             let report = write_flat_columnar_vortex_prepared_state_streaming(request).unwrap();
-            let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(grant, 6);
+            let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant).unwrap();
             let design = &report.writer_physical_design;
             assert_eq!(report.row_count, 17);
-            assert_eq!(design.array_build_worker_count, lanes.conversion_workers());
+            assert_eq!(
+                design.array_build_worker_count,
+                lanes.conversion_task_limit()
+            );
             assert_eq!(design.array_build_prefetch_window, lanes.prefetch_slots());
             assert_eq!(
                 report.writer_runtime_background_workers,
@@ -161,12 +164,7 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
                 1 + lanes.provider_drivers()
             );
             assert_eq!(report.writer_runtime_requested_parallelism, grant);
-            assert_eq!(
-                1 + lanes.source_workers()
-                    + design.array_build_worker_count
-                    + report.writer_runtime_background_workers,
-                grant
-            );
+            assert_eq!(1 + report.writer_runtime_background_workers, grant);
             assert!(
                 design
                     .writer_queue_topology
@@ -188,7 +186,7 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
 fn parallel_codec_writer_preserves_complete_values_and_admitted_owners_across_grants() {
     let root = Directory::new();
     let (input, schema) = fixture(&root.0);
-    for grant in [1, 2, 3, 4, 5, 8] {
+    for grant in [1, 2, 3, 4, 5, 6, 8] {
         let source =
             crate::universal_format_io::stream_flat_parquet_columnar_source_with_parallelism(
                 &input, 100, grant,
@@ -211,21 +209,19 @@ fn parallel_codec_writer_preserves_complete_values_and_admitted_owners_across_gr
                 .shared_native_memory_budget_bytes(32 << 20),
         )
         .unwrap();
-        let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(grant, 6);
+        let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant).unwrap();
         let design = &report.writer_physical_design;
-        assert_eq!(design.array_build_worker_count, lanes.conversion_workers());
+        assert_eq!(
+            design.array_build_worker_count,
+            lanes.conversion_task_limit()
+        );
         assert_eq!(design.array_build_prefetch_window, lanes.prefetch_slots());
         assert_eq!(
             report.writer_runtime_background_workers,
             lanes.provider_drivers()
         );
         assert_eq!(report.writer_runtime_requested_parallelism, grant);
-        assert_eq!(
-            1 + lanes.source_workers()
-                + design.array_build_worker_count
-                + report.writer_runtime_background_workers,
-            grant
-        );
+        assert_eq!(1 + report.writer_runtime_background_workers, grant);
         assert_eq!(report.writer_compression_concurrency, grant);
         assert_eq!(report.row_count, 17);
         assert_eq!(
@@ -282,7 +278,7 @@ fn narrower_request_never_silently_reuses_an_oversized_source_grant() {
     assert!(
         error
             .to_string()
-            .contains("existing source workers exceed the requested grant")
+            .contains("existing source runtime exceeds or differs from the requested grant")
     );
     assert!(!path.exists());
 }

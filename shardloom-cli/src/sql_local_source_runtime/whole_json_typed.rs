@@ -98,6 +98,8 @@ pub(super) fn prepare(
         ingest_executor_applied_parallelism: 1,
         ingest_executor_unit_count_hint: Some(batch_count),
         source_identities: Vec::new(),
+        #[cfg(feature = "vortex-write")]
+        ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
         reader: Box::new(reader),

@@ -114,6 +114,7 @@ fn slow_writer_cannot_allow_unbounded_prefetch_and_preserves_values() {
         .as_ref()
         .unwrap()
         .pool
+        .dedicated()
         .snapshot()
         .completed_jobs
         < 3
@@ -206,6 +207,7 @@ fn completed_out_of_order_arrays_remain_charged_until_ordered_handoff() {
         }
         let task = prefetch
             .pool
+            .dedicated()
             .submit(
                 Budgeted::new(
                     move |_: &WorkerContext, _: &mut MemoryLease| {
@@ -219,7 +221,9 @@ fn completed_out_of_order_arrays_remain_charged_until_ordered_handoff() {
                 prefetch.cancellation.clone(),
             )
             .unwrap();
-        prefetch.tasks.push_back(task);
+        prefetch
+            .tasks
+            .push_back(shared_conversion::ConversionTask::Dedicated(task));
     }
     assert_eq!(memory.snapshot().reserved_bytes, 131_072);
     let first = prefetch.next_array(1).unwrap().unwrap();
@@ -278,11 +282,12 @@ fn float_stream_with_paused_prefetch() -> StreamingColumnarVortexArrayIterator {
         vec![Arc::new(Float64Array::from(vec![f64::NAN]))],
     )
     .unwrap();
-    *prefetch.context.reader.lock().unwrap() = StreamingColumnarVortexArraySharedReader {
-        reader: Box::new(RecordBatchIterator::new(vec![Ok(bad)], schema)),
-        next_batch_index: 1,
-        stopped: false,
-    };
+    *futures::executor::block_on(prefetch.context.reader.lock()) =
+        StreamingColumnarVortexArraySharedReader {
+            reader: Box::new(RecordBatchIterator::new(vec![Ok(bad)], schema)),
+            next_batch_index: 1,
+            stopped: false,
+        };
     stream
 }
 
@@ -296,6 +301,7 @@ fn primary_validation_error_survives_fifo_cancellation_and_initial_refill() {
         let (release, released) = mpsc::channel();
         let earlier = prefetch
             .pool
+            .dedicated()
             .submit(
                 Budgeted::new(
                     move |worker: &WorkerContext,
@@ -311,11 +317,14 @@ fn primary_validation_error_survives_fifo_cancellation_and_initial_refill() {
                 prefetch.cancellation.clone(),
             )
             .unwrap();
-        prefetch.tasks.push_back(earlier);
+        prefetch
+            .tasks
+            .push_back(shared_conversion::ConversionTask::Dedicated(earlier));
         entered.recv_timeout(Duration::from_secs(5)).unwrap();
         let context = Arc::clone(&prefetch.context);
         let later = prefetch
             .pool
+            .dedicated()
             .submit(
                 Budgeted::new(
                     move |worker: &WorkerContext, lease: &mut MemoryLease| {

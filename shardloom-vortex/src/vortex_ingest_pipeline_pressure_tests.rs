@@ -258,6 +258,23 @@ fn write_observed(
     );
     let source_identities = input.source_identities.clone();
     let shape = validate_flat_columnar_stream_source_shape(&input).unwrap();
+    let runtime = input.ingest_runtime.clone();
+    let drivers = runtime
+        .as_ref()
+        .map(|runtime| runtime.start_drivers().unwrap());
+    let memory = NativeIngestMemory::with_runtime(options.memory_bytes, runtime.as_ref()).unwrap();
+    let timing = VortexStreamingIngestTiming::default();
+    let first_batch = input.reader.next().unwrap().unwrap();
+    let mut physical_source =
+        VortexWriterPhysicalDesignSourceInput::streaming_columnar(&input).unwrap();
+    physical_source
+        .cpu_lanes
+        .as_mut()
+        .unwrap()
+        .admit_conversion_memory(
+            options.memory_bytes / 4,
+            u64::try_from(first_batch.get_array_memory_size()).unwrap(),
+        );
     let advisor = options.codec.then(|| {
         let mut advice = super::tests::layout_advisor_input(true, "none");
         advice.writer_provider_kind = "vortex_array_kernel".into();
@@ -274,12 +291,9 @@ fn write_observed(
         "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator",
         output,
         VortexIngestCertificationLevel::IngestCertified,
-        VortexWriterPhysicalDesignSourceInput::streaming_columnar(&input).unwrap(),
+        physical_source,
     )
     .unwrap();
-    let memory = NativeIngestMemory::new(options.memory_bytes).unwrap();
-    let timing = VortexStreamingIngestTiming::default();
-    let first_batch = input.reader.next().unwrap().unwrap();
     let mut lease = memory.reserve_input(1).unwrap();
     let first = record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
         &first_batch,
@@ -289,7 +303,7 @@ fn write_observed(
     )
     .unwrap();
     drop((first_batch, lease));
-    let mut iterator = StreamingColumnarVortexArrayIterator::new(
+    let mut iterator = StreamingColumnarVortexArrayIterator::with_runtime(
         first.dtype().clone(),
         first,
         input.reader,
@@ -302,6 +316,7 @@ fn write_observed(
         decision.writer_physical_design.array_build_worker_count,
         options.memory_bytes / 4,
         Some(memory.clone()),
+        runtime.clone(),
     )
     .unwrap();
     let writer_input_lookahead = options
@@ -334,7 +349,9 @@ fn write_observed(
         &source_identities,
         writer_input_lookahead,
         None,
+        runtime.as_ref(),
     );
+    drop(drivers);
     let snapshot = memory.pool.snapshot();
     assert!(snapshot.peak_reserved_bytes > 0);
     assert!(snapshot.peak_reserved_bytes <= snapshot.limit_bytes);
@@ -452,14 +469,14 @@ fn streaming_writer_shared_input_slot_preserves_constrained_budget_availability(
         // reserves twice that per producer slot before entering either writer.
         for memory_bytes in [5 << 20, 6 << 20, 8 << 20] {
             let mut serial_bytes = None;
-            for share_writer_input_slot in [false, true] {
+            for (grant, share_writer_input_slot) in [(4, false), (4, true), (8, false), (8, true)] {
                 let source =
                     crate::universal_format_io::stream_flat_arrow_ipc_columnar_source(&input, 160)
                         .unwrap();
                 let output = directory.0.join(format!(
-                    "budget-{memory_bytes}-{share_writer_input_slot}.vortex"
+                    "budget-{memory_bytes}-{grant}-{share_writer_input_slot}.vortex"
                 ));
-                let mut options = WriteOptions::new(4, 160);
+                let mut options = WriteOptions::new(grant, 160);
                 options.codec = true;
                 options.memory_bytes = memory_bytes;
                 options.share_writer_input_slot = share_writer_input_slot;

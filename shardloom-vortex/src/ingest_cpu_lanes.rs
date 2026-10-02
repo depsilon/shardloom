@@ -23,6 +23,7 @@ pub(crate) struct IngestCpuLanes {
     conversion_workers: usize,
     provider_drivers: usize,
     prefetch_slots: usize,
+    shared_runtime: bool,
 }
 
 /// Actual ownership observations required before replacing a live plan. A zero
@@ -66,6 +67,7 @@ impl IngestCpuLanes {
     /// Initial measured-candidate recipe. Source work has one ordered producer,
     /// conversion has one worker when there is room, and the native writer gets
     /// the remaining grant. This is a policy choice, not a claim of optimality.
+    #[cfg(any(test, not(feature = "vortex-write")))]
     pub(crate) fn pipeline(requested: usize, source_task_capacity: usize) -> Self {
         Self::partition(
             requested.max(1),
@@ -88,6 +90,54 @@ impl IngestCpuLanes {
             source_workers,
             Self::pipeline_demand(requested, source_workers),
         )
+    }
+
+    /// Ready source/conversion/provider tasks share every native driver. Task
+    /// window sizes are not additional thread grants.
+    #[cfg(feature = "vortex-write")]
+    pub(crate) fn shared(requested: usize) -> Result<Self> {
+        if requested == 0 {
+            return Err(lane_error("requested CPU grant must be positive"));
+        }
+        Ok(Self {
+            requested,
+            source_workers: 0,
+            conversion_workers: 0,
+            provider_drivers: requested - Self::CALLER_LANES,
+            prefetch_slots: if requested == 1 {
+                0
+            } else {
+                requested.min(crate::ingest_runtime::IngestRuntime::MAX_CONVERSION_TASKS)
+            },
+            shared_runtime: true,
+        })
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(crate) const fn shares_runtime(self) -> bool {
+        self.shared_runtime
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(crate) const fn conversion_task_limit(self) -> usize {
+        if self.shared_runtime {
+            self.prefetch_slots
+        } else {
+            self.conversion_workers
+        }
+    }
+
+    /// Bound unfinished conversions by both CPU demand and observed input size.
+    /// Each slot allows the existing two-input conversion headroom plus a 2x
+    /// batch-size margin. Later skew still passes the per-batch admission check;
+    /// this estimate does not authorize unbounded growth or silently retry work.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(crate) fn admit_conversion_memory(&mut self, budget_bytes: u64, batch_bytes: u64) {
+        if self.shared_runtime {
+            let slot_bytes = batch_bytes.saturating_mul(4).max(1);
+            let admitted = usize::try_from(budget_bytes / slot_bytes).unwrap_or(usize::MAX);
+            self.prefetch_slots = self.prefetch_slots.min(admitted);
+        }
     }
 
     fn pipeline_demand(requested: usize, source_workers: usize) -> IngestCpuDemand {
@@ -125,6 +175,7 @@ impl IngestCpuLanes {
             } else {
                 demand.prefetch_slots
             },
+            shared_runtime: false,
         }
     }
 
