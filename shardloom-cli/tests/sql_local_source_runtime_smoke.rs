@@ -12473,7 +12473,7 @@ fn local_source_runtime_blocks_unsupported_join_shapes_without_fallback() {
                 fact_path.display(),
                 dim_path.display()
             ),
-            "CROSS JOIN smoke does not admit an ON clause",
+            "CROSS JOIN does not admit an ON clause",
         ),
         (
             format!(
@@ -12513,7 +12513,7 @@ fn local_source_runtime_blocks_unsupported_join_shapes_without_fallback() {
                 fact_path.display(),
                 dim_path.display()
             ),
-            "JOIN smoke requires left source syntax <local-source> AS <alias>",
+            "JOIN and derived sources require <source> AS <alias> syntax",
         ),
         (
             format!(

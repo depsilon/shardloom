@@ -303,8 +303,15 @@ records complete collection and local writes for admitted joins, UNION/INTERSECT
 analytic ranking/navigation/distribution windows and scoped predicate subqueries.
 SQL, DataFrame and CLI calls share retained native execution, all-source generation
 checks and declared adapter/schema propagation. Use `route(..., bounded=True)` to
-inspect a shape without source I/O. General derived tables, arbitrary DataFrame
-chains, relational state spill and relational fanout remain explicit boundaries.
+inspect a shape without source I/O. The
+[composition contract](../architecture/native-relational-composition-2026-10-02.md)
+extends that same tree with derived SELECT/set inputs, ordered supported DataFrame
+stages, transformed join/subquery operands and post-set transformations. Computed
+column replacement preserves column position and binds against the preceding stage;
+undeclared schemas use the explicit ShardLoom `SELECT * REPLACE OR ADD (...)`
+modifier. These frontend wrappers add no format-specific execution engine.
+Arbitrary operator chains, lateral/scalar-value subqueries, general window frames,
+relational state spill and relational fanout remain explicit boundaries.
 
 Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
 subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,

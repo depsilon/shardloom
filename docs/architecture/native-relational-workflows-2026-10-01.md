@@ -1,7 +1,10 @@
 # Native relational workflows
 
-Status: native Rust and public frontend paths implemented, with immutable-build
-local acceptance on October 2; hosted PR checks are pending. It continues the
+Status: merged in [PR #1500](https://github.com/depsilon/shardloom/pull/1500) on
+October 2 after all 40 hosted checks passed. Merge `588bf4c7be6c42262f3e2dd2022422efd994e5c8`
+has the identical tree to tested head `d6329c9aca3317b3c82740d10e68b7b22c6459ef`.
+No review threads remained; hosted Codex review was unavailable due to its usage
+limit, so no automated review approval is claimed. It continues the
 [universal workflow plan](universal-workflow-completion-2026-10-01.md)
 under PERF-02/03/06/07/10/11/12 and CG-5/6/20/21. The ten unary families and their
 accepted output paths remain covered by the [unary contract](native-unary-workflows-2026-10-01.md).
@@ -172,12 +175,12 @@ ANY/ALL and EXISTS/NOT EXISTS forms, including grouped and explicitly correlated
 inner plans. Native subquery limits use native resource admission; the decoded
 reference evaluator keeps its separate 32-value materialization bound.
 
-The public finite grammar and the Rust tree remain distinct. In particular, the
-DataFrame flat join renderer rejects pre-join transformations or a transformed
-right-hand frame instead of moving or discarding them. Source-subquery helpers
-likewise reject transformed frames; use their explicit predicate/group/order/limit
-arguments. General derived tables, arbitrary chains, scalar-value subqueries,
-arbitrary window frames/default expressions and relational fanout remain pending.
+The public finite grammar and the Rust tree remain distinct. At PR #1500, the
+DataFrame flat renderer rejected transformed join and subquery inputs. The
+[October 2 composition continuation](native-relational-composition-2026-10-02.md)
+adds derived relations, ordered chains, transformed operands and post-set stages
+through the existing native tree. Scalar-value subqueries, arbitrary window
+frames/default expressions and relational fanout remain pending.
 The current relational payload admits bool, original-width integers, F32/F64 and
 UTF8 with validity. Binary, F16, nested and extension payloads require further
 native admission. Numeric nonfinite keys remain unsupported.
@@ -189,7 +192,7 @@ rows for small collection, actual prepared-source opens, completed execution
 counts and a certificate for the same execution as the writer. Provider decoder
 bytes remain uninstrumented and reservation accounting excludes upstream scratch.
 
-`scripts/run_native_relational_uat.py` checks 16 renamed-schema SQL/DataFrame
+The PR #1500 version of `scripts/run_native_relational_uat.py` checks 16 renamed-schema SQL/DataFrame
 workflows: three collections and all eight local writers per case, for 176 complete
 checks. Binary writers are reopened through native input; text writers are checked
 against independent literal values. The cases include duplicate/null outer joins,

@@ -1,6 +1,7 @@
 //! Inert SQL parsing lowers into the shared prepared native relational executor.
 //! The decoded reference preparation/evaluator is never called from this module.
 
+pub(crate) use super::relation_sources::ParsedRelationLeaf;
 use super::*;
 use shardloom_core::DatasetUri;
 use shardloom_plan::ProjectionRequest;
@@ -41,7 +42,7 @@ type NativeResult<T> = Result<T, ShardLoomError>;
 pub(crate) fn prepare(
     raw: &str,
     policy: VortexLocalPrimitiveExecutionPolicy,
-    mut resolve_source: impl FnMut(&Path) -> NativeResult<DatasetUri>,
+    mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
 ) -> NativeResult<PreparedVortexRelational> {
     let statement = admitted_statement(raw)?;
     prepare_relational_with_schema(policy, |schemas| {
@@ -59,12 +60,12 @@ pub(crate) fn prepare(
 /// Shape discovery is syntax-only. File/type/resource admission happens at prepare.
 pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
     let statement = admitted_statement(raw)?;
-    if !top_level_sql_union_operators(&statement)?.is_empty() {
-        parse_sql_local_source_union_statement(&statement)?;
+    let ParsedRelationQuery::Select(parsed) = ParsedRelationQuery::parse(&statement)? else {
         return Ok(true);
-    }
-    let parsed = parse_sql_local_source_statement(&statement)?;
-    Ok(parsed.join.is_some()
+    };
+    Ok(matches!(parsed.source, ParsedRelationSource::Derived(_))
+        || parsed.replace_or_add_projection
+        || parsed.join.is_some()
         || !parsed.window_projections.is_empty()
         || parsed
             .predicate_surfaces()
@@ -74,26 +75,47 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
 
 /// Count unique declared paths without opening inputs or preparing subqueries.
 pub(crate) fn source_count(raw: &str) -> NativeResult<usize> {
-    Ok(source_paths(raw)?.len())
+    Ok(source_leaves(raw)?
+        .into_iter()
+        .map(|leaf| leaf.path)
+        .collect::<BTreeSet<_>>()
+        .len())
 }
 
-pub(crate) fn source_paths(raw: &str) -> NativeResult<BTreeSet<PathBuf>> {
+pub(crate) fn source_leaves(raw: &str) -> NativeResult<BTreeSet<ParsedRelationLeaf>> {
     let statement = admitted_statement(raw)?;
     let mut paths = BTreeSet::new();
-    if top_level_sql_union_operators(&statement)?.is_empty() {
-        declared_sources(&parse_sql_local_source_statement(&statement)?, &mut paths);
-    } else {
-        for branch in &parse_sql_local_source_union_statement(&statement)?.branches {
-            declared_sources(branch, &mut paths);
-        }
-    }
+    declared_query_sources(&ParsedRelationQuery::parse(&statement)?, &mut paths);
     Ok(paths)
 }
 
-fn declared_sources(parsed: &ParsedSqlLocalSource, paths: &mut BTreeSet<PathBuf>) {
-    paths.insert(parsed.source_path.clone());
+fn declared_query_sources(query: &ParsedRelationQuery, paths: &mut BTreeSet<ParsedRelationLeaf>) {
+    match query {
+        ParsedRelationQuery::Select(parsed) => declared_sources(parsed, paths),
+        ParsedRelationQuery::Set(set) => {
+            for branch in &set.branches {
+                declared_sources(branch, paths);
+            }
+        }
+    }
+}
+
+fn declared_relation_sources(
+    source: &ParsedRelationSource,
+    paths: &mut BTreeSet<ParsedRelationLeaf>,
+) {
+    match source {
+        ParsedRelationSource::Local(path) => {
+            paths.insert(path.clone());
+        }
+        ParsedRelationSource::Derived(query) => declared_query_sources(query, paths),
+    }
+}
+
+fn declared_sources(parsed: &ParsedSqlLocalSource, paths: &mut BTreeSet<ParsedRelationLeaf>) {
+    declared_relation_sources(&parsed.source, paths);
     if let Some(join) = &parsed.join {
-        paths.insert(join.right_source_path.clone());
+        declared_relation_sources(&join.right_source, paths);
     }
     for predicate in parsed.predicate_surfaces() {
         predicate::declared_sources(predicate, paths);
@@ -131,12 +153,33 @@ fn admitted_statement(raw: &str) -> NativeResult<String> {
 struct Lowered {
     plan: Plan,
     columns: Vec<String>,
+    qualifiers: BTreeMap<String, String>,
 }
 
 impl Lowered {
     fn resolve(&self, name: &str) -> NativeResult<String> {
         if self.columns.iter().any(|column| column == name) {
             return Ok(name.to_owned());
+        }
+        if let Some(column) = self.qualifiers.get(name)
+            && self.columns.contains(column)
+        {
+            return Ok(column.clone());
+        }
+        if !name.contains('.') {
+            let mut matches = self.columns.iter().filter(|column| {
+                column
+                    .rsplit_once('.')
+                    .is_some_and(|(_, suffix)| suffix == name)
+            });
+            if let Some(column) = matches.next() {
+                if matches.next().is_some() {
+                    return Err(unsupported_sql_error(&format!(
+                        "column {name:?} is ambiguous; qualify it with a source alias"
+                    )));
+                }
+                return Ok(column.clone());
+            }
         }
         Err(unsupported_sql_error(&format!(
             "column {name:?} is not present in the native input schema"
@@ -146,6 +189,7 @@ impl Lowered {
     fn project(self, expressions: Vec<(String, Expression)>) -> Self {
         Self {
             columns: expressions.iter().map(|(name, _)| name.clone()).collect(),
+            qualifiers: BTreeMap::new(),
             plan: Plan::Project(Box::new(Project {
                 input: self.plan,
                 expressions,
@@ -181,15 +225,21 @@ impl Lowered {
 struct Lowerer<'a, 'session> {
     schemas: &'a mut VortexRelationalPreparation<'session>,
     serial: usize,
-    resolve_source: &'a mut dyn FnMut(&Path) -> NativeResult<DatasetUri>,
+    resolve_source: &'a mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
 }
 
 impl Lowerer<'_, '_> {
     fn statement(&mut self, statement: &str) -> NativeResult<Lowered> {
-        if top_level_sql_union_operators(statement)?.is_empty() {
-            return self.select(&parse_sql_local_source_statement(statement)?, None, true);
-        }
-        let parsed = parse_sql_local_source_union_statement(statement)?;
+        self.query(&ParsedRelationQuery::parse(statement)?)
+    }
+
+    fn query(&mut self, query: &ParsedRelationQuery) -> NativeResult<Lowered> {
+        let parsed = match query {
+            ParsedRelationQuery::Select(parsed) => {
+                return self.select(parsed, None, !parsed.limit_is_synthetic);
+            }
+            ParsedRelationQuery::Set(parsed) => parsed,
+        };
         if parsed.branches.len() > 128 {
             return Err(unsupported_sql_error("native SQL exceeds 128 set branches"));
         }
@@ -216,8 +266,8 @@ impl Lowerer<'_, '_> {
         Ok(result.order(parsed.order_by.as_ref())?.limit(parsed.limit))
     }
 
-    fn scan(&mut self, path: &Path) -> NativeResult<Lowered> {
-        let source_uri = (self.resolve_source)(path)?;
+    fn scan(&mut self, leaf: &ParsedRelationLeaf) -> NativeResult<Lowered> {
+        let source_uri = (self.resolve_source)(leaf)?;
         let columns = self.schemas.source_columns(&source_uri)?;
         Ok(Lowered {
             plan: Plan::Scan(Scan {
@@ -226,15 +276,33 @@ impl Lowerer<'_, '_> {
                 predicate: None,
             }),
             columns,
+            qualifiers: BTreeMap::new(),
         })
     }
 
+    fn relation(&mut self, source: &ParsedRelationSource) -> NativeResult<Lowered> {
+        match source {
+            ParsedRelationSource::Local(path) => self.scan(path),
+            ParsedRelationSource::Derived(query) => self.query(query),
+        }
+    }
+
     fn source(&mut self, parsed: &ParsedSqlLocalSource) -> NativeResult<Lowered> {
-        let left = self.scan(&parsed.source_path)?;
+        let mut left = self.relation(&parsed.source)?;
         let Some(join) = &parsed.join else {
+            // A derived source establishes a fresh alias scope. Its output names
+            // stay unchanged, so SELECT * and unqualified references agree.
+            left.qualifiers.clear();
+            if let Some(alias) = &parsed.source_alias {
+                left.qualifiers = left
+                    .columns
+                    .iter()
+                    .map(|name| (format!("{alias}.{name}"), name.clone()))
+                    .collect();
+            }
             return Ok(left);
         };
-        let right = self.scan(&join.right_source_path)?;
+        let right = self.relation(&join.right_source)?;
         let left_alias = parsed
             .source_alias
             .as_deref()
@@ -296,6 +364,7 @@ impl Lowerer<'_, '_> {
             append_equality_keys(condition, &mut keys)?;
         }
         Ok(Lowered {
+            qualifiers: BTreeMap::new(),
             columns: columns
                 .iter()
                 .map(|column| column.output_column.clone())
@@ -345,6 +414,11 @@ impl Lowerer<'_, '_> {
         let aggregate = !parsed.aggregates.is_empty()
             || !parsed.group_by.is_empty()
             || !parsed.having_aggregates.is_empty();
+        if aggregate && parsed.replace_or_add_projection {
+            return Err(unsupported_sql_error(
+                "REPLACE OR ADD must follow aggregation in a derived relation",
+            ));
+        }
         if aggregate {
             input = Self::aggregate(input, parsed)?;
             input = self.filter(input, &parsed.having)?;

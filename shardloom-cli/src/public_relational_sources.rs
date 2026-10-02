@@ -1,6 +1,6 @@
 //! Every parsed source leaf normalizes once; strings in SQL values are untouched.
 
-use super::super::infer_input_format_from_ref;
+use super::super::{declared_sql_source_identifier_matches, infer_input_format_from_ref};
 use super::{
     PreparedVortexRelational, PublicWorkflowRouteRequest, ShardLoomError, native_relational,
     native_vortex_materializing_policy,
@@ -40,7 +40,10 @@ pub(super) fn validate_bindings(
     if request.source_bindings.is_empty() {
         return Ok(());
     }
-    let paths = native_relational::source_paths(statement)?;
+    let paths = native_relational::source_leaves(statement)?
+        .iter()
+        .map(|leaf| declared_path(leaf, request))
+        .collect::<Result<std::collections::BTreeSet<_>, _>>()?;
     for (uri, binding) in &request.source_bindings {
         if !paths.contains(Path::new(uri)) {
             return Err(failed(
@@ -70,7 +73,8 @@ pub(super) fn normalization_required(
     request: &PublicWorkflowRouteRequest,
 ) -> Result<bool, ShardLoomError> {
     let mut required = false;
-    for path in native_relational::source_paths(statement)? {
+    for leaf in native_relational::source_leaves(statement)? {
+        let path = declared_path(&leaf, request)?;
         let raw = path
             .to_str()
             .ok_or_else(|| failed("source paths must be UTF8"))?;
@@ -79,6 +83,36 @@ pub(super) fn normalization_required(
         required |= format != "vortex";
     }
     Ok(required)
+}
+
+/// Resolve only parsed, unquoted identifiers against explicit input contracts.
+/// Quoted source paths and SQL values are never rewritten or rebound.
+fn declared_path(
+    leaf: &native_relational::ParsedRelationLeaf,
+    request: &PublicWorkflowRouteRequest,
+) -> Result<PathBuf, ShardLoomError> {
+    if !leaf.declared_identifier {
+        return Ok(leaf.path.clone());
+    }
+    let name = leaf
+        .path
+        .to_str()
+        .ok_or_else(|| failed("source paths must be UTF8"))?;
+    let candidates = request
+        .input_uri
+        .as_deref()
+        .into_iter()
+        .chain(request.source_bindings.keys().map(String::as_str))
+        .filter(|uri| *uri == name || declared_sql_source_identifier_matches(name, uri))
+        .collect::<std::collections::BTreeSet<_>>();
+    if candidates.len() > 1 {
+        return Err(failed(
+            "declared SQL source identifier is ambiguous; use an exact quoted source path",
+        ));
+    }
+    Ok(candidates
+        .first()
+        .map_or_else(|| leaf.path.clone(), PathBuf::from))
 }
 
 fn declared_format<'a>(source: &str, request: &'a PublicWorkflowRouteRequest) -> Option<&'a str> {
@@ -106,10 +140,11 @@ struct Sources {
 impl Sources {
     fn resolve(
         &mut self,
-        path: &Path,
+        leaf: &native_relational::ParsedRelationLeaf,
         request: &PublicWorkflowRouteRequest,
     ) -> Result<DatasetUri, ShardLoomError> {
-        if let Some(uri) = self.bound.get(path) {
+        let path = declared_path(leaf, request)?;
+        if let Some(uri) = self.bound.get(&path) {
             return Ok(uri.clone());
         }
         if self.bound.len() >= 128 {
@@ -125,7 +160,7 @@ impl Sources {
         } else {
             self.prepare_compatibility(raw, format, request)?
         };
-        self.bound.insert(path.to_owned(), uri.clone());
+        self.bound.insert(path, uri.clone());
         Ok(uri)
     }
 
@@ -190,4 +225,64 @@ fn failed(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native SQL source preparation: {message}; no fallback execution was attempted"
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::PublicSourceBinding;
+    use super::*;
+
+    #[test]
+    fn native_relational_declared_identifiers_resolve_inertly_across_nested_sources() {
+        let mut request = PublicWorkflowRouteRequest::new("sql".into());
+        request.input_uri = Some("missing/cargo.vortex".into());
+        request.input_format = Some("vortex".into());
+        request.source_bindings.insert(
+            "missing/cargo.vortex".into(),
+            PublicSourceBinding {
+                input_format: "vortex".into(),
+                source_schema: None,
+            },
+        );
+        let sql = "SELECT cargo_id FROM (SELECT cargo_id FROM cargo LIMIT 2) AS q WHERE cargo_id IN (SELECT cargo_id FROM cargo)";
+        validate_bindings(sql, &request).unwrap();
+        assert!(!normalization_required(sql, &request).unwrap());
+        let leaves = native_relational::source_leaves(sql).unwrap();
+        assert_eq!(leaves.len(), 1);
+        assert_eq!(
+            declared_path(leaves.first().unwrap(), &request).unwrap(),
+            Path::new("missing/cargo.vortex")
+        );
+
+        let quoted = "SELECT * FROM (SELECT cargo_id FROM 'cargo') AS q";
+        assert!(
+            validate_bindings(quoted, &request)
+                .unwrap_err()
+                .to_string()
+                .contains("not referenced")
+        );
+        let literal = native_relational::source_leaves(quoted).unwrap();
+        assert!(!literal.first().unwrap().declared_identifier);
+        assert_eq!(
+            declared_path(literal.first().unwrap(), &request).unwrap(),
+            Path::new("cargo")
+        );
+
+        request.source_bindings.insert(
+            "another/cargo.csv".into(),
+            PublicSourceBinding {
+                input_format: "csv".into(),
+                source_schema: Some("cargo_id:utf8".into()),
+            },
+        );
+        assert!(
+            validate_bindings(sql, &request)
+                .unwrap_err()
+                .to_string()
+                .contains("ambiguous")
+        );
+        let exact = "SELECT * FROM (SELECT cargo_id FROM 'missing/cargo.vortex' UNION ALL SELECT cargo_id FROM 'another/cargo.csv') AS q";
+        validate_bindings(exact, &request).unwrap();
+        assert!(normalization_required(exact, &request).unwrap());
+    }
 }

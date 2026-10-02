@@ -1527,7 +1527,7 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         required_evidence: "join_runtime_execution,join_type,join_key_arity,join_rows_output,no_fallback_evidence",
         evidence_command_refs: "local-source-runtime,LazyFrame.join",
         claim_gate_status: "local_workflow_runtime_supported",
-        claim_boundary: "Local-source equi/cross/expression joins execute through the local runtime surface; arbitrary join optimizer/catalog claims remain bounded.",
+        claim_boundary: "Admitted equi/cross/expression joins, including derived and transformed inputs, lower through the shared native relational tree for SQL and DataFrame collection/local writes; arbitrary join optimizer/catalog claims remain bounded.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "local_source_window_ladder",
@@ -1632,7 +1632,7 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         required_evidence: "catalog_contract,cte_plan_nodes,set_operator_semantics,recursive_runtime_policy,no_fallback_evidence",
         evidence_command_refs: "workflow-unsupported-plan sql-plan,capabilities sql",
         claim_gate_status: "not_claim_grade",
-        claim_boundary: "Catalogs, CTEs, recursive queries, and set operations are blocked until explicit ShardLoom-native planning evidence exists.",
+        claim_boundary: "Catalogs, CTEs, recursive queries and set variants outside the admitted native UNION/UNION ALL/INTERSECT/EXCEPT tree remain blocked; admitted derived set branches and post-set transformations share native relational execution.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "correlated_and_broad_subquery_sql",
@@ -1653,7 +1653,7 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         required_evidence: "subquery_binder,decorrelation_policy,materialization_bound,semantic_conformance_suite,no_fallback_evidence",
         evidence_command_refs: "workflow-unsupported-plan sql-plan,local-source-runtime unsupported diagnostics",
         claim_gate_status: "not_claim_grade",
-        claim_boundary: "Only bounded scalar IN subquery shapes are admitted; correlated and broad subqueries fail closed.",
+        claim_boundary: "Admitted native IN/NOT IN, row membership, ANY/ALL and EXISTS/NOT EXISTS predicates include scoped correlation and transformed derived inputs; scalar-value, lateral and broader subqueries remain blocked.",
     },
     SqlFrontendRuntimeLadderRow {
         id: "object_store_table_sql",

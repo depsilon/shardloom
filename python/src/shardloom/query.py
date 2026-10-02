@@ -107,6 +107,8 @@ class WorkflowOperation:
     kind: str
     values: tuple[str, ...]
     source_bindings: tuple[WorkflowSource, ...] = ()
+    right_statement: str | None = None
+    projection_sql: tuple[str, ...] | None = None
 
     def to_summary(self) -> str:
         """Return a deterministic operation summary."""
@@ -1931,6 +1933,200 @@ class SqlWorkflow:
 
         return "sql(statement)"
 
+    def _relation_statement(self) -> str:
+        return self.statement.strip().removesuffix(";").strip()
+
+    def _declared_sources(self) -> tuple[WorkflowSource, ...]:
+        declared = self.source_bindings
+        if self.input_uri is not None and self.input_format is not None:
+            primary = WorkflowSource(self.input_format, self.input_uri)
+            matching = tuple(source for source in declared if source.uri == self.input_uri)
+            if any(
+                _public_workflow_input_format(source) != _public_workflow_input_format(primary)
+                for source in matching
+            ):
+                raise ValueError(
+                    f"conflicting format or schema declarations for source {self.input_uri!r}"
+                )
+            if not matching:
+                declared = (primary, *declared)
+        return declared
+
+    def _compose(self, *operations: WorkflowOperation) -> "SqlWorkflow":
+        from ._relational_sql import render_stages
+
+        statement = render_stages(self.statement, operations)
+        if statement is None:
+            raise ValueError("SQL transformation has no admitted native relational lowering")
+        return SqlWorkflow(
+            statement, self.client, self.input_uri, self.input_format,
+            (*self.source_bindings, *(source for operation in operations
+                                     for source in operation.source_bindings)),
+        )
+
+    def select(self, *columns: object) -> "SqlWorkflow":
+        """Project the complete preceding SQL result without executing it."""
+        return self._compose(WorkflowOperation("select", _normalize_columns(columns)))
+
+    def project(self, *columns: object) -> "SqlWorkflow":
+        return self.select(*columns)
+
+    def filter(self, predicate: object) -> "SqlWorkflow":
+        """Filter the complete preceding result, including its order and limit."""
+        return self._compose(WorkflowOperation(
+            "filter", (_normalize_raw_or_typed_predicate("filter predicate", predicate),),
+            _predicate_sources(predicate),
+        ))
+
+    def where(self, predicate: object) -> "SqlWorkflow":
+        return self.filter(predicate)
+
+    def distinct(self) -> "SqlWorkflow":
+        return self._compose(WorkflowOperation("distinct", ()))
+
+    def sort(
+        self, *columns: object, descending: bool = False, nulls: str | None = None,
+        check: bool = False,
+    ) -> "SqlWorkflow":
+        return self._compose(WorkflowOperation("sort", _format_sort_operation_values(
+            "desc" if descending else "asc", _normalize_columns(columns), _normalize_sort_nulls(nulls),
+        )))
+
+    def order_by(
+        self, *columns: object, descending: bool = False, nulls: str | None = None,
+        check: bool = False,
+    ) -> "SqlWorkflow":
+        return self.sort(*columns, descending=descending, nulls=nulls, check=check)
+
+    def window(self, *expressions: object, check: bool = False) -> "SqlWorkflow":
+        return self._compose(WorkflowOperation("window", _normalize_window_expressions(expressions)))
+
+    def group_by(self, *columns: object) -> "GroupedLazyFrame":
+        return GroupedLazyFrame(self, _normalize_columns(columns))
+
+    def groupby(self, *columns: object) -> "GroupedLazyFrame":
+        return self.group_by(*columns)
+
+    def _append_group_by_aggregate(
+        self, columns: tuple[str, ...], expressions: tuple[str, ...],
+    ) -> "SqlWorkflow":
+        return self._compose(
+            WorkflowOperation("group_by", columns), WorkflowOperation("aggregate", expressions),
+        )
+
+    def aggregate(self, *expressions: object, check: bool = False) -> "SqlWorkflow":
+        return self._compose(WorkflowOperation("aggregate", _normalize_columns(expressions)))
+
+    def agg(
+        self, *expressions: object, check: bool = False, **named_expressions: object,
+    ) -> "SqlWorkflow":
+        values = list(_normalize_columns(expressions)) if expressions else []
+        values.extend(
+            _format_named_aggregate(name, expression)
+            for name, expression in named_expressions.items()
+        )
+        if not values:
+            raise ValueError("aggregate expressions must not be empty")
+        return self._compose(WorkflowOperation("aggregate", tuple(values)))
+
+    def having(self, predicate: object, *, check: bool = False) -> "SqlWorkflow":
+        """Apply HAVING to the current aggregate scope; Rust validates the scope."""
+        value = _normalize_raw_or_typed_predicate("HAVING predicate", predicate)
+        # HAVING binds aggregate inputs/aliases, so it stays inside this SELECT.
+        statement = self._relation_statement()
+        if _find_top_level_sql_keyword_outside_quotes(statement, "having") is not None:
+            raise ValueError("HAVING is already present; use filter() for another result stage")
+        if any(
+            _find_top_level_sql_keyword_outside_quotes(statement, keyword) is not None
+            for keyword in ("order by", "limit", "union", "intersect", "except")
+        ):
+            raise ValueError(
+                "HAVING must follow its aggregate before ordering, limits or sets; "
+                "use filter() for a later result stage"
+            )
+        return SqlWorkflow(
+            f"{statement} HAVING {value}",
+            self.client, self.input_uri, self.input_format,
+            (*self.source_bindings, *_predicate_sources(predicate)),
+        )
+
+    def with_column(
+        self, name: str, expression: object, *, check: bool = False,
+    ) -> "SqlWorkflow":
+        column = _normalize_output_column_name(name)
+        try:
+            expression_sql = _sql_literal(_generated_literal_expression(expression))
+        except (TypeError, ValueError):
+            expression_sql = _sql_computed_projection_expression(expression)
+        return self._compose(WorkflowOperation("with_column", (column, expression_sql)))
+
+    def with_columns(
+        self, columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+        *, check: bool = False, **named_expressions: object,
+    ) -> "SqlWorkflow":
+        workflow = self
+        for name, expression in _normalize_named_projection_items(
+            "with_columns", columns, named_expressions,
+        ):
+            workflow = workflow.with_column(name, expression, check=check)
+        return workflow
+
+    def join(
+        self, other: "LazyFrame | SqlWorkflow | str", *, on: str | Sequence[str] | None = None,
+        condition: object | None = None, how: str = "inner", check: bool = False,
+    ) -> "SqlWorkflow":
+        kind = _normalize_join_how(how)
+        if on is not None and condition is not None:
+            raise ValueError("join() accepts either on= equi keys or condition=, not both")
+        keys = () if on is None else tuple(
+            _normalize_output_column_name(column) for column in _normalize_columns((on,))
+        )
+        predicate = "" if condition is None else _normalize_join_condition(condition)
+        if kind == "cross" and (keys or predicate):
+            raise ValueError("cross joins do not accept keys or condition=; use filter() after join()")
+        if kind != "cross" and not keys and not predicate:
+            raise ValueError("join() requires on= or condition=")
+        right = other._relation_statement() if isinstance(other, (LazyFrame, SqlWorkflow)) else None
+        if isinstance(other, (LazyFrame, SqlWorkflow)) and right is None:
+            raise ValueError("join input has no admitted native relational lowering")
+        uri = "" if right is not None else _require_non_empty("join right source", other)
+        return self._compose(WorkflowOperation(
+            "join", (uri, ",".join(keys), ",".join(keys), kind, "f", "d", predicate),
+            _predicate_sources(other, condition), right_statement=right,
+        ))
+
+    def _set_operation(
+        self, other: "LazyFrame | SqlWorkflow", *, operation: str, keyword: str, check: bool,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        if (not isinstance(other, (LazyFrame, SqlWorkflow))
+                or (right := other._relation_statement()) is None):
+            return self._unsupported_operation(operation, str(other), check=check)
+        return SqlWorkflow(
+            f"SELECT * FROM ({self._relation_statement()}) AS _sl_set_left {keyword} "
+            f"SELECT * FROM ({right}) AS _sl_set_right", self.client,
+            source_bindings=(*self._declared_sources(), *other._declared_sources()),
+        )
+
+    def union(
+        self, other: "LazyFrame | SqlWorkflow", *, check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        return self._set_operation(other, operation="union", keyword="UNION", check=check)
+
+    def union_all(
+        self, other: "LazyFrame | SqlWorkflow", *, check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        return self._set_operation(other, operation="union-all", keyword="UNION ALL", check=check)
+
+    def intersect(
+        self, other: "LazyFrame | SqlWorkflow", *, check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        return self._set_operation(other, operation="intersect", keyword="INTERSECT", check=check)
+
+    def except_(
+        self, other: "LazyFrame | SqlWorkflow", *, check: bool = False,
+    ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        return self._set_operation(other, operation="except", keyword="EXCEPT", check=check)
+
     def route(
         self,
         *,
@@ -2106,8 +2302,14 @@ class SqlWorkflow:
         return self._unsupported_operation("sql", self.statement, check=check)
 
     def limit(self, count: int) -> "SqlWorkflow":
-        """Return this SQL workflow with an explicit LIMIT when one is absent."""
+        """Cap this SQL result without expanding an existing limit."""
 
+        if isinstance(count, bool) or not isinstance(count, int):
+            raise TypeError("limit count must be an integer")
+        if count < 0:
+            raise ValueError("limit count must be non-negative")
+        if count == 0:
+            return self._compose(WorkflowOperation("limit", ("0",)))
         statement = _sql_statement_with_limit(self.statement, count)
         return SqlWorkflow(
             statement=statement,
@@ -6178,7 +6380,7 @@ class LazyFrame:
 
     def union(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         check: bool = False,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
@@ -6188,7 +6390,7 @@ class LazyFrame:
 
     def union_all(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         check: bool = False,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
@@ -6198,7 +6400,7 @@ class LazyFrame:
 
     def intersect(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         check: bool = False,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
@@ -6213,7 +6415,7 @@ class LazyFrame:
 
     def except_(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         check: bool = False,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
@@ -6223,7 +6425,7 @@ class LazyFrame:
 
     def except_rows(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         check: bool = False,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
@@ -6238,7 +6440,7 @@ class LazyFrame:
 
     def subtract(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         check: bool = False,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
@@ -6406,14 +6608,14 @@ class LazyFrame:
             expression_sql,
         ):
             return self._append(
-                WorkflowOperation("expression_project", (expression_project_payload,))
+                self._computed_projection_operation(expression_project_payload, column_name, expression_sql)
             )
         if expression_project_payload := self._string_replace_expression_project_payload(
             column_name,
             expression_sql,
         ):
             return self._append(
-                WorkflowOperation("expression_project", (expression_project_payload,))
+                self._computed_projection_operation(expression_project_payload, column_name, expression_sql)
             )
         if (self.source.source_format == "vortex"
                 and isinstance(expression, ComplexProjectionExpression)
@@ -6429,6 +6631,15 @@ class LazyFrame:
             "with-column",
             f"{column_name}={expression_sql}",
             check=check,
+        )
+
+    def _computed_projection_operation(self, payload: str, name: str, expression: str) -> WorkflowOperation:
+        from ._relational_sql import computed_projection
+
+        columns = self._expression_project_projection_columns(())
+        return WorkflowOperation(
+            "expression_project", (payload,),
+            projection_sql=computed_projection(columns, name, expression) if columns is not None else None,
         )
 
     def with_columns(
@@ -7477,7 +7688,7 @@ class LazyFrame:
 
     def join(
         self,
-        other: "LazyFrame | str",
+        other: "LazyFrame | SqlWorkflow | str",
         *,
         on: str | Sequence[str] | None = None,
         condition: object | None = None,
@@ -7506,13 +7717,22 @@ class LazyFrame:
         right_uri: str
         right_summary: str
         right_operations: tuple[WorkflowOperation, ...] = ()
+        right_statement: str | None = None
         right_source_local = False
         if isinstance(other, LazyFrame):
             right_uri = other.source.uri
             right_summary = other.operation_summary
             right_operations = other.operations
+            if right_operations:
+                right_statement = other._relation_statement()
             right_source_local = _is_declared_local_source(other.source)
             right_source_vortex = other.source.source_format == "vortex"
+        elif isinstance(other, SqlWorkflow):
+            right_uri = ""
+            right_summary = other.operation_summary
+            right_statement = other._relation_statement()
+            right_source_local = True
+            right_source_vortex = False
         else:
             right_uri = _require_non_empty("join right source", other)
             right_summary = right_uri
@@ -7524,7 +7744,7 @@ class LazyFrame:
                 (_is_declared_local_source(self.source) or self.source.source_format == "vortex")
                 and (right_source_local or right_source_vortex)
             )
-            and not right_operations
+            and (not right_operations or right_statement is not None)
             and (normalized_columns or normalized_condition is not None or normalized_how == "cross")
         ):
             return self._append(
@@ -7540,6 +7760,7 @@ class LazyFrame:
                         normalized_condition or "",
                     ),
                     source_bindings=_predicate_sources(other, condition),
+                    right_statement=right_statement,
                 )
             )
         if self.source.source_format == "vortex" or right_source_vortex:
@@ -7953,6 +8174,8 @@ class LazyFrame:
                     "filter",
                     (f"({operation.values[0]}) AND ({predicate})",),
                     source_bindings=operation.source_bindings,
+                    right_statement=operation.right_statement,
+                    projection_sql=operation.projection_sql,
                 )
             )
         if not filter_seen:
@@ -7966,7 +8189,7 @@ class LazyFrame:
 
     def _union(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         union_all: bool,
         check: bool,
@@ -7977,15 +8200,23 @@ class LazyFrame:
 
     def _set_operation(
         self,
-        other: "LazyFrame",
+        other: "LazyFrame | SqlWorkflow",
         *,
         operation: str,
         keyword: str,
         check: bool,
     ) -> "SqlWorkflow | UnsupportedWorkflowOperationReport":
+        if isinstance(other, SqlWorkflow) and (left := self._relation_statement()) is not None:
+            return SqlWorkflow(
+                left, self.client, source_bindings=self._declared_sources(),
+            )._set_operation(other, operation=operation, keyword=keyword, check=check)
         if isinstance(other, LazyFrame):
             left = self._sql_local_source_union_branch_statement()
             right = other._sql_local_source_union_branch_statement()
+            if left is None and (complete_left := self._relation_statement()) is not None:
+                left = f"SELECT * FROM ({complete_left}) AS _sl_set_left"
+            if right is None and (complete_right := other._relation_statement()) is not None:
+                right = f"SELECT * FROM ({complete_right}) AS _sl_set_right"
             if left is not None and right is not None:
                 return SqlWorkflow(
                     statement=f"{left} {keyword} {right}",
@@ -9620,6 +9851,8 @@ class LazyFrame:
         return True
 
     def _can_append_scalar_aggregate(self) -> bool:
+        if self._relation_statement() is not None:
+            return True
         if not _is_query_builder_local_source(self.source) and self.source.source_format != "vortex":
             return False
         if self.source.source_format == "vortex" and any(
@@ -9632,6 +9865,8 @@ class LazyFrame:
         )
 
     def _can_append_group_by_aggregate(self, columns: tuple[str, ...]) -> bool:
+        if self._relation_statement() is not None:
+            return True
         if not _is_query_builder_local_source(self.source):
             return False
         return all(
@@ -9675,6 +9910,8 @@ class LazyFrame:
             return False
         if len(set(columns)) != len(columns):
             return False
+        if self._relation_statement() is not None:
+            return True
         if any(operation.kind == "limit" for operation in self.operations):
             return False
         if _is_query_builder_local_source(self.source):
@@ -9687,6 +9924,8 @@ class LazyFrame:
         return False
 
     def _can_append_window(self, expressions: tuple[str, ...]) -> bool:
+        if expressions and self._relation_statement() is not None:
+            return True
         if (not (_is_query_builder_local_source(self.source) or self.source.source_format == "vortex")
                 or not expressions):
             return False
@@ -9697,6 +9936,8 @@ class LazyFrame:
         return True
 
     def _can_append_having(self) -> bool:
+        if self._relation_statement() is not None:
+            return bool(self.operations and self.operations[-1].kind == "aggregate")
         if not _is_query_builder_local_source(self.source) and self.source.source_format != "vortex":
             return False
         saw_aggregate = False
@@ -9709,6 +9950,8 @@ class LazyFrame:
         return saw_aggregate
 
     def _can_append_projection_column(self, column_name: str, *, allow_vortex: bool = False) -> bool:
+        if self._relation_statement() is not None:
+            return True
         if (not _is_query_builder_local_source(self.source)
                 and not (allow_vortex and self.source.source_format == "vortex")):
             return False
@@ -9758,10 +10001,7 @@ class LazyFrame:
         if not normalized_columns:
             return False
         if isinstance(other, LazyFrame):
-            return (
-                _is_query_builder_local_source(other.source)
-                and not other.operations
-            )
+            return other._relation_statement() is not None
         return _source_format_for_local_source_ref(str(other)) is not None
 
     def _expression_project_projection_columns(
@@ -10518,8 +10758,39 @@ class LazyFrame:
                                for source in operation.source_bindings))
 
     def _native_relational_statement(self) -> str | None:
-        statement = self._sql_local_source_statement(allow_native_source=True, require_limit=False)
+        from ._relational_sql import flat_order_is_safe, render_frame
+
+        if self._has_structured_binary_export_shape():
+            return None
+        if any(operation.kind in {"expression_project", "set_index"} for operation in self.operations):
+            ordinary = tuple(operation for operation in self.operations if operation.kind not in {"expression_project", "set_index"})
+            if flat_order_is_safe(ordinary):
+                native = self
+                if self.source.source_format != "vortex":
+                    candidate = self._prepared_vortex_candidate_for_admitted_runtime()
+                    native = candidate.frame if candidate is not None else self
+                if native._vortex_primitive_shape() is not None:
+                    return None
+        existing_route = self._native_vortex_user_route_shape()
+        if existing_route is not None and existing_route.operation_family == "cast":
+            return None
+        statement = (
+            self._sql_local_source_statement(allow_native_source=True, require_limit=False)
+            if flat_order_is_safe(self.operations) else None
+        )
+        if statement is None:
+            statement = render_frame(self)
         return statement if statement and _native_relational_sql_candidate(statement) else None
+
+    def _relation_statement(self) -> str | None:
+        """Render this complete input, including its order and limits, without I/O."""
+        from ._relational_sql import flat_order_is_safe, render_frame
+
+        if flat_order_is_safe(self.operations):
+            statement = self._sql_local_source_statement(allow_native_source=True, require_limit=False)
+            if statement is not None:
+                return statement
+        return render_frame(self)
 
     def _native_vortex_aggregate_statement(self) -> str | None:
         """Lower a complete ordered aggregate chain without moving input limits."""
@@ -10637,6 +10908,8 @@ class LazyFrame:
                 ):
                     return None
             elif operation.kind == "join" and join_info is None:
+                if operation.right_statement is not None:
+                    return None
                 if (aggregate_list is not None or group_by_list is not None or distinct_requested
                         or predicate is not None or sort_key is not None or limit is not None
                         or projection_list is not None or literal_columns or window_expressions):
@@ -10799,6 +11072,10 @@ class LazyFrame:
         )
 
     def _sql_local_source_union_branch_statement(self) -> str | None:
+        from ._relational_sql import flat_order_is_safe
+
+        if not flat_order_is_safe(self.operations):
+            return None
         if any(operation.kind in {"limit", "sort"} for operation in self.operations):
             return None
         statement = self._sql_local_source_statement(default_limit=1, allow_native_source=True)
@@ -10812,7 +11089,7 @@ class LazyFrame:
 class GroupedLazyFrame:
     """Grouped lazy workflow handle for scoped aggregation and blockers."""
 
-    workflow: LazyFrame
+    workflow: LazyFrame | SqlWorkflow
     columns: tuple[str, ...]
 
     @property
@@ -10826,7 +11103,7 @@ class GroupedLazyFrame:
         *expressions: object,
         check: bool = False,
         **named_expressions: object,
-    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+    ) -> "LazyFrame | SqlWorkflow | UnsupportedWorkflowOperationReport":
         """Return a scoped grouped aggregate workflow when admitted."""
 
         values = list(_normalize_columns(expressions)) if expressions else []
@@ -10842,6 +11119,8 @@ class GroupedLazyFrame:
         if not values:
             raise ValueError("aggregate expressions must not be empty")
         target = f"group_by:{','.join(self.columns)};agg:{','.join(target_values)}"
+        if isinstance(self.workflow, SqlWorkflow):
+            return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
         if self.workflow._can_append_group_by_aggregate(self.columns):
             return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
         if self.workflow.source.source_format == "vortex":
@@ -10863,7 +11142,7 @@ class GroupedLazyFrame:
         *expressions: object,
         check: bool = False,
         **named_expressions: object,
-    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+    ) -> "LazyFrame | SqlWorkflow | UnsupportedWorkflowOperationReport":
         """Alias for grouped `agg`."""
 
         return self.agg(*expressions, check=check, **named_expressions)
@@ -10873,7 +11152,7 @@ class GroupedLazyFrame:
         *,
         alias: object = "rows",
         check: bool = False,
-    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+    ) -> "LazyFrame | SqlWorkflow | UnsupportedWorkflowOperationReport":
         """Return a grouped `count(*)` workflow using a familiar aggregation shortcut."""
 
         return self.agg(**{_normalize_output_column_name(alias): "count(*)"}, check=check)
@@ -14107,6 +14386,11 @@ def _sql_numeric_rounding_projection_expression(expression: object) -> str:
 
 
 def _sql_computed_projection_expression(expression: object) -> str:
+    if isinstance(expression, ColumnExpression):
+        try:
+            return _normalize_expression_column(expression.sql)
+        except (TypeError, ValueError):
+            pass
     parsers = (
         _sql_complex_projection_expression,
         _sql_cast_projection_expression,
@@ -14824,7 +15108,7 @@ def _predicate_sources(*values: object) -> tuple[WorkflowSource, ...]:
     for value in values:
         if isinstance(value, PredicateExpression):
             sources.extend(value.source_bindings)
-        elif isinstance(value, LazyFrame):
+        elif isinstance(value, (LazyFrame, SqlWorkflow)):
             sources.extend(value._declared_sources())
     return tuple(sources)
 
@@ -15155,13 +15439,20 @@ def _sql_in_subquery_source(
 def _sql_local_subquery_source(
     source: object, name: str, *, source_alias: object | None = None
 ) -> str:
-    if isinstance(source, LazyFrame):
+    if isinstance(source, SqlWorkflow):
+        source_ref = f"({source._relation_statement()})"
+        if source_alias is None:
+            source_alias = "_sl_subquery"
+    elif isinstance(source, LazyFrame):
         if source.operations:
-            raise ValueError(
-                "source subquery helpers require an untransformed source; use the helper's "
-                "where/group_by/having/order_by/limit arguments or an explicit SQL subquery"
-            )
-        source_ref = _quote_sql_local_source_path(source.source.uri)
+            statement = source._relation_statement()
+            if statement is None:
+                raise ValueError("source subquery contains an operation without native relational lowering")
+            source_ref = f"({statement})"
+            if source_alias is None:
+                source_alias = "_sl_subquery"
+        else:
+            source_ref = _quote_sql_local_source_path(source.source.uri)
     else:
         source_ref = _quote_sql_local_source_path(_require_non_empty(name, source))
     if source_alias is None:
@@ -16402,7 +16693,7 @@ def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
 def _native_relational_sql_candidate(statement: str) -> bool:
     """Syntax-only dispatch; Rust parses and admits the full native plan."""
     if any(_contains_sql_keyword_outside_quotes(statement, keyword)
-           for keyword in ("join", "union", "intersect", "except", "over")):
+           for keyword in ("join", "union", "intersect", "except", "over", "replace or add")):
         return True
     first = _find_sql_keyword_outside_quotes(statement, "select")
     return first is not None and _contains_sql_keyword_outside_quotes(statement[first + 6:], "select")

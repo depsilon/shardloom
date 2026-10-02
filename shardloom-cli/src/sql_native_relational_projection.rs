@@ -91,6 +91,20 @@ impl Lowerer<'_, '_> {
         for (_, expression) in &mut expressions {
             map_columns(expression, &mut |name| input.resolve(name))?;
         }
+        if parsed.replace_or_add_projection {
+            // Resolve every expression against the preceding stage before replacing
+            // slots. Multiple expressions in one SELECT never see one another's values.
+            let added = expressions.split_off(visible.len());
+            for (name, expression) in added {
+                if let Some((_, existing)) =
+                    expressions.iter_mut().find(|(column, _)| column == &name)
+                {
+                    *existing = expression;
+                } else {
+                    expressions.push((name, expression));
+                }
+            }
+        }
         Ok((input, expressions))
     }
 

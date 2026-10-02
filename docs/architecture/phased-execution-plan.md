@@ -76,6 +76,11 @@
   middle it should reuse the same prepared-state, writer, segment-layout, metadata, physical-plan,
   operator, sink, and evidence helpers wherever semantics allow. Do not create CSV/Parquet/JSONL,
   SQL/Python/DataFrame, benchmark/UAT, or ClickBench-only variants for the same runtime behavior.
+- The October 2 modularity clarification requires a concrete reuse map for each new shape or
+  optimization lane: existing component and callers, remaining semantic gap, shared extension or
+  strategy, and verification across existing and composed workloads. Sharing a crate or allocator
+  alone is insufficient proof of algorithm reuse. Preserve justified semantic/physical strategies
+  inside shared components and apply the measured retain/drop gate to performance changes.
 - Focused validation entries must use exact test targets before broad gates. Rust unit filters must
   target the exact crate surface: `cargo test -p <crate> --bin <name> <filter>` for binary crates
   and `cargo test -p <crate> --lib <filter>` for library crates. Rust integration filters must use
@@ -275,9 +280,38 @@ joins, set operations, analytic windows and scoped subqueries to retained native
 readers and typed batches, including native expression/group/order composition,
 mixed-source normalization and declared schema propagation. Its 16-case public
 matrix passes 176 complete-result checks through all eight local writers on the
-frozen build, with 129/129 Full43 regression executions; hosted PR checks are pending.
+frozen build, with 129/129 Full43 regression executions. PR #1500 merged at
+`588bf4c7` after all 40 hosted checks passed; the merged and tested trees match.
 General composition, type/adapter expansion and resource/spill obligations remain
 under the same PERF owners; this continuation does not mark those whole gates complete.
+
+- [ ] `NATIVE-RELATIONAL-COMPOSITION` Complete operation-order-preserving native relational composition.
+  - V1 scope classification: `required_for_v1`; promoted from PERF-02/07/10/11/12.
+  - Source: [composition contract](native-relational-composition-2026-10-02.md),
+    RFC 0033 and the universal workflow completion plan; CG-5/20/21 remain open.
+  - Current state: derived parsing and ordered public lowering are implemented;
+    development checks pass, with final immutable acceptance and hosted gates pending.
+  - Execution checklist:
+    - [x] Parse and bind derived SELECT/set sources with scoped aliases and inert
+      recursive source discovery; preserve the decoded-reference boundary.
+    - [x] Lower ordered Python/DataFrame chains, transformed join/subquery operands
+      and post-set stages into that same native relational tree.
+    - [ ] Verify complete values, empty schemas, operation order, source generations,
+      resource denial and failed-consumer cleanup through collection and all writers.
+    - [ ] Run final workspace/native/Python gates and immutable public/Full43 acceptance.
+    - [x] Record source-verified component reuse and specialized-strategy boundaries
+      for this batch and later ClickBench-relative optimization lanes.
+    - [ ] Update public capability evidence and move the completed record to the ledger.
+  - ShardLoom technique review: reuse metadata-first column demand, prepared owners,
+    native batches, PulseWeave/capillary admission and existing timing/evidence fields;
+    a frontend boundary creates neither another runtime nor another resource pool.
+  - Next outcome: the existing relational vocabulary composes through public SQL
+    and DataFrame stages without moving a transformation across a semantic boundary.
+  - Evidence/acceptance/verification: the linked contract defines independent complete
+    results, repeated source reuse, eight reopened sinks and serial immutable checks.
+  - Boundary: wider types, general window frames, scalar-value subqueries, fanout
+    and additional spill/adapter families remain in their existing PERF owners.
+    Preserve `fallback_attempted=false` and `external_engine_invoked=false`.
 
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
