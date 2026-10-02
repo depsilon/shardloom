@@ -16,6 +16,41 @@ use shardloom_core::{Result, ShardLoomError};
 
 use crate::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 
+/// Select local CPU lanes within the supplied maximum and process capacity.
+///
+/// Call once when admitting an operation owner, before sizing batches or
+/// creating workers. The count includes the caller; task and memory admission
+/// may narrow it further. This does not start workers or change a live owner.
+/// Public entrypoints validate positive maxima; internal zero means one caller.
+#[must_use]
+pub fn bounded_cpu_parallelism(requested: usize) -> usize {
+    cpu_parallelism_for_capacity(
+        requested,
+        thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
+    )
+}
+
+fn cpu_parallelism_for_capacity(requested: usize, available: usize) -> usize {
+    requested.max(1).min(available.max(1))
+}
+
+#[test]
+fn cpu_selection_handles_arbitrary_allocations_without_fixed_tiers() {
+    let sizes = [1, 2, 3, 4, 6, 8, 17, 32, 64, 128, 257, 4096, usize::MAX];
+    for requested in sizes {
+        for available in sizes {
+            let selected = cpu_parallelism_for_capacity(requested, available);
+            assert!((1..=requested).contains(&selected));
+            assert!(selected <= available);
+            assert!(selected == requested || selected == available);
+        }
+    }
+    assert_eq!(cpu_parallelism_for_capacity(128, 96), 96);
+    assert_eq!(cpu_parallelism_for_capacity(1, 96), 1);
+    assert_eq!(cpu_parallelism_for_capacity(96, 0), 1);
+    assert_eq!(cpu_parallelism_for_capacity(0, 96), 1);
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct CancellationToken {
     flag: Arc<AtomicBool>,

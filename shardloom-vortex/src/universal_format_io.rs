@@ -2823,7 +2823,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         && source
             .ingest_runtime
             .as_ref()
-            .is_some_and(|runtime| runtime.parallelism() == 1)
+            .is_some_and(|runtime| runtime.requested_parallelism() == 1)
     {
         // P1 is a direct pull reader with no queued source tasks or drivers.
         // The common adapter may safely admit this drained source at its final
@@ -2962,7 +2962,7 @@ fn with_shared_runtime_columnar_source(
     source.ingest_executor_status = "bounded_shared_runtime_source".to_string();
     source.ingest_executor_kind =
         "ordered_source_tasks_on_shared_native_ingest_runtime".to_string();
-    source.ingest_executor_requested_parallelism = runtime.parallelism();
+    source.ingest_executor_requested_parallelism = runtime.requested_parallelism();
     source.ingest_executor_applied_parallelism = 1;
     source.ingest_executor_unit_count_hint = source
         .ingest_executor_unit_count_hint
@@ -3288,7 +3288,9 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
     let source_parallelism_budget =
         parquet_row_group_source_parallelism_budget(requested_max_parallelism);
     #[cfg(feature = "vortex-write")]
-    let source_parallelism_budget = requested_max_parallelism;
+    let runtime = IngestRuntime::new(requested_max_parallelism);
+    #[cfg(feature = "vortex-write")]
+    let source_parallelism_budget = runtime.parallelism();
     if requested_max_parallelism > 1 && row_group_count > 1 && source_parallelism_budget > 0 {
         let stream_batch_size = stream_plan.stream_batch_size;
         let tasks = parquet_row_group_read_tasks(
@@ -3303,8 +3305,6 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         stream_plan.source_unit_row_ranges =
             parquet_row_group_task_row_ranges(&tasks, row_group_metadata.ranges.as_deref());
         let task_byte_ranges = extent_plan.task_byte_ranges(&tasks);
-        #[cfg(feature = "vortex-write")]
-        let runtime = IngestRuntime::new(requested_max_parallelism);
         #[cfg(feature = "vortex-write")]
         let reader = {
             let factories = tasks

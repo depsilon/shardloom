@@ -48,7 +48,7 @@ pub(super) fn read_prepared(
     source_uri: &DatasetUri,
     source: &PreparedVortexSource,
     primitive_kind: VortexQueryPrimitiveKind,
-    policy: VortexLocalPrimitiveExecutionPolicy,
+    mut policy: VortexLocalPrimitiveExecutionPolicy,
     configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
 ) -> Result<LocalVortexScan> {
     let preparation_started = Instant::now();
@@ -60,6 +60,14 @@ pub(super) fn read_prepared(
             "prepared local Vortex source exceeds the scan resource policy; prepare a source within the requested memory and CPU bounds; no fallback execution was attempted".to_string(),
         ));
     }
+    // Keep scan task admission and its evidence within the same grant as the
+    // held native source, including over-host requests and reused sources.
+    policy.max_parallelism = parallelism;
+    policy.resource_envelope.max_parallelism = parallelism;
+    policy.resource_envelope.scan_concurrency_per_worker = policy
+        .resource_envelope
+        .scan_concurrency_per_worker
+        .min(parallelism);
     let plan = configure(source.dtype())?;
     let preparation_micros = preparation_started.elapsed().as_micros();
     source.with_native_execution(|file, _, runtime| {

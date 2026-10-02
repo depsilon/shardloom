@@ -6274,12 +6274,12 @@ impl VortexWriterPhysicalDesignSourceInput {
         };
         let requested = source.ingest_executor_requested_parallelism.max(1);
         let cpu_lanes = if let Some(runtime) = &source.ingest_runtime {
-            if runtime.parallelism() != requested || source_workers > 0 {
+            if runtime.requested_parallelism() != requested || source_workers > 0 {
                 return Err(ShardLoomError::InvalidOperation(
                     "ingest CPU lane admission: existing source runtime exceeds or differs from the requested grant; no fallback execution was attempted".to_string(),
                 ));
             }
-            crate::ingest_cpu_lanes::IngestCpuLanes::shared(requested)?
+            crate::ingest_cpu_lanes::IngestCpuLanes::shared(requested, runtime.parallelism())?
         } else {
             crate::ingest_cpu_lanes::IngestCpuLanes::with_admitted_source(
                 requested,
@@ -7061,7 +7061,10 @@ fn planned_writer_runtime_parallelism(
         return (lanes.requested(), 1 + lanes.provider_drivers());
     }
     let _ = source;
-    (requested.max(1), requested.max(1))
+    (
+        requested.max(1),
+        shardloom_exec::compute_pool::bounded_cpu_parallelism(requested),
+    )
 }
 
 #[cfg(feature = "vortex-write")]
@@ -7329,7 +7332,7 @@ fn admitted_layout_writer_compression_concurrency(
         && layout_advisor_has_text_writer_profile(advisor)
         && admitted_layout_writer_has_storage_compression_fields(advisor)
     {
-        advisor.writer_parallelism_budget.max(1)
+        shardloom_exec::compute_pool::bounded_cpu_parallelism(advisor.writer_parallelism_budget)
     } else if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
         VORTEX_PREPARED_OLAP_WRITER_FAST_LOAD_LARGE_SOURCE_COMPRESSION_CONCURRENCY
     } else {
@@ -7340,7 +7343,7 @@ fn admitted_layout_writer_compression_concurrency(
 #[cfg(feature = "vortex-write")]
 fn admitted_layout_writer_stats_concurrency(advisor: &VortexLayoutWriteAdvisorReport) -> usize {
     if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
-        advisor.writer_parallelism_budget.max(1)
+        shardloom_exec::compute_pool::bounded_cpu_parallelism(advisor.writer_parallelism_budget)
     } else {
         VORTEX_PREPARED_OLAP_WRITER_DEFAULT_STATS_CONCURRENCY
     }
@@ -10913,14 +10916,11 @@ impl StreamingColumnarVortexArrayIterator {
         native_memory: Option<NativeIngestMemory>,
         runtime: Option<crate::ingest_runtime::IngestRuntime>,
     ) -> Result<Self> {
-        let max_window =
-            runtime
-                .as_ref()
-                .map_or(VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW, |runtime| {
-                    runtime
-                        .parallelism()
-                        .min(crate::ingest_runtime::IngestRuntime::MAX_CONVERSION_TASKS)
-                });
+        let max_window = runtime
+            .as_ref()
+            .map_or(VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW, |runtime| {
+                runtime.parallelism()
+            });
         if (vortex_array_prefetch_window == 0 && vortex_array_worker_count != 0)
             || (vortex_array_prefetch_window > 0
                 && (!(1..=vortex_array_prefetch_window).contains(&vortex_array_worker_count)

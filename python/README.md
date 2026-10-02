@@ -272,6 +272,21 @@ export contracts before they are product routes. `ctx.prepare_vortex(...)`,
 diagnostic surfaces. Session reuse is not a daemon, remote server, hidden global cache,
 object-store/table cache, broad DataFrame/SQL runtime, or performance claim.
 
+Supply `memory_gb` and `max_parallelism` on each operation that needs an explicit
+allocation. Session collection, counts, all `write_*` methods and `fanout` forward
+those values to the same native runtime as standalone workflows. Session reuse
+requires the resource request to match, so changing the allocation cannot reuse
+an earlier operation's result report. Positive environment defaults
+`SHARDLOOM_MEMORY_GB` and `SHARDLOOM_MAX_PARALLELISM` are read at Python import;
+an explicit CPU value of `1` stays `1`. The built-in defaults remain 4 GiB and 2.
+
+The runtime selects CPU concurrency within the supplied maximum and the CPU
+capacity available to the process. Ingestion shares that grant among ready source,
+conversion and writer work, with memory-admitted task windows. This works for
+arbitrary positive allocations; P4/P6/P8 are examples. I/O, serial readers and
+memory constraints can limit useful concurrency. The accounted memory budget
+does not include every upstream allocation or establish a process RSS limit.
+
 For the CLI-visible session lifecycle proof, `ShardLoomClient.session_cache_smoke()` runs
 `session-cache-smoke --format json` and returns a typed `SessionCacheSmokeReport`. That smoke
 exercises scoped SourceState, `VortexPreparedState`, OutputPlan, schema-cache, dictionary-cache,

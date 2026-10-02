@@ -21,21 +21,23 @@ pub struct IngestRuntime(Arc<IngestState>);
 
 struct IngestState {
     runtime: CurrentThreadRuntime,
+    requested_parallelism: usize,
     parallelism: usize,
     drivers_active: AtomicBool,
 }
 
 impl IngestRuntime {
-    // Bound scheduling metadata even when a caller supplies an unusually large
-    // CPU grant. Shared conversion/source queues remain separately byte-admitted.
-    pub(crate) const MAX_CONVERSION_TASKS: usize = 32;
-
     pub(crate) fn new(parallelism: usize) -> Self {
         Self(Arc::new(IngestState {
             runtime: CurrentThreadRuntime::new(),
-            parallelism: parallelism.max(1),
+            requested_parallelism: parallelism.max(1),
+            parallelism: shardloom_exec::compute_pool::bounded_cpu_parallelism(parallelism),
             drivers_active: AtomicBool::new(false),
         }))
+    }
+
+    pub(crate) fn requested_parallelism(&self) -> usize {
+        self.0.requested_parallelism
     }
 
     pub(crate) fn parallelism(&self) -> usize {
@@ -126,8 +128,13 @@ mod tests {
 
     #[test]
     fn cloned_runtime_cannot_admit_overlapping_driver_groups() {
-        for grant in [1, 2, 4, 6, 8] {
+        for grant in [1, 2, 3, 8, 17, 64, 128, usize::MAX, 1] {
             let runtime = IngestRuntime::new(grant);
+            assert_eq!(runtime.requested_parallelism(), grant);
+            assert_eq!(
+                runtime.parallelism(),
+                shardloom_exec::compute_pool::bounded_cpu_parallelism(grant)
+            );
             let clone = runtime.clone();
             let first = runtime.start_drivers().unwrap();
             let error = clone

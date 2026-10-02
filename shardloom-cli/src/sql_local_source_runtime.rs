@@ -8583,7 +8583,10 @@ fn run_columnar_vortex_prepare(
         request.source_fingerprint_policy,
         request.memory_gb.saturating_mul(1024 * 1024 * 1024)
             / 8
-            / u64::try_from(request.max_parallelism.max(1)).unwrap_or(u64::MAX),
+            / u64::try_from(shardloom_exec::compute_pool::bounded_cpu_parallelism(
+                request.max_parallelism,
+            ))
+            .unwrap_or(u64::MAX),
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     for column in &columnar_source.header {

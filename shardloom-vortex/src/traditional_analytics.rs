@@ -1006,7 +1006,8 @@ impl TraditionalAnalyticsResourcePolicy {
         let detected_parallelism = detected_parallelism();
         let max_parallelism = requested_max_parallelism
             .unwrap_or(detected_parallelism)
-            .max(1);
+            .max(1)
+            .min(detected_parallelism);
         let budget_bytes = memory_gb_to_bytes(memory_gb);
         let denominator = max_parallelism
             .saturating_mul(Self::ESTIMATED_ROW_BYTES)
@@ -42765,9 +42766,33 @@ mod tests {
         assert_eq!(policy.requested_memory_gb, Some(8));
         assert_eq!(policy.requested_max_parallelism, Some(2));
         assert_eq!(policy.memory_gb, 8);
-        assert_eq!(policy.max_parallelism, 2);
+        assert_eq!(policy.max_parallelism, 2.min(policy.detected_parallelism));
         assert!(policy.target_batch_rows >= TraditionalAnalyticsResourcePolicy::MIN_BATCH_ROWS);
         assert!(policy.target_partition_count >= 1);
+    }
+
+    #[test]
+    fn resource_policy_caps_large_allocations_before_batch_sizing() {
+        for requested in [1, 3, 17, 64, 128, usize::MAX] {
+            for memory in [1, 4, 64] {
+                let policy = TraditionalAnalyticsResourcePolicy::new(memory, requested)
+                    .resolve_for_sources(512 * 1024 * 1024);
+                let admitted = requested.min(policy.detected_parallelism);
+                let bounded = TraditionalAnalyticsResourcePolicy::new(memory, admitted)
+                    .resolve_for_sources(policy.source_bytes);
+                assert_eq!(policy.requested_max_parallelism, Some(requested));
+                assert_eq!(policy.max_parallelism, admitted);
+                assert_eq!(policy.target_batch_rows, bounded.target_batch_rows);
+                assert_eq!(
+                    policy.target_partition_bytes,
+                    bounded.target_partition_bytes
+                );
+                assert_eq!(
+                    policy.target_partition_count,
+                    bounded.target_partition_count
+                );
+            }
+        }
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]

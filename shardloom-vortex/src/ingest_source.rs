@@ -39,12 +39,13 @@ impl IngestSourceReader {
         factories: Vec<ReaderFactory>,
         window: usize,
     ) -> Self {
+        let window = window.max(1).min(runtime.parallelism());
         let mut reader = Self {
             schema,
             runtime,
             factories: factories.into(),
             tasks: VecDeque::new(),
-            window: window.max(1),
+            window,
             cancellation: CancellationToken::default(),
         };
         reader.fill_window();

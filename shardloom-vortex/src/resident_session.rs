@@ -447,8 +447,7 @@ impl ResidentVortexSession {
         if max_parallelism == 0 {
             return Err(resident_error("parallelism must be greater than zero"));
         }
-        let parallelism = max_parallelism
-            .min(std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get));
+        let parallelism = shardloom_exec::compute_pool::bounded_cpu_parallelism(max_parallelism);
         let memory = LiveMemoryPool::new(memory_bytes)?;
         let runtime = CurrentThreadRuntime::new();
         let provider_background_workers = if external_cpu_pool {

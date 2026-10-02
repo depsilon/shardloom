@@ -58,8 +58,9 @@ impl Rendezvous {
 
 #[test]
 fn ready_source_work_uses_the_grant_and_keeps_complete_order() {
-    for grant in [1, 2, 4, 6, 8] {
-        let runtime = IngestRuntime::new(grant);
+    for requested in [1, 2, 3, 6, 8, 17, 64, 128, usize::MAX, 1] {
+        let runtime = IngestRuntime::new(requested);
+        let grant = runtime.parallelism();
         let _drivers = runtime.start_drivers().unwrap();
         let gate = Rendezvous::new(grant);
         let factories = (0..grant)
@@ -75,7 +76,8 @@ fn ready_source_work_uses_the_grant_and_keeps_complete_order() {
                 }) as ReaderFactory
             })
             .collect();
-        let reader = IngestSourceReader::new(schema(), runtime, factories, grant);
+        let reader = IngestSourceReader::new(schema(), runtime, factories, requested);
+        assert_eq!(reader.window, grant);
         let actual: Vec<_> = reader
             .map(|batch| {
                 batch
@@ -134,8 +136,9 @@ impl Drop for ObservedReader {
 
 #[test]
 fn full_source_queues_yield_every_driver_to_native_provider_work() {
-    for grant in [1, 2, 4, 6, 8] {
-        let runtime = IngestRuntime::new(grant);
+    for requested in [1, 2, 3, 6, 8, 17, 64, 128, usize::MAX, 1] {
+        let runtime = IngestRuntime::new(requested);
+        let grant = runtime.parallelism();
         let _drivers = runtime.start_drivers().unwrap();
         let dropped = Arc::new(AtomicUsize::new(0));
         let mut full = Vec::new();
@@ -152,7 +155,8 @@ fn full_source_queues_yield_every_driver_to_native_provider_work() {
                 }) as Box<dyn RecordBatchReader + Send>)
             }) as ReaderFactory);
         }
-        let reader = IngestSourceReader::new(schema(), runtime.clone(), factories, grant);
+        let reader = IngestSourceReader::new(schema(), runtime.clone(), factories, requested);
+        assert_eq!(reader.window, grant);
         runtime
             .runtime()
             .block_on(futures::future::try_join_all(full))

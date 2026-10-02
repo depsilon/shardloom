@@ -80,35 +80,39 @@ impl IngestCpuLanes {
     /// conversion/provider owner. Unknown external reader threads are excluded.
     #[cfg(any(test, feature = "vortex-write"))]
     pub(crate) fn with_admitted_source(requested: usize, source_workers: usize) -> Result<Self> {
-        if source_workers > requested.saturating_sub(Self::CALLER_LANES) {
+        if requested == 0 {
+            return Err(lane_error("requested CPU grant must be positive"));
+        }
+        let applied = shardloom_exec::compute_pool::bounded_cpu_parallelism(requested);
+        if source_workers > applied.saturating_sub(Self::CALLER_LANES) {
             return Err(lane_error(
                 "existing source workers exceed the requested grant",
             ));
         }
-        Self::allocate(
-            requested,
+        let mut lanes = Self::allocate(
+            applied,
             source_workers,
-            Self::pipeline_demand(requested, source_workers),
-        )
+            Self::pipeline_demand(applied, source_workers),
+        )?;
+        lanes.requested = requested;
+        Ok(lanes)
     }
 
     /// Ready source/conversion/provider tasks share every native driver. Task
     /// window sizes are not additional thread grants.
     #[cfg(feature = "vortex-write")]
-    pub(crate) fn shared(requested: usize) -> Result<Self> {
-        if requested == 0 {
-            return Err(lane_error("requested CPU grant must be positive"));
+    pub(crate) fn shared(requested: usize, applied: usize) -> Result<Self> {
+        if applied == 0 || applied > requested {
+            return Err(lane_error(
+                "applied CPU grant must be positive and within the requested maximum",
+            ));
         }
         Ok(Self {
             requested,
             source_workers: 0,
             conversion_workers: 0,
-            provider_drivers: requested - Self::CALLER_LANES,
-            prefetch_slots: if requested == 1 {
-                0
-            } else {
-                requested.min(crate::ingest_runtime::IngestRuntime::MAX_CONVERSION_TASKS)
-            },
+            provider_drivers: applied - Self::CALLER_LANES,
+            prefetch_slots: if applied == 1 { 0 } else { applied },
             shared_runtime: true,
         })
     }
@@ -134,7 +138,11 @@ impl IngestCpuLanes {
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub(crate) fn admit_conversion_memory(&mut self, budget_bytes: u64, batch_bytes: u64) {
         if self.shared_runtime {
-            let slot_bytes = batch_bytes.saturating_mul(4).max(1);
+            let Some(slot_bytes) = batch_bytes.checked_mul(4) else {
+                self.prefetch_slots = 0;
+                return;
+            };
+            let slot_bytes = slot_bytes.max(1);
             let admitted = usize::try_from(budget_bytes / slot_bytes).unwrap_or(usize::MAX);
             self.prefetch_slots = self.prefetch_slots.min(admitted);
         }

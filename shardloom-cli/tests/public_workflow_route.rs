@@ -834,6 +834,42 @@ fn run_facade(args: &[&str]) -> (bool, String) {
     )
 }
 
+#[test]
+fn public_route_preserves_supplied_environment_cpu_and_memory_budgets() {
+    for grant in [1, 3, 17, 64, 128] {
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .env("SHARDLOOM_MAX_PARALLELISM", grant.to_string())
+            .env("SHARDLOOM_MEMORY_GB", "3")
+            .args([
+                "route",
+                "dataframe",
+                "--input",
+                "target/allocation-input.csv",
+                "--input-format",
+                "csv",
+                "--plan",
+                "read_csv(target/allocation-input.csv) -> select(id) -> limit(10)",
+                "--request",
+                "collect",
+                "--format",
+                "json",
+            ])
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(output.status.success(), "{stdout}");
+        assert!(stdout.contains(&field("memory_gb", "3")), "{stdout}");
+        assert!(
+            stdout.contains(&field("max_parallelism", &grant.to_string())),
+            "{stdout}"
+        );
+        assert!(
+            stdout.contains(&field("dynamic_parallelism_floor_applied", "false")),
+            "{stdout}"
+        );
+    }
+}
+
 #[cfg(feature = "vortex-local-primitives")]
 #[test]
 #[allow(clippy::too_many_lines)]
