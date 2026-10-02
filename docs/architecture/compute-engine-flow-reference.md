@@ -189,14 +189,17 @@ Universal Ingest source-state evidence now separates source-native units from em
 `source_state_dictionary_preservation_status` identify whether the prepared Vortex artifact was fed
 by product columnar stream batches, Parquet row-group hints, Arrow IPC batch hints, or a scalar text
 adapter. Parquet product preparation can additionally report
-`source_state_ingest_executor_status=bounded_capillary_row_group_parallel_writer_budgeted` with a
-coalesced metadata-reused row-group task count when the requested parallelism leaves source-reader
-capacity after reserving Vortex-normalization and single `.vortex` writer/layout lanes. At
-`max_parallelism=2`, large-source preparation uses one source-to-Vortex normalization lane and one
-writer/layout lane; higher values admit additional coalesced row-group source work. Large columnar
+`source_state_ingest_executor_status=bounded_shared_runtime_source` with a
+coalesced metadata-reused row-group task count. Source tasks, conversion, statistics
+and native writer work share the admitted local CPU grant. A full source queue yields
+its driver to ready work in another stage. The supplied `max_parallelism` is a ceiling;
+the process's available CPU capacity can narrow the applied grant. Source task count
+and memory admission bound unfinished work separately from CPU drivers. Large columnar
 sources may use the
 `product_columnar_stream_batch_size_262144_rows` capillary stream policy to reduce writer handoff
 and segment metadata churn; smaller product sources keep the 65,536-row policy.
+Metadata-based memory admission can choose smaller batches. A fixed allocation is
+selected at each operation's start; P4/P6/P8 are examples, not hard-coded tiers.
 
 Large streaming prepared artifacts keep the same single-file runtime contract and use the retained
 custom ShardLoom large-source writer strategy when the layout advisor admits it. UAT rejected the
@@ -206,7 +209,8 @@ writer behavior. The active ingest optimization instead uses Capillary/PulseWeav
 writer overlap plus a source-text dictionary-Zstd writer profile: Parquet row-group workers emit
 ordered `RecordBatch` units as soon as they are read instead of buffering an entire coalesced task
 before the writer can proceed, and the Arrow-to-Vortex normalization layer uses a bounded
-`capillary_vortex_array_prefetch_window` when requested parallelism leaves a lane available. Known
+`capillary_vortex_array_prefetch_window` selected from the applied CPU grant and observed
+batch memory requirements. Conversion tasks share drivers with source and writer work. Known
 source text fields use Vortex dictionary-Zstd compression and typed/numeric fields stay on the
 faster flat/zoned/stat path. The layout advisor exposes source scale, profile family,
 text-domain/time-bucket/counter posture, prepared-layout family, high-cardinality/text/time key

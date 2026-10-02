@@ -17,6 +17,29 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-RELATIONAL-RESOURCES` share public resources and native ordering spill.
+  - Date: 2026-10-02 UTC. Corrected runtime `c9bd23ca` and exact head
+    `e8e1214ab0da05f8c052a67e7b988bb199514148` merged in
+    [PR #1502](https://github.com/depsilon/shardloom/pull/1502) as
+    `4b9af399755b8b16ac696809ae3025c9e94974b5` after all 40 hosted checks passed.
+    Tested and merged trees match. Hosted Codex review was usage-limited and is
+    not counted as approval. The [contract and immutable packets](native-relational-resources-2026-10-02.md)
+    retain the initial hosted failure, deterministic cleanup repair and refreshed acceptance.
+  - One query grant/run store covers nested stable native ordering and shared spill
+    quota; resource declarations reach SQL/DataFrame collect and all eight writers.
+    All 592 public complete-result checks and 129 Full43 comparisons pass. Native
+    pressure delivers 240,003 exact rows to a slow consumer under an 8 MiB reservation
+    grant. Quota overlap, source/run mutation, cancellation and cleanup failures
+    remain explicit, with no published output or successful certificate on failure.
+  - Default workspace tests pass 3,440; native Vortex tests 2,180 with 23 existing
+    ignores; native CLI 1,565; Python 702 with 144 existing skips. Formatting,
+    strict Clippy, lean/MSRV, public docs and website gates pass. Counts overlap
+    across feature configurations. The corrected packet preserves all identities.
+  - V1 scope classification: `required_for_v1`; finite promotion under
+    PERF-03/06/07/10/12 and CG-5/20/21. Broader reader/codec accounting, other
+    operator-state spill, flat aggregate routing and unary/type/adapter breadth
+    remain open. No total-RSS bound, speedup, production or publication claim.
+
 - [x] `NATIVE-RELATIONAL-COMPOSITION` preserve operation order through native relational workflows.
   - Date: 2026-10-02 UTC. Runtime/SDK/harness revision `cf406611` has immutable
     local acceptance. [PR #1501](https://github.com/depsilon/shardloom/pull/1501)

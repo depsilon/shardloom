@@ -249,30 +249,41 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-RELATIONAL-RESOURCES` — complete shared public resource propagation
-  and native relational ordering pressure under PERF-03/06/07/10/12 and CG-5/20/21.
-  Follow the [resource and ordering contract](native-relational-resources-2026-10-02.md):
-  one resident grant and query-local run store, native typed spill/merge, exact stable
-  ordering, collection/writer parity and verified failure/cleanup behavior. Reuse the
-  existing key/order, native run-store and sink components; preserve specialized
-  numeric sort and aggregate strategies. Require the frozen public pressure matrix,
-  shared-provider regressions and Full43 before closing this finite unit. Broader
-  resource accounting and other operator spill remain with their existing owners.
+- [ ] `ADAPTIVE-INGEST-BUDGET` — honor the October 2 maintainer priority for
+  automatic CPU/memory selection and ingestion before remaining native operator
+  work. Allocations are supplied at each operation's start across Rust, CLI and
+  Python; P4/P6/P8 are examples, not the supported allocation range. Follow the
+  [adaptive ingestion contract](adaptive-ingest-budget-2026-10-02.md) under
+  PERF-03/08/12 and CG-5/6/8/20/21. Reuse the Vortex runtime, owned drivers,
+  bounded task windows and native writer; make ready source/conversion/provider
+  work share the supplied CPU grant while preserving memory admission, ordering,
+  source identity, publication and complete drain. P4/P6/P8 are grants, not phases.
   - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: apply bounded work inventory and scarcity to live
+    tasks; keep broader PulseWeave feedback and machine-wide quota claims gated.
   - Execution checklist:
-    - [x] Carry memory/parallelism/spill permission through the shared public facade
-      and every SQL/DataFrame collection and local writer alias.
-    - [x] Reuse native ordering, gather and query-run storage for stable full-row
-      spill/merge under one query grant and disk quota, including nested order stages.
-    - [x] Exercise pressure, exact values, source/run corruption, cancellation,
-      cleanup and writer-publication failure contracts in focused native tests.
-    - [x] Complete broad workspace, native provider, Python, recovery and feature gates.
-    - [x] Freeze public pressure/complete-output and Full43 regression evidence:
-      corrected runtime `c9bd23ca` passes 592 public complete-result checks and
-      129/129 Full43 comparisons; the contract retains both immutable packets
-      and the I/O cleanup repair exposed by the initial hosted run.
-    - [ ] Align public references/site, complete review and hosted checks, then
-      move the accepted finite record to the completed ledger.
+    - [x] Integrate shared CPU progress across the admitted source, conversion and
+      provider stages without adding an independent worker allowance.
+    - [x] Prove P1/P2/P4/P6/P8 progress, skew, work sharing, memory pressure,
+      cancellation, failures, source identity and joined teardown.
+    - [x] Align local CPU admission, explicit one-CPU settings, source batch
+      sizing and conversion windows for arbitrary supplied allocations.
+    - [x] Verify small, large and irregular CPU/memory selection plus complete
+      ingestion-to-query results; retain the initial twelve measured observations
+      without promoting the prototype's unproven performance claim.
+    - [x] Complete final workspace, native/CLI, Python and feature-boundary checks
+      after the broadened allocation work; current counts and exclusions are in
+      the allocation contract.
+    - [ ] Align public descriptions, review, complete hosted checks and move the
+      accepted finite record to the completed ledger. No whole PERF/CG completion,
+      package publication or paused format/text performance run is implied.
+
+The preceding `NATIVE-RELATIONAL-RESOURCES` unit merged in
+[PR #1502](https://github.com/depsilon/shardloom/pull/1502) after all 40 hosted
+checks passed. Its finite completion is recorded in the
+[completed ledger](phased-execution-completed-ledger.md). The prepared aggregate
+and ordering continuation is preserved while the October 2 allocation priority
+is completed; broader operator/type/adapter and resource obligations remain open.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
@@ -2681,6 +2692,13 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     sink-parity evidence.
 
 Current autonomous execution order:
+
+The October 2 maintainer instruction temporarily puts the finite
+`ADAPTIVE-INGEST-BUDGET` unit first: make P4/P6/P8 ingestion share the provided CPU
+budget, validate failure and memory behavior, and measure the new artifact through
+complete query acceptance. Resume the preserved native operator work afterward.
+This authorizes that guarded ingest/query comparison, without resuming the other
+paused large format/text experiments or declaring whole PERF/CG owners complete.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)

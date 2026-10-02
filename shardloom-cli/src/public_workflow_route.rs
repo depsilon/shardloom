@@ -3332,7 +3332,7 @@ fn public_workflow_effective_max_parallelism(
         Some(value) => positive_usize_arg("max_parallelism", value)?,
         None => default_public_local_runtime_max_parallelism(),
     };
-    // The default remains at least two. An explicit positive maximum is a
+    // The built-in default is two. An explicit positive maximum is a
     // ceiling, including a single caller-driven native execution lane.
     Ok(requested)
 }

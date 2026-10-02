@@ -72,7 +72,7 @@ fn fixture(root: &Path) -> (PathBuf, Arc<Schema>) {
     (path, schema)
 }
 
-fn verify_complete(path: &Path, schema: &Schema) {
+fn verify_complete(path: &Path, schema: &Schema, grant: usize, memory: u64) {
     let runtime = CurrentThreadRuntime::new();
     let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
     let file = runtime
@@ -117,13 +117,68 @@ fn verify_complete(path: &Path, schema: &Schema) {
         }
     }
     assert_eq!(row, 17);
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    {
+        // Reopen the newly ingested payload through the ordinary native query
+        // owner using the same supplied budget. These calls execute afresh.
+        let native = crate::resident_session::ResidentVortexSession::new(memory, grant).unwrap();
+        let source = native.prepare_file(path).unwrap();
+        let selected = shardloom_exec::compute_pool::bounded_cpu_parallelism(grant);
+        assert_eq!(native.snapshot().provider_background_workers, selected - 1);
+        assert_eq!(native.snapshot().memory.limit_bytes, memory);
+        for _ in 0..2 {
+            assert_eq!(source.prepare_count().execute().unwrap(), 17);
+            let projection = source
+                .prepare_projection(&["renamed_identifier"], 17, memory)
+                .unwrap();
+            let result = projection.execute().unwrap();
+            assert_eq!(result.row_count(), 17);
+            let target = Field::new(
+                "",
+                DataType::Struct(vec![Arc::new(schema.field(0).clone())].into()),
+                false,
+            );
+            let mut execution = result.create_execution_ctx();
+            let mut values = Vec::new();
+            for array in result.arrays() {
+                let decoded = session
+                    .arrow()
+                    .execute_arrow(array.clone(), Some(&target), &mut execution)
+                    .unwrap();
+                let fields = decoded.as_any().downcast_ref::<StructArray>().unwrap();
+                let column = fields
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<Int64Array>()
+                    .unwrap();
+                values.extend(column.values().iter().copied());
+            }
+            assert_eq!(
+                values,
+                (0..17).map(|row| (1_i64 << 60) + row).collect::<Vec<_>>()
+            );
+        }
+        assert_eq!(native.snapshot().completed_executions, 4);
+        assert!(native.snapshot().memory.peak_reserved_bytes <= memory);
+    }
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let _ = (grant, memory);
 }
 
 #[test]
 fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_sources() {
     let root = Directory::new();
     let (input, schema) = fixture(&root.0);
-    for grant in [1, 2, 4, 8] {
+    for (iteration, grant) in [1, 2, 3, 4, 6, 8, 17, 64, 128, usize::MAX, 1]
+        .into_iter()
+        .enumerate()
+    {
+        let applied = shardloom_exec::compute_pool::bounded_cpu_parallelism(grant);
+        let memory = if iteration % 2 == 0 {
+            2 << 20
+        } else {
+            32 << 20
+        };
         for single_prefetch in [false, true] {
             let source =
                 crate::universal_format_io::stream_flat_parquet_columnar_source_with_parallelism(
@@ -141,16 +196,19 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
             };
             assert_eq!(source.ingest_executor_requested_parallelism, grant);
             assert_eq!(source.ingest_executor_applied_parallelism, 1);
-            let path = root
-                .0
-                .join(format!("grant-{grant}-prefetch-{single_prefetch}.vortex"));
+            let path = root.0.join(format!(
+                "grant-{iteration}-{grant}-prefetch-{single_prefetch}.vortex"
+            ));
             let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-                .shared_native_memory_budget_bytes(32 << 20);
+                .shared_native_memory_budget_bytes(memory);
             let report = write_flat_columnar_vortex_prepared_state_streaming(request).unwrap();
-            let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(grant, 6);
+            let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant, applied).unwrap();
             let design = &report.writer_physical_design;
             assert_eq!(report.row_count, 17);
-            assert_eq!(design.array_build_worker_count, lanes.conversion_workers());
+            assert_eq!(
+                design.array_build_worker_count,
+                lanes.conversion_task_limit()
+            );
             assert_eq!(design.array_build_prefetch_window, lanes.prefetch_slots());
             assert_eq!(
                 report.writer_runtime_background_workers,
@@ -161,16 +219,11 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
                 1 + lanes.provider_drivers()
             );
             assert_eq!(report.writer_runtime_requested_parallelism, grant);
-            assert_eq!(
-                1 + lanes.source_workers()
-                    + design.array_build_worker_count
-                    + report.writer_runtime_background_workers,
-                grant
-            );
+            assert_eq!(1 + report.writer_runtime_background_workers, applied);
             assert!(
                 design
                     .writer_queue_topology
-                    .contains(&format!("ingest_cpu_configured={grant};"))
+                    .contains(&format!("ingest_cpu_configured={applied};"))
             );
             assert!(
                 design
@@ -179,7 +232,7 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
             );
             assert!(!design.fallback_attempted);
             assert!(!design.external_engine_invoked);
-            verify_complete(&path, &schema);
+            verify_complete(&path, &schema, grant, memory);
         }
     }
 }
@@ -188,7 +241,8 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
 fn parallel_codec_writer_preserves_complete_values_and_admitted_owners_across_grants() {
     let root = Directory::new();
     let (input, schema) = fixture(&root.0);
-    for grant in [1, 2, 3, 4, 5, 8] {
+    for grant in [1, 2, 3, 4, 5, 6, 8, 17, 64, 128, usize::MAX] {
+        let applied = shardloom_exec::compute_pool::bounded_cpu_parallelism(grant);
         let source =
             crate::universal_format_io::stream_flat_parquet_columnar_source_with_parallelism(
                 &input, 100, grant,
@@ -211,22 +265,20 @@ fn parallel_codec_writer_preserves_complete_values_and_admitted_owners_across_gr
                 .shared_native_memory_budget_bytes(32 << 20),
         )
         .unwrap();
-        let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::pipeline(grant, 6);
+        let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant, applied).unwrap();
         let design = &report.writer_physical_design;
-        assert_eq!(design.array_build_worker_count, lanes.conversion_workers());
+        assert_eq!(
+            design.array_build_worker_count,
+            lanes.conversion_task_limit()
+        );
         assert_eq!(design.array_build_prefetch_window, lanes.prefetch_slots());
         assert_eq!(
             report.writer_runtime_background_workers,
             lanes.provider_drivers()
         );
         assert_eq!(report.writer_runtime_requested_parallelism, grant);
-        assert_eq!(
-            1 + lanes.source_workers()
-                + design.array_build_worker_count
-                + report.writer_runtime_background_workers,
-            grant
-        );
-        assert_eq!(report.writer_compression_concurrency, grant);
+        assert_eq!(1 + report.writer_runtime_background_workers, applied);
+        assert_eq!(report.writer_compression_concurrency, applied);
         assert_eq!(report.row_count, 17);
         assert_eq!(
             report
@@ -238,7 +290,7 @@ fn parallel_codec_writer_preserves_complete_values_and_admitted_owners_across_gr
         );
         assert!(!design.fallback_attempted);
         assert!(!design.external_engine_invoked);
-        verify_complete(&path, &schema);
+        verify_complete(&path, &schema, grant, 32 << 20);
     }
 }
 
@@ -282,7 +334,7 @@ fn narrower_request_never_silently_reuses_an_oversized_source_grant() {
     assert!(
         error
             .to_string()
-            .contains("existing source workers exceed the requested grant")
+            .contains("existing source runtime exceeds or differs from the requested grant")
     );
     assert!(!path.exists());
 }

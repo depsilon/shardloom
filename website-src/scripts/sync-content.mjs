@@ -495,7 +495,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 1, 2026.
+Current capabilities, reviewed October 2, 2026.
 
 ## Native Execution
 
@@ -560,6 +560,15 @@ state. Resident serving can bound concurrent calls, CPU grants, and positional I
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
 Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
 aggregates avoid payload and worker admission, including when no spare payload credit is available.
+
+Supply CPU and memory limits at each operation's start through Rust, the CLI, or Python.
+The runtime selects concurrency within the supplied maximum and the CPU capacity available
+to the process; an explicit one-CPU allocation stays one. Streaming ingestion shares this
+grant across ready source, conversion, statistics, and writer tasks. Full bounded queues
+yield their drivers, while memory admission can narrow unfinished work. Allocations can
+vary well beyond P4/P6/P8. I/O and serial work may limit useful concurrency; these controls
+do not guarantee full CPU utilization or a total-process RSS ceiling. See the
+[allocation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/adaptive-ingest-budget-2026-10-02.md).
 
 Current source builds carry the same \`memory_gb\` and \`max_parallelism\` request through SQL and
 DataFrame collection and local writers. Optional \`spill\` declares an existing local workspace,

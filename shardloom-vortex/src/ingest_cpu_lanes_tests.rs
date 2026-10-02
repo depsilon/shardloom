@@ -1,5 +1,47 @@
 use super::*;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn shared_conversion_admission_scales_with_cpu_and_memory_without_fixed_tiers() {
+    for requested in [1, 2, 3, 17, 64, 128, 4096, usize::MAX] {
+        for available in [1, 3, 24, 64, 96, 512, usize::MAX] {
+            let applied = requested.min(available);
+            let lanes = IngestCpuLanes::shared(requested, applied).unwrap();
+            assert_eq!(lanes.requested(), requested);
+            assert_eq!(lanes.configured_cpu_lanes(), applied);
+            assert_eq!(lanes.source_workers(), 0);
+            assert_eq!(lanes.conversion_workers(), 0);
+            for batch_bytes in [0, 1, 1024, 1 << 20, u64::MAX / 4 + 1, u64::MAX] {
+                let mut previous = 0;
+                for memory_bytes in [0, 1, 1 << 20, 1 << 30, u64::MAX] {
+                    let mut admitted = lanes;
+                    admitted.admit_conversion_memory(memory_bytes, batch_bytes);
+                    let slots = admitted.conversion_task_limit();
+                    assert!(
+                        slots >= previous,
+                        "more memory must not narrow a fresh window"
+                    );
+                    assert!(slots <= applied);
+                    assert!(
+                        (slots as u128) * u128::from(batch_bytes) * 4 <= u128::from(memory_bytes)
+                    );
+                    assert_eq!(admitted.configured_cpu_lanes(), applied);
+                    previous = slots;
+                }
+            }
+        }
+    }
+    let mut large = IngestCpuLanes::shared(128, 96).unwrap();
+    large.admit_conversion_memory(1 << 30, 1 << 20);
+    assert_eq!(large.conversion_task_limit(), 96);
+    let mut constrained = IngestCpuLanes::shared(128, 96).unwrap();
+    constrained.admit_conversion_memory(12 << 20, 1 << 20);
+    assert_eq!(constrained.conversion_task_limit(), 3);
+    assert!(IngestCpuLanes::shared(0, 0).is_err());
+    assert!(IngestCpuLanes::shared(4, 0).is_err());
+    assert!(IngestCpuLanes::shared(4, 5).is_err());
+}
+
 fn demand() -> IngestCpuDemand {
     // An explicit candidate recipe for tests, not a new production default.
     IngestCpuDemand {
