@@ -14,6 +14,9 @@ mod aggregate;
 #[path = "support/resident_unary.rs"]
 mod unary;
 
+#[path = "support/resident_relational.rs"]
+mod relational;
+
 struct Worker {
     child: Child,
     output: BufReader<ChildStdout>,

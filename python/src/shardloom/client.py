@@ -11204,6 +11204,7 @@ class ShardLoomClient:
         input_uri: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
         source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
+        source_bindings: Mapping[str, Mapping[str, object]] | None = None,
         sql_statement: str | None = None,
         plan_summary: str | None = None,
         requested_output: str = "collect",
@@ -11253,6 +11254,9 @@ class ShardLoomClient:
         source_schema_arg = _schema_command_arg(source_schema)
         if source_schema_arg is not None:
             args.extend(["--source-schema", source_schema_arg])
+        source_bindings_arg = _source_bindings_command_arg(source_bindings)
+        if source_bindings_arg is not None:
+            args.extend(["--source-bindings", source_bindings_arg])
         if sql_statement is not None:
             args.extend(["--sql", sql_statement])
         if plan_summary is not None:
@@ -11314,6 +11318,7 @@ class ShardLoomClient:
         input_uri: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
         source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
+        source_bindings: Mapping[str, Mapping[str, object]] | None = None,
         sql_statement: str | None = None,
         plan_summary: str | None = None,
         requested_output: str = "collect",
@@ -11362,6 +11367,7 @@ class ShardLoomClient:
             input_uri=input_uri,
             input_format=input_format,
             source_schema=source_schema,
+            source_bindings=source_bindings,
             sql_statement=sql_statement,
             plan_summary=plan_summary,
             requested_output=requested_output,
@@ -11445,6 +11451,7 @@ class ShardLoomClient:
         input_uri: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
         source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
+        source_bindings: Mapping[str, Mapping[str, object]] | None = None,
         sql_statement: str | None = None,
         plan_summary: str | None = None,
         requested_output: str = "collect",
@@ -11492,6 +11499,9 @@ class ShardLoomClient:
         source_schema_arg = _schema_command_arg(source_schema)
         if source_schema_arg is not None:
             args.extend(["--source-schema", source_schema_arg])
+        source_bindings_arg = _source_bindings_command_arg(source_bindings)
+        if source_bindings_arg is not None:
+            args.extend(["--source-bindings", source_bindings_arg])
         if sql_statement is not None:
             args.extend(["--sql", sql_statement])
         if plan_summary is not None:
@@ -14163,6 +14173,44 @@ def _schema_command_arg(
             raise ValueError("schema entries must have non-empty column names and dtype values")
         parts.append(f"{name_text}:{dtype_text}")
     return ",".join(parts) if parts else None
+
+
+def _source_bindings_command_arg(
+    source_bindings: Mapping[str, Mapping[str, object]] | None,
+) -> str | None:
+    if source_bindings is None:
+        return None
+    if not isinstance(source_bindings, Mapping):
+        raise TypeError("source_bindings must be a mapping")
+    if not source_bindings:
+        return None
+    if len(source_bindings) > 128:
+        raise ValueError("source_bindings must contain at most 128 entries")
+
+    normalized: dict[str, dict[str, str]] = {}
+    for uri, binding in source_bindings.items():
+        if not isinstance(uri, str):
+            raise TypeError("source binding URI must be a string")
+        if not isinstance(binding, Mapping):
+            raise TypeError("each source binding must be a mapping")
+        keys = set(binding)
+        if keys - {"input_format", "source_schema"} or "input_format" not in keys:
+            raise ValueError(
+                "each source binding must contain input_format and only optional source_schema"
+            )
+        input_format = binding["input_format"]
+        if not isinstance(input_format, str) or not input_format.strip():
+            raise ValueError("source binding input_format must be a non-empty string")
+        entry = {"input_format": input_format}
+        schema_arg = _schema_command_arg(binding.get("source_schema"))
+        if schema_arg is not None:
+            entry["source_schema"] = schema_arg
+        normalized[uri] = entry
+
+    value = json.dumps(normalized, separators=(",", ":"), ensure_ascii=False)
+    if len(value.encode("utf-8")) > 256 * 1024:
+        raise ValueError("serialized source_bindings must be at most 256 KiB in UTF-8")
+    return value
 
 
 def _jsonl_object_rows(value: str, *, field_name: str) -> tuple[Mapping[str, Any], ...]:

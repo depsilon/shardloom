@@ -298,6 +298,14 @@ joins, set operations, bounded subquery predicates, source-free `VALUES`, source
 `SELECT`, and generated range forms such as `generate_series` or `range` where the local runtime
 admits them.
 
+The [native relational contract](../architecture/native-relational-workflows-2026-10-01.md)
+records complete collection and local writes for admitted joins, UNION/INTERSECT/EXCEPT,
+analytic ranking/navigation/distribution windows and scoped predicate subqueries.
+SQL, DataFrame and CLI calls share retained native execution, all-source generation
+checks and declared adapter/schema propagation. Use `route(..., bounded=True)` to
+inspect a shape without source I/O. General derived tables, arbitrary DataFrame
+chains, relational state spill and relational fanout remain explicit boundaries.
+
 Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
 subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,
 Flight SQL, or SQL execution delegated to another engine.

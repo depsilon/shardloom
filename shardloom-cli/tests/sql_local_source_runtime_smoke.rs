@@ -12481,7 +12481,7 @@ fn local_source_runtime_blocks_unsupported_join_shapes_without_fallback() {
                 fact_path.display(),
                 dim_path.display()
             ),
-            "SQL identifiers must start with an ASCII letter or underscore",
+            "JOIN expression ON predicates must reference both left and right sources",
         ),
         (
             format!(

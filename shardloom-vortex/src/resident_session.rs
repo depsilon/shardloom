@@ -239,7 +239,10 @@ impl ResidentVortexSession {
 
     /// Admit construction work without recording a completed query. Nested
     /// operators borrow the supplied context instead of reacquiring admission.
-    #[cfg(all(feature = "vortex-write", unix))]
+    #[cfg(all(
+        any(feature = "vortex-write", feature = "vortex-local-primitives"),
+        unix
+    ))]
     pub(crate) fn with_native_execution_context<T>(
         &self,
         cancellation: &CancellationToken,
@@ -252,6 +255,56 @@ impl ResidentVortexSession {
         let result = result?;
         completion?;
         Ok(result)
+    }
+
+    /// One call owns every source generation through the final consumer and I/O
+    /// drain. A borrowed operator must use this same context for each file view.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_sources_execution<T>(
+        &self,
+        sources: &[PreparedVortexSource],
+        cancellation: &CancellationToken,
+        execute: impl FnOnce(&NativeExecutionContext<'_>) -> Result<T>,
+    ) -> Result<T> {
+        let result = self.with_native_execution_context(cancellation, |context| {
+            let result = self.with_admitted_sources_execution(sources, context, execute)?;
+            context.drain_io();
+            self.validate_sources(sources, context)?;
+            Ok(result)
+        })?;
+        self.0.executions.fetch_add(1, Ordering::Relaxed);
+        Ok(result)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_admitted_sources_execution<T>(
+        &self,
+        sources: &[PreparedVortexSource],
+        context: &NativeExecutionContext<'_>,
+        execute: impl FnOnce(&NativeExecutionContext<'_>) -> Result<T>,
+    ) -> Result<T> {
+        self.validate_sources(sources, context)?;
+        let result = execute(context)?;
+        self.validate_sources(sources, context)?;
+        Ok(result)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn validate_sources(
+        &self,
+        sources: &[PreparedVortexSource],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        self.validate_execution_context(context)?;
+        context.check_general_execution()?;
+        for source in sources {
+            context.check_cancelled()?;
+            if !Arc::ptr_eq(&self.0, &source.0.runtime) {
+                return Err(resident_error("source belongs to a different session"));
+            }
+            source.validate_generation()?;
+        }
+        Ok(())
     }
 
     /// Reject a borrowed grant from another session before construction or I/O.
@@ -530,6 +583,22 @@ impl PreparedVortexSource {
 
     pub(crate) fn validate_generation(&self) -> Result<()> {
         self.0.validate()
+    }
+
+    /// Include hard links and symlinks when rejecting an input as a write target.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub(crate) fn aliases_file(&self, path: &Path) -> Result<bool> {
+        let Some(identity) = &self.0.identity else {
+            return Ok(false);
+        };
+        let metadata = match std::fs::metadata(path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(native_error(error)),
+        };
+        let generation = FileGeneration::read(&metadata)?;
+        Ok(generation.device == identity.generation.device
+            && generation.inode == identity.generation.inode)
     }
 
     /// Cheap immutable-metadata preflight before optional duplicate planning.

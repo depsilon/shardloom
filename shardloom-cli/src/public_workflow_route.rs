@@ -48,6 +48,7 @@ struct PublicWorkflowRouteRequest {
     input_uri: Option<String>,
     input_format: Option<String>,
     source_schema: Option<String>,
+    source_bindings: std::collections::BTreeMap<String, PublicSourceBinding>,
     sql_statement: Option<String>,
     plan_summary: Option<String>,
     requested_output: String,
@@ -90,6 +91,46 @@ struct PublicWorkflowRouteRequest {
     max_parallelism: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PublicSourceBinding {
+    input_format: String,
+    source_schema: Option<String>,
+}
+
+fn parse_public_source_bindings(
+    raw: &str,
+) -> Result<std::collections::BTreeMap<String, PublicSourceBinding>, ShardLoomError> {
+    let invalid = |message: &str| {
+        ShardLoomError::InvalidOperation(format!(
+            "source bindings: {message}; no fallback execution was attempted"
+        ))
+    };
+    if raw.len() > 256 * 1024 {
+        return Err(invalid("declarations exceed 256 KiB"));
+    }
+    let mut bindings: std::collections::BTreeMap<String, PublicSourceBinding> =
+        serde_json::from_str(raw).map_err(|error| invalid(&error.to_string()))?;
+    if bindings.len() > 128 {
+        return Err(invalid("declarations exceed 128 sources"));
+    }
+    for (uri, binding) in &mut bindings {
+        if uri.trim().is_empty() || uri.len() > 16_384 {
+            return Err(invalid("source URI must contain 1..=16384 bytes"));
+        }
+        binding.input_format = normalize_input_format(&binding.input_format)?;
+        if let Some(schema) = &binding.source_schema {
+            if binding.input_format == "vortex" {
+                return Err(invalid(
+                    "native Vortex retains its authoritative schema; source schema hints require compatibility input",
+                ));
+            }
+            sql_local_source_runtime::parse_vortex_ingest_schema_hints(schema)?;
+        }
+    }
+    Ok(bindings)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PublicWorkflowRoutePlan {
     status: CommandStatus,
@@ -124,6 +165,10 @@ mod resident_aggregate;
 #[path = "public_resident_unary.rs"]
 mod resident_unary;
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "public_resident_relational.rs"]
+mod resident_relational;
+
 /// Caller-owned prepared execution. Only the latest admitted operation is retained;
 /// results are never cached and every execution validates its source generation.
 #[derive(Default)]
@@ -138,6 +183,8 @@ pub(crate) struct PublicExecutionSession {
     aggregate: Option<resident_aggregate::PreparedPublicAggregate>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     unary: Option<resident_unary::PreparedPublicUnary>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    relational: Option<resident_relational::PreparedPublicRelational>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     memory: Option<(
         u64,
@@ -231,6 +278,10 @@ pub(crate) fn handle_public_workflow_run(
             .unary
             .as_ref()
             .is_some_and(|entry| entry.request != request)
+        || execution_session
+            .relational
+            .as_ref()
+            .is_some_and(|entry| entry.request != request)
         || (execution_session.memory.is_some() && plan.route_id != "generated_rows_memory_collect")
     {
         execution_session.clear();
@@ -241,6 +292,10 @@ pub(crate) fn handle_public_workflow_run(
     }
 
     match plan.route_id {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        "native_vortex_relational_collect" | "native_vortex_relational_write" => {
+            resident_relational::run(&request, &plan, format, execution_session)
+        }
         "generated_rows_memory_collect" => {
             execute_generated_memory_collect(&request, &plan, format, execution_session)
         }
@@ -5592,7 +5647,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--source-schema <name:dtype,...>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <vortex_middle|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--source-fingerprint-policy <metadata_only|content_digest>] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--source-schema <name:dtype,...>] [--source-bindings <json-uri-to-format-and-schema>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <vortex_middle|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--source-fingerprint-policy <metadata_only|content_digest>] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -5604,6 +5659,17 @@ impl PublicWorkflowRouteRequest {
         }
 
         request.infer_defaults();
+        if !request.source_bindings.is_empty()
+            && (request.requested_output == "prepare"
+                || request
+                    .sql_statement
+                    .as_deref()
+                    .is_none_or(|sql| !native_relational_sql_candidate(sql)))
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "source bindings require an admitted relational SQL statement; no declaration is silently ignored and no fallback execution was attempted".into(),
+            ));
+        }
         if request.source_schema.is_some()
             && (request.generated_source_kind.is_some()
                 || request.input_format.as_deref() == Some("vortex"))
@@ -5621,6 +5687,7 @@ impl PublicWorkflowRouteRequest {
             input_uri: None,
             input_format: None,
             source_schema: None,
+            source_bindings: std::collections::BTreeMap::new(),
             sql_statement: None,
             plan_summary: None,
             requested_output: "collect".to_string(),
@@ -5682,6 +5749,9 @@ impl PublicWorkflowRouteRequest {
                 let value = required_value(args, "--source-schema")?;
                 sql_local_source_runtime::parse_vortex_ingest_schema_hints(&value)?;
                 self.source_schema = Some(value);
+            }
+            "--source-bindings" => {
+                self.source_bindings = parse_public_source_bindings(&required_value(args, flag)?)?;
             }
             "--sql" => self.sql_statement = Some(required_value(args, "--sql")?),
             "--plan" => self.plan_summary = Some(required_value(args, "--plan")?),
@@ -5834,11 +5904,12 @@ impl PublicWorkflowRouteRequest {
             });
         }
         if self.input_format.is_none() {
-            self.input_format = self
-                .input_uri
-                .as_deref()
-                .and_then(infer_input_format_from_ref)
-                .map(str::to_string);
+            self.input_format = self.input_uri.as_deref().and_then(|uri| {
+                self.source_bindings
+                    .get(uri)
+                    .map(|binding| binding.input_format.clone())
+                    .or_else(|| infer_input_format_from_ref(uri).map(str::to_string))
+            });
         }
         if !self.bounded {
             self.bounded = self
@@ -5865,6 +5936,20 @@ fn plan_public_workflow_route(request: &PublicWorkflowRouteRequest) -> PublicWor
 
     if request.generated_source_kind.is_some() && request.requested_output == "collect" {
         return generated_memory_collect_route(request);
+    }
+
+    if request.requested_output != "prepare"
+        && request
+            .sql_statement
+            .as_deref()
+            .is_some_and(native_relational_sql_candidate)
+    {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if let Some(plan) = resident_relational::route(request) {
+            return plan;
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        return native_vortex_materializing_primitive_feature_gated_route();
     }
 
     if request.execution_policy == "native_vortex"
@@ -7847,8 +7932,30 @@ fn infer_native_vortex_sql_payload(
     request: &PublicWorkflowRouteRequest,
 ) -> Option<InferredNativeVortexRoutePayload> {
     let statement = request.sql_statement.as_deref()?;
+    if native_relational_sql_candidate(statement) {
+        return None;
+    }
     infer_native_vortex_sql_provider_payload(statement, is_write_request(request))
         .or_else(|| infer_native_vortex_sql_primitive_payload(statement, request))
+}
+
+/// Lexical dispatch only; native parsing still admits the complete statement.
+/// Quoted paths and string values cannot select an execution family.
+fn native_relational_sql_candidate(statement: &str) -> bool {
+    let masked = sql_without_string_literal_contents(statement);
+    let mut selects = 0;
+    for token in masked.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_')) {
+        if token.eq_ignore_ascii_case("select") {
+            selects += 1;
+        }
+        if ["join", "union", "intersect", "except", "over"]
+            .iter()
+            .any(|keyword| token.eq_ignore_ascii_case(keyword))
+        {
+            return true;
+        }
+    }
+    selects > 1
 }
 
 fn infer_native_vortex_sql_provider_payload(
@@ -11675,6 +11782,8 @@ fn native_vortex_plan_contract_applies(
         "local_file_prepare_once"
             | "local_file_prepare_once_first_query"
             | "native_vortex_artifact_prepare"
+            | "native_vortex_relational_collect"
+            | "native_vortex_relational_write"
     ) || matches!(
         plan.blocker_id,
         "cg21.route.local_file_vortex_ingest_feature_gated"
@@ -11737,6 +11846,9 @@ fn native_vortex_plan_payload_kind(
         | "native_vortex_user_contains"
         | "native_vortex_user_sink" => "provider_operator",
         "native_vortex_user_profile" => "metadata_profile",
+        "native_vortex_relational_collect" | "native_vortex_relational_write" => {
+            "native_relational_plan"
+        }
         "native_vortex_primitive_row_export" => "primitive_row_export",
         "native_vortex_count_all"
         | "native_vortex_count_where"
@@ -11790,6 +11902,19 @@ fn native_vortex_plan_source_count(
     if !native_vortex_plan_contract_applies(request, plan) {
         return 0;
     }
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if matches!(
+        plan.route_id,
+        "native_vortex_relational_collect" | "native_vortex_relational_write"
+    ) {
+        return request
+            .sql_statement
+            .as_deref()
+            .and_then(|statement| {
+                sql_local_source_runtime::native_relational::source_count(statement).ok()
+            })
+            .unwrap_or(0);
+    }
     if request.native_vortex_right_input.is_some()
         || request
             .native_vortex_provider_scenario
@@ -11820,6 +11945,12 @@ fn native_vortex_operation_family_field(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
 ) -> &'static str {
+    if matches!(
+        plan.route_id,
+        "native_vortex_relational_collect" | "native_vortex_relational_write"
+    ) {
+        return NativeVortexOperationFamily::GeneralQuery.as_str();
+    }
     if let Some(family) = native_vortex_family_from_plan_blocker(plan) {
         return family.as_str();
     }
@@ -11903,6 +12034,25 @@ fn native_vortex_required_feature_gate(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
 ) -> &'static str {
+    if plan.preparation_included
+        && matches!(
+            plan.route_id,
+            "native_vortex_relational_collect" | "native_vortex_relational_write"
+        )
+    {
+        return "vortex-local-primitives,vortex-write,universal-format-io";
+    }
+    if plan.route_id == "native_vortex_relational_collect" {
+        return "vortex-local-primitives";
+    }
+    if plan.route_id == "native_vortex_relational_write" {
+        return match request.requested_output.as_str() {
+            "write_parquet" | "write_arrow_ipc" | "write_avro" | "write_orc" => {
+                "vortex-local-primitives,vortex-write,universal-format-io"
+            }
+            _ => "vortex-local-primitives,vortex-write",
+        };
+    }
     if !is_native_vortex_route(request) {
         return "not_applicable";
     }
@@ -11995,8 +12145,11 @@ fn native_vortex_capability_status(
             | "native_vortex_pivot"
             | "native_vortex_rolling_window"
             | "native_vortex_aggregate"
+            | "native_vortex_relational_collect"
             | "native_vortex_sort_rows" => "supported_with_materialization_boundary",
-            "native_vortex_primitive_row_export" => "supported_with_explicit_decode_sink_boundary",
+            "native_vortex_relational_write" | "native_vortex_primitive_row_export" => {
+                "supported_with_explicit_decode_sink_boundary"
+            }
             _ => "supported",
         }
     } else if matches!(
@@ -12019,6 +12172,12 @@ fn native_vortex_required_evidence(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
 ) -> &'static str {
+    if matches!(
+        plan.route_id,
+        "native_vortex_relational_collect" | "native_vortex_relational_write"
+    ) {
+        return "bound_native_relational_plan,all_source_generations,complete_typed_result,resource_admission,explicit_sink_boundary,no_fallback";
+    }
     if let Some(family) = native_vortex_family_from_plan_blocker(plan) {
         return family.required_evidence();
     }
@@ -12068,6 +12227,14 @@ fn admitted_native_vortex_next_action(
 ) -> Option<&'static str> {
     if plan.status != CommandStatus::Success || plan.route_status != "admitted" {
         return None;
+    }
+    if matches!(
+        plan.route_id,
+        "native_vortex_relational_collect" | "native_vortex_relational_write"
+    ) {
+        return Some(
+            "execute the native relational plan; preparation validates every source schema, type and resource requirement",
+        );
     }
     if plan.route_id == "native_vortex_primitive_row_export" {
         return Some(
@@ -12158,7 +12325,11 @@ fn typed_result_contract(
         | "native_vortex_pivot"
         | "native_vortex_rolling_window"
         | "native_vortex_aggregate"
+        | "native_vortex_relational_collect"
         | "native_vortex_sort_rows" => "bounded_python_rows_with_explicit_materialization_boundary",
+        "native_vortex_relational_write" => {
+            "native_relational_batches_with_explicit_sink_materialization"
+        }
         "native_vortex_user_aggregate"
         | "native_vortex_user_join"
         | "native_vortex_user_top_n"
@@ -12191,6 +12362,14 @@ fn typed_sink_contract(
         return "not_applicable_collect";
     }
     match plan.route_id {
+        "native_vortex_relational_write" => match request.requested_output.as_str() {
+            "write_vortex" => "native_vortex_array_stream_to_vortex_sink",
+            "write_parquet" => "native_vortex_arrays_to_parquet_compatibility_sink",
+            "write_arrow_ipc" => "native_vortex_arrays_to_arrow_ipc_compatibility_sink",
+            "write_avro" => "native_vortex_arrays_to_avro_compatibility_sink",
+            "write_orc" => "native_vortex_result_to_checked_orc_compatibility_sink",
+            _ => "native_relational_batches_to_text_compatibility_sink",
+        },
         "native_vortex_primitive_row_export" if request.requested_output == "write_orc" => {
             "native_vortex_result_to_checked_orc_compatibility_sink"
         }
@@ -12240,6 +12419,12 @@ fn decode_materialization_boundary(
     }
     if plan.route_id == "native_vortex_user_profile" {
         return "metadata_only_no_decode_materialization";
+    }
+    if matches!(
+        plan.route_id,
+        "native_vortex_relational_collect" | "native_vortex_relational_write"
+    ) {
+        return "native_relational_key_execution_and_bounded_result_materialization;provider_decode_bytes_unobserved";
     }
     if plan.route_id == "native_vortex_user_sink" && request.requested_output != "write_vortex" {
         return "native_vortex_zero_decode_runtime_with_bounded_result_json_sink_materialization";
@@ -12339,6 +12524,8 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_user_profile"
         | "native_vortex_user_sink"
         | "native_vortex_duplicate_mask"
+        | "native_vortex_relational_collect"
+        | "native_vortex_relational_write"
         | "native_vortex_primitive_row_export" => "production_admitted_local_workflow",
         "local_file_prepare_once"
         | "local_file_prepare_once_first_query"
@@ -12367,6 +12554,9 @@ fn route_runtime_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
 
 fn vortex_middle_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
     match plan.route_id {
+        "native_vortex_relational_collect" | "native_vortex_relational_write" => {
+            "native_vortex_relational_plan"
+        }
         "generated_rows_memory_collect" => "validated_immutable_vortex_memory",
         "local_file_prepare_once"
         | "local_file_prepare_once_first_query"

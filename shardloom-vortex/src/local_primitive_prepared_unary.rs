@@ -41,7 +41,7 @@ mod schema;
 #[path = "local_primitive_unary_select.rs"]
 mod select;
 #[path = "local_primitive_unary_values.rs"]
-mod values;
+pub(super) mod values;
 
 const BATCH_ROWS: usize = 2048;
 

@@ -91,6 +91,9 @@ mod lazy_layout_metadata_tests;
 mod mixed_distinct_partial;
 #[cfg(feature = "vortex-local-primitives")]
 mod mixed_distinct_workers;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_capacity.rs"]
+mod native_capacity;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
@@ -100,6 +103,39 @@ mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_aggregate.rs"]
+mod native_relational_aggregate;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_batch.rs"]
+mod native_relational_batch;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_expression.rs"]
+mod native_relational_expression;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_index.rs"]
+mod native_relational_index;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_join.rs"]
+mod native_relational_join;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_keys.rs"]
+mod native_relational_keys;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_order.rs"]
+mod native_relational_order;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_set.rs"]
+mod native_relational_set;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_sort.rs"]
+mod native_relational_sort;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_subquery.rs"]
+mod native_relational_subquery;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_window.rs"]
+mod native_relational_window;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_sort_block.rs"]
 mod native_sort_block;
@@ -137,6 +173,9 @@ mod pair_partition_workers;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_relational.rs"]
+pub mod prepared_relational;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_unary.rs"]
 pub mod prepared_unary;

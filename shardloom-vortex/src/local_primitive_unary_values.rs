@@ -3,9 +3,11 @@
 
 use super::{Result, StatValue, Value, failed, vortex_error};
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
-use vortex::array::{ArrayRef, ExecutionCtx, VortexSessionExecute as _, scalar::ScalarValue};
+use vortex::array::{ArrayRef, ExecutionCtx, VortexSessionExecute as _};
 
-pub(super) struct NativeBatch {
+pub(super) use super::super::result_batch::scalar_value;
+
+pub(in crate::local_primitives) struct NativeBatch {
     columns: Vec<ArrayRef>,
     context: ExecutionCtx,
     memory: LiveMemoryPool,
@@ -13,7 +15,7 @@ pub(super) struct NativeBatch {
 }
 
 impl NativeBatch {
-    pub(super) fn new(
+    pub(in crate::local_primitives) fn new(
         array: &ArrayRef,
         columns: &[String],
         context: &crate::resident_session::NativeExecutionContext<'_>,
@@ -87,7 +89,11 @@ impl NativeBatch {
         Ok(OwnedRow { values, lease })
     }
 
-    pub(super) fn stat(&mut self, column: usize, row: usize) -> Result<OwnedStat> {
+    pub(in crate::local_primitives) fn stat(
+        &mut self,
+        column: usize,
+        row: usize,
+    ) -> Result<OwnedStat> {
         let mut lease = self
             .memory
             .reserve(std::mem::size_of::<StatValue>() as u64)?;
@@ -130,34 +136,12 @@ impl NativeBatch {
     }
 }
 
-pub(super) fn scalar_value(
-    array: &ArrayRef,
-    row: usize,
-    context: &mut ExecutionCtx,
-) -> Result<Value<'static>> {
-    let scalar = array.execute_scalar(row, context).map_err(vortex_error)?;
-    Ok(match scalar.value() {
-        None => Value::Null,
-        Some(ScalarValue::Bool(value)) => Value::Bool(*value),
-        Some(ScalarValue::Primitive(value)) => Value::from(
-            super::super::vortex_pvalue_to_stat_value(*value)
-                .ok_or_else(|| failed("unsupported primitive result dtype"))?,
-        ),
-        Some(ScalarValue::Utf8(value)) => Value::SharedText(value.clone()),
-        _ => {
-            return Err(failed(
-                "unary scalar access requires an admitted flat dtype",
-            ));
-        }
-    })
-}
-
 pub(super) struct OwnedRow {
     values: Vec<StatValue>,
     lease: MemoryLease,
 }
 
-pub(super) struct OwnedStat(Budgeted<StatValue>);
+pub(in crate::local_primitives) struct OwnedStat(Budgeted<StatValue>);
 
 impl std::borrow::Borrow<StatValue> for OwnedStat {
     fn borrow(&self) -> &StatValue {

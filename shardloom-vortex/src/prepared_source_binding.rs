@@ -159,6 +159,55 @@ impl LocalPreparationIdentity {
         validate(&self.source_binding)?;
         self.artifact.validate()
     }
+
+    /// Reject output aliases of the prepared artifact or any compatibility input.
+    /// An output inside an input directory would also change that input inventory.
+    /// # Errors
+    /// Rejects changed generations, unreadable identities and conflicting outputs.
+    pub fn validate_destination(&self, path: &Path) -> Result<()> {
+        use std::os::unix::fs::MetadataExt as _;
+        self.validate_generation()?;
+        let fields: serde_json::Value =
+            serde_json::from_str(&self.source_binding).map_err(error)?;
+        let source = Path::new(
+            fields["source"]
+                .as_str()
+                .ok_or_else(|| error("source missing"))?,
+        );
+        let format = fields["format"]
+            .as_str()
+            .ok_or_else(|| error("format missing"))?;
+        if source.is_dir() {
+            let parent = path
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            let parent = std::fs::canonicalize(parent).map_err(error)?;
+            if parent.starts_with(std::fs::canonicalize(source).map_err(error)?) {
+                return Err(error("output must not change a source directory inventory"));
+            }
+        }
+        let target = match std::fs::metadata(path) {
+            Ok(target) => target,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(failure) => return Err(error(failure)),
+        };
+        if (target.dev(), target.ino())
+            == (
+                self.artifact.generation.device,
+                self.artifact.generation.inode,
+            )
+        {
+            return Err(error("source and output must be different files"));
+        }
+        for source in source_paths(source, format)? {
+            let metadata = std::fs::metadata(source).map_err(error)?;
+            if (target.dev(), target.ino()) == (metadata.dev(), metadata.ino()) {
+                return Err(error("source and output must be different files"));
+            }
+        }
+        Ok(())
+    }
 }
 
 fn identity_digest(bytes: &[u8]) -> Result<String> {

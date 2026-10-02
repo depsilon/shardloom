@@ -55,7 +55,9 @@ pub(super) enum NativeSinkInput {
     Completed(crate::resident_session::OwnedVortexResultBatch),
     Produced {
         session: ResidentVortexSession,
-        source: Option<PreparedVortexSource>,
+        sources: Vec<PreparedVortexSource>,
+        #[cfg(feature = "universal-format-io")]
+        preparations: Vec<std::sync::Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
     },
 }
 
@@ -71,12 +73,20 @@ impl NativeSinkInput {
         match self {
             // Complete owned output was exposed only after final source
             // validation. Its lifetime no longer depends on a source file.
-            Self::Completed(_) | Self::Produced { source: None, .. } => Ok(()),
-            Self::Source(source)
-            | Self::Produced {
-                source: Some(source),
-                ..
-            } => source.validate_generation(),
+            Self::Completed(_) => Ok(()),
+            Self::Source(source) => source.validate_generation(),
+            Self::Produced { sources, .. } => {
+                sources
+                    .iter()
+                    .try_for_each(PreparedVortexSource::validate_generation)?;
+                #[cfg(feature = "universal-format-io")]
+                if let Self::Produced { preparations, .. } = self {
+                    for source in preparations {
+                        source.validate_generation()?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 
@@ -101,10 +111,14 @@ impl NativeSinkInput {
         if let Some(context) = admitted {
             return match self {
                 Self::Produced {
-                    source: Some(source),
-                    ..
-                } => source
-                    .with_admitted_native_execution(context, |_, context| execute(None, context)),
+                    session, sources, ..
+                } if !sources.is_empty() => {
+                    session.with_admitted_sources_execution(sources, context, |context| {
+                        let result = execute(None, context)?;
+                        self.validate_generation()?;
+                        Ok(result)
+                    })
+                }
                 _ => Err(sink_error(
                     "shared admission requires a generation-bound produced result",
                 )),
@@ -118,15 +132,23 @@ impl NativeSinkInput {
             Self::Completed(result) => result
                 .retained_session()
                 .with_native_execution_context(cancellation, |context| execute(None, context)),
-            Self::Produced { session, source } => match source {
-                Some(source) => source
-                    .with_native_execution_controlled(cancellation, |_, context| {
-                        execute(None, context)
-                    }),
-                None => {
-                    session.with_owned_execution(cancellation, |context| execute(None, context))
+            Self::Produced {
+                session, sources, ..
+            } => {
+                if sources.is_empty() {
+                    session.with_owned_execution(cancellation, |context| {
+                        let result = execute(None, context)?;
+                        self.validate_generation()?;
+                        Ok(result)
+                    })
+                } else {
+                    session.with_sources_execution(sources, cancellation, |context| {
+                        let result = execute(None, context)?;
+                        self.validate_generation()?;
+                        Ok(result)
+                    })
                 }
-            },
+            }
         }
     }
 }
@@ -277,12 +299,39 @@ fn prepare_source_projection(
 }
 
 impl NativeSinkPlan {
+    #[cfg(feature = "universal-format-io")]
+    pub(super) fn with_preparation_sources(
+        mut self,
+        sources: Vec<std::sync::Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
+    ) -> Self {
+        if let NativeSinkInput::Produced { preparations, .. } = &mut self.source {
+            *preparations = sources;
+        }
+        self
+    }
+
     pub(super) fn produced(
         session: ResidentVortexSession,
         dtype: DType,
         upper_rows: u64,
         source_path: Option<PathBuf>,
         source: Option<PreparedVortexSource>,
+    ) -> Result<Self> {
+        Self::produced_sources(
+            session,
+            dtype,
+            upper_rows,
+            source_path,
+            source.into_iter().collect(),
+        )
+    }
+
+    pub(super) fn produced_sources(
+        session: ResidentVortexSession,
+        dtype: DType,
+        upper_rows: u64,
+        source_path: Option<PathBuf>,
+        sources: Vec<PreparedVortexSource>,
     ) -> Result<Self> {
         let columns = dtype
             .as_struct_fields_opt()
@@ -294,7 +343,9 @@ impl NativeSinkPlan {
         Ok(Self {
             source: NativeSinkInput::Produced {
                 session: session.clone(),
-                source,
+                sources,
+                #[cfg(feature = "universal-format-io")]
+                preparations: Vec::new(),
             },
             session,
             source_path,
@@ -306,6 +357,38 @@ impl NativeSinkPlan {
             limit: None,
             metadata_pruned: false,
         })
+    }
+
+    pub(super) fn validate_destination(&self, path: &Path) -> Result<()> {
+        self.source.validate_generation()?;
+        #[cfg(feature = "universal-format-io")]
+        if let NativeSinkInput::Produced { preparations, .. } = &self.source {
+            for source in preparations {
+                source.validate_destination(path)?;
+            }
+        }
+        let same_file = match &self.source {
+            NativeSinkInput::Source(source) => source.aliases_file(path)?,
+            NativeSinkInput::Completed(_) => false,
+            NativeSinkInput::Produced { sources, .. } => {
+                let mut same_file = false;
+                for source in sources {
+                    same_file |= source.aliases_file(path)?;
+                }
+                same_file
+            }
+        };
+        if same_file
+            || self.source_path.as_ref().is_some_and(|source_path| {
+                fs::canonicalize(path).is_ok_and(|path| path == *source_path)
+                    || identity(path).is_ok_and(|output| {
+                        identity(source_path).is_ok_and(|source| source == output)
+                    })
+            })
+        {
+            return Err(sink_error("source and output must be different files"));
+        }
+        Ok(())
     }
 
     pub(super) fn consume(
@@ -443,14 +526,7 @@ impl NativeSinkPlan {
         cancellation: &CancellationToken,
         admitted: Option<&NativeExecutionContext<'_>>,
     ) -> Result<VortexLocalPrimitiveRowExportReport> {
-        self.source.validate_generation()?;
-        if self.source_path.as_ref().is_some_and(|source_path| {
-            fs::canonicalize(output_path).is_ok_and(|path| path == *source_path)
-                || identity(output_path)
-                    .is_ok_and(|output| identity(source_path).is_ok_and(|source| source == output))
-        }) {
-            return Err(sink_error("source and output must be different files"));
-        }
+        self.validate_destination(output_path)?;
         let max_chunks = if self.source.is_produced() {
             usize::try_from(self.row_count)
                 .map_err(|_| sink_error("computed chunk bound overflow"))?

@@ -487,7 +487,7 @@ impl PreparedCompatibilityExport {
         mut after_batch: impl FnMut(u64) -> Result<()>,
     ) -> Result<CompletedCompatibilityExport> {
         self.limits.check()?;
-        self.plan.source.validate_generation()?;
+        self.plan.validate_destination(output_path)?;
         let mut metadata = self
             .limits
             .metadata_reservation(self.schema.fields().len())?;

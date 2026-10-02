@@ -116,6 +116,7 @@ pub mod query_primitive;
 pub mod query_primitives;
 pub mod query_trace;
 pub mod read_planning;
+pub mod relational_query;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 pub mod resident_memory_source;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
