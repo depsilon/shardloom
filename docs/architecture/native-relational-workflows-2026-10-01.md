@@ -1,7 +1,8 @@
 # Native relational workflows
 
-Status: native Rust and public frontend paths implemented; final validation is in
-progress. It continues the [universal workflow plan](universal-workflow-completion-2026-10-01.md)
+Status: native Rust and public frontend paths implemented, with immutable-build
+local acceptance on October 2; hosted PR checks are pending. It continues the
+[universal workflow plan](universal-workflow-completion-2026-10-01.md)
 under PERF-02/03/06/07/10/11/12 and CG-5/6/20/21. The ten unary families and their
 accepted output paths remain covered by the [unary contract](native-unary-workflows-2026-10-01.md).
 The current unit covers the four relational families in the existing finite
@@ -223,3 +224,50 @@ Run workspace/native gates and Full43 on the final immutable implementation.
 Record exactly which shapes pass; this unit cannot close unimplemented type,
 adapter, spill or resource obligations by inference. All execution retains
 `fallback_attempted=false` and `external_engine_invoked=false`.
+
+## Local validation
+
+Runtime, Python and harness revision `344adfb8cc1007105af07b2ea500fd4b2f8a0e53`
+was built with Rust 1.99 and `release-user-surfaces`. Frozen executable SHA-256:
+`01b397b355b59d9a1d1c8560b88ffbb01ebf5b54b437b533e6fbc01cce34db30`.
+
+| Check | Result |
+| --- | --- |
+| Default workspace all-target tests | 3,436 passed across 102 targets |
+| Native Vortex library with `release-user-surfaces` | 2,167 passed; 23 existing ignored tests |
+| CLI all-target tests with `release-user-surfaces` | 1,551 passed across 75 targets |
+| Python suite | 693 passed; 144 existing retired/environment-dependent skips; 837 total |
+| Formatting and default/native all-target Clippy | Passed, with warnings denied |
+| Front-door, local-sink and user-route capability documentation validators | Passed |
+
+The broad native library and Python runs precede the final CLI-only preparation
+reporting correction. Final CLI all-target tests and native all-target Clippy cover
+that correction; no library, Python or harness source changed after those broad
+checks. The packet retains the exact commands, order, logs and hashes.
+
+The frozen-build Python receipt is
+`relational-workflows-20261001/python-uat/logs/native_relational_20261002T062126509199Z/summary.json`,
+SHA-256 `a2944458b56b2b9ed5098a5679e12f4e610a95a80496634d1620dc8d34335b92`.
+It verifies all **176 complete results**. The packet contains all 322 public
+request envelopes, six source-file hashes and unchanged binary, Python client,
+query builder and harness identities.
+
+Full43 passes **129/129** complete-value comparisons across all 43 queries.
+Receipt: `clickbench-100m-uat/logs/full43_20261002T062148955236Z/summary.json`,
+SHA-256 `1bfdaf5126724d102853056c42268ab1ec5f184b261d7677cad7dbd69f14d09e`.
+Each query executes three times in a fresh process under a 24-GiB/12-worker policy.
+The resident 15,682,956,489-byte source is fully hashed before and after acceptance;
+all 43 retained reference identities and compressed/raw output-log hashes match.
+These references provide native regression evidence, not an independent oracle.
+OS page cache and ordinary host activity are uncontrolled. All guarded runs pass,
+owned locks are released, and the frozen source and executable remain unchanged.
+
+The [portable acceptance packet](../benchmarks/evidence/native-relational-workflows-2026-10-01.json.xz)
+contains the build, local tests, public envelopes, Full43 records, reference
+identities, supervisors and verifier sources. Its SHA-256 is
+`5277489759d1f05589988ebdbddaa54dbd4cb86efe4e1d16e2bfb2cbc3cbd5ca`.
+Rebind path placeholders to resident local inputs when replaying the checked-in
+runner. This packet records local acceptance before hosted PR checks; its scope
+and timestamps remain immutable. It does not establish a performance improvement,
+total-RSS limit, broader type/spill support, competitive-gate completion or package
+publication.

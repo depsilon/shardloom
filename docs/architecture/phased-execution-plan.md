@@ -274,10 +274,10 @@ The [relational continuation](native-relational-workflows-2026-10-01.md) now bin
 joins, set operations, analytic windows and scoped subqueries to retained native
 readers and typed batches, including native expression/group/order composition,
 mixed-source normalization and declared schema propagation. Its 16-case public
-matrix passes 176 complete-result checks through all eight local writers. Final
-immutable-build, Full43 and hosted acceptance are in progress. General composition,
-type/adapter expansion and resource/spill obligations remain under the same PERF
-owners; this continuation does not mark those whole gates complete.
+matrix passes 176 complete-result checks through all eight local writers on the
+frozen build, with 129/129 Full43 regression executions; hosted PR checks are pending.
+General composition, type/adapter expansion and resource/spill obligations remain
+under the same PERF owners; this continuation does not mark those whole gates complete.
 
 September 29 scope override: the maintainer resumed the remaining ship/drop
 optimizations, requested reuse/modularization review, and authorized cleanup of
