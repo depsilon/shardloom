@@ -168,6 +168,27 @@
     "fallback_attempted": false,
     "external_engine_invoked": false
   },
+  "native_dynamic_pivot_composition": {
+    "reference": "docs/architecture/native-dynamic-pivot-composition-2026-10-03.md",
+    "scope": "current_source_build_existing_scalar_pivot_admission",
+    "preparation_metadata_only": true,
+    "inspection_side_effect_free": true,
+    "schema_binding": "during_execution",
+    "single_use_execution_references": true,
+    "correlated_parameter_scopes": true,
+    "declaration_reuse": true,
+    "query_answer_reuse": false,
+    "absent_domain_column_is_error": true,
+    "maximum_top_level_fields": 128,
+    "small_collection_maximum_rows": 65536,
+    "small_collection_maximum_jsonl_bytes": 8388608,
+    "local_writers": ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"],
+    "writer_fidelity": "format_representability_and_declared_translation_required",
+    "pivot_state_spill": false,
+    "total_rss_bound": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
   "python": {
     "ordinary_import": "import shardloom as sl",
     "ordinary_context": "ctx = sl.context()",

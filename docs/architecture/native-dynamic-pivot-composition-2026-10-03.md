@@ -2,7 +2,8 @@
 
 # Native dynamic pivot composition
 
-Status: implementation contract; acceptance is pending. This unit follows static
+Status: implemented with complete local acceptance; hosted review remains pending.
+This unit follows static
 nested composition under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. It does not
 close those entire owners or authorize a release.
 
@@ -119,3 +120,50 @@ All accepted paths retain `fallback_attempted=false` and
 placeholder artifacts. Wider types, adapters, pivot-state spill, paused large
 format performance runs, native Python bindings and publication keep their
 existing owners. CG-1 through CG-23 remain visible in the phase plan.
+
+## Implemented ownership and public evidence
+
+The direct provider and relational binder share `CompletedPivot`, including
+sparse aggregation, domain names, scalar/null policy, margins and bounded batch
+emission. An execution owns each completed stage until its consumer finishes.
+No prefix is collected, reopened or executed a second time for schema discovery.
+
+`prepare_relational_with_dynamic_schema` retains declared source handles and a
+reserved lowering callback. `resolve_output` returns actual columns and an
+opaque, one-use reference within that execution. `defer_subquery` retains an
+inner declaration for the existing correlated executor; each outer singleton
+receives its own binder, pivot state and schema. Invalid, foreign, repeated and
+unconsumed references fail explicitly. Declaration and native-state reservations
+share the existing execution grant and cancellation owner.
+
+Static Rust plans keep metadata-time binding. `output_dtype()` now returns
+`Some(dtype)` for those plans and `None` for a deferred declaration. Rust callers
+that require data-dependent schema binding use the explicit dynamic preparation
+API. SQL retains its parsed declaration and source mapping, then lowers against
+actual columns during execution. Python renders the same ordered SQL stages.
+
+The execution report distinguishes declaration reuse from bound-plan reuse:
+`resident_relational_declaration_reused` reports the former;
+`resident_relational_lowering_reused` remains false for dynamic plans.
+`relational_schema_binding` reports `during_execution` or `during_preparation`,
+and `relational_dynamic_schema_stages` counts completed discovery stages,
+including separate correlated parameters. Discovery scans contribute to the
+existing scan-row and reservation evidence.
+
+Frozen runtime `50cc1e22c4df85883653ddba60783fa2e4108f3b` passes 3,305 public
+checks and 7,687,525 complete row comparisons. The 846 pivot checks cover native
+Vortex and declared CSV inputs, SQL/DataFrame spelling, fresh repeated calls,
+all eight writers, nulls and name collisions, changing correlated domains,
+the inclusive 128-field boundary and complete 65,541-row output. The separate
+direct-unary matrix passes 202 checks. Thirteen native lifecycle tests also
+prove dtype/nullability, cancellation, source invalidation, pressure, parameter
+ownership and result lifetime after the prepared operation is dropped.
+
+All 24 selected local gates pass, including the workspace, native provider/CLI,
+Python, feature/MSRV and documentation checks. All 258 paired Full43 retained
+results match; no predeclared timing or memory investigation threshold is crossed.
+The [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
+records the unchanged aggregate timing, complete readbacks, certificate payloads
+and portable proof. Hosted review and the inherited website advisory decision
+remain pending. This evidence does not establish a performance improvement or
+complete the broader PERF and competitive gates.

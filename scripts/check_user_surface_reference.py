@@ -242,6 +242,25 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     if set(nested.get("denied_nested_writers", [])) != {"csv", "orc"}:
         blockers.append(f"{JSON_PATH}: nested CSV and ORC must remain explicitly denied")
 
+    pivot = payload.get("native_dynamic_pivot_composition", {})
+    for field in ("preparation_metadata_only", "inspection_side_effect_free",
+                  "single_use_execution_references", "correlated_parameter_scopes",
+                  "declaration_reuse", "absent_domain_column_is_error"):
+        if pivot.get(field) is not True:
+            blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} must be true")
+    for field in ("query_answer_reuse", "pivot_state_spill", "total_rss_bound",
+                  "fallback_attempted", "external_engine_invoked"):
+        if pivot.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} must be false")
+    for field, value in (("schema_binding", "during_execution"),
+                         ("maximum_top_level_fields", 128),
+                         ("small_collection_maximum_rows", 65_536),
+                         ("small_collection_maximum_jsonl_bytes", 8 * 1024 * 1024)):
+        if pivot.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} differs from its contract")
+    if set(pivot.get("local_writers", [])) != {"vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"}:
+        blockers.append(f"{JSON_PATH}: scalar dynamic pivot must retain all eight representable local writers")
+
     for field in (
         "no_fallback_policy",
         "metadata_first_discovery",

@@ -519,8 +519,13 @@ Current source builds also carry bounded static list/struct payloads through adm
 relational stages and ordered/repeated explode. Vortex, JSON, JSONL, Arrow IPC, Parquet
 and Avro accept representable nested output; nested CSV and ORC are denied. See the
 [nested composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-composition-2026-10-02.md).
-Nested keys, general nested unary state, Variant/extensions, dynamic pivot and wider
-operator state spill remain separate boundaries.
+Scalar pivot and pivot-table stages also compose through the same native plan.
+Their observed columns bind during execution, including independent domains for
+correlated inner rows; inspection remains inert. All eight local writers accept
+representable scalar results within the existing field and state budgets. See the
+[dynamic pivot contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
+Nested keys, general nested unary state, Variant/extensions and wider operator
+state spill remain separate boundaries.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
@@ -672,7 +677,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 2, 2026**. See the
+Current capabilities, reviewed **October 3, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -681,7 +686,7 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt and rolling. Bounded static list/struct payloads and repeated explode also compose through admitted relational stages. | Nested keys, general nested unary state, Variant/extensions, dynamic pivot and broader SQL/DataFrame semantics still have gaps. |
+| Relational and DataFrame operations | Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt, rolling and scalar pivot. Pivot columns bind from observed domains during execution, including correlated inner scopes. Bounded static list/struct payloads and repeated explode also compose through admitted relational stages. | Nested keys, general nested unary state, Variant/extensions and broader SQL/DataFrame semantics still have gaps. Pivot retains its scalar type, 128-field and memory boundaries; pivot-state spill is unsupported. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
