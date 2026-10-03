@@ -1,0 +1,72 @@
+{
+  "schema_version": "shardloom.source_version_validation.v1",
+  "status": "passed",
+  "scope": "local_unpublished_source_version_validation;not_channel_publication_or_performance_measurement",
+  "recorded_at_utc": "2026-10-03T22:48:24.868641+00:00",
+  "candidate_version": "0.4.0",
+  "tested_commit": "cdc6b66103d00b9d34979d38dc9d91c7d11717ee",
+  "tested_tree": "54427f904d172eca4e44ac2fa2cc574e6f0c74f0",
+  "source_tree_clean_before_evidence_commit": true,
+  "stack_dependency": {
+    "pr": "https://github.com/depsilon/shardloom/pull/1510",
+    "branch": "codex/native-typed-expressions",
+    "commit": "fbe47462fcb73e0e9f34826e023cf134d56d3414",
+    "merged": false
+  },
+  "published_channel_version": "0.3.3",
+  "dependency_or_schema_changes": false,
+  "delta_scope": "Version preparation relative to the named parent PR; preceding runtime changes retain their own acceptance evidence.",
+  "runtime_rust_source_changes": false,
+  "source_hash_count": 820,
+  "local_check_count": 20,
+  "test_counts": {
+    "default-tests": {
+      "passed": 3467,
+      "ignored": 0
+    },
+    "native-vortex-tests": {
+      "passed": 2296,
+      "ignored": 23
+    },
+    "native-cli-tests": {
+      "passed": 1592,
+      "ignored": 0
+    },
+    "release-python": {
+      "run": 262,
+      "skipped": 2
+    }
+  },
+  "counts_overlap": true,
+  "cli_version": "shardloom 0.4.0",
+  "python_version": "0.4.0",
+  "binary_sha256": "2849ed602194d0af0811a39f8948f283fb531dea3543b6a4f86953d5b1208d23",
+  "schema_roundtrip_cases": 20,
+  "pre_bump_runtime_source": "895a45c95308552e5163738edb1942c153bdeebc",
+  "pre_bump_runtime_packet": {
+    "path": "docs/benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz",
+    "sha256": "cdfe7ab1ce09b8832ca2480e2b2e70e0146ff6649494765406570a224267ad91"
+  },
+  "pre_bump_reference_source": "7a97a0c58cc471c837480bfea1232a5a806e577e",
+  "pre_bump_reference_packet": {
+    "path": "docs/benchmarks/evidence/native-typed-expressions-reference-2026-10-03.json.xz",
+    "sha256": "66adfc3131ce26691dd38d2f25b62f34d657d8bfcc5e6c60c26b2c40863abea8"
+  },
+  "proof_packet": {
+    "path": "docs/release/evidence/v0.4.0-source-validation.json.xz",
+    "sha256": "ad89bd348f0cd757d039cf6f5ae6f1b7263de669e4ad9c830dc1f515f3d65c9a",
+    "compressed_bytes": 165756,
+    "uncompressed_bytes": 1812385,
+    "uncompressed_sha256": "9a449f433a1b2f4f955325efcb504bde52d2a8f75d425b7d1c7bbe8b026c1ab8"
+  },
+  "hosted_acceptance": "pending",
+  "claim_boundary": {
+    "package_publication": false,
+    "tag_created": false,
+    "release_created": false,
+    "performance_measurement_of_0_4_0": false,
+    "hosted_acceptance_complete": false,
+    "advisory_exception_approved": false,
+    "production_readiness": false
+  }
+}
