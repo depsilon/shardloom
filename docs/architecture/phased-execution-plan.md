@@ -310,6 +310,14 @@ the ledger.
     is crossed; the [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
     preserves the complete observation. Hosted review and the inherited website
     advisory decision remain pending; no performance improvement is claimed.
+  - Acceptance follow-up: the [report-integrity repair](../benchmarks/native-report-integrity-full43-2026-10-03.md)
+    gives footer-count/cache and execution no-fallback fields one owner, with
+    regression checks rejecting duplicate names. Fresh acceptance passes
+    3,305 workflow checks, 202 direct-unary checks and all 258 paired Full43
+    comparisons, without crossing the predeclared timing or memory thresholds.
+    Eleven selected local gates and raw-response uniqueness checks pass.
+    The earlier packet stays immutable, with its 37 aggregate run responses
+    explicitly corrected from the packet's mistaken "preparation" description.
   - Acceptance: complete admitted dynamic-schema workflows without a second
     scan for discovery, prefix collection, intermediate files or fallback. Keep
     inspection inert and all existing direct pivot semantics and bounds explicit.
