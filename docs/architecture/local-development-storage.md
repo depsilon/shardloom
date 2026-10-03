@@ -59,6 +59,14 @@ observations remain recorded. The public relational runner now accepts
 `--compress-logs`: each new envelope is stored as gzip, read back byte-for-byte,
 and recorded with its original and compressed hashes. This keeps the expanded
 matrix inside the unchanged storage guards.
+Before the nested-composition paired Full43 run, twelve completed profiling
+sample logs from three successful historical targeted cohorts were compacted into
+`completed-profile-samples-nested-20261003.tar.xz` archives beside their unchanged
+summaries. Original file identities, per-member hashes and every archived byte
+were checked before removal; archive manifests preserve the original paths.
+This recovered 5,074,944 accounted log bytes. Failed and incomplete cohorts,
+including the interrupted September 30 paired run, remain unchanged. The nested
+acceptance evidence retains the compaction receipt; storage ceilings were unchanged.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

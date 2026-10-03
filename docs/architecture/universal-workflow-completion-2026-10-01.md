@@ -69,7 +69,8 @@ connects eight existing flat-scalar unary families to the shared relational
 traversal and writers. Its frozen build passes 1,963 complete public checks and
 129/129 Full43 comparisons. The [static nested continuation](native-nested-composition-2026-10-02.md)
 implements owned list/struct payload transport and ordered/repeated explode; its
-complete public and hosted acceptance remains pending. Wider types/adapters,
+frozen build passes 2,459 public checks, including 496 nested checks, and all 258
+paired Full43 comparisons. Hosted acceptance remains pending. Wider types/adapters,
 dynamic-schema composition and remaining resource/spill transitions require the work below.
 
 | Area | Existing foundation | Completion requirement | Owner |

@@ -2,8 +2,8 @@
 
 # Native nested payload composition
 
-Status: implemented with focused verification; complete public UAT, Full43 and
-hosted acceptance are still pending. This continues
+Status: implemented with complete local acceptance; hosted review and checks are
+still pending. This continues
 the [universal workflow plan](universal-workflow-completion-2026-10-01.md) after
 [flat unary composition](native-unary-composition-2026-10-02.md), under
 PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. The expert comparator is a columnar
@@ -175,21 +175,20 @@ explode, joins, UNION ALL, windows, membership and output above small collection
 bounds. A bounded test-only Arrow fixture generator supplies independently typed
 inputs; every operation still executes through the ordinary public CLI. It also
 checks the full nested UInt64 domain, Avro overflow cleanup, scalar preparation
-hints and rejection of unsupported nested CSV hints. Its results must still be
-frozen against the final executable. Public verification exposed generated Avro
+hints and rejection of unsupported nested CSV hints. Its results are frozen
+against the final executable below. Public verification exposed generated Avro
 record-name metadata on nested fields. Reopen validation now accepts that format
 metadata while requiring exact translated names, types and nullability; regression
 fixtures cover lists of nullable structs, structs of structs and typed empty output.
-Native
-fixed-size-list fidelity is exercised by the typed Rust fixtures; compatible
+Native fixed-size-list fidelity is exercised by the typed Rust fixtures; compatible
 public input normalization does not claim to retain a fixed-size declaration.
 
 The maintainer additionally requested full UAT to check unexpected gains or losses.
-After the executable is frozen, rerun the complete public matrix and Full43, retain
-the prior accepted measurements, compare complete correctness, timings and memory,
-and repeat notable changes against the retained control binary under the same
-data/resource settings. Uncontrolled cache or host effects cannot establish a
-causal speedup from a single before/after observation.
+The frozen executable passes the complete public matrix and paired Full43. The
+prior accepted measurements remain intact, with complete correctness, timing and
+memory comparisons against the retained control binary under the same data and
+resource settings. Uncontrolled cache or host effects cannot establish a causal
+speedup from a single before/after observation.
 
 The comparison runs all 43 queries three times on each of the candidate and
 retained control executables, alternating their order within each query. Report
@@ -201,6 +200,50 @@ reversed-order comparison even when no individual query crosses its threshold.
 These are investigation thresholds, not a performance claim or a reason to omit
 smaller measurements. Retain all observations and host snapshots.
 
-Update this contract with actual admission and immutable evidence before marking
-the finite unit complete. CG-1 through CG-23 and broader PERF owners stay visible;
+The [immutable acceptance packet](../benchmarks/evidence/native-nested-composition-2026-10-02.json.xz)
+records actual admission, complete public/Full43 results, source identities and
+local gates. Hosted acceptance is still required before the finite unit closes.
+CG-1 through CG-23 and broader PERF owners stay visible;
 real Vortex output proof is distinct from placeholder artifacts.
+
+## Frozen public acceptance
+
+The optimized `release-user-surfaces` executable from clean source revision
+`9f172abf8a087752aad8de280628ed889c885b7a` passes the complete public matrix on
+October 3 UTC: 2,459 checks, including 496 nested checks, 6,636,187 complete row
+comparisons and 5,585 verified execution envelopes. The executable SHA-256 is
+`90cd3002521dad5cad27904939e8a22bd1b0aed55bde80586f721a4af13b0941`;
+the complete public summary SHA-256 is
+`0c453aea73eb33f363508ae92027931c0a7839f924f60671ba65b7195c4d191e`.
+Every successful call retains no-fallback and no-external-engine evidence.
+The final evidence verifier also checks all 166 inert inspections and 96 expected
+denials, revalidates complete results from every paired query archive, and checks
+all writer/source identities. The portable packet SHA-256 is
+`1f1fd3a54c1890147eb77bef1a278ec1fa62f78e5650c15d375d3d30f653b608`.
+
+Nested payload output covers all 65,541 rows through both public spellings and
+all six representable destinations. Repeated explode produces all 131,082 flat
+rows through every local writer. The small-collection guard and nested CSV/ORC
+denials remain explicit. Typed native fixtures separately prove fixed-size-list
+fidelity, ownership, narrow grants, cancellation and native sort-spill cleanup.
+
+Default workspace tests pass 3,446; native Vortex passes 2,224 with 23 existing
+ignored tests; native CLI passes 1,577. Python passes 717 with 144 existing skips.
+These configuration counts overlap. Formatting, strict Clippy, lean/MSRV,
+no-write, UAT harness, documentation and generated-site gates pass. The default
+gates precede a borrow-only change to one test helper; the final native gates
+include it, and the evidence verifier proves that exact source difference.
+
+Before the paired Full43 run, twelve completed profiling sample logs from three
+historical targeted cohorts were archived losslessly. Per-member hashes, original
+file identities and archive readback were checked before removing the originals;
+summaries and failed/incomplete cohorts remain unchanged. This recovered 5,074,944
+accounted log bytes without raising storage limits.
+
+The [paired Full43 report](../benchmarks/native-nested-full43-2026-10-03.md)
+passes all 258 complete retained-result comparisons. The sum of per-query minima
+is 50.739772 seconds control and 50.895000 seconds candidate (+0.3059%); median
+sums are 51.688471 and 51.678695 seconds (−0.0189%). No query or aggregate timing
+or memory screen crosses its predeclared repeat threshold. The observed behavior
+is unchanged at those thresholds; availability does not depend on claiming a
+speedup. The earlier unpaired control measurement remains preserved.

@@ -258,18 +258,23 @@ the ledger.
     coordinates, reservations, synchronous delivery and prepared source reuse.
     Keep metadata/pruning and one PulseWeave allocation; no separate frontend engine.
   - Execution checklist:
-    - [ ] Implement recursive selected-buffer ownership and typed empties for
+    - [x] Implement recursive selected-buffer ownership and typed empties for
       lists, fixed-size lists and structs with admitted scalar leaves; prove
       validity, cancellation, narrow grants and retained-buffer lifetime.
-    - [ ] Separate payload and key admission, then carry nested values through
+    - [x] Separate payload and key admission, then carry nested values through
       existing relational operators and connect the shared explode state.
-    - [ ] Lower SQL/DataFrame explode stages with ordered source declarations,
+    - [x] Lower SQL/DataFrame explode stages with ordered source declarations,
       resources and inert inspection through the common native plan.
-    - [ ] Extend shared nested JSON and representable columnar output boundaries;
+    - [x] Extend shared nested JSON and representable columnar output boundaries;
       prove complete writer readback and explicit format denials without artifacts.
     - [ ] Freeze complete public, workspace/native/Python/feature/doc/site and
       Full43 acceptance, finish hosted review/checks and move the finite record
       to the completed ledger.
+  - Local acceptance: frozen `9f172abf` passes 2,459 public checks, including 496
+    nested checks and 6,636,187 complete row comparisons, and all 258 paired
+    Full43 comparisons. The predeclared timing/RSS screens flag no material
+    change. Workspace/native/Python, feature/MSRV and docs/site gates pass;
+    hosted review/checks and ledger movement remain pending.
   - Acceptance: complete static nested workflows without prefix collection,
     serialized intermediates, replay or external fallback; existing flat kernels
     and small collection bounds are preserved. Dynamic pivot, richer type/key
