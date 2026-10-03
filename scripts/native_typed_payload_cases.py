@@ -191,7 +191,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             projected = prefix.select("id", "records").explode(f"records.{name}").select("id", name)
             projected_rows = [{"id": key, name: value} for key, value in [
                 (4, leaf(3)[name]), (3, None), (1, leaf(0)[name]), (1, None)]]
-            family = f"typed-nested-{source_name}-{name}"
+            family = f"typed-nested-{source_name}-field-{name}"
             exercise(family, projected, projected_rows, ["id", name], typed_orc=name != "payload")
             exercise(family + "-empty", projected.limit(0), [], ["id", name], typed_orc=name != "payload")
 
