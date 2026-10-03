@@ -44,6 +44,57 @@ fn complex_fixture() -> (Fixture, Vec<Value>) {
     )
 }
 
+fn struct_list_fixture() -> (Fixture, Vec<Value>) {
+    let records = StructArray::new(
+        FieldNames::from(["code", "label"]),
+        vec![
+            lists(),
+            VarBinArray::from(vec![Some("a'b"), None, Some("東京"), Some("tail")]).into_array(),
+        ],
+        4,
+        Validity::from_iter([true, false, true, true]),
+    )
+    .into_array();
+    let items = ListViewArray::try_new(
+        records.clone(),
+        PrimitiveArray::from_iter([0u64, 2, 2, 2]).into_array(),
+        PrimitiveArray::from_iter([2u64, 0, 0, 2]).into_array(),
+        Validity::from_iter([true, true, false, true]),
+    )
+    .unwrap()
+    .into_array();
+    let detail = StructArray::new(
+        FieldNames::from(["nested"]),
+        vec![records],
+        4,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let input = StructArray::new(
+        FieldNames::from(["id", "items", "detail"]),
+        vec![
+            PrimitiveArray::from_iter([1u32, 2, 3, 4]).into_array(),
+            items,
+            detail,
+        ],
+        4,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let a = json!({"code":[9,null],"label":"a'b"});
+    let b = json!({"code":null,"label":"東京"});
+    let c = json!({"code":[-4],"label":"tail"});
+    (
+        Fixture::new(input, 2),
+        vec![
+            json!({"id":1,"items":[a,null],"detail":{"nested":a}}),
+            json!({"id":2,"items":[],"detail":{"nested":null}}),
+            json!({"id":3,"items":null,"detail":{"nested":b}}),
+            json!({"id":4,"items":[b,c],"detail":{"nested":c}}),
+        ],
+    )
+}
+
 fn json_scalar(value: shardloom_core::ScalarValue) -> Value {
     use shardloom_core::ScalarValue as S;
     match value {
@@ -113,6 +164,16 @@ fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<Value> {
 #[test]
 fn native_nested_six_writers_preserve_complete_values_and_typed_empty_results() {
     let (fixture, expected) = complex_fixture();
+    check_six_writers(&fixture, &expected);
+}
+
+#[test]
+fn native_nested_six_writers_preserve_list_struct_and_struct_struct_payloads() {
+    let (fixture, expected) = struct_list_fixture();
+    check_six_writers(&fixture, &expected);
+}
+
+fn check_six_writers(fixture: &Fixture, expected: &[Value]) {
     assert_eq!(collect(&fixture.scan()), expected);
     for count in [4, 0] {
         let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {

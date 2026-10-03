@@ -165,8 +165,7 @@ process guards. Preserve failed observations. Availability is gated by correctne
 and resources, without a speedup claim. Paused large format/text performance work,
 native Python binding experiments and package publication remain paused.
 
-Focused verification currently passes 82 relational tests, 27 SQL relational
-tests and 24 Python relational routing tests. This includes complete values and
+Focused Rust and Python verification includes complete values and
 typed empty results through all six nested destinations, explicit CSV/ORC denials,
 compact ownership after producer/session drop, large-child reservation denial,
 cancellation within one list, recursive schema/key denial, subquery payloads,
@@ -177,7 +176,11 @@ bounds. A bounded test-only Arrow fixture generator supplies independently typed
 inputs; every operation still executes through the ordinary public CLI. It also
 checks the full nested UInt64 domain, Avro overflow cleanup, scalar preparation
 hints and rejection of unsupported nested CSV hints. Its results must still be
-frozen against the final executable. Native
+frozen against the final executable. Public verification exposed generated Avro
+record-name metadata on nested fields. Reopen validation now accepts that format
+metadata while requiring exact translated names, types and nullability; regression
+fixtures cover lists of nullable structs, structs of structs and typed empty output.
+Native
 fixed-size-list fidelity is exercised by the typed Rust fixtures; compatible
 public input normalization does not claim to retain a fixed-size declaration.
 
@@ -187,6 +190,16 @@ the prior accepted measurements, compare complete correctness, timings and memor
 and repeat notable changes against the retained control binary under the same
 data/resource settings. Uncontrolled cache or host effects cannot establish a
 causal speedup from a single before/after observation.
+
+The comparison runs all 43 queries three times on each of the candidate and
+retained control executables, alternating their order within each query. Report
+the sum of per-query minima alongside paired medians and observed process peak
+RSS. Flag median timing changes of at least 10% and 100 ms, or median RSS changes
+of at least 10% and 32 MiB, for a fresh targeted cohort with reversed role order.
+An aggregate timing change of at least 5% and one second warrants a complete
+reversed-order comparison even when no individual query crosses its threshold.
+These are investigation thresholds, not a performance claim or a reason to omit
+smaller measurements. Retain all observations and host snapshots.
 
 Update this contract with actual admission and immutable evidence before marking
 the finite unit complete. CG-1 through CG-23 and broader PERF owners stay visible;

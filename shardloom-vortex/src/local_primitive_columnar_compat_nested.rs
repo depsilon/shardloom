@@ -71,6 +71,33 @@ pub(super) fn field_count(dtype: &DType) -> usize {
     }
 }
 
+/// The pinned Avro reader attaches record names to nested Arrow fields. They
+/// identify Avro records, not different logical payload types. Keep field names,
+/// nullability and every translated leaf exact, and reject other metadata.
+pub(super) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
+    if actual.name() != expected.name()
+        || actual.is_nullable() != expected.is_nullable()
+        || !expected.metadata().is_empty()
+        || actual
+            .metadata()
+            .keys()
+            .any(|name| !matches!(name.as_str(), "avro.name" | "avro.namespace"))
+    {
+        return false;
+    }
+    match (actual.data_type(), expected.data_type()) {
+        (DataType::List(actual), DataType::List(expected)) => avro_field_matches(actual, expected),
+        (DataType::Struct(actual), DataType::Struct(expected)) => {
+            actual.len() == expected.len()
+                && actual
+                    .iter()
+                    .zip(expected)
+                    .all(|(a, e)| avro_field_matches(a, e))
+        }
+        (actual, expected) => actual == expected,
+    }
+}
+
 fn charge(expanded: &mut u64, bytes: u64, limits: &CompatibilityLimits) -> Result<()> {
     add(expanded, bytes)?;
     if *expanded > limits.arrow_batch_bytes {

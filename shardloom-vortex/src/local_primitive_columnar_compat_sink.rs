@@ -776,8 +776,12 @@ fn validate_reopen(
                     .iter()
                     .zip(expected.fields())
                     .any(|(actual, expected)| {
-                        actual.name() != expected.name()
-                            || actual.data_type() != expected.data_type()
+                        if format == VortexLocalPrimitiveRowExportFormat::Avro {
+                            !nested::avro_field_matches(actual, expected)
+                        } else {
+                            actual.name() != expected.name()
+                                || actual.data_type() != expected.data_type()
+                        }
                     })
             {
                 return Err(error(

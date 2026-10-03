@@ -95,8 +95,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Relational and DataFrame operations</td>
-<td>Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt and rolling.</td>
-<td>Nested/extension payloads, composed explode, dynamic pivot, mixed Variant composition and broader SQL/DataFrame semantics still have gaps.</td>
+<td>Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt and rolling. Bounded static list/struct payloads and repeated explode also compose through admitted relational stages.</td>
+<td>Nested keys, general nested unary state, Variant/extensions, dynamic pivot and broader SQL/DataFrame semantics still have gaps.</td>
 </tr>
 <tr>
 <td>Repeated queries</td>
@@ -120,11 +120,13 @@ for the detailed evidence behind this scope.</p>
 </tr>
 </tbody>
 </table>
-<p>The <strong>65,536-row / 128-scalar-field / 8-MiB</strong> bound applies to small computed-result collection.
+<p>The <strong>65,536-row / 128-top-level-field / 8-MiB</strong> bound applies to small computed-result collection.
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte
-limits. Type, resource, and write-policy restrictions still apply. Nested and extension results
-have separate coverage limits. See the
+limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet
+and Avro; nested CSV/ORC output is denied. Recursive schema/child-buffer admission,
+format fidelity, resources and write policy still apply. Variant/extension composition
+has separate coverage limits. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md">output contract</a>.</p>
 <p>Use <a href="/field-guide/runtime-and-io">runtime and I/O</a>, the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md">front-door contract</a>,
