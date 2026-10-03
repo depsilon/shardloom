@@ -274,6 +274,32 @@ the ledger.
     - [ ] Align references and evidence, complete review and hosted checks, and move
       the finite accepted record to the completed ledger.
 
+- [ ] `NATIVE-NESTED-COMPOSITION` — carry static nested payloads and compose
+  explode through shared native operators and sinks under PERF-02/03/07/10/11/12
+  and CG-3/5/19/20/21. Follow the
+  [nested ownership and composition contract](native-nested-composition-2026-10-02.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: extend shared late payload gathering, native list
+    coordinates, reservations, synchronous delivery and prepared source reuse.
+    Keep metadata/pruning and one PulseWeave allocation; no separate frontend engine.
+  - Execution checklist:
+    - [ ] Implement recursive selected-buffer ownership and typed empties for
+      lists, fixed-size lists and structs with admitted scalar leaves; prove
+      validity, cancellation, narrow grants and retained-buffer lifetime.
+    - [ ] Separate payload and key admission, then carry nested values through
+      existing relational operators and connect the shared explode state.
+    - [ ] Lower SQL/DataFrame explode stages with ordered source declarations,
+      resources and inert inspection through the common native plan.
+    - [ ] Extend shared nested JSON and representable columnar output boundaries;
+      prove complete writer readback and explicit format denials without artifacts.
+    - [ ] Freeze complete public, workspace/native/Python/feature/doc/site and
+      Full43 acceptance, finish hosted review/checks and move the finite record
+      to the completed ledger.
+  - Acceptance: complete static nested workflows without prefix collection,
+    serialized intermediates, replay or external fallback; existing flat kernels
+    and small collection bounds are preserved. Dynamic pivot, richer type/key
+    semantics and wider state spill retain their existing concrete owners.
+
 The preceding resource, allocation and aggregate units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then
@@ -2696,8 +2722,9 @@ Current autonomous execution order:
 The October 2 maintainer's finite `ADAPTIVE-INGEST-BUDGET` priority is complete in
 PR #1503: P4/P6/P8 ingestion shares the provided CPU budget, with failure, memory
 and complete query acceptance recorded in the completed ledger. Resume the
-preserved native operator work with `NATIVE-AGGREGATE-ORDERING`, then continue the
-dependent universal workflow queue below. The other large format/text experiments
+preserved native operator work through accepted aggregate and flat unary
+composition, then `NATIVE-NESTED-COMPOSITION` and the dependent universal workflow
+queue below. The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 
 The October 1 product clarification makes
