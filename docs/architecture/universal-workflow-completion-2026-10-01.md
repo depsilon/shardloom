@@ -80,14 +80,22 @@ including separate correlated parameter scopes. Its frozen local runtime passes
 3,305 public checks, including 846 pivot checks, all 24 selected local gates and
 all 258 paired Full43 retained-result comparisons. Aggregate timing is unchanged
 at the predeclared thresholds; the [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
-preserves the complete observation. Hosted review remains pending. Wider
-types/adapters and remaining resource/spill transitions require the work below.
+preserves the complete observation. The
+[typed payload continuation](native-typed-payloads-2026-10-03.md) carries exact
+binary, Decimal128, Date32 and timezone-free microsecond timestamps, including
+static nested leaves, through the same native result and writer components.
+Its frozen `8237a900` passes 4,109 public checks (804 typed), 202 direct-unary
+checks, all 24 selected local gate categories and all 258 paired Full43 results;
+the [typed acceptance report](../benchmarks/native-typed-payloads-full43-2026-10-03.md)
+preserves exact scope and evidence. Hosted review remains pending. Typed key,
+expression and retained-state semantics, wider adapters and remaining
+resource/spill transitions require the work below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
-| Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs. | Broader typed/nested schemas, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
+| Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs; binary, exact Decimal128, Date32 and microsecond timestamp payloads, including admitted nested leaves. | Broader typed/nested semantics, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
 | Operator composition | Native flat-scalar relational stages and shared unary families compose with ordered public declarations; static nested payload transport/repeated explode and execution-scoped scalar pivot schemas extend the same runtime. | Wider join/set/window/subquery semantics and nested key/unary-state semantics; broader prepared/public parity. Finish hosted acceptance of the nested/pivot units and use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
-| Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output has six representable destinations. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
+| Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output has six representable destinations, including the four new typed leaf families. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
 
@@ -108,8 +116,8 @@ for already executable flat-scalar aggregate and ordered-result families; its
 [contract and acceptance](native-workflow-streaming-2026-10-01.md) record exact
 coverage. Retained unary execution and admitted flat-scalar relational/unary
 composition now have their own acceptance records. Finish hosted acceptance of
-the static nested and scalar dynamic-pivot continuations, then continue through
-missing type, adapter and resource families with their ownership contracts. Freeze exact
+the static nested, scalar dynamic-pivot and typed-payload continuations, and continue
+through missing type/key, adapter and resource families with their ownership contracts. Freeze exact
 expressions, sinks and pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only
 designation. Availability work ships on correctness and resource proof; a speedup is

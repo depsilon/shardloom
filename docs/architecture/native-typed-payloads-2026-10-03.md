@@ -2,8 +2,8 @@
 
 # Native binary, decimal and temporal payloads
 
-Status: implementation in progress under PERF-02/03/07/10/11/12 and
-CG-3/5/19/20/21. The [phase plan](phased-execution-plan.md) owns sequencing.
+Status: locally accepted under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21;
+hosted acceptance remains pending. The [phase plan](phased-execution-plan.md) owns sequencing.
 This extends the [universal workflow plan](universal-workflow-completion-2026-10-01.md)
 and [nested payload contract](native-nested-composition-2026-10-02.md); it does
 not close their wider operator, adapter, resource or spill obligations.
@@ -90,3 +90,11 @@ coverage or broader spill admission.
 Availability requires correctness, ownership and output evidence, not a speedup.
 Paused large format/text performance runs, native Python binding experiments,
 package publication and the inherited website advisory decision stay separate.
+
+The frozen `8237a900` acceptance passes 4,109 complete public checks, including
+804 typed-payload checks, the separate 202-check direct-unary matrix, all 24
+selected local gate categories and all 258 paired Full43 comparisons. The
+[acceptance report](../benchmarks/native-typed-payloads-full43-2026-10-03.md)
+records exact values, schemas, source/binary identities, failed development
+observations and check provenance. No predeclared timing or memory investigation
+threshold is crossed; no performance improvement is claimed.
