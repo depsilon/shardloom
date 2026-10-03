@@ -65,6 +65,15 @@ fn native_relational_sql_column_null_selection_preserves_values_and_bind_errors(
     let source = fixture();
     verify(
         &format!(
+            "SELECT value,CASE WHEN value=1 THEN metric ELSE value END AS chosen,value>=2 AS matched,NULLIF(value,value) AS erased,COALESCE(value,metric) AS restored FROM (SELECT * FROM '{source}' LIMIT 2) AS input"
+        ),
+        &json!([
+            {"value":1,"chosen":10,"matched":false,"erased":null,"restored":1},
+            {"value":2,"chosen":2,"matched":true,"erased":null,"restored":2},
+        ]),
+    );
+    verify(
+        &format!(
             "SELECT value,COALESCE(value,metric) AS chosen,NULLIF(value,value) AS erased,NULLIF(value,metric) AS original FROM '{source}' LIMIT 2"
         ),
         &json!([

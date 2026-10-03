@@ -37641,29 +37641,31 @@ fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomEr
         return Ok(true);
     }
     let tokens = split_whitespace_outside_quotes(raw)?;
-    if tokens.len() <= 1 {
-        return Ok(false);
+    if tokens.len() > 1
+        && tokens.iter().any(|token| {
+            matches!(
+                token.to_ascii_lowercase().as_str(),
+                "=" | "!="
+                    | "<>"
+                    | "<"
+                    | "<="
+                    | ">"
+                    | ">="
+                    | "is"
+                    | "not"
+                    | "in"
+                    | "like"
+                    | "rlike"
+                    | "regexp"
+                    | "between"
+                    | "and"
+                    | "or"
+            )
+        })
+    {
+        return Ok(true);
     }
-    Ok(tokens.iter().any(|token| {
-        matches!(
-            token.to_ascii_lowercase().as_str(),
-            "=" | "!="
-                | "<>"
-                | "<"
-                | "<="
-                | ">"
-                | ">="
-                | "is"
-                | "not"
-                | "in"
-                | "like"
-                | "rlike"
-                | "regexp"
-                | "between"
-                | "and"
-                | "or"
-        )
-    }))
+    Ok(find_top_level_comparison_operator(trim_enclosing_predicate_parentheses(raw)?)?.is_some())
 }
 
 fn parse_generic_expression_projection(
@@ -40300,8 +40302,21 @@ fn null_safe_distinct_column_predicate(
     }
 }
 
+fn split_predicate_tokens(raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    if let Some((index, op)) = find_top_level_comparison_operator(raw)? {
+        let mut tokens = split_whitespace_outside_quotes(raw[..index].trim())?;
+        tokens.push(op.to_owned());
+        tokens.extend(split_whitespace_outside_quotes(
+            raw[index + op.len()..].trim(),
+        )?);
+        Ok(tokens)
+    } else {
+        split_whitespace_outside_quotes(raw)
+    }
+}
+
 fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
-    let tokens = split_whitespace_outside_quotes(raw)?;
+    let tokens = split_predicate_tokens(raw)?;
     if let Some(predicate) = parse_boolean_predicate_tokens(tokens.as_slice())? {
         return Ok(predicate);
     }
@@ -44920,6 +44935,35 @@ mod public_io_route_tests;
 #[allow(clippy::too_many_lines)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compact_comparisons_preserve_operators_and_quoted_literals() {
+        for spelling in ["=", "!=", "<>", "<", "<=", ">", ">="] {
+            let expected = parse_comparison_op(spelling).unwrap();
+            assert!(matches!(
+                parse_predicate(&format!("value{spelling}-3")).unwrap(),
+                ParsedPredicate::Compare { column, op, value: ScalarValue::Int64(-3) }
+                    if column == "value" && op == expected
+            ));
+            assert!(is_explicit_predicate_projection_shape(&format!("value{spelling}-3")).unwrap());
+        }
+        assert!(matches!(
+            parse_predicate("label='a>=b''<c'").unwrap(),
+            ParsedPredicate::Compare { column, op: ComparisonOp::Eq, value: ScalarValue::Utf8(value) }
+                if column == "label" && value == "a>=b'<c"
+        ));
+        for compound in [
+            "value=1 AND metric>=2",
+            "value=1 OR metric>=2",
+            "(value>=2)",
+        ] {
+            assert!(is_explicit_predicate_projection_shape(compound).unwrap());
+            assert!(parse_predicate(compound).is_ok(), "{compound}");
+        }
+        for invalid in ["value==3", "value<3>1", "value>=", "=3"] {
+            assert!(parse_predicate(invalid).is_err(), "{invalid}");
+        }
+    }
 
     static SQL_LOCAL_SOURCE_TEST_PATH_COUNTER: std::sync::atomic::AtomicU64 =
         std::sync::atomic::AtomicU64::new(0);
