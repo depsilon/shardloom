@@ -18,6 +18,15 @@ pub(super) fn data_type(dtype: &DType) -> Option<DataType> {
     Some(match dtype {
         DType::Bool(_) => DataType::Boolean,
         DType::Utf8(_) => DataType::Utf8,
+        DType::Binary(_) => DataType::Binary,
+        DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
+            DataType::Decimal128(decimal.precision(), decimal.scale())
+        }
+        DType::Extension(_) => match crate::native_payload_schema::temporal_storage(dtype)? {
+            PType::I32 => DataType::Date32,
+            PType::I64 => DataType::Timestamp(arrow_schema::TimeUnit::Microsecond, None),
+            _ => return None,
+        },
         DType::Primitive(ptype, _) => match ptype {
             PType::I8 => DataType::Int8,
             PType::I16 => DataType::Int16,
@@ -72,16 +81,23 @@ pub(super) fn field_count(dtype: &DType) -> usize {
 }
 
 /// The pinned Avro reader attaches record names to nested Arrow fields. They
-/// identify Avro records, not different logical payload types. Keep field names,
-/// nullability and every translated leaf exact, and reject other metadata.
+/// identify Avro records, not different logical payload types. Decimal fields
+/// also repeat precision/scale as metadata; require exact agreement with the
+/// declared decimal dtype. Keep names, nullability and every leaf exact.
 pub(super) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
     if actual.name() != expected.name()
         || actual.is_nullable() != expected.is_nullable()
         || !expected.metadata().is_empty()
-        || actual
-            .metadata()
-            .keys()
-            .any(|name| !matches!(name.as_str(), "avro.name" | "avro.namespace"))
+        || actual.metadata().iter().any(|(name, value)| {
+            match (name.as_str(), expected.data_type()) {
+                ("avro.name" | "avro.namespace", _) => false,
+                ("precision", DataType::Decimal128(precision, _)) => {
+                    value != &precision.to_string()
+                }
+                ("scale", DataType::Decimal128(_, scale)) => value != &scale.to_string(),
+                _ => true,
+            }
+        })
     {
         return false;
     }
@@ -180,12 +196,22 @@ pub(super) fn canonical(
             .map(IntoArray::into_array)
             .map_err(vortex_error)
         }
-        DType::Utf8(_) => canonical_text(array, ctx, limits, expanded),
-        DType::Bool(_) | DType::Primitive(..) => {
+        DType::Utf8(_) | DType::Binary(_) => canonical_text(array, ctx, limits, expanded),
+        DType::Bool(_) | DType::Primitive(..) | DType::Decimal(..) | DType::Extension(_) => {
             let width = match array.dtype() {
                 DType::Bool(_) => 1,
                 DType::Primitive(ptype, _) => ptype.byte_width() as u64,
-                _ => unreachable!(),
+                DType::Decimal(decimal, _)
+                    if crate::native_payload_schema::admitted_decimal(*decimal) =>
+                {
+                    16
+                }
+                DType::Extension(_) => {
+                    crate::native_payload_schema::temporal_storage(array.dtype())
+                        .ok_or_else(|| error("unsupported temporal Arrow output dtype"))?
+                        .byte_width() as u64
+                }
+                _ => return Err(error("unsupported fixed-width Arrow output dtype")),
             };
             charge(
                 expanded,
@@ -233,4 +259,37 @@ fn canonical_text(
         charge(expanded, usize_to_u64(len)?, limits)?;
     }
     Ok(text.into_array())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_typed_payload_avro_decimal_metadata_must_match_its_exact_dtype() {
+        let expected = Field::new("amount", DataType::Decimal128(38, 6), true);
+        let actual = expected.clone().with_metadata(
+            [
+                ("precision".into(), "38".into()),
+                ("scale".into(), "6".into()),
+            ]
+            .into(),
+        );
+        assert!(avro_field_matches(&actual, &expected));
+        for (key, value) in [("precision", "37"), ("scale", "5"), ("unknown", "x")] {
+            let mut metadata = actual.metadata().clone();
+            metadata.insert(key.into(), value.into());
+            assert!(!avro_field_matches(
+                &expected.clone().with_metadata(metadata),
+                &expected
+            ));
+        }
+        let integer = Field::new("amount", DataType::Int64, true);
+        assert!(!avro_field_matches(
+            &integer.clone().with_metadata(actual.metadata().clone()),
+            &integer
+        ));
+        let list = |field| Field::new("items", DataType::List(Arc::new(field)), true);
+        assert!(avro_field_matches(&list(actual), &list(expected)));
+    }
 }

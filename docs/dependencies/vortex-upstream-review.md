@@ -1,5 +1,15 @@
 # Vortex Upstream Dependency Review
 
+## October 3, 2026 release review
+
+Released, non-yanked Vortex 0.87.0 is the latest provider inspected. The workspace
+retains 0.85.0 because exact published source still sends buffer allocation
+refusal to the allocation-error handler instead of the typed, recoverable error
+required by ShardLoom's memory budget. The
+[Rust/Vortex review](rust-vortex-refresh-2026-10-03.md) records live release
+metadata, source hashes, the global Rust 1.99.0 update, retained-provider tests
+and the feature adoption map. No 0.87 build or speedup is claimed.
+
 ## September 27, 2026 provider admission
 
 Vortex 0.86.0/0.86.1 are released and have been reviewed under C1. The workspace

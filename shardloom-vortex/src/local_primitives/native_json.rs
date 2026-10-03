@@ -106,6 +106,9 @@ impl Node {
                 Self::List { column, child }
             }
             DType::Variant(_) => Self::Scalar(array.clone()),
+            DType::Extension(_) => {
+                Self::Scalar(super::result_batch::scalar_storage(array, execution)?)
+            }
             _ => Self::Scalar(
                 array
                     .clone()
@@ -126,7 +129,7 @@ impl Node {
         cancellation.check()?;
         match self {
             Self::Scalar(array) => {
-                let scalar = array.execute_scalar(row, execution).map_err(vortex_error)?;
+                let scalar = super::result_batch::scalar(array, row, execution)?;
                 let utf8_bytes = super::collect::write_scalar_json(writer, &scalar)?;
                 Ok(WriteCounts {
                     scalars: 1,

@@ -12752,7 +12752,7 @@ fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) ->
             Ok("timestamp_micros".to_string())
         }
         _ => Err(ShardLoomError::InvalidOperation(format!(
-            "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64 or UTF8 leaves; no fallback execution was attempted"
+            "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted"
         ))),
     }
 }
@@ -12781,7 +12781,7 @@ fn columnar_family_from_dtype_hint(
             Ok(format!("decimal128({precision},{scale})"))
         }
         Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64 or UTF8 leaves; no fallback execution was attempted",
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted",
             dtype.as_str()
         ))),
     }
@@ -12869,7 +12869,7 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
         return Ok("timestamp_micros".to_string());
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64 or UTF8 leaves; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted",
         array.data_type()
     )))
 }

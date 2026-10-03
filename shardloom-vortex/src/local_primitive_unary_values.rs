@@ -215,6 +215,9 @@ pub(super) fn owned_stat(value: Value<'_>, lease: &mut MemoryLease) -> Result<St
         Value::Float(value) => StatValue::Float64(value),
         Value::Text(value) => StatValue::Utf8(copy_text(value.as_ref(), lease)?),
         Value::SharedText(value) => StatValue::Utf8(copy_text(value.as_str(), lease)?),
+        Value::Binary(_) | Value::SharedBinary(_) | Value::Decimal(..) => {
+            return Err(failed("binary and decimal unary state is not admitted"));
+        }
     })
 }
 
@@ -256,5 +259,6 @@ fn write_value_key(output: &mut impl std::fmt::Write, value: &Value<'_>) -> std:
         Value::Float(value) => write!(output, "f:{:016x}", value.to_bits()),
         Value::Text(value) => write!(output, "s:{}:{value}", value.len()),
         Value::SharedText(value) => write!(output, "s:{}:{}", value.as_str().len(), value.as_str()),
+        Value::Binary(_) | Value::SharedBinary(_) | Value::Decimal(..) => Err(std::fmt::Error),
     }
 }

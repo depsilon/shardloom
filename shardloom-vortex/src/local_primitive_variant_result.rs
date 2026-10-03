@@ -106,5 +106,8 @@ fn scalar(value: Value<'_>, allocator: &HostAllocatorRef) -> Result<Scalar> {
             Scalar::utf8(text, Nullability::NonNullable)
         }
         Value::Null => return Err(failed("variant null must preserve outer nullability")),
+        Value::Binary(_) | Value::SharedBinary(_) | Value::Decimal(..) => {
+            return Err(failed("binary and decimal Variant state is not admitted"));
+        }
     })
 }

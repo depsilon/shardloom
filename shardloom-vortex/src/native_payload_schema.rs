@@ -1,7 +1,35 @@
 //! One bounded static payload schema policy for native execution and typed intake.
 
 use shardloom_core::{Result, ShardLoomError};
-use vortex::array::dtype::{DType, PType};
+use vortex::array::{
+    dtype::{DType, DecimalDType, PType},
+    extension::datetime::{Date, TimeUnit, Timestamp},
+};
+
+pub(crate) fn admitted_decimal(dtype: DecimalDType) -> bool {
+    (1..=38).contains(&dtype.precision())
+        && dtype.scale() >= 0
+        && i16::from(dtype.scale()) <= i16::from(dtype.precision())
+}
+
+/// Recognize provider metadata, never an extension name or its storage alone.
+pub(crate) fn temporal_storage(dtype: &DType) -> Option<PType> {
+    let DType::Extension(extension) = dtype else {
+        return None;
+    };
+    let storage = if extension.metadata_opt::<Date>() == Some(&TimeUnit::Days) {
+        PType::I32
+    } else if extension
+        .metadata_opt::<Timestamp>()
+        .is_some_and(|metadata| metadata.unit == TimeUnit::Microseconds && metadata.tz.is_none())
+    {
+        PType::I64
+    } else {
+        return None;
+    };
+    matches!(extension.storage_dtype(), DType::Primitive(ptype, _) if *ptype == storage)
+        .then_some(storage)
+}
 
 #[derive(Default)]
 struct Budget {
@@ -52,8 +80,10 @@ pub(crate) fn metadata_bytes(dtype: &DType) -> Result<u64> {
     fn visit(dtype: &DType, depth: usize, budget: &mut Budget) -> Result<()> {
         budget.node(depth)?;
         match dtype {
-            DType::Bool(_) | DType::Utf8(_) => {}
+            DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => {}
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {}
+            DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
+            DType::Extension(_) if temporal_storage(dtype).is_some() => {}
             DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
                 visit(child, depth + 1, budget)?;
             }
@@ -97,7 +127,16 @@ pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64
             | A::Float64
             | A::Utf8
             | A::LargeUtf8
-            | A::Utf8View => {}
+            | A::Utf8View
+            | A::Binary
+            | A::LargeBinary
+            | A::BinaryView
+            | A::Date32
+            | A::Timestamp(arrow_schema::TimeUnit::Microsecond, None) => {}
+            A::Decimal128(precision, scale)
+                if (1..=38).contains(precision)
+                    && *scale >= 0
+                    && i16::from(*scale) <= i16::from(*precision) => {}
             A::List(child) | A::LargeList(child) => {
                 field(child, depth + 1, budget)?;
             }
@@ -120,7 +159,9 @@ pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64
 }
 
 fn unsupported() -> ShardLoomError {
-    failed("payload requires bool, integer, F32/F64, UTF8 or static list/struct fields")
+    failed(
+        "payload requires bool, integer, F32/F64, UTF8, binary, decimal128(precision 1..38, scale 0..precision), Date32, timezone-free TimestampMicros or static list/struct fields",
+    )
 }
 
 fn failed(reason: &str) -> ShardLoomError {

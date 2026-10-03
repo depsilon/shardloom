@@ -150,9 +150,7 @@ pub(super) fn write(
                                 .ok_or_else(|| failed("text copy counter overflow"))?;
                             continue;
                         }
-                        let scalar = column
-                            .execute_scalar(row, &mut scalar_context)
-                            .map_err(vortex_error)?;
+                        let scalar = super::result_batch::scalar(column, row, &mut scalar_context)?;
                         let value = terminal_scalar(&scalar)?;
                         scalars_materialized = scalars_materialized
                             .checked_add(1)
@@ -213,9 +211,9 @@ pub(super) fn write(
         output_sha256: checksum,
         compatibility: None,
         metadata_fidelity: if format == Format::Csv {
-            "terminal_CSV_encoding;header_and_row_order_preserved;nulls_emit_empty_cells;dtype_validity_encodings_layout_statistics_not_persisted;native_input_schema_checked;no_persisted_dtype_claim"
+            "terminal_CSV_encoding;header_and_row_order_preserved;nulls_emit_empty_cells;binary_hex_and_decimal128_tagged_JSON_scalars_escaped_as_CSV_cells;Date32_days_and_TimestampMicros_integers;dtype_validity_encodings_layout_statistics_not_persisted;native_input_schema_checked;no_persisted_dtype_claim"
         } else {
-            "terminal_JSON_encoding;field_names_nulls_values_and_row_order_preserved;integer_widths_native_encodings_layout_statistics_not_persisted;native_input_schema_checked;no_persisted_dtype_claim"
+            "terminal_JSON_encoding;field_names_nulls_values_and_row_order_preserved;binary_hex_and_decimal128_tagged_strings;Date32_days_and_TimestampMicros_integers;logical_dtypes_native_encodings_layout_statistics_not_persisted;native_input_schema_checked;no_persisted_dtype_claim"
         },
     });
     Ok(VortexLocalPrimitiveRowExportReport {
@@ -247,6 +245,20 @@ fn terminal_scalar(scalar: &vortex::array::scalar::Scalar) -> Result<StatValue> 
     };
     if scalar.is_null() {
         Ok(StatValue::Null)
+    } else if matches!(
+        scalar.value(),
+        Some(
+            vortex::array::scalar::ScalarValue::Binary(_)
+                | vortex::array::scalar::ScalarValue::Decimal(_)
+        )
+    ) {
+        // Match the established typed CSV cell contract: the JSON scalar is
+        // escaped as a CSV cell. Binary empty text remains distinct from null.
+        let mut bytes = Vec::new();
+        super::collect::write_scalar_json(&mut bytes, scalar)?;
+        String::from_utf8(bytes)
+            .map(StatValue::Utf8)
+            .map_err(vortex_error)
     } else {
         vortex_scalar_to_stat_value(scalar)
             .ok_or_else(|| failed("text output requires a flat scalar value"))

@@ -149,6 +149,38 @@ accounted, and does not introduce another array representation or dependency.
   local primitive scan paths where recorded in the phase plan
 - Fallback execution introduced: no
 
+## October 3, 2026 Vortex 0.87 intake
+
+Vortex 0.87.0 is released, non-yanked and Apache-2.0 with Rust minimum 1.95.
+The exact published allocation API remains incompatible with the admitted
+recoverable budget-denial contract; the workspace stays on 0.85.0. The
+[release review and verification](../dependencies/rust-vortex-refresh-2026-10-03.md)
+supersede older draft status for 0.86/0.87, while preserving historical intake
+sections below. No 0.87 runtime or performance benefit has been demonstrated.
+
+The upstream [0.87 release](https://github.com/vortex-data/vortex/releases/tag/0.87.0)
+and exact tagged/published source were reviewed against current adapter callers.
+PERF owners below are existing obligations to which later adoption belongs;
+they do not create parallel implementations or close those obligations.
+
+| Surface | Current ShardLoom evidence | Disposition and adoption requirement |
+| --- | --- | --- |
+| Context allocation, allocator-aware builders and RowFn output ownership | `owned_buffers.rs` supplies typed refusal and final-owner credit; `local_primitive_result_batch.rs` constructs owned columns. No direct RowFn caller was found. | `blocked_until_vortex_or_shardloom_evidence`; PERF-03/07/11. Preserve fallible denial and ownership before replacing current construction. Correct allocator propagation alone is insufficient. |
+| One-off/repeated scalar probes and reusable encoded probe state | `local_primitive_result_batch::scalar` and `native_relational_expression` use scalar execution; no repeated-probe API is used. | `native_provider_candidate`; PERF-02/10. Reuse state in the existing result/expression component; prove validity, selected-row semantics and lifetime, then measure complete workflows. |
+| Sparse patch filtering | Current sparse reader lowering in `local_primitives.rs` inspects patch/fill slots; no direct `Patches::filter` caller was found. | `native_provider_candidate`; PERF-10. First identify whether the improved upstream path is actually invoked by an admitted native filter. Do not claim an automatic improvement in ShardLoom's separate lowering. |
+| Whole-array run-end sums | `local_primitives/encoded_numeric_reduction.rs` already performs weighted reduction over run slots, with slice and null checks. | `native_provider_candidate`; PERF-04/10. Compare the provider against this shared reducer; require matching overflow/null semantics and measured benefit before replacement. |
+| Boolean compaction, packed comparisons, mask reduction and RowFn retry/UTF-8 improvements | Owned Boolean result construction already uses packed bits. No `trim_bits` or RowFn caller was found. | `native_provider_candidate`; PERF-07/10/11. Check reachable provider execution and full-allocation credit through slices before adopting compaction or claiming fewer bytes/allocations. |
+| Decimal byte-parts i128/i256 and updated serialized format | Current typed payload completion builds `DecimalArray<i128>`; there is no direct byte-parts API caller or admitted i256 payload path. | `native_provider_candidate`; PERF-07/09/11. Validate exact decimal read/write and edition compatibility; the release does not broaden ShardLoom precision by itself. |
+| Blocked FoR, per-block references, serialized-ID compressor admission | `vortex_ingest_numeric_encoding.rs` currently filters array IDs through `retain_allowed_encodings`; FoR-specific experiments remain test/benchmark gated. | `wrap_vortex_concept`; PERF-09. Migrate session/compressor admission as one change and prove old/new format round trips before enabling `fastlanes.for_v2`. |
+| Narrow-integer and run-aware compression statistics | The shared numeric ingest compressor is an existing provider caller. | `native_provider_candidate`; PERF-09. Compare complete ingest time, output size and downstream queries using the same input and policy. Retain only a measured improvement. |
+| CompressionSession, session-built compressor, aggregate vtable and derived-dtype accumulator changes | Existing compressor and aggregate adapter surfaces require API migration. | `wrap_vortex_concept`; PERF-04/09. Check compile/feature coverage and exact aggregate semantics; do not equate API availability with runtime adoption. |
+| Bound-expression optimization, Boolean folding, validity reduction, NaN pruning and list-contains null semantics | Existing scan planning binds expressions and uses generic statistics. No NaN-specific predicate caller was found. | `native_provider_candidate`; PERF-10. Admit each expression through existing capability and correctness checks, including null/NaN cases. List semantics do not silently expand the public function set. |
+| Zone-map shape checks, decoded-length validation, bit-offset bounds and alignment repairs | Native reads, codecs and selected-buffer views are existing boundaries. | `native_provider_candidate`; PERF-07/09/11. Review applicability to retained code and run malformed-input/ownership regressions with a future provider upgrade. Retaining 0.85 does not certify these upstream fixes as present. |
+| Earlier 0.86 writer/sink and execution API changes | Current writers and session/execution wrappers remain on 0.85. | `wrap_vortex_concept`; PERF-07/11. Include these intervening API changes in any 0.85-to-0.87 migration; allocation admission is only its first gate. |
+| Arrow/Parquet 59.2, reduced inherited file features, checked-in FlatBuffers bindings and moved modules/extensions | Current compatibility bridge uses 58.3.0; Vortex remains optional and isolated in `shardloom-vortex`. | `dependency_only`. Reconcile bridge types, features, build tools and extension identity together. This review changes no dependency or generated binding. |
+| Upstream DataFusion/DuckDB/Spark benchmark or integration work | External engines remain comparison oracles only. | `baseline_only` / `not_applicable`. No runtime integration or fallback admission. |
+| CUDA, C/C++/JNI/FFI, upstream Python packaging, CI and documentation-only changes | These are not the admitted Rust CPU provider surface. | `not_applicable` to this upgrade's runtime adoption; device work remains separately gated. Upstream Python behavior does not establish behavior of ShardLoom's own SDK. |
+
 ## Upstream Vortex 0.85 Provider-Capability Update
 
 This section records the workspace-managed `vortex = "0.85"` / `vortex-zstd = "0.85"` dependency

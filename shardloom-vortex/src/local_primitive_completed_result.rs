@@ -209,10 +209,7 @@ impl<'consumer> CompletedRows<'consumer> {
         fields: Vec<(String, DType)>,
         memory: &LiveMemoryPool,
     ) -> Result<Self> {
-        if !fields
-            .iter()
-            .any(|(_, dtype)| super::native_payload::is_nested(dtype))
-        {
+        if !Self::needs_native_schema(&fields) {
             return Self::new(fields, memory);
         }
         validate_names(&fields)?;
@@ -310,11 +307,7 @@ impl<'consumer> CompletedRows<'consumer> {
         columns: &[String],
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<()> {
-        if self
-            .fields
-            .iter()
-            .any(|(_, dtype)| super::native_payload::is_nested(dtype))
-        {
+        if Self::needs_native_schema(&self.fields) {
             let dtype = DType::struct_(self.fields.clone(), Nullability::NonNullable);
             let array = super::native_payload::defaults(&dtype, 0, context)?;
             self.push_native(array, context)
@@ -323,6 +316,16 @@ impl<'consumer> CompletedRows<'consumer> {
                 Err(failed("empty result requested a value"))
             })
         }
+    }
+
+    fn needs_native_schema(fields: &[(String, DType)]) -> bool {
+        fields.iter().any(|(_, dtype)| {
+            super::native_payload::is_nested(dtype)
+                || matches!(
+                    dtype,
+                    DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
+                )
+        })
     }
 }
 

@@ -37,6 +37,8 @@ mod nested_tests;
 mod spill_tests;
 #[path = "local_primitive_relational_subquery_tests.rs"]
 mod subquery_tests;
+#[path = "local_primitive_relational_typed_tests.rs"]
+mod typed_tests;
 #[path = "local_primitive_relational_unary_tests.rs"]
 mod unary_tests;
 #[path = "local_primitive_relational_window_tests.rs"]

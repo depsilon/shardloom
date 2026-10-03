@@ -109,3 +109,7 @@ required-features = ["vortex-local-primitives", "universal-format-io"]
 [[example]]
 name = "native_nested_uat_fixture"
 required-features = ["universal-format-io"]
+
+[[example]]
+name = "native_typed_uat_fixture"
+required-features = ["universal-format-io"]
