@@ -145,6 +145,29 @@
     "fallback_attempted": false,
     "external_engine_invoked": false
   },
+  "native_nested_composition": {
+    "reference": "docs/architecture/native-nested-composition-2026-10-02.md",
+    "scope": "current_source_build_static_nested_payloads",
+    "payload_types": ["list", "fixed_size_list", "struct"],
+    "leaf_types": ["bool", "integer", "float32", "float64", "utf8"],
+    "maximum_schema_depth": 24,
+    "maximum_schema_nodes": 4096,
+    "maximum_schema_metadata_bytes": 8388608,
+    "maximum_top_level_fields": 128,
+    "typed_public_input_evidence": ["arrow_ipc", "prepared_vortex"],
+    "nested_text_schema_hints": false,
+    "ordered_repeated_explode": true,
+    "nested_writers": ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro"],
+    "denied_nested_writers": ["csv", "orc"],
+    "writer_fidelity": "format_representability_and_declared_translation_required",
+    "nested_keys": false,
+    "general_nested_unary_state": false,
+    "dynamic_pivot_composition": false,
+    "variant_extension_composition": false,
+    "total_rss_bound": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
   "python": {
     "ordinary_import": "import shardloom as sl",
     "ordinary_context": "ctx = sl.context()",
@@ -361,7 +384,7 @@
     },
     "admitted_reshape_runtime_methods": {
       "melt": "explicit id_vars/value_vars flat scalar column-to-row expansion through the native/prepared Vortex melt primitive with heterogeneous scalar value columns and explicit source-order row-number materialization for ignore_index=false",
-      "explode": "single or same-length multi-column declared list/fixed-size-list row expansion with scalar, nullable, list, or struct element values, plus single-level list-of-struct dotted field projection, through the native/prepared Vortex explode primitive with explicit cardinality, null-shape, decode, and materialization evidence",
+      "explode": "single or same-length multi-column declared list/fixed-size-list row expansion with scalar, nullable, list, or struct element values, plus single-level list-of-struct dotted field projection; ordered and repeated stages compose through shared native relational execution with bounded static nested payload ownership and explicit cardinality, null-shape, decode, and materialization evidence",
       "pivot": "single index column, pivot column, and value column wide reshape through the native/prepared Vortex pivot primitive with first-unique duplicate-cell fail-closed policy and sparse/wide state evidence",
       "pivot_table": "single index column, pivot column, and value column aggregate reshape through the native/prepared Vortex pivot primitive with sum/count/mean/min/max aggregate kernels plus admitted fill_value/dropna/margins output policy"
     },

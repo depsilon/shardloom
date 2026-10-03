@@ -108,8 +108,11 @@ either may remove groups; the evidence does not mark that count exact.
 
 The accounted scope includes constructed result buffers, selection admission and
 writer retention/metadata grants. It does not establish a total RSS bound or
-account for every existing aggregate state and upstream allocation. Unsupported
-nested/extension results and broader state-spill families remain explicit gaps.
+account for every existing aggregate state and upstream allocation. The
+[static nested contract](../architecture/native-nested-composition-2026-10-02.md)
+extends shared payload ownership, relational delivery and representable writers.
+Unadmitted nested shapes, Variant/extension composition and broader state-spill
+families remain explicit gaps.
 See the [streaming contract and acceptance](../architecture/native-workflow-streaming-2026-10-01.md).
 
 ## Compose Owned Native Results

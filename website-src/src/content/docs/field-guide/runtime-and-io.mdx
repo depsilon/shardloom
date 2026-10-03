@@ -29,7 +29,12 @@ rewrites, melt, and rolling—with native relational stages and all eight local 
 Operations consume the preceding stage's rows and column names while retaining source
 declarations and the operation's CPU/memory allocation. See the
 [composition scope and complete-result evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-unary-composition-2026-10-02.md).
-Nested explode, dynamic pivot, wider types and operator state spill have separate boundaries.
+Current source builds also carry bounded static list/struct payloads through admitted
+relational stages and ordered/repeated explode. Vortex, JSON, JSONL, Arrow IPC, Parquet
+and Avro accept representable nested output; nested CSV and ORC are denied. See the
+[nested composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-composition-2026-10-02.md).
+Nested keys, general nested unary state, Variant/extensions, dynamic pivot and wider
+operator state spill remain separate boundaries.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).

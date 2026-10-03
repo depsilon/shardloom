@@ -113,8 +113,15 @@ writers for supported flat scalar results, with source reuse in explicit prepare
 handles and fresh operator state. They admit up to 128 flat scalar fields and bound each native batch to
 8 MiB; output row counts may exceed 65,536. Small owned collection retains its
 independent 65,536-row / 128-field / 8-MiB bounds. Heterogeneous scalar Variant results
-retain native/text admission only. General nested and extension results, unary
-state spill and broader spill families remain outside this handoff. Resource denial or a value
+retain native/text admission only. Current source builds also carry bounded static
+list/struct payloads through admitted relational and repeated-explode stages to
+Vortex, JSON, JSONL, Arrow IPC, Parquet and Avro where representable. Native Vortex
+preserves the admitted logical schema; Avro declares its fixed-size-list and
+integer-width translations and rejects values outside its signed integer domain.
+Nested CSV/ORC output is denied, including typed empty results. See the
+[nested composition contract](native-nested-composition-2026-10-02.md) for schema
+and child-buffer bounds. Variant/extension composition, general nested unary
+state, unary state spill and broader spill families remain outside this handoff. Resource denial or a value
 outside a format's admission fails the complete write before publication.
 The [native relational unit](native-relational-workflows-2026-10-01.md) also sends
 admitted joins, sets, analytic windows and scoped subquery results directly to all

@@ -198,7 +198,13 @@ objects. Common admitted methods include:
   multi-column list/fixed-size-list `explode("a", "b", ...)` lower through the native/prepared
   Vortex explode primitive with scalar, nullable, list, or struct element values, cardinality
   evidence, and null-shape evidence; admitted `explode("items.field")` projects one field from
-  list-of-struct elements. Admitted `pivot(...)` / `pivot_table(...)` over one
+  list-of-struct elements. Current source builds carry bounded static nested
+  payloads through admitted relational stages and ordered/repeated explode; see
+  the [nested composition contract](../architecture/native-nested-composition-2026-10-02.md).
+  Vortex, JSON, JSONL, Arrow IPC, Parquet and Avro accept representable nested
+  output; nested CSV/ORC output is denied. Nested keys, general nested unary
+  state and Variant/extension composition remain separate boundaries.
+  Admitted `pivot(...)` / `pivot_table(...)` over one
   index column, one pivot column, and one value column lower through the native/prepared Vortex
   pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`
   plus admitted `fill_value`, `dropna`, `margins`, and `margins_name` output policy; multi-level
