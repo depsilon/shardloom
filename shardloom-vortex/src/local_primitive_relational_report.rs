@@ -37,11 +37,14 @@ pub(super) fn certificate(
             rejected_operations: vec![],
             guarantee: "bound_types_and_generation_checked_before_and_after_final_consumer".into(),
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),
-                metrics.scan_rows.get()
+                metrics.scan_rows.get(),
+                metrics.unary_stages.get(),
+                metrics.unary_state_items.get(),
+                metrics.unary_population_retention.get()
             ),
             residual_expression: (metrics.residual_batches.get() > 0).then(|| {
                 format!(
@@ -94,7 +97,8 @@ pub(super) fn certificate(
                 to_state: RepresentationState::DecodedColumnar,
                 required_by: "typed_keys_and_bounded_native_result_consumption".into(),
                 reason: format!(
-                    "native key execution and native take followed by explicit compact output copies; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound"
+                    "native key execution and native take followed by explicit compact output copies; unary scalar access and retained row state use the shared operation kernels and native output builder; unary stages retaining the complete population={}; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound",
+                    metrics.unary_population_retention.get()
                 ),
                 bytes_decoded: 0,
                 rows_materialized: rows,

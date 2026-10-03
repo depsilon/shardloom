@@ -161,6 +161,22 @@ pub struct VortexExpressionProjectionRequest {
     pub rewrites: Vec<VortexExpressionRewrite>,
 }
 impl VortexExpressionProjectionRequest {
+    /// Preserve selected field order and append newly declared row-number fields.
+    /// Native schema binding remains responsible for types and valid targets.
+    #[must_use]
+    pub fn output_columns(&self, source_columns: &[String]) -> Vec<String> {
+        let mut columns = source_columns.to_vec();
+        for rewrite in &self.rewrites {
+            if let VortexExpressionRewrite::RowNumber { target_column, .. } = rewrite {
+                let target = target_column.as_str();
+                if !columns.iter().any(|column| column == target) {
+                    columns.push(target.to_owned());
+                }
+            }
+        }
+        columns
+    }
+
     #[must_use]
     pub fn new(rewrites: Vec<VortexExpressionRewrite>) -> Self {
         Self { rewrites }
@@ -1382,12 +1398,18 @@ pub struct VortexQueryPrimitiveRequest {
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexQueryPrimitiveRequest {
+    /// Declare an operation on a preceding relational stage, without a file URI.
+    /// The shared native binder validates operation parameters and schema; this
+    /// constructor grants no additional execution capability.
     #[must_use]
-    pub fn count_all(uri: DatasetUri) -> Self {
+    pub fn for_relational_input(
+        kind: VortexQueryPrimitiveKind,
+        projection: ProjectionRequest,
+    ) -> Self {
         Self {
-            kind: VortexQueryPrimitiveKind::CountAll,
-            source_uri: Some(uri),
-            projection: ProjectionRequest::all(),
+            kind,
+            source_uri: None,
+            projection,
             predicate: None,
             source_order_limit: None,
             sample_seed: None,
@@ -1405,6 +1427,16 @@ impl VortexQueryPrimitiveRequest {
             sort_rows: None,
             structured_projection: None,
             diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn count_all(uri: DatasetUri) -> Self {
+        Self {
+            source_uri: Some(uri),
+            ..Self::for_relational_input(
+                VortexQueryPrimitiveKind::CountAll,
+                ProjectionRequest::all(),
+            )
         }
     }
     #[must_use]

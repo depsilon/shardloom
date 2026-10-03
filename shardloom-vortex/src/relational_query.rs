@@ -81,6 +81,15 @@ pub enum VortexRelationalPlan {
     Sort(Box<VortexRelationalSort>),
     Limit(Box<VortexRelationalLimit>),
     Aggregate(Box<VortexRelationalAggregate>),
+    Unary(Box<VortexRelationalUnary>),
+}
+
+/// An existing native unary operation applied at this position in the tree.
+/// The request has no source URI: its schema and rows come from `input`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexRelationalUnary {
+    pub input: VortexRelationalPlan,
+    pub request: crate::query_primitive::VortexQueryPrimitiveRequest,
 }
 
 /// Grouped or scalar aggregation consumes native input batches. Computed keys

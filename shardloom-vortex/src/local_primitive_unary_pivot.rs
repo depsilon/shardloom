@@ -3,9 +3,9 @@
 
 use super::super::{PivotAggregateCell, PivotRowExportState, VortexPivotProjectionRequest};
 use super::{
-    BATCH_ROWS, CancellationToken, DType, ExecutedVortexUnary, MemoryLease, NativeBatch,
-    NativeExecutionContext, Nullability, PreparedVortexUnary, ReservedVec, Result, StatValue,
-    UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
+    BATCH_ROWS, BoundUnary, CancellationToken, DType, ExecutedVortexUnary, MemoryLease,
+    NativeBatch, NativeExecutionContext, Nullability, PreparedVortexUnary, ReservedVec, Result,
+    StatValue, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
 };
 use vortex::array::{ArrayRef, dtype::PType};
 
@@ -140,7 +140,7 @@ impl Pivot {
 
     pub(super) fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,
@@ -283,18 +283,20 @@ impl PreparedVortexUnary {
         file: &vortex::file::VortexFile,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Completed> {
-        let mut discarded = UnaryOutput::discard(&self.output_columns);
+        let mut discarded = UnaryOutput::discard(&self.bound.output_columns);
         let (state, evidence) = self.scan_state(file, context, &mut discarded)?;
         let super::select::State::Pivot(state) = state else {
             return Err(failed("pivot completed with a different state family"));
         };
         let compiled = self
+            .bound
             .pivot
             .as_ref()
             .ok_or_else(|| failed("pivot is not bound"))?;
-        let projection = super::super::required_pivot_projection(&self.request)?;
+        let projection = super::super::required_pivot_projection(&self.bound.request)?;
         let has_margin = projection.margins && !state.state.index_keys.is_empty();
         let limit = self
+            .bound
             .request
             .source_order_limit
             .unwrap_or(usize::MAX)
@@ -444,7 +446,7 @@ impl Margin {
 impl Completed {
     pub(super) fn emit(
         &self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,

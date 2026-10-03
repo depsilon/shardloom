@@ -2,7 +2,7 @@
 
 # Shared aggregate admission and null ordering
 
-Status: local acceptance passed; hosted acceptance pending. This finite continuation belongs
+Status: implemented and merged after local and hosted acceptance. This finite continuation belongs
 to PERF-02/10/12 and CG-5/20/21; it closes neither their whole scope nor production
 certification. The preceding [resource unit](native-relational-resources-2026-10-02.md)
 identified a flat aggregate collection gap while its composed aggregate passed.
@@ -152,6 +152,13 @@ has SHA-256
 It records all 22 local validation gates, complete result evidence, failed
 observations, verified archive manifests, source identities and acceptance drivers.
 
-Hosted acceptance remains pending. The source, tests and failed observations
-remain retained; no speedup, total-RSS bound, whole PERF/CG completion, production
-certification or package publication is claimed.
+[PR #1504](https://github.com/depsilon/shardloom/pull/1504) merged as
+`1a6b5869725842992c3a8c346c83be0713c3716b` after all 40 hosted checks passed
+on head `10b39c2bab9b1d568e953ff9c0342b5af15410ee`. Both trees are
+`8882a0b1cb4005cd5110343534a1c086a77abe5d`. No review threads remained;
+hosted Codex review was usage-limited and is not counted as approval. The local
+packet stays immutable; the hosted receipt has SHA-256
+`d027b2dedcd3de3d84cf5219fecc93d7a5f4762da91722d52f35aedd62299bf9`.
+The source, tests and failed observations remain retained; no speedup, total-RSS
+bound, whole PERF/CG completion, production certification or package publication
+is claimed.

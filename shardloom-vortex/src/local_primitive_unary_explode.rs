@@ -1,8 +1,8 @@
 //! Expand native list coordinates in source order without an expanded row table.
 
 use super::{
-    BATCH_ROWS, DType, NativeBatch, NativeExecutionContext, PreparedVortexUnary, ReservedVec,
-    Result, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
+    BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, ReservedVec, Result,
+    UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
 };
 use vortex::array::{
     ArrayRef, ExecutionCtx, VortexSessionExecute as _,
@@ -181,7 +181,7 @@ pub(super) struct Explode {
 impl Explode {
     pub(super) fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,

@@ -509,10 +509,15 @@ can overlap bounded dictionary preparation with native input progress and ordere
 See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
 
 Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
-provider-backed join workflows execute today. Scoped duplicate handling, sampling, reshape,
-and source-order rolling operations also exist. Their composition, prepared execution, output,
-and spill coverage vary. General joins, set operations, analytic windows, and subqueries still
-have native coverage gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
+provider-backed join workflows execute today. Current source builds compose eight admitted
+flat-scalar unary families—DISTINCT, duplicate removal and masks, tail, sampling, scalar
+rewrites, melt, and rolling—with native relational stages and all eight local writers.
+Operations consume the preceding stage's rows and column names while retaining source
+declarations and the operation's CPU/memory allocation. See the
+[composition scope and complete-result evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-unary-composition-2026-10-02.md).
+Nested explode, dynamic pivot, wider types and operator state spill have separate boundaries.
+General joins, set operations, analytic windows, and subqueries still have native coverage
+gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
 
 ## Local Formats
@@ -671,7 +676,7 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds add admitted flat-scalar joins, sets, windows, subqueries, and ordered composition to scoped duplicate handling, sampling, reshape, and source-order rolling. | Wider types, arbitrary SQL/DataFrame semantics, and separate unary-family composition still have gaps. |
+| Relational and DataFrame operations | Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt and rolling. | Nested/extension payloads, composed explode, dynamic pivot, mixed Variant composition and broader SQL/DataFrame semantics still have gaps. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |

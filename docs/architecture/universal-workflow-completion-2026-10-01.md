@@ -64,13 +64,16 @@ The [retained unary unit](native-unary-workflows-2026-10-01.md) and
 [native relational unit](native-relational-workflows-2026-10-01.md) extend complete
 collection and all eight local writers through their admitted flat-scalar families.
 Relational source declarations also survive mixed-input joins, sets and nested
-predicate helpers. General public composition, wider types/adapters and remaining
-resource/spill transitions still require the concrete work below.
+predicate helpers. The [October 2 unary composition unit](native-unary-composition-2026-10-02.md)
+connects eight existing flat-scalar unary families to the shared relational
+traversal and writers. Its frozen build passes 1,963 complete public checks and
+129/129 Full43 comparisons. Wider types/adapters, nested and dynamic-schema
+composition, and remaining resource/spill transitions require the work below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs. | Broader typed/nested schemas, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
-| Operator composition | Native filters, projection, aggregates, DISTINCT and ordering; selected provider joins, reshape and source-order operations. | General joins, set operations, analytic windows and subqueries; prepared/public parity and supported chains. Use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
+| Operator composition | Native flat-scalar relational stages and eight shared unary families compose with ordered public declarations. | Wider join/set/window/subquery semantics, nested explode and dynamic pivot composition; broader prepared/public parity. Use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
 | Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output. | Extend result streams through the remaining operator/type families and broader chains. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
@@ -89,8 +92,9 @@ alone cannot establish a successful query and output workflow.
 The first runtime unit connects bounded native result composition and local output
 for already executable flat-scalar aggregate and ordered-result families; its
 [contract and acceptance](native-workflow-streaming-2026-10-01.md) record exact
-coverage. Next, extend retained execution and result delivery through the existing
-unary families before adding missing relational/type families. Freeze exact
+coverage. Retained unary execution and admitted flat-scalar relational/unary
+composition now have their own acceptance records. Continue through missing
+nested/dynamic-schema and type families with their ownership contracts. Freeze exact
 expressions, sinks and pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only
 designation. Availability work ships on correctness and resource proof; a speedup is

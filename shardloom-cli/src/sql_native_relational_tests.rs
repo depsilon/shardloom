@@ -2,6 +2,9 @@ use super::*;
 use serde_json::{Value, json};
 use shardloom_exec::compute_pool::CancellationToken;
 
+#[path = "sql_native_relational_unary_tests.rs"]
+mod unary_tests;
+
 fn fixture() -> String {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex")

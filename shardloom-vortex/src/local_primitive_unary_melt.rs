@@ -2,8 +2,8 @@
 //! a text or compatibility writer remains a separate, explicit boundary.
 
 use super::{
-    BATCH_ROWS, DType, NativeBatch, NativeExecutionContext, Nullability, PreparedVortexUnary,
-    ReservedVec, Result, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed,
+    BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, Nullability, ReservedVec,
+    Result, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed,
 };
 use vortex::array::dtype::PType;
 
@@ -114,7 +114,7 @@ pub(super) struct Melt {
 impl Melt {
     pub(super) fn consume(
         &mut self,
-        plan: &PreparedVortexUnary,
+        plan: &BoundUnary,
         batch: &mut NativeBatch,
         rows: usize,
         context: &NativeExecutionContext<'_>,
@@ -157,7 +157,7 @@ impl Melt {
 }
 
 fn emit(
-    plan: &PreparedVortexUnary,
+    plan: &BoundUnary,
     compiled: &Plan,
     batch: &mut NativeBatch,
     selected: &mut ReservedVec<(usize, usize)>,

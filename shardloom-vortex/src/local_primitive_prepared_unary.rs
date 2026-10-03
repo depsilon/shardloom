@@ -75,12 +75,18 @@ pub struct CollectedVortexUnary {
 
 /// Immutable source identity, request and lowering. No result or operator state is cached.
 pub struct PreparedVortexUnary {
-    request: VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
     physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
     source: PreparedVortexSource,
     session: ResidentVortexSession,
     plan: LocalVortexScanPlan,
+    bound: BoundUnary,
+}
+
+/// Source-independent schema and operation metadata. Every execution owns fresh
+/// state; direct file scans and composed native relations share the same kernels.
+pub(super) struct BoundUnary {
+    request: VortexQueryPrimitiveRequest,
     columns: Vec<String>,
     output_columns: Vec<String>,
     output_indices: Vec<usize>,
@@ -111,7 +117,7 @@ pub(super) fn supports(kind: VortexQueryPrimitiveKind) -> bool {
     )
 }
 
-fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
+fn canonical(request: &VortexQueryPrimitiveRequest, file_source: bool) -> Result<()> {
     if !supports(request.kind)
         || request.source_order_limit == Some(0)
         || request.diagnostics.iter().any(|d| {
@@ -126,8 +132,13 @@ fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
             "requires an admitted unary request and a positive optional limit",
         ));
     }
-    if request.source_uri.is_none() {
+    if file_source && request.source_uri.is_none() {
         return Err(failed("source URI is required"));
+    }
+    if !file_source && request.source_uri.is_some() {
+        return Err(failed(
+            "a composed operation takes its source from the preceding relation",
+        ));
     }
     let has_unrelated = (request.expression_projection.is_some()
         && request.kind != VortexQueryPrimitiveKind::ExpressionProjectRows)
@@ -211,7 +222,7 @@ pub fn prepare_unary(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<PreparedVortexUnary> {
-    canonical(request)?;
+    canonical(request, true)?;
     validate_policy(policy)?;
     let (effective, _) = policy.with_physical_policy_for_request(request);
     let session = ResidentVortexSession::new(
@@ -246,7 +257,7 @@ pub fn prepare_unary_for_optional_reuse(
     if request.structured_projection.is_some() {
         return Ok(None);
     }
-    canonical(request)?;
+    canonical(request, true)?;
     validate_policy(policy)?;
     let (effective, _) = policy.with_physical_policy_for_request(request);
     let session = ResidentVortexSession::new(
@@ -262,7 +273,7 @@ fn prepare_candidate(
     session: &ResidentVortexSession,
     optional: bool,
 ) -> Result<Option<PreparedVortexUnary>> {
-    canonical(request)?;
+    canonical(request, true)?;
     validate_policy(policy)?;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     if session.snapshot().memory.limit_bytes > policy.resource_envelope.memory_budget_bytes
@@ -295,66 +306,174 @@ fn bind_unary(
     physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
     source: PreparedVortexSource,
     session: &ResidentVortexSession,
-    mut metadata: MemoryLease,
+    metadata: MemoryLease,
 ) -> Result<PreparedVortexUnary> {
-    let dtype = source.dtype();
-    let width = dtype
-        .as_struct_fields_opt()
-        .map_or(1, |fields| fields.names().len());
-    let schema_bytes = u64::try_from(width)
-        .map_err(vortex_error)?
-        .checked_mul(4096)
-        .and_then(|bytes| bytes.checked_add(65_536))
-        .ok_or_else(|| failed("schema size overflow"))?;
-    metadata.resize(
-        metadata
-            .bytes()
-            .checked_add(schema_bytes)
-            .ok_or_else(|| failed("metadata size overflow"))?,
-    )?;
-    let plan = super::row_export_scan_plan(request, dtype)?;
-    let schema::Binding {
-        columns,
-        output_columns,
-        output_indices,
-        key_indices,
-        weight_index,
-        fields,
-        expression,
-        melt,
-        explode,
-        pivot,
-    } = schema::bind(request, dtype, &plan, session.memory())?;
-    // Validate declared types even for reports and empty sources.
-    drop(super::completed_result::CompletedRows::new(
-        fields.clone(),
-        session.memory(),
-    )?);
-    let predicate = plan
-        .residual_predicate
-        .as_ref()
-        .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &columns))
-        .transpose()?;
+    let plan = super::row_export_scan_plan(request, source.dtype())?;
+    let bound = BoundUnary::bind(request, source.dtype(), &plan, session.memory(), metadata)?;
     Ok(PreparedVortexUnary {
-        request: request.clone(),
         policy,
         physical_policy,
         source,
         session: session.clone(),
         plan,
-        columns,
-        output_columns,
-        output_indices,
-        key_indices,
-        weight_index,
-        fields,
-        predicate,
-        expression,
-        melt,
-        explode,
-        pivot,
-        _metadata: metadata,
+        bound,
     })
+}
+
+impl BoundUnary {
+    pub(super) fn for_relation(
+        request: &VortexQueryPrimitiveRequest,
+        dtype: &DType,
+        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    ) -> Result<Self> {
+        canonical(request, false)?;
+        if matches!(
+            request.kind,
+            VortexQueryPrimitiveKind::ExplodeRows | VortexQueryPrimitiveKind::PivotRows
+        ) {
+            return Err(failed(
+                "composed unary input requires a statically bound flat scalar operation",
+            ));
+        }
+        let metadata = memory.reserve(memory::request_bytes(request)?)?;
+        let mut plan = super::row_export_scan_plan(request, dtype)?;
+        // The preceding relation already executed. Any predicate attached to
+        // this operation is evaluated here, including scan-pushable predicates.
+        plan.residual_predicate.clone_from(&request.predicate);
+        Self::bind(request, dtype, &plan, memory, metadata)
+    }
+
+    pub(super) fn fields(&self) -> &[(String, DType)] {
+        &self.fields
+    }
+
+    /// A conservative metadata bound, never a row count obtained by replay.
+    pub(super) fn upper_output_rows(&self, input: Option<u64>) -> Option<u64> {
+        if self.request.kind == VortexQueryPrimitiveKind::SampleRows {
+            if self.request.sample_fraction.is_none() {
+                return self.request.source_order_limit.map(|n| {
+                    if self.request.sample_with_replacement {
+                        n as u64
+                    } else {
+                        input.map_or(n as u64, |rows| rows.min(n as u64))
+                    }
+                });
+            }
+            return input.and_then(|rows| {
+                super::sample_target_count(&self.request, usize::try_from(rows).ok()?)
+                    .ok()
+                    .map(|n| n as u64)
+            });
+        }
+        let expanded = if self.request.kind == VortexQueryPrimitiveKind::MeltRows {
+            input.and_then(|rows| {
+                rows.checked_mul(self.request.melt_projection.as_ref()?.value_columns.len() as u64)
+            })
+        } else {
+            input
+        };
+        match self.request.source_order_limit {
+            Some(limit) => Some(expanded.map_or(limit as u64, |rows| rows.min(limit as u64))),
+            None => expanded,
+        }
+    }
+
+    /// Drive the existing operation states inside a caller's admitted execution.
+    pub(super) fn consume_relation(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        input_rows: Option<u64>,
+        batch_rows: usize,
+        produce: impl FnOnce(&mut dyn FnMut(ArrayRef) -> Result<()>) -> Result<()>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<report::StateUsage> {
+        let rows = super::completed_result::CompletedRows::streaming(
+            self.fields.clone(),
+            context.memory(),
+            batch_rows,
+            context.cancellation().clone(),
+            consume,
+        )?;
+        let mut output = UnaryOutput {
+            columns: &self.output_columns,
+            rows: 0,
+            payload: Some(rows),
+        };
+        let mut state = select::State::new(self, context, input_rows, false)?;
+        let mut stopped = false;
+        produce(&mut |array| {
+            context.check_cancelled()?;
+            if !stopped {
+                let mut batch = NativeBatch::new(&array, &self.columns, context)?;
+                stopped = state.consume(self, &mut batch, array.len(), context, &mut output)?;
+            }
+            Ok(())
+        })?;
+        let usage = state.usage();
+        state.finish(self, context, &mut output)?;
+        output.finish()?;
+        Ok(usage)
+    }
+
+    fn bind(
+        request: &VortexQueryPrimitiveRequest,
+        dtype: &DType,
+        plan: &LocalVortexScanPlan,
+        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+        mut metadata: MemoryLease,
+    ) -> Result<Self> {
+        let width = dtype
+            .as_struct_fields_opt()
+            .map_or(1, |fields| fields.names().len());
+        let schema_bytes = u64::try_from(width)
+            .map_err(vortex_error)?
+            .checked_mul(4096)
+            .and_then(|bytes| bytes.checked_add(65_536))
+            .ok_or_else(|| failed("schema size overflow"))?;
+        metadata.resize(
+            metadata
+                .bytes()
+                .checked_add(schema_bytes)
+                .ok_or_else(|| failed("metadata size overflow"))?,
+        )?;
+        let schema::Binding {
+            columns,
+            output_columns,
+            output_indices,
+            key_indices,
+            weight_index,
+            fields,
+            expression,
+            melt,
+            explode,
+            pivot,
+        } = schema::bind(request, dtype, plan, memory)?;
+        // Validate declared types even for reports and empty sources.
+        drop(super::completed_result::CompletedRows::new(
+            fields.clone(),
+            memory,
+        )?);
+        let predicate = plan
+            .residual_predicate
+            .as_ref()
+            .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &columns))
+            .transpose()?;
+        Ok(Self {
+            request: request.clone(),
+            columns,
+            output_columns,
+            output_indices,
+            key_indices,
+            weight_index,
+            fields,
+            predicate,
+            expression,
+            melt,
+            explode,
+            pivot,
+            _metadata: metadata,
+        })
+    }
 }
 
 impl PreparedVortexUnary {
@@ -367,10 +486,10 @@ impl PreparedVortexUnary {
     /// # Errors
     /// Rejects changed sources, resource pressure, cancellation and operator errors.
     pub fn execute(&self) -> Result<ExecutedVortexUnary> {
-        if self.pivot.is_some() {
+        if self.bound.pivot.is_some() {
             return self.execute_pivot();
         }
-        let mut output = UnaryOutput::discard(&self.output_columns);
+        let mut output = UnaryOutput::discard(&self.bound.output_columns);
         self.execute_output(&CancellationToken::default(), &mut output)
     }
 
@@ -386,9 +505,9 @@ impl PreparedVortexUnary {
         let mut executed =
             self.source
                 .with_native_execution_controlled(cancellation, |file, context| {
-                    if self.pivot.is_some() {
+                    if self.bound.pivot.is_some() {
                         let completed = self.complete_pivot(file, context)?;
-                        completed.emit(self, context, BATCH_ROWS, &mut |array| {
+                        completed.emit(&self.bound, context, BATCH_ROWS, &mut |array| {
                             consume(array, context)
                         })?;
                         return Ok(completed.execution);
@@ -409,14 +528,14 @@ impl PreparedVortexUnary {
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexUnary> {
         let rows = super::completed_result::CompletedRows::streaming(
-            self.fields.clone(),
+            self.bound.fields.clone(),
             context.memory(),
             batch_rows,
             context.cancellation().clone(),
             consume,
         )?;
         let mut output = UnaryOutput {
-            columns: &self.output_columns,
+            columns: &self.bound.output_columns,
             rows: 0,
             payload: Some(rows),
         };
@@ -489,14 +608,14 @@ impl PreparedVortexUnary {
     ) -> Result<ExecutedVortexUnary> {
         let (state, evidence) = self.scan_state(file, context, output)?;
         let usage = state.usage();
-        let pre_limit = state.finish(self, context, output)?;
+        let pre_limit = state.finish(&self.bound, context, output)?;
         output.finish()?;
         self.certify_scan(
             context,
             evidence,
             output.rows,
             pre_limit,
-            &self.output_columns,
+            &self.bound.output_columns,
             usage,
         )
     }
@@ -510,7 +629,7 @@ impl PreparedVortexUnary {
         let filter = self.plan.filter.as_ref();
         let mut embedded = super::VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
             file,
-            self.request.kind,
+            self.bound.request.kind,
             filter.is_some(),
             self.plan.projection.is_some(),
         );
@@ -521,10 +640,14 @@ impl PreparedVortexUnary {
         if filter.is_some() {
             embedded.mark_pruning_consulted(pruned);
         }
-        let mut evidence = EvidenceOwners::new(context, self.columns.len())?;
+        let mut evidence = EvidenceOwners::new(context, self.bound.columns.len())?;
         let mut splits = ReservedVec::new(context.memory())?;
-        let mut state =
-            select::State::new(self, context, if pruned { 0 } else { file.row_count() })?;
+        let mut state = select::State::new(
+            &self.bound,
+            context,
+            Some(if pruned { 0 } else { file.row_count() }),
+            true,
+        )?;
         let max_chunk_rows = if pruned {
             0
         } else {
@@ -568,7 +691,8 @@ impl PreparedVortexUnary {
         } = scan;
         context.check_cancelled()?;
         let source = shardloom_core::UniversalInputSource::from_dataset_uri(
-            self.request
+            self.bound
+                .request
                 .source_uri
                 .clone()
                 .ok_or_else(|| failed("source URI is absent"))?,
@@ -590,24 +714,26 @@ impl PreparedVortexUnary {
             resource_envelope: self.policy.resource_envelope(),
             max_parallelism_requested: self.policy.max_parallelism,
             scan_concurrency_per_worker: 1,
-            projected_columns: if self.request.kind == VortexQueryPrimitiveKind::DuplicateMaskRows {
-                self.columns.clone()
+            projected_columns: if self.bound.request.kind
+                == VortexQueryPrimitiveKind::DuplicateMaskRows
+            {
+                self.bound.columns.clone()
             } else {
                 columns.to_vec()
             },
             filter_pushdown_applied: self.plan.filter.is_some(),
             projection_pushdown_applied: self.plan.projection.is_some(),
             residual_predicate_materialization: super::ResidualPredicateMaterialization::from_flags(
-                self.predicate.is_some(),
-                self.predicate.is_some() && max_chunk_rows > 0,
+                self.bound.predicate.is_some(),
+                self.bound.predicate.is_some() && max_chunk_rows > 0,
             ),
-            source_order_limit: self.request.source_order_limit,
+            source_order_limit: self.bound.request.source_order_limit,
             embedded_layout: embedded,
             embedded_derived_column_rewrites: self.plan.embedded_derived_column_rewrites.clone(),
         };
         let report = self.execution_report(&scan, usage)?;
         let native_io_certificate =
-            super::local_primitive_native_io_certificate(&self.request, &report)?;
+            super::local_primitive_native_io_certificate(&self.bound.request, &report)?;
         if report.has_errors() || !native_io_certificate.is_certified() {
             return Err(failed("native execution was not certified"));
         }
@@ -641,14 +767,16 @@ impl PreparedVortexUnary {
         if let Some(projection) = &self.plan.projection {
             scan = scan.with_projection(super::bind_vortex_scan_expr(file, projection)?);
         }
-        if self.request.kind == VortexQueryPrimitiveKind::TailRows {
+        if self.bound.request.kind == VortexQueryPrimitiveKind::TailRows {
             let limit = self
+                .bound
                 .request
                 .source_order_limit
                 .ok_or_else(|| failed("tail limit is absent"))? as u64;
             scan = scan.with_row_range(file.row_count().saturating_sub(limit)..file.row_count());
         }
         let uri = self
+            .bound
             .request
             .source_uri
             .as_ref()
@@ -660,7 +788,7 @@ impl PreparedVortexUnary {
         {
             context.check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
-            evidence.reserve_chunk(context, self.columns.len(), uri.as_str().len())?;
+            evidence.reserve_chunk(context, self.bound.columns.len(), uri.as_str().len())?;
             splits.reserve_one()?;
             splits
                 .values
@@ -674,8 +802,8 @@ impl PreparedVortexUnary {
                     chunk.nbuffers(),
                 )?);
             max_chunk_rows = max_chunk_rows.max(chunk.len());
-            let mut batch = NativeBatch::new(&chunk, &self.columns, context)?;
-            if state.consume(self, &mut batch, chunk.len(), context, output)? {
+            let mut batch = NativeBatch::new(&chunk, &self.bound.columns, context)?;
+            if state.consume(&self.bound, &mut batch, chunk.len(), context, output)? {
                 break;
             }
         }

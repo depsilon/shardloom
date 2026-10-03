@@ -3110,8 +3110,8 @@ fn parse_drop_duplicate_columns(
     ))
 }
 
-fn parse_melt_primitive_request(
-    uri: DatasetUri,
+pub(crate) fn parse_melt_primitive_request(
+    uri: impl Into<Option<DatasetUri>>,
     payload: &str,
 ) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
     let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
@@ -3133,10 +3133,17 @@ fn parse_melt_primitive_request(
     let value_column = json_optional_string_field_any(object, &["value_column", "value_name"])?
         .unwrap_or("value")
         .to_string();
-    Ok(shardloom_vortex::VortexQueryPrimitiveRequest::melt_rows(
-        uri,
-        VortexMeltProjectionRequest::new(id_columns, value_columns, variable_column, value_column),
-    ))
+    let projection =
+        VortexMeltProjectionRequest::new(id_columns, value_columns, variable_column, value_column);
+    let columns = projection.projected_columns();
+    Ok(shardloom_vortex::VortexQueryPrimitiveRequest {
+        source_uri: uri.into(),
+        melt_projection: Some(projection),
+        ..shardloom_vortex::VortexQueryPrimitiveRequest::for_relational_input(
+            shardloom_vortex::VortexQueryPrimitiveKind::MeltRows,
+            ProjectionRequest::columns(columns),
+        )
+    })
 }
 
 fn parse_explode_primitive_request(
@@ -3239,8 +3246,8 @@ fn parse_pivot_primitive_request(
     ))
 }
 
-fn parse_rolling_primitive_request(
-    uri: DatasetUri,
+pub(crate) fn parse_rolling_primitive_request(
+    uri: impl Into<Option<DatasetUri>>,
     payload: &str,
 ) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
     let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
@@ -3258,19 +3265,23 @@ fn parse_rolling_primitive_request(
     let min_periods = json_usize_field_any(object, &["min_periods"])?;
     let aggregate = json_string_field_any(object, &["aggregate", "agg"])?.to_string();
     let center = json_optional_bool_field_any(object, &["center"])?.unwrap_or(false);
-    Ok(
-        shardloom_vortex::VortexQueryPrimitiveRequest::rolling_window_rows(
-            uri,
-            VortexRollingWindowRequest::new(
-                source_column,
-                output_column,
-                window_size,
-                min_periods,
-                aggregate,
-            )
-            .with_center(center),
-        ),
+    let rolling = VortexRollingWindowRequest::new(
+        source_column,
+        output_column,
+        window_size,
+        min_periods,
+        aggregate,
     )
+    .with_center(center);
+    let columns = rolling.projected_columns();
+    Ok(shardloom_vortex::VortexQueryPrimitiveRequest {
+        source_uri: uri.into(),
+        rolling_window: Some(rolling),
+        ..shardloom_vortex::VortexQueryPrimitiveRequest::for_relational_input(
+            shardloom_vortex::VortexQueryPrimitiveKind::RollingWindowRows,
+            ProjectionRequest::columns(columns),
+        )
+    })
 }
 
 fn parse_simple_aggregate_primitive_request(
@@ -3692,8 +3703,8 @@ fn json_optional_i64_field_any(
     Ok(None)
 }
 
-fn parse_expression_project_primitive_request(
-    uri: DatasetUri,
+pub(crate) fn parse_expression_project_primitive_request(
+    uri: impl Into<Option<DatasetUri>>,
     payload: &str,
 ) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
     let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
@@ -3707,6 +3718,9 @@ fn parse_expression_project_primitive_request(
         )
     })?;
     if object.contains_key("structured_columns") {
+        let uri = uri.into().ok_or_else(|| ShardLoomError::InvalidOperation(
+            "composed REWRITE admits flat scalar rewrites only; no fallback execution was attempted".into()
+        ))?;
         return parse_structured_expression_project_primitive_request(uri, object);
     }
     let columns_value = object.get("columns").ok_or_else(|| {
@@ -3753,13 +3767,14 @@ fn parse_expression_project_primitive_request(
     for rewrite_value in rewrites_array {
         rewrites.push(parse_expression_project_rewrite(rewrite_value)?);
     }
-    Ok(
-        shardloom_vortex::VortexQueryPrimitiveRequest::expression_project_rows(
-            uri,
+    Ok(shardloom_vortex::VortexQueryPrimitiveRequest {
+        source_uri: uri.into(),
+        expression_projection: Some(VortexExpressionProjectionRequest::new(rewrites)),
+        ..shardloom_vortex::VortexQueryPrimitiveRequest::for_relational_input(
+            shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows,
             columns,
-            VortexExpressionProjectionRequest::new(rewrites),
-        ),
-    )
+        )
+    })
 }
 
 fn parse_structured_expression_project_primitive_request(

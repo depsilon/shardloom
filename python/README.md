@@ -453,8 +453,17 @@ Larger results use bounded batches through `write_vortex`, `write_parquet`,
 `write_arrow_ipc`, `write_avro`, `write_orc`, `write_json`, `write_jsonl` or `write_csv`,
 subject to each format's dtype contract and the operation's state budget. Native
 Vortex and text output admit supported mixed scalar melt/pivot results; mixed Variant
-columns are not general binary compatibility output support. Nested and extension
-shapes and arbitrary operator chains still require their own admitted implementation.
+columns are not general binary compatibility output support.
+
+Current source builds compose flat-scalar DISTINCT, `drop_duplicates`, `duplicated`,
+tail, sample, scalar rewrites, melt and rolling with admitted filters, projections,
+ordering, aggregates, joins and sets. Each operation consumes the preceding stage's
+rows and column names. SQL and DataFrame calls carry the same source declarations,
+CPU/memory allocation and writer policy through one native execution. Melt can omit
+ID columns; inferred value columns come from the preceding output. See the
+[composition contract and acceptance](../docs/architecture/native-unary-composition-2026-10-02.md).
+Nested/extension payloads, composed explode, dynamic pivot and mixed Variant
+composition retain their separate admission boundaries.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and

@@ -22,6 +22,8 @@ use vortex::{
 };
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
+#[path = "local_primitive_unary_bound_tests.rs"]
+mod bound_tests;
 #[path = "local_primitive_unary_explode_tests.rs"]
 mod explode_tests;
 #[path = "local_primitive_unary_pivot_tests.rs"]
@@ -577,7 +579,7 @@ fn unary_empty_retains_schema_and_generation_failure_never_reopens() {
             _ => invalid.upstream_scan_called = false,
         }
         assert!(
-            !runtime::local_primitive_native_io_certificate(&prepared.request, &invalid)
+            !runtime::local_primitive_native_io_certificate(&prepared.bound.request, &invalid)
                 .unwrap()
                 .is_certified()
         );
@@ -775,7 +777,7 @@ fn unary_result_stream_crosses_collect_bound_and_cleans_up_denied_consumers() {
     let (dtype, reopened) = native_rows(&path);
     assert_eq!(
         dtype.as_struct_fields_opt().unwrap().field(KEY),
-        Some(prepared.fields[0].1.clone())
+        Some(prepared.bound.fields[0].1.clone())
     );
     assert_eq!(reopened.len(), ROWS);
     for (ordinal, row) in reopened.iter().enumerate() {

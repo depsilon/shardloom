@@ -21,8 +21,8 @@ use shardloom_vortex::{
         VortexRelationalScan as Scan, VortexRelationalSet as Set,
         VortexRelationalSetKind as SetKind, VortexRelationalSide as Side,
         VortexRelationalSort as Sort, VortexRelationalSubquery as Subquery,
-        VortexRelationalSubqueryKind as SubqueryKind, VortexRelationalWindow as Window,
-        VortexRelationalWindowExpression as WindowExpression,
+        VortexRelationalSubqueryKind as SubqueryKind, VortexRelationalUnary as Unary,
+        VortexRelationalWindow as Window, VortexRelationalWindowExpression as WindowExpression,
         VortexRelationalWindowFunction as NativeWindowFunction,
     },
 };
@@ -36,6 +36,8 @@ mod pruning;
 #[cfg(test)]
 #[path = "sql_native_relational_tests.rs"]
 mod tests;
+#[path = "sql_native_relational_unary.rs"]
+mod unary;
 
 type NativeResult<T> = Result<T, ShardLoomError>;
 
@@ -63,8 +65,10 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
     let ParsedRelationQuery::Select(parsed) = ParsedRelationQuery::parse(&statement)? else {
         return Ok(true);
     };
-    Ok(matches!(parsed.source, ParsedRelationSource::Derived(_))
-        || parsed.replace_or_add_projection
+    Ok(matches!(
+        parsed.source,
+        ParsedRelationSource::Derived(_) | ParsedRelationSource::Unary(_)
+    ) || parsed.replace_or_add_projection
         || parsed.join.is_some()
         || !parsed.window_projections.is_empty()
         || parsed
@@ -109,6 +113,7 @@ fn declared_relation_sources(
             paths.insert(path.clone());
         }
         ParsedRelationSource::Derived(query) => declared_query_sources(query, paths),
+        ParsedRelationSource::Unary(operation) => declared_query_sources(&operation.input, paths),
     }
 }
 
@@ -284,6 +289,38 @@ impl Lowerer<'_, '_> {
         match source {
             ParsedRelationSource::Local(path) => self.scan(path),
             ParsedRelationSource::Derived(query) => self.query(query),
+            ParsedRelationSource::Unary(operation) => {
+                let input = self.query(&operation.input)?;
+                let request = unary::resolve(operation.request.clone(), &input)?;
+                let selected = match &request.projection {
+                    ProjectionRequest::All => input.columns.clone(),
+                    ProjectionRequest::Columns(columns) => columns
+                        .iter()
+                        .map(|column| input.resolve(column.as_str()))
+                        .collect::<NativeResult<Vec<_>>>()?,
+                };
+                let columns = if let Some(melt) = &request.melt_projection {
+                    melt.output_columns()
+                } else if let Some(rolling) = &request.rolling_window {
+                    rolling.output_columns()
+                } else if let Some(rewrites) = &request.expression_projection {
+                    rewrites.output_columns(&selected)
+                } else if request.kind
+                    == shardloom_vortex::VortexQueryPrimitiveKind::DuplicateMaskRows
+                {
+                    vec!["duplicated".into()]
+                } else {
+                    selected
+                };
+                Ok(Lowered {
+                    plan: Plan::Unary(Box::new(Unary {
+                        input: input.plan,
+                        request,
+                    })),
+                    columns,
+                    qualifiers: BTreeMap::new(),
+                })
+            }
         }
     }
 

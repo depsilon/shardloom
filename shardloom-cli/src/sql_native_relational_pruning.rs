@@ -72,6 +72,11 @@ impl Lowerer<'_, '_> {
                 self.prune_at(&mut sort.input, required, outer, depth + 1)
             }
             Plan::Limit(limit) => self.prune_at(&mut limit.input, required, outer, depth + 1),
+            Plan::Unary(unary) => {
+                // Deduplication identity, rewrite dependencies and weight/reshape
+                // inputs remain complete even when a later SELECT drops fields.
+                self.prune_at(&mut unary.input, None, outer, depth + 1)
+            }
             Plan::Aggregate(aggregate) => {
                 let needed = aggregate
                     .group_by
