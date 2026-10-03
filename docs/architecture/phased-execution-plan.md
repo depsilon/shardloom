@@ -528,6 +528,10 @@ held-out boundary/resource acceptance and all 258 Full43 results. See
 `small-numeric-count-selection-screen-2026-09-27.md`. C1 drops the released
 0.86.x upgrade at allocator-resource admission; the current typed-denial and
 buffer-credit contract stays intact. See `vortex-086-upgrade-admission-2026-09-27.md`.
+The [October 3 release review](../dependencies/rust-vortex-refresh-2026-10-03.md)
+rechecks released Vortex 0.87.0 against the same contract and retains 0.85.0;
+new provider opportunities map to existing PERF owners. Global Rust stable is
+updated to 1.99.0, with the workspace's 1.96 compatibility floor preserved.
 C5.a retains portable ThinLTO (3.21% lower query total, 7.53% lower ingest) with
 ordinary release artifact acceptance passing. C5.b/C5.c preserve their measured
 query gains but decline promotion of the tested PGO/native CPU configurations after

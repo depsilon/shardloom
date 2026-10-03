@@ -17,6 +17,22 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `RUST-VORTEX-RELEASE-REVIEW-20261003` refresh development tools and provider intake.
+  - Date: 2026-10-03 UTC. The [review and source receipt](../dependencies/rust-vortex-refresh-2026-10-03.md)
+    record Rust stable 1.98.0 to 1.99.0, the repaired local login-shell precedence
+    and LLVM tools installation, and released Vortex 0.87.0 intake against source
+    `6a9bd301`. Both global and explicit 1.99.0 compile/strip/run smoke checks pass.
+  - All three retained-provider allocation tests pass under Rust stable 1.99.0;
+    all 58 release metadata tests pass under the preserved Rust 1.96 MSRV.
+    Workspace version-source validation passes. The initial shell-shadowing
+    observation remains in the receipt alongside the repair and fresh checks.
+  - V1 scope classification: `documentation_only` for provider intake and local
+    toolchain maintenance. The current 34-package Vortex family stays on 0.85.0:
+    0.87 still lacks the required safe, recoverable allocation-denial boundary.
+    The API map attaches feature candidates to existing PERF owners. No new
+    provider build, benchmark, runtime feature, package publication or PERF/CG
+    completion is claimed.
+
 - [x] `NATIVE-UNARY-COMPOSITION` compose eight shared flat-scalar unary families.
   - Date: 2026-10-03 UTC. Frozen runtime `e1133f69` and tested head
     `7875b2e984db89ff5910d1e54d1cba98fd5794ee` merged in
