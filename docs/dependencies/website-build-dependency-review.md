@@ -38,6 +38,38 @@ publication, runtime execution fallback, public performance claims, or productio
   - `python3 scripts/check_website_readiness.py` passed.
   - `node website/validate_static_assets.js` passed.
 
+## 2026-10-03 Unpatched HTTP Cache Advisory
+
+PR #1506's website job failed on
+[GHSA-ch52-4w7c-c8xp](https://github.com/advisories/GHSA-ch52-4w7c-c8xp).
+The local audit reproduces five high-severity dependency-chain entries for this
+single advisory. `http-cache-semantics` 4.2.0 remains the registry's latest release;
+Astro 7.3.5 also depends on it. The audit's proposed Astro 2.10.9 downgrade is not
+a compatible remediation for this Astro 7 site. No dependency fix is claimed.
+
+A local probe reproduces cached-response reuse with a client `max-stale` header
+in the installed library. The installed Astro caller at
+`dist/assets/build/remote.js` invokes only the constructor, `storable` and
+`timeToLive`. Its initial-fetch and revalidation paths both complete with the
+vulnerable request-evaluation methods replaced by throwing sentinels. The helper
+generates conditional outbound headers; it does not accept public request headers.
+The deployed application is static: `astro.config.mjs` selects static output and
+both Wrangler configurations deploy the `website` assets directory without a
+server entrypoint. This is application reachability counterevidence, not a claim
+that the installed package is fixed or that every Astro deployment is unaffected.
+
+The proposed exception in `website-src/dependency-audit-exception.json` is disabled
+pending explicit maintainer approval. If approved, it expires at
+2026-10-10 00:00 UTC and admits only this exact advisory and its transitive reports.
+The complete lockfile, Astro helper, vulnerable library source, Astro config and
+both deployment configs must match their reviewed SHA-256 fingerprints. A new
+advisory, missing report/link/file, changed fingerprint or expiry fails the gate.
+The command still runs `npm audit --audit-level=low --json`; accepted output says
+`reviewed_exception` and `dependency_vulnerability_fixed: false`. It does not
+report a clean dependency audit. Seven deterministic tests cover acceptance and
+denial conditions. Reassess and remove the exception when an upstream remedy is
+available; renewal requires a new explicit decision.
+
 ## Runtime Boundary
 
 - Astro, Starlight, MDX, sitemap, Pagefind, TypeScript, and related packages are website-only build
