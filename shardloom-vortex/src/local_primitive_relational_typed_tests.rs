@@ -15,6 +15,9 @@ use vortex::array::{
 #[path = "local_primitive_relational_typed_io_tests.rs"]
 mod io_tests;
 
+#[path = "local_primitive_relational_typed_key_tests.rs"]
+mod key_tests;
+
 const DECIMAL_EDGE: i128 = 99_999_999_999_999_999_999_999_999_999_999_999_999;
 
 fn payloads() -> Vec<ArrayRef> {
@@ -159,7 +162,7 @@ fn native_typed_payload_outer_join_nulls_every_missing_field() {
 }
 
 #[test]
-fn native_typed_payload_keys_are_rejected_even_on_empty_input() {
+fn native_typed_payload_keys_preserve_empty_schema() {
     let fixture = fixture();
     let empty = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
         input: fixture.scan(),
@@ -167,12 +170,13 @@ fn native_typed_payload_keys_are_rejected_even_on_empty_input() {
         count: 0,
     }));
     for name in ["payload", "amount", "day", "instant"] {
-        let error = prepare_relational(&sort(empty.clone(), name), policy())
-            .err()
-            .unwrap();
-        assert!(
-            error.to_string().contains("operated scalar"),
-            "{name}: {error}"
+        let plan = sort(empty.clone(), name);
+        assert_eq!(collect(&plan), [] as [Value; 0]);
+        assert_eq!(
+            prepare_relational(&plan, policy()).unwrap().output_dtype(),
+            prepare_relational(&fixture.scan(), policy())
+                .unwrap()
+                .output_dtype()
         );
     }
     for kind in [SetKind::UnionDistinct, SetKind::Intersect, SetKind::Except] {
@@ -181,7 +185,7 @@ fn native_typed_payload_keys_are_rejected_even_on_empty_input() {
             right: empty.clone(),
             kind,
         }));
-        assert!(prepare_relational(&plan, policy()).is_err());
+        assert_eq!(collect(&plan), [] as [Value; 0]);
     }
 }
 

@@ -353,6 +353,32 @@ the ledger.
   - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
     hosted completion remains subject to its existing website advisory decision.
 
+- [ ] `NATIVE-TYPED-KEYS` — complete exact binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp comparisons and keys in the shared native
+  relational runtime under PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed key contract](native-typed-keys-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native dictionary domains, selected
+    payload ownership, one operation admission, bounded capillary delivery and
+    existing native sort runs; metadata-first pruning and timing/evidence surfaces
+    retain their shared owners.
+  - Execution checklist:
+    - [ ] Extend shared key hashing/equality/order and precise binder admission;
+      reuse existing joins, sets, groups, windows, subqueries and scalar selection.
+    - [ ] Extend exact COUNT/DISTINCT/MIN/MAX and prove binary extrema ownership,
+      typed ordering spill/merge, cancellation, constrained grants and cleanup.
+    - [ ] Prove complete public writer/readback workflows, required local gates
+      and paired Full43 regression; update exact public support and immutable evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+      then move this finite item to the completed ledger.
+  - Acceptance: exact logical type identity, full-value comparison after hash
+    lookup, existing NULL rules and no implicit decimal rescaling or temporal
+    coercion, including empty plans. Typed arithmetic/literals/casts, retained
+    unary state, nested keys and broader adapter/state-spill work remain with
+    their existing phase owners.
+  - Dependency: locally accepted typed payload composition; hosted merge remains
+    subject to the existing nested/pivot/typed stack and website advisory decision.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then

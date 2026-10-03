@@ -375,7 +375,7 @@ impl<'a> Binder<'a> {
             .collect::<Result<Vec<_>>>()?;
         if set.kind != SetKind::UnionAll {
             for (_, dtype) in &fields {
-                validate_scalar(dtype)?;
+                validate_key(dtype)?;
             }
         }
         let names = fields.iter().map(|(name, _)| name.clone()).collect();
@@ -431,6 +431,19 @@ fn validate_payload(dtype: &DType) -> Result<()> {
     super::super::native_payload::metadata_bytes(dtype).map(|_| ())
 }
 
+fn validate_key(dtype: &DType) -> Result<()> {
+    match dtype {
+        DType::Binary(_) => Ok(()),
+        DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
+            Ok(())
+        }
+        DType::Extension(_) if crate::native_payload_schema::temporal_storage(dtype).is_some() => {
+            Ok(())
+        }
+        _ => validate_scalar(dtype),
+    }
+}
+
 fn validate_predicate_fields(predicate: &PredicateExpr, dtype: &DType) -> Result<()> {
     if let Some(column) = predicate.column() {
         validate_scalar(&super::super::completed_result::source_field(
@@ -469,8 +482,8 @@ fn integer(ptype: PType) -> Option<(bool, u8)> {
 }
 
 fn validate_key_pair(left: &DType, right: &DType) -> Result<()> {
-    validate_scalar(left)?;
-    validate_scalar(right)?;
+    validate_key(left)?;
+    validate_key(right)?;
     if left.as_nonnullable() == right.as_nonnullable() {
         return Ok(());
     }

@@ -9,6 +9,7 @@ import subprocess
 
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
+from native_typed_key_cases import run as typed_key_cases
 
 
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
@@ -28,12 +29,19 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     def remember(*paths):
         sources.extend((path, file_sha256(path), identity(path)) for path in paths)
 
-    def verified(name, report):
+    def verified(name, report, *, spill=None):
         envelope = accepted(name, report)
         if (envelope.field("public_workflow_memory_gb") != "1"
                 or envelope.field("public_workflow_native_vortex_provider_scenario") != "none"
                 or int(envelope.field("resident_peak_reserved_buffer_bytes")) > 1 << 30):
             raise ValueError(f"{name}: shared native resource admission differs")
+        if spill is not None:
+            if (envelope.field("spill_io_performed") != "true"
+                    or envelope.field("relational_spill_owned_cleanup_completed") != "true"
+                    or int(envelope.field("relational_spill_merge_passes")) < 1
+                    or int(envelope.field("relational_spill_peak_disk_bytes")) > spill["quota_bytes"]
+                    or list(spill_workspace.iterdir())):
+                raise ValueError(f"{name}: typed-key spill, quota or cleanup proof differs")
         return envelope
 
     def equal(name, actual, expected, destination=None):
@@ -54,19 +62,20 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         complete(name, [], [])
 
     def write_all(family, workflow, expected, columns, *, nested=False, typed_orc=True,
-                  json_cells=("payload", "amount")):
+                  json_cells=("payload", "amount"), spill=None):
+        execution = resources if spill is None else dict(resources, spill=spill)
         for extension in ("vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl", "csv", "orc"):
             guard()
             name = f"{family}-{extension}"
             destination = output / f"{name}.{extension}"
-            report = getattr(workflow, f"write_{extension}")(destination, check=False, **resources)
+            report = getattr(workflow, f"write_{extension}")(destination, check=False, **execution)
             if nested and extension in ("csv", "orc"):
                 denied(name, report, destination, "nested")
                 continue
             if typed_orc and extension == "orc":
                 denied(name, report, destination, "ORC does not admit decimal or temporal")
                 continue
-            verified(name, report)
+            verified(name, report, spill=spill)
             if extension == "csv":
                 with destination.open(newline="") as stream:
                     reader = csv.DictReader(stream)
@@ -99,23 +108,25 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                 actual = [strict_json(line) for line in decoded.read_text().splitlines()]
             equal(name, actual, expected, destination)
 
+    def exercise_workflow(name, workflow, expected, columns, **writers):
+        route = workflow.route(bounded=True, check=False, **resources)
+        (output / f"{name}-route.json").write_text(json.dumps(route.envelope.raw, indent=2) + "\n")
+        if (route.route_status != "admitted" or not route.side_effect_free
+                or route.fallback_attempted or route.external_engine_invoked):
+            raise ValueError(f"{name}: route was not admitted and inert")
+        for parallelism in (1, 2):
+            guard()
+            label = f"{name}-collect-{parallelism}"
+            report = workflow.collect(check=False, **dict(resources, max_parallelism=parallelism))
+            if verified(label, report).field("result_payload_complete") != "true":
+                raise ValueError(f"{label}: collection was incomplete")
+            equal(label, list(report.result_rows), expected)
+        write_all(name, workflow, expected, columns, **writers)
+
     def exercise(family, frame, expected, columns, **writers):
         for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(
                 frame._relation_statement(), context.client, source_bindings=frame._declared_sources()))]:
-            name = f"{family}-{spelling}"
-            route = workflow.route(bounded=True, check=False, **resources)
-            (output / f"{name}-route.json").write_text(json.dumps(route.envelope.raw, indent=2) + "\n")
-            if (route.route_status != "admitted" or not route.side_effect_free
-                    or route.fallback_attempted or route.external_engine_invoked):
-                raise ValueError(f"{name}: route was not admitted and inert")
-            for parallelism in (1, 2):
-                guard()
-                label = f"{name}-collect-{parallelism}"
-                report = workflow.collect(check=False, **dict(resources, max_parallelism=parallelism))
-                if verified(label, report).field("result_payload_complete") != "true":
-                    raise ValueError(f"{label}: collection was incomplete")
-                equal(label, list(report.result_rows), expected)
-            write_all(name, workflow, expected, columns, **writers)
+            exercise_workflow(f"{family}-{spelling}", workflow, expected, columns, **writers)
 
     original = [
         {"id": 1, "payload": "00ff10", "amount": "decimal128(38,6):1234567", "day": -1, "instant": -1},
@@ -217,14 +228,59 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         denied(family + "-collect", workflow.collect(check=False, **resources), reason="collect exceeds 65,536 rows")
         write_all(family, workflow, expected, fields)
 
+    typed_key_cases(context, output, guard, exercise, remember, original, fields, schema,
+                    native, output / "typed.data")
+
+    spill_workspace = output / "typed-key-spill"
+    spill_workspace.mkdir()
+    spill = {"workspace": str(spill_workspace), "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20}
+    for key in fields[1:]:
+        key_rows = sorted(expected, key=lambda row: (
+            bytes.fromhex(row[key]) if key == "payload" else
+            int(row[key].split(":")[1]) if key == "amount" else row[key]
+        ), reverse=True)
+        key_oracle = output / f"typed-key-large-{key}-expected.json"
+        key_oracle.write_text(json.dumps(key_rows) + "\n")
+        remember(key_oracle)
+        frame = context.read_vortex(prepared, schema=schema).limit(count).sort(
+            key, descending=True, nulls="last").select(*fields)
+        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(
+                frame._relation_statement(), context.client, source_bindings=frame._declared_sources()))]:
+            family = f"typed-key-large-{key}-{spelling}"
+            guard()
+            limited = workflow.limit(97).collect(check=False, **dict(resources, spill=spill))
+            verified(family + "-limited", limited, spill=spill)
+            equal(family + "-limited", list(limited.result_rows), key_rows[:97])
+            denied(family + "-collect", workflow.collect(check=False, **dict(resources, spill=spill)),
+                   reason="collect exceeds 65,536 rows")
+            if list(spill_workspace.iterdir()):
+                raise ValueError(f"{family}: collection denial left native spill entries")
+            write_all(family, workflow, key_rows, fields, spill=spill)
+
+    # These exact SQL statements replace sixteen earlier typed-key denials.
+    # Keep direct SQL forms so optimized front-door routing is exercised too.
+    promoted = []
+    for name in fields[1:]:
+        promoted.extend([
+            (f"typed-key-direct-{name}-order", f"SELECT * FROM {literal(native)} ORDER BY {name} LIMIT 0", [], fields),
+            (f"typed-key-direct-{name}-group", f"SELECT {name},COUNT(*) AS n FROM {literal(native)} GROUP BY {name}",
+             [{name: row[name], "n": 1} for row in original], [name, "n"]),
+            (f"typed-key-direct-{name}-distinct", f"SELECT {name} FROM {literal(native)} UNION SELECT {name} FROM {literal(native)}",
+             [{name: row[name]} for row in original], [name]),
+            (f"typed-key-direct-{name}-predicate", f"SELECT * FROM (SELECT * FROM {literal(native)} LIMIT 0) AS empty WHERE {name} IS NULL", [], fields),
+        ])
+    promoted_oracle = output / "typed-key-promoted-expected.json"
+    promoted_oracle.write_text(json.dumps({label: {"columns": columns, "rows": rows}
+                                         for label, _, rows, columns in promoted}, indent=2) + "\n")
+    remember(promoted_oracle)
+    for label, statement, rows, columns in promoted:
+        exercise_workflow(label, context.sql(statement), rows, columns,
+                          typed_orc=any(name in columns for name in ("amount", "day", "instant")))
+
     for name in fields[1:]:
         for operation, statement in [
-            ("order", f"SELECT * FROM {literal(native)} ORDER BY {name} LIMIT 0"),
-            ("group", f"SELECT {name},COUNT(*) AS n FROM {literal(native)} GROUP BY {name}"),
-            ("distinct", f"SELECT {name} FROM {literal(native)} UNION SELECT {name} FROM {literal(native)}"),
             ("cast", f"SELECT CAST({name} AS float64) AS changed FROM (SELECT * FROM {literal(native)} LIMIT 0) AS empty"),
             ("arithmetic", f"SELECT {name}+1 AS changed FROM (SELECT * FROM {literal(native)} LIMIT 0) AS empty"),
-            ("predicate", f"SELECT * FROM (SELECT * FROM {literal(native)} LIMIT 0) AS empty WHERE {name} IS NULL"),
         ]:
             guard()
             label = f"typed-denied-{name}-{operation}"

@@ -235,6 +235,9 @@ pub(in crate::local_primitives) fn cast(
             Cell::NegativeInteger(value) => output(scratch, 1024, || value.to_string()),
             Cell::NonnegativeInteger(value) => output(scratch, 1024, || value.to_string()),
             Cell::Float(bits) => output(scratch, 1024, || f64::from_bits(bits).to_string()),
+            Cell::Binary(_) | Cell::Decimal(..) | Cell::Date(_) | Cell::Timestamp(_) => {
+                Err(failed("cast source has no admitted native scalar kernel"))
+            }
             Cell::Null => unreachable!("null handled above"),
         };
     }
