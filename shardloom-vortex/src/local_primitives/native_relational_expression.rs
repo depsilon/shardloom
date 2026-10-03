@@ -232,7 +232,7 @@ impl Expression {
             let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
             let selected = input.take(indices).map_err(vortex_error)?;
             let result = expression.evaluate(&selected, context)?;
-            arrays.values.push(cast(&result, &self.dtype)?);
+            arrays.values.push(cast(&result, &self.dtype, context)?);
         }
         let (arrays, _ownership) = arrays.into_parts();
         if arrays.is_empty() {
@@ -278,6 +278,7 @@ impl Expression {
             let array = cast(
                 &expression.evaluate(&selected, context)?,
                 &self.dtype.as_nullable(),
+                context,
             )?;
             let keys = keys(&array, context)?;
             let mut next = ReservedVec::new(context.memory())?;
@@ -324,9 +325,27 @@ pub(super) fn keys(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Re
     )
 }
 
-fn cast(array: &ArrayRef, dtype: &DType) -> Result<ArrayRef> {
+fn cast(array: &ArrayRef, dtype: &DType, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
     if array.dtype() == &DType::Null {
         Ok(ConstantArray::new(Scalar::null(dtype.as_nullable()), array.len()).into_array())
+    } else if matches!((array.dtype(), dtype),
+        (DType::Decimal(from, _), DType::Decimal(to, _)) if from != to)
+    {
+        // Precision/scale promotion can allocate. Keep it in the same fallible
+        // result allocator as explicit casts, after selecting the live branch.
+        let values = keys(array, context)?;
+        let mut scratch = context.memory().reserve(0)?;
+        result_batch::build_column(
+            dtype,
+            array.len(),
+            &context.native_session().allocator(),
+            |row| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                scalar::cast(values.raw_cell(row)?, dtype, false, &mut scratch)
+            },
+        )
     } else {
         use vortex::array::builtins::ArrayBuiltins as _;
         array.cast(dtype.clone()).map_err(vortex_error)

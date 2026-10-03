@@ -1,6 +1,127 @@
 use super::*;
 
 #[test]
+fn typed_decimal_branch_domains_have_fixed_lossless_common_types() {
+    for (left, right, expected) in [
+        ((10, 2), (3, 2), (10, 2)),
+        ((10, 2), (3, 3), (11, 3)),
+        ((10, 2), (9, 0), (11, 2)),
+        ((38, 38), (1, 1), (38, 38)),
+        ((38, 0), (1, 0), (38, 0)),
+    ] {
+        let left = Decimal128Operand::decimal(0, left.0, left.1).unwrap();
+        let right = Decimal128Operand::decimal(0, right.0, right.1).unwrap();
+        assert_eq!(left.common_type(right).unwrap(), expected);
+        assert_eq!(right.common_type(left).unwrap(), expected);
+    }
+    let integer_domain = Decimal128Operand::decimal(0, 38, 0).unwrap();
+    let fractional_domain = Decimal128Operand::decimal(0, 38, 38).unwrap();
+    assert!(integer_domain.common_type(fractional_domain).is_err());
+    assert!(fractional_domain.common_type(integer_domain).is_err());
+}
+
+#[test]
+fn typed_casts_check_unsigned_and_signed_numeric_domains() {
+    use LogicalDType::{Float64 as F64, Int64 as I64, UInt64 as U64};
+    use ScalarValue::{Float64 as F, Int64 as I, UInt64 as U, Utf8 as S};
+    for (source, target, expected) in [
+        (S("5".into()), U64, Some(U(5))),
+        (S(u64::MAX.to_string()), U64, Some(U(u64::MAX))),
+        (S("18446744073709551616".into()), U64, None),
+        (S("-1".into()), U64, None),
+        (S(" 5".into()), U64, None),
+        (S("1.5".into()), U64, None),
+        (S("bad".into()), U64, None),
+        (I(0), U64, Some(U(0))),
+        (I(i64::MAX), U64, Some(U(9_223_372_036_854_775_807))),
+        (I(-1), U64, None),
+        (I(i64::MIN), U64, None),
+        (U(u64::MAX), U64, Some(U(u64::MAX))),
+        (U(5), I64, Some(I(5))),
+        (U(9_223_372_036_854_775_807), I64, Some(I(i64::MAX))),
+        (U(9_223_372_036_854_775_808), I64, None),
+        (U(u64::MAX), I64, None),
+        (U(5), F64, Some(F(5.0))),
+        (U(u64::MAX), F64, Some(F(18_446_744_073_709_551_616.0))),
+        (F(-0.0), U64, Some(U(0))),
+        (F(5.0), U64, Some(U(5))),
+        (
+            F(18_446_744_073_709_549_568.0),
+            U64,
+            Some(U(18_446_744_073_709_549_568)),
+        ),
+        (F(18_446_744_073_709_551_616.0), U64, None),
+        (F(-1.0), U64, None),
+        (F(1.5), U64, None),
+        (F(-9_223_372_036_854_775_808.0), I64, Some(I(i64::MIN))),
+        (
+            F(9_223_372_036_854_774_784.0),
+            I64,
+            Some(I(9_223_372_036_854_774_784)),
+        ),
+        (F(9_223_372_036_854_775_808.0), I64, None),
+        (F(-9_223_372_036_854_777_856.0), I64, None),
+        (F(1.5), I64, None),
+        (ScalarValue::Null, U64, Some(ScalarValue::Null)),
+    ] {
+        for tolerant in [false, true] {
+            let input = Expression::literal(ExprId::new("source").unwrap(), source.clone());
+            let id = ExprId::new("numeric-cast").unwrap();
+            let expression = if tolerant {
+                Expression::try_cast(id, input, target.clone())
+            } else {
+                Expression::cast(id, input, target.clone())
+            };
+            let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+            if let Some(expected) = &expected {
+                assert_eq!(
+                    report.status,
+                    ExpressionEvaluationStatus::Evaluated,
+                    "{expression:?}"
+                );
+                assert_eq!(report.value.as_ref(), Some(expected), "{expression:?}");
+                assert_eq!(report.output_dtype.as_ref(), Some(&target));
+            } else if tolerant {
+                assert_eq!(
+                    report.status,
+                    ExpressionEvaluationStatus::Evaluated,
+                    "{expression:?}"
+                );
+                assert_eq!(report.value, Some(ScalarValue::Null));
+                assert_eq!(report.output_dtype.as_ref(), Some(&target));
+            } else {
+                assert_eq!(
+                    report.status,
+                    ExpressionEvaluationStatus::InvalidInput,
+                    "{expression:?}"
+                );
+                assert!(report.has_errors());
+            }
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
+    }
+    for value in [
+        ScalarValue::Boolean(true),
+        ScalarValue::Binary(vec![5]),
+        ScalarValue::Date32(5),
+        F(f64::NAN),
+        F(f64::INFINITY),
+        F(f64::NEG_INFINITY),
+    ] {
+        let expression = Expression::try_cast(
+            ExprId::new("unsupported-cast").unwrap(),
+            Expression::literal(ExprId::new("value").unwrap(), value),
+            U64,
+        );
+        assert_eq!(
+            evaluate_expression(&expression, &ExpressionInputRow::new()).status,
+            ExpressionEvaluationStatus::Unsupported
+        );
+    }
+}
+
+#[test]
 fn typed_decimal_arithmetic_binds_before_values_and_checks_exact_results() {
     let dec = |value| Decimal128Operand::decimal(value, 10, 2).unwrap();
     let integer = |value| Decimal128Operand::integer(value, 19).unwrap();

@@ -3158,10 +3158,17 @@ pub fn format_decimal128_value(value: i128, scale: u8) -> String {
 #[allow(
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
     clippy::too_many_lines
 )]
 fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
     let data_materialized = value.data_materialized;
+    if matches!(value.value, ScalarValue::Float64(value) if !value.is_finite()) {
+        return Err(EvalFailure::unsupported(
+            "cast",
+            "nonfinite scalar values are not admitted",
+        ));
+    }
     if value.value.is_null() {
         return Ok(
             EvalValue::null(target_dtype.clone(), NullBehavior::NullPropagating)
@@ -3178,13 +3185,35 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
     let casted = match (&value.value, target_dtype) {
         (value, dtype) if value.dtype() == *dtype => value.clone(),
         (ScalarValue::Int64(value), LogicalDType::Float64) => ScalarValue::Float64(*value as f64),
-        (ScalarValue::Float64(value), LogicalDType::Int64)
-            if value.is_finite()
-                && value.fract() == 0.0
-                && *value >= i64::MIN as f64
-                && *value <= i64::MAX as f64 =>
-        {
+        (ScalarValue::UInt64(value), LogicalDType::Float64) => ScalarValue::Float64(*value as f64),
+        (ScalarValue::Int64(value), LogicalDType::UInt64) => ScalarValue::UInt64(
+            u64::try_from(*value)
+                .map_err(|_| EvalFailure::invalid("cast", "int64 value exceeds uint64 range"))?,
+        ),
+        (ScalarValue::UInt64(value), LogicalDType::Int64) => ScalarValue::Int64(
+            i64::try_from(*value)
+                .map_err(|_| EvalFailure::invalid("cast", "uint64 value exceeds int64 range"))?,
+        ),
+        (ScalarValue::Float64(value), LogicalDType::Int64) => {
+            // i64::MAX as f64 rounds up to 2^63, so the upper bound is exclusive.
+            if value.fract() != 0.0
+                || !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(value)
+            {
+                return Err(EvalFailure::invalid(
+                    "cast",
+                    "float64 value is not an integral int64 in range",
+                ));
+            }
             ScalarValue::Int64(*value as i64)
+        }
+        (ScalarValue::Float64(value), LogicalDType::UInt64) => {
+            if value.fract() != 0.0 || !(0.0..18_446_744_073_709_551_616.0).contains(value) {
+                return Err(EvalFailure::invalid(
+                    "cast",
+                    "float64 value is not an integral uint64 in range",
+                ));
+            }
+            ScalarValue::UInt64(*value as u64)
         }
         (ScalarValue::Int64(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
         (ScalarValue::UInt64(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
@@ -3265,6 +3294,11 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
         (ScalarValue::Utf8(value), LogicalDType::Int64) => {
             ScalarValue::Int64(value.parse::<i64>().map_err(|_| {
                 EvalFailure::invalid("cast", "utf8 value cannot be parsed as int64")
+            })?)
+        }
+        (ScalarValue::Utf8(value), LogicalDType::UInt64) => {
+            ScalarValue::UInt64(value.parse::<u64>().map_err(|_| {
+                EvalFailure::invalid("cast", "utf8 value cannot be parsed as uint64")
             })?)
         }
         (ScalarValue::Utf8(value), LogicalDType::Float64) => {

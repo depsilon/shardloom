@@ -73,6 +73,14 @@ scalar conversion. Regression tests include both timestamp extremes.
 - Decimal ABS preserves precision/scale. FLOOR, CEIL and one-argument ROUND
   return scale zero, precision `p` when `s=0`, otherwise `p-s+1`; ROUND resolves
   half ties away from zero. All operate on exact unscaled integers.
+- Decimal CASE/COALESCE branches derive a lossless common type from their declared
+  domains: scale is the larger input scale; precision is the larger integer-digit
+  capacity plus that scale. Binding rejects precision above 38, including empty
+  input and unselected branches. Only selected values are rescaled, using the
+  existing checked decimal cast and reserved native result allocator. This
+  permits Python Decimal null-fill values with smaller declared precision or a
+  different scale without narrowing the source domain. Key compatibility and
+  mixed-scale arithmetic keep their separate explicit-cast contracts.
 - Binary functions: byte length on Binary/UTF8 and strict UNHEX/standard padded
   FROM_BASE64, with the existing aliases and invalid-padding/trailing-bit rules.
 - Calendar functions: date and timestamp field extraction, checked day/second
