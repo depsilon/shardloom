@@ -3241,8 +3241,8 @@ pub(crate) fn parse_explode_primitive_request(
     })
 }
 
-fn parse_pivot_primitive_request(
-    uri: DatasetUri,
+pub(crate) fn parse_pivot_primitive_request(
+    uri: impl Into<Option<DatasetUri>>,
     payload: &str,
 ) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
     let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
@@ -3266,11 +3266,18 @@ fn parse_pivot_primitive_request(
     let margins_name = json_optional_string_field_any(object, &["margins_name"])?
         .unwrap_or("All")
         .to_string();
-    Ok(shardloom_vortex::VortexQueryPrimitiveRequest::pivot_rows(
-        uri,
+    let pivot =
         VortexPivotProjectionRequest::new(index_column, pivot_column, value_column, aggregate)
-            .with_output_policy(fill_value, dropna, margins, margins_name),
-    ))
+            .with_output_policy(fill_value, dropna, margins, margins_name);
+    Ok(shardloom_vortex::VortexQueryPrimitiveRequest {
+        source_uri: uri.into(),
+        projection: ProjectionRequest::columns(pivot.projected_columns()),
+        pivot_projection: Some(pivot),
+        ..shardloom_vortex::VortexQueryPrimitiveRequest::for_relational_input(
+            shardloom_vortex::VortexQueryPrimitiveKind::PivotRows,
+            ProjectionRequest::All,
+        )
+    })
 }
 
 pub(crate) fn parse_rolling_primitive_request(

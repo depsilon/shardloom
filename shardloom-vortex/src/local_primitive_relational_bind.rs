@@ -15,10 +15,13 @@ use vortex::array::dtype::PType;
 
 #[path = "local_primitive_relational_aggregate_bind.rs"]
 mod aggregate;
+#[path = "local_primitive_relational_dynamic_bind.rs"]
+mod dynamic;
 #[path = "local_primitive_relational_expression_bind.rs"]
 mod expression;
 #[path = "local_primitive_relational_subquery_bind.rs"]
 mod subquery;
+pub(super) use subquery::validate_relation as validate_subquery_relation;
 #[path = "local_primitive_relational_transform_bind.rs"]
 mod transform;
 #[path = "local_primitive_relational_window_bind.rs"]
@@ -32,6 +35,11 @@ pub(super) struct Binder<'a> {
     nodes: usize,
     expression_nodes: usize,
     outer_fields: Option<Vec<(String, DType)>>,
+    parameterized_binding: bool,
+    execution: Option<dynamic::ExecutionBinding<'a>>,
+    resolved: ReservedVec<Option<Node>>,
+    scope: std::sync::Arc<()>,
+    deferred: ReservedVec<Option<Box<super::DynamicLowerer>>>,
 }
 
 impl<'a> Binder<'a> {
@@ -44,10 +52,15 @@ impl<'a> Binder<'a> {
             nodes: 0,
             expression_nodes: 0,
             outer_fields: None,
+            parameterized_binding: false,
+            execution: None,
+            resolved: ReservedVec::new(session.memory())?,
+            scope: std::sync::Arc::new(()),
+            deferred: ReservedVec::new(session.memory())?,
         })
     }
 
-    fn charge(&mut self, bytes: usize) -> Result<()> {
+    pub(super) fn charge(&mut self, bytes: usize) -> Result<()> {
         self.metadata.resize(
             self.metadata
                 .bytes()
@@ -73,6 +86,10 @@ impl<'a> Binder<'a> {
         }
         self.charge(4096)?;
         match input {
+            VortexRelationalPlan::DeferredSubquery(_) => Err(failed(
+                "deferred schema declarations require a correlated subquery relation",
+            )),
+            VortexRelationalPlan::ExecutionResult(reference) => self.take_resolved(reference),
             VortexRelationalPlan::Scan(scan) => self.scan(scan),
             VortexRelationalPlan::Join(join) => self.join(join, depth),
             VortexRelationalPlan::Set(set) => self.set(set, depth),
@@ -109,6 +126,9 @@ impl<'a> Binder<'a> {
                     &DType::struct_(input.fields.clone(), Nullability::NonNullable),
                     self.session.memory(),
                 )?;
+                if unary.request.kind == VortexQueryPrimitiveKind::PivotRows {
+                    return self.complete_pivot(&input, operation);
+                }
                 validate_width(operation.fields().len())?;
                 for (name, dtype) in operation.fields() {
                     validate_name(name)?;
@@ -131,7 +151,7 @@ impl<'a> Binder<'a> {
         }
     }
 
-    fn source(&mut self, uri: &shardloom_core::DatasetUri) -> Result<usize> {
+    pub(super) fn source(&mut self, uri: &shardloom_core::DatasetUri) -> Result<usize> {
         if uri.as_str().len() > 16_384 {
             return Err(failed("source URI exceeds 16384 bytes"));
         }
@@ -143,6 +163,11 @@ impl<'a> Binder<'a> {
         {
             index
         } else {
+            if self.execution.is_some() {
+                return Err(failed(
+                    "execution-time binding cannot add an undeclared source",
+                ));
+            }
             if self.sources.values.len() >= 128 {
                 return Err(failed("relational preparation exceeds 128 sources"));
             }

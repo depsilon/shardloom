@@ -3,7 +3,8 @@
 use super::super::native_relational_batch::{Batch, take_batch};
 use super::{
     ArrayRef, Metrics, NativeExecutionContext, Node, NodeKind, PreparedVortexRelational,
-    ReservedVec, Result, failed, native_relational_subquery,
+    ReservedVec, Result, SubqueryRelation, VortexRelationalPreparation, bind, failed,
+    native_relational_subquery,
 };
 
 impl PreparedVortexRelational {
@@ -26,6 +27,9 @@ impl PreparedVortexRelational {
             return Err(failed("subquery dispatch received another operator"));
         };
         if !parameterized {
+            let SubqueryRelation::Bound(relation) = relation else {
+                return Err(failed("dynamic subquery requires an outer singleton"));
+            };
             let mut subquery = native_relational_subquery::Subquery::new(spec, context.memory())?;
             self.run(
                 relation,
@@ -59,14 +63,39 @@ impl PreparedVortexRelational {
                     let parameter = take_batch(&left.array, &input.fields, &[row], context)?;
                     let mut subquery =
                         native_relational_subquery::Subquery::new(spec, context.memory())?;
-                    self.run(
-                        relation,
-                        context,
-                        metrics,
-                        batch_rows,
-                        Some(&parameter),
-                        &mut |array| subquery.build(array, context),
-                    )?;
+                    let mut build = |array| subquery.build(array, context);
+                    match relation {
+                        SubqueryRelation::Bound(relation) => self.run(
+                            relation,
+                            context,
+                            metrics,
+                            batch_rows,
+                            Some(&parameter),
+                            &mut build,
+                        )?,
+                        SubqueryRelation::Dynamic(lower) => {
+                            let mut preparation = VortexRelationalPreparation {
+                                binding: bind::Binder::for_execution(
+                                    self,
+                                    context,
+                                    metrics,
+                                    Some(&parameter),
+                                )?,
+                            };
+                            let plan = lower(&mut preparation)?;
+                            let root = preparation.binding.bind(&plan, 0)?;
+                            preparation.binding.ensure_consumed()?;
+                            bind::validate_subquery_relation(spec, &input.fields, &root.fields)?;
+                            self.run(
+                                &root,
+                                context,
+                                metrics,
+                                batch_rows,
+                                Some(&parameter),
+                                &mut build,
+                            )?;
+                        }
+                    }
                     values.values.push(subquery.result(&left, row, context)?);
                 }
                 consume(spec.output(&left.array, &values.values, context)?)?;

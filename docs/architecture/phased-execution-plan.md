@@ -284,6 +284,29 @@ the ledger.
     and small collection bounds are preserved. Dynamic pivot, richer type/key
     semantics and wider state spill retain their existing concrete owners.
 
+- [ ] `NATIVE-DYNAMIC-PIVOT-COMPOSITION` — complete data-dependent pivot schemas
+  through the shared native relational binder, operator states and local sinks
+  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [dynamic pivot contract](native-dynamic-pivot-composition-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: retain metadata-only preparation and existing
+    pushdown; discover domains once through the shared pivot kernel, with one
+    PulseWeave grant, capillary delivery and complete work/timing evidence.
+  - Execution checklist:
+    - [ ] Share sparse pivot completion between direct and relational consumers;
+      add execution-time binding with reserved state and single-use ownership.
+    - [ ] Lower ordered SQL/DataFrame pivot stages, including dependent aliases,
+      wildcards and existing relational/unary consumers, through the common plan.
+    - [ ] Prove empty and changing schemas, parameter scopes, all representable
+      writers, generation checks, cancellation, pressure and retained lifetimes.
+    - [ ] Freeze complete public and regression acceptance, required local/hosted
+      gates and review; update support records and the completed ledger.
+  - Acceptance: complete admitted dynamic-schema workflows without a second
+    scan for discovery, prefix collection, intermediate files or fallback. Keep
+    inspection inert and all existing direct pivot semantics and bounds explicit.
+  - Dependency: uses the locally accepted nested-composition tree; its hosted
+    website advisory decision remains separate and cannot be bypassed by this work.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then

@@ -253,7 +253,7 @@ fn native_relational_expression_coalesce_nullif_and_nullable_conditional() {
         ],
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let dtype = prepared.output_dtype();
+    let dtype = prepared.output_dtype().unwrap();
     let fields = dtype.as_struct_fields_opt().unwrap();
     assert_eq!(
         fields.field("number").unwrap(),
@@ -585,7 +585,7 @@ fn native_relational_sort_range_preserves_stable_ties_null_placement_and_origina
             assert_eq!(selected, rows[offset.min(rows.len())..end]);
             let prepared = prepare_relational(&limited, policy()).unwrap();
             assert_eq!(
-                prepared.output_dtype(),
+                prepared.output_dtype().unwrap(),
                 DType::struct_(
                     [
                         (

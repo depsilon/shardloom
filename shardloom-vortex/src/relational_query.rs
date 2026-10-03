@@ -1,5 +1,6 @@
 //! Typed relational requests shared by native Rust and public front ends.
-//! Names and schemas are bound before execution; no request stores result rows.
+//! Static schemas bind at preparation; data-dependent schemas bind inside the
+//! admitted execution. Requests never store result rows.
 
 use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, Expression, PredicateExpr};
 use shardloom_plan::ProjectionRequest;
@@ -82,6 +83,40 @@ pub enum VortexRelationalPlan {
     Limit(Box<VortexRelationalLimit>),
     Aggregate(Box<VortexRelationalAggregate>),
     Unary(Box<VortexRelationalUnary>),
+    /// A single-use native relation owned by the current schema-binding execution.
+    /// Only the native preparation API can create this reference; it is invalid
+    /// outside the execution that resolved its schema.
+    ExecutionResult(VortexRelationalExecutionRef),
+    /// An execution-scoped declaration lowered separately for each outer row.
+    /// Valid only as the immediate relation of a correlated subquery.
+    DeferredSubquery(VortexRelationalDeferredRef),
+}
+
+/// Opaque, single-use declaration reference for per-parameter schema binding.
+#[derive(Debug, Clone)]
+pub struct VortexRelationalDeferredRef {
+    pub(crate) scope: std::sync::Arc<()>,
+    pub(crate) slot: usize,
+}
+
+impl PartialEq for VortexRelationalDeferredRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.slot == other.slot && std::sync::Arc::ptr_eq(&self.scope, &other.scope)
+    }
+}
+
+/// Opaque ownership reference returned by execution-time schema resolution.
+/// Cloning a reference does not clone its result or authorize a second consumer.
+#[derive(Debug, Clone)]
+pub struct VortexRelationalExecutionRef {
+    pub(crate) scope: std::sync::Arc<()>,
+    pub(crate) slot: usize,
+}
+
+impl PartialEq for VortexRelationalExecutionRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.slot == other.slot && std::sync::Arc::ptr_eq(&self.scope, &other.scope)
+    }
 }
 
 /// An existing native unary operation applied at this position in the tree.

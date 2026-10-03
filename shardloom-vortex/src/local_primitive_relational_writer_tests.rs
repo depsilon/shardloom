@@ -59,7 +59,11 @@ fn native_rows(path: &std::path::Path, dtype: &DType) -> Vec<serde_json::Value> 
         .unwrap()
 }
 
-fn read_rows(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<serde_json::Value> {
+pub(super) fn read_rows(
+    path: &std::path::Path,
+    format: Format,
+    dtype: &DType,
+) -> Vec<serde_json::Value> {
     if format == Format::Vortex {
         return native_rows(path, dtype);
     }
@@ -131,7 +135,7 @@ pub(super) fn verify_writers(
             assert_eq!(fs::read_to_string(path).unwrap(), csv, "{label}");
         } else {
             assert_eq!(
-                read_rows(&path, format, &prepared.output_dtype()),
+                read_rows(&path, format, &prepared.output_dtype().unwrap()),
                 expected,
                 "{label} {format:?}"
             );
@@ -380,7 +384,7 @@ fn native_relational_spill_writes_complete_ordered_output_through_all_eight_sink
             assert_eq!(fs::read_to_string(&path).unwrap(), csv);
         } else {
             assert_eq!(
-                read_rows(&path, format, &prepared.output_dtype()),
+                read_rows(&path, format, &prepared.output_dtype().unwrap()),
                 expected,
                 "{format:?}"
             );
@@ -542,7 +546,7 @@ fn native_relational_every_writer_discards_staging_after_second_source_mutation_
             let baseline = prepared.session.memory().snapshot().reserved_bytes;
             let plan = crate::local_primitives::native_sink::NativeSinkPlan::produced_sources(
                 prepared.session.clone(),
-                prepared.output_dtype(),
+                prepared.output_dtype().unwrap(),
                 4,
                 None,
                 prepared.sources.clone(),
@@ -638,7 +642,7 @@ fn native_relational_every_writer_checks_original_preparation_source_through_com
             let baseline = prepared.session.memory().snapshot().reserved_bytes;
             let plan = crate::local_primitives::native_sink::NativeSinkPlan::produced_sources(
                 prepared.session.clone(),
-                prepared.output_dtype(),
+                prepared.output_dtype().unwrap(),
                 2,
                 None,
                 prepared.sources.clone(),

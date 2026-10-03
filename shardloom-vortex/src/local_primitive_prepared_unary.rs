@@ -20,6 +20,7 @@ use vortex::array::{
 
 use super::result_batch::Value;
 use memory::ReservedVec;
+pub(super) use pivot::CompletedPivot;
 use values::NativeBatch;
 
 #[path = "local_primitive_unary_explode.rs"]
@@ -327,11 +328,6 @@ impl BoundUnary {
         memory: &shardloom_exec::live_memory::LiveMemoryPool,
     ) -> Result<Self> {
         canonical(request, false)?;
-        if request.kind == VortexQueryPrimitiveKind::PivotRows {
-            return Err(failed(
-                "composed pivot requires execution-time schema binding",
-            ));
-        }
         let metadata = memory.reserve(memory::request_bytes(request)?)?;
         let mut plan = super::row_export_scan_plan(request, dtype)?;
         if !schema::retained_source_admitted(request, dtype, &plan)? {
@@ -528,9 +524,11 @@ impl PreparedVortexUnary {
                 .with_native_execution_controlled(cancellation, |file, context| {
                     if self.bound.pivot.is_some() {
                         let completed = self.complete_pivot(file, context)?;
-                        completed.emit(&self.bound, context, BATCH_ROWS, &mut |array| {
-                            consume(array, context)
-                        })?;
+                        completed
+                            .result
+                            .emit(&self.bound, context, BATCH_ROWS, &mut |array| {
+                                consume(array, context)
+                            })?;
                         return Ok(completed.execution);
                     }
                     self.consume_in_context(file, context, BATCH_ROWS, &mut |array| {

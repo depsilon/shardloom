@@ -255,9 +255,16 @@ impl Pivot {
 
 pub(super) struct Completed {
     pub(super) execution: ExecutedVortexUnary,
-    pub(super) fields: Vec<(String, DType)>,
-    pub(super) columns: Vec<String>,
-    pub(super) rows: usize,
+    pub(super) result: CompletedPivot,
+}
+
+/// One execution's sparse state and authoritative schema. Direct file calls and
+/// relational composition share completion and bounded emission of this owner.
+pub(in crate::local_primitives) struct CompletedPivot {
+    pub(in crate::local_primitives) fields: Vec<(String, DType)>,
+    columns: Vec<String>,
+    pub(in crate::local_primitives) rows: usize,
+    pre_limit_rows: usize,
     state: Pivot,
     indices: Vec<String>,
     domains: Vec<String>,
@@ -277,7 +284,6 @@ impl PreparedVortexUnary {
         Ok(execution)
     }
 
-    #[allow(clippy::too_many_lines)] // Domain ownership and final schema must precede the same execution's certificate.
     pub(super) fn complete_pivot(
         &self,
         file: &vortex::file::VortexFile,
@@ -288,15 +294,53 @@ impl PreparedVortexUnary {
         let super::select::State::Pivot(state) = state else {
             return Err(failed("pivot completed with a different state family"));
         };
-        let compiled = self
-            .bound
+        let result = state.complete(&self.bound, context)?;
+        let execution = self.certify_scan(
+            context,
+            evidence,
+            result.rows,
+            result.pre_limit_rows,
+            &result.columns,
+            result.usage(),
+        )?;
+        Ok(Completed { execution, result })
+    }
+}
+
+impl BoundUnary {
+    /// Discover a dynamic domain while consuming the preceding relation exactly
+    /// once. The returned owner supplies both schema binding and later delivery.
+    pub(in crate::local_primitives) fn complete_relation_pivot(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        produce: impl FnOnce(&mut dyn FnMut(ArrayRef) -> Result<()>) -> Result<()>,
+    ) -> Result<CompletedPivot> {
+        let mut state = Pivot::new(context)?;
+        produce(&mut |array| {
+            context.check_cancelled()?;
+            let mut batch = NativeBatch::new(&array, &self.columns, context)?;
+            state.consume(self, &mut batch, array.len(), context)
+        })?;
+        state.complete(self, context)
+    }
+}
+
+impl Pivot {
+    #[allow(clippy::too_many_lines)] // Preserve shared domain, margin and output-schema completion together.
+    fn complete(
+        self,
+        bound: &BoundUnary,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<CompletedPivot> {
+        context.check_cancelled()?;
+        let state = self;
+        let compiled = bound
             .pivot
             .as_ref()
             .ok_or_else(|| failed("pivot is not bound"))?;
-        let projection = super::super::required_pivot_projection(&self.bound.request)?;
+        let projection = super::super::required_pivot_projection(&bound.request)?;
         let has_margin = projection.margins && !state.state.index_keys.is_empty();
-        let limit = self
-            .bound
+        let limit = bound
             .request
             .source_order_limit
             .unwrap_or(usize::MAX)
@@ -393,13 +437,11 @@ impl PreparedVortexUnary {
             .len()
             .checked_add(usize::from(has_margin))
             .ok_or_else(|| failed("pivot row count overflow"))?;
-        let execution =
-            self.certify_scan(context, evidence, rows, pre_limit, &columns, state.usage())?;
-        Ok(Completed {
-            execution,
+        Ok(CompletedPivot {
             fields,
             columns,
             rows,
+            pre_limit_rows: pre_limit,
             state,
             indices,
             domains,
@@ -443,8 +485,12 @@ impl Margin {
     }
 }
 
-impl Completed {
-    pub(super) fn emit(
+impl CompletedPivot {
+    pub(in crate::local_primitives) fn usage(&self) -> super::report::StateUsage {
+        self.state.usage()
+    }
+
+    pub(in crate::local_primitives) fn emit(
         &self,
         plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
