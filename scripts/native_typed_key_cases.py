@@ -86,7 +86,7 @@ def run(context, output: Path, guard, exercise, remember, original, fields, sche
             grouped = prefix.union_all(prefix).group_by(key).agg(
                 rows="count(*)",
                 present=f"count({key})",
-                unique=f"count_distinct({key})",
+                unique=f"count(DISTINCT {key})",
                 low=f"min({key})",
                 high=f"max({key})",
             )
@@ -214,4 +214,3 @@ def run(context, output: Path, guard, exercise, remember, original, fields, sche
     for family, frame, expected, columns, options in cases:
         guard()
         exercise(family, frame, expected, columns, **options)
-
