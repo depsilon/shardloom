@@ -155,3 +155,63 @@ fn native_nested_six_writers_preserve_complete_values_and_typed_empty_results() 
         }
     }
 }
+
+#[test]
+fn native_nested_columnar_intake_reuses_shared_owned_stream_and_empty_schema() {
+    use crate::vortex_ingest::{
+        VortexPreparedStateColumnarStreamWriteRequest, VortexPreparedStateColumnarWriteRequest,
+        write_flat_columnar_vortex_prepared_state,
+        write_flat_columnar_vortex_prepared_state_streaming,
+    };
+    let (fixture, expected) = complex_fixture();
+    for count in [4, 0] {
+        let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+            input: fixture.scan(),
+            offset: 0,
+            count,
+        }));
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        let ipc = fixture.0.join(format!("intake-{count}.arrow"));
+        prepared.write(&ipc, Format::ArrowIpc, false).unwrap();
+        for streaming in [false, true] {
+            let native = fixture.0.join(format!("intake-{count}-{streaming}.vortex"));
+            let report = if streaming {
+                let source = crate::stream_flat_arrow_ipc_columnar_source(&ipc, 100).unwrap();
+                write_flat_columnar_vortex_prepared_state_streaming(
+                    VortexPreparedStateColumnarStreamWriteRequest::new(&native, source)
+                        .shared_native_memory_budget_bytes(16 << 20),
+                )
+            } else {
+                let source = crate::read_flat_arrow_ipc_columnar_source(&ipc, 100).unwrap();
+                write_flat_columnar_vortex_prepared_state(
+                    VortexPreparedStateColumnarWriteRequest::new(&native, source),
+                )
+            }
+            .unwrap();
+            assert_eq!(report.reopen_row_count, count as u64);
+            if streaming {
+                let memory = report.shared_native_memory.as_ref().unwrap();
+                assert_eq!(memory.final_reserved_bytes, 0);
+                assert!(memory.peak_reserved_bytes <= memory.limit_bytes);
+                assert!(report.manual_scalar_copy_avoided);
+            }
+            let reopened = VortexRelationalPlan::Scan(VortexRelationalScan {
+                source_uri: DatasetUri::new(native.display().to_string()).unwrap(),
+                projection: shardloom_plan::ProjectionRequest::All,
+                predicate: None,
+            });
+            let reopened = prepare_relational(&reopened, policy()).unwrap();
+            assert_eq!(
+                json_rows(
+                    &reopened
+                        .collect_jsonl(&CancellationToken::default())
+                        .unwrap()
+                ),
+                expected[..count],
+            );
+            if streaming {
+                assert_eq!(reopened.output_dtype(), prepared.output_dtype());
+            }
+        }
+    }
+}

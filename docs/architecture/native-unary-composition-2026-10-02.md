@@ -21,11 +21,12 @@ declarations converge on the existing native relational plan and executor.
 This unit covers the existing flat-scalar DISTINCT, drop-duplicate,
 duplicate-mask, tail, sampling, scalar-rewrite, melt and rolling semantics.
 It includes their supported parameter policies and repeated composition before
-and after ordinary relational stages. The current list/struct explode and
-data-dependent pivot providers retain their existing standalone contracts.
-Their wider composition requires, respectively, owned nested payload gathering
-and execution-time schema binding. These are concrete type/ownership boundaries
-for the following work, not inferred support from a flat-scalar result.
+and after ordinary relational stages. At this unit's acceptance, list/struct
+explode retained its standalone contract. Current source-build
+composition for statically declared nested payloads and ordered/repeated
+explode is specified in the [nested payload contract](native-nested-composition-2026-10-02.md).
+Data-dependent pivot still requires execution-time schema binding. These are
+concrete type/ownership boundaries, not inferred support from a flat-scalar result.
 Mixed-domain melt values that produce Vortex Variant share the nested/type
 boundary. This unit admits melt with an existing common scalar output type;
 incompatible mixed domains are rejected during preparation.
@@ -233,4 +234,5 @@ SHA-256 `777e3fcd5fce6c87d8df4816377dfbac8691f64d1b47d59bdf68df3a58231ab0`;
 the review/thread receipt has SHA-256
 `f6069b6e786639199caebc105aded7c331cf7e0d8808f6a65d49da03b9d9a887`.
 The [nested payload continuation](native-nested-composition-2026-10-02.md)
-owns the next static type/ownership dependency; broader owners remain open.
+defines current source-build static nested payload and ordered/repeated explode
+composition; broader owners remain open.

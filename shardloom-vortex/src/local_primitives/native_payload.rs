@@ -7,6 +7,7 @@ use super::{
     result_batch::{self, Value},
     vortex_error,
 };
+pub(super) use crate::native_payload_schema::metadata_bytes;
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use vortex::array::{
@@ -23,61 +24,6 @@ pub(super) fn is_nested(dtype: &DType) -> bool {
         dtype,
         DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..)
     )
-}
-
-/// Bound the recursive schema before allocating output or asking a provider to
-/// expand it. The conservative grant covers native array/slot/dtype metadata.
-pub(super) fn metadata_bytes(dtype: &DType) -> Result<u64> {
-    fn visit(dtype: &DType, depth: usize, nodes: &mut usize, bytes: &mut u64) -> Result<()> {
-        *nodes += 1;
-        if depth > 24 || *nodes > 4096 {
-            return Err(failed(
-                "nested payload schema exceeds depth 24 or 4096 nodes",
-            ));
-        }
-        *bytes = bytes
-            .checked_add(1024)
-            .ok_or_else(|| failed("payload metadata overflow"))?;
-        match dtype {
-            DType::Bool(_) | DType::Utf8(_) => {}
-            DType::Primitive(ptype, _) if *ptype != PType::F16 => {}
-            DType::List(element, _) | DType::FixedSizeList(element, _, _) => {
-                visit(element, depth + 1, nodes, bytes)?;
-            }
-            DType::Struct(fields, _) => {
-                if fields.nfields() == 0 || fields.nfields() > 1024 {
-                    return Err(failed("nested structs require 1..=1024 fields"));
-                }
-                for (index, (name, child)) in fields.names().iter().zip(fields.fields()).enumerate()
-                {
-                    let label: &str = name.as_ref();
-                    if label.is_empty()
-                        || fields.names().iter().take(index).any(|prior| prior == name)
-                    {
-                        return Err(failed(
-                            "nested struct field names must be nonempty and distinct",
-                        ));
-                    }
-                    *bytes = bytes
-                        .checked_add((label.len() as u64).saturating_mul(2))
-                        .ok_or_else(|| failed("payload metadata overflow"))?;
-                    visit(&child, depth + 1, nodes, bytes)?;
-                }
-            }
-            _ => {
-                return Err(failed(
-                    "payload requires bool, integer, F32/F64, UTF8 or static list/struct fields",
-                ));
-            }
-        }
-        if *bytes > 8 * 1024 * 1024 {
-            return Err(failed("nested payload schema metadata exceeds 8 MiB"));
-        }
-        Ok(())
-    }
-    let mut bytes = 0;
-    visit(dtype, 0, &mut 0, &mut bytes)?;
-    Ok(bytes)
 }
 
 pub(super) fn take(

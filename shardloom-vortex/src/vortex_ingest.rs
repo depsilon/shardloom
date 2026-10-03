@@ -80,6 +80,9 @@ mod arrow_ownership;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "ingest_bounded_layout.rs"]
 pub(crate) mod bounded_ingest_layout;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_nested.rs"]
+mod nested;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_column_layout.rs"]
@@ -11554,6 +11557,7 @@ fn validate_stream_record_batch_shape(
         }
     }
     for projected_column in &source_shape.projected_columns {
+        nested::validate_field(schema.field(projected_column.reader_index))?;
         let array = batch.column(projected_column.reader_index);
         let family = arrow_column_family(&projected_column.column, array.as_ref())?;
         if family == "float64" {
@@ -12555,6 +12559,11 @@ fn flat_columnar_source_to_vortex_struct(
         .iter()
         .zip(&source_shape.projected_columns)
         .map(|((column, family), projected_column)| {
+            if let Some(dtype) = projected_column.arrow_dtype_hint.as_ref()
+                && nested::family(dtype)?.is_some()
+            {
+                return nested::empty(dtype);
+            }
             let arrays = source
                 .batches
                 .iter()
@@ -12643,6 +12652,7 @@ fn columnar_column_families(
         .map(|projected_column| {
             let mut family = None;
             for batch in &source.batches {
+                nested::validate_field(batch.schema().field(projected_column.reader_index))?;
                 let array = batch.column(projected_column.reader_index);
                 let candidate = arrow_column_family(&projected_column.column, array.as_ref())?;
                 if candidate == "float64" {
@@ -12696,6 +12706,9 @@ fn columnar_column_families_from_schema(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) -> Result<String> {
+    if let Some(family) = nested::family(dtype)? {
+        return Ok(family.to_string());
+    }
     if let Some(family) = dictionary_column_family(dtype) {
         return Ok(family.to_string());
     }
@@ -12724,7 +12737,7 @@ fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) ->
             Ok("timestamp_micros".to_string())
         }
         _ => Err(ShardLoomError::InvalidOperation(format!(
-            "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8, binary, integer, and finite-float columns only; no fallback execution was attempted"
+            "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64 or UTF8 leaves; no fallback execution was attempted"
         ))),
     }
 }
@@ -12753,7 +12766,7 @@ fn columnar_family_from_dtype_hint(
             Ok(format!("decimal128({precision},{scale})"))
         }
         Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8, binary, integer, and finite-float columns only; no fallback execution was attempted",
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64 or UTF8 leaves; no fallback execution was attempted",
             dtype.as_str()
         ))),
     }
@@ -12789,6 +12802,10 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
+    if let Some(family) = nested::family(array.data_type())? {
+        nested::validate_values(column, array)?;
+        return Ok(family.to_string());
+    }
     if let Some(family) = dictionary_column_family(array.data_type()) {
         if family == "dictionary_float64" {
             reject_dictionary_non_finite_float_values(column, array)?;
@@ -12837,7 +12854,7 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
         return Ok("timestamp_micros".to_string());
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8, binary, integer, and finite-float columns only; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64 or UTF8 leaves; no fallback execution was attempted",
         array.data_type()
     )))
 }

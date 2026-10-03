@@ -2,23 +2,26 @@
 """Public nested payload/explode composition, complete writers and grant checks.
 
 Fixed-size-list native dtype preservation is covered by the typed Rust fixtures;
-these public fixtures declare variable lists/structs through the input boundary.
+these public fixtures carry typed lists/structs through a declared Arrow adapter.
 """
 
 from __future__ import annotations
 
 import csv
 import json
+import subprocess
 
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
 
 
-def run(context, output, guard, accepted, complete, sources, identity):
+def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
     import shardloom as sl
     from shardloom.query import SqlWorkflow
 
     output.mkdir(parents=True)
+    guard()
+    subprocess.run([str(fixture_generator), str(output)], check=True, timeout=30)
     resources = {"memory_gb": 1, "max_parallelism": 2}
 
     def literal(value):
@@ -110,23 +113,18 @@ def run(context, output, guard, accepted, complete, sources, identity):
          "records": [{"code": [-4], "label": "東京"}], "detail": None},
     ]
     typed, native = output / "nested.data", output / "nested.vortex"
-    with typed.open("x", newline="") as stream:
-        writer = csv.writer(stream)
-        writer.writerow(schema)
-        for row in original:
-            writer.writerow([row["id"], *(json.dumps(row[name], ensure_ascii=False) for name in list(schema)[1:])])
     oracle = output / "source-expected.json"
     oracle.write_text(json.dumps(original, ensure_ascii=False, indent=2) + "\n")
     remember(typed, oracle)
     guard()
-    accepted("nested-prepare", context.read_csv(typed, schema=schema).prepare(native, check=False))
+    accepted("nested-prepare", context.read_arrow_ipc(typed).prepare(native, check=False))
     remember(native)
     ordered = list(reversed(original))
     flattened = [{"id": key, "items": value} for key, value in [(4, -4), (4, None), (3, None), (1, 9), (1, None), (1, None)]]
     field_values = [{"id": key, "code": value} for key, value in [(4, -4), (3, None), (1, 9), (1, None), (1, None)]]
 
     for source_name, base in [("native", context.read_vortex(native, schema=schema)),
-                              ("declared-csv", context.read_csv(typed, schema=schema))]:
+                              ("declared-arrow", context.read_arrow_ipc(typed))]:
         prefix = base.sort("id", descending=True).limit(4)
         payload = prefix.select("id AS key", "items AS groups", "detail")
         payload_rows = [{"key": row["id"], "groups": row["items"], "detail": row["detail"]} for row in ordered]
@@ -178,13 +176,10 @@ def run(context, output, guard, accepted, complete, sources, identity):
     # One source feeds a nested payload and two expansions above small-collect's
     # row limit. Full results are independently specified before execution.
     count = 65_541
-    raw, large = output / "large.jsonl", output / "large.vortex"
-    with raw.open("x") as stream:
-        for index in range(count):
-            stream.write(json.dumps({"id": index, "items": [[index], [None]]}) + "\n")
+    raw, large = output / "large.data", output / "large.vortex"
     remember(raw)
     guard()
-    accepted("nested-large-prepare", context.read_json(raw).prepare(large, check=False))
+    accepted("nested-large-prepare", context.read_arrow_ipc(raw).prepare(large, check=False))
     remember(large)
     base = context.read_vortex(large, schema={"id": "uint64", "items": "list<list<int64>>"})
     payload = base.limit(count).sort("id").select("id", "items")
@@ -205,18 +200,36 @@ def run(context, output, guard, accepted, complete, sources, identity):
     # Verify the value boundary inside a list and cleanup after writer failure.
     unsigned = output / "unsigned.data"
     unsigned_rows = [{"id": 1, "items": [0, (1 << 63) - 1, 1 << 63, (1 << 64) - 1, None]}]
-    with unsigned.open("x", newline="") as stream:
-        writer = csv.writer(stream)
-        writer.writerow(["id", "items"])
-        writer.writerow([1, json.dumps(unsigned_rows[0]["items"])])
     remember(unsigned)
-    unsigned_workflow = (context.read_csv(unsigned, schema={"id": "int64", "items": "list<uint64>"})
+    unsigned_workflow = (context.read_arrow_ipc(unsigned)
                          .limit(1).select("id", "items"))
     unsigned_report = unsigned_workflow.collect(check=False, **resources)
     verified("nested-uint64-collect", unsigned_report)
     equal("nested-uint64-collect", list(unsigned_report.result_rows), unsigned_rows)
     write_all("nested-uint64", unsigned_workflow, unsigned_rows, ["id", "items"], True,
               denials={"avro": "exceeds i64::MAX"})
+
+    # CSV has no native list type and the declared source-schema grammar currently
+    # accepts scalar hints. It must not silently ignore a requested nested hint.
+    unsupported_csv = output / "nested-hint.csv"
+    unsupported_csv.write_text('id,items\n1,"[9,null]"\n')
+    remember(unsupported_csv)
+    destination = output / "must-not-publish-nested-csv-hint.vortex"
+    denied("nested-invalid-csv-hint", context.read_csv(
+        unsupported_csv, schema={"id": "int64", "items": "list<int64>"}
+    ).prepare(destination, check=False), destination)
+
+    labels, prepared_labels = output / "labels.csv", output / "labels.vortex"
+    labels.write_text("label\n001\n0009\n")
+    remember(labels)
+    accepted("nested-scalar-hint-prepare", context.read_csv(
+        labels, schema={"label": "utf8"}
+    ).prepare(prepared_labels, check=False))
+    remember(prepared_labels)
+    report = context.sql(f"SELECT * FROM (SELECT * FROM {literal(prepared_labels)}) AS typed").collect(
+        check=False, **resources)
+    verified("nested-scalar-hint-collect", report)
+    equal("nested-scalar-hint-collect", list(report.result_rows), [{"label": "001"}, {"label": "0009"}])
 
     for label, statement in [
         ("nested-order", f"SELECT * FROM {literal(native)} ORDER BY items LIMIT 0"),

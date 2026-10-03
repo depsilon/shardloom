@@ -394,6 +394,21 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 self.assertIsNotNone(result._vortex_primitive_shape())
                 self.assertIsNone(result._native_relational_statement())
 
+    def test_prepare_preserves_compatible_source_schema_without_overriding_native_types(self) -> None:
+        schema = {"label": "utf8", "items": "list<struct<code:list<int64>>>"}
+        for frame, expected in [
+            (self.context.read_csv("typed.data", schema=schema), tuple(schema.items())),
+            (self.context.read_json("typed.jsonl", schema=schema), tuple(schema.items())),
+            (self.context.read_vortex("typed.vortex", schema=schema), None),
+        ]:
+            with self.subTest(source=frame.source.source_format), mock.patch.object(
+                self.client, "public_workflow_prepare", return_value=self.reply([])
+            ) as prepare:
+                frame.prepare("prepared.vortex", check=False)
+                self.assertEqual(prepare.call_args.kwargs["source_schema"], expected)
+                self.assertEqual(prepare.call_args.kwargs["output_ref"], "prepared.vortex")
+                prepare.assert_called_once()
+
     def test_repeated_explode_keeps_nested_stage_order_and_source_declarations(self) -> None:
         source = self.context.read_csv("nested.data", schema={
             "id": "int64", "items": "list<struct<code:list<int64>>>",

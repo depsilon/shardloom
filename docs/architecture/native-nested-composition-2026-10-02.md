@@ -26,6 +26,22 @@ the compact result contract requires an owned buffer to retain structural credit
 Top-level results retain the existing 128-column bound. Selected child coordinates
 and buffers reserve against the operation's memory grant before construction.
 
+Public typed input coverage uses self-describing Arrow IPC lists/structs and their
+native Vortex preparation. CSV/JSON text intake still normalizes nested text to
+UTF8, and the source-schema hint grammar admits scalar hints. Typed nested text
+intake remains an adapter obligation under PERF-11. Preparation now forwards
+declared compatible-source hints instead of silently dropping them; an unsupported
+nested hint is rejected before output creation. This does not override native
+Vortex's authoritative dtype.
+
+Typed compatible intake extends the existing streaming Arrow-to-Vortex adapter,
+recursive input-buffer copying and native writer. It shares the payload schema
+budget with execution, preserves the retained child domain's finite-float policy,
+and rejects unsupported nested leaves and Arrow extensions before conversion.
+It does not create scalar-row intermediates. Ingest's recorded memory exclusions
+still include original Arrow owners, reader internals and codec/metadata
+allocations that bypass the host allocator; this is not full RSS accounting.
+
 Carry these payloads through native scan, column projection/rename, scalar-key
 filtering and ordering, limits, joins, UNION ALL, window payload/navigation and
 subquery projection. Scalar keys and scalar functions keep their existing
@@ -150,14 +166,18 @@ and resources, without a speedup claim. Paused large format/text performance wor
 native Python binding experiments and package publication remain paused.
 
 Focused verification currently passes 82 relational tests, 27 SQL relational
-tests and 23 Python relational routing tests. This includes complete values and
+tests and 24 Python relational routing tests. This includes complete values and
 typed empty results through all six nested destinations, explicit CSV/ORC denials,
 compact ownership after producer/session drop, large-child reservation denial,
 cancellation within one list, recursive schema/key denial, subquery payloads,
 native ordering spill and cleanup after cancellation/consumer failure. The new
-public acceptance family covers declared list/struct input, ordered/repeated
+public acceptance family covers declared Arrow IPC list/struct input, ordered/repeated
 explode, joins, UNION ALL, windows, membership and output above small collection
-bounds. Its results must still be frozen against the final executable. Native
+bounds. A bounded test-only Arrow fixture generator supplies independently typed
+inputs; every operation still executes through the ordinary public CLI. It also
+checks the full nested UInt64 domain, Avro overflow cleanup, scalar preparation
+hints and rejection of unsupported nested CSV hints. Its results must still be
+frozen against the final executable. Native
 fixed-size-list fidelity is exercised by the typed Rust fixtures; compatible
 public input normalization does not claim to retain a fixed-size declaration.
 
