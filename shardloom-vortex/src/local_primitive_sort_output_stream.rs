@@ -9,11 +9,16 @@ use super::{
     vortex_error,
 };
 use vortex::{
-    array::{ArrayRef, VortexSessionExecute as _, dtype::DType},
+    array::{
+        ArrayRef, VortexSessionExecute as _,
+        arrays::{VarBinViewArray, varbinview::VarBinViewArrayExt as _},
+        dtype::DType,
+    },
     buffer::Buffer,
     file::VortexFile,
     io::runtime::BlockingRuntime,
     layout::scan::split_by::SplitBy,
+    mask::Mask,
     scan::strict_sorted_buffer::StrictSortedBuffer,
 };
 
@@ -47,24 +52,56 @@ pub(super) fn scratch_bytes(
     columns: &[String],
     context: &mut vortex::array::ExecutionCtx,
 ) -> Result<u64> {
-    let mut bytes = (array.len() as u64)
-        .saturating_mul(columns.len() as u64)
-        .saturating_mul(256)
-        .saturating_add(64 * 1024);
+    let mut bytes = scalar_scratch_bytes(array.len(), columns.len());
     for name in columns {
         let field = super::logical_field_from_native_array(array, name)?;
         if matches!(field.dtype(), DType::Utf8(_)) {
-            for row in 0..field.len() {
-                let scalar = field.execute_scalar(row, context).map_err(vortex_error)?;
-                if let Some(value) = scalar.as_utf8().value() {
-                    bytes = bytes
-                        .checked_add((value.len() as u64).saturating_mul(4))
-                        .ok_or_else(|| failed("sort scratch size overflow"))?;
-                }
-            }
+            // Scalar access can execute a compressed array once for every row.
+            // Read native view lengths after one provider decode instead. The
+            // optimized Top-K path shares its already decoded columns directly.
+            let values = field
+                .execute::<VarBinViewArray>(context)
+                .map_err(vortex_error)?;
+            let valid = values
+                .varbinview_validity()
+                .execute_mask(values.len(), context)
+                .map_err(vortex_error)?;
+            bytes = add_utf8_scratch_bytes(bytes, &values, &valid)?;
         }
     }
     Ok(bytes)
+}
+
+pub(super) fn scalar_scratch_bytes(rows: usize, columns: usize) -> u64 {
+    (rows as u64)
+        .saturating_mul(columns as u64)
+        .saturating_mul(256)
+        .saturating_add(64 * 1024)
+}
+
+pub(super) fn add_utf8_scratch_bytes(
+    bytes: u64,
+    values: &VarBinViewArray,
+    valid: &Mask,
+) -> Result<u64> {
+    if valid.len() != values.len() {
+        return Err(failed("sort scratch validity changed length"));
+    }
+    // Measure native descriptors, including repeated shared views. Null payload
+    // bytes are unobserved and must neither be read nor force a reservation.
+    values
+        .views()
+        .iter()
+        .enumerate()
+        .try_fold(bytes, |total, (row, view)| {
+            if valid.value(row) {
+                total
+                    .checked_add(u64::from(view.len()).saturating_mul(4))
+                    .ok_or_else(|| failed("sort scratch size overflow"))
+            } else {
+                Ok(total)
+            }
+        })
 }
 
 #[allow(clippy::too_many_arguments)]

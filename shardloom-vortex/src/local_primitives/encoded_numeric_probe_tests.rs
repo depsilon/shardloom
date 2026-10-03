@@ -148,6 +148,64 @@ fn observed(child: ArrayRef, calls: &Arc<AtomicUsize>) -> ArrayRef {
     .into_array()
 }
 
+#[test]
+fn native_sort_scratch_and_topk_share_one_provider_decode() {
+    use crate::local_primitives::{VortexSortTiePolicy, native_sort_block, sort_output_stream};
+    use vortex::array::arrays::VarBinViewArray;
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let values = ["z-external-東京", "a\0external-東京", "", "inline"];
+    let field = observed(
+        VarBinViewArray::from_iter_str((0..1024).map(|row| values[row % 4])).into_array(),
+        &calls,
+    );
+    let array = StructArray::try_new(["key"].into(), vec![field], 1024, Validity::NonNullable)
+        .unwrap()
+        .into_array();
+    let names = vec!["key".to_owned()];
+    let mut ctx = VortexSession::default().create_execution_ctx();
+    let expected_bytes = 64 * 1024
+        + 1024 * 256
+        + 4 * 256 * values.iter().map(|value| value.len() as u64).sum::<u64>();
+
+    // The non-Top-K scratch path also executes once, never once per row.
+    assert_eq!(
+        sort_output_stream::scratch_bytes(&array, &names, &mut ctx).unwrap(),
+        expected_bytes
+    );
+    assert_eq!(calls.swap(0, Ordering::SeqCst), 1);
+    let prepared =
+        native_sort_block::prepare(&array, &names, VortexSortTiePolicy::First, 3, &mut ctx)
+            .unwrap()
+            .unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(prepared.scratch_bytes().unwrap(), expected_bytes);
+    let mut candidates = Vec::new();
+    prepared
+        .append(
+            &[0],
+            &[0],
+            &[crate::VortexAggregateOrderExpr::new("key", false)],
+            VortexSortTiePolicy::First,
+            3,
+            0,
+            0,
+            0,
+            None,
+            &mut candidates,
+        )
+        .unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        candidates[1].values,
+        vec![shardloom_core::StatValue::Utf8(values[1].into())]
+    );
+    assert_eq!(
+        candidates[2].values,
+        vec![shardloom_core::StatValue::Utf8(String::new())]
+    );
+}
+
 fn assert_probe_miss(array: &ArrayRef, calls: &Arc<AtomicUsize>, ctx: &mut ExecutionCtx) {
     let columns = vec!["renamed_measure".to_owned()];
     let request = VortexSimpleAggregateRequest::new(vec![VortexSimpleAggregateMeasure::new(

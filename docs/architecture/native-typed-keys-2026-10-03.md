@@ -78,6 +78,13 @@ Both strategies retain the same source generation and resource owner. Retained
 aggregate, projection/filter, filtered-count and relational worker handles execute
 fresh results on matching repeated calls.
 
+The optimized sort shares each native decoded column between scratch admission
+and Top-K consumption. UTF8 scratch sizing reads native view lengths, including
+repeated shared values, without scalar-by-scalar provider execution or copied
+strings. Collected results preserve Vortex's bounded layout splits; bounded writer
+delivery keeps its separate batch policy. Both retain the same allocation grant,
+generation checks and cancellation, and insufficient scratch is a terminal error.
+
 Single-target plain SQL writers use the same metadata admission and source handoff.
 Existing aggregate and sort writers retain their specialized providers and spill contracts;
 simple projection/filter writers retain native array sinks. A source shape outside

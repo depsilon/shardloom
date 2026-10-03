@@ -209,6 +209,109 @@ fn native_scalar_sort_source_handoff_preserves_values_and_rejects_replacement() 
 }
 
 #[test]
+fn native_sort_source_handoff_preserves_layout_batches_and_encoded_text() {
+    use crate::local_primitives::execute_vortex_local_primitive_with_policy;
+    use shardloom_core::{ComparisonOp, PredicateExpr, StatValue};
+    use vortex::array::arrays::{DictArray, VarBinViewArray};
+    use vortex::encodings::fsst::{fsst_compress, fsst_train_compressor};
+
+    let values = VarBinViewArray::from_iter_nullable_str([
+        Some("z-long-repeated-東京"),
+        Some("a\0long-repeated-東京"),
+        None,
+        Some(""),
+    ])
+    .into_array();
+    let mut ctx = VortexSession::default().create_execution_ctx();
+    let compressor = fsst_train_compressor(&values, &mut ctx).unwrap();
+    let encoded = fsst_compress(&values, &compressor, &mut ctx)
+        .unwrap()
+        .into_array();
+    let labels = DictArray::try_new(
+        PrimitiveArray::from_iter((0..4_u8).cycle().take(8193)).into_array(),
+        encoded,
+    )
+    .unwrap()
+    .into_array();
+    let fixture = Fixture::new(
+        StructArray::new(
+            ["id", "label"].into(),
+            vec![PrimitiveArray::from_iter(0..8193_u32).into_array(), labels],
+            8193,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        8193,
+    );
+    for predicate in [
+        None,
+        Some(PredicateExpr::Compare {
+            column: ColumnRef::new("label").unwrap(),
+            op: ComparisonOp::NotEq,
+            value: StatValue::Utf8(String::new()),
+        }),
+    ] {
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            DatasetUri::new(fixture.path().display().to_string()).unwrap(),
+            shardloom_plan::ProjectionRequest::All,
+            predicate,
+            crate::VortexSortRowsRequest::new(vec![
+                crate::VortexAggregateOrderExpr::new("label", false)
+                    .with_nulls(VortexRelationalNullOrder::Last),
+            ]),
+            7,
+        );
+        let expected = execute_vortex_local_primitive_with_policy(&request, policy()).unwrap();
+        let source = prepared_dispatch::prepare_source(&request, policy()).unwrap();
+        let session = source.retained_session();
+        let baseline = session.snapshot().memory.reserved_bytes;
+        let actual = prepared_dispatch::execute_sort(&request, policy(), &source).unwrap();
+        assert_eq!(actual.result_summary, expected.result_summary);
+        assert_eq!(actual.arrays_read_count, expected.arrays_read_count);
+        assert_eq!(actual.max_chunk_rows, expected.max_chunk_rows);
+        assert!(actual.max_chunk_rows > 2048);
+        assert_eq!(actual.rows_selected, Some(7));
+        let (first, label) = if request.predicate.is_some() {
+            (1, "a\0long-repeated-東京")
+        } else {
+            (3, "")
+        };
+        let result: Value = serde_json::from_str(
+            actual
+                .result_summary
+                .as_ref()
+                .unwrap()
+                .rsplit_once(" values=")
+                .unwrap()
+                .1,
+        )
+        .unwrap();
+        assert_eq!(
+            result["values"],
+            json!(
+                (0..7)
+                    .map(|row| { json!({"id":first + row * 4,"label":label}) })
+                    .collect::<Vec<_>>()
+            )
+        );
+        assert_eq!(session.snapshot().prepared_source_opens, 1);
+        assert_eq!(session.snapshot().memory.reserved_bytes, baseline);
+        let mut narrow = policy();
+        narrow.resource_envelope.memory_budget_bytes = 1 << 20;
+        let narrow_source = prepared_dispatch::prepare_source(&request, narrow).unwrap();
+        let narrow_session = narrow_source.retained_session();
+        let baseline = narrow_session.snapshot().memory.reserved_bytes;
+        let error = prepared_dispatch::execute_sort(&request, narrow, &narrow_source).unwrap_err();
+        assert!(
+            error.to_string().contains("memory reservation denied"),
+            "{error}"
+        );
+        assert_eq!(narrow_session.snapshot().prepared_source_opens, 1);
+        assert_eq!(narrow_session.snapshot().memory.reserved_bytes, baseline);
+    }
+}
+
+#[test]
 #[cfg(feature = "universal-format-io")]
 #[allow(clippy::too_many_lines)] // One retained owner spans every writer and the final replacement.
 fn native_source_handoff_writers_keep_one_reader_all_formats_and_generation() {
