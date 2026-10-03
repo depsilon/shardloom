@@ -356,13 +356,21 @@ fn scalar(dtype: &LogicalDType) -> EvalResult<()> {
 }
 
 fn comparable(left: &LogicalDType, right: &LogicalDType) -> EvalResult<()> {
-    use LogicalDType::{Int64, UInt64, Unknown};
+    use LogicalDType::{Float64, Int64, UInt64, Unknown};
     scalar(left)?;
     scalar(right)?;
+    // Preserve the decoded baseline's exact mixed comparison contract. Native
+    // key admission remains independent and can require an explicit cast.
+    let decimal_peer = |dtype: &LogicalDType| {
+        matches!(dtype, Int64 | UInt64) || decimal128_dtype_parts(dtype).is_some()
+    };
     if left == right
         || left == &Unknown
         || right == &Unknown
         || matches!((left, right), (Int64 | UInt64, Int64 | UInt64))
+        || matches!((left, right), (Float64, Int64) | (Int64, Float64))
+        || (decimal128_dtype_parts(left).is_some() && decimal_peer(right))
+        || (decimal128_dtype_parts(right).is_some() && decimal_peer(left))
     {
         Ok(())
     } else {
