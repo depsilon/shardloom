@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::vortex_primitive_execution::{
-    parse_expression_project_primitive_request, parse_melt_primitive_request,
-    parse_projection_columns, parse_rolling_primitive_request,
+    parse_explode_primitive_request, parse_expression_project_primitive_request,
+    parse_melt_primitive_request, parse_projection_columns, parse_rolling_primitive_request,
 };
 use shardloom_plan::ProjectionRequest;
 use shardloom_vortex::{
@@ -28,6 +28,7 @@ pub(super) fn parse(raw: &str) -> Result<Option<ParsedRelationUnary>, ShardLoomE
         "REWRITE" => Kind::ExpressionProjectRows,
         "MELT" => Kind::MeltRows,
         "ROLLING" => Kind::RollingWindowRows,
+        "EXPLODE" => Kind::ExplodeRows,
         _ => {
             return Err(unsupported_sql_error(
                 "unknown native relation table expression",
@@ -139,6 +140,20 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
                 ],
             )?;
             return parse_rolling_primitive_request(None, &value);
+        }
+        Kind::ExplodeRows => {
+            validate_fields(
+                &value,
+                &[
+                    &["column", "explode_column", "target_column"],
+                    &["columns"],
+                    &["explode_columns", "target_columns"],
+                    &["output_columns", "projected_columns"],
+                    &["element_field", "field", "field_path"],
+                    &["element_output_column", "output_column"],
+                ],
+            )?;
+            return parse_explode_primitive_request(None, &value);
         }
         _ => return Err(unsupported_sql_error("unsupported unary table expression")),
     }

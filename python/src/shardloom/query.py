@@ -10943,7 +10943,7 @@ class LazyFrame:
 
         if self._has_structured_binary_export_shape():
             return None
-        unary = {"expression_project", "set_index", "distinct", "tail", "sample", "drop_duplicates", "duplicate_mask", "melt", "rolling_window"}
+        unary = {"expression_project", "set_index", "distinct", "tail", "sample", "drop_duplicates", "duplicate_mask", "melt", "rolling_window", "explode"}
         if any(operation.kind in unary for operation in self.operations):
             ordinary = tuple(operation for operation in self.operations if operation.kind not in unary)
             if flat_order_is_safe(ordinary):

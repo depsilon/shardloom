@@ -2,7 +2,7 @@
 
 use super::{
     Binder, DType, Node, NodeKind, Nullability, PType, Result, failed, field, validate_name,
-    validate_unique, validate_width,
+    validate_scalar, validate_unique, validate_width,
 };
 use crate::{
     local_primitives::{
@@ -32,6 +32,7 @@ impl Binder<'_> {
         let mut groups = Vec::new();
         for column in &aggregate.group_by {
             validate_name(column.as_str())?;
+            validate_scalar(field(&input.fields, column.as_str())?)?;
             groups.push((
                 column.as_str().to_owned(),
                 field(&input.fields, column.as_str())?.clone(),
@@ -59,6 +60,9 @@ impl Binder<'_> {
                 None if function == Function::Count => (None, None),
                 None => return Err(failed("aggregate measure requires an input column")),
             };
+            if let Some(source) = source {
+                validate_scalar(source)?;
+            }
             let dtype = match function {
                 Function::Count | Function::CountDistinct => {
                     DType::Primitive(PType::U64, Nullability::NonNullable)

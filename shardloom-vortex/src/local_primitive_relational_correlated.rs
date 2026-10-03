@@ -1,7 +1,10 @@
 //! Explicit native singleton parameters, with fresh inner operator state per row.
 
 use super::super::native_relational_batch::{Batch, take_batch};
-use super::*;
+use super::{
+    ArrayRef, Metrics, NativeExecutionContext, Node, NodeKind, PreparedVortexRelational,
+    ReservedVec, Result, failed, native_relational_subquery,
+};
 
 impl PreparedVortexRelational {
     pub(super) fn run_subquery(

@@ -2,7 +2,8 @@
 
 # Native nested payload composition
 
-Status: implementation contract; no new support is claimed yet. This continues
+Status: implemented with focused verification; complete public UAT, Full43 and
+hosted acceptance are still pending. This continues
 the [universal workflow plan](universal-workflow-completion-2026-10-01.md) after
 [flat unary composition](native-unary-composition-2026-10-02.md), under
 PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. The expert comparator is a columnar
@@ -17,6 +18,13 @@ nullability independently, list order, empty lists, fixed-size cardinality,
 struct field order and exact integer domains. Recursively bound schema depth,
 field metadata and selected child counts before allocating. This is an extension
 of Vortex DType and native arrays, not a second row representation.
+
+The implementation admits schema depth at most 24, at most 4,096 recursive nodes
+and at most 8 MiB of conservatively charged schema metadata. Each nested struct
+has 1–1,024 nonempty, distinct field names. Empty structs are explicitly rejected:
+the compact result contract requires an owned buffer to retain structural credit.
+Top-level results retain the existing 128-column bound. Selected child coordinates
+and buffers reserve against the operation's memory grant before construction.
 
 Carry these payloads through native scan, column projection/rename, scalar-key
 filtering and ordering, limits, joins, UNION ALL, window payload/navigation and
@@ -88,6 +96,15 @@ format translation explicitly. CSV has no nested type system: a nested final
 payload must be rejected before publication rather than silently stringified.
 An exploded flat result still uses all eight existing local writers.
 
+The implemented nested destinations are Vortex, JSON, JSONL, Arrow IPC, Parquet
+and Avro. Arrow IPC and Parquet preserve the tested fixed-size-list logical shape;
+the pinned Avro reader reopens it as a variable list and widens integer widths,
+which the output fidelity report declares. The pinned ORC writer cannot write
+list/struct fields, so nested ORC output is rejected before execution/publication,
+including empty results. Columnar export limits field names to 256 bytes and
+individual UTF8 values to 64 KiB, with an 8-MiB expanded Arrow batch limit.
+Recursive child domains count toward that admission and writer footer metadata.
+
 For each destination, freeze the exact accepted nested shape and any genuine
 format-specific denial in tests. Do not infer fidelity from successful file
 creation. Reopen every accepted output and verify all values, field names,
@@ -131,6 +148,25 @@ complete public matrix, then Full43 regression under existing serial storage and
 process guards. Preserve failed observations. Availability is gated by correctness
 and resources, without a speedup claim. Paused large format/text performance work,
 native Python binding experiments and package publication remain paused.
+
+Focused verification currently passes 82 relational tests, 27 SQL relational
+tests and 23 Python relational routing tests. This includes complete values and
+typed empty results through all six nested destinations, explicit CSV/ORC denials,
+compact ownership after producer/session drop, large-child reservation denial,
+cancellation within one list, recursive schema/key denial, subquery payloads,
+native ordering spill and cleanup after cancellation/consumer failure. The new
+public acceptance family covers declared list/struct input, ordered/repeated
+explode, joins, UNION ALL, windows, membership and output above small collection
+bounds. Its results must still be frozen against the final executable. Native
+fixed-size-list fidelity is exercised by the typed Rust fixtures; compatible
+public input normalization does not claim to retain a fixed-size declaration.
+
+The maintainer additionally requested full UAT to check unexpected gains or losses.
+After the executable is frozen, rerun the complete public matrix and Full43, retain
+the prior accepted measurements, compare complete correctness, timings and memory,
+and repeat notable changes against the retained control binary under the same
+data/resource settings. Uncontrolled cache or host effects cannot establish a
+causal speedup from a single before/after observation.
 
 Update this contract with actual admission and immutable evidence before marking
 the finite unit complete. CG-1 through CG-23 and broader PERF owners stay visible;

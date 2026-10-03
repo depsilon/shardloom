@@ -160,7 +160,7 @@ def _render_stages(
             statement = f"SELECT * FROM {source} LIMIT {values[0]}"
         elif kind == "distinct":
             statement = f"SELECT * FROM DISTINCT_ROWS(({statement}), '*') AS _sl_stage_{index}"
-        elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window"}:
+        elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window", "explode"}:
             if kind == "tail":
                 function, argument = "TAIL", values[0]
             elif kind == "sample":
@@ -183,7 +183,7 @@ def _render_stages(
                     columns = ("duplicated",)
             else:
                 payload = json.loads(values[0])
-                function = {"expression_project": "REWRITE", "melt": "MELT", "rolling_window": "ROLLING"}[kind]
+                function = {"expression_project": "REWRITE", "melt": "MELT", "rolling_window": "ROLLING", "explode": "EXPLODE"}[kind]
                 argument = q._sql_string_literal(values[0])
                 if kind == "expression_project":
                     selected = payload["columns"]
@@ -195,6 +195,10 @@ def _render_stages(
                                 columns = (*columns, rewrite["target_column"])
                 elif kind == "melt":
                     columns = (*payload["id_columns"], payload["variable_column"], payload["value_column"])
+                elif kind == "explode":
+                    if columns is not None and "element_field" in payload:
+                        columns = tuple(payload["output_column"] if name == payload["column"] else name
+                                        for name in columns)
                 else:
                     columns = (payload["output_column"],)
             statement = f"SELECT * FROM {function}(({statement}), {argument}) AS _sl_stage_{index}"

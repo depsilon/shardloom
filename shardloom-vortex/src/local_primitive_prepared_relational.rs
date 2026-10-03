@@ -1,5 +1,7 @@
 //! Prepared native relational trees sharing one resource and source admission.
 
+#[cfg(test)]
+use super::result_batch;
 use super::{
     LocalVortexScanPlan, MaterializedPredicateEvaluator, VortexLocalPrimitiveExecutionPolicy,
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
@@ -10,7 +12,7 @@ use super::{
     native_relational_set::RowSet,
     native_relational_sort, native_relational_subquery, native_relational_window,
     prepared_unary::BoundUnary,
-    result_batch, vortex_error,
+    vortex_error,
 };
 use crate::{
     relational_query::{VortexRelationalPlan, VortexRelationalSetKind as SetKind},
@@ -31,7 +33,6 @@ use vortex::array::{
     ArrayRef,
     arrays::StructArray,
     dtype::{DType, FieldNames, Nullability},
-    memory::MemorySessionExt as _,
     validity::Validity,
 };
 
@@ -511,12 +512,23 @@ impl PreparedVortexRelational {
         let mut bytes = 0u64;
         let mut max_rows = 0usize;
         let dtype = self.output_dtype();
+        let nested = self
+            .root
+            .fields
+            .iter()
+            .any(|(_, dtype)| super::native_payload::is_nested(dtype));
         let emitted = Cell::new(false);
         let mut emit = |array: ArrayRef| {
             context.check_cancelled()?;
             if array.dtype() != &dtype || array.len() > batch_rows {
                 return Err(failed("producer changed its bound schema or batch size"));
             }
+            let array = if nested {
+                let indices = index_array(array.len(), false, context, |row| Ok(Some(row)))?;
+                super::native_payload::take(&array, &indices, &dtype, context)?
+            } else {
+                array
+            };
             rows = rows
                 .checked_add(array.len() as u64)
                 .ok_or_else(|| failed("output row count overflow"))?;
@@ -534,14 +546,7 @@ impl PreparedVortexRelational {
         self.run(&self.root, context, &metrics, batch_rows, None, &mut emit)?;
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {
-            let array = result_batch::build(
-                &self.root.fields,
-                0,
-                usize::MAX,
-                &context.native_session().allocator(),
-                context.memory(),
-                |_, _| Ok(result_batch::Value::Null),
-            )?;
+            let array = super::native_payload::defaults(&dtype, 0, context)?;
             emit(array)?;
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

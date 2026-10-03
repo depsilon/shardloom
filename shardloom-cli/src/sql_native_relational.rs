@@ -305,6 +305,8 @@ impl Lowerer<'_, '_> {
                     rolling.output_columns()
                 } else if let Some(rewrites) = &request.expression_projection {
                     rewrites.output_columns(&selected)
+                } else if let Some(explode) = &request.explode_projection {
+                    explode.output_columns(&selected)
                 } else if request.kind
                     == shardloom_vortex::VortexQueryPrimitiveKind::DuplicateMaskRows
                 {

@@ -42,6 +42,18 @@ pub(super) fn write(
         return Err(failed("requires JSON, JSONL or CSV output"));
     }
     cancellation.check()?;
+    if let Some(fields) = plan.dtype.as_struct_fields_opt() {
+        for dtype in fields.fields() {
+            if super::native_payload::is_nested(&dtype) {
+                super::native_payload::metadata_bytes(&dtype)?;
+                if format == Format::Csv {
+                    return Err(failed(
+                        "CSV cannot represent nested payloads; project scalar fields or use JSON/Vortex output",
+                    ));
+                }
+            }
+        }
+    }
     plan.validate_destination(path)?;
     let mut scratch = plan.session.memory().reserve(128 * 1024)?;
     let mut output = OwnedOutput::new(path, overwrite)?;
@@ -50,6 +62,7 @@ pub(super) fn write(
     let mut maximum_rows = 0_usize;
     let mut logical_bytes = 0_u64;
     let mut text_copies = 0_u64;
+    let mut scalars_materialized = 0_u64;
     plan.source
         .with_native_execution_or_admitted(cancellation, admitted, |file, context| {
             let mut scalar_context = context.native_session().create_execution_ctx();
@@ -89,6 +102,20 @@ pub(super) fn write(
                     .iter()
                     .map(|name| logical_field_from_native_array(&array, name))
                     .collect::<Result<Vec<_>>>()?;
+                let json = if format == Format::Csv {
+                    Vec::new()
+                } else {
+                    columns
+                        .iter()
+                        .map(|column| {
+                            super::native_json::Column::new(
+                                column,
+                                &mut scalar_context,
+                                context.memory(),
+                            )
+                        })
+                        .collect::<Result<Vec<_>>>()?
+                };
                 batches += 1;
                 maximum_rows = maximum_rows.max(array.len());
                 logical_bytes = logical_bytes
@@ -109,11 +136,24 @@ pub(super) fn write(
                         if format != Format::Csv {
                             serde_json::to_writer(&mut writer, name).map_err(vortex_error)?;
                             writer.write_all(b":").map_err(vortex_error)?;
+                            let scalars = json[index].write(
+                                row,
+                                &mut writer,
+                                &mut scalar_context,
+                                cancellation,
+                            )?;
+                            scalars_materialized = scalars_materialized
+                                .checked_add(scalars)
+                                .ok_or_else(|| failed("scalar counter overflow"))?;
+                            continue;
                         }
                         let scalar = column
                             .execute_scalar(row, &mut scalar_context)
                             .map_err(vortex_error)?;
                         let value = terminal_scalar(&scalar)?;
+                        scalars_materialized = scalars_materialized
+                            .checked_add(1)
+                            .ok_or_else(|| failed("scalar counter overflow"))?;
                         if let StatValue::Utf8(text) = &value {
                             text_copies = text_copies
                                 .checked_add(usize_to_u64(text.len())?)
@@ -158,9 +198,7 @@ pub(super) fn write(
         native_arrays_submitted: usize_to_u64(batches)?,
         native_array_logical_bytes: logical_bytes,
         adapter_payload_bytes_copied: text_copies,
-        scalar_values_materialized: rows
-            .checked_mul(usize_to_u64(plan.columns.len())?)
-            .ok_or_else(|| failed("scalar counter overflow"))?,
+        scalar_values_materialized: scalars_materialized,
         scan_row_bound: BATCH_ROWS,
         writer_input_batch_bound: 1,
         peak_reserved_bytes: plan.session.snapshot().memory.peak_reserved_bytes,

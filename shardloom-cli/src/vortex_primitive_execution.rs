@@ -3146,10 +3146,11 @@ pub(crate) fn parse_melt_primitive_request(
     })
 }
 
-fn parse_explode_primitive_request(
-    uri: DatasetUri,
+pub(crate) fn parse_explode_primitive_request(
+    uri: impl Into<Option<DatasetUri>>,
     payload: &str,
 ) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
+    let source_uri = uri.into();
     let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
         ShardLoomError::InvalidOperation(format!("explode payload must be valid JSON: {error}"))
     })?;
@@ -3161,11 +3162,17 @@ fn parse_explode_primitive_request(
             .map(ColumnRef::new)
             .transpose()?;
     let columns_field = json_optional_column_array_field_any(object, &["columns"])?;
-    let explode_columns =
-        json_optional_column_array_field_any(object, &["explode_columns", "target_columns"])?
-            .or_else(|| single_column.as_ref().map(|column| vec![column.clone()]))
-            .or_else(|| columns_field.clone())
-            .unwrap_or_default();
+    let multiple_columns =
+        json_optional_column_array_field_any(object, &["explode_columns", "target_columns"])?;
+    if multiple_columns.is_some() && (single_column.is_some() || columns_field.is_some()) {
+        return Err(ShardLoomError::InvalidOperation(
+            "explode payload has conflicting target columns".into(),
+        ));
+    }
+    let explode_columns = multiple_columns
+        .or_else(|| single_column.as_ref().map(|column| vec![column.clone()]))
+        .or_else(|| columns_field.clone())
+        .unwrap_or_default();
     if explode_columns.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
             "explode payload requires column or explode_columns".to_string(),
@@ -3173,10 +3180,12 @@ fn parse_explode_primitive_request(
     }
     let output_columns =
         json_optional_column_array_field_any(object, &["output_columns", "projected_columns"])?
-            .or_else(|| single_column.as_ref().and(columns_field))
-            .unwrap_or_else(|| explode_columns.clone());
+            .or_else(|| single_column.as_ref().and(columns_field));
     for column in &explode_columns {
-        if !output_columns.iter().any(|candidate| candidate == column) {
+        if output_columns
+            .as_ref()
+            .is_some_and(|columns| !columns.contains(column))
+        {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "explode output columns must include explode column '{}'",
                 column.as_str()
@@ -3187,6 +3196,11 @@ fn parse_explode_primitive_request(
         json_optional_string_field_any(object, &["element_field", "field", "field_path"])?;
     let element_output_column =
         json_optional_string_field_any(object, &["element_output_column", "output_column"])?;
+    if element_output_column.is_some() && element_field.is_none() {
+        return Err(ShardLoomError::InvalidOperation(
+            "explode output_column requires element_field".into(),
+        ));
+    }
     let element_projection = if let Some(field) = element_field {
         let field_ref = ColumnRef::new(field)?;
         let output = element_output_column
@@ -3207,11 +3221,24 @@ fn parse_explode_primitive_request(
     if let Some((field, output)) = element_projection {
         projection = projection.with_element_field(field, output);
     }
-    Ok(shardloom_vortex::VortexQueryPrimitiveRequest::explode_rows(
-        uri,
-        ProjectionRequest::columns(output_columns),
-        projection,
-    ))
+    let selected = output_columns.map_or_else(
+        || {
+            if source_uri.is_none() {
+                ProjectionRequest::All
+            } else {
+                ProjectionRequest::columns(projection.explode_columns())
+            }
+        },
+        ProjectionRequest::columns,
+    );
+    Ok(shardloom_vortex::VortexQueryPrimitiveRequest {
+        source_uri,
+        explode_projection: Some(projection),
+        ..shardloom_vortex::VortexQueryPrimitiveRequest::for_relational_input(
+            shardloom_vortex::VortexQueryPrimitiveKind::ExplodeRows,
+            selected,
+        )
+    })
 }
 
 fn parse_pivot_primitive_request(
