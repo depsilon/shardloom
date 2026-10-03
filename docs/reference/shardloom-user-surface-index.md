@@ -203,7 +203,12 @@ objects. Common admitted methods include:
   the [nested composition contract](../architecture/native-nested-composition-2026-10-02.md).
   Vortex, JSON, JSONL, Arrow IPC, Parquet and Avro accept representable nested
   output; nested CSV/ORC output is denied. Nested keys, general nested unary
-  state and Variant/extension composition remain separate boundaries.
+  state and general Variant/extension operations remain separate boundaries.
+  Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
+  microsecond timestamps are admitted payloads, including nested leaves. Their
+  arithmetic, key and unary-state semantics remain unadmitted. Binary supports
+  all eight writers; ORC rejects decimal and temporal payloads. Text output uses
+  explicit typed encodings; see the [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md).
   Admitted `pivot(...)` / `pivot_table(...)` over one
   index column, one pivot column, and one value column lower through the native/prepared Vortex
   pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`

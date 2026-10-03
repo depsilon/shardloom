@@ -774,7 +774,7 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         blocker_id: "none_feature_gated_local_parquet_adapter_read_runtime_supported",
         required_future_evidence: "native_vortex_derived_parquet_export_contract,nested_type_metadata_fidelity_table_object_store_production_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "feature-gated flat scalar local Parquet SourceState and vortex_ingest normalization only; decoded Parquet output is a separate compatibility export contract and not a public workflow route; no broad Parquet type/nesting, metadata-fidelity, table, or production claim",
+        claim_boundary: "feature-gated local Parquet SourceState and admitted scalar/static nested vortex_ingest normalization; compatibility output requires the native-array sink contract; no arbitrary type/extension, complete metadata-fidelity, table, or production claim",
     },
     UniversalCompatibilityRow {
         id: "arrow_ipc",
@@ -794,7 +794,7 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         blocker_id: "none_feature_gated_local_arrow_ipc_adapter_read_runtime_supported",
         required_future_evidence: "native_vortex_derived_arrow_ipc_export_contract,zero_copy_streaming_nested_type_default_build_object_store_production_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "feature-gated flat scalar local Arrow IPC SourceState and vortex_ingest normalization only; decoded Arrow IPC output is a separate compatibility export contract and not a public workflow route; no zero-copy, nested type, broad Arrow runtime, or production claim",
+        claim_boundary: "feature-gated local Arrow IPC SourceState and admitted scalar/static nested vortex_ingest normalization; compatibility output requires the native-array sink contract; no general zero-copy, arbitrary type/extension, broad Arrow runtime, or production claim",
     },
     UniversalCompatibilityRow {
         id: "avro",

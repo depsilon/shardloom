@@ -350,7 +350,7 @@ fn json_sink_fidelity() -> shardloom_core::NativeIoAdapterFidelityReport {
         statistics_preserved: false,
         encoded_representation_preserved: false,
         materialization_required: true,
-        fidelity_loss: "JSON preserves admitted scalar values, not physical dtype or encoding"
+        fidelity_loss: "JSON preserves admitted values with binary hexadecimal text, decimal128(precision,scale):unscaled_integer text, Date32 day integers and timezone-free timestamp microsecond integers; logical dtype and physical encoding are not persisted"
             .into(),
         metadata_loss: "Vortex physical encodings, statistics and metadata not exported".into(),
         fallback_attempted: false,
@@ -554,8 +554,18 @@ pub(super) fn write_scalar_json(
         }
         scalar = inner;
     }
-    let utf8_bytes = match scalar.value() {
+    if matches!(scalar.dtype(), vortex::array::dtype::DType::Extension(_))
+        && crate::native_payload_schema::temporal_storage(scalar.dtype()).is_none()
+    {
+        return Err(collect_error(
+            "JSON extension payload requires Date32 or timezone-free TimestampMicros",
+        ));
+    }
+    let mut utf8_bytes = match scalar.value() {
         Some(ScalarValue::Utf8(value)) => super::usize_to_u64(value.as_str().len())?,
+        Some(ScalarValue::Binary(value)) => super::usize_to_u64(value.len())?
+            .checked_mul(2)
+            .ok_or_else(|| collect_error("binary JSON size overflow"))?,
         _ => 0,
     };
     match scalar.value() {
@@ -565,6 +575,33 @@ pub(super) fn write_scalar_json(
         }
         Some(ScalarValue::Utf8(value)) => {
             serde_json::to_writer(writer, value.as_str()).map_err(collect_io_error)
+        }
+        Some(ScalarValue::Binary(value)) => {
+            writer.write_all(b"\"").map_err(collect_io_error)?;
+            for byte in value.iter() {
+                write!(writer, "{byte:02x}").map_err(collect_io_error)?;
+            }
+            writer.write_all(b"\"").map_err(collect_io_error)
+        }
+        Some(ScalarValue::Decimal(value)) => {
+            let vortex::array::dtype::DType::Decimal(dtype, _) = scalar.dtype() else {
+                return Err(collect_error("JSON decimal requires a decimal dtype"));
+            };
+            if !crate::native_payload_schema::admitted_decimal(*dtype) {
+                return Err(collect_error(
+                    "JSON decimal exceeds admitted precision or scale",
+                ));
+            }
+            let value = value
+                .cast::<i128>()
+                .ok_or_else(|| collect_error("JSON decimal exceeds signed 128-bit storage"))?;
+            let text = format!(
+                "decimal128({},{}):{value}",
+                dtype.precision(),
+                dtype.scale()
+            );
+            utf8_bytes = super::usize_to_u64(text.len())?;
+            serde_json::to_writer(writer, &text).map_err(collect_io_error)
         }
         Some(ScalarValue::Primitive(value)) => match super::vortex_pvalue_to_stat_value(*value) {
             Some(StatValue::UInt64(value)) => {

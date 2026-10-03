@@ -102,6 +102,13 @@ fn default_value(dtype: &DType) -> Result<Value<'static>> {
     Ok(match dtype {
         DType::Bool(_) => Value::Bool(false),
         DType::Utf8(_) => Value::Text("".into()),
+        DType::Binary(_) => Value::Binary((&[][..]).into()),
+        DType::Decimal(dtype, _) if crate::native_payload_schema::admitted_decimal(*dtype) => {
+            Value::Decimal(0, *dtype)
+        }
+        DType::Extension(_) if crate::native_payload_schema::temporal_storage(dtype).is_some() => {
+            Value::Int(0)
+        }
         DType::Primitive(ptype, _) if ptype.is_signed_int() => Value::Int(0),
         DType::Primitive(ptype, _) if ptype.is_unsigned_int() => Value::UInt(0),
         DType::Primitive(PType::F32 | PType::F64, _) => Value::Float(0.0),

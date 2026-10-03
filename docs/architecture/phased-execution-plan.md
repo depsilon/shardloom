@@ -324,6 +324,28 @@ the ledger.
   - Dependency: uses the locally accepted nested-composition tree; its hosted
     website advisory decision remains separate and cannot be bypassed by this work.
 
+- [ ] `NATIVE-TYPED-PAYLOADS` — carry existing binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp types through shared native composition
+  and local delivery under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed payload contract](native-typed-payloads-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: extend selected native buffer ownership, recursive
+    type admission, one operation allocation and bounded shared writers; preserve
+    existing metadata/pruning and key/expression admission.
+  - Execution checklist:
+    - [ ] Extend exact payload and compatible intake types, compact result buffers,
+      nested leaves and typed empty/null output through existing components.
+    - [ ] Preserve terminal text conventions and representable native/columnar
+      output, with explicit unsupported-format and operated-type diagnostics.
+    - [ ] Prove complete public workflows, selected ownership, resource/failure
+      behavior, required local/hosted gates and Full43 regression; record evidence
+      before moving this finite item to the completed ledger.
+  - Acceptance: exact type/value/null/order preservation across the complete
+    admitted workflow, without scalar-row execution, intermediate files, replay
+    or fallback. Wider key semantics, adapters and resource/spill remain open.
+  - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
+    hosted completion remains subject to its existing website advisory decision.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then

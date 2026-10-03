@@ -27,6 +27,7 @@ from native_aggregate_ordering_cases import run as aggregate_cases
 from native_unary_composition_cases import run as unary_cases
 from native_nested_composition_cases import run as nested_cases
 from native_dynamic_pivot_cases import run as dynamic_pivot_cases
+from native_typed_payload_cases import run as typed_payload_cases
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -106,9 +107,11 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--build-commit", required=True)
-    parser.add_argument("--family", choices=("all", "unary", "nested", "pivot"), default="all")
+    parser.add_argument("--family", choices=("all", "unary", "nested", "pivot", "typed"), default="all")
     parser.add_argument("--nested-fixture-generator", type=Path,
                         help="native_nested_uat_fixture example binary, required for all/nested")
+    parser.add_argument("--typed-fixture-generator", type=Path,
+                        help="native_typed_uat_fixture example binary, required for all/typed")
     parser.add_argument("--compress-logs", action="store_true")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
@@ -116,6 +119,10 @@ def main() -> int:
         parser.error("--nested-fixture-generator is required for the nested input fixtures")
     fixture_generator = (args.nested_fixture_generator.resolve(strict=True)
                          if args.nested_fixture_generator is not None else None)
+    if args.family in ("all", "typed") and args.typed_fixture_generator is None:
+        parser.error("--typed-fixture-generator is required for the typed input fixtures")
+    typed_generator = (args.typed_fixture_generator.resolve(strict=True)
+                       if args.typed_fixture_generator is not None else None)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output = root / "logs" / f"native_relational_{stamp}"
@@ -136,6 +143,7 @@ def main() -> int:
     unary_code = code.with_name("native_unary_composition_cases.py")
     nested_code = code.with_name("native_nested_composition_cases.py")
     pivot_code = code.with_name("native_dynamic_pivot_cases.py")
+    typed_code = code.with_name("native_typed_payload_cases.py")
     renderer_code = query.with_name("_relational_sql.py")
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
@@ -152,7 +160,9 @@ def main() -> int:
         "unary_cases_sha256": file_sha256(unary_code),
         "nested_cases_sha256": file_sha256(nested_code),
         "dynamic_pivot_cases_sha256": file_sha256(pivot_code),
+        "typed_payload_cases_sha256": file_sha256(typed_code),
         "nested_fixture_generator_sha256": (file_sha256(fixture_generator) if fixture_generator else None),
+        "typed_fixture_generator_sha256": (file_sha256(typed_generator) if typed_generator else None),
         "python_relational_renderer_sha256": file_sha256(renderer_code),
         "external_engine_invoked": False, "performance_claim": False,
         "total_rss_bound": False, "csv_contract": "complete header/row text; null is an empty field",
@@ -339,12 +349,18 @@ def main() -> int:
         if args.family in ("all", "pivot"):
             dynamic_pivot_cases(context, root / "data" / f"pivot_{stamp}", guard,
                                 accepted, complete, sources, identity)
+        if args.family in ("all", "typed"):
+            typed_payload_cases(context, root / "data" / f"typed_{stamp}", guard,
+                                accepted, complete, sources, identity, typed_generator)
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")
         if (fixture_generator is not None and file_sha256(fixture_generator)
                 != summary["nested_fixture_generator_sha256"]):
             raise ValueError("nested fixture generator changed during acceptance")
+        if (typed_generator is not None and file_sha256(typed_generator)
+                != summary["typed_fixture_generator_sha256"]):
+            raise ValueError("typed fixture generator changed during acceptance")
         summary["source_sha256"] = {path.name: digest for path, digest, _ in sources}
         summary["source_files"] = [
             {"path": str(path), "sha256": digest, "identity": generation}
@@ -357,6 +373,7 @@ def main() -> int:
                           (unary_code, "unary_cases_sha256"),
                           (nested_code, "nested_cases_sha256"),
                           (pivot_code, "dynamic_pivot_cases_sha256"),
+                          (typed_code, "typed_payload_cases_sha256"),
                           (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")
