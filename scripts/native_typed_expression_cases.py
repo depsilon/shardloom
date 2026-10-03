@@ -24,12 +24,10 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
         return [dict(id=row["id"], **{name: values[name][index] for name in values})
                 for index, row in enumerate(original)]
 
-    def add(name, base, expressions, expected, *, typed_orc=True):
+    def add(name, base, expressions, expected, *, typed_orc=True, json_cells=()):
         columns = ["id", *expressions]
         frame = base.with_columns(expressions).select(*columns)
-        options = {"typed_orc": typed_orc,
-                   "json_cells": tuple(name for name in columns if any(
-                       isinstance(row[name], str) for row in expected))}
+        options = {"typed_orc": typed_orc, "json_cells": json_cells}
         cases.append((name, frame, expected, columns, options))
         cases.append((name + "-empty", frame.limit(0), [], columns, options))
         return columns, options
@@ -72,7 +70,8 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
             "ceiled": [decimal(5, 0, value) for value in [2, None, None, 0]],
             "rounded": [decimal(5, 0, value) for value in [1, None, None, 0]],
         })
-        add(f"typed-expression-{source_name}-decimal", base, expressions, expected)
+        add(f"typed-expression-{source_name}-decimal", base, expressions, expected,
+            json_cells=tuple(expressions))
 
         expressions = {
             "text": narrow.cast("utf8"),
@@ -92,7 +91,8 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
             "rescaled": [None, None, None, decimal(6, 2, 0)],
             "exact_rescaled": [decimal(4, 2, 250)] * 4,
         })
-        add(f"typed-expression-{source_name}-casts", base, expressions, expected)
+        add(f"typed-expression-{source_name}-casts", base, expressions, expected,
+            json_cells=("binary", "rescaled", "exact_rescaled"))
 
         expressions = {
             "text": sl.col("payload").try_cast("utf8"),
@@ -104,7 +104,8 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
         expected = rows({"text": [None, "", None, "é"], "bytes": [3, 0, None, 2],
                          "text_bytes": [None, 0, None, 2], "hex": ["00ff10"] * 4,
                          "base64": ["c3a9"] * 4})
-        add(f"typed-expression-{source_name}-binary", base, expressions, expected, typed_orc=False)
+        add(f"typed-expression-{source_name}-binary", base, expressions, expected,
+            typed_orc=False, json_cells=("hex", "base64"))
 
         expressions = {
             "at_midnight": sl.col("day").cast("timestamp_micros"),
@@ -164,14 +165,17 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
             "lazy": [decimal(10, 6, 2_500_000)] * 4,
             "null_if": [decimal(10, 6, value) for value in narrow_values],
         })
-        add(f"typed-expression-{source_name}-selection", base, expressions, expected)
+        add(f"typed-expression-{source_name}-selection", base, expressions, expected,
+            json_cells=tuple(expressions))
 
         expressions = {"literal_decimal": Decimal("-12.3000"), "literal_binary": b"\x00\xff",
                        "literal_day": date(1969, 12, 31), "literal_instant": epoch - timedelta(microseconds=1)}
         expected = [dict(id=row["id"], literal_decimal=decimal(6, 4, -123000),
                          literal_binary="00ff", literal_day=-1, literal_instant=-1) for row in original]
-        add(f"typed-expression-{source_name}-literals", base, expressions, expected)
-        add(f"typed-expression-{source_name}-source-literals", source, expressions, expected)
+        add(f"typed-expression-{source_name}-literals", base, expressions, expected,
+            json_cells=("literal_decimal", "literal_binary"))
+        add(f"typed-expression-{source_name}-source-literals", source, expressions, expected,
+            json_cells=("literal_decimal", "literal_binary"))
 
     # Preserve ordinary source statements so the normal source dispatch participates.
     source_sql = "'" + str(native).replace("'", "''") + "'"
@@ -197,7 +201,8 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
         }
         expected = [dict(id=index, payload=str(index).encode().hex(), amount=decimal(8, 2, index * 100),
                          day=index, instant=index * 1_000_000) for index in range(count)]
-        add(f"typed-expression-large-{source_name}", source.limit(count).select("id"), expressions, expected)
+        add(f"typed-expression-large-{source_name}", source.limit(count).select("id"), expressions, expected,
+            json_cells=("payload", "amount"))
 
     # Freeze every expected row before invoking a producer; Python is only an oracle.
     oracle = output / "typed-expression-expected.json"
