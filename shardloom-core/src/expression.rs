@@ -898,7 +898,7 @@ fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
             other => Err(EvalFailure::unsupported(
                 "negate",
                 format!(
-                    "negate supports finite int64/float64 values, got {}",
+                    "negate requires int64, uint64, decimal128, finite float64, or null, got {}",
                     other.dtype().as_str()
                 ),
             )),
@@ -1959,7 +1959,7 @@ fn eval_numeric_abs(
         other => Err(EvalFailure::unsupported(
             "numeric_abs",
             format!(
-                "function {name:?} supports finite int64/float64/null operands only, got {}",
+                "function {name:?} requires int64, uint64, decimal128, finite float64, or null, got {}",
                 other.dtype().as_str()
             ),
         )),
@@ -2020,7 +2020,7 @@ fn eval_numeric_rounding(
         other => Err(EvalFailure::unsupported(
             "numeric_rounding",
             format!(
-                "function {name:?} supports finite int64/float64/null operands only, got {}",
+                "function {name:?} requires int64, uint64, decimal128, finite float64, or null, got {}",
                 other.dtype().as_str()
             ),
         )),
@@ -2219,7 +2219,7 @@ fn eval_numeric_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalR
         (left, right) => Err(EvalFailure::unsupported(
             "numeric_binary",
             format!(
-                "{} supports int64, float64, or exact int64/float64 mixed operands for this slice, got {} and {}",
+                "{} has no admitted numeric coercion for {} and {}",
                 op.as_str(),
                 left.dtype().as_str(),
                 right.dtype().as_str()
