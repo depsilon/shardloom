@@ -167,3 +167,16 @@ evidence and local gate provenance. The original 6,510 cases and 40 complete
 expression oracles remain unchanged; 90 additional checks cover Decimal branch
 promotion. The original `3e507b97` acceptance and its Q26 investigation remain in
 the report and [original packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz).
+
+The subsequent decoded-reference review is frozen at `7a97a0c5`. Seven core
+regressions and four native/reference tables cover lazy branch types and values,
+Decimal promotion, UInt64 numeric boundaries, integer string offsets and Boolean
+TRY_CAST failures. Default workspace tests pass 3,467 cases, native Vortex tests
+pass 2,296 with 23 existing ignored tests, and native CLI tests pass 1,592. These
+counts overlap across configurations. The
+[reference packet](../benchmarks/evidence/native-typed-expressions-reference-2026-10-03.json.xz)
+retains the full gate logs and exact source delta. The explicit row-based
+local-source diagnostic route also uses the corrected evaluator; its CLI tests
+are included. Native kernels, binding, shared public helpers and public UAT
+fixtures are unchanged. The 6,600 public checks and Full43 measurements above
+remain observations of `895a45c9`, rather than new measurements of this follow-up.

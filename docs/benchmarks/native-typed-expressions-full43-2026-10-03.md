@@ -229,6 +229,50 @@ reported native binding error; both observations are retained and distinguished.
 Development test failures also retain the corrected expectations for nonfinite
 source admission and the subsequent passing regressions.
 
+## Decoded-reference review acceptance
+
+Follow-up review found that the decoded evaluator still eagerly evaluated
+COALESCE's second argument, rejected variadic calls, returned selected Decimal
+branches without their common declared type, and omitted UInt64 numeric
+operators. Source `7a97a0c58cc471c837480bfea1232a5a806e577e` resolves result types
+without evaluating unused values. COALESCE accepts 1–128 arguments; CASE and
+COALESCE rescale only selected decimals. Declared nullable column types survive
+NULL rows. UInt64 arithmetic checks overflow and division by zero, and negation
+checks the signed result domain. The same repair covers exact signed/unsigned
+comparisons, integer string offsets and invalid Boolean TRY_CAST values.
+
+Seven core tests include the six regressions that initially failed, plus bounded
+type traversal and nested expressions. Four native/reference tables check both
+implementations against independent literal values and declared types, including
+empty native plans, typed NULLs, lazy errors, incompatible types and UInt64
+boundaries. Default workspace tests pass 3,467 cases; native Vortex tests pass
+2,296 with 23 existing ignored tests; native CLI tests pass 1,592. Python runs
+868 tests with 144 skips. Counts overlap across feature configurations.
+
+The shared evaluator is also used by the explicit row-based local-source
+diagnostic route. Its full CLI and smoke tests are included. An intermediate
+CLI test caught an overly narrow comparison check; decoded Int64/Float64 and
+decimal comparison rules are preserved independently of native key admission.
+The string-offset diagnostic now describes integer operands, and its existing
+smoke assertion is updated. Failed reproductions, intermediate compile/lint
+observations and both intermediate CLI failures remain in the evidence.
+
+The [reference validation packet](evidence/native-typed-expressions-reference-2026-10-03.json.xz)
+retains all 24 gate categories, raw logs, 820 source fingerprints, final document
+fingerprints and the exact delta from the preceding acceptance. Only the core
+evaluator/private type resolver and test code change. All 28 public expression
+helper bodies, native Vortex kernels and binder, CLI/parser implementation,
+Python declarations and UAT fixtures remain unchanged. Source inspection finds
+the decoded evaluator only in Vortex test modules, outside the native execution
+loop; this is a named-export/alias source audit, not an exhaustive dynamic call
+graph claim.
+
+The native public matrix and Full43 are not repeated for this follow-up. Their
+complete retained packet, binary identity and `895a45c9` source remain unchanged;
+those measurements are not relabelled as this source or as version 0.4.0. This
+follow-up establishes the scoped correctness repair and adds no performance,
+publication, hosted-acceptance or website-advisory approval claim.
+
 The [review packet](evidence/native-typed-expressions-review-2026-10-03.json.xz)
 contains the refreshed complete envelopes, independent oracles, paired responses,
 identity hashes, local checks, failed observations and review. It links the
