@@ -75,6 +75,16 @@ remain unchanged. This recovered 3,264,512 accounted log bytes. Failed/incomplet
 cohorts and all storage ceilings remain unchanged. The
 [typed-key acceptance packet](../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz)
 retains the receipt and verifies every archived member.
+Before the October 3 typed-expression review refresh, preflight stopped before
+queries because accumulated logs exceeded the 252-MiB admission threshold that
+reserves space below the unchanged 256-MiB ceiling. Twelve closed log files from
+three successful September 27 count-selection screens were archived losslessly
+beside their unchanged completion receipts. File identities, no-open-handle
+checks and every archived byte were verified before removing redundant originals.
+This recovered 5,943,296 accounted log bytes. Failed/incomplete runs and storage
+ceilings remain unchanged; the
+[review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz)
+retains the failed preflight, compaction receipt and per-member manifests.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

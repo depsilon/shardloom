@@ -406,16 +406,17 @@ the ledger.
       Full43 regression; update exact support records and immutable evidence.
     - [ ] Complete hosted review/gates after the inherited website advisory decision,
       then move this finite item to the completed ledger.
-  - Local evidence: frozen `3e507b97` passes 6,510 public checks/14,120,153
-    complete row comparisons, including 778 new expression checks/1,837,256 rows.
+  - Local evidence: frozen review source `895a45c9` passes 6,600 public checks/14,120,333
+    complete row comparisons, including 868 expression checks/1,837,436 rows.
     All 202 direct-unary checks, 24 local gate categories and 258 paired Full43
-    comparisons pass. Six reversed-order Q26 repeats also pass; the initial
-    +10.07% (+0.163-second) timing flag becomes +1.96% (+0.031 seconds).
-    No aggregate/RSS flag remains and no speedup is claimed. The
+    comparisons pass. No timing, RSS or aggregate threshold is crossed; no
+    repeat is prescribed and no speedup is claimed. Decimal branch promotion
+    adds 90 checks while preserving the original 6,510 cases and complete oracles. The
     [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
-    and [immutable packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz)
+    and [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz)
     preserve independent complete-value expectations, ownership/failure evidence,
-    source/binary hashes, all failed observations and final check provenance.
+    source/binary hashes, failed observations and final check provenance. The
+    original acceptance and Q26 repeat remain separately recorded.
   - Acceptance: exact decimal and temporal behavior, explicit conversion failures,
     lazy NULL/branch semantics and deterministic unsupported empty plans; no
     frontend-specific executor or external-engine fallback.

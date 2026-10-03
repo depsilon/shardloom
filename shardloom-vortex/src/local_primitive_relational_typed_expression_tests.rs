@@ -83,6 +83,231 @@ fn decimals() -> Fixture {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep value, schema, empty-input and denial checks on one fixture.
+fn native_typed_expressions_promote_decimal_branches_losslessly_before_reading_rows() {
+    let fixture = decimals();
+    let decimal = |value, precision, scale| {
+        literal(ScalarValue::Decimal128 {
+            value,
+            precision,
+            scale,
+        })
+    };
+    let expressions = vec![
+        (
+            "same",
+            function("coalesce", vec![col("amount"), decimal(120, 3, 2)]),
+        ),
+        (
+            "finer",
+            function("coalesce", vec![col("amount"), decimal(1, 3, 3)]),
+        ),
+        (
+            "wider",
+            function("coalesce", vec![col("amount"), decimal(123_456_789, 9, 0)]),
+        ),
+        (
+            "selected",
+            function(
+                "case_when",
+                vec![
+                    expr(ExpressionKind::Compare {
+                        left: Box::new(col("n")),
+                        op: ComparisonOp::Gt,
+                        right: Box::new(literal(ScalarValue::Int64(2))),
+                    }),
+                    col("amount"),
+                    decimal(125, 3, 3),
+                ],
+            ),
+        ),
+        (
+            "lazy",
+            function(
+                "coalesce",
+                vec![
+                    decimal(25, 2, 1),
+                    cast(
+                        literal(ScalarValue::Utf8("bad".into())),
+                        decimal128_dtype(11, 3),
+                        false,
+                    ),
+                ],
+            ),
+        ),
+        (
+            "missing",
+            function(
+                "coalesce",
+                vec![
+                    cast(literal(ScalarValue::Null), decimal128_dtype(10, 2), false),
+                    cast(literal(ScalarValue::Null), decimal128_dtype(9, 4), false),
+                ],
+            ),
+        ),
+    ];
+    let plan = project(fixture.scan(), expressions.clone());
+    assert_eq!(
+        collect(&plan),
+        vec![
+            json!({"same":"decimal128(10,2):1234","finer":"decimal128(11,3):12340","wider":"decimal128(11,2):1234","selected":"decimal128(11,3):125","lazy":"decimal128(11,3):2500","missing":null}),
+            json!({"same":"decimal128(10,2):-150","finer":"decimal128(11,3):-1500","wider":"decimal128(11,2):-150","selected":"decimal128(11,3):-1500","lazy":"decimal128(11,3):2500","missing":null}),
+            json!({"same":"decimal128(10,2):120","finer":"decimal128(11,3):1","wider":"decimal128(11,2):12345678900","selected":null,"lazy":"decimal128(11,3):2500","missing":null}),
+            json!({"same":"decimal128(10,2):9999","finer":"decimal128(11,3):99990","wider":"decimal128(11,2):9999","selected":"decimal128(11,3):125","lazy":"decimal128(11,3):2500","missing":null}),
+        ]
+    );
+    let empty_plan = project(empty(fixture.scan()), expressions);
+    assert_eq!(collect(&empty_plan), [] as [Value; 0]);
+    assert_eq!(
+        prepare_relational(&plan, policy()).unwrap().output_dtype(),
+        prepare_relational(&empty_plan, policy())
+            .unwrap()
+            .output_dtype()
+    );
+    for expression in [
+        function("coalesce", vec![decimal(0, 38, 0), decimal(0, 38, 38)]),
+        function(
+            "case_when",
+            vec![
+                literal(ScalarValue::Boolean(false)),
+                decimal(0, 38, 0),
+                decimal(0, 38, 38),
+            ],
+        ),
+        function(
+            "coalesce",
+            vec![col("amount"), literal(ScalarValue::Int64(1))],
+        ),
+    ] {
+        for input in [fixture.scan(), empty(fixture.scan())] {
+            assert!(
+                prepare_relational(
+                    &project(input, vec![("invalid", expression.clone())]),
+                    policy()
+                )
+                .is_err()
+            );
+        }
+    }
+}
+
+#[test]
+fn native_typed_expressions_numeric_casts_match_checked_reference_values() {
+    use LogicalDType::{Float64 as F64, Int64 as I64, UInt64 as U64};
+    use ScalarValue::{Float64 as F, Int64 as I, UInt64 as U, Utf8 as S};
+    use shardloom_core::{
+        ExpressionEvaluationStatus as Status, ExpressionInputRow, evaluate_expression,
+    };
+    let fixture = decimals();
+    for (source, target, expected) in [
+        (S("5".into()), U64, Some(U(5))),
+        (S(u64::MAX.to_string()), U64, Some(U(u64::MAX))),
+        (S("18446744073709551616".into()), U64, None),
+        (S("-1".into()), U64, None),
+        (S("bad".into()), U64, None),
+        (I(5), U64, Some(U(5))),
+        (I(-1), U64, None),
+        (U(5), I64, Some(I(5))),
+        (U(u64::MAX), I64, None),
+        (U(u64::MAX), F64, Some(F(18_446_744_073_709_551_616.0))),
+        (F(5.0), U64, Some(U(5))),
+        (F(-0.0), U64, Some(U(0))),
+        (
+            F(18_446_744_073_709_549_568.0),
+            U64,
+            Some(U(18_446_744_073_709_549_568)),
+        ),
+        (F(18_446_744_073_709_551_616.0), U64, None),
+        (F(-1.0), U64, None),
+        (F(1.5), U64, None),
+        (F(-9_223_372_036_854_775_808.0), I64, Some(I(i64::MIN))),
+        (
+            F(9_223_372_036_854_774_784.0),
+            I64,
+            Some(I(9_223_372_036_854_774_784)),
+        ),
+        (F(9_223_372_036_854_775_808.0), I64, None),
+        (F(-9_223_372_036_854_777_856.0), I64, None),
+        (F(1.5), I64, None),
+        (ScalarValue::Null, U64, Some(ScalarValue::Null)),
+    ] {
+        for tolerant in [false, true] {
+            let expression = cast(literal(source.clone()), target.clone(), tolerant);
+            let reference = evaluate_expression(&expression, &ExpressionInputRow::new());
+            let native = prepare_relational(
+                &project(fixture.scan(), vec![("value", expression.clone())]),
+                policy(),
+            )
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default());
+            if expected.is_none() && !tolerant {
+                assert_eq!(reference.status, Status::InvalidInput, "{expression:?}");
+                assert!(native.is_err(), "{expression:?}");
+            } else {
+                let expected = expected.clone().unwrap_or(ScalarValue::Null);
+                assert_eq!(reference.status, Status::Evaluated, "{expression:?}");
+                assert_eq!(reference.value.as_ref(), Some(&expected), "{expression:?}");
+                let json = match expected {
+                    U(value) => json!(value),
+                    I(value) => json!(value),
+                    F(value) => json!(value),
+                    ScalarValue::Null => Value::Null,
+                    _ => unreachable!(),
+                };
+                let rows = json_rows(&native.unwrap());
+                assert_eq!(rows, vec![json!({"value":json}); 4], "{expression:?}");
+            }
+            assert!(!reference.fallback_attempted && !reference.external_engine_invoked);
+        }
+    }
+}
+
+#[test]
+fn native_typed_expressions_nonfinite_sources_keep_admission_failure() {
+    let fixture = Fixture::new(
+        single(
+            "value",
+            PrimitiveArray::from_iter([f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 1.5, 0.0])
+                .into_array(),
+        ),
+        5,
+    );
+    for target in [
+        LogicalDType::UInt64,
+        LogicalDType::Int64,
+        LogicalDType::Float64,
+    ] {
+        for tolerant in [false, true] {
+            let plan = project(
+                fixture.scan(),
+                vec![("converted", cast(col("value"), target.clone(), tolerant))],
+            );
+            let error = prepare_relational(&plan, policy())
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .err()
+                .unwrap();
+            assert!(
+                error
+                    .to_string()
+                    .contains("nonfinite scalar values are not admitted")
+            );
+        }
+        // Nonfinite literals retain their earlier binding denial, even for TRY_CAST.
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let expression = cast(literal(ScalarValue::Float64(value)), target.clone(), true);
+            assert!(
+                prepare_relational(
+                    &project(empty(fixture.scan()), vec![("invalid", expression)]),
+                    policy()
+                )
+                .is_err()
+            );
+        }
+    }
+}
+
+#[test]
 fn native_typed_expressions_decimal_arithmetic_and_rounding() {
     let fixture = decimals();
     let expressions = vec![
@@ -322,6 +547,7 @@ fn native_typed_expressions_literals_lazy_selection_and_empty_denials() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One fixture spans encoded input through final-owner credit release.
 fn native_typed_expressions_encoded_arrays_and_final_output_credit_ownership() {
     let codes = PrimitiveArray::from_iter([1u8, 0, 2, 1]).into_array();
     let decimal =
@@ -350,6 +576,20 @@ fn native_typed_expressions_encoded_arrays_and_final_output_credit_ownership() {
                 ),
                 ("rounded", function("round", vec![col("amount")])),
                 ("missing", function("floor", vec![col("missing")])),
+                (
+                    "promoted",
+                    function(
+                        "coalesce",
+                        vec![
+                            col("amount"),
+                            literal(ScalarValue::Decimal128 {
+                                value: 1,
+                                precision: 3,
+                                scale: 3,
+                            }),
+                        ],
+                    ),
+                ),
             ],
         ),
         policy(),
@@ -391,6 +631,12 @@ fn native_typed_expressions_encoded_arrays_and_final_output_credit_ownership() {
             json!("decimal128(5,0):12"),
         ],
         vec![Value::Null; 4],
+        vec![
+            json!("decimal128(7,3):12340"),
+            json!("decimal128(7,3):-1500"),
+            json!("decimal128(7,3):1"),
+            json!("decimal128(7,3):12340"),
+        ],
     ]) {
         for (row, expected) in expected.into_iter().enumerate() {
             assert_eq!(

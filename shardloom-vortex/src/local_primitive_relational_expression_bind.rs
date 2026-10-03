@@ -607,6 +607,13 @@ fn common(left: &DType, right: &DType) -> Result<DType> {
         Ok(right.as_nullable())
     } else if right == &DType::Null {
         Ok(left.as_nullable())
+    } else if matches!((left, right), (DType::Decimal(..), DType::Decimal(..))) {
+        let (precision, scale) =
+            decimal_operand(0, left)?.common_type(decimal_operand(0, right)?)?;
+        Ok(DType::Decimal(
+            DecimalDType::new(precision, i8::try_from(scale).expect("validated scale")),
+            nullable(left, right),
+        ))
     } else {
         common_dtype(left, right)
     }

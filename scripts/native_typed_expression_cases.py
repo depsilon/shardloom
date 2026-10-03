@@ -168,6 +168,31 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
         add(f"typed-expression-{source_name}-selection", base, expressions, expected,
             json_cells=tuple(expressions))
 
+        expressions = {
+            "same_scale": narrow.fill_null(Decimal("2.500000")),
+            "shorter_scale": narrow.fill_null(Decimal("2.5")),
+            "finer_scale": narrow.fill_null(Decimal("0.0000001")),
+            "wider_integer": narrow.fill_null(Decimal("12345.5")),
+            "lazy_bad_branch": good.fill_null(
+                sl.ColumnExpression("CAST('bad' AS decimal128(11,7))")),
+            "conditional": sl.case_when(sl.col("id") < 3, narrow, Decimal("2.5")),
+        }
+        expected = rows({
+            "same_scale": [decimal(10, 6, value) for value in
+                           [1_234_567, 2_500_000, 2_500_000, 0]],
+            "shorter_scale": [decimal(10, 6, value) for value in
+                              [1_234_567, 2_500_000, 2_500_000, 0]],
+            "finer_scale": [decimal(11, 7, value) for value in
+                            [12_345_670, 1, 1, 0]],
+            "wider_integer": [decimal(11, 6, value) for value in
+                              [1_234_567, 12_345_500_000, 12_345_500_000, 0]],
+            "lazy_bad_branch": [decimal(11, 7, 25_000_000)] * 4,
+            "conditional": [decimal(10, 6, value) for value in
+                            [1_234_567, None, 2_500_000, 2_500_000]],
+        })
+        add(f"typed-expression-{source_name}-decimal-branches", base, expressions, expected,
+            json_cells=tuple(expressions))
+
         expressions = {"literal_decimal": Decimal("-12.3000"), "literal_binary": b"\x00\xff",
                        "literal_day": date(1969, 12, 31), "literal_instant": epoch - timedelta(microseconds=1)}
         expected = [dict(id=row["id"], literal_decimal=decimal(6, 4, -123000),
@@ -181,12 +206,15 @@ def run(context, output, guard, exercise, exercise_workflow, remember, original,
     source_sql = "'" + str(native).replace("'", "''") + "'"
     for name, expression, values in [
         ("decimal", "ROUND(TRY_CAST(amount AS decimal128(10,6)))", [decimal(5, 0, value) for value in [1, None, None, 0]]),
+        ("decimal-coalesce", "COALESCE(TRY_CAST(amount AS decimal128(10,6)),CAST('2.5' AS decimal128(2,1)))",
+         [decimal(10, 6, value) for value in [1_234_567, 2_500_000, 2_500_000, 0]]),
         ("binary", "BYTE_LENGTH(payload)", [3, 0, None, 2]),
         ("calendar", "CAST(instant AS date32)", [-1, 19_675, None, 0]),
         ("lazy", "COALESCE(CAST('2.500000' AS decimal128(10,6)),CAST('bad' AS decimal128(10,6)))", [decimal(10, 6, 2_500_000)] * 4),
     ]:
         expected = rows({"changed": values})
-        options = {"typed_orc": name != "binary", "json_cells": ("changed",) if name in ("decimal", "lazy") else ()}
+        options = {"typed_orc": name != "binary",
+                   "json_cells": ("changed",) if name in ("decimal", "decimal-coalesce", "lazy") else ()}
         direct.append((f"typed-expression-direct-{name}", context.sql(
             f"SELECT id,{expression} AS changed FROM {source_sql}"), expected, ["id", "changed"], options))
 

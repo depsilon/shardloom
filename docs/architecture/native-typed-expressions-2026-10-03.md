@@ -73,6 +73,18 @@ scalar conversion. Regression tests include both timestamp extremes.
 - Decimal ABS preserves precision/scale. FLOOR, CEIL and one-argument ROUND
   return scale zero, precision `p` when `s=0`, otherwise `p-s+1`; ROUND resolves
   half ties away from zero. All operate on exact unscaled integers.
+- Int64/UInt64 casts check signedness and range. Float-to-integer casts require
+  integral values and exclude the upper bounds `2^63` and `2^64`, respectively.
+  The reference evaluator and native kernel share those admitted results and
+  failures. Nonfinite source values fail admission for both CAST and TRY_CAST.
+- Decimal CASE/COALESCE branches derive a lossless common type from their declared
+  domains: scale is the larger input scale; precision is the larger integer-digit
+  capacity plus that scale. Binding rejects precision above 38, including empty
+  input and unselected branches. Only selected values are rescaled, using the
+  existing checked decimal cast and reserved native result allocator. This
+  permits Python Decimal null-fill values with smaller declared precision or a
+  different scale without narrowing the source domain. Key compatibility and
+  mixed-scale arithmetic keep their separate explicit-cast contracts.
 - Binary functions: byte length on Binary/UTF8 and strict UNHEX/standard padded
   FROM_BASE64, with the existing aliases and invalid-padding/trailing-bit rules.
 - Calendar functions: date and timestamp field extraction, checked day/second
@@ -128,19 +140,22 @@ Python binding experiments, package publication or broader competitive claims.
 
 ## Local acceptance
 
-Frozen source `3e507b979358c6fbcdd2cdd81c68a7512548ec63` passes 6,510 complete
-public checks and 14,120,153 row comparisons. The typed subset contains 3,205
-checks/6,432,628 rows; 778 new expression checks compare 1,837,256 rows against
+Frozen review source `895a45c95308552e5163738edb1942c153bdeebc` passes 6,600 complete
+public checks and 14,120,333 row comparisons. The typed subset contains 3,295
+checks/6,432,808 rows; 868 expression checks compare 1,837,436 rows against
 independently frozen expectations. The separate direct-unary matrix passes 202
 checks/131,734 rows. Computed 65,541-row inputs complete all representable writers
 and preserve the existing collection and unsupported-format denials.
 
 All 24 local gate categories pass on the unchanged compiled runtime. The
-complete paired Full43 cohort passes 258/258 results, followed by all six
-prescribed reversed-order Q26 calls. Its initial +10.07% (+0.163-second) timing
-flag becomes +1.96% (+0.031 seconds) on repeat; no aggregate or RSS flag remains.
-No speedup or total-RSS bound is claimed. The
+complete paired Full43 cohort passes 258/258 results, with no timing, RSS or
+aggregate threshold crossed. The fastest-call sum changes by +0.29% and the
+median sum by +1.10%; no repeat is prescribed. No speedup or total-RSS bound is
+claimed. The
 [report](../benchmarks/native-typed-expressions-full43-2026-10-03.md) and
-[immutable packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz)
-retain every observation, source/binary identity, complete value/schema evidence
-and local gate provenance, including the corrected CSV expectation declaration.
+[review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz)
+retain the refreshed observations, source/binary identities, complete value/schema
+evidence and local gate provenance. The original 6,510 cases and 40 complete
+expression oracles remain unchanged; 90 additional checks cover Decimal branch
+promotion. The original `3e507b97` acceptance and its Q26 investigation remain in
+the report and [original packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz).

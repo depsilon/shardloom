@@ -43,6 +43,21 @@ impl Decimal128Operand {
         decimal128_binary_metadata(self, op, right).map_err(|error| value_error(*error))
     }
 
+    /// Derives a lossless decimal branch type solely from both declared domains.
+    ///
+    /// # Errors
+    /// Rejects domains whose combined integer digits and scale exceed precision 38.
+    pub fn common_type(self, right: Self) -> Result<(u8, u8)> {
+        let scale = self.scale.max(right.scale);
+        let precision = (self.precision - self.scale).max(right.precision - right.scale) + scale;
+        if precision > 38 {
+            return Err(ShardLoomError::InvalidOperation(
+                "decimal128 branches have no lossless common type within precision 38".to_owned(),
+            ));
+        }
+        Ok((precision, scale))
+    }
+
     /// Evaluates checked exact arithmetic without a reference evaluator or row map.
     ///
     /// # Errors

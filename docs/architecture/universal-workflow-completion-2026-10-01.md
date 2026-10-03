@@ -99,12 +99,14 @@ and [immutable evidence packet](../benchmarks/evidence/native-typed-keys-2026-10
 The [typed-expression continuation](native-typed-expressions-2026-10-03.md)
 extends the existing binder and checked scalar helpers with literals, explicit
 casts, exact decimal arithmetic/rounding and binary/calendar functions. Frozen
-`3e507b97` passes 6,510 public checks/14,120,153 rows, including 778 new expression
-checks/1,837,256 independently specified rows. The separate direct matrix passes
-202 checks, all 24 local gate categories pass, and Full43 passes 258/258 plus six
-reversed-order Q26 repeats. The initial timing flag does not reproduce; no speedup
-is claimed. See the [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
-and [immutable packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz).
+review source `895a45c9` passes 6,600 public checks/14,120,333 rows, including 868
+expression checks/1,837,436 independently specified rows. The separate direct
+matrix passes 202 checks, all 24 local gate categories pass, and Full43 passes
+258/258 with no timing/RSS/aggregate threshold crossed. The Decimal branch
+correction adds 90 checks and preserves the original cases and complete oracles;
+no speedup is claimed. See the [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
+and [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz),
+which retain the original acceptance as a separate immutable observation.
 Hosted review remains pending. Nested keys, retained unary state, wider adapters
 and remaining resource/spill transitions require the work below.
 

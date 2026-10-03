@@ -3,7 +3,9 @@
 # Native typed expression acceptance — October 3, 2026
 
 Status: complete local acceptance; hosted review and the inherited website advisory
-decision remain pending.
+decision remain pending. The refreshed acceptance for review corrections is
+recorded [below](#review-corrections-and-refreshed-acceptance); the original frozen
+observation remains intact.
 
 Binary, exact Decimal128, Date32 and timezone-free microsecond timestamp
 expressions use the existing native binder, column owners and result builder.
@@ -150,6 +152,88 @@ offset parity repair, and failed validation iterations. The retained-report
 memory assertion was corrected to account for its still-live metadata lease;
 it did not establish an engine leak. The accepted native tests exercise final
 credit release after that report is dropped.
+
+## Review corrections and refreshed acceptance
+
+Review identified two correctness gaps. Python Decimal null-fill could produce
+COALESCE branches with different declared precisions, which the binder rejected.
+The shared binder now derives a lossless common decimal domain from integer-digit
+capacity and scale. Only selected values are rescaled through the existing checked
+cast and reserved native allocator. CASE uses the same rule. Empty/all-null
+inputs, differing scales, wider integer domains, incompatible precision, lazy
+invalid casts and final-owner credit release have regression coverage.
+
+The core reference evaluator also lacked several conversions already admitted by
+the native UInt64 cast kernel. Checked UTF8/Int64/Float64-to-UInt64 and
+UInt64-to-Int64/Float64 conversions now agree with native execution. Float64-to-Int64
+rejects the exclusive upper bound `2^63` instead of saturating to the largest
+signed integer. Nonfinite source values remain admission failures for CAST and
+TRY_CAST; ordinary admitted conversion errors retain TRY_CAST's typed-NULL behavior.
+
+| Refreshed evidence | Frozen scope |
+| --- | --- |
+| Candidate source | `895a45c95308552e5163738edb1942c153bdeebc` |
+| Candidate executable SHA-256 | `8f39831b4e73f13da94a79123be7f7c92d5f707771db9c89e1bd0df6d9420546` |
+| Complete public scope | 6,600 checks; 14,120,333 complete row comparisons |
+| Typed subset | 3,295 checks; 6,432,808 complete row comparisons |
+| Expression subset | 868 checks; 1,837,436 complete row comparisons |
+| Separate direct-unary scope | 202 checks; 131,734 complete row comparisons |
+
+All original 6,510 cases retain their names and row counts, and all 40 original
+expression oracles retain their complete expected values. Five additional oracle
+entries cover Decimal branch behavior through native Vortex and declared-Arrow
+SQL/DataFrame workflows and ordinary source SQL. They add 90 checks and 180 row
+comparisons. The complete public and direct-unary runs pass on the refreshed
+frozen CLI and fixture executables.
+
+All 24 local gate categories pass with exact equality of all 817 compiled/runtime
+source fingerprints; no fixture-source exception is needed for this refresh.
+Default tests report 3,460 passed; native Vortex tests report 2,292 passed and
+23 existing ignored tests; native CLI tests report 1,592 passed. Python runs
+868 tests with 144 skips. These counts overlap across configurations. Fresh
+documentation gates cover the final report and support records.
+
+The same typed-key control, compiler, features, lockfile, resident source,
+references, role-order policy, resource settings and thresholds defined above
+remain the comparator contract. All 258 refreshed paired results match. No
+per-query timing/RSS or aggregate threshold is crossed, so no reversed-order
+repeat is prescribed for this cohort.
+
+| Refreshed Full43 process measure | Control | Candidate | Candidate change |
+| --- | ---: | ---: | ---: |
+| Sum of each query's fastest valid call, seconds | 59.612970 | 59.784834 | +0.29% |
+| Sum of each query's median call, seconds | 61.539952 | 62.215874 | +1.10% |
+| Sum of all 129 raw calls per role, seconds | 202.824001 | 187.676522 | -7.47% |
+| Maximum observed individual-process RSS, bytes | 4,862,574,592 | 4,620,730,368 | Observation only |
+
+The supervised paired stage takes 477.179709 seconds, including per-call
+validation, host observations and log archiving. Preflight source hashing and
+final evidence verification remain outside that clock. One-minute host load
+ranges from 2.46 to 6.54; neither an idle host nor a cause for timing variation
+is inferred. All raw samples are retained. The raw-time sum is distinct from the
+predeclared fastest-call and median-sum measures; no speedup or total-RSS bound
+is claimed. Three refreshed Q1 proofs retain the exact footer-only count.
+
+The first refresh preflight stopped before queries because accumulated logs
+exceeded its 252-MiB admission threshold, which reserves space below the unchanged
+256-MiB ceiling. Twelve files from three completed September 27 profiling screens
+were archived losslessly after completion, identity and open-handle checks.
+Every archived byte was verified before removing redundant originals; completion
+receipts and failed/incomplete runs remain unchanged. This recovered 5,943,296
+accounted log bytes, and the fresh preflight passed. The review packet rechecks
+all twelve members and retains the failed preflight and compaction manifests.
+
+The original Decimal-fill reproduction first hit an unrelated direct-source
+admission boundary. The corrected reproduction prepared Vortex and reached the
+reported native binding error; both observations are retained and distinguished.
+Development test failures also retain the corrected expectations for nonfinite
+source admission and the subsequent passing regressions.
+
+The [review packet](evidence/native-typed-expressions-review-2026-10-03.json.xz)
+contains the refreshed complete envelopes, independent oracles, paired responses,
+identity hashes, local checks, failed observations and review. It links the
+unchanged original packet and verifies that the original case coverage and
+expected values are preserved. Both packets are separate immutable observations.
 
 ## Evidence and remaining scope
 
