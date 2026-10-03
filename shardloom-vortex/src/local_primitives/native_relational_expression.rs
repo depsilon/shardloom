@@ -11,7 +11,7 @@ use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{BinaryOp, ComparisonOp, Result, UnaryOp};
 use vortex::array::{
     ArrayRef, IntoArray as _, VortexSessionExecute as _,
-    arrays::{ChunkedArray, ConstantArray},
+    arrays::{ChunkedArray, ConstantArray, ExtensionArray},
     dtype::DType,
     memory::MemorySessionExt as _,
     scalar::Scalar,
@@ -77,7 +77,16 @@ impl Expression {
         context.check_cancelled()?;
         let result = match &self.kind {
             Kind::Column(name) => super::logical_field_from_native_array(input, name)?,
-            Kind::Literal(scalar) => ConstantArray::new(scalar.clone(), input.len()).into_array(),
+            Kind::Literal(scalar) => {
+                let constant = ConstantArray::new(scalar.clone(), input.len()).into_array();
+                if let DType::Extension(extension) = &self.dtype {
+                    ExtensionArray::try_new(extension.clone(), constant)
+                        .map_err(vortex_error)?
+                        .into_array()
+                } else {
+                    constant
+                }
+            }
             Kind::Unary(op, expression) => {
                 let array = expression.evaluate(input, context)?;
                 let values = keys(&array, context)?;
@@ -86,10 +95,17 @@ impl Expression {
                 })?
             }
             Kind::Binary(left, op, right) => {
-                let left = keys(&left.evaluate(input, context)?, context)?;
-                let right = keys(&right.evaluate(input, context)?, context)?;
+                let left_values = keys(&left.evaluate(input, context)?, context)?;
+                let right_values = keys(&right.evaluate(input, context)?, context)?;
                 self.build(input.len(), context, |row| {
-                    binary(left.raw_cell(row)?, *op, right.raw_cell(row)?, &self.dtype)
+                    binary(
+                        left_values.raw_cell(row)?,
+                        *op,
+                        right_values.raw_cell(row)?,
+                        &left.dtype,
+                        &right.dtype,
+                        &self.dtype,
+                    )
                 })?
             }
             Kind::Compare(left, op, right) => {
@@ -216,7 +232,7 @@ impl Expression {
             let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
             let selected = input.take(indices).map_err(vortex_error)?;
             let result = expression.evaluate(&selected, context)?;
-            arrays.values.push(cast(&result, &self.dtype)?);
+            arrays.values.push(cast(&result, &self.dtype, context)?);
         }
         let (arrays, _ownership) = arrays.into_parts();
         if arrays.is_empty() {
@@ -262,6 +278,7 @@ impl Expression {
             let array = cast(
                 &expression.evaluate(&selected, context)?,
                 &self.dtype.as_nullable(),
+                context,
             )?;
             let keys = keys(&array, context)?;
             let mut next = ReservedVec::new(context.memory())?;
@@ -308,9 +325,27 @@ pub(super) fn keys(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Re
     )
 }
 
-fn cast(array: &ArrayRef, dtype: &DType) -> Result<ArrayRef> {
+fn cast(array: &ArrayRef, dtype: &DType, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
     if array.dtype() == &DType::Null {
         Ok(ConstantArray::new(Scalar::null(dtype.as_nullable()), array.len()).into_array())
+    } else if matches!((array.dtype(), dtype),
+        (DType::Decimal(from, _), DType::Decimal(to, _)) if from != to)
+    {
+        // Precision/scale promotion can allocate. Keep it in the same fallible
+        // result allocator as explicit casts, after selecting the live branch.
+        let values = keys(array, context)?;
+        let mut scratch = context.memory().reserve(0)?;
+        result_batch::build_column(
+            dtype,
+            array.len(),
+            &context.native_session().allocator(),
+            |row| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                scalar::cast(values.raw_cell(row)?, dtype, false, &mut scratch)
+            },
+        )
     } else {
         use vortex::array::builtins::ArrayBuiltins as _;
         array.cast(dtype.clone()).map_err(vortex_error)
@@ -335,6 +370,7 @@ fn unary(op: UnaryOp, value: Cell) -> Result<Value<'static>> {
         (_, Cell::Null) => Value::Null,
         (UnaryOp::Not, Cell::Boolean(value)) => Value::Bool(!value),
         (UnaryOp::Negate, Cell::Float(bits)) => Value::Float(-f64::from_bits(bits)),
+        (UnaryOp::Negate, Cell::Decimal(value, dtype)) => Value::Decimal(-value, dtype),
         (UnaryOp::Negate, value) => {
             Value::Int(i64::try_from(-integer(&value)?).map_err(vortex_error)?)
         }
@@ -342,12 +378,28 @@ fn unary(op: UnaryOp, value: Cell) -> Result<Value<'static>> {
     })
 }
 
-fn binary(left: Cell, op: BinaryOp, right: Cell, dtype: &DType) -> Result<Value<'static>> {
+fn binary(
+    left: Cell,
+    op: BinaryOp,
+    right: Cell,
+    left_dtype: &DType,
+    right_dtype: &DType,
+    dtype: &DType,
+) -> Result<Value<'static>> {
     if matches!(op, BinaryOp::And | BinaryOp::Or) {
         return boolean(left, op, right);
     }
     if left == Cell::Null || right == Cell::Null {
         return Ok(Value::Null);
+    }
+    if let DType::Decimal(dtype, _) = dtype {
+        let value = |cell: &Cell| match cell {
+            Cell::Decimal(value, _) => Ok(*value),
+            other => integer(other),
+        };
+        let result = scalar::decimal_operand(value(&left)?, left_dtype)?
+            .checked_binary(op, scalar::decimal_operand(value(&right)?, right_dtype)?)?;
+        return Ok(Value::Decimal(result.value(), *dtype));
     }
     if matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F64, _)) {
         let (left, right) = (float(&left)?, float(&right)?);

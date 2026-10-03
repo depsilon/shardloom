@@ -36,14 +36,23 @@ allocator argument in this version; keep the established explicit buffer path.
 
 At the original payload acceptance boundary, these types were payloads only;
 that acceptance excluded them as keys and excluded arithmetic, casts, unary
-state and decimal/temporal predicates. The subsequent [typed key contract](native-typed-keys-2026-10-03.md)
+state and decimal/temporal predicates. This describes that payload acceptance,
+not the later expression scope. The subsequent [typed key contract](native-typed-keys-2026-10-03.md)
 extends flat Binary, exact Decimal128 (matching precision and scale), Date32 and
 timezone-free timestamp-microsecond equality, hashing and ordering across
 relational joins, sets, groups, windows and subqueries. It also admits COUNT,
 COUNT DISTINCT, MIN/MAX, same-type comparisons, IS NULL, CASE, COALESCE and
-NULLIF. Casts, arithmetic/rescaling, retained unary state and nested key equality
-remain separate unsupported boundaries. Filtering/ordering/joining on already
-admitted scalar keys may carry these fields as payloads through projection,
+NULLIF. That key acceptance itself did not admit typed expressions. Current
+source builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
+arithmetic/rounding and scoped binary/calendar functions through the shared
+native expression binder. Decimal arithmetic output metadata binds before
+execution; explicit decimal downscaling requires zero discarded digits. Key
+compatibility still requires matching decimal precision/scale and preserves
+distinct temporal types. Nested key equality, retained unary-state extensions,
+richer aggregate/window semantics, broader adapters and state spill remain
+separate. See the [typed expression contract](native-typed-expressions-2026-10-03.md).
+Filtering/ordering/joining on already admitted scalar keys may carry these fields
+as payloads through projection,
 limits, UNION ALL, windows, subqueries, outer-join null extension and list
 explosion.
 

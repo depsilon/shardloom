@@ -206,12 +206,12 @@ pub use expression::{
     FunctionCategory, FunctionSignature, KernelCapability, KernelDescriptor, KernelEvalMode,
     KernelId, KernelKind, KernelRegistrySnapshot, KernelSelectionRequest, KernelSelectionResult,
     KernelSelectionStatus, LimitEvaluationReport, NullBehavior, ProjectedExpressionValue,
-    ProjectionEvaluationReport, ScalarValue, UnaryOp, date32_day, date32_month, date32_year,
-    decimal128_dtype, evaluate_expression, evaluate_filter, evaluate_limit, evaluate_projection,
-    format_decimal128_value, format_iso_date32, format_iso_timestamp_micros, parse_iso_date32,
-    parse_iso_timestamp_micros, timestamp_micros_date32, timestamp_micros_day,
-    timestamp_micros_hour, timestamp_micros_minute, timestamp_micros_month,
-    timestamp_micros_second, timestamp_micros_year,
+    ProjectionEvaluationReport, ScalarValue, UnaryOp, date32_day, date32_month,
+    date32_timestamp_micros, date32_year, decimal128_dtype, evaluate_expression, evaluate_filter,
+    evaluate_limit, evaluate_projection, format_decimal128_value, format_iso_date32,
+    format_iso_timestamp_micros, parse_iso_date32, parse_iso_timestamp_micros,
+    timestamp_micros_date32, timestamp_micros_day, timestamp_micros_hour, timestamp_micros_minute,
+    timestamp_micros_month, timestamp_micros_second, timestamp_micros_year,
 };
 
 pub use input::{

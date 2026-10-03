@@ -12,6 +12,7 @@ import math
 import os
 import re
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from itertools import combinations
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Union, cast
@@ -308,6 +309,11 @@ class ColumnExpression:
 
         return self.abs()
 
+    def __neg__(self) -> "ColumnExpression":
+        """Return a checked native numeric negation expression."""
+
+        return ColumnExpression(f"-({self.sql})")
+
     def abs(self) -> "ColumnExpression":
         """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
@@ -538,36 +544,30 @@ class ColumnExpression:
     def unhex(self) -> "ColumnExpression":
         """Return a scoped `UNHEX(<utf8-expression>)` binary helper expression."""
 
-        expression, has_source_column = _normalize_string_scalar_expression_sql(self.sql)
-        if not has_source_column:
-            raise ValueError("UNHEX expressions require at least one source column")
+        expression = _sql_computed_projection_expression(self)
         return ColumnExpression(f"UNHEX({expression})")
 
     def from_base64(self) -> "ColumnExpression":
         """Return a scoped `FROM_BASE64(<utf8-expression>)` binary helper expression."""
 
-        expression, has_source_column = _normalize_string_scalar_expression_sql(self.sql)
-        if not has_source_column:
-            raise ValueError("FROM_BASE64 expressions require at least one source column")
+        expression = _sql_computed_projection_expression(self)
         return ColumnExpression(f"FROM_BASE64({expression})")
 
     def byte_length(self) -> "ColumnExpression":
         """Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression."""
 
-        expression, has_source_column = _normalize_binary_scalar_expression_sql(self.sql)
-        if not has_source_column:
-            raise ValueError("BYTE_LENGTH expressions require a source-backed binary expression")
+        expression = _sql_computed_projection_expression(self)
         return ColumnExpression(f"BYTE_LENGTH({expression})")
 
     def fill_null(self, value: object) -> "ColumnExpression":
-        """Return a scoped `COALESCE(column, literal)` null-cleanup expression."""
+        """Return a `COALESCE` expression with a scalar value or expression."""
 
-        return ColumnExpression(f"COALESCE({self.sql}, {_sql_literal(value)})")
+        return ColumnExpression(f"COALESCE({self.sql}, {_sql_case_branch(value)})")
 
     def null_if(self, value: object) -> "ColumnExpression":
         """Return a scoped `NULLIF(column, literal)` null-cleanup expression."""
 
-        return ColumnExpression(f"NULLIF({self.sql}, {_sql_literal(value)})")
+        return ColumnExpression(f"NULLIF({self.sql}, {_sql_case_branch(value)})")
 
     def isin(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `IN (...)` predicate."""
@@ -6695,7 +6695,11 @@ class LazyFrame:
 
         column_name = _normalize_output_column_name(name)
         try:
-            literal = _generated_literal_expression(expression)
+            literal = (
+                expression
+                if isinstance(expression, (Decimal, bytes, bytearray, date))
+                else _generated_literal_expression(expression)
+            )
             expression_sql = _sql_literal(literal)
         except (TypeError, ValueError):
             try:
@@ -6733,7 +6737,7 @@ class LazyFrame:
             projected = self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
             if projected._has_structured_binary_export_shape():
                 return projected
-        if self._can_append_projection_column(column_name):
+        if self._can_append_projection_column(column_name, allow_vortex=True):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
@@ -14209,6 +14213,7 @@ def _normalize_cast_dtype(value: object) -> str:
         return decimal_dtype
     if dtype not in {
         "int64",
+        "uint64",
         "float64",
         "utf8",
         "boolean",
@@ -14217,7 +14222,7 @@ def _normalize_cast_dtype(value: object) -> str:
         "binary",
     }:
         raise ValueError(
-            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros', 'binary', 'decimal128(p,s)')"
+            "cast dtype must be one of ('int64', 'uint64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros', 'binary', 'decimal128(p,s)')"
         )
     return dtype
 
@@ -14275,6 +14280,8 @@ def _normalize_interval_integer(value: object) -> int:
 
 
 def _normalize_date_arithmetic_days(value: object) -> str:
+    if isinstance(value, ColumnExpression):
+        return _sql_computed_projection_expression(value)
     interval = _coerce_interval_literal(value)
     if interval is not None:
         if interval.unit != "DAY":
@@ -14294,12 +14301,14 @@ def _normalize_date_arithmetic_days(value: object) -> str:
         ):
             raise ValueError("date arithmetic days must be a signed integer literal")
         days = int(text)
-    if builtins.abs(days) > MAX_DATE_ARITHMETIC_DAYS:
-        raise ValueError("date arithmetic days admits absolute values <= 366000")
+    if not -(1 << 63) <= days < (1 << 64):
+        raise ValueError("date arithmetic days must fit int64 or uint64")
     return str(days)
 
 
 def _normalize_timestamp_arithmetic_seconds(value: object) -> str:
+    if isinstance(value, ColumnExpression):
+        return _sql_computed_projection_expression(value)
     interval = _coerce_interval_literal(value)
     if interval is not None:
         seconds = interval.value * _INTERVAL_SECOND_MULTIPLIERS[interval.unit]
@@ -14322,10 +14331,8 @@ def _normalize_timestamp_arithmetic_seconds(value: object) -> str:
                 "timestamp arithmetic seconds must be a signed integer literal"
             )
         seconds = int(text)
-    if builtins.abs(seconds) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
-        raise ValueError(
-            "timestamp arithmetic seconds admits absolute values <= 31622400000"
-        )
+    if not -(1 << 63) <= seconds < (1 << 64):
+        raise ValueError("timestamp arithmetic seconds must fit int64 or uint64")
     return str(seconds)
 
 
@@ -14417,6 +14424,8 @@ def _sql_literal(value: object) -> str:
         if not math.isfinite(value):
             raise ValueError("SQL float literals must be finite")
         return str(value)
+    if isinstance(value, Decimal):
+        return _sql_decimal_literal(value)
     if isinstance(value, datetime):
         return f"TIMESTAMP '{_normalize_timestamp_literal(value)}'"
     if isinstance(value, date):
@@ -14426,8 +14435,23 @@ def _sql_literal(value: object) -> str:
     if isinstance(value, str):
         return _sql_string_literal(value)
     raise TypeError(
-        "SQL predicate literals must be bool, int, float, str, bytes, date, datetime, or None"
+        "SQL predicate literals must be bool, int, float, Decimal, str, bytes, date, datetime, or None"
     )
+
+
+def _sql_decimal_literal(value: Decimal) -> str:
+    """Carry exact declared decimal values; the native kernel owns evaluation."""
+    if not value.is_finite():
+        raise ValueError("SQL Decimal literals must be finite")
+    _, digits, exponent = value.as_tuple()
+    assert isinstance(exponent, int)
+    scale = max(-exponent, 0)
+    precision = max(len(digits) + max(exponent, 0), scale, 1)
+    if precision > 38 or scale > 38:
+        raise ValueError("SQL Decimal literals must fit decimal128 precision and scale <= 38")
+    # Check metadata first: formatting a huge exponent must never allocate a
+    # correspondingly huge SQL string. This formatted value is at most 41 bytes.
+    return f"CAST('{format(value, 'f')}' AS decimal128({precision},{scale}))"
 
 
 def _vortex_expression_scalar_payload(
@@ -14523,7 +14547,9 @@ def _sql_numeric_literal(value: object) -> str:
         if not math.isfinite(value):
             raise ValueError("numeric arithmetic float literals must be finite")
         return str(value)
-    raise TypeError("numeric arithmetic literals must be int or finite float values")
+    if isinstance(value, Decimal):
+        return _sql_decimal_literal(value)
+    raise TypeError("numeric arithmetic literals must be int, finite float, or finite Decimal values")
 
 
 def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
@@ -14548,11 +14574,24 @@ def _sql_generic_expression_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
     text = expression.sql.strip()
-    if not _expression_has_numeric_operator(
-        text
-    ) and not _expression_has_temporal_difference_call(text):
+    function = text.split("(", 1)[0].strip().upper() if "(" in text else ""
+    scalar_call = function in {
+        "CAST", "TRY_CAST", "ABS", "FLOOR", "CEIL", "CEILING", "ROUND",
+        "LOWER", "UPPER", "TRIM", "LENGTH", "CONCAT", "SUBSTR", "SUBSTRING",
+        "LEFT", "RIGHT", "REPLACE", "BYTE_LENGTH", "OCTET_LENGTH", "UNHEX",
+        "FROM_BASE64", "COALESCE", "NULLIF", "DATE_YEAR", "DATE_MONTH", "DATE_DAY",
+        "YEAR", "MONTH", "DAY", "TIMESTAMP_YEAR", "TIMESTAMP_MONTH", "TIMESTAMP_DAY",
+        "TIMESTAMP_HOUR", "TIMESTAMP_MINUTE", "TIMESTAMP_SECOND", "DATE_ADD_DAYS",
+        "DATE_SUB_DAYS", "TIMESTAMP_ADD_SECONDS", "TIMESTAMP_SUB_SECONDS",
+        "DATE_DIFF_DAYS", "TIMESTAMP_DIFF_SECONDS",
+    }
+    if not (
+        _expression_has_numeric_operator(text)
+        or scalar_call
+        or text.upper().startswith(("-", "+", "CASE "))
+    ):
         raise ValueError(
-            "computed with_column generic expressions require a numeric expression tree or temporal difference expression"
+            "computed with_column requires an admitted scalar expression"
         )
     _validate_balanced_expression_parentheses(text)
     return text
@@ -14766,15 +14805,8 @@ def _sql_cast_projection_expression(expression: object) -> str:
         inner,
         "CAST/TRY_CAST column expressions must use CAST(column AS dtype) syntax",
     )
-    if dtype == "binary":
-        column, has_source_column = _normalize_string_scalar_expression_sql(source)
-        if not has_source_column:
-            raise ValueError(
-                "binary CAST/TRY_CAST expressions require a source-backed string expression"
-            )
-    else:
-        column = _normalize_expression_column(source)
-    return f"{function}({column} AS {dtype})"
+    _validate_balanced_expression_parentheses(source)
+    return f"{function}({source} AS {dtype})"
 
 
 def _sql_null_coalesce_projection_expression(expression: object) -> str:
@@ -14845,19 +14877,17 @@ def _sql_conditional_projection_expression(expression: object) -> str:
     else_literal = text[else_index + len(else_marker) : end_index].strip()
     if not then_literal or not else_literal:
         raise ValueError("CASE with_column expressions require THEN and ELSE branches")
-    if then_literal.upper() == "NULL" or else_literal.upper() == "NULL":
-        raise ValueError("CASE with_column expressions require non-NULL branch literals")
     return f"CASE WHEN {predicate} THEN {then_literal} ELSE {else_literal} END"
 
 
 def _sql_case_branch(value: object) -> str:
+    if value is None:
+        return "NULL"
     if isinstance(value, ColumnExpression):
         text = value.sql.strip()
         if not text:
             raise ValueError("CASE branch column expression must not be empty")
         return text
-    if value is None:
-        raise ValueError("CASE branch literals must be non-NULL")
     return _sql_literal(value)
 
 

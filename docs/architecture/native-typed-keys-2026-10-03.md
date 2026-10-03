@@ -33,9 +33,15 @@ Admit these keys for existing relational joins, sets, grouping, ordering, window
 partition/order and membership/correlation. Extend COUNT, COUNT DISTINCT, MIN
 and MAX, preserving exact typed extrema. Same-type column comparisons, IS NULL,
 IS NOT NULL, CASE, COALESCE and NULLIF use the existing expression machinery.
-Typed literals, new casts, arithmetic/rescaling, retained unary state and nested
-key equality remain separate semantic work under the same broader phase owners.
-They must keep deterministic bind-time denial, including on empty input.
+This typed-key acceptance did not itself admit typed expressions. Current source
+builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
+arithmetic/rounding and scoped binary/calendar functions through the shared
+native expression binder. Decimal arithmetic output metadata binds before
+execution; explicit decimal downscaling requires zero discarded digits. Key
+compatibility still requires matching decimal precision/scale and preserves
+distinct temporal types. Nested key equality, retained unary-state extensions,
+richer aggregate/window semantics, broader adapters and state spill remain
+separate. See the [typed expression contract](native-typed-expressions-2026-10-03.md).
 
 ## Vortex-first provider check and reuse
 
