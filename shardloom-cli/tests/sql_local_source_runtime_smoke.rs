@@ -195,6 +195,19 @@ fn run_local_source_runtime_json(statement: &str) -> String {
     String::from_utf8(output.stdout).expect("stdout is utf8")
 }
 
+fn assert_local_source_rows(statement: &str, expected: &str) {
+    let stdout = run_local_source_runtime_json(statement);
+    let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let fields = envelope["fields"].as_array().unwrap();
+    let result = fields
+        .iter()
+        .find(|entry| entry["key"] == "result_jsonl")
+        .unwrap();
+    assert_eq!(result["value"], expected, "{statement}");
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
 fn assert_required_source_state_projection_evidence(stdout: &str, pushdown_status: &str) {
     assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
     assert!(stdout.contains(&field("source_state_requested_columns", "amount,id,label")));
@@ -3478,10 +3491,7 @@ fn local_source_runtime_executes_generic_expression_projection_without_fallback(
         String::from_utf8_lossy(&division_by_zero.stdout),
         String::from_utf8_lossy(&division_by_zero.stderr)
     );
-    assert!(
-        division_by_zero_output
-            .contains("generic numeric expression division by zero is not admitted")
-    );
+    assert!(division_by_zero_output.contains("division by zero"));
     assert!(division_by_zero_output.contains("external_engine_invoked=false"));
 
     let blocked_statement = format!(
@@ -4239,8 +4249,15 @@ fn local_source_runtime_executes_date_arithmetic_projection_without_fallback() {
         "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"next_week\\\":\\\"2026-05-26\\\",\\\"prior_day\\\":\\\"2026-05-18\\\"}\\n{\\\"id\\\":2,\\\"next_week\\\":\\\"2027-01-09\\\",\\\"prior_day\\\":\\\"2027-01-01\\\"}\\n\""
     ));
 
+    assert_local_source_rows(
+        &format!(
+            "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32),366001) AS changed FROM '{}' LIMIT 10",
+            source_path.display()
+        ),
+        "{\"id\":1,\"changed\":\"3028-06-16\"}\n{\"id\":2,\"changed\":\"3029-01-30\"}\n",
+    );
     let blocked_statement = format!(
-        "SELECT id,DATE_ADD_DAYS(event_date, 366001) AS too_far FROM '{}' LIMIT 10",
+        "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32),18446744073709551615) AS too_far FROM '{}' LIMIT 10",
         source_path.display()
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -4258,7 +4275,7 @@ fn local_source_runtime_executes_date_arithmetic_projection_without_fallback() {
         String::from_utf8_lossy(&blocked.stdout),
         String::from_utf8_lossy(&blocked.stderr)
     );
-    assert!(blocked_output.contains("date arithmetic day count admits absolute values <= 366000"));
+    assert!(blocked_output.contains("date32 day arithmetic overflow"));
     assert!(blocked_output.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");
@@ -4331,8 +4348,15 @@ fn local_source_runtime_executes_timestamp_arithmetic_projection_without_fallbac
         "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"shifted_ts\\\":\\\"2026-05-19T12:36:15Z\\\",\\\"prior_ts\\\":\\\"2026-05-19T12:34:00Z\\\"}\\n{\\\"id\\\":4,\\\"shifted_ts\\\":\\\"2026-05-19T12:36:30Z\\\",\\\"prior_ts\\\":\\\"2026-05-19T12:34:15Z\\\"}\\n\""
     ));
 
+    assert_local_source_rows(
+        &format!(
+            "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros),31622400001) AS changed FROM '{}' LIMIT 2",
+            source_path.display()
+        ),
+        "{\"id\":1,\"changed\":\"3028-06-15T12:34:01Z\"}\n{\"id\":2,\"changed\":\"3028-06-15T12:34:46Z\"}\n",
+    );
     let blocked_statement = format!(
-        "SELECT id,TIMESTAMP_ADD_SECONDS(event_ts, 31622400001) AS too_far FROM '{}' LIMIT 10",
+        "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros),18446744073709551615) AS too_far FROM '{}' LIMIT 10",
         source_path.display()
     );
     let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -4350,10 +4374,7 @@ fn local_source_runtime_executes_timestamp_arithmetic_projection_without_fallbac
         String::from_utf8_lossy(&blocked.stdout),
         String::from_utf8_lossy(&blocked.stderr)
     );
-    assert!(
-        blocked_output
-            .contains("timestamp arithmetic second count admits absolute values <= 31622400000")
-    );
+    assert!(blocked_output.contains("timestamp arithmetic overflow"));
     assert!(blocked_output.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");
@@ -4461,9 +4482,7 @@ fn local_source_runtime_executes_temporal_difference_generic_expressions_without
         String::from_utf8_lossy(&blocked.stdout),
         String::from_utf8_lossy(&blocked.stderr)
     );
-    assert!(
-        blocked_output.contains("temporal difference expressions require exactly two arguments")
-    );
+    assert!(blocked_output.contains("requires exactly two Date32 arguments"));
     assert!(blocked_output.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");
@@ -8816,7 +8835,7 @@ fn local_source_runtime_executes_generic_expression_predicates_without_fallback(
         String::from_utf8_lossy(&divide_by_zero_output.stdout),
         String::from_utf8_lossy(&divide_by_zero_output.stderr)
     );
-    assert!(blocked.contains("generic numeric expression division by zero is not admitted"));
+    assert!(blocked.contains("division by zero"));
     assert!(blocked.contains("external_engine_invoked=false"));
 
     let missing_statement = format!(
@@ -12698,7 +12717,7 @@ fn local_source_runtime_blocks_unsupported_string_transform_shapes_without_fallb
                 "SELECT id FROM '{}' WHERE LOWER(label, id) = 'alpha' LIMIT 10",
                 source_path.display()
             ),
-            "string transform expressions require exactly one argument",
+            "requires exactly one UTF-8 argument",
         ),
     ];
 
@@ -12743,7 +12762,7 @@ fn local_source_runtime_blocks_unsupported_string_length_shapes_without_fallback
                 "SELECT id FROM '{}' WHERE LENGTH(label, id) >= 4 LIMIT 10",
                 source_path.display()
             ),
-            "string length expressions require exactly one argument",
+            "requires exactly one UTF-8 argument",
         ),
     ];
 
@@ -12775,41 +12794,41 @@ fn local_source_runtime_blocks_unsupported_string_function_shapes_without_fallba
     let source_path = unique_path("sql-local-source-string-function-blocked", "csv");
     fs::write(&source_path, "id,label,amount\n1,alpha,10\n2,beta,20\n").expect("write source csv");
 
-    let cases = [
-        (
-            format!(
-                "SELECT id FROM '{}' WHERE CONCAT('a', 'b') = 'ab' LIMIT 10",
-                source_path.display()
-            ),
-            "string function predicates require at least one source column argument",
+    assert_local_source_rows(
+        &format!(
+            "SELECT id FROM '{}' WHERE CONCAT('a','b') = 'ab' LIMIT 10",
+            source_path.display()
         ),
+        "{\"id\":1}\n{\"id\":2}\n",
+    );
+    let cases = [
         (
             format!(
                 "SELECT id FROM '{}' WHERE SUBSTR(label, 0, 2) = 'al' LIMIT 10",
                 source_path.display()
             ),
-            "SUBSTR/SUBSTRING string function expressions require a 1-based start index >= 1",
+            "requires a 1-based start index >= 1",
         ),
         (
             format!(
                 "SELECT id FROM '{}' WHERE REPLACE(label, '', 'x') = 'alpha' LIMIT 10",
                 source_path.display()
             ),
-            "REPLACE string function expressions require a non-empty search literal",
+            "requires a non-empty search pattern",
         ),
         (
             format!(
                 "SELECT id FROM '{}' WHERE LEFT(label, -1) = 'a' LIMIT 10",
                 source_path.display()
             ),
-            "LEFT/RIGHT string function expressions require a non-negative count",
+            "requires a non-negative count",
         ),
         (
             format!(
                 "SELECT id FROM '{}' WHERE RIGHT(label) = 'a' LIMIT 10",
                 source_path.display()
             ),
-            "RIGHT string function expressions require exactly two arguments: <column>, <count>",
+            "requires UTF-8 and int64 count arguments",
         ),
         (
             format!(
@@ -12867,7 +12886,7 @@ fn local_source_runtime_blocks_unsupported_numeric_abs_shapes_without_fallback()
                 "SELECT id FROM '{}' WHERE ABS(amount, id) >= 4 LIMIT 10",
                 source_path.display()
             ),
-            "SQL identifiers may contain only ASCII letters, numbers, and underscores",
+            "requires exactly one numeric argument",
         ),
     ];
 
@@ -12912,7 +12931,7 @@ fn local_source_runtime_blocks_unsupported_numeric_rounding_shapes_without_fallb
                 "SELECT id FROM '{}' WHERE ROUND(amount, 2) >= 4 LIMIT 10",
                 source_path.display()
             ),
-            "SQL identifiers may contain only ASCII letters, numbers, and underscores",
+            "requires exactly one numeric argument",
         ),
     ];
 

@@ -868,6 +868,13 @@ fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
                 LogicalDType::Float64,
                 NullBehavior::NullPropagating,
             )),
+            ScalarValue::Decimal128 {
+                value,
+                precision,
+                scale,
+            } => Ok(decimal_eval_value(
+                decimal128_checked_operand(value, precision, scale)?.negate(),
+            )),
             other => Err(EvalFailure::unsupported(
                 "negate",
                 format!(
@@ -1100,7 +1107,7 @@ fn eval_date_add_days(
     if args.len() != 2 {
         return Err(EvalFailure::invalid(
             "date_arithmetic",
-            format!("function {name:?} requires Date32 and int64 day-count arguments"),
+            format!("function {name:?} requires Date32 and integer day-count arguments"),
         ));
     }
     let value = eval_expression(&args[0], row)?;
@@ -1112,17 +1119,10 @@ fn eval_date_add_days(
                 .carry_materialization(data_materialized),
         );
     }
-    match (value.value, days.value) {
-        (ScalarValue::Date32(date_days), ScalarValue::Int64(day_count)) => {
-            let signed_day_count = i32::try_from(day_count).map_err(|_| {
-                EvalFailure::invalid("date_arithmetic", "day-count argument exceeds i32 range")
-            })?;
-            let offset = signed_day_count.checked_mul(multiplier).ok_or_else(|| {
-                EvalFailure::invalid("date_arithmetic", "day-count multiplication overflow")
-            })?;
-            let result = date_days.checked_add(offset).ok_or_else(|| {
-                EvalFailure::invalid("date_arithmetic", "date32 day arithmetic overflow")
-            })?;
+    match (value.value, calendar_integer(&days.value)) {
+        (ScalarValue::Date32(date_days), Some(day_count)) => {
+            let result = date32_add_days(date_days, day_count * i128::from(multiplier))
+                .map_err(|error| EvalFailure::invalid("date_arithmetic", error.to_string()))?;
             Ok(EvalValue::new(
                 ScalarValue::Date32(result),
                 LogicalDType::Date32,
@@ -1130,12 +1130,12 @@ fn eval_date_add_days(
             )
             .carry_materialization(data_materialized))
         }
-        (value, days) => Err(EvalFailure::unsupported(
+        (value, _) => Err(EvalFailure::unsupported(
             "date_arithmetic",
             format!(
-                "function {name:?} supports Date32/null and int64/null operands only, got {} and {}",
+                "function {name:?} supports Date32/null and integer/null operands only, got {} and {}",
                 value.dtype().as_str(),
-                days.dtype().as_str()
+                days.value.dtype().as_str()
             ),
         )),
     }
@@ -1150,7 +1150,9 @@ fn eval_timestamp_add_seconds(
     if args.len() != 2 {
         return Err(EvalFailure::invalid(
             "timestamp_arithmetic",
-            format!("function {name:?} requires TimestampMicros and int64 second-count arguments"),
+            format!(
+                "function {name:?} requires TimestampMicros and integer second-count arguments"
+            ),
         ));
     }
     let value = eval_expression(&args[0], row)?;
@@ -1162,25 +1164,13 @@ fn eval_timestamp_add_seconds(
                 .carry_materialization(data_materialized),
         );
     }
-    match (value.value, seconds.value) {
-        (ScalarValue::TimestampMicros(micros), ScalarValue::Int64(second_count)) => {
-            let signed_second_count = second_count.checked_mul(multiplier).ok_or_else(|| {
-                EvalFailure::invalid(
-                    "timestamp_arithmetic",
-                    "second-count multiplication overflow",
-                )
-            })?;
-            let offset_micros = signed_second_count
-                .checked_mul(MICROS_PER_SECOND)
-                .ok_or_else(|| {
-                    EvalFailure::invalid(
-                        "timestamp_arithmetic",
-                        "second-count microsecond conversion overflow",
-                    )
-                })?;
-            let result = micros.checked_add(offset_micros).ok_or_else(|| {
-                EvalFailure::invalid("timestamp_arithmetic", "timestamp arithmetic overflow")
-            })?;
+    match (value.value, calendar_integer(&seconds.value)) {
+        (ScalarValue::TimestampMicros(micros), Some(second_count)) => {
+            let result =
+                timestamp_micros_add_seconds(micros, second_count * i128::from(multiplier))
+                    .map_err(|error| {
+                        EvalFailure::invalid("timestamp_arithmetic", error.to_string())
+                    })?;
             Ok(EvalValue::new(
                 ScalarValue::TimestampMicros(result),
                 LogicalDType::TimestampMicros,
@@ -1188,14 +1178,22 @@ fn eval_timestamp_add_seconds(
             )
             .carry_materialization(data_materialized))
         }
-        (value, seconds) => Err(EvalFailure::unsupported(
+        (value, _) => Err(EvalFailure::unsupported(
             "timestamp_arithmetic",
             format!(
-                "function {name:?} supports TimestampMicros/null and int64/null operands only, got {} and {}",
+                "function {name:?} supports TimestampMicros/null and integer/null operands only, got {} and {}",
                 value.dtype().as_str(),
-                seconds.dtype().as_str()
+                seconds.value.dtype().as_str()
             ),
         )),
+    }
+}
+
+fn calendar_integer(value: &ScalarValue) -> Option<i128> {
+    match value {
+        ScalarValue::Int64(value) => Some(i128::from(*value)),
+        ScalarValue::UInt64(value) => Some(i128::from(*value)),
+        _ => None,
     }
 }
 
@@ -1262,11 +1260,8 @@ fn eval_timestamp_diff_seconds(
     }
     match (left.value, right.value) {
         (ScalarValue::TimestampMicros(left_micros), ScalarValue::TimestampMicros(right_micros)) => {
-            let delta_micros = left_micros.checked_sub(right_micros).ok_or_else(|| {
-                EvalFailure::invalid("temporal_difference", "timestamp difference overflow")
-            })?;
             Ok(EvalValue::new(
-                ScalarValue::Int64(delta_micros / MICROS_PER_SECOND),
+                ScalarValue::Int64(timestamp_micros_diff_seconds(left_micros, right_micros)),
                 LogicalDType::Int64,
                 NullBehavior::NullPropagating,
             )
@@ -1405,39 +1400,42 @@ fn eval_binary_byte_length(
     if args.len() != 1 {
         return Err(EvalFailure::invalid(
             "binary_byte_length",
-            format!("function {name:?} requires exactly one binary argument"),
+            format!("function {name:?} requires exactly one binary or UTF-8 argument"),
         ));
     }
     let value = eval_expression(&args[0], row)?;
     let data_materialized = value.data_materialized;
-    match value.value {
-        ScalarValue::Null => Ok(EvalValue::null(
-            LogicalDType::Int64,
-            NullBehavior::NullPropagating,
-        )
-        .carry_materialization(data_materialized)),
-        ScalarValue::Binary(value) => {
-            let length = i64::try_from(value.len()).map_err(|_| {
-                EvalFailure::unsupported(
-                    "binary_byte_length",
-                    format!("function {name:?} input byte length exceeds int64 range"),
-                )
-            })?;
-            Ok(EvalValue::new(
-                ScalarValue::Int64(length),
-                LogicalDType::Int64,
-                NullBehavior::NullPropagating,
-            )
-            .carry_materialization(data_materialized))
+    let length = match value.value {
+        ScalarValue::Null => {
+            return Ok(
+                EvalValue::null(LogicalDType::Int64, NullBehavior::NullPropagating)
+                    .carry_materialization(data_materialized),
+            );
         }
-        other => Err(EvalFailure::unsupported(
+        ScalarValue::Binary(value) => value.len(),
+        ScalarValue::Utf8(value) => value.len(),
+        other => {
+            return Err(EvalFailure::unsupported(
+                "binary_byte_length",
+                format!(
+                    "function {name:?} supports Binary/UTF-8/null operands only, got {}",
+                    other.dtype().as_str()
+                ),
+            ));
+        }
+    };
+    let length = i64::try_from(length).map_err(|_| {
+        EvalFailure::unsupported(
             "binary_byte_length",
-            format!(
-                "function {name:?} supports Binary/null operands only, got {}",
-                other.dtype().as_str()
-            ),
-        )),
-    }
+            format!("function {name:?} input byte length exceeds int64 range"),
+        )
+    })?;
+    Ok(EvalValue::new(
+        ScalarValue::Int64(length),
+        LogicalDType::Int64,
+        NullBehavior::NullPropagating,
+    )
+    .carry_materialization(data_materialized))
 }
 
 fn eval_string_concat(
@@ -1761,19 +1759,24 @@ fn eval_binary_utf8_decode(
     }
 }
 
-fn decode_hex_bytes(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
+/// Decodes hexadecimal text. Callers must admit `value.len() / 2` scratch bytes.
+///
+/// # Errors
+/// Rejects odd lengths, invalid digits and unavailable allocation capacity.
+pub fn decode_hex_bytes(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
     if !value.len().is_multiple_of(2) {
         return Err("UNHEX requires an even number of hexadecimal digits");
     }
-    value
-        .as_bytes()
-        .chunks(2)
-        .map(|pair| {
-            let high = hex_nibble(pair[0]).ok_or("UNHEX admits hexadecimal digits only")?;
-            let low = hex_nibble(pair[1]).ok_or("UNHEX admits hexadecimal digits only")?;
-            Ok((high << 4) | low)
-        })
-        .collect()
+    let mut decoded = Vec::new();
+    decoded
+        .try_reserve_exact(value.len() / 2)
+        .map_err(|_| "UNHEX allocation failed")?;
+    for pair in value.as_bytes().as_chunks::<2>().0 {
+        let high = hex_nibble(pair[0]).ok_or("UNHEX admits hexadecimal digits only")?;
+        let low = hex_nibble(pair[1]).ok_or("UNHEX admits hexadecimal digits only")?;
+        decoded.push((high << 4) | low);
+    }
+    Ok(decoded)
 }
 
 fn hex_nibble(value: u8) -> Option<u8> {
@@ -1785,12 +1788,19 @@ fn hex_nibble(value: u8) -> Option<u8> {
     }
 }
 
-fn decode_standard_base64(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
+/// Decodes standard padded base64. Callers must admit `value.len() / 4 * 3` scratch bytes.
+///
+/// # Errors
+/// Rejects invalid alphabet, padding, trailing bits and unavailable allocation capacity.
+pub fn decode_standard_base64(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
     let bytes = value.as_bytes();
     if !bytes.len().is_multiple_of(4) {
         return Err("FROM_BASE64 requires standard padded base64 with length multiple of 4");
     }
-    let mut decoded = Vec::with_capacity(bytes.len() / 4 * 3);
+    let mut decoded = Vec::new();
+    decoded
+        .try_reserve_exact(bytes.len() / 4 * 3)
+        .map_err(|_| "FROM_BASE64 allocation failed")?;
     for (chunk_index, chunk) in bytes.chunks(4).enumerate() {
         let last_chunk = chunk_index + 1 == bytes.len() / 4;
         let mut sextets = [0_u8; 4];
@@ -1888,6 +1898,14 @@ fn eval_numeric_abs(
             NullBehavior::NullPropagating,
         )
         .carry_materialization(data_materialized)),
+        ScalarValue::Decimal128 {
+            value,
+            precision,
+            scale,
+        } => Ok(
+            decimal_eval_value(decimal128_checked_operand(value, precision, scale)?.abs())
+                .carry_materialization(data_materialized),
+        ),
         other => Err(EvalFailure::unsupported(
             "numeric_abs",
             format!(
@@ -1913,8 +1931,18 @@ fn eval_numeric_rounding(
     let value = eval_expression(&args[0], row)?;
     let data_materialized = value.data_materialized;
     match value.value {
-        ScalarValue::Null => Ok(EvalValue::null(value.dtype, NullBehavior::NullPropagating)
-            .carry_materialization(data_materialized)),
+        ScalarValue::Null => {
+            let dtype = if let Some((precision, scale)) = decimal128_dtype_parts(&value.dtype) {
+                let (precision, scale) = decimal128_checked_operand(0, precision, scale)?
+                    .round()
+                    .precision_scale();
+                decimal128_dtype(precision, scale)
+            } else {
+                value.dtype
+            };
+            Ok(EvalValue::null(dtype, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized))
+        }
         ScalarValue::Int64(value) => Ok(EvalValue::new(
             ScalarValue::Int64(value),
             LogicalDType::Int64,
@@ -1927,6 +1955,19 @@ fn eval_numeric_rounding(
             NullBehavior::NullPropagating,
         )
         .carry_materialization(data_materialized)),
+        ScalarValue::Decimal128 {
+            value,
+            precision,
+            scale,
+        } => {
+            let value = decimal128_checked_operand(value, precision, scale)?;
+            let value = match name.trim().to_ascii_lowercase().as_str() {
+                "floor" | "numeric_floor" => value.floor(),
+                "ceil" | "ceiling" | "numeric_ceil" => value.ceil(),
+                _ => value.round(),
+            };
+            Ok(decimal_eval_value(value).carry_materialization(data_materialized))
+        }
         other => Err(EvalFailure::unsupported(
             "numeric_rounding",
             format!(
@@ -2137,13 +2178,31 @@ enum Decimal128OperandSource {
     Integer,
 }
 
+/// A validated unscaled decimal or an integer with its declared precision.
+/// Native binders use zero-valued operands to derive types before reading rows.
 #[derive(Debug, Clone, Copy)]
-struct Decimal128Operand {
+pub struct Decimal128Operand {
     value: i128,
     precision: u8,
     scale: u8,
     source: Decimal128OperandSource,
 }
+
+fn decimal_eval_value(value: Decimal128Operand) -> EvalValue {
+    EvalValue::new(
+        ScalarValue::Decimal128 {
+            value: value.value,
+            precision: value.precision,
+            scale: value.scale,
+        },
+        decimal128_dtype(value.precision, value.scale),
+        NullBehavior::NullPropagating,
+    )
+}
+
+#[path = "expression_decimal.rs"]
+mod decimal;
+use decimal::decimal128_binary_metadata;
 
 fn eval_decimal128_binary(
     left: &ScalarValue,
@@ -2169,18 +2228,7 @@ fn eval_decimal128_binary(
             "decimal128 arithmetic admits decimal128 and integer operands only in this scoped slice",
         )
     })?;
-    let output = match op {
-        BinaryOp::Add | BinaryOp::Subtract => eval_decimal128_add_sub(left, op, right)?,
-        BinaryOp::Multiply => eval_decimal128_multiply(left, right)?,
-        BinaryOp::Divide if right.value == 0 => {
-            return Err(EvalFailure::invalid(
-                "divide",
-                "decimal128 division by zero",
-            ));
-        }
-        BinaryOp::Divide => eval_decimal128_divide(left, right)?,
-        BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled before numeric binary"),
-    };
+    let output = decimal128_binary(left, op, right)?;
     Ok(Some(EvalValue::new(
         ScalarValue::Decimal128 {
             value: output.value,
@@ -2192,27 +2240,46 @@ fn eval_decimal128_binary(
     )))
 }
 
+fn decimal128_binary(
+    left: Decimal128Operand,
+    op: BinaryOp,
+    right: Decimal128Operand,
+) -> EvalResult<Decimal128Operand> {
+    Ok(match op {
+        BinaryOp::Add | BinaryOp::Subtract => eval_decimal128_add_sub(left, op, right)?,
+        BinaryOp::Multiply => eval_decimal128_multiply(left, right)?,
+        BinaryOp::Divide if right.value == 0 => {
+            return Err(EvalFailure::invalid(
+                "divide",
+                "decimal128 division by zero",
+            ));
+        }
+        BinaryOp::Divide => eval_decimal128_divide(left, right)?,
+        BinaryOp::And | BinaryOp::Or => {
+            return Err(EvalFailure::unsupported(
+                "decimal128_arithmetic",
+                "decimal128 requires an arithmetic operator",
+            ));
+        }
+    })
+}
+
 fn decimal128_operand_from_scalar(value: &ScalarValue) -> EvalResult<Option<Decimal128Operand>> {
     match value {
         ScalarValue::Decimal128 {
             value,
             precision,
             scale,
-        } => Ok(Some(Decimal128Operand {
-            value: *value,
-            precision: *precision,
-            scale: *scale,
-            source: Decimal128OperandSource::Decimal,
-        })),
+        } => decimal128_checked_operand(*value, *precision, *scale).map(Some),
         ScalarValue::Int64(value) => Ok(Some(Decimal128Operand {
             value: i128::from(*value),
-            precision: decimal128_digit_count(i128::from(*value)),
+            precision: 19,
             scale: 0,
             source: Decimal128OperandSource::Integer,
         })),
         ScalarValue::UInt64(value) => Ok(Some(Decimal128Operand {
             value: i128::from(*value),
-            precision: decimal128_digit_count(i128::from(*value)),
+            precision: 20,
             scale: 0,
             source: Decimal128OperandSource::Integer,
         })),
@@ -2229,8 +2296,7 @@ fn eval_decimal128_add_sub(
     op: BinaryOp,
     right: Decimal128Operand,
 ) -> EvalResult<Decimal128Operand> {
-    validate_decimal128_arithmetic_scale_boundary(left, right)?;
-    let common_scale = decimal128_common_scale(left, right);
+    let (precision, common_scale) = decimal128_binary_metadata(left, op, right)?;
     let left = decimal128_rescale(left, common_scale)?;
     let right = decimal128_rescale(right, common_scale)?;
     let value = match op {
@@ -2241,19 +2307,6 @@ fn eval_decimal128_add_sub(
     .ok_or_else(|| {
         EvalFailure::invalid("decimal128_arithmetic", "decimal128 arithmetic overflow")
     })?;
-    let precision = left
-        .precision
-        .max(right.precision)
-        .checked_add(1)
-        .ok_or_else(|| {
-            EvalFailure::invalid("decimal128_arithmetic", "decimal128 precision overflow")
-        })?;
-    if precision > 38 {
-        return Err(EvalFailure::unsupported(
-            "decimal128_arithmetic",
-            "decimal128 add/sub output precision exceeds decimal128(38,s) in this scoped slice",
-        ));
-    }
     decimal128_checked_operand(value, precision, common_scale)
 }
 
@@ -2261,25 +2314,7 @@ fn eval_decimal128_multiply(
     left: Decimal128Operand,
     right: Decimal128Operand,
 ) -> EvalResult<Decimal128Operand> {
-    validate_decimal128_arithmetic_scale_boundary(left, right)?;
-    let precision = left.precision.checked_add(right.precision).ok_or_else(|| {
-        EvalFailure::invalid(
-            "decimal128_arithmetic",
-            "decimal128 multiply precision overflow",
-        )
-    })?;
-    let scale = left.scale.checked_add(right.scale).ok_or_else(|| {
-        EvalFailure::invalid(
-            "decimal128_arithmetic",
-            "decimal128 multiply scale overflow",
-        )
-    })?;
-    if precision > 38 || scale > precision {
-        return Err(EvalFailure::unsupported(
-            "decimal128_arithmetic",
-            "decimal128 multiplication output precision/scale exceeds decimal128(38,s) in this scoped slice",
-        ));
-    }
+    let (precision, scale) = decimal128_binary_metadata(left, BinaryOp::Multiply, right)?;
     let value = left.value.checked_mul(right.value).ok_or_else(|| {
         EvalFailure::invalid("decimal128_arithmetic", "decimal128 arithmetic overflow")
     })?;
@@ -2290,10 +2325,9 @@ fn eval_decimal128_divide(
     left: Decimal128Operand,
     right: Decimal128Operand,
 ) -> EvalResult<Decimal128Operand> {
-    validate_decimal128_arithmetic_scale_boundary(left, right)?;
-    let scale = decimal128_divide_output_scale(left, right)?;
+    let (precision, scale) = decimal128_binary_metadata(left, BinaryOp::Divide, right)?;
     let value = decimal128_exact_scaled_divide(left, right, scale)?;
-    decimal128_checked_operand(value, 38, scale)
+    decimal128_checked_operand(value, precision, scale)
 }
 
 fn decimal128_common_scale(left: Decimal128Operand, right: Decimal128Operand) -> u8 {
@@ -2379,20 +2413,6 @@ fn decimal128_checked_operand(
         scale,
         source: Decimal128OperandSource::Decimal,
     })
-}
-
-fn decimal128_divide_output_scale(
-    left: Decimal128Operand,
-    right: Decimal128Operand,
-) -> EvalResult<u8> {
-    let scale = left.scale.max(right.scale).max(6);
-    if scale > 38 {
-        return Err(EvalFailure::unsupported(
-            "decimal128_arithmetic",
-            "decimal128 division output scale exceeds decimal128(38,s) in this scoped slice",
-        ));
-    }
-    Ok(scale)
 }
 
 fn decimal128_exact_scaled_divide(
@@ -2604,21 +2624,8 @@ fn decimal128_null_output_dtype(
             "decimal128 arithmetic admits decimal128, integer, and NULL operands only in this scoped slice",
         )
     })?;
-    let output = match op {
-        BinaryOp::Add | BinaryOp::Subtract => eval_decimal128_add_sub(left, op, right)?,
-        BinaryOp::Multiply => eval_decimal128_multiply(left, right)?,
-        BinaryOp::Divide => {
-            validate_decimal128_arithmetic_scale_boundary(left, right)?;
-            Decimal128Operand {
-                value: 0,
-                precision: 38,
-                scale: decimal128_divide_output_scale(left, right)?,
-                source: Decimal128OperandSource::Decimal,
-            }
-        }
-        BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled before numeric binary"),
-    };
-    Ok(Some(decimal128_dtype(output.precision, output.scale)))
+    let (precision, scale) = decimal128_binary_metadata(left, op, right)?;
+    Ok(Some(decimal128_dtype(precision, scale)))
 }
 
 fn decimal128_operand_from_eval_value(value: &EvalValue) -> EvalResult<Option<Decimal128Operand>> {
@@ -2633,7 +2640,11 @@ fn decimal128_operand_from_eval_value(value: &EvalValue) -> EvalResult<Option<De
         }
         return Ok(Some(Decimal128Operand {
             value: 0,
-            precision: 1,
+            precision: match value.dtype {
+                LogicalDType::Int64 => 19,
+                LogicalDType::UInt64 => 20,
+                _ => 1,
+            },
             scale: 0,
             source: Decimal128OperandSource::Integer,
         }));
@@ -2827,6 +2838,7 @@ fn bool_ordering(left: bool, right: bool) -> std::cmp::Ordering {
 fn scalar_binary_cast(value: &ScalarValue) -> Option<ScalarValue> {
     let bytes = match value {
         ScalarValue::Int64(value) => value.to_string().into_bytes(),
+        ScalarValue::UInt64(value) => value.to_string().into_bytes(),
         ScalarValue::Float64(value) if value.is_finite() => value.to_string().into_bytes(),
         ScalarValue::Boolean(value) => value.to_string().into_bytes(),
         ScalarValue::Utf8(value) => value.as_bytes().to_vec(),
@@ -2840,21 +2852,18 @@ fn scalar_binary_cast(value: &ScalarValue) -> Option<ScalarValue> {
     Some(ScalarValue::Binary(bytes))
 }
 
-fn decimal128_dtype_parts(dtype: &LogicalDType) -> Option<(u8, u8)> {
+/// Recognizes the canonical decimal128 extension and validates its metadata.
+#[must_use]
+pub fn decimal128_dtype_parts(dtype: &LogicalDType) -> Option<(u8, u8)> {
     let LogicalDType::Extension(value) = dtype else {
         return None;
     };
-    let parts = value
+    let (precision, scale) = value
         .strip_prefix("decimal128(")?
         .strip_suffix(')')?
-        .split(',')
-        .map(str::trim)
-        .collect::<Vec<_>>();
-    let [precision, scale] = parts.as_slice() else {
-        return None;
-    };
-    let precision = precision.parse::<u8>().ok()?;
-    let scale = scale.parse::<u8>().ok()?;
+        .split_once(',')?;
+    let precision = precision.trim().parse::<u8>().ok()?;
+    let scale = scale.trim().parse::<u8>().ok()?;
     decimal128_precision_scale_is_valid(precision, scale).then_some((precision, scale))
 }
 
@@ -2883,7 +2892,17 @@ fn decimal128_digit_count(value: i128) -> u8 {
     digits
 }
 
-fn parse_decimal128_text(raw: &str, precision: u8, scale: u8) -> std::result::Result<i128, String> {
+/// Parses an exact decimal, retaining the strict fractional-digit and exponent policy.
+/// Callers using live memory admission reserve `32 * raw.len() + 2048` bytes for
+/// temporary normalization and parsing buffers before calling this helper.
+///
+/// # Errors
+/// Rejects invalid metadata/text, precision overflow and excess fractional digits.
+pub fn parse_decimal128_text(
+    raw: &str,
+    precision: u8,
+    scale: u8,
+) -> std::result::Result<i128, String> {
     if !decimal128_precision_scale_is_valid(precision, scale) {
         return Err(
             "decimal128 precision/scale must satisfy 1 <= precision <= 38 and scale <= precision"
@@ -3075,12 +3094,26 @@ fn decimal128_from_scalar(
     precision: u8,
     scale: u8,
 ) -> EvalResult<ScalarValue> {
+    if let ScalarValue::Decimal128 {
+        value,
+        precision: source_precision,
+        scale: source_scale,
+    } = source
+    {
+        let output = Decimal128Operand::decimal(*value, *source_precision, *source_scale)
+            .and_then(|operand| operand.rescale(precision, scale))
+            .map_err(|error| EvalFailure::invalid("cast", error.to_string()))?;
+        return Ok(ScalarValue::Decimal128 {
+            value: output.value(),
+            precision,
+            scale,
+        });
+    }
     let text = match source {
         ScalarValue::Utf8(value) => value.clone(),
         ScalarValue::Int64(value) => value.to_string(),
         ScalarValue::UInt64(value) => value.to_string(),
         ScalarValue::Float64(value) if value.is_finite() => value.to_string(),
-        ScalarValue::Decimal128 { value, scale, .. } => format_decimal128_value(*value, *scale),
         other => {
             return Err(EvalFailure::unsupported(
                 "cast",
@@ -3154,6 +3187,39 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
             ScalarValue::Int64(*value as i64)
         }
         (ScalarValue::Int64(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
+        (ScalarValue::UInt64(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
+        (ScalarValue::Decimal128 { value, scale, .. }, LogicalDType::Utf8) => {
+            ScalarValue::Utf8(format_decimal128_value(*value, *scale))
+        }
+        (ScalarValue::Binary(value), LogicalDType::Utf8) => ScalarValue::Utf8(
+            String::from_utf8(value.clone())
+                .map_err(|_| EvalFailure::invalid("cast", "binary value is not valid UTF8"))?,
+        ),
+        (
+            ScalarValue::Decimal128 {
+                value,
+                precision,
+                scale,
+            },
+            LogicalDType::Int64 | LogicalDType::UInt64,
+        ) => {
+            let integer = Decimal128Operand::decimal(*value, *precision, *scale)
+                .and_then(|value| value.rescale(38, 0))
+                .map_err(|error| EvalFailure::invalid("cast", error.to_string()))?
+                .value();
+            if *target_dtype == LogicalDType::Int64 {
+                ScalarValue::Int64(i64::try_from(integer).map_err(|_| {
+                    EvalFailure::invalid("cast", "decimal128 value exceeds int64 range")
+                })?)
+            } else {
+                ScalarValue::UInt64(u64::try_from(integer).map_err(|_| {
+                    EvalFailure::invalid("cast", "decimal128 value exceeds uint64 range")
+                })?)
+            }
+        }
+        (ScalarValue::Decimal128 { value, scale, .. }, LogicalDType::Float64) => {
+            ScalarValue::Float64(*value as f64 / 10f64.powi(i32::from(*scale)))
+        }
         (ScalarValue::Float64(value), LogicalDType::Utf8) if value.is_finite() => {
             ScalarValue::Utf8(value.to_string())
         }
@@ -3175,7 +3241,10 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
             )
         })?,
         (ScalarValue::Date32(value), LogicalDType::TimestampMicros) => {
-            ScalarValue::TimestampMicros(i64::from(*value) * MICROS_PER_DAY)
+            ScalarValue::TimestampMicros(
+                date32_timestamp_micros(*value)
+                    .map_err(|error| EvalFailure::invalid("cast", error.to_string()))?,
+            )
         }
         (ScalarValue::TimestampMicros(value), LogicalDType::Date32) => {
             ScalarValue::Date32(timestamp_micros_date32(*value))
@@ -3312,6 +3381,38 @@ fn function_operator_family(name: &str) -> &'static str {
     }
 }
 
+/// Adds a day offset, narrowing only after the complete operation.
+///
+/// # Errors
+/// Rejects results outside the Date32 range.
+pub fn date32_add_days(days: i32, offset: i128) -> Result<i32> {
+    i128::from(days)
+        .checked_add(offset)
+        .and_then(|value| i32::try_from(value).ok())
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation("date32 day arithmetic overflow".to_owned())
+        })
+}
+
+/// Adds seconds to a microsecond timestamp using checked wider intermediates.
+///
+/// # Errors
+/// Rejects offsets or final values outside the representable range.
+pub fn timestamp_micros_add_seconds(micros: i64, offset: i128) -> Result<i64> {
+    offset
+        .checked_mul(i128::from(MICROS_PER_SECOND))
+        .and_then(|offset| i128::from(micros).checked_add(offset))
+        .and_then(|value| i64::try_from(value).ok())
+        .ok_or_else(|| ShardLoomError::InvalidOperation("timestamp arithmetic overflow".to_owned()))
+}
+
+/// Returns whole elapsed seconds, truncating toward zero after subtraction.
+#[must_use]
+#[allow(clippy::cast_possible_truncation)] // At most (2^64-1)/1_000_000 seconds, within i64.
+pub fn timestamp_micros_diff_seconds(left: i64, right: i64) -> i64 {
+    ((i128::from(left) - i128::from(right)) / i128::from(MICROS_PER_SECOND)) as i64
+}
+
 /// Parses an ISO `YYYY-MM-DD` date into Arrow-compatible Date32 days since 1970-01-01.
 ///
 /// # Errors
@@ -3329,6 +3430,9 @@ pub fn format_iso_date32(days: i32) -> String {
 }
 
 /// Returns the UTC-calendar year component of an admitted Date32 value.
+///
+/// The complete Date32 storage domain is supported, including years outside
+/// the scoped four-digit ISO input syntax.
 #[must_use]
 pub fn date32_year(days: i32) -> i32 {
     civil_from_days(days).0
@@ -3344,6 +3448,17 @@ pub fn date32_month(days: i32) -> u32 {
 #[must_use]
 pub fn date32_day(days: i32) -> u32 {
     civil_from_days(days).2
+}
+
+/// Converts Date32 epoch days to timestamp microseconds at UTC midnight.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when midnight lies outside
+/// the signed 64-bit microsecond domain.
+pub fn date32_timestamp_micros(days: i32) -> Result<i64> {
+    i64::from(days).checked_mul(MICROS_PER_DAY).ok_or_else(|| {
+        ShardLoomError::InvalidOperation("date32 value exceeds timestamp_micros range".to_owned())
+    })
 }
 
 /// Parses a scoped ISO timestamp into microseconds since the Unix epoch.
@@ -3642,7 +3757,7 @@ fn days_from_civil(year: i32, month: u32, day: u32) -> i32 {
 }
 
 fn civil_from_days(days: i32) -> (i32, u32, u32) {
-    let days = days + 719_468;
+    let days = i64::from(days) + 719_468;
     let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
     let day_of_era = days - era * 146_097;
     let year_of_era =
@@ -3652,9 +3767,9 @@ fn civil_from_days(days: i32) -> (i32, u32, u32) {
     let month_prime = (5 * day_of_year + 2) / 153;
     let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
     let month = month_prime + if month_prime < 10 { 3 } else { -9 };
-    year += i32::from(month <= 2);
+    year += i64::from(month <= 2);
     (
-        year,
+        i32::try_from(year).expect("Date32 calendar year fits i32"),
         u32::try_from(month).expect("month is positive"),
         u32::try_from(day).expect("day is positive"),
     )
@@ -4275,6 +4390,10 @@ impl KernelSelectionResult {
         )
     }
 }
+
+#[cfg(test)]
+#[path = "expression_typed_tests.rs"]
+mod typed_tests;
 
 #[cfg(test)]
 mod tests {
@@ -5004,11 +5123,11 @@ mod tests {
             multiply_report.value,
             Some(ScalarValue::Decimal128 {
                 value: 2468,
-                precision: 11,
+                precision: 29,
                 scale: 2,
             })
         );
-        assert_eq!(multiply_report.output_dtype, Some(decimal128_dtype(11, 2)));
+        assert_eq!(multiply_report.output_dtype, Some(decimal128_dtype(29, 2)));
         assert!(!multiply_report.fallback_attempted);
         assert!(!multiply_report.external_engine_invoked);
 
@@ -5028,7 +5147,7 @@ mod tests {
 
         assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
         assert_eq!(null_report.value, Some(ScalarValue::Null));
-        assert_eq!(null_report.output_dtype, Some(decimal128_dtype(11, 2)));
+        assert_eq!(null_report.output_dtype, Some(decimal128_dtype(22, 2)));
         assert_eq!(null_report.null_behavior, NullBehavior::NullPropagating);
         assert!(!null_report.fallback_attempted);
         assert!(!null_report.external_engine_invoked);
@@ -5490,7 +5609,7 @@ mod tests {
     }
 
     #[test]
-    fn expression_semantics_blocks_string_byte_length_without_fallback() {
+    fn expression_semantics_evaluates_utf8_byte_length_without_fallback() {
         let expression = Expression::new(
             expr_id("byte-length-string"),
             ExpressionKind::FunctionCall {
@@ -5500,12 +5619,13 @@ mod tests {
         );
         let report = evaluate_expression(
             &expression,
-            &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+            &row(&[("label", ScalarValue::Utf8("é!".to_string()))]),
         );
 
-        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
         assert_eq!(report.operator_family, "binary_byte_length");
-        assert!(report.has_errors());
+        assert_eq!(report.value, Some(ScalarValue::Int64(3)));
+        assert!(!report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }

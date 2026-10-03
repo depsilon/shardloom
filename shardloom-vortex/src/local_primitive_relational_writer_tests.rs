@@ -97,15 +97,8 @@ pub(super) fn read_rows(
             serde_json::Value::Object(
                 row.into_iter()
                     .map(|(name, value)| {
-                        let value = match value {
-                            shardloom_core::ScalarValue::Null => serde_json::Value::Null,
-                            shardloom_core::ScalarValue::Boolean(value) => value.into(),
-                            shardloom_core::ScalarValue::Int64(value) => value.into(),
-                            shardloom_core::ScalarValue::UInt64(value) => value.into(),
-                            shardloom_core::ScalarValue::Float64(value) => serde_json::json!(value),
-                            shardloom_core::ScalarValue::Utf8(value) => value.into(),
-                            value => panic!("unexpected test value: {value:?}"),
-                        };
+                        let value =
+                            crate::local_primitives::scalar_value_to_json_value(&value).unwrap();
                         (name, value)
                     })
                     .collect(),

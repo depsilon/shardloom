@@ -389,6 +389,29 @@ the ledger.
   - Dependency: locally accepted typed payload composition; hosted merge remains
     subject to the existing nested/pivot/typed stack and website advisory decision.
 
+- [ ] `NATIVE-TYPED-EXPRESSIONS` — complete typed literals, explicit casts and
+  checked decimal/binary/calendar expressions through the shared native binder
+  and scalar kernels under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed expression contract](native-typed-expressions-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: use native column/constant owners, lazy selected
+    branches, one PulseWeave grant and reserved result construction; preserve
+    metadata/pruning, capillary delivery and existing timing/evidence owners.
+  - Execution checklist:
+    - [ ] Share checked core helpers, fixed output-type derivation and native
+      typed literal/cast/arithmetic/function kernels; prove boundary semantics.
+    - [ ] Converge public SQL/DataFrame declarations on those expressions and
+      preserve complete typed result/writer behavior and resource ownership.
+    - [ ] Freeze independent public correctness, required local gates and paired
+      Full43 regression; update exact support records and immutable evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+      then move this finite item to the completed ledger.
+  - Acceptance: exact decimal and temporal behavior, explicit conversion failures,
+    lazy NULL/branch semantics and deterministic unsupported empty plans; no
+    frontend-specific executor or external-engine fallback.
+  - Dependency: locally accepted typed keys. Retained unary state, nested keys,
+    broader adapters and state-spill obligations keep their existing owners.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then

@@ -428,7 +428,7 @@ fn native_typed_keys_null_selection_and_comparison_expressions_preserve_types() 
 }
 
 #[test]
-fn native_typed_keys_do_not_widen_cast_numeric_or_mixed_type_admission_on_empty_inputs() {
+fn native_typed_keys_keep_incompatible_numeric_and_mixed_type_denials_on_empty_inputs() {
     let fixture = fixture();
     let empty = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
         input: fixture.scan(),
@@ -437,15 +437,6 @@ fn native_typed_keys_do_not_widen_cast_numeric_or_mixed_type_admission_on_empty_
     }));
     for name in FIELDS {
         for value in [
-            expression(ExpressionKind::Cast {
-                expr: Box::new(col(name)),
-                target_dtype: LogicalDType::Utf8,
-            }),
-            expression(ExpressionKind::TryCast {
-                expr: Box::new(col(name)),
-                target_dtype: LogicalDType::Float64,
-            }),
-            function("abs", vec![col(name)]),
             function("lower", vec![col(name)]),
             comparison(
                 col(name),
@@ -457,6 +448,35 @@ fn native_typed_keys_do_not_widen_cast_numeric_or_mixed_type_admission_on_empty_
                 prepare_relational(&project(empty.clone(), vec![("invalid", value)]), policy())
                     .is_err(),
                 "{name}"
+            );
+        }
+        assert!(
+            prepare_relational(
+                &project(
+                    empty.clone(),
+                    vec![(
+                        "text",
+                        expression(ExpressionKind::Cast {
+                            expr: Box::new(col(name)),
+                            target_dtype: LogicalDType::Utf8,
+                        })
+                    )]
+                ),
+                policy()
+            )
+            .is_ok()
+        );
+        for value in [
+            function("abs", vec![col(name)]),
+            expression(ExpressionKind::TryCast {
+                expr: Box::new(col(name)),
+                target_dtype: LogicalDType::Float64,
+            }),
+        ] {
+            assert_eq!(
+                prepare_relational(&project(empty.clone(), vec![("numeric", value)]), policy())
+                    .is_ok(),
+                name == "amount"
             );
         }
         for function in ["sum", "avg"] {
