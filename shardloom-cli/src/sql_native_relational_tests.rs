@@ -61,6 +61,74 @@ fn verify(statement: &str, expected: &Value) {
 }
 
 #[test]
+fn native_relational_sql_column_null_selection_preserves_values_and_bind_errors() {
+    let source = fixture();
+    verify(
+        &format!(
+            "SELECT value,CASE WHEN value=1 THEN metric ELSE value END AS chosen,value>=2 AS matched,NULLIF(value,value) AS erased,COALESCE(value,metric) AS restored FROM (SELECT * FROM '{source}' LIMIT 2) AS input"
+        ),
+        &json!([
+            {"value":1,"chosen":10,"matched":false,"erased":null,"restored":1},
+            {"value":2,"chosen":2,"matched":true,"erased":null,"restored":2},
+        ]),
+    );
+    verify(
+        &format!(
+            "SELECT value,COALESCE(value,metric) AS chosen,NULLIF(value,value) AS erased,NULLIF(value,metric) AS original FROM '{source}' LIMIT 2"
+        ),
+        &json!([
+            {"value":1,"chosen":1,"erased":null,"original":1},
+            {"value":2,"chosen":2,"erased":null,"original":2},
+        ]),
+    );
+    let statement = format!("SELECT COALESCE(value,absent) AS chosen FROM '{source}' LIMIT 0");
+    assert!(
+        prepare(
+            &statement,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |path| DatasetUri::new(path.path.to_string_lossy().into_owned())
+        )
+        .is_err()
+    );
+    let statement = "SELECT COALESCE(first,second) AS chosen FROM '/missing/native.vortex' LIMIT 0";
+    assert!(is_plain_select(statement).unwrap());
+}
+
+#[test]
+fn native_relational_sql_trailing_offset_preserves_order_and_empty_binding() {
+    let source = fixture();
+    verify(
+        &format!("SELECT value FROM '{source}' ORDER BY value DESC LIMIT 2 OFFSET 1"),
+        &json!([{"value":4},{"value":3}]),
+    );
+    verify(
+        &format!("SELECT value FROM '{source}' ORDER BY value DESC LIMIT 2 OFFSET 99"),
+        &json!([]),
+    );
+    verify(
+        &format!("SELECT value FROM '{source}' ORDER BY value DESC LIMIT 0 OFFSET 1"),
+        &json!([]),
+    );
+    assert_eq!(
+        source_count("SELECT value FROM '/missing/offset.vortex' LIMIT 1 OFFSET 2").unwrap(),
+        1
+    );
+    for suffix in ["OFFSET -1", "OFFSET 1.5", "OFFSET 1 OFFSET 2"] {
+        assert!(
+            parsed_native_query(&format!("SELECT value FROM '{source}' LIMIT 2 {suffix}")).is_err()
+        );
+    }
+    assert!(
+        prepare(
+            &format!("SELECT absent FROM '{source}' LIMIT 0 OFFSET 1"),
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |path| DatasetUri::new(path.path.to_string_lossy().into_owned())
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn native_relational_sql_replace_or_add_binds_the_previous_schema() {
     let source = fixture();
     verify(

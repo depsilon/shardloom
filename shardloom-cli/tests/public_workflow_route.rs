@@ -6,6 +6,15 @@ use std::process::Command;
     feature = "vortex-write",
     feature = "universal-format-io"
 ))]
+#[path = "support/public_typed_sql.rs"]
+mod typed_sql;
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
 #[path = "support/public_aggregate_spill.rs"]
 mod aggregate_spill;
 
@@ -707,6 +716,121 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
         );
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
+        assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
+    }
+    for (format, request, extension) in [
+        ("jsonl", "write_jsonl", "jsonl"),
+        ("vortex", "write_vortex", "vortex"),
+    ] {
+        let output = root.join(format!("sort-output.{extension}"));
+        let (ok, stdout) = run_facade(&[
+            "run",
+            "sql",
+            "--input",
+            source.to_str().unwrap(),
+            "--input-format",
+            "vortex",
+            "--sql",
+            &sql,
+            "--request",
+            request,
+            "--output",
+            output.to_str().unwrap(),
+            "--execution-policy",
+            "native_vortex",
+            "--bounded",
+            "true",
+            "--allow-overwrite",
+            "--vortex-sort-rows",
+            &payload,
+            "--max-parallelism",
+            "1",
+            "--format",
+            "json",
+        ]);
+        assert!(ok, "{request}: {stdout}");
+        assert!(stdout.contains(&field(
+            "public_workflow_route_id",
+            "native_vortex_primitive_row_export"
+        )));
+        assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
+        assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
+        let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        let result_fields = envelope["fields"].as_array().unwrap();
+        let spill_runs = result_fields
+            .iter()
+            .find(|field| field["key"] == "local_primitive_native_sort_spill_runs_written")
+            .unwrap()["value"]
+            .as_str()
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+        assert!(spill_runs > 8, "{request}: {stdout}");
+        assert!(stdout.contains(&field(
+            "local_primitive_native_sort_spill_owned_cleanup_completed",
+            "true"
+        )));
+        assert!(output.is_file(), "{request}: {}", output.display());
+        assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
+        if format == "jsonl" {
+            let rows = std::fs::read_to_string(&output)
+                .unwrap()
+                .lines()
+                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(rows, expected, "{request}");
+        } else {
+            let output_sql = format!("SELECT * FROM '{}' LIMIT 10", output.display());
+            let (ok, stdout) = run_facade(&[
+                "run",
+                "sql",
+                "--input",
+                output.to_str().unwrap(),
+                "--input-format",
+                "vortex",
+                "--sql",
+                &output_sql,
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--memory-gb",
+                "1",
+                "--max-parallelism",
+                "1",
+                "--format",
+                "json",
+            ]);
+            assert!(ok, "read back {}: {stdout}", output.display());
+            let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+            let rows = envelope["fields"]
+                .as_array()
+                .and_then(|fields| fields.iter().find(|field| field["key"] == "result_jsonl"))
+                .and_then(|field| field["value"].as_str())
+                .map_or_else(
+                    || {
+                        let summary = envelope["human_text"]
+                            .as_str()
+                            .unwrap()
+                            .lines()
+                            .find(|line| line.starts_with("result summary: "))
+                            .unwrap();
+                        let values: serde_json::Value =
+                            serde_json::from_str(summary.split_once(" values=").unwrap().1)
+                                .unwrap();
+                        values["values"].as_array().unwrap().clone()
+                    },
+                    |jsonl| {
+                        jsonl
+                            .lines()
+                            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                            .collect::<Vec<_>>()
+                    },
+                );
+            assert_eq!(rows, expected, "read back {}", output.display());
+        }
         assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
     }
     let invalid = serde_json::json!({"order_by":[{"column":"priority","descending":true}],"spill":{"workspace":workspace,"memory_bytes":4_194_304,"quota_bytes":32_769}}).to_string();

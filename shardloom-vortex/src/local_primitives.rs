@@ -186,6 +186,9 @@ mod pair_partition_workers;
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_dispatch.rs"]
+pub mod prepared_dispatch;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_relational.rs"]
 pub mod prepared_relational;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -22722,20 +22725,42 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
         if let Some(projection) = plan.projection {
             scan = scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
-        if context.is_some() {
+        // Collected results retain the provider's bounded layout splits, as the
+        // existing optimized sort does. Small writer batches must not fragment
+        // every ordinary scan merely because it now shares a resident owner.
+        if streaming {
             scan = scan.with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(2048));
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
+            if let Some(context) = context {
+                context.check_cancelled()?;
+            }
+            let prepared_sort =
+                if context.is_some() && residual_evaluator.is_none() && spill.is_none() {
+                    native_sort_block::prepare(
+                        &chunk,
+                        &declared_columns,
+                        sort_rows.tie_policy,
+                        retained_cap,
+                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
+                    )?
+                } else {
+                    None
+                };
             let _scratch = if let Some(context) = context {
                 context.check_cancelled()?;
-                let bytes = sort_output_stream::scratch_bytes(
-                    &chunk,
-                    &declared_columns,
-                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
-                )?;
+                let bytes = if let Some(prepared) = &prepared_sort {
+                    prepared.scratch_bytes()?
+                } else {
+                    sort_output_stream::scratch_bytes(
+                        &chunk,
+                        &declared_columns,
+                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
+                    )?
+                };
                 if let Some(grant) = candidate_grant.as_mut() {
                     let retained = candidates.iter().fold(0_u64, |total, row| {
                         total.saturating_add(
@@ -22763,6 +22788,40 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
                 None
             };
 
+            let native_work = if residual_evaluator.is_none() && spill.is_none() {
+                if let Some(prepared) = &prepared_sort {
+                    Some(prepared.append(
+                        &candidate_value_column_indices,
+                        &candidate_order_column_indices,
+                        &sort_rows.order_by,
+                        sort_rows.tie_policy,
+                        retained_cap,
+                        selected_rows,
+                        0,
+                        source_rows_seen,
+                        source_row_id_column_index,
+                        &mut candidates,
+                    )?)
+                } else {
+                    native_sort_block::append(
+                        &chunk,
+                        &declared_columns,
+                        &candidate_value_column_indices,
+                        &candidate_order_column_indices,
+                        &sort_rows.order_by,
+                        sort_rows.tie_policy,
+                        retained_cap,
+                        selected_rows,
+                        0,
+                        source_rows_seen,
+                        source_row_id_column_index,
+                        &mut candidates,
+                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
+                    )?
+                }
+            } else {
+                None
+            };
             let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
                 source_uri.clone(),
                 arrays_read_count,
@@ -22849,23 +22908,7 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
                         }
                     }
                 }
-            } else if spill.is_none()
-                && let Some(work) = native_sort_block::append(
-                    &chunk,
-                    &declared_columns,
-                    &candidate_value_column_indices,
-                    &candidate_order_column_indices,
-                    &sort_rows.order_by,
-                    sort_rows.tie_policy,
-                    retained_cap,
-                    selected_rows,
-                    0,
-                    source_rows_seen,
-                    source_row_id_column_index,
-                    &mut candidates,
-                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
-                )?
-            {
+            } else if let Some(work) = native_work {
                 selected_rows = selected_rows.checked_add(rows).ok_or_else(|| {
                     ShardLoomError::InvalidOperation("local Vortex sort selected row count overflowed usize; no fallback execution was attempted".into())
                 })?;

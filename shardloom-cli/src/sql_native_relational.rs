@@ -48,9 +48,13 @@ pub(crate) fn prepare(
     policy: VortexLocalPrimitiveExecutionPolicy,
     mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
 ) -> NativeResult<PreparedVortexRelational> {
-    let statement = admitted_statement(raw)?;
-    let parsed = ParsedRelationQuery::parse(&statement)?;
+    let (parsed, offset) = parsed_native_query(raw)?;
     if dynamic::required(&parsed) {
+        if offset != 0 {
+            return Err(unsupported_sql_error(
+                "dynamic native SQL does not admit a trailing OFFSET",
+            ));
+        }
         return dynamic::prepare(parsed, policy, &mut resolve_source);
     }
     prepare_relational_with_schema(policy, |schemas| {
@@ -61,7 +65,7 @@ pub(crate) fn prepare(
             declaration: None,
             outer: None,
         };
-        let mut query = lowerer.query(&parsed)?;
+        let mut query = lowerer.query(&parsed)?.offset(offset)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
         Ok(query.plan)
     })
@@ -69,8 +73,8 @@ pub(crate) fn prepare(
 
 /// Shape discovery is syntax-only. File/type/resource admission happens at prepare.
 pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
-    let statement = admitted_statement(raw)?;
-    let ParsedRelationQuery::Select(parsed) = ParsedRelationQuery::parse(&statement)? else {
+    let (parsed, _) = parsed_native_query(raw)?;
+    let ParsedRelationQuery::Select(parsed) = parsed else {
         return Ok(true);
     };
     Ok(matches!(
@@ -85,6 +89,45 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
             .any(predicate::has_subquery))
 }
 
+/// Ordinary local SELECT discovery is inert, including on absent source paths.
+pub(crate) fn is_plain_select(raw: &str) -> NativeResult<bool> {
+    let (parsed, _) = parsed_native_query(raw)?;
+    Ok(matches!(parsed,
+        ParsedRelationQuery::Select(parsed) if matches!(parsed.source, ParsedRelationSource::Local(_))))
+}
+
+pub(crate) fn prepare_from_source(
+    raw: &str,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    uri: DatasetUri,
+    source: shardloom_vortex::resident_session::PreparedVortexSource,
+    mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
+) -> NativeResult<PreparedVortexRelational> {
+    let (parsed, offset) = parsed_native_query(raw)?;
+    if dynamic::required(&parsed) {
+        return Err(unsupported_sql_error(
+            "ordinary source dispatch cannot discover a dynamic schema",
+        ));
+    }
+    shardloom_vortex::local_primitives::prepared_relational::prepare_relational_from_source(
+        uri,
+        source,
+        policy,
+        |schemas| {
+            let mut lowerer = Lowerer {
+                schemas,
+                serial: 0,
+                resolve_source: &mut resolve_source,
+                declaration: None,
+                outer: None,
+            };
+            let mut query = lowerer.query(&parsed)?.offset(offset)?;
+            lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
+            Ok(query.plan)
+        },
+    )
+}
+
 /// Count unique declared paths without opening inputs or preparing subqueries.
 pub(crate) fn source_count(raw: &str) -> NativeResult<usize> {
     Ok(source_leaves(raw)?
@@ -95,9 +138,9 @@ pub(crate) fn source_count(raw: &str) -> NativeResult<usize> {
 }
 
 pub(crate) fn source_leaves(raw: &str) -> NativeResult<BTreeSet<ParsedRelationLeaf>> {
-    let statement = admitted_statement(raw)?;
+    let (parsed, _) = parsed_native_query(raw)?;
     let mut paths = BTreeSet::new();
-    declared_query_sources(&ParsedRelationQuery::parse(&statement)?, &mut paths);
+    declared_query_sources(&parsed, &mut paths);
     Ok(paths)
 }
 
@@ -163,6 +206,31 @@ fn admitted_statement(raw: &str) -> NativeResult<String> {
     Ok(statement)
 }
 
+fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> {
+    let statement = admitted_statement(raw)?;
+    let limit = top_level_keyword_indexes(&statement, "limit")?
+        .last()
+        .copied()
+        .ok_or_else(|| unsupported_sql_error("native SQL limit is absent"))?;
+    let offsets = top_level_keyword_indexes(&statement, "offset")?
+        .into_iter()
+        .filter(|index| *index > limit)
+        .collect::<Vec<_>>();
+    match offsets.as_slice() {
+        [] => Ok((ParsedRelationQuery::parse(&statement)?, 0)),
+        [index] => {
+            let offset = parse_limit(statement[index + "offset".len()..].trim())?;
+            Ok((
+                ParsedRelationQuery::parse(statement[..*index].trim())?,
+                offset,
+            ))
+        }
+        _ => Err(unsupported_sql_error(
+            "native SQL admits one trailing OFFSET",
+        )),
+    }
+}
+
 struct Lowered {
     plan: Plan,
     columns: Vec<String>,
@@ -170,6 +238,18 @@ struct Lowered {
 }
 
 impl Lowered {
+    fn offset(mut self, offset: usize) -> NativeResult<Self> {
+        if offset != 0 {
+            let Plan::Limit(limit) = &mut self.plan else {
+                return Err(unsupported_sql_error(
+                    "native SQL OFFSET requires an outer LIMIT",
+                ));
+            };
+            limit.offset = offset;
+        }
+        Ok(self)
+    }
+
     fn resolve(&self, name: &str) -> NativeResult<String> {
         if self.columns.iter().any(|column| column == name) {
             return Ok(name.to_owned());

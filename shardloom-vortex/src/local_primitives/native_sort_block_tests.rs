@@ -450,6 +450,18 @@ fn native_sort_block_rejects_malformed_losing_utf8_but_ignores_null_payload_byte
         assert!(error.to_string().contains("invalid UTF8"));
         assert_eq!(candidates.len(), 1);
         let masked = make(Validity::from_iter([false, true]));
+        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+        let prepared = prepare(&masked, &names, VortexSortTiePolicy::First, 1, &mut ctx)
+            .unwrap()
+            .unwrap();
+        // Hidden malformed payloads do not add copied-string scratch, including
+        // when validity is inherited from the nullable parent struct.
+        let bytes = 64 * 1024 + 2 * 2 * 256 + 4 * 5;
+        assert_eq!(prepared.scratch_bytes().unwrap(), bytes);
+        assert_eq!(
+            super::super::sort_output_stream::scratch_bytes(&masked, &names, &mut ctx).unwrap(),
+            bytes
+        );
         let work = append(
             &masked,
             &names,

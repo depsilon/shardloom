@@ -1,8 +1,8 @@
 //! Bind native batch aggregation without source replay or a row-table adapter.
 
 use super::{
-    Binder, DType, Node, NodeKind, Nullability, PType, Result, failed, field, validate_name,
-    validate_scalar, validate_unique, validate_width,
+    Binder, DType, Node, NodeKind, Nullability, PType, Result, failed, field, validate_key,
+    validate_name, validate_unique, validate_width,
 };
 use crate::{
     local_primitives::{
@@ -32,7 +32,7 @@ impl Binder<'_> {
         let mut groups = Vec::new();
         for column in &aggregate.group_by {
             validate_name(column.as_str())?;
-            validate_scalar(field(&input.fields, column.as_str())?)?;
+            validate_key(field(&input.fields, column.as_str())?)?;
             groups.push((
                 column.as_str().to_owned(),
                 field(&input.fields, column.as_str())?.clone(),
@@ -61,7 +61,7 @@ impl Binder<'_> {
                 None => return Err(failed("aggregate measure requires an input column")),
             };
             if let Some(source) = source {
-                validate_scalar(source)?;
+                validate_key(source)?;
             }
             let dtype = match function {
                 Function::Count | Function::CountDistinct => {

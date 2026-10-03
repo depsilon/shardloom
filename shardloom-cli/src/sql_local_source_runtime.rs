@@ -37641,29 +37641,31 @@ fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomEr
         return Ok(true);
     }
     let tokens = split_whitespace_outside_quotes(raw)?;
-    if tokens.len() <= 1 {
-        return Ok(false);
+    if tokens.len() > 1
+        && tokens.iter().any(|token| {
+            matches!(
+                token.to_ascii_lowercase().as_str(),
+                "=" | "!="
+                    | "<>"
+                    | "<"
+                    | "<="
+                    | ">"
+                    | ">="
+                    | "is"
+                    | "not"
+                    | "in"
+                    | "like"
+                    | "rlike"
+                    | "regexp"
+                    | "between"
+                    | "and"
+                    | "or"
+            )
+        })
+    {
+        return Ok(true);
     }
-    Ok(tokens.iter().any(|token| {
-        matches!(
-            token.to_ascii_lowercase().as_str(),
-            "=" | "!="
-                | "<>"
-                | "<"
-                | "<="
-                | ">"
-                | ">="
-                | "is"
-                | "not"
-                | "in"
-                | "like"
-                | "rlike"
-                | "regexp"
-                | "between"
-                | "and"
-                | "or"
-        )
-    }))
+    Ok(find_top_level_comparison_operator(trim_enclosing_predicate_parentheses(raw)?)?.is_some())
 }
 
 fn parse_generic_expression_projection(
@@ -37676,6 +37678,16 @@ fn parse_generic_expression_projection(
     let alias = raw[as_index + "as".len()..].trim();
     if expression_raw.is_empty() || alias.is_empty() {
         return Ok(None);
+    }
+    if let Some(expression) = parse_column_null_selection(expression_raw, alias)? {
+        validate_sql_identifier(alias)?;
+        return Ok(Some(ParsedGenericExpressionProjection {
+            alias: alias.to_owned(),
+            source_columns: expression_source_columns(&expression),
+            operator_families: expression_operator_families(&expression),
+            binary_operator_count: 0,
+            expression,
+        }));
     }
     if validate_sql_column_ref(expression_raw).is_ok() && parse_sql_literal(expression_raw).is_err()
     {
@@ -37719,6 +37731,50 @@ fn parse_generic_expression_projection(
         operator_families,
         binary_operator_count,
     }))
+}
+
+fn parse_column_null_selection(
+    raw: &str,
+    alias: &str,
+) -> Result<Option<Expression>, ShardLoomError> {
+    let Some(name) = ["coalesce", "nullif"].into_iter().find(|name| {
+        raw.get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && raw.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+    let Some(close) = matching_closing_parenthesis(raw, name.len())? else {
+        return Ok(None);
+    };
+    if close + 1 != raw.len() {
+        return Ok(None);
+    }
+    let arguments = split_sql_csv(&raw[name.len() + 1..close])?;
+    if arguments.len() != 2
+        || arguments.iter().any(|argument| {
+            validate_sql_column_ref(argument).is_err() || parse_sql_literal(argument).is_ok()
+        })
+    {
+        return Ok(None);
+    }
+    let args = arguments
+        .iter()
+        .enumerate()
+        .map(|(index, argument)| {
+            Ok(Expression::column(
+                ExprId::new(format!("project.{name}.{alias}.{index}"))?,
+                ColumnRef::new(argument.clone())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    Ok(Some(Expression::new(
+        ExprId::new(format!("project.{name}.{alias}"))?,
+        ExpressionKind::FunctionCall {
+            name: name.to_owned(),
+            args,
+        },
+    )))
 }
 
 fn is_simple_numeric_arithmetic_projection_shape(raw: &str) -> Result<bool, ShardLoomError> {
@@ -40246,8 +40302,21 @@ fn null_safe_distinct_column_predicate(
     }
 }
 
+fn split_predicate_tokens(raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    if let Some((index, op)) = find_top_level_comparison_operator(raw)? {
+        let mut tokens = split_whitespace_outside_quotes(raw[..index].trim())?;
+        tokens.push(op.to_owned());
+        tokens.extend(split_whitespace_outside_quotes(
+            raw[index + op.len()..].trim(),
+        )?);
+        Ok(tokens)
+    } else {
+        split_whitespace_outside_quotes(raw)
+    }
+}
+
 fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
-    let tokens = split_whitespace_outside_quotes(raw)?;
+    let tokens = split_predicate_tokens(raw)?;
     if let Some(predicate) = parse_boolean_predicate_tokens(tokens.as_slice())? {
         return Ok(predicate);
     }
@@ -44866,6 +44935,35 @@ mod public_io_route_tests;
 #[allow(clippy::too_many_lines)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compact_comparisons_preserve_operators_and_quoted_literals() {
+        for spelling in ["=", "!=", "<>", "<", "<=", ">", ">="] {
+            let expected = parse_comparison_op(spelling).unwrap();
+            assert!(matches!(
+                parse_predicate(&format!("value{spelling}-3")).unwrap(),
+                ParsedPredicate::Compare { column, op, value: ScalarValue::Int64(-3) }
+                    if column == "value" && op == expected
+            ));
+            assert!(is_explicit_predicate_projection_shape(&format!("value{spelling}-3")).unwrap());
+        }
+        assert!(matches!(
+            parse_predicate("label='a>=b''<c'").unwrap(),
+            ParsedPredicate::Compare { column, op: ComparisonOp::Eq, value: ScalarValue::Utf8(value) }
+                if column == "label" && value == "a>=b'<c"
+        ));
+        for compound in [
+            "value=1 AND metric>=2",
+            "value=1 OR metric>=2",
+            "(value>=2)",
+        ] {
+            assert!(is_explicit_predicate_projection_shape(compound).unwrap());
+            assert!(parse_predicate(compound).is_ok(), "{compound}");
+        }
+        for invalid in ["value==3", "value<3>1", "value>=", "=3"] {
+            assert!(parse_predicate(invalid).is_err(), "{invalid}");
+        }
+    }
 
     static SQL_LOCAL_SOURCE_TEST_PATH_COUNTER: std::sync::atomic::AtomicU64 =
         std::sync::atomic::AtomicU64::new(0);

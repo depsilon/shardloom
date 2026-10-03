@@ -172,13 +172,25 @@ pub(super) fn prepare(
     source_path: &Path,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<Option<NativeSinkPlan>> {
-    let simple = matches!(
-        request.kind,
-        VortexQueryPrimitiveKind::ProjectColumns
-            | VortexQueryPrimitiveKind::FilterPredicate
-            | VortexQueryPrimitiveKind::FilterAndProject
-    );
-    let source_projection = request.kind == VortexQueryPrimitiveKind::ExpressionProjectRows
+    prepare_with_source(request, source_path, policy, None)
+}
+
+pub(super) fn prepare_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    source: PreparedVortexSource,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<Option<NativeSinkPlan>> {
+    let uri = request
+        .source_uri
+        .as_ref()
+        .ok_or_else(|| sink_error("source URI is absent"))?;
+    let path = super::local_vortex_path(uri, request.kind)?
+        .ok_or_else(|| sink_error("requires one local native source"))?;
+    prepare_with_source(request, &path, policy, Some(source))
+}
+
+fn is_source_projection(request: &VortexQueryPrimitiveRequest) -> bool {
+    request.kind == VortexQueryPrimitiveKind::ExpressionProjectRows
         && request
             .expression_projection
             .as_ref()
@@ -191,7 +203,22 @@ pub(super) fn prepare(
                     && projection.columns.iter().all(|column| {
                         matches!(column.expr, VortexStructuredProjectionExpr::SourceColumn(_))
                     })
-            });
+            })
+}
+
+fn prepare_with_source(
+    request: &VortexQueryPrimitiveRequest,
+    source_path: &Path,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: Option<PreparedVortexSource>,
+) -> Result<Option<NativeSinkPlan>> {
+    let simple = matches!(
+        request.kind,
+        VortexQueryPrimitiveKind::ProjectColumns
+            | VortexQueryPrimitiveKind::FilterPredicate
+            | VortexQueryPrimitiveKind::FilterAndProject
+    );
+    let source_projection = is_source_projection(request);
     if !simple && !source_projection {
         if request.kind == VortexQueryPrimitiveKind::ExpressionProjectRows
             && request.predicate.is_some()
@@ -213,11 +240,17 @@ pub(super) fn prepare(
     if request.source_order_limit == Some(0) {
         return Err(sink_error("source-order limit must be positive"));
     }
-    let session = ResidentVortexSession::new(
-        policy.resource_envelope().memory_budget_bytes,
-        policy.max_parallelism,
-    )?;
-    let source = session.prepare_file(source_path)?;
+    let (session, source) = if let Some(source) = source {
+        let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
+        (session, source)
+    } else {
+        let session = ResidentVortexSession::new(
+            policy.resource_envelope().memory_budget_bytes,
+            policy.max_parallelism,
+        )?;
+        let source = session.prepare_file(source_path)?;
+        (session, source)
+    };
     let scan_plan = row_export_scan_plan(request, source.dtype())?;
     if scan_plan.residual_predicate.is_some() {
         if source_projection {

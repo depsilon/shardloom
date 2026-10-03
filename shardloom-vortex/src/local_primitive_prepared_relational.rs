@@ -314,9 +314,36 @@ pub fn prepare_relational_with_schema(
         policy.resource_envelope.memory_budget_bytes,
         policy.max_parallelism,
     )?;
+    prepare_relational_with_owner(policy, session, None, lower)
+}
+
+/// Lower against an already admitted source and retain its generation and grant.
+/// # Errors
+/// Rejects source/request/resource mismatch and all ordinary relational bind errors.
+pub fn prepare_relational_from_source(
+    uri: shardloom_core::DatasetUri,
+    source: PreparedVortexSource,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
+) -> Result<PreparedVortexRelational> {
+    let request =
+        VortexQueryPrimitiveRequest::project(uri.clone(), shardloom_plan::ProjectionRequest::All);
+    let session = super::prepared_dispatch::source_session(&source, &request, Some(policy))?;
+    prepare_relational_with_owner(policy, session, Some((uri, source)), lower)
+}
+
+fn prepare_relational_with_owner(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: ResidentVortexSession,
+    source: Option<(shardloom_core::DatasetUri, PreparedVortexSource)>,
+    lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
+) -> Result<PreparedVortexRelational> {
     let mut preparation = VortexRelationalPreparation {
         binding: bind::Binder::new(&session)?,
     };
+    if let Some((uri, source)) = source {
+        preparation.binding.seed_source(&uri, source)?;
+    }
     let plan = lower(&mut preparation)?;
     let root = preparation.binding.bind(&plan, 0)?;
     let (sources, source_paths, metadata) = preparation.binding.finish()?;

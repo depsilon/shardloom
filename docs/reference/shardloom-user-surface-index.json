@@ -188,6 +188,28 @@
     "fallback_attempted": false,
     "external_engine_invoked": false
   },
+  "native_typed_keys": {
+    "reference": "docs/architecture/native-typed-keys-2026-10-03.md",
+    "scope": "current_source_build_flat_native_relational_keys",
+    "types": ["binary", "decimal128", "date32", "timestamp_micros"],
+    "binary_order": "unsigned_lexicographic_bytes",
+    "decimal_comparison": "exact_i128_with_identical_precision_and_scale",
+    "temporal_comparison": "exact_signed_storage_with_distinct_logical_types",
+    "operators": ["join", "set", "group", "sort", "window", "subquery"],
+    "aggregates": ["count", "count_distinct", "min", "max"],
+    "scalar_selection": ["comparison", "is_null", "is_not_null", "case", "coalesce", "nullif"],
+    "ordinary_sql_source_handoff": true,
+    "inspection_side_effect_free": true,
+    "native_sort_spill": "explicit_relational_sort_policy",
+    "arithmetic": false,
+    "casts": false,
+    "retained_unary_state": false,
+    "nested_keys": false,
+    "group_join_window_spill": false,
+    "total_rss_bound": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
   "native_dynamic_pivot_composition": {
     "reference": "docs/architecture/native-dynamic-pivot-composition-2026-10-03.md",
     "scope": "current_source_build_existing_scalar_pivot_admission",

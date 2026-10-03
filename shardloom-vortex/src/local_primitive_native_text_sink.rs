@@ -63,6 +63,8 @@ pub(super) fn write(
     let mut logical_bytes = 0_u64;
     let mut text_copies = 0_u64;
     let mut scalars_materialized = 0_u64;
+    let mut matched_rows_observed = 0_u64;
+    let mut stopped_at_limit = false;
     plan.source
         .with_native_execution_or_admitted(cancellation, admitted, |file, context| {
             let mut scalar_context = context.native_session().create_execution_ctx();
@@ -81,105 +83,124 @@ pub(super) fn write(
                 _ => Ok(()),
             }
             .map_err(vortex_error)?;
-            plan.consume(file, context, BATCH_ROWS, producer, |array| {
-                context.check_cancelled()?;
-                if array.dtype() != &plan.dtype
-                    || array.len() > BATCH_ROWS
-                    || array.nbytes() > BATCH_BYTES
-                {
-                    return Err(failed("result batch changed its admitted schema or size"));
-                }
-                let bytes = array
-                    .nbytes()
-                    .checked_mul(2)
-                    .and_then(|n| n.checked_add(128 * 1024))
-                    .ok_or_else(|| failed("text scratch reservation overflow"))?;
-                if bytes > scratch.bytes() {
-                    scratch.resize(bytes)?;
-                }
-                let columns = plan
-                    .columns
-                    .iter()
-                    .map(|name| logical_field_from_native_array(&array, name))
-                    .collect::<Result<Vec<_>>>()?;
-                let json = if format == Format::Csv {
-                    Vec::new()
-                } else {
-                    columns
-                        .iter()
-                        .map(|column| {
-                            super::native_json::Column::new(
-                                column,
-                                &mut scalar_context,
-                                context.memory(),
-                            )
-                        })
-                        .collect::<Result<Vec<_>>>()?
-                };
-                batches += 1;
-                maximum_rows = maximum_rows.max(array.len());
-                logical_bytes = logical_bytes
-                    .checked_add(array.nbytes())
-                    .ok_or_else(|| failed("logical byte counter overflow"))?;
-                for row in 0..array.len() {
+            if plan.source.is_produced() || (!plan.metadata_pruned && plan.row_count > 0) {
+                plan.consume(file, context, BATCH_ROWS, producer, |array| {
                     context.check_cancelled()?;
-                    if format == Format::Json && rows > 0 {
-                        writer.write_all(b",").map_err(vortex_error)?;
+                    if array.dtype() != &plan.dtype
+                        || array.len() > BATCH_ROWS
+                        || array.nbytes() > BATCH_BYTES
+                    {
+                        return Err(failed("result batch changed its admitted schema or size"));
                     }
-                    if format != Format::Csv {
-                        writer.write_all(b"{").map_err(vortex_error)?;
+                    matched_rows_observed = matched_rows_observed
+                        .checked_add(usize_to_u64(array.len())?)
+                        .ok_or_else(|| failed("text observed row count overflow"))?;
+                    let remaining = plan.limit.map_or(usize::MAX, |limit| {
+                        usize::try_from(limit.saturating_sub(rows)).unwrap_or(usize::MAX)
+                    });
+                    let array = if array.len() > remaining {
+                        array.slice(0..remaining).map_err(vortex_error)?
+                    } else {
+                        array
+                    };
+                    let bytes = array
+                        .nbytes()
+                        .checked_mul(2)
+                        .and_then(|n| n.checked_add(128 * 1024))
+                        .ok_or_else(|| failed("text scratch reservation overflow"))?;
+                    if bytes > scratch.bytes() {
+                        scratch.resize(bytes)?;
                     }
-                    for (index, (name, column)) in plan.columns.iter().zip(&columns).enumerate() {
-                        if index > 0 {
+                    let columns = plan
+                        .columns
+                        .iter()
+                        .map(|name| logical_field_from_native_array(&array, name))
+                        .collect::<Result<Vec<_>>>()?;
+                    let json = if format == Format::Csv {
+                        Vec::new()
+                    } else {
+                        columns
+                            .iter()
+                            .map(|column| {
+                                super::native_json::Column::new(
+                                    column,
+                                    &mut scalar_context,
+                                    context.memory(),
+                                )
+                            })
+                            .collect::<Result<Vec<_>>>()?
+                    };
+                    batches += 1;
+                    maximum_rows = maximum_rows.max(array.len());
+                    logical_bytes = logical_bytes
+                        .checked_add(array.nbytes())
+                        .ok_or_else(|| failed("logical byte counter overflow"))?;
+                    for row in 0..array.len() {
+                        context.check_cancelled()?;
+                        if format == Format::Json && rows > 0 {
                             writer.write_all(b",").map_err(vortex_error)?;
                         }
                         if format != Format::Csv {
-                            serde_json::to_writer(&mut writer, name).map_err(vortex_error)?;
-                            writer.write_all(b":").map_err(vortex_error)?;
-                            let counts = json[index].write(
-                                row,
-                                &mut writer,
-                                &mut scalar_context,
-                                cancellation,
-                            )?;
-                            scalars_materialized = scalars_materialized
-                                .checked_add(counts.scalars)
-                                .ok_or_else(|| failed("scalar counter overflow"))?;
-                            text_copies = text_copies
-                                .checked_add(counts.utf8_bytes)
-                                .ok_or_else(|| failed("text copy counter overflow"))?;
-                            continue;
+                            writer.write_all(b"{").map_err(vortex_error)?;
                         }
-                        let scalar = super::result_batch::scalar(column, row, &mut scalar_context)?;
-                        let value = terminal_scalar(&scalar)?;
-                        scalars_materialized = scalars_materialized
-                            .checked_add(1)
-                            .ok_or_else(|| failed("scalar counter overflow"))?;
-                        if let StatValue::Utf8(text) = &value {
-                            text_copies = text_copies
-                                .checked_add(usize_to_u64(text.len())?)
-                                .ok_or_else(|| failed("text copy counter overflow"))?;
-                        }
-                        if format == Format::Csv
-                            && plan.columns.len() == 1
-                            && value == StatValue::Null
+                        for (index, (name, column)) in plan.columns.iter().zip(&columns).enumerate()
                         {
-                            // A bare newline is skipped as a blank record by CSV
-                            // readers. A quoted empty cell keeps this null row.
-                            csv_text(&mut writer, "")?;
-                        } else {
-                            write_value(&mut writer, value, format)?;
+                            if index > 0 {
+                                writer.write_all(b",").map_err(vortex_error)?;
+                            }
+                            if format != Format::Csv {
+                                serde_json::to_writer(&mut writer, name).map_err(vortex_error)?;
+                                writer.write_all(b":").map_err(vortex_error)?;
+                                let counts = json[index].write(
+                                    row,
+                                    &mut writer,
+                                    &mut scalar_context,
+                                    cancellation,
+                                )?;
+                                scalars_materialized = scalars_materialized
+                                    .checked_add(counts.scalars)
+                                    .ok_or_else(|| failed("scalar counter overflow"))?;
+                                text_copies = text_copies
+                                    .checked_add(counts.utf8_bytes)
+                                    .ok_or_else(|| failed("text copy counter overflow"))?;
+                                continue;
+                            }
+                            let scalar =
+                                super::result_batch::scalar(column, row, &mut scalar_context)?;
+                            let value = terminal_scalar(&scalar)?;
+                            scalars_materialized = scalars_materialized
+                                .checked_add(1)
+                                .ok_or_else(|| failed("scalar counter overflow"))?;
+                            if let StatValue::Utf8(text) = &value {
+                                text_copies = text_copies
+                                    .checked_add(usize_to_u64(text.len())?)
+                                    .ok_or_else(|| failed("text copy counter overflow"))?;
+                            }
+                            if format == Format::Csv
+                                && plan.columns.len() == 1
+                                && value == StatValue::Null
+                            {
+                                // A bare newline is skipped as a blank record by CSV
+                                // readers. A quoted empty cell keeps this null row.
+                                csv_text(&mut writer, "")?;
+                            } else {
+                                write_value(&mut writer, value, format)?;
+                            }
                         }
+                        writer
+                            .write_all(if format == Format::Csv { b"\n" } else { b"}\n" })
+                            .map_err(vortex_error)?;
+                        rows = rows
+                            .checked_add(1)
+                            .ok_or_else(|| failed("row counter overflow"))?;
                     }
-                    writer
-                        .write_all(if format == Format::Csv { b"\n" } else { b"}\n" })
-                        .map_err(vortex_error)?;
-                    rows = rows
-                        .checked_add(1)
-                        .ok_or_else(|| failed("row counter overflow"))?;
-                }
-                Ok(true)
-            })?;
+                    if plan.limit == Some(rows) {
+                        stopped_at_limit = true;
+                        return Ok(false);
+                    }
+                    Ok(true)
+                })?;
+            }
             if format == Format::Json {
                 writer.write_all(b"]\n").map_err(vortex_error)?;
             }
@@ -191,7 +212,28 @@ pub(super) fn write(
     cancellation.check()?;
     plan.source.validate_generation()?;
     output.commit()?;
+    let pre_limit_result_row_count = if plan.source.is_produced() {
+        rows
+    } else if plan.metadata_pruned {
+        0
+    } else if plan.filter.is_none() {
+        plan.row_count
+    } else {
+        matched_rows_observed
+    };
     let mut evidence = disabled_row_export_evidence();
+    evidence.pushdown = super::VortexLocalPrimitiveRowExportPushdownEvidence {
+        filter_pushdown_applied: plan.filter.is_some(),
+        projection_pushdown_applied: plan.projection.is_some(),
+        source_order_limit_applied: plan.limit.is_some(),
+    };
+    // Empty filtered scan output does not prove that the provider read or
+    // decoded nothing. These flags conservatively describe the scan boundary.
+    evidence.upstream_scan_called =
+        plan.source.is_source() && !plan.metadata_pruned && plan.row_count > 0;
+    evidence.side_effects.data_read = evidence.upstream_scan_called;
+    evidence.side_effects.data_decoded = evidence.upstream_scan_called;
+    evidence.side_effects.row_read = evidence.upstream_scan_called && scalars_materialized > 0;
     evidence.side_effects.write_io = true;
     evidence.side_effects.data_materialized = rows > 0;
     evidence.materialization_boundary_reported = true;
@@ -204,8 +246,8 @@ pub(super) fn write(
         writer_input_batch_bound: 1,
         peak_reserved_bytes: plan.session.snapshot().memory.peak_reserved_bytes,
         metadata_reserved_bytes: 128 * 1024,
-        pre_limit_result_row_count: rows,
-        pre_limit_result_row_count_exact: true,
+        pre_limit_result_row_count,
+        pre_limit_result_row_count_exact: plan.filter.is_none() || !stopped_at_limit,
         source_generation_validated: true,
         dtype_and_row_count_validated: false,
         output_sha256: checksum,
@@ -223,7 +265,7 @@ pub(super) fn write(
         output_format: format.as_str(),
         rows_scanned: plan.row_count,
         rows_written: rows,
-        pre_limit_result_row_count: rows,
+        pre_limit_result_row_count,
         projected_columns: plan.columns,
         arrays_read_count: batches,
         max_chunk_rows: maximum_rows,

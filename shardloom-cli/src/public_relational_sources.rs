@@ -17,17 +17,27 @@ use super::super::{
     prepare_local_source_for_public_workflow, public_workflow_effective_resource_envelope,
 };
 
-pub(super) fn prepare(
+pub(super) fn prepare_with_source(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
     validate_bindings(statement, request)?;
     let mut sources = Sources::default();
-    let operation = native_relational::prepare(
-        statement,
-        native_vortex_materializing_policy(request)?,
-        |path| sources.resolve(path, request),
-    )?;
+    let policy = native_vortex_materializing_policy(request)?;
+    let operation = if let Some(source) = source {
+        let uri = DatasetUri::new(
+            request
+                .input_uri
+                .clone()
+                .ok_or_else(|| failed("source URI is absent"))?,
+        )?;
+        native_relational::prepare_from_source(statement, policy, uri, source, |path| {
+            sources.resolve(path, request)
+        })?
+    } else {
+        native_relational::prepare(statement, policy, |path| sources.resolve(path, request))?
+    };
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     let operation = operation.with_preparation_sources(sources.preparations)?;
     #[cfg(feature = "vortex-write")]

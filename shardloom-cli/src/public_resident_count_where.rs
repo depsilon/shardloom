@@ -13,11 +13,31 @@ pub(super) fn run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
-    mut extra_fields: Vec<(String, String)>,
+    extra_fields: Vec<(String, String)>,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
-    let (executed, prepared_now) = match execute(request, binding, execution_session) {
+    run_with_source(
+        request,
+        plan,
+        format,
+        extra_fields,
+        binding,
+        execution_session,
+        None,
+    )
+}
+
+pub(super) fn run_with_source(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    mut extra_fields: Vec<(String, String)>,
+    binding: &NativeVortexInputBinding,
+    execution_session: &mut PublicExecutionSession,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+) -> ExitCode {
+    let (executed, prepared_now) = match execute(request, binding, execution_session, source) {
         Ok(result) => result,
         Err(error) => {
             execution_session.clear();
@@ -72,6 +92,7 @@ fn execute(
     request: &PublicWorkflowRouteRequest,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
 ) -> Result<(ExecutedVortexCountWhere, bool), ShardLoomError> {
     if request.vortex_columns.is_some() || request.vortex_source_order_limit.is_some() {
         return Err(ShardLoomError::InvalidOperation(
@@ -89,14 +110,19 @@ fn execute(
             binding,
         )?;
         let policy = native_vortex_materializing_policy(request)?;
-        let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
-            policy.resource_envelope.memory_budget_bytes,
-            policy.max_parallelism,
-        )?;
-        let operation =
+        let operation = if let Some(source) = source {
+            shardloom_vortex::local_primitives::prepared_count::prepare_count_where_from_source(
+                &primitive, policy, source,
+            )?
+        } else {
+            let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+                policy.resource_envelope.memory_budget_bytes,
+                policy.max_parallelism,
+            )?;
             shardloom_vortex::local_primitives::prepared_count::prepare_count_where_in_session(
                 &primitive, policy, &session,
-            )?;
+            )?
+        };
         execution_session.count_where = Some(PreparedPublicCountWhere {
             request: request.clone(),
             operation,

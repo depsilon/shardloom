@@ -23,6 +23,9 @@ of Vortex DType and native arrays, not a second row representation.
 The subsequent [typed payload extension](native-typed-payloads-2026-10-03.md)
 adds binary, exact Decimal128, Date32 and timezone-free microsecond timestamp
 leaves while preserving these structural bounds and ownership rules.
+The later [typed key contract](native-typed-keys-2026-10-03.md) admits those
+types as flat keys for its specified joins, sets, groups, windows, subqueries,
+aggregates and expressions. It does not admit nested key equality.
 
 The implementation admits schema depth at most 24, at most 4,096 recursive nodes
 and at most 8 MiB of conservatively charged schema metadata. Each nested struct

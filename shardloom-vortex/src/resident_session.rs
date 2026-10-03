@@ -485,6 +485,11 @@ impl ResidentVortexSession {
         }
     }
 
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn same_owner(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
     /// Open and validate an immutable file generation, retaining the same OS
     /// handle used by subsequent Vortex positional reads.
     ///

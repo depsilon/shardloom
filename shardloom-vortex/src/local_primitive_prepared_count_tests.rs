@@ -43,6 +43,29 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn filtered_count_source_handoff_reuses_one_generation() {
+    let fixture = Fixture::new();
+    let request = fixture.request(2);
+    let policy = VortexLocalPrimitiveExecutionPolicy::new(2).unwrap();
+    let source = super::super::prepared_dispatch::prepare_source(&request, policy).unwrap();
+    let session = source.retained_session();
+    let prepared = prepare_count_where_from_source(&request, policy, source).unwrap();
+    for execution in 1..=2 {
+        let result = prepared.execute().unwrap();
+        assert_eq!(result.count, 3);
+        assert_eq!(result.runtime.prepared_source_opens, 1);
+        assert_eq!(result.runtime.completed_executions, execution);
+        assert!(result.native_io_certificate.is_certified());
+        assert!(!result.native_io_certificate.fallback_attempted);
+    }
+    let replacement = fixture.0.join("replacement.vortex");
+    std::fs::copy(fixture.path(), &replacement).unwrap();
+    std::fs::rename(replacement, fixture.path()).unwrap();
+    assert!(prepared.execute().is_err());
+    assert_eq!(session.snapshot().prepared_source_opens, 1);
+}
+
+#[test]
 fn prepared_count_reexecutes_complete_predicate_with_one_open_and_real_certificate() {
     let fixture = Fixture::new();
     for threshold in [2, 99] {

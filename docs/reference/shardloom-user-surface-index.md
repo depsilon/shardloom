@@ -107,10 +107,11 @@ through. Small JSONL collection returns the complete result only within 65,536
 rows and 8 MiB; larger results use the existing streaming writers. See the
 [computed-result streaming contract](../architecture/native-workflow-streaming-2026-10-01.md).
 
-Single-file numeric sorting can use explicitly admitted temporary Vortex runs.
+Single-file sorting can use explicitly admitted temporary Vortex runs, including
+the flat typed keys scoped by the [typed key contract](../architecture/native-typed-keys-2026-10-03.md).
 See [Native Query Sort Spill](native-query-spill.md) for supported keys, bounded
 output, workspace quotas, cancellation, and recovery. The policy is opt-in and
-does not enable other spill families.
+does not enable group, join or window state spill.
 
 ## Python Reads
 
@@ -205,10 +206,19 @@ objects. Common admitted methods include:
   output; nested CSV/ORC output is denied. Nested keys, general nested unary
   state and general Variant/extension operations remain separate boundaries.
   Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
-  microsecond timestamps are admitted payloads, including nested leaves. Their
-  arithmetic, key and unary-state semantics remain unadmitted. Binary supports
+  microsecond timestamps are admitted payloads, including nested leaves. The
+  [typed key contract](../architecture/native-typed-keys-2026-10-03.md) admits
+  flat equality, hashing and ordering for these types through joins, sets, groups,
+  windows and subqueries, plus COUNT/COUNT DISTINCT/MIN/MAX and scoped comparisons
+  and expressions; Decimal metadata must match. Casts, arithmetic/rescaling,
+  retained unary state and nested key equality remain unsupported. Binary supports
   all eight writers; ORC rejects decimal and temporal payloads. Text output uses
   explicit typed encodings; see the [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md).
+  In the JSON index, `native_typed_keys` records these individual capabilities.
+  The older combined `typed_keys_arithmetic_and_unary_state` flag stays false:
+  the combined key, arithmetic and unary-state capability is not admitted.
+  The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
+  records local verification; hosted acceptance remains pending.
   Admitted `pivot(...)` / `pivot_table(...)` over one
   index column, one pivot column, and one value column lower through the native/prepared Vortex
   pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`

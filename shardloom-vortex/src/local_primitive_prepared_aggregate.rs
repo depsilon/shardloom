@@ -316,7 +316,7 @@ pub fn prepare_aggregate_for_optional_reuse(
     Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
 }
 
-fn aggregate_session(
+pub(super) fn aggregate_session(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<ResidentVortexSession> {
@@ -377,6 +377,26 @@ fn prepare_candidate_in_session(
         policy,
         physical_policy,
         session,
+        PreparedAggregateSource::File(source),
+        None,
+    )
+}
+
+/// Bind the optimized aggregate to an existing source without reopening it.
+/// # Errors
+/// Rejects source/request identity, resource and aggregate admission failures.
+pub fn prepare_aggregate_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+) -> Result<PreparedVortexAggregate> {
+    let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
+    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    prepare_bound_aggregate(
+        request,
+        policy,
+        physical_policy,
+        &session,
         PreparedAggregateSource::File(source),
         None,
     )
