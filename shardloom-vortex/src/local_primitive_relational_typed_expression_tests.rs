@@ -83,6 +83,7 @@ fn decimals() -> Fixture {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep value, schema, empty-input and denial checks on one fixture.
 fn native_typed_expressions_promote_decimal_branches_losslessly_before_reading_rows() {
     let fixture = decimals();
     let decimal = |value, precision, scale| {
@@ -546,6 +547,7 @@ fn native_typed_expressions_literals_lazy_selection_and_empty_denials() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One fixture spans encoded input through final-owner credit release.
 fn native_typed_expressions_encoded_arrays_and_final_output_credit_ownership() {
     let codes = PrimitiveArray::from_iter([1u8, 0, 2, 1]).into_array();
     let decimal =
