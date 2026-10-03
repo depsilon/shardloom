@@ -85,6 +85,14 @@ scalar conversion. Regression tests include both timestamp extremes.
   permits Python Decimal null-fill values with smaller declared precision or a
   different scale without narrowing the source domain. Key compatibility and
   mixed-scale arithmetic keep their separate explicit-cast contracts.
+- The decoded reference evaluator resolves branch result types without evaluating
+  unused values. COALESCE accepts 1–128 arguments and stops at the first non-null
+  result; CASE evaluates only its selected value. Both rescale selected decimals
+  to the declared common domain. Nullable reference columns carry their declared
+  dtype on the expression, since a null row value cannot supply schema metadata.
+  UInt64 numeric functions/arithmetic, signed/unsigned comparisons and integer
+  string offsets retain the native checked domains. Reference changes do not add
+  a decoded evaluator to native execution.
 - Binary functions: byte length on Binary/UTF8 and strict UNHEX/standard padded
   FROM_BASE64, with the existing aliases and invalid-padding/trailing-bit rules.
 - Calendar functions: date and timestamp field extraction, checked day/second

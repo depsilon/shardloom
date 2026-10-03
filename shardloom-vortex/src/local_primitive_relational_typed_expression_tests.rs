@@ -6,6 +6,9 @@ use shardloom_core::{
 };
 use vortex::array::arrays::{ConstantArray, DictArray};
 
+#[path = "local_primitive_relational_reference_tests.rs"]
+mod reference_tests;
+
 fn expr(kind: ExpressionKind) -> Expression {
     Expression::new(ExprId::new("typed-expression").unwrap(), kind)
 }
