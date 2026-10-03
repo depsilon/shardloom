@@ -114,7 +114,7 @@ fn native_typed_payload_collect_sort_union_and_empty_preserve_values() {
         offset: 0,
         count: 0,
     }));
-    assert!(collect(&empty).is_empty());
+    assert_eq!(collect(&empty), [] as [Value; 0]);
     assert_eq!(
         prepare_relational(&empty, policy()).unwrap().output_dtype(),
         prepare_relational(&fixture.scan(), policy())
@@ -340,6 +340,81 @@ fn native_typed_payload_nested_gather_preserves_null_parent_and_leaf_types() {
             json!([])
         ]
     );
+}
+
+#[test]
+fn native_typed_payload_explode_fields_preserve_values_and_empty_schema() {
+    use crate::query_primitive::{
+        VortexExplodeProjectionRequest, VortexQueryPrimitiveKind as Kind,
+    };
+    use crate::relational_query::VortexRelationalUnary;
+
+    let names = ["payload", "amount", "day", "instant"];
+    let fields = StructArray::new(
+        FieldNames::from(names),
+        payloads(),
+        4,
+        Validity::from_iter([true, false, true, true]),
+    )
+    .into_array();
+    let records = ListViewArray::try_new(
+        fields,
+        PrimitiveArray::from_iter([0u64, 2, 2, 3]).into_array(),
+        PrimitiveArray::from_iter([2u64, 0, 1, 1]).into_array(),
+        Validity::from_iter([true, true, false, true]),
+    )
+    .unwrap()
+    .into_array();
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(["id", "records"]),
+            vec![
+                PrimitiveArray::from_iter([1u32, 2, 3, 4]).into_array(),
+                records,
+            ],
+            4,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        2,
+    );
+    for name in names {
+        let explode = |input| {
+            let mut request = VortexQueryPrimitiveRequest::for_relational_input(
+                Kind::ExplodeRows,
+                shardloom_plan::ProjectionRequest::All,
+            );
+            request.explode_projection = Some(
+                VortexExplodeProjectionRequest::new(ColumnRef::new("records").unwrap())
+                    .with_element_field(name.into(), "value".into()),
+            );
+            VortexRelationalPlan::Unary(Box::new(VortexRelationalUnary { input, request }))
+        };
+        let plan = explode(fixture.scan());
+        assert_eq!(
+            collect(&plan),
+            vec![
+                json!({"id":1,"value":expected()[0][name]}),
+                json!({"id":1,"value":null}),
+                json!({"id":3,"value":null}),
+                json!({"id":4,"value":expected()[3][name]}),
+            ],
+            "{name}",
+        );
+        let empty = explode(VortexRelationalPlan::Limit(Box::new(
+            VortexRelationalLimit {
+                input: fixture.scan(),
+                offset: 0,
+                count: 0,
+            },
+        )));
+        assert_eq!(collect(&empty), [] as [Value; 0], "{name}");
+        assert_eq!(
+            prepare_relational(&empty, policy()).unwrap().output_dtype(),
+            prepare_relational(&plan, policy()).unwrap().output_dtype(),
+            "{name}",
+        );
+    }
 }
 
 #[test]

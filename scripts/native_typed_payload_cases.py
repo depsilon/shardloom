@@ -187,10 +187,13 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         exercise(f"typed-nested-{source_name}-explode", expanded,
                  [{"id": key, "records": value} for key, value in [(4, leaf(3)), (3, None), (1, leaf(0)), (1, None)]],
                  ["id", "records"], nested=True)
-        binary = prefix.select("id", "records").explode("records.payload").select("id", "payload")
-        exercise(f"typed-nested-{source_name}-binary", binary,
-                 [{"id": key, "payload": value} for key, value in [(4, "c3a9"), (3, None), (1, "00ff10"), (1, None)]],
-                 ["id", "payload"], typed_orc=False)
+        for name in fields[1:]:
+            projected = prefix.select("id", "records").explode(f"records.{name}").select("id", name)
+            projected_rows = [{"id": key, name: value} for key, value in [
+                (4, leaf(3)[name]), (3, None), (1, leaf(0)[name]), (1, None)]]
+            family = f"typed-nested-{source_name}-{name}"
+            exercise(family, projected, projected_rows, ["id", name], typed_orc=name != "payload")
+            exercise(family + "-empty", projected.limit(0), [], ["id", name], typed_orc=name != "payload")
 
     count = 65_541
     raw, prepared = output / "typed-large.data", output / "typed-large.vortex"
