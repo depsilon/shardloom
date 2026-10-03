@@ -6367,7 +6367,7 @@ mod tests {
             ),
         ];
 
-        for (report, state_family, capillary_unit, pressure_signal) in cases {
+        for (mut report, state_family, capillary_unit, pressure_signal) in cases {
             let mut fields = Vec::new();
             append_vortex_local_primitive_execution_report_fields(&mut fields, Some(&report));
 
@@ -6398,6 +6398,19 @@ mod tests {
                 output_field(&fields, "local_primitive_spill_io_performed"),
                 "false"
             );
+            for no_query_answer_cache in [false, true] {
+                report.embedded_layout.no_query_answer_cache = no_query_answer_cache;
+                let mut rendered = Vec::new();
+                append_vortex_local_primitive_execution_report_fields(&mut rendered, Some(&report));
+                assert_eq!(
+                    rendered
+                        .iter()
+                        .filter(|(key, _)| key == "local_primitive_no_query_answer_cache")
+                        .map(|(_, value)| value.as_str())
+                        .collect::<Vec<_>>(),
+                    [no_query_answer_cache.to_string().as_str()]
+                );
+            }
         }
     }
 

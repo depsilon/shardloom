@@ -52,10 +52,7 @@ pub(super) fn execute_native_vortex_resident_count(
     append_effect_fields(&mut fields);
     // A footer metadata result does not run the row primitive/report pipeline or
     // an independent correctness oracle. Preserve their explicit absence.
-    vortex_primitive_execution::append_vortex_local_primitive_execution_report_fields(
-        &mut fields,
-        None,
-    );
+    vortex_primitive_execution::append_vortex_footer_count_report_fields(&mut fields);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
         &mut fields,
         Some(&native_io_certificate),
@@ -111,10 +108,6 @@ fn count_fields(
         (
             "resident_provider_version".into(),
             shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION.into(),
-        ),
-        (
-            "local_primitive_no_query_answer_cache".into(),
-            "true".into(),
         ),
         (
             "native_result_payload".into(),

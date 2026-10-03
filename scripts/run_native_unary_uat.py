@@ -32,6 +32,16 @@ def csv_cell(value):
     return str(value)
 
 
+def require_unique_report_fields(raw):
+    """Reject ambiguous evidence before a field accessor can choose one value."""
+    keys = set()
+    for field in raw["fields"]:
+        key = field["key"]
+        if key in keys:
+            raise ValueError(f"repeated native report field: {key}")
+        keys.add(key)
+
+
 def cases(context, source: Path, exploded_source: Path):
     import shardloom as sl
 
@@ -136,6 +146,7 @@ def main() -> int:
     def accepted(name, report):
         envelope = report.envelope
         (output / f"{name}.envelope.json").write_text(json.dumps(envelope.raw, indent=2) + "\n")
+        require_unique_report_fields(envelope.raw)
         if envelope.status != "success" or envelope.fallback.attempted:
             raise ValueError(f"{name}: native public request failed: {envelope.raw}")
         if envelope.field("public_workflow_external_engine_invoked") != "false":

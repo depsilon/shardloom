@@ -2528,8 +2528,6 @@ impl NativeVortexInputBinding {
                 "native_vortex_input_binding_sources".to_string(),
                 self.sources.join(","),
             ),
-            ("fallback_attempted".to_string(), "false".to_string()),
-            ("external_engine_invoked".to_string(), "false".to_string()),
         ]
     }
 }

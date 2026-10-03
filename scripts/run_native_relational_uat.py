@@ -20,7 +20,7 @@ import sys
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from run_clickbench_query_uat import file_sha256, strict_json
-from run_native_unary_uat import csv_cell
+from run_native_unary_uat import csv_cell, require_unique_report_fields
 from native_relational_composition_cases import cases as composition_cases
 from native_relational_resource_cases import run as resource_cases
 from native_aggregate_ordering_cases import run as aggregate_cases
@@ -181,6 +181,7 @@ def main() -> int:
             "raw_sha256": hashlib.sha256(raw).hexdigest(),
             "stored_bytes": len(persisted), "stored_sha256": hashlib.sha256(persisted).hexdigest(),
         })
+        require_unique_report_fields(envelope.raw)
         if envelope.status != "success" or envelope.fallback.attempted:
             raise ValueError(f"{name}: request failed: {envelope.raw}")
         if envelope.field("public_workflow_external_engine_invoked") != "false":
