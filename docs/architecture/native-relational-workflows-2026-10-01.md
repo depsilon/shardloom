@@ -75,9 +75,17 @@ query replay. Provisional batches and staging files are not successful publicati
   extends flat binary, exact Decimal128 (matching precision and scale), Date32
   and timezone-free timestamp-microsecond equality, hashing and ordering through
   joins, sets, groups, windows and subqueries. COUNT/COUNT DISTINCT/MIN/MAX,
-  same-type comparisons, IS NULL, CASE, COALESCE and NULLIF are admitted. Casts,
-  arithmetic/rescaling, retained unary state, nested key equality, other extensions
-  and nonfinite numeric keys remain separate unsupported boundaries. Hash
+  same-type comparisons, IS NULL, CASE, COALESCE and NULLIF are admitted. Retained
+  unary state, nested key equality, other extensions and nonfinite numeric keys
+  remain separate unsupported boundaries. The historical acceptance described
+  here did not itself admit typed expressions. Current source builds admit typed
+  literals, explicit CAST/TRY_CAST, exact decimal arithmetic/rounding and scoped
+  binary/calendar functions through the shared native expression binder. Decimal
+  arithmetic output metadata binds before execution; explicit decimal downscaling
+  requires zero discarded digits. Key compatibility still requires matching
+  decimal precision/scale and preserves distinct temporal types. Richer
+  aggregate/window semantics, broader adapters and state spill remain separate.
+  See the [typed expression contract](native-typed-expressions-2026-10-03.md). Hash
   equality only selects candidates; complete value equality proves a match.
 - UNION ALL preserves branch order and duplicates. UNION DISTINCT, INTERSECT and
   EXCEPT use explicit set semantics, including null-equal row membership and first

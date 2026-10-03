@@ -119,9 +119,16 @@ timezone-free timestamp-microsecond equality, hashing and ordering through
 relational joins, sets, groups, windows and subqueries, plus COUNT/COUNT
 DISTINCT/MIN/MAX and the scoped expressions it lists. Its existing explicit
 ORDER BY spill policy applies to these flat keys. It adds no group, join or
-window state spill. Nested key equality, casts, arithmetic/rescaling, retained
-unary state, unadmitted nested shapes, general Variant/extension operations and
-broader state-spill families remain explicit gaps.
+window state spill. Nested key equality, retained unary state, unadmitted nested
+shapes, general Variant/extension operations and broader state-spill families
+remain explicit gaps. Current source builds admit typed literals, explicit
+CAST/TRY_CAST, exact decimal arithmetic/rounding and scoped binary/calendar
+functions through the shared native expression binder. Decimal arithmetic
+output metadata binds before execution; explicit decimal downscaling requires
+zero discarded digits. Key compatibility still requires matching decimal
+precision/scale and preserves distinct temporal types. Richer aggregate/window
+semantics, broader adapters and state spill remain separate. See the [typed
+expression contract](../architecture/native-typed-expressions-2026-10-03.md).
 The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
 records complete public writer/readback and forced-sort-run evidence.
 See the [streaming contract and acceptance](../architecture/native-workflow-streaming-2026-10-01.md).

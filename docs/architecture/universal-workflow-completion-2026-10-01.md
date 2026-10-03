@@ -96,14 +96,22 @@ categories and 258/258 Full43 results plus six reversed-order Q21 repeats. No
 aggregate or RSS flags remain, and no speedup is claimed; see the
 [typed-key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
 and [immutable evidence packet](../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz).
-Hosted review remains pending. Nested keys, typed literals/casts/arithmetic,
-retained unary state, wider adapters and remaining resource/spill transitions
-require the work below.
+The [typed-expression continuation](native-typed-expressions-2026-10-03.md)
+extends the existing binder and checked scalar helpers with literals, explicit
+casts, exact decimal arithmetic/rounding and binary/calendar functions. Frozen
+`3e507b97` passes 6,510 public checks/14,120,153 rows, including 778 new expression
+checks/1,837,256 independently specified rows. The separate direct matrix passes
+202 checks, all 24 local gate categories pass, and Full43 passes 258/258 plus six
+reversed-order Q26 repeats. The initial timing flag does not reproduce; no speedup
+is claimed. See the [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
+and [immutable packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz).
+Hosted review remains pending. Nested keys, retained unary state, wider adapters
+and remaining resource/spill transitions require the work below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs; binary, exact Decimal128, Date32 and microsecond timestamp payloads, including admitted nested leaves. | Broader typed/nested semantics, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
-| Operator composition | Native flat-scalar relational stages and shared unary families compose with ordered public declarations; static nested payload transport/repeated explode, execution-scoped scalar pivot schemas and flat binary/decimal/temporal key semantics extend the same runtime. | Typed literals/casts/arithmetic, wider join/set/window/subquery semantics and nested key/unary-state semantics; broader prepared/public parity. Finish hosted acceptance of the nested/pivot/typed units and use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
+| Operator composition | Native flat-scalar relational stages and shared unary families compose with ordered public declarations; static nested payload transport/repeated explode, execution-scoped scalar pivot schemas, flat binary/decimal/temporal keys and scoped typed expressions extend the same runtime. | Wider join/set/window/subquery and aggregate semantics, nested key/unary-state semantics and broader prepared/public parity. Finish hosted acceptance of the nested/pivot/typed units and use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
 | Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output has six representable destinations, including the four new typed leaf families. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
@@ -125,8 +133,8 @@ for already executable flat-scalar aggregate and ordered-result families; its
 [contract and acceptance](native-workflow-streaming-2026-10-01.md) record exact
 coverage. Retained unary execution and admitted flat-scalar relational/unary
 composition now have their own acceptance records. Finish hosted acceptance of
-the static nested, scalar dynamic-pivot, typed-payload and typed-key continuations,
-and continue through missing nested-key, expression, adapter and resource
+the static nested, scalar dynamic-pivot, typed-payload, typed-key and typed-expression
+continuations, and continue through missing nested-key, unary-state, adapter and resource
 families with their ownership contracts. Freeze exact expressions, sinks and
 pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only

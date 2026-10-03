@@ -2,11 +2,13 @@
 
 # Native typed expressions
 
-Status: implementation contract under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21.
-The [phase plan](phased-execution-plan.md) owns sequencing. This continues the
+Status: implementation and complete local acceptance under PERF-02/03/07/10/11/12
+and CG-3/5/19/20/21; hosted review and the inherited website advisory decision
+remain pending. The [phase plan](phased-execution-plan.md) owns sequencing. This continues the
 locally accepted [typed keys](native-typed-keys-2026-10-03.md) and
-[universal workflow plan](universal-workflow-completion-2026-10-01.md); it is not
-an acceptance or broader SQL/function-parity claim.
+[universal workflow plan](universal-workflow-completion-2026-10-01.md). The
+[acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
+records this finite scope, not broader SQL/function parity.
 
 ## Decision and shared ownership
 
@@ -123,3 +125,22 @@ acceptance depends on the existing PR stack and website advisory decision.
 `fallback_attempted=false` and `external_engine_invoked=false` remain explicit.
 This contract does not resume paused large format/text performance runs, native
 Python binding experiments, package publication or broader competitive claims.
+
+## Local acceptance
+
+Frozen source `3e507b979358c6fbcdd2cdd81c68a7512548ec63` passes 6,510 complete
+public checks and 14,120,153 row comparisons. The typed subset contains 3,205
+checks/6,432,628 rows; 778 new expression checks compare 1,837,256 rows against
+independently frozen expectations. The separate direct-unary matrix passes 202
+checks/131,734 rows. Computed 65,541-row inputs complete all representable writers
+and preserve the existing collection and unsupported-format denials.
+
+All 24 local gate categories pass on the unchanged compiled runtime. The
+complete paired Full43 cohort passes 258/258 results, followed by all six
+prescribed reversed-order Q26 calls. Its initial +10.07% (+0.163-second) timing
+flag becomes +1.96% (+0.031 seconds) on repeat; no aggregate or RSS flag remains.
+No speedup or total-RSS bound is claimed. The
+[report](../benchmarks/native-typed-expressions-full43-2026-10-03.md) and
+[immutable packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz)
+retain every observation, source/binary identity, complete value/schema evidence
+and local gate provenance, including the corrected CSV expectation declaration.

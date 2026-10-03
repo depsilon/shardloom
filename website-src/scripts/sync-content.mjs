@@ -529,7 +529,14 @@ microsecond timestamps can travel as payloads, including nested leaves. Their
 flat equality, hashing and ordering are admitted through relational joins, sets,
 groups, windows and subqueries, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
 comparisons and expressions; Decimal precision and scale must match. Nested key
-equality, casts, arithmetic/rescaling and retained unary state remain unsupported.
+equality and retained unary state remain separate boundaries. Current source
+builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
+arithmetic/rounding and scoped binary/calendar functions through the shared
+native expression binder. Decimal arithmetic output metadata binds before
+execution; explicit decimal downscaling requires zero discarded digits. Key
+compatibility still requires matching decimal precision/scale and preserves
+distinct temporal types. Richer aggregate/window semantics, broader adapters
+and state spill remain separate. See the [typed expression contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-expressions-2026-10-03.md).
 See the [typed key contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md).
 Binary supports all eight writers; ORC rejects decimal and temporal payloads.
 Text output uses explicit typed encodings and does not preserve native logical
@@ -711,8 +718,15 @@ and Avro; nested CSV/ORC output is denied. Recursive schema/child-buffer admissi
 format fidelity, resources and write policy still apply. Binary, exact Decimal128,
 Date32 and timezone-free microsecond timestamps are admitted payloads, including
 nested leaves. Flat key operations for these types follow the [typed key contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md);
-nested key equality, casts, arithmetic/rescaling and retained unary state remain
-unsupported. ORC rejects decimal/temporal output. General Variant/extension operations retain
+nested key equality and retained unary state remain separate boundaries. Current
+source builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
+arithmetic/rounding and scoped binary/calendar functions through the shared
+native expression binder. Decimal arithmetic output metadata binds before
+execution; explicit decimal downscaling requires zero discarded digits. Key
+compatibility still requires matching decimal precision/scale and preserves
+distinct temporal types. Richer aggregate/window semantics, broader adapters
+and state spill remain separate. See the [typed expression contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-expressions-2026-10-03.md).
+ORC rejects decimal/temporal output. General Variant/extension operations retain
 separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
 

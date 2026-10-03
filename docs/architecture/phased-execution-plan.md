@@ -349,8 +349,8 @@ the ledger.
     No predeclared timing or memory threshold is crossed; no speedup is claimed.
   - Acceptance: exact type/value/null/order preservation across the complete
     admitted workflow, without scalar-row execution, intermediate files, replay
-    or fallback. Nested key semantics, typed expressions, adapters and
-    resource/spill remain open.
+    or fallback. Nested key semantics, adapters and resource/spill remain open;
+    typed expressions continue in the separately accepted unit below.
   - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
     hosted completion remains subject to its existing website advisory decision.
 
@@ -383,9 +383,9 @@ the ledger.
     retain complete values, schemas, source/binary identity and local gate evidence.
   - Acceptance: exact logical type identity, full-value comparison after hash
     lookup, existing NULL rules and no implicit decimal rescaling or temporal
-    coercion, including empty plans. Nested keys, typed arithmetic/literals/casts,
-    retained unary state, broader adapters and state spill remain with their
-    existing phase owners.
+    coercion, including empty plans. Typed expressions continue in the separately
+    accepted unit below. Nested keys, retained unary state, broader adapters and
+    state spill remain with their existing phase owners.
   - Dependency: locally accepted typed payload composition; hosted merge remains
     subject to the existing nested/pivot/typed stack and website advisory decision.
 
@@ -398,14 +398,24 @@ the ledger.
     branches, one PulseWeave grant and reserved result construction; preserve
     metadata/pruning, capillary delivery and existing timing/evidence owners.
   - Execution checklist:
-    - [ ] Share checked core helpers, fixed output-type derivation and native
+    - [x] Share checked core helpers, fixed output-type derivation and native
       typed literal/cast/arithmetic/function kernels; prove boundary semantics.
-    - [ ] Converge public SQL/DataFrame declarations on those expressions and
+    - [x] Converge public SQL/DataFrame declarations on those expressions and
       preserve complete typed result/writer behavior and resource ownership.
-    - [ ] Freeze independent public correctness, required local gates and paired
+    - [x] Freeze independent public correctness, required local gates and paired
       Full43 regression; update exact support records and immutable evidence.
     - [ ] Complete hosted review/gates after the inherited website advisory decision,
       then move this finite item to the completed ledger.
+  - Local evidence: frozen `3e507b97` passes 6,510 public checks/14,120,153
+    complete row comparisons, including 778 new expression checks/1,837,256 rows.
+    All 202 direct-unary checks, 24 local gate categories and 258 paired Full43
+    comparisons pass. Six reversed-order Q26 repeats also pass; the initial
+    +10.07% (+0.163-second) timing flag becomes +1.96% (+0.031 seconds).
+    No aggregate/RSS flag remains and no speedup is claimed. The
+    [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
+    and [immutable packet](../benchmarks/evidence/native-typed-expressions-2026-10-03.json.xz)
+    preserve independent complete-value expectations, ownership/failure evidence,
+    source/binary hashes, all failed observations and final check provenance.
   - Acceptance: exact decimal and temporal behavior, explicit conversion failures,
     lazy NULL/branch semantics and deterministic unsupported empty plans; no
     frontend-specific executor or external-engine fallback.
