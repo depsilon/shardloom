@@ -85,6 +85,13 @@ strings. Collected results preserve Vortex's bounded layout splits; bounded writ
 delivery keeps its separate batch policy. Both retain the same allocation grant,
 generation checks and cancellation, and insufficient scratch is a terminal error.
 
+The operation-scoped file source preserves Vortex 0.85's `SharedSegmentSource`
+around its native file provider. Live consumers of the same segment share one
+read and allocation, including when they join after the read completes. Weak
+request ownership does not retain completed answers; a later independent request
+reads again through the same generation and operation grant. Tests observe actual
+completed reads, shared buffer identity, and credit release.
+
 Single-target plain SQL writers use the same metadata admission and source handoff.
 Existing aggregate and sort writers retain their specialized providers and spill contracts;
 simple projection/filter writers retain native array sinks. A source shape outside

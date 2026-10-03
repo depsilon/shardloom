@@ -21,7 +21,7 @@ use vortex::{
         segments::{FileSegmentSource, RequestMetrics},
     },
     io::runtime::BlockingRuntime as _,
-    layout::segments::{SegmentFuture, SegmentId, SegmentSource},
+    layout::segments::{SegmentFuture, SegmentId, SegmentSource, SharedSegmentSource},
     session::VortexSession,
 };
 
@@ -231,7 +231,7 @@ struct DeferredFileSegments {
     reader: super::ResidentFileReadAt,
     scope: Arc<IoScope>,
     memory: shardloom_exec::live_memory::LiveMemoryPool,
-    source: OnceLock<SharedVortexResult<FileSegmentSource>>,
+    source: OnceLock<SharedVortexResult<SharedSegmentSource<FileSegmentSource>>>,
     #[cfg(all(test, unix, feature = "vortex-write"))]
     observation: Option<super::read_observer::OperationObservation>,
 }
@@ -250,7 +250,10 @@ impl SegmentSource for DeferredFileSegments {
             #[cfg(all(test, unix, feature = "vortex-write"))]
             let reader =
                 super::read_observer::observe_operation_reader(reader, self.observation.as_ref());
-            Ok(FileSegmentSource::open(
+            // Preserve the provider's normal live-request sharing after the
+            // source handoff. Multiple readers of one segment share its read
+            // and owned buffer; weak request entries do not cache answers.
+            Ok(SharedSegmentSource::new(FileSegmentSource::open(
                 Arc::clone(&self.segments),
                 reader,
                 self.reader.handle.clone(),
@@ -258,7 +261,7 @@ impl SegmentSource for DeferredFileSegments {
                     &vortex::metrics::DefaultMetricsRegistry::default(),
                     Vec::new(),
                 ),
-            ))
+            )))
         });
         match source {
             Ok(source) => source.request(id),

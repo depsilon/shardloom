@@ -4,6 +4,7 @@ use std::{
     io::{Seek as _, SeekFrom, Write as _},
     path::PathBuf,
     sync::atomic::AtomicUsize,
+    time::{Duration, Instant},
 };
 use vortex::{
     array::{
@@ -68,6 +69,77 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.0).unwrap();
     }
+}
+
+#[test]
+fn admitted_file_segments_share_live_requests_without_caching_completed_answers() {
+    use super::read_observer::ReadObservationLimits;
+    use vortex::layout::segments::SegmentId;
+
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let (source, observer) = session
+        .prepare_observed_file(&fixture.input(), ReadObservationLimits::default())
+        .unwrap();
+    let opened = observer.snapshot().unwrap();
+    let memory = session.memory().clone();
+    let baseline = memory.snapshot().reserved_bytes;
+    let buffers = source
+        .with_native_execution(|file, _native, runtime| {
+            let segments = file.segment_source();
+            let id = SegmentId::from(0);
+            let mut first = segments.request(id);
+            runtime.block_on(async { assert!(futures::poll!(first.as_mut()).is_pending()) });
+            // Finish the physical read before polling its consumer again.
+            // The second request cannot join the same coalesced I/O batch.
+            let deadline = Instant::now() + Duration::from_secs(5);
+            runtime.block_on(futures::future::poll_fn(|context| {
+                assert!(Instant::now() < deadline, "segment read did not complete");
+                if observer.snapshot().is_ok_and(|observed| {
+                    observed.completed_read_calls == opened.completed_read_calls + 1
+                }) {
+                    std::task::Poll::Ready(())
+                } else {
+                    context.waker().wake_by_ref();
+                    std::task::Poll::Pending
+                }
+            }));
+            let mut second = segments.request(id);
+            let first_buffer = runtime.block_on(first.as_mut()).unwrap().unwrap_host();
+            let second_buffer = runtime.block_on(second.as_mut()).unwrap().unwrap_host();
+            assert_eq!(first_buffer.as_ptr(), second_buffer.as_ptr());
+            assert_eq!(first_buffer, second_buffer);
+            assert_eq!(
+                observer.snapshot().unwrap().completed_read_calls,
+                opened.completed_read_calls + 1
+            );
+            drop(first);
+            drop(second);
+            // Retained values alone must not turn request sharing into an
+            // answer cache. A new request uses the same admitted descriptor.
+            let third = runtime
+                .block_on(segments.request(id))
+                .unwrap()
+                .unwrap_host();
+            assert_eq!(first_buffer, third);
+            assert_ne!(first_buffer.as_ptr(), third.as_ptr());
+            Ok((first_buffer, second_buffer, third))
+        })
+        .unwrap();
+    let observed = observer.snapshot().unwrap();
+    assert_eq!(
+        observed.completed_read_calls,
+        opened.completed_read_calls + 2
+    );
+    assert_eq!(observed.pending_jobs, 0);
+    assert_eq!(session.snapshot().prepared_source_opens, 1);
+    assert!(memory.snapshot().reserved_bytes > baseline);
+    drop(buffers);
+    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    drop(source);
+    drop(observer);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[cfg(feature = "vortex-local-primitives")]
