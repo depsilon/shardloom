@@ -286,6 +286,9 @@ impl<'a> Join<'a> {
                         dtype,
                         context,
                     )?,
+                    _ if super::native_payload::is_nested(dtype) => {
+                        super::native_payload::defaults(dtype, rows, context)?
+                    }
                     _ => result_batch::build_column(
                         dtype,
                         rows,

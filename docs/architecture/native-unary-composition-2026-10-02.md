@@ -2,8 +2,8 @@
 
 # Native unary operation composition
 
-Status: implementation and frozen-build local acceptance complete; hosted review
-and checks remain pending. This continuation
+Status: implementation, frozen-build acceptance and hosted review complete;
+merged in [PR #1505](https://github.com/depsilon/shardloom/pull/1505). This continuation
 belongs to PERF-02/03/07/10/11/12 and CG-5/20/21 in the
 [universal workflow plan](universal-workflow-completion-2026-10-01.md). It follows
 the accepted relational composition, resource and aggregate units. It does not
@@ -21,11 +21,12 @@ declarations converge on the existing native relational plan and executor.
 This unit covers the existing flat-scalar DISTINCT, drop-duplicate,
 duplicate-mask, tail, sampling, scalar-rewrite, melt and rolling semantics.
 It includes their supported parameter policies and repeated composition before
-and after ordinary relational stages. The current list/struct explode and
-data-dependent pivot providers retain their existing standalone contracts.
-Their wider composition requires, respectively, owned nested payload gathering
-and execution-time schema binding. These are concrete type/ownership boundaries
-for the following work, not inferred support from a flat-scalar result.
+and after ordinary relational stages. At this unit's acceptance, list/struct
+explode retained its standalone contract. Current source-build
+composition for statically declared nested payloads and ordered/repeated
+explode is specified in the [nested payload contract](native-nested-composition-2026-10-02.md).
+Data-dependent pivot still requires execution-time schema binding. These are
+concrete type/ownership boundaries, not inferred support from a flat-scalar result.
 Mixed-domain melt values that produce Vortex Variant share the nested/type
 boundary. This unit admits melt with an existing common scalar output type;
 incompatible mixed domains are rejected during preparation.
@@ -222,5 +223,16 @@ losslessly, and later envelopes retain verified compressed and original hashes.
 The [portable acceptance packet](../benchmarks/evidence/native-unary-composition-2026-10-02.json.xz)
 records local validation gates, full public envelopes, frozen identities, every
 failed observation, compaction manifests and Full43 results. Later documentation
-and generated-site edits do not change the frozen runtime. Hosted CI and merge
-acceptance remain separate from this local evidence.
+and generated-site edits do not change the frozen runtime.
+
+PR #1505 merged on October 3 UTC at
+`61d318db5cfa2e74f65423cd5b44b529cfb5818c` after all 40 hosted checks passed on
+`7875b2e984db89ff5910d1e54d1cba98fd5794ee`. The automated Codex review completed
+without findings. Tested and merged trees both equal
+`30d5f9108ea0a9457e1cb7fd90f8880ab86a7735`. The hosted acceptance receipt has
+SHA-256 `777e3fcd5fce6c87d8df4816377dfbac8691f64d1b47d59bdf68df3a58231ab0`;
+the review/thread receipt has SHA-256
+`f6069b6e786639199caebc105aded7c331cf7e0d8808f6a65d49da03b9d9a887`.
+The [nested payload continuation](native-nested-composition-2026-10-02.md)
+defines current source-build static nested payload and ordered/repeated explode
+composition; broader owners remain open.

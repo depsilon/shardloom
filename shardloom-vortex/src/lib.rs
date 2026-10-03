@@ -105,6 +105,11 @@ pub mod metadata_summary;
     unix
 ))]
 pub mod native_artifact_comparison;
+#[cfg(any(
+    all(feature = "vortex-local-primitives", unix),
+    all(feature = "vortex-write", feature = "universal-format-io")
+))]
+mod native_payload_schema;
 pub mod output_payload;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 pub mod owned_array_source;

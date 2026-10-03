@@ -97,12 +97,21 @@ mod native_capacity;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_json.rs"]
+mod native_json;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_list.rs"]
+mod native_list;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_accessor.rs"]
 mod native_numeric_accessor;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_numeric_owner.rs"]
 mod native_numeric_owner;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_payload.rs"]
+mod native_payload;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_aggregate.rs"]
 mod native_relational_aggregate;

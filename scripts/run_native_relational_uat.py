@@ -25,6 +25,7 @@ from native_relational_composition_cases import cases as composition_cases
 from native_relational_resource_cases import run as resource_cases
 from native_aggregate_ordering_cases import run as aggregate_cases
 from native_unary_composition_cases import run as unary_cases
+from native_nested_composition_cases import run as nested_cases
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -104,10 +105,16 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--build-commit", required=True)
-    parser.add_argument("--family", choices=("all", "unary"), default="all")
+    parser.add_argument("--family", choices=("all", "unary", "nested"), default="all")
+    parser.add_argument("--nested-fixture-generator", type=Path,
+                        help="native_nested_uat_fixture example binary, required for all/nested")
     parser.add_argument("--compress-logs", action="store_true")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
+    if args.family in ("all", "nested") and args.nested_fixture_generator is None:
+        parser.error("--nested-fixture-generator is required for the nested input fixtures")
+    fixture_generator = (args.nested_fixture_generator.resolve(strict=True)
+                         if args.nested_fixture_generator is not None else None)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     output = root / "logs" / f"native_relational_{stamp}"
@@ -126,6 +133,7 @@ def main() -> int:
     resource_code = code.with_name("native_relational_resource_cases.py")
     aggregate_code = code.with_name("native_aggregate_ordering_cases.py")
     unary_code = code.with_name("native_unary_composition_cases.py")
+    nested_code = code.with_name("native_nested_composition_cases.py")
     renderer_code = query.with_name("_relational_sql.py")
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
@@ -140,6 +148,8 @@ def main() -> int:
         "resource_cases_sha256": file_sha256(resource_code),
         "aggregate_cases_sha256": file_sha256(aggregate_code),
         "unary_cases_sha256": file_sha256(unary_code),
+        "nested_cases_sha256": file_sha256(nested_code),
+        "nested_fixture_generator_sha256": (file_sha256(fixture_generator) if fixture_generator else None),
         "python_relational_renderer_sha256": file_sha256(renderer_code),
         "external_engine_invoked": False, "performance_claim": False,
         "total_rss_bound": False, "csv_contract": "complete header/row text; null is an empty field",
@@ -316,11 +326,18 @@ def main() -> int:
                            accepted, complete, sources, identity)
             aggregate_cases(context, root / "data" / f"aggregates_{stamp}", guard,
                             accepted, complete, sources, identity)
-        unary_cases(context, root / "data" / f"unary_{stamp}", guard,
-                    accepted, complete, sources, identity)
+        if args.family in ("all", "unary"):
+            unary_cases(context, root / "data" / f"unary_{stamp}", guard,
+                        accepted, complete, sources, identity)
+        if args.family in ("all", "nested"):
+            nested_cases(context, root / "data" / f"nested_{stamp}", guard,
+                         accepted, complete, sources, identity, fixture_generator)
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")
+        if (fixture_generator is not None and file_sha256(fixture_generator)
+                != summary["nested_fixture_generator_sha256"]):
+            raise ValueError("nested fixture generator changed during acceptance")
         summary["source_sha256"] = {path.name: digest for path, digest, _ in sources}
         summary["source_files"] = [
             {"path": str(path), "sha256": digest, "identity": generation}
@@ -331,6 +348,7 @@ def main() -> int:
                           (resource_code, "resource_cases_sha256"),
                           (aggregate_code, "aggregate_cases_sha256"),
                           (unary_code, "unary_cases_sha256"),
+                          (nested_code, "nested_cases_sha256"),
                           (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")

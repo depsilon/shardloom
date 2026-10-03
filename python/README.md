@@ -462,8 +462,12 @@ rows and column names. SQL and DataFrame calls carry the same source declaration
 CPU/memory allocation and writer policy through one native execution. Melt can omit
 ID columns; inferred value columns come from the preceding output. See the
 [composition contract and acceptance](../docs/architecture/native-unary-composition-2026-10-02.md).
-Nested/extension payloads, composed explode, dynamic pivot and mixed Variant
-composition retain their separate admission boundaries.
+Static List/FixedSizeList/Struct payloads compose through admitted relational
+stages and ordered/repeated explode. Nested payloads can be written as Vortex,
+JSON, JSONL, Arrow IPC, Parquet or Avro when the dtype is representable; nested
+CSV and ORC are denied. Exploded flat output still supports all eight writers.
+Nested keys and general nested unary state, Variant/extensions and dynamic pivot
+remain unsupported in composition. See the [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and

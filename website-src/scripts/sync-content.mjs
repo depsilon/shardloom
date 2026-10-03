@@ -515,7 +515,12 @@ rewrites, melt, and rolling—with native relational stages and all eight local 
 Operations consume the preceding stage's rows and column names while retaining source
 declarations and the operation's CPU/memory allocation. See the
 [composition scope and complete-result evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-unary-composition-2026-10-02.md).
-Nested explode, dynamic pivot, wider types and operator state spill have separate boundaries.
+Current source builds also carry bounded static list/struct payloads through admitted
+relational stages and ordered/repeated explode. Vortex, JSON, JSONL, Arrow IPC, Parquet
+and Avro accept representable nested output; nested CSV and ORC are denied. See the
+[nested composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-composition-2026-10-02.md).
+Nested keys, general nested unary state, Variant/extensions, dynamic pivot and wider
+operator state spill remain separate boundaries.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
@@ -676,17 +681,19 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt and rolling. | Nested/extension payloads, composed explode, dynamic pivot, mixed Variant composition and broader SQL/DataFrame semantics still have gaps. |
+| Relational and DataFrame operations | Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt and rolling. Bounded static list/struct payloads and repeated explode also compose through admitted relational stages. | Nested keys, general nested unary state, Variant/extensions, dynamic pivot and broader SQL/DataFrame semantics still have gaps. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
-The **65,536-row / 128-scalar-field / 8-MiB** bound applies to small computed-result collection.
+The **65,536-row / 128-top-level-field / 8-MiB** bound applies to small computed-result collection.
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte
-limits. Type, resource, and write-policy restrictions still apply. Nested and extension results
-have separate coverage limits. See the
+limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet
+and Avro; nested CSV/ORC output is denied. Recursive schema/child-buffer admission,
+format fidelity, resources and write policy still apply. Variant/extension composition
+has separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
 
 Use [runtime and I/O](/field-guide/runtime-and-io), the

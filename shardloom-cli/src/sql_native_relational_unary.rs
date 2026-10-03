@@ -23,6 +23,12 @@ pub(super) fn resolve(
     if let Some(rolling) = &mut request.rolling_window {
         column(&mut rolling.source_column, input)?;
     }
+    if let Some(explode) = &mut request.explode_projection {
+        column(&mut explode.column, input)?;
+        for name in &mut explode.columns {
+            column(name, input)?;
+        }
+    }
     if let Some(expressions) = &mut request.expression_projection {
         for rewrite in &mut expressions.rewrites {
             match rewrite {

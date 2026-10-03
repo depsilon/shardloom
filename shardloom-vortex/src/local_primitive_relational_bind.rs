@@ -1,6 +1,11 @@
 //! Lossless schema and source binding before native relational row execution.
 
-use super::*;
+use super::{
+    BoundUnary, DType, MaterializedPredicateEvaluator, MemoryLease, Node, NodeKind, Nullability,
+    PathBuf, PreparedVortexSource, ReservedVec, ResidentVortexSession, Result, SetKind,
+    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexRelationalPlan, failed,
+    native_relational_join, native_relational_sort, vortex_error,
+};
 use crate::relational_query::{
     VortexRelationalJoin, VortexRelationalJoinKind as JoinKind, VortexRelationalScan,
     VortexRelationalSet, VortexRelationalSide as Side,
@@ -107,7 +112,11 @@ impl<'a> Binder<'a> {
                 validate_width(operation.fields().len())?;
                 for (name, dtype) in operation.fields() {
                     validate_name(name)?;
-                    validate_scalar(dtype)?;
+                    if unary.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
+                        validate_payload(dtype)?;
+                    } else {
+                        validate_scalar(dtype)?;
+                    }
                 }
                 validate_unique(operation.fields())?;
                 self.charge(operation.fields().len() * 4096)?;
@@ -200,6 +209,9 @@ impl<'a> Binder<'a> {
             .ok_or_else(|| failed("source schema metadata overflow"))?;
         self.charge(schema_bytes)?;
         let dtype = self.sources.values[source].dtype();
+        if let Some(predicate) = &scan.predicate {
+            validate_predicate_fields(predicate, dtype)?;
+        }
         let mut request =
             VortexQueryPrimitiveRequest::project(scan.source_uri.clone(), scan.projection.clone());
         request.predicate.clone_from(&scan.predicate);
@@ -214,7 +226,7 @@ impl<'a> Binder<'a> {
             .map(|name| {
                 validate_name(name)?;
                 let dtype = super::super::completed_result::source_field(dtype, name)?;
-                validate_scalar(&dtype)?;
+                validate_payload(&dtype)?;
                 Ok((name.clone(), dtype))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -229,6 +241,12 @@ impl<'a> Binder<'a> {
             .as_ref()
             .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &columns))
             .transpose()?;
+        for (_, dtype) in &fields {
+            self.charge(
+                usize::try_from(super::super::native_payload::metadata_bytes(dtype)?)
+                    .map_err(vortex_error)?,
+            )?;
+        }
         Ok(Node {
             fields,
             kind: NodeKind::Scan {
@@ -330,6 +348,11 @@ impl<'a> Binder<'a> {
             .zip(&right.fields)
             .map(|((name, left), (_, right))| Ok((name.clone(), common_dtype(left, right)?)))
             .collect::<Result<Vec<_>>>()?;
+        if set.kind != SetKind::UnionAll {
+            for (_, dtype) in &fields {
+                validate_scalar(dtype)?;
+            }
+        }
         let names = fields.iter().map(|(name, _)| name.clone()).collect();
         Ok(Node {
             fields,
@@ -345,9 +368,7 @@ impl<'a> Binder<'a> {
 
 fn validate_width(width: usize) -> Result<()> {
     if width == 0 || width > 128 {
-        return Err(failed(
-            "relational schema requires 1 through 128 flat scalar fields",
-        ));
+        return Err(failed("relational schema requires 1 through 128 fields"));
     }
     Ok(())
 }
@@ -375,8 +396,27 @@ fn validate_scalar(dtype: &DType) -> Result<()> {
     ) || matches!(dtype, DType::Primitive(PType::F16, _))
     {
         return Err(failed(
-            "relational payload requires bool, integer, F32/F64 or UTF8 fields",
+            "operated scalar requires bool, integer, F32/F64 or UTF8 fields",
         ));
+    }
+    Ok(())
+}
+
+fn validate_payload(dtype: &DType) -> Result<()> {
+    super::super::native_payload::metadata_bytes(dtype).map(|_| ())
+}
+
+fn validate_predicate_fields(predicate: &PredicateExpr, dtype: &DType) -> Result<()> {
+    if let Some(column) = predicate.column() {
+        validate_scalar(&super::super::completed_result::source_field(
+            dtype,
+            column.as_str(),
+        )?)?;
+    }
+    if let PredicateExpr::And(children) = predicate {
+        for child in children {
+            validate_predicate_fields(child, dtype)?;
+        }
     }
     Ok(())
 }
@@ -404,6 +444,8 @@ fn integer(ptype: PType) -> Option<(bool, u8)> {
 }
 
 fn validate_key_pair(left: &DType, right: &DType) -> Result<()> {
+    validate_scalar(left)?;
+    validate_scalar(right)?;
     if left.as_nonnullable() == right.as_nonnullable() {
         return Ok(());
     }

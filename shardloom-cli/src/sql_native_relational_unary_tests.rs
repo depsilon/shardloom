@@ -201,6 +201,12 @@ fn native_relational_sql_unary_malformed_arguments_fail_before_source_resolution
         "MELT((SELECT * FROM missing), '{\"value_columns\":[\"a\"],\"value_columns\":[\"b\"]}')",
         "ROLLING((SELECT * FROM missing), '{\"source_column\":\"a\",\"unknown\":true}')",
         "REWRITE((SELECT * FROM missing), '{\"columns\":\"*\",\"rewrites\":[]}')",
+        "EXPLODE((SELECT * FROM missing), '{\"column\":\"a\",\"unknown\":true}')",
+        "EXPLODE((SELECT * FROM missing), '{\"column\":\"a\",\"column\":\"b\"}')",
+        "EXPLODE((SELECT * FROM missing), '{\"column\":\"a\",\"explode_column\":\"b\"}')",
+        "EXPLODE((SELECT * FROM missing), '{\"column\":\"a\",\"explode_columns\":[\"b\"]}')",
+        "EXPLODE((SELECT * FROM missing), '{\"column\":\"a\",\"output_column\":\"renamed\"}')",
+        "EXPLODE((SELECT * FROM missing), '{}')",
     ] {
         let statement = format!("SELECT * FROM {expression} AS u");
         assert!(
@@ -214,6 +220,67 @@ fn native_relational_sql_unary_malformed_arguments_fail_before_source_resolution
         );
     }
     assert!(is_relational("SELECT * FROM TAIL((SELECT * FROM missing), 2)").is_err());
+}
+
+#[test]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn native_relational_sql_explode_repeats_over_ordered_renamed_nested_payloads() {
+    use shardloom_core::ScalarValue as S;
+    let directory = TestDirectory::new();
+    let path = directory.0.join("nested.vortex");
+    let item = |values| S::Struct(vec![("code".into(), S::List(values))]);
+    shardloom_vortex::write_flat_scalar_vortex_prepared_state(
+        shardloom_vortex::VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".into(), "items".into()],
+            vec![
+                vec![
+                    ("id".into(), S::Int64(1)),
+                    (
+                        "items".into(),
+                        S::List(vec![
+                            item(vec![S::Int64(9), S::Null]),
+                            item(vec![]),
+                            S::Null,
+                        ]),
+                    ),
+                ],
+                vec![
+                    ("id".into(), S::Int64(4)),
+                    ("items".into(), S::List(vec![item(vec![S::Int64(-4)])])),
+                ],
+            ],
+        ),
+    )
+    .unwrap();
+    let input = format!(
+        "SELECT id AS key,items AS groups FROM '{}' ORDER BY id DESC LIMIT 2",
+        path.display()
+    );
+    let options = r#"{"column":"groups","element_field":"code","output_column":"codes"}"#;
+    let once = format!("SELECT * FROM EXPLODE(({input}), '{options}') AS first_stage");
+    verify(
+        &once,
+        &json!([
+            {"key":4,"codes":[-4]}, {"key":1,"codes":[9,null]}, {"key":1,"codes":[]}, {"key":1,"codes":null}
+        ]),
+    );
+    let twice =
+        format!(r#"SELECT * FROM EXPLODE(({once}), '{{"column":"codes"}}') AS second_stage"#);
+    verify(
+        &twice,
+        &json!([
+            {"key":4,"codes":-4}, {"key":1,"codes":9}, {"key":1,"codes":null}, {"key":1,"codes":null}
+        ]),
+    );
+    verify(
+        &format!("SELECT * FROM TAIL(({twice}), 1) AS last_stage"),
+        &json!([{"key":1,"codes":null}]),
+    );
+    verify(
+        &format!("SELECT key,COUNT(*) AS n FROM ({twice}) AS counted GROUP BY key ORDER BY key"),
+        &json!([{"key":1,"n":3},{"key":4,"n":1}]),
+    );
 }
 
 #[test]

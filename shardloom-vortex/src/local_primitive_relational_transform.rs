@@ -1,7 +1,11 @@
 //! Streaming expression/projection/filter/range and retained native ordering.
 
 use super::super::native_relational_keys::Cell as KeyCell;
-use super::*;
+use super::{
+    ArrayRef, FieldNames, Metrics, NativeExecutionContext, Node, NodeKind,
+    PreparedVortexRelational, ReservedVec, Result, StructArray, Validity, failed,
+    native_relational_expression, native_relational_sort, select_batch, vortex_error,
+};
 
 impl PreparedVortexRelational {
     pub(super) fn run_transform(

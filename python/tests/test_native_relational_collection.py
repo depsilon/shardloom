@@ -394,6 +394,48 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 self.assertIsNotNone(result._vortex_primitive_shape())
                 self.assertIsNone(result._native_relational_statement())
 
+    def test_prepare_preserves_compatible_source_schema_without_overriding_native_types(self) -> None:
+        schema = {"label": "utf8", "items": "list<struct<code:list<int64>>>"}
+        for frame, expected in [
+            (self.context.read_csv("typed.data", schema=schema), tuple(schema.items())),
+            (self.context.read_json("typed.jsonl", schema=schema), tuple(schema.items())),
+            (self.context.read_vortex("typed.vortex", schema=schema), None),
+        ]:
+            with self.subTest(source=frame.source.source_format), mock.patch.object(
+                self.client, "public_workflow_prepare", return_value=self.reply([])
+            ) as prepare:
+                frame.prepare("prepared.vortex", check=False)
+                self.assertEqual(prepare.call_args.kwargs["source_schema"], expected)
+                self.assertEqual(prepare.call_args.kwargs["output_ref"], "prepared.vortex")
+                prepare.assert_called_once()
+
+    def test_repeated_explode_keeps_nested_stage_order_and_source_declarations(self) -> None:
+        source = self.context.read_csv("nested.data", schema={
+            "id": "int64", "items": "list<struct<code:list<int64>>>",
+        })
+        prefix = source.sort("id", descending=True).limit(3).select("id AS key", "items AS groups")
+        once = prefix.explode("groups.code")
+        twice = once.explode("code").tail(2).select("key", "code")
+        statement = twice._native_relational_statement()
+        self.assertEqual(statement.count("FROM EXPLODE(("), 2)
+        self.assertIn("LIMIT 3)", statement)
+        self.assertIn('"column":"groups","element_field":"code","output_column":"code"', statement)
+        self.assertIn("FROM TAIL((SELECT * FROM EXPLODE((", statement)
+        renamed = once.with_column("next_key", sl.col("key") + 1)._relation_statement()
+        self.assertIn("SELECT key,code,key + 1 AS next_key", renamed)
+        with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run, mock.patch.object(self.client, "vortex_prepare") as prepare:
+            twice.collect(check=True, memory_gb=3, max_parallelism=2)
+            self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+            self.assertEqual(run.call_args.kwargs["source_bindings"], {
+                "nested.data": {"input_format": "csv", "source_schema": source.source.schema},
+            })
+            for extension in ["vortex", "json", "jsonl", "csv", "parquet", "arrow_ipc", "avro", "orc"]:
+                getattr(twice, f"write_{extension}")(f"out.{extension}", check=True)
+                self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+            prepare.assert_not_called()
+        native = self.context.read_vortex("nested.vortex", schema=dict(source.source.schema))
+        self.assertIsNotNone(native.select("id", "items").explode("items").limit(2)._vortex_primitive_shape())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -175,17 +175,170 @@ impl<'consumer> CompletedRows<'consumer> {
         cancellation: CancellationToken,
         consume: &'consumer mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<Self> {
+        Self::new(fields, memory)?.with_stream(batch_rows, cancellation, consume)
+    }
+
+    pub(super) fn streaming_native(
+        fields: Vec<(String, DType)>,
+        memory: &LiveMemoryPool,
+        batch_rows: usize,
+        cancellation: CancellationToken,
+        consume: &'consumer mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<Self> {
+        Self::new_native(fields, memory)?.with_stream(batch_rows, cancellation, consume)
+    }
+
+    fn with_stream(
+        mut self,
+        batch_rows: usize,
+        cancellation: CancellationToken,
+        consume: &'consumer mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<Self> {
         if batch_rows == 0 || batch_rows > 8192 {
             return Err(failed("native stream batch rows must be in 1..=8192"));
         }
-        let mut output = Self::new(fields, memory)?;
-        output.delivery = Delivery::Stream {
+        self.delivery = Delivery::Stream {
             batch_rows,
             cancellation,
             consume,
         };
-        Ok(output)
+        Ok(self)
     }
+
+    pub(super) fn new_native(
+        fields: Vec<(String, DType)>,
+        memory: &LiveMemoryPool,
+    ) -> Result<Self> {
+        if !fields
+            .iter()
+            .any(|(_, dtype)| super::native_payload::is_nested(dtype))
+        {
+            return Self::new(fields, memory);
+        }
+        validate_names(&fields)?;
+        let mut ownership = memory.reserve(64 * 1024)?;
+        let bytes = super::native_payload::metadata_bytes(&DType::struct_(
+            fields.clone(),
+            Nullability::NonNullable,
+        ))?;
+        ownership.resize(
+            ownership
+                .bytes()
+                .checked_add(bytes)
+                .ok_or_else(|| failed("native schema metadata overflow"))?,
+        )?;
+        Ok(Self {
+            fields,
+            memory: memory.clone(),
+            array: None,
+            ownership,
+            delivery: Delivery::Collect,
+            finished: false,
+        })
+    }
+
+    pub(super) fn push_native(
+        &mut self,
+        array: ArrayRef,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        use vortex::array::dtype::DType;
+        context.check_cancelled()?;
+        let dtype = DType::struct_(self.fields.clone(), Nullability::NonNullable);
+        if self.finished || array.dtype() != &dtype {
+            return Err(failed(
+                "native array differs from its admitted schema or completed stream",
+            ));
+        }
+        match &mut self.delivery {
+            Delivery::Collect => {
+                if array.len() > MAX_ROWS
+                    || array.nbytes() > MAX_BYTES as u64
+                    || self.array.is_some()
+                {
+                    return Err(failed(
+                        "native collection exceeds its complete output bound",
+                    ));
+                }
+                self.array = Some(array);
+            }
+            Delivery::Stream {
+                batch_rows,
+                cancellation,
+                consume,
+            } => {
+                if array.len() <= *batch_rows && array.nbytes() <= MAX_BYTES as u64 {
+                    cancellation.check()?;
+                    consume(array)?;
+                    cancellation.check()?;
+                } else {
+                    let mut start = 0;
+                    while start < array.len() {
+                        let mut count = (array.len() - start).min(*batch_rows);
+                        let batch = loop {
+                            cancellation.check()?;
+                            let indices = super::native_relational_batch::index_array(
+                                count,
+                                false,
+                                context,
+                                |row| Ok(Some(start + row)),
+                            )?;
+                            let batch =
+                                super::native_payload::take(&array, &indices, &dtype, context)?;
+                            if batch.nbytes() <= MAX_BYTES as u64 {
+                                break batch;
+                            }
+                            if count == 1 {
+                                return Err(failed(
+                                    "one complete output row exceeds the native batch byte bound",
+                                ));
+                            }
+                            count = count.div_ceil(2);
+                        };
+                        consume(batch)?;
+                        cancellation.check()?;
+                        start += count;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn push_empty_native(
+        &mut self,
+        columns: &[String],
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if self
+            .fields
+            .iter()
+            .any(|(_, dtype)| super::native_payload::is_nested(dtype))
+        {
+            let dtype = DType::struct_(self.fields.clone(), Nullability::NonNullable);
+            let array = super::native_payload::defaults(&dtype, 0, context)?;
+            self.push_native(array, context)
+        } else {
+            self.push_values(columns, 0, |_, _| {
+                Err(failed("empty result requested a value"))
+            })
+        }
+    }
+}
+
+fn validate_names(fields: &[(String, DType)]) -> Result<()> {
+    if fields.is_empty() || fields.len() > 128 {
+        return Err(failed("requires 1..=128 output columns"));
+    }
+    for (index, (name, _)) in fields.iter().enumerate() {
+        if name.is_empty()
+            || name.len() > 256
+            || fields[..index].iter().any(|(prior, _)| prior == name)
+        {
+            return Err(failed("invalid or duplicate output field name"));
+        }
+    }
+    Ok(())
 }
 
 impl CompletedRows<'_> {
@@ -381,34 +534,27 @@ impl CompletedRows<'_> {
     }
 
     pub(super) fn new(fields: Vec<(String, DType)>, memory: &LiveMemoryPool) -> Result<Self> {
-        if fields.is_empty() || fields.len() > 128 {
-            return Err(failed("requires 1..=128 flat scalar columns"));
-        }
-        let mut names = std::collections::BTreeSet::new();
-        for (name, dtype) in &fields {
-            if name.is_empty()
-                || name.len() > 256
-                || !names.insert(name)
-                || !matches!(
-                    dtype,
-                    DType::Bool(_)
-                        | DType::Utf8(_)
-                        | DType::Variant(_)
-                        | DType::Primitive(
-                            PType::I8
-                                | PType::I16
-                                | PType::I32
-                                | PType::I64
-                                | PType::U8
-                                | PType::U16
-                                | PType::U32
-                                | PType::U64
-                                | PType::F32
-                                | PType::F64,
-                            _
-                        )
-                )
-            {
+        validate_names(&fields)?;
+        for (_, dtype) in &fields {
+            if !matches!(
+                dtype,
+                DType::Bool(_)
+                    | DType::Utf8(_)
+                    | DType::Variant(_)
+                    | DType::Primitive(
+                        PType::I8
+                            | PType::I16
+                            | PType::I32
+                            | PType::I64
+                            | PType::U8
+                            | PType::U16
+                            | PType::U32
+                            | PType::U64
+                            | PType::F32
+                            | PType::F64,
+                        _
+                    )
+            ) {
                 return Err(failed("unsupported or duplicate output field"));
             }
         }

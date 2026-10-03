@@ -96,9 +96,9 @@ impl HostBufferMut for ReservedWritableBuffer {
 }
 
 // Field order ensures the last buffer owner releases memory before its credit.
-struct ReservedBufferOwner {
+struct ReservedBufferOwner<L = MemoryLease> {
     buffer: ByteBuffer,
-    _lease: MemoryLease,
+    _lease: L,
 }
 
 /// Keep a pre-reserved native metadata owner with an existing required buffer.
@@ -115,9 +115,73 @@ pub(crate) fn retain_credit(buffer: ByteBuffer, lease: MemoryLease) -> ByteBuffe
     )
 }
 
-impl AsRef<[u8]> for ReservedBufferOwner {
+impl<L> AsRef<[u8]> for ReservedBufferOwner<L> {
     fn as_ref(&self) -> &[u8] {
         self.buffer.as_slice()
+    }
+}
+
+/// Attach structural metadata credit to every buffer in a native result tree.
+/// A surviving child, slice or clone keeps the shared credit alive independently
+/// of the producer and of the allocator used while constructing the tree.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn with_credit(
+    allocator: vortex::array::memory::HostAllocatorRef,
+    lease: MemoryLease,
+) -> vortex::array::memory::HostAllocatorRef {
+    std::sync::Arc::new(CreditAllocator {
+        allocator,
+        lease: std::sync::Arc::new(lease),
+    })
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[derive(Debug)]
+struct CreditAllocator {
+    allocator: vortex::array::memory::HostAllocatorRef,
+    lease: std::sync::Arc<MemoryLease>,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+impl HostAllocator for CreditAllocator {
+    fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
+        Ok(WritableHostBuffer::new(Box::new(CreditBuffer {
+            buffer: self.allocator.allocate(len, alignment)?,
+            lease: std::sync::Arc::clone(&self.lease),
+        })))
+    }
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+struct CreditBuffer {
+    buffer: WritableHostBuffer,
+    lease: std::sync::Arc<MemoryLease>,
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+impl HostBufferMut for CreditBuffer {
+    fn len(&self) -> usize {
+        self.buffer.len()
+    }
+
+    fn alignment(&self) -> Alignment {
+        self.buffer.alignment()
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        self.buffer.as_mut_slice()
+    }
+
+    fn freeze(self: Box<Self>) -> ByteBuffer {
+        let Self { buffer, lease } = *self;
+        let alignment = buffer.alignment();
+        ByteBuffer::from_bytes_aligned(
+            bytes::Bytes::from_owner(ReservedBufferOwner {
+                buffer: buffer.freeze(),
+                _lease: lease,
+            }),
+            alignment,
+        )
     }
 }
 
