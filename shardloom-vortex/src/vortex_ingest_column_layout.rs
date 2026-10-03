@@ -75,7 +75,7 @@ pub(super) fn stream_options(
     }
     let Some(memory) = memory else {
         return Ok((
-            context.write_options_for_decision(decision, timing),
+            context.write_options_for_decision(decision, timing, dtype),
             StreamLayoutEvidence {
                 status: if requested == StreamFooterLayout::ColumnAddressable {
                     "retained_writer_candidate_requires_shared_memory"
@@ -91,7 +91,7 @@ pub(super) fn stream_options(
     // Only this branch installs preservation: the child is always wrapped in
     // a bounded source-batch layout below. Unbounded array writers retain their
     // original strategy and cannot multiply outstanding dictionary owners.
-    let child = context.strategy_for_decision(decision, timing, &memory.session, true);
+    let child = context.strategy_for_decision(decision, timing, &memory.session, true, dtype);
     if requested == StreamFooterLayout::ColumnAddressable
         && ColumnAddressableLayout::admits_dtype(dtype, bounds)
     {

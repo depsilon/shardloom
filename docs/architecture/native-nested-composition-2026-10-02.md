@@ -31,8 +31,9 @@ native Vortex preparation. CSV/JSON text intake still normalizes nested text to
 UTF8, and the source-schema hint grammar admits scalar hints. Typed nested text
 intake remains an adapter obligation under PERF-11. Preparation now forwards
 declared compatible-source hints instead of silently dropping them; an unsupported
-nested hint is rejected before output creation. This does not override native
-Vortex's authoritative dtype.
+nested hint is rejected before output creation. Only CSV/JSON adapters receive
+these hints; self-describing columnar sources and native Vortex retain their
+authoritative schema.
 
 Typed compatible intake extends the existing streaming Arrow-to-Vortex adapter,
 recursive input-buffer copying and native writer. It shares the payload schema
@@ -41,6 +42,17 @@ and rejects unsupported nested leaves and Arrow extensions before conversion.
 It does not create scalar-row intermediates. Ingest's recorded memory exclusions
 still include original Arrow owners, reader internals and codec/metadata
 allocations that bypass the host allocator; this is not full RSS accounting.
+
+Typed empty imports retain the reader's complete Arrow schema in an empty
+record batch, including root-field nullability. In Vortex 0.85, recursively
+decomposing a struct with a single nullable struct child can move the child's
+validity to its parent on scan. Intake therefore uses the provider's existing
+field-writer overrides to keep each nested top-level field in native Flat
+subtrees under Chunked layouts. Scalar field strategies retain their selected
+profile. The report records the nested layout and its lack of extra compression
+or cross-batch coalescing. Budgeted streaming keeps the same source-batch owner
+around these strategies; ordinary buffered/unbudgeted imports gain no new
+bounded-memory claim. Both paths validate the file edition's allowed encodings.
 
 Carry these payloads through native scan, column projection/rename, scalar-key
 filtering and ordering, limits, joins, UNION ALL, window payload/navigation and

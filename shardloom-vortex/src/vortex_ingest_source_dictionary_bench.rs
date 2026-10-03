@@ -624,15 +624,17 @@ fn write_and_verify_column(
             .with_field_writer(FieldPath::from_name(column_name), Arc::new(preserved)),
         ) as Arc<dyn vortex::layout::LayoutStrategy>
     } else {
-        super::super::large_source_text_vortex_write_strategy_with_dictionaries(
-            WRITER_ROW_BLOCK_SIZE,
-            WRITER_BLOCK_TARGET_BYTES,
-            1,
-            1,
-            &[column_name.to_owned()],
-            &writer_timing,
-            &memory.session,
-            true,
+        Arc::new(
+            super::super::large_source_text_vortex_write_strategy_with_dictionaries(
+                WRITER_ROW_BLOCK_SIZE,
+                WRITER_BLOCK_TARGET_BYTES,
+                1,
+                1,
+                &[column_name.to_owned()],
+                &writer_timing,
+                &memory.session,
+                true,
+            ),
         )
     };
     let bounded = super::super::bounded_ingest_layout::BoundedIngestLayout::new(

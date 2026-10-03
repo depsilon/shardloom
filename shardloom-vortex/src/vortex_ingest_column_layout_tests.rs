@@ -451,6 +451,127 @@ fn column_footer_actual_writer_compositions_keep_payloads_subtrees_stats_and_val
 }
 
 #[test]
+fn native_nested_writer_profiles_keep_validity_and_selected_scalar_text_codec() {
+    let directory = Directory::new();
+    LOCAL_VORTEX_WRITE_CONTEXT.with(|cell| {
+        let context = cell.borrow();
+        let _drivers =
+            crate::resident_worker_group::ResidentWorkerGroup::new(&context.runtime, 1).unwrap();
+        for composition in [
+            Composition::Default,
+            Composition::FastLoad,
+            Composition::Balanced,
+            Composition::SourceText,
+        ] {
+            for budgeted in [false, true] {
+                let path = directory
+                    .0
+                    .join(format!("nested-{composition:?}-{budgeted}.vortex"));
+                let decision = decision(composition, &path);
+                let memory = budgeted.then(|| NativeIngestMemory::new(16 << 20).unwrap());
+                let timing = VortexWriterStageTiming::default();
+                let batches = (0..3).map(nested_profile_batch).collect::<Vec<_>>();
+                let dtype = batches[0].dtype().clone();
+                let mut execution = context.session.create_execution_ctx();
+                let expected = batches
+                    .iter()
+                    .flat_map(|batch| {
+                        (0..batch.len())
+                            .map(|row| batch.execute_scalar(row, &mut execution).unwrap())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                let (options, _) = stream_options(
+                    &context,
+                    &decision,
+                    &timing,
+                    memory.as_ref(),
+                    &dtype,
+                    StreamFooterLayout::RetainedRows,
+                    None,
+                )
+                .unwrap();
+                let summary = options
+                    .blocking(&context.runtime)
+                    .write(
+                        fs::File::create(&path).unwrap(),
+                        ArrayIteratorAdapter::new(dtype.clone(), batches.into_iter().map(Ok)),
+                    )
+                    .unwrap();
+                assert_eq!(summary.row_count(), 6);
+                let file = context
+                    .runtime
+                    .block_on(context.session.open_options().open_path(&path))
+                    .unwrap();
+                assert_eq!(file.dtype(), &dtype);
+                let mut actual = Vec::new();
+                for array in file
+                    .scan()
+                    .unwrap()
+                    .with_ordered(true)
+                    .into_array_iter(&context.runtime)
+                    .unwrap()
+                {
+                    let array = array.unwrap();
+                    assert_eq!(array.dtype(), &dtype, "{composition:?} budgeted={budgeted}");
+                    for row in 0..array.len() {
+                        actual.push(array.execute_scalar(row, &mut execution).unwrap());
+                    }
+                }
+                assert_eq!(actual, expected, "{composition:?} budgeted={budgeted}");
+                if matches!(composition, Composition::SourceText) {
+                    let work = timing
+                        .stages
+                        .snapshot()
+                        .evidence_fields()
+                        .into_iter()
+                        .collect::<std::collections::BTreeMap<_, _>>();
+                    assert!(
+                        work["vortex_ingest_text_zstd_calls"]
+                            .parse::<u64>()
+                            .unwrap()
+                            > 0
+                    );
+                }
+                drop(file);
+                drop(summary);
+                if let Some(memory) = memory {
+                    assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
+                    assert_eq!(memory.pool.snapshot().denied_reservations, 0);
+                }
+            }
+        }
+    });
+}
+
+fn nested_profile_batch(group: i32) -> ArrayRef {
+    let inner = StructArray::new(
+        FieldNames::from(["value"]),
+        vec![PrimitiveArray::from_iter([group, group + 1]).into_array()],
+        2,
+        Validity::from_iter([true, false]),
+    )
+    .into_array();
+    let outer = StructArray::new(
+        FieldNames::from(["child"]),
+        vec![inner],
+        2,
+        Validity::NonNullable,
+    )
+    .into_array();
+    StructArray::new(
+        FieldNames::from(["renamed_payload", "nested"]),
+        vec![
+            VarBinViewArray::from_iter_nullable_str([Some("東京"), None]).into_array(),
+            outer,
+        ],
+        2,
+        Validity::NonNullable,
+    )
+    .into_array()
+}
+
+#[test]
 fn column_footer_private_seam_keeps_default_and_inadmissible_schema_on_retained_writer() {
     assert_eq!(
         column_layout::DEFAULT_STREAM_FOOTER_LAYOUT,

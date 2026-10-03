@@ -136,15 +136,18 @@ pub(super) fn write(
                         if format != Format::Csv {
                             serde_json::to_writer(&mut writer, name).map_err(vortex_error)?;
                             writer.write_all(b":").map_err(vortex_error)?;
-                            let scalars = json[index].write(
+                            let counts = json[index].write(
                                 row,
                                 &mut writer,
                                 &mut scalar_context,
                                 cancellation,
                             )?;
                             scalars_materialized = scalars_materialized
-                                .checked_add(scalars)
+                                .checked_add(counts.scalars)
                                 .ok_or_else(|| failed("scalar counter overflow"))?;
+                            text_copies = text_copies
+                                .checked_add(counts.utf8_bytes)
+                                .ok_or_else(|| failed("text copy counter overflow"))?;
                             continue;
                         }
                         let scalar = column

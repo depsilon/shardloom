@@ -43,22 +43,6 @@ pub(super) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
     }
 }
 
-pub(super) fn empty(dtype: &DataType) -> Result<vortex::array::ArrayRef> {
-    use vortex::{
-        VortexSessionDefault as _,
-        array::{Canonical, IntoArray as _, dtype::Nullability},
-        arrow::ArrowSessionExt as _,
-    };
-    crate::native_payload_schema::arrow_metadata_bytes(dtype)?;
-    let session = vortex::session::VortexSession::default();
-    let dtype = session
-        .arrow()
-        .from_arrow_datatype(dtype, Nullability::Nullable)
-        .map_err(super::vortex_error)?;
-    crate::native_payload_schema::metadata_bytes(&dtype)?;
-    Ok(Canonical::empty(&dtype).into_array())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

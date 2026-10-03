@@ -65,6 +65,10 @@ use stage_timing::{IngestStageTimings, Stage};
 #[path = "vortex_ingest_numeric_encoding.rs"]
 mod numeric_encoding;
 
+#[cfg(feature = "vortex-write")]
+#[path = "vortex_ingest_nested_layout.rs"]
+mod nested_layout;
+
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "vortex_ingest_text_stats_tests.rs"]
 mod text_stats_tests;
@@ -10311,7 +10315,16 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             None if native_memory.is_some()
                 || ingest_runtime.is_some()
                 || !source_identities.is_empty()
-                || request.prepared_source_binding.is_some() =>
+                || request.prepared_source_binding.is_some()
+                || reader.schema().fields().iter().any(|field| {
+                    matches!(
+                        field.data_type(),
+                        ArrowDataType::List(_)
+                            | ArrowDataType::LargeList(_)
+                            | ArrowDataType::FixedSizeList(..)
+                            | ArrowDataType::Struct(_)
+                    )
+                }) =>
             {
                 RecordBatch::new_empty(reader.schema())
             }
@@ -12562,7 +12575,9 @@ fn flat_columnar_source_to_vortex_struct(
             if let Some(dtype) = projected_column.arrow_dtype_hint.as_ref()
                 && nested::family(dtype)?.is_some()
             {
-                return nested::empty(dtype);
+                return Err(ShardLoomError::InvalidOperation(
+                    "empty nested columnar input requires an Arrow RecordBatch retaining field nullability; no fallback execution was attempted".into(),
+                ));
             }
             let arrays = source
                 .batches
@@ -13742,14 +13757,14 @@ impl LocalVortexWriteContext {
         let write_start = Instant::now();
         let expected_rows = usize_to_u64(array.len())?;
         let mut vortex_segment_write_micros = 0;
-        let writer_layout_strategy_applied =
+        let mut writer_layout_strategy_applied =
             vortex_writer_layout_strategy_applied(layout_write_decision).to_string();
-        let writer_coalescing_policy_status =
+        let mut writer_coalescing_policy_status =
             vortex_writer_coalescing_policy_status(layout_write_decision).to_string();
         let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
         let writer_layout_block_target_bytes =
             vortex_writer_block_target_bytes(layout_write_decision);
-        let writer_compression_policy =
+        let mut writer_compression_policy =
             vortex_writer_compression_policy(layout_write_decision).to_string();
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
@@ -13760,8 +13775,17 @@ impl LocalVortexWriteContext {
         let writer_profile_regression_guard =
             vortex_writer_profile_regression_guard(layout_write_decision).to_string();
         let writer_stage_timing = VortexWriterStageTiming::default();
-        let write_options =
-            self.write_options_for_decision(layout_write_decision, &writer_stage_timing);
+        nested_layout::append_evidence(
+            array.dtype(),
+            &mut writer_layout_strategy_applied,
+            &mut writer_coalescing_policy_status,
+            &mut writer_compression_policy,
+        );
+        let write_options = self.write_options_for_decision(
+            layout_write_decision,
+            &writer_stage_timing,
+            array.dtype(),
+        );
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -13862,7 +13886,7 @@ impl LocalVortexWriteContext {
         let writer_layout_row_block_size = vortex_writer_row_block_size(layout_write_decision);
         let writer_layout_block_target_bytes =
             vortex_writer_block_target_bytes(layout_write_decision);
-        let writer_compression_policy =
+        let mut writer_compression_policy =
             vortex_writer_compression_policy(layout_write_decision).to_string();
         let writer_compression_concurrency =
             vortex_writer_compression_concurrency(layout_write_decision);
@@ -13878,6 +13902,12 @@ impl LocalVortexWriteContext {
             writer_coalescing_policy_status =
                 "native_within_source_batch_only;cross_batch_coalescing_disabled".to_string();
         }
+        nested_layout::append_evidence(
+            iter.dtype(),
+            &mut writer_layout_strategy_applied,
+            &mut writer_coalescing_policy_status,
+            &mut writer_compression_policy,
+        );
         let (write_options, footer_layout_evidence) = self.stream_write_options_for_decision(
             layout_write_decision,
             &writer_stage_timing,
@@ -13998,15 +14028,19 @@ impl LocalVortexWriteContext {
         &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_stage_timing: &VortexWriterStageTiming,
+        dtype: &vortex::array::dtype::DType,
     ) -> vortex::file::VortexWriteOptions {
         use vortex::file::WriteOptionsSessionExt as _;
         let options = self.session.write_options();
-        if vortex_layout_write_strategy_applies(layout_write_decision) {
+        if vortex_layout_write_strategy_applies(layout_write_decision)
+            || nested_layout::has_fields(dtype)
+        {
             options.with_strategy(self.strategy_for_decision(
                 layout_write_decision,
                 writer_stage_timing,
                 &self.session,
                 false,
+                dtype,
             ))
         } else {
             options
@@ -14019,49 +14053,60 @@ impl LocalVortexWriteContext {
         writer_stage_timing: &VortexWriterStageTiming,
         writer_session: &vortex::session::VortexSession,
         preserve_input_dictionaries: bool,
+        dtype: &vortex::array::dtype::DType,
     ) -> Arc<dyn vortex::layout::LayoutStrategy> {
         use vortex::compressor::BtrBlocksCompressorBuilder;
         use vortex::file::WriteStrategyBuilder;
+
+        let nested_fields = nested_layout::field_writers(dtype, writer_session);
+        let mut builder = WriteStrategyBuilder::default();
+        for (field, writer) in &nested_fields {
+            builder = builder.with_field_writer(field.clone(), Arc::clone(writer));
+        }
 
         if vortex_layout_write_strategy_applies(layout_write_decision) {
             let row_block_size = vortex_writer_row_block_size(layout_write_decision);
             let block_target_bytes = vortex_writer_block_target_bytes(layout_write_decision);
             let stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
             if vortex_writer_uses_large_source_fast_load(layout_write_decision) {
-                std::sync::Arc::new(large_source_fast_load_table_strategy_with_dictionaries(
-                    row_block_size,
-                    block_target_bytes,
-                    stats_concurrency,
-                    writer_stage_timing,
-                    writer_session,
-                    preserve_input_dictionaries,
-                ))
+                std::sync::Arc::new(
+                    large_source_fast_load_table_strategy_with_dictionaries(
+                        row_block_size,
+                        block_target_bytes,
+                        stats_concurrency,
+                        writer_stage_timing,
+                        writer_session,
+                        preserve_input_dictionaries,
+                    )
+                    .with_field_writers(nested_fields),
+                )
             } else if vortex_writer_uses_large_source_balanced(layout_write_decision) {
-                WriteStrategyBuilder::default()
+                builder
                     .with_row_block_size(row_block_size)
                     .with_btrblocks_builder(
                         BtrBlocksCompressorBuilder::default().only_cuda_compatible(),
                     )
                     .build()
             } else if vortex_writer_uses_large_source_text(layout_write_decision) {
-                large_source_text_vortex_write_strategy_with_dictionaries(
-                    row_block_size,
-                    block_target_bytes,
-                    vortex_writer_compression_concurrency(layout_write_decision),
-                    stats_concurrency,
-                    &layout_write_decision.writer_compression_field_names,
-                    writer_stage_timing,
-                    writer_session,
-                    preserve_input_dictionaries,
+                Arc::new(
+                    large_source_text_vortex_write_strategy_with_dictionaries(
+                        row_block_size,
+                        block_target_bytes,
+                        vortex_writer_compression_concurrency(layout_write_decision),
+                        stats_concurrency,
+                        &layout_write_decision.writer_compression_field_names,
+                        writer_stage_timing,
+                        writer_session,
+                        preserve_input_dictionaries,
+                    )
+                    .with_field_writers(nested_fields),
                 )
             } else {
-                WriteStrategyBuilder::default()
-                    .with_row_block_size(row_block_size)
-                    .build()
+                builder.with_row_block_size(row_block_size).build()
             }
         } else {
             use vortex::editions::{ComponentKind, EditionSessionExt as _};
-            WriteStrategyBuilder::default()
+            builder
                 .with_allow_encodings(
                     self.session
                         .enabled_component_ids(ComponentKind::Array)
@@ -14338,7 +14383,7 @@ fn large_source_text_vortex_write_strategy(
     writer_stage_timing: &VortexWriterStageTiming,
     writer_session: &vortex::session::VortexSession,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
-    large_source_text_vortex_write_strategy_with_dictionaries(
+    Arc::new(large_source_text_vortex_write_strategy_with_dictionaries(
         row_block_size,
         block_target_bytes,
         compression_concurrency,
@@ -14347,7 +14392,7 @@ fn large_source_text_vortex_write_strategy(
         writer_stage_timing,
         writer_session,
         false,
-    )
+    ))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -14361,7 +14406,7 @@ fn large_source_text_vortex_write_strategy_with_dictionaries(
     writer_stage_timing: &VortexWriterStageTiming,
     writer_session: &vortex::session::VortexSession,
     preserve_input_dictionaries: bool,
-) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
+) -> vortex::layout::layouts::table::TableStrategy {
     use vortex::array::dtype::FieldPath;
 
     let text_strategy = large_source_fast_zstd_text_leaf_strategy(
@@ -14383,7 +14428,7 @@ fn large_source_text_vortex_write_strategy_with_dictionaries(
             std::sync::Arc::clone(&text_strategy),
         );
     }
-    std::sync::Arc::new(strategy)
+    strategy
 }
 
 #[cfg(feature = "vortex-write")]

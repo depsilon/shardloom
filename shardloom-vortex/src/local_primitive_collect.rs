@@ -542,7 +542,7 @@ impl JsonRows {
 pub(super) fn write_scalar_json(
     writer: &mut impl std::io::Write,
     scalar: &vortex::array::scalar::Scalar,
-) -> Result<()> {
+) -> Result<u64> {
     use shardloom_core::StatValue;
     use vortex::array::scalar::ScalarValue;
     let mut scalar = scalar;
@@ -554,6 +554,10 @@ pub(super) fn write_scalar_json(
         }
         scalar = inner;
     }
+    let utf8_bytes = match scalar.value() {
+        Some(ScalarValue::Utf8(value)) => super::usize_to_u64(value.as_str().len())?,
+        _ => 0,
+    };
     match scalar.value() {
         None => writer.write_all(b"null").map_err(collect_io_error),
         Some(ScalarValue::Bool(value)) => {
@@ -579,7 +583,8 @@ pub(super) fn write_scalar_json(
         _ => Err(collect_error(
             "result type is not admitted for JSON collect",
         )),
-    }
+    }?;
+    Ok(utf8_bytes)
 }
 
 struct BoundedJson {

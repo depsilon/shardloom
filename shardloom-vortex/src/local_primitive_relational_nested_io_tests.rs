@@ -198,6 +198,23 @@ fn check_six_writers(fixture: &Fixture, expected: &[Value]) {
                 .unwrap_or_else(|error| panic!("{format:?} {count}: {error}"));
             assert_eq!(result.output.rows_written, count as u64);
             assert!(result.execution.native_io_certificate.is_certified());
+            if matches!(format, Format::Json | Format::Jsonl) {
+                let copied = expected[..count]
+                    .iter()
+                    .map(utf8_payload_bytes)
+                    .sum::<u64>();
+                assert_eq!(
+                    result
+                        .output
+                        .evidence
+                        .native_array_sink
+                        .as_ref()
+                        .unwrap()
+                        .adapter_payload_bytes_copied,
+                    copied,
+                    "{format:?} {count} UTF-8 payload copies"
+                );
+            }
             assert_eq!(
                 reopen(&path, format, &prepared.output_dtype()),
                 expected[..count],
@@ -217,14 +234,51 @@ fn check_six_writers(fixture: &Fixture, expected: &[Value]) {
     }
 }
 
+fn utf8_payload_bytes(value: &Value) -> u64 {
+    match value {
+        Value::String(text) => text.len() as u64,
+        Value::Array(items) => items.iter().map(utf8_payload_bytes).sum(),
+        Value::Object(fields) => fields.values().map(utf8_payload_bytes).sum(),
+        _ => 0,
+    }
+}
+
 #[test]
 fn native_nested_columnar_intake_reuses_shared_owned_stream_and_empty_schema() {
+    for (fixture, expected) in [complex_fixture(), struct_list_fixture()] {
+        check_nested_intake(&fixture, &expected);
+    }
+}
+
+fn write_nested_intake(
+    ipc: &std::path::Path,
+    native: &std::path::Path,
+    mode: &str,
+) -> crate::vortex_ingest::VortexPreparedStateWriteReport {
     use crate::vortex_ingest::{
         VortexPreparedStateColumnarStreamWriteRequest, VortexPreparedStateColumnarWriteRequest,
         write_flat_columnar_vortex_prepared_state,
         write_flat_columnar_vortex_prepared_state_streaming,
     };
-    let (fixture, expected) = complex_fixture();
+    if mode == "buffered" {
+        let source = crate::read_flat_arrow_ipc_columnar_source(ipc, 100).unwrap();
+        write_flat_columnar_vortex_prepared_state(VortexPreparedStateColumnarWriteRequest::new(
+            native, source,
+        ))
+    } else {
+        assert!(matches!(mode, "streamed" | "budgeted"));
+        let source = crate::stream_flat_arrow_ipc_columnar_source(ipc, 100).unwrap();
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(native, source);
+        write_flat_columnar_vortex_prepared_state_streaming(if mode == "budgeted" {
+            request.shared_native_memory_budget_bytes(16 << 20)
+        } else {
+            request
+        })
+    }
+    .unwrap()
+}
+
+fn check_nested_intake(fixture: &Fixture, expected: &[Value]) {
     for count in [4, 0] {
         let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
             input: fixture.scan(),
@@ -232,25 +286,46 @@ fn native_nested_columnar_intake_reuses_shared_owned_stream_and_empty_schema() {
             count,
         }));
         let prepared = prepare_relational(&plan, policy()).unwrap();
+        let exported = fixture.0.join(format!("intake-export-{count}.arrow"));
+        prepared.write(&exported, Format::ArrowIpc, false).unwrap();
+        let source =
+            arrow_ipc::reader::FileReader::try_new(fs::File::open(exported).unwrap(), None)
+                .unwrap();
         let ipc = fixture.0.join(format!("intake-{count}.arrow"));
-        prepared.write(&ipc, Format::ArrowIpc, false).unwrap();
-        for streaming in [false, true] {
-            let native = fixture.0.join(format!("intake-{count}-{streaming}.vortex"));
-            let report = if streaming {
-                let source = crate::stream_flat_arrow_ipc_columnar_source(&ipc, 100).unwrap();
-                write_flat_columnar_vortex_prepared_state_streaming(
-                    VortexPreparedStateColumnarStreamWriteRequest::new(&native, source)
-                        .shared_native_memory_budget_bytes(16 << 20),
-                )
-            } else {
-                let source = crate::read_flat_arrow_ipc_columnar_source(&ipc, 100).unwrap();
-                write_flat_columnar_vortex_prepared_state(
-                    VortexPreparedStateColumnarWriteRequest::new(&native, source),
-                )
+        let mut writer = arrow_ipc::writer::FileWriter::try_new(
+            fs::File::create(&ipc).unwrap(),
+            &source.schema(),
+        )
+        .unwrap();
+        for batch in source {
+            let batch = batch.unwrap();
+            for start in (0..batch.num_rows()).step_by(2) {
+                writer
+                    .write(&batch.slice(start, (batch.num_rows() - start).min(2)))
+                    .unwrap();
             }
-            .unwrap();
+        }
+        writer.finish().unwrap();
+        for mode in ["buffered", "streamed", "budgeted"] {
+            let native = fixture.0.join(format!("intake-{count}-{mode}.vortex"));
+            let report = write_nested_intake(&ipc, &native, mode);
             assert_eq!(report.reopen_row_count, count as u64);
-            if streaming {
+            assert!(
+                report
+                    .writer_layout_strategy_applied
+                    .contains("nested_field_layout=chunked_flat_preserving_validity")
+            );
+            assert!(
+                report
+                    .writer_compression_policy
+                    .contains("scope=scalar_fields;nested_fields=preserved_uncompressed")
+            );
+            assert!(
+                report
+                    .writer_coalescing_policy_status
+                    .contains("scope=scalar_fields;nested_fields=source_chunks")
+            );
+            if mode == "budgeted" {
                 let memory = report.shared_native_memory.as_ref().unwrap();
                 assert_eq!(memory.final_reserved_bytes, 0);
                 assert!(memory.peak_reserved_bytes <= memory.limit_bytes);
@@ -266,13 +341,109 @@ fn native_nested_columnar_intake_reuses_shared_owned_stream_and_empty_schema() {
                 json_rows(
                     &reopened
                         .collect_jsonl(&CancellationToken::default())
-                        .unwrap()
+                        .unwrap_or_else(|error| panic!(
+                            "{count} {mode} {}: {error}",
+                            reopened.output_dtype()
+                        ))
                 ),
                 expected[..count],
             );
-            if streaming {
-                assert_eq!(reopened.output_dtype(), prepared.output_dtype());
-            }
+            assert!(
+                reopened.output_dtype() == prepared.output_dtype(),
+                "{count} {mode}: {} != {}",
+                reopened.output_dtype(),
+                prepared.output_dtype()
+            );
         }
+    }
+}
+
+#[test]
+fn native_nested_empty_intake_retains_nonnullable_lists_and_structs() {
+    use crate::vortex_ingest::{
+        VortexPreparedStateColumnarWriteRequest, write_flat_columnar_vortex_prepared_state,
+    };
+    use arrow_schema::{DataType, Field, Schema};
+    use vortex::arrow::ArrowSessionExt as _;
+    let fixture = fixture();
+    for nullable in [false, true] {
+        let item = std::sync::Arc::new(Field::new("item", DataType::Int32, true));
+        let schema = std::sync::Arc::new(Schema::new(vec![
+            Field::new("list", DataType::List(item.clone()), nullable),
+            Field::new("large", DataType::LargeList(item.clone()), nullable),
+            Field::new("fixed", DataType::FixedSizeList(item, 2), nullable),
+            Field::new(
+                "record",
+                DataType::Struct(vec![Field::new("label", DataType::Utf8, true)].into()),
+                nullable,
+            ),
+        ]));
+        let ipc = fixture.0.join(format!("empty-fields-{nullable}.arrow"));
+        arrow_ipc::writer::FileWriter::try_new(fs::File::create(&ipc).unwrap(), &schema)
+            .unwrap()
+            .finish()
+            .unwrap();
+        let source = crate::read_flat_arrow_ipc_columnar_source(&ipc, 1).unwrap();
+        assert_eq!(source.row_count, 0);
+        let expected = vortex::session::VortexSession::default()
+            .arrow()
+            .from_arrow_datatype(
+                &DataType::Struct(schema.fields().clone()),
+                Nullability::NonNullable,
+            )
+            .unwrap();
+        for mode in ["buffered", "streamed", "budgeted"] {
+            let native = fixture
+                .0
+                .join(format!("empty-fields-{nullable}-{mode}.vortex"));
+            let report = write_nested_intake(&ipc, &native, mode);
+            assert_eq!(report.reopen_row_count, 0);
+            let scan = VortexRelationalPlan::Scan(VortexRelationalScan {
+                source_uri: DatasetUri::new(native.display().to_string()).unwrap(),
+                projection: shardloom_plan::ProjectionRequest::All,
+                predicate: None,
+            });
+            let actual = prepare_relational(&scan, policy()).unwrap().output_dtype();
+            assert!(actual == expected, "{mode}: {actual} != {expected}");
+        }
+
+        let mut no_fields = source;
+        no_fields.batches.clear();
+        let denied = fixture.0.join(format!("missing-fields-{nullable}.vortex"));
+        let error = write_flat_columnar_vortex_prepared_state(
+            VortexPreparedStateColumnarWriteRequest::new(&denied, no_fields),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("retaining field nullability"));
+        assert!(!denied.exists());
+    }
+}
+
+#[test]
+fn native_nested_json_writer_counts_flat_utf8_bytes_without_names_or_escapes() {
+    let values = vec![Some("東京"), Some("a\n\"λ"), None, Some("")];
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(["a_long_field_name"]),
+            vec![VarBinArray::from(values.clone()).into_array()],
+            values.len(),
+            Validity::NonNullable,
+        )
+        .into_array(),
+        2,
+    );
+    let prepared = prepare_relational(&fixture.scan(), policy()).unwrap();
+    for format in [Format::Json, Format::Jsonl, Format::Csv] {
+        let output = fixture.0.join(format!("utf8.{}", format.as_str()));
+        let report = prepared.write(&output, format, false).unwrap();
+        assert_eq!(
+            report
+                .output
+                .evidence
+                .native_array_sink
+                .unwrap()
+                .adapter_payload_bytes_copied,
+            11
+        );
     }
 }

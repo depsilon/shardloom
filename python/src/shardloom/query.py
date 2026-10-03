@@ -6987,11 +6987,7 @@ class LazyFrame:
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
-            source_schema=(
-                (self.source.schema or None)
-                if self.source.source_format != "vortex"
-                else None
-            ),
+            source_schema=_prepare_vortex_schema_hints(self.source),
             output_ref=target_vortex_path,
             plan_summary=self.operation_summary,
             evidence_level=evidence_level,

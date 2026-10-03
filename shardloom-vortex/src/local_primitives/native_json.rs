@@ -20,6 +20,26 @@ pub(super) struct Column {
     _metadata: MemoryLease,
 }
 
+#[derive(Clone, Copy, Default)]
+pub(super) struct WriteCounts {
+    pub(super) scalars: u64,
+    pub(super) utf8_bytes: u64,
+}
+
+impl WriteCounts {
+    fn add(&mut self, other: Self) -> Result<()> {
+        self.scalars = self
+            .scalars
+            .checked_add(other.scalars)
+            .ok_or_else(|| failed("JSON scalar count overflow"))?;
+        self.utf8_bytes = self
+            .utf8_bytes
+            .checked_add(other.utf8_bytes)
+            .ok_or_else(|| failed("JSON UTF-8 copy count overflow"))?;
+        Ok(())
+    }
+}
+
 enum Node {
     Scalar(ArrayRef),
     Struct {
@@ -51,14 +71,14 @@ impl Column {
         })
     }
 
-    /// Return the number of scalar leaves actually materialized at this sink.
+    /// Return scalar materializations and UTF-8 payload bytes copied at this sink.
     pub(super) fn write(
         &self,
         row: usize,
         writer: &mut impl Write,
         execution: &mut ExecutionCtx,
         cancellation: &CancellationToken,
-    ) -> Result<u64> {
+    ) -> Result<WriteCounts> {
         self.node.write(row, writer, execution, cancellation)
     }
 }
@@ -102,17 +122,16 @@ impl Node {
         writer: &mut impl Write,
         execution: &mut ExecutionCtx,
         cancellation: &CancellationToken,
-    ) -> Result<u64> {
+    ) -> Result<WriteCounts> {
         cancellation.check()?;
-        let add = |left: u64, right: u64| {
-            left.checked_add(right)
-                .ok_or_else(|| failed("JSON scalar count overflow"))
-        };
         match self {
             Self::Scalar(array) => {
                 let scalar = array.execute_scalar(row, execution).map_err(vortex_error)?;
-                super::collect::write_scalar_json(writer, &scalar)?;
-                Ok(1)
+                let utf8_bytes = super::collect::write_scalar_json(writer, &scalar)?;
+                Ok(WriteCounts {
+                    scalars: 1,
+                    utf8_bytes,
+                })
             }
             Self::Struct {
                 names,
@@ -124,10 +143,13 @@ impl Node {
                     .map_err(vortex_error)?
                 {
                     writer.write_all(b"null").map_err(vortex_error)?;
-                    return Ok(1);
+                    return Ok(WriteCounts {
+                        scalars: 1,
+                        utf8_bytes: 0,
+                    });
                 }
                 writer.write_all(b"{").map_err(vortex_error)?;
-                let mut scalars = 0;
+                let mut counts = WriteCounts::default();
                 for (index, (name, field)) in names.iter().zip(fields).enumerate() {
                     if index != 0 {
                         writer.write_all(b",").map_err(vortex_error)?;
@@ -135,29 +157,29 @@ impl Node {
                     let name: &str = name.as_ref();
                     serde_json::to_writer(&mut *writer, name).map_err(vortex_error)?;
                     writer.write_all(b":").map_err(vortex_error)?;
-                    scalars = add(scalars, field.write(row, writer, execution, cancellation)?)?;
+                    counts.add(field.write(row, writer, execution, cancellation)?)?;
                 }
                 writer.write_all(b"}").map_err(vortex_error)?;
-                Ok(scalars)
+                Ok(counts)
             }
             Self::List { column, child } => {
                 let Some((start, count)) = column.coordinates(row, execution)? else {
                     writer.write_all(b"null").map_err(vortex_error)?;
-                    return Ok(1);
+                    return Ok(WriteCounts {
+                        scalars: 1,
+                        utf8_bytes: 0,
+                    });
                 };
                 writer.write_all(b"[").map_err(vortex_error)?;
-                let mut scalars = 0;
+                let mut counts = WriteCounts::default();
                 for index in 0..count {
                     if index != 0 {
                         writer.write_all(b",").map_err(vortex_error)?;
                     }
-                    scalars = add(
-                        scalars,
-                        child.write(start + index, writer, execution, cancellation)?,
-                    )?;
+                    counts.add(child.write(start + index, writer, execution, cancellation)?)?;
                 }
                 writer.write_all(b"]").map_err(vortex_error)?;
-                Ok(scalars)
+                Ok(counts)
             }
         }
     }
