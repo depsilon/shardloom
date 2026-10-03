@@ -2,8 +2,8 @@
 
 # Native unary operation composition
 
-Status: implementation and frozen-build local acceptance complete; hosted review
-and checks remain pending. This continuation
+Status: implementation, frozen-build acceptance and hosted review complete;
+merged in [PR #1505](https://github.com/depsilon/shardloom/pull/1505). This continuation
 belongs to PERF-02/03/07/10/11/12 and CG-5/20/21 in the
 [universal workflow plan](universal-workflow-completion-2026-10-01.md). It follows
 the accepted relational composition, resource and aggregate units. It does not
@@ -222,5 +222,15 @@ losslessly, and later envelopes retain verified compressed and original hashes.
 The [portable acceptance packet](../benchmarks/evidence/native-unary-composition-2026-10-02.json.xz)
 records local validation gates, full public envelopes, frozen identities, every
 failed observation, compaction manifests and Full43 results. Later documentation
-and generated-site edits do not change the frozen runtime. Hosted CI and merge
-acceptance remain separate from this local evidence.
+and generated-site edits do not change the frozen runtime.
+
+PR #1505 merged on October 3 UTC at
+`61d318db5cfa2e74f65423cd5b44b529cfb5818c` after all 40 hosted checks passed on
+`7875b2e984db89ff5910d1e54d1cba98fd5794ee`. The automated Codex review completed
+without findings. Tested and merged trees both equal
+`30d5f9108ea0a9457e1cb7fd90f8880ab86a7735`. The hosted acceptance receipt has
+SHA-256 `777e3fcd5fce6c87d8df4816377dfbac8691f64d1b47d59bdf68df3a58231ab0`;
+the review/thread receipt has SHA-256
+`f6069b6e786639199caebc105aded7c331cf7e0d8808f6a65d49da03b9d9a887`.
+The [nested payload continuation](native-nested-composition-2026-10-02.md)
+owns the next static type/ownership dependency; broader owners remain open.
