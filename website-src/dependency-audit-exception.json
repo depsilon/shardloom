@@ -5,7 +5,7 @@
   "expires": "2026-10-10T00:00:00Z",
   "reason": "Pending maintainer approval. The installed Astro helper uses only storable/timeToLive, not shared-cache request reuse; the pinned site deploys static assets without an application server. The vulnerable dependency remains installed and no patched release is available.",
   "sha256": {
-    "website-src/package-lock.json": "0fa6286519317116f6bddbdb2fae5c7b3862120f8f6c10b90bb5547a6f11e7d4",
+    "website-src/package-lock.json": "9c98bb5affdb39cb6bfed281ffbce2d05c50554afe4c4c4cbf8261dc716dbe0a",
     "website-src/astro.config.mjs": "81228f0b1997fc7e4b7d8130ddab4abd285ef662e5c2e90dade7976f163e501a",
     "wrangler.jsonc": "41aa0f3ac0adf1d26587e58af9d08484db5c3ebd69e3c4454ba6b8d093d497a8",
     "wrangler.toml": "50d8faff62bf65f45e035250453b01c5d4448ecd42c6c046eaf32c8fc66da193",
