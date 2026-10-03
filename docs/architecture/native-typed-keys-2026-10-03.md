@@ -2,8 +2,8 @@
 
 # Native typed comparison and keys
 
-Status: implementation contract under PERF-02/03/06/07/10/11/12 and
-CG-3/5/19/20/21. The [phase plan](phased-execution-plan.md) owns sequencing.
+Status: locally accepted under PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21;
+hosted acceptance remains pending. The [phase plan](phased-execution-plan.md) owns sequencing.
 This continues the accepted [typed payload contract](native-typed-payloads-2026-10-03.md)
 and [universal workflow plan](universal-workflow-completion-2026-10-01.md).
 
@@ -136,3 +136,12 @@ All execution and Native I/O certificates retain `fallback_attempted=false` and
 website advisory decision stay separate. Paused large format/text performance
 runs, native Python bindings, publication and broader PERF/CG completion are not
 authorized by this finite implementation contract.
+
+Frozen runtime `2f402226` passes 5,733 complete public checks, including 2,428
+typed checks, the separate 202-check direct-unary matrix and all 24 selected
+local gate categories. All 258 paired Full43 results and six required reversed
+Q21 repeats match. The initial Q21 timing gain does not reproduce at the declared
+threshold; no aggregate or RSS flag remains. The
+[acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md) preserves
+source/binary identities, complete values, schemas, resource proof and rejected
+development observations. No performance improvement is claimed.

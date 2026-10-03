@@ -122,6 +122,8 @@ ORDER BY spill policy applies to these flat keys. It adds no group, join or
 window state spill. Nested key equality, casts, arithmetic/rescaling, retained
 unary state, unadmitted nested shapes, general Variant/extension operations and
 broader state-spill families remain explicit gaps.
+The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
+records complete public writer/readback and forced-sort-run evidence.
 See the [streaming contract and acceptance](../architecture/native-workflow-streaming-2026-10-01.md).
 
 ## Compose Owned Native Results

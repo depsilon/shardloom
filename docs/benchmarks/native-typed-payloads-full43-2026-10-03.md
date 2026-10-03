@@ -47,8 +47,10 @@ precision and scale exactly match the expected dtype. JSON/JSONL and collection
 use hexadecimal binary strings, exact typed decimal strings and signed temporal
 units; CSV follows the existing typed cell convention. Text output does not
 persist logical dtypes. ORC admits binary but denies decimal/temporal payloads;
-nested CSV and ORC remain denied, including empty results. Keys, arithmetic,
-casts, typed predicates and retained unary-state semantics remain unadmitted.
+nested CSV and ORC remain denied, including empty results. At this frozen payload
+revision, keys, arithmetic, casts, typed predicates and retained unary-state
+semantics remain unadmitted. The later [typed key acceptance](native-typed-keys-full43-2026-10-03.md)
+records the scoped comparison/key extension without changing this observation.
 
 All 24 selected local gate categories pass. Default workspace tests report 3,447
 passed; native Vortex tests report 2,254 passed with 23 existing ignored tests;

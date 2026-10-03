@@ -87,6 +87,8 @@ keys, nullable keys with explicit null order, finite floats, booleans, exact sig
 and unsigned integers, UTF8, binary, exact Decimal128, Date32 and timezone-free
 microsecond timestamps. The [typed key contract](../architecture/native-typed-keys-2026-10-03.md)
 requires matching decimal precision/scale and preserves distinct temporal types.
+Its [acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
+includes complete typed run/merge and writer readback checks.
 It shares native key comparison, stable ordering,
 run storage, memory ownership and sinks with the existing engine. Adjacent two-run
 merges preserve input order on ties. All ordering stages in one query share the

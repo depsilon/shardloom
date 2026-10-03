@@ -217,6 +217,8 @@ objects. Common admitted methods include:
   In the JSON index, `native_typed_keys` records these individual capabilities.
   The older combined `typed_keys_arithmetic_and_unary_state` flag stays false:
   the combined key, arithmetic and unary-state capability is not admitted.
+  The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
+  records local verification; hosted acceptance remains pending.
   Admitted `pivot(...)` / `pivot_table(...)` over one
   index column, one pivot column, and one value column lower through the native/prepared Vortex
   pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`

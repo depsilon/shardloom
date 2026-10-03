@@ -67,6 +67,14 @@ were checked before removal; archive manifests preserve the original paths.
 This recovered 5,074,944 accounted log bytes. Failed and incomplete cohorts,
 including the interrupted September 30 paired run, remain unchanged. The nested
 acceptance evidence retains the compaction receipt; storage ceilings were unchanged.
+Before the October 3 typed-key paired acceptance, 1,032 completed per-call files
+from two successful historical Full43 cohorts were compacted into
+`completed-call-logs-typed-keys-20261003.tar.xz` archives. Original file identities,
+per-member sizes/hashes and archived bytes were verified before removal; summaries
+remain unchanged. This recovered 3,264,512 accounted log bytes. Failed/incomplete
+cohorts and all storage ceilings remain unchanged. The
+[typed-key acceptance packet](../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz)
+retains the receipt and verifies every archived member.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 
