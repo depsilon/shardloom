@@ -745,7 +745,10 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
         ExpressionKind::Column(column) => row
             .get(column.as_str())
             .cloned()
-            .map(|value| EvalValue::new(value.clone(), value.dtype(), NullBehavior::NullAware))
+            .map(|value| {
+                let dtype = expression.dtype.clone().unwrap_or_else(|| value.dtype());
+                EvalValue::new(value, dtype, NullBehavior::NullAware)
+            })
             .map(EvalValue::materialized)
             .ok_or_else(|| {
                 EvalFailure::invalid(
@@ -852,7 +855,17 @@ fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
             )),
         },
         UnaryOp::Negate => match value.value {
-            ScalarValue::Null => Ok(EvalValue::null(value.dtype, NullBehavior::NullPropagating)),
+            ScalarValue::Null => {
+                let dtype = reference_types::numeric_unary_type(&value.dtype, false)?;
+                Ok(EvalValue::null(
+                    if dtype == LogicalDType::UInt64 {
+                        LogicalDType::Int64
+                    } else {
+                        dtype
+                    },
+                    NullBehavior::NullPropagating,
+                ))
+            }
             ScalarValue::Int64(v) => v
                 .checked_neg()
                 .map(|out| {
@@ -863,6 +876,13 @@ fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
                     )
                 })
                 .ok_or_else(|| EvalFailure::invalid("negate", "int64 negation overflow")),
+            ScalarValue::UInt64(v) => Ok(EvalValue::new(
+                ScalarValue::Int64(i64::try_from(-i128::from(v)).map_err(|_| {
+                    EvalFailure::invalid("negate", "uint64 negation exceeds int64 range")
+                })?),
+                LogicalDType::Int64,
+                NullBehavior::NullPropagating,
+            )),
             ScalarValue::Float64(v) if v.is_finite() => Ok(EvalValue::new(
                 ScalarValue::Float64(-v),
                 LogicalDType::Float64,
@@ -878,7 +898,7 @@ fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
             other => Err(EvalFailure::unsupported(
                 "negate",
                 format!(
-                    "negate supports finite int64/float64 values, got {}",
+                    "negate requires int64, uint64, decimal128, finite float64, or null, got {}",
                     other.dtype().as_str()
                 ),
             )),
@@ -986,19 +1006,22 @@ fn eval_coalesce(
     args: &[Expression],
     row: &ExpressionInputRow,
 ) -> EvalResult<EvalValue> {
-    if args.len() != 2 {
+    if !(1..=128).contains(&args.len()) {
         return Err(EvalFailure::invalid(
             "null_coalesce",
-            format!("function {name:?} requires exactly two arguments"),
+            format!("function {name:?} requires 1 through 128 arguments"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
-    let fallback = eval_expression(&args[1], row)?;
-    let data_materialized = value.data_materialized || fallback.data_materialized;
-    if !value.value.is_null() {
-        return Ok(value.carry_materialization(data_materialized));
+    let dtype = reference_types::conditional(name, args, row)?;
+    let mut data_materialized = false;
+    for arg in args {
+        let value = eval_expression(arg, row)?;
+        data_materialized |= value.data_materialized;
+        if !value.value.is_null() {
+            return Ok(cast_eval_value(&value, &dtype)?.carry_materialization(data_materialized));
+        }
     }
-    Ok(fallback.carry_materialization(data_materialized))
+    Ok(EvalValue::null(dtype, NullBehavior::NullAware).carry_materialization(data_materialized))
 }
 
 fn eval_nullif(name: &str, args: &[Expression], row: &ExpressionInputRow) -> EvalResult<EvalValue> {
@@ -1043,6 +1066,7 @@ fn eval_case_when(
             format!("function {name:?} requires exactly three arguments"),
         ));
     }
+    let dtype = reference_types::conditional(name, args, row)?;
     let predicate = eval_expression(&args[0], row)?;
     let predicate_materialized = predicate.data_materialized;
     let selected = match predicate.value {
@@ -1059,7 +1083,10 @@ fn eval_case_when(
         }
     };
     let data_materialized = predicate_materialized || selected.data_materialized;
-    Ok(selected.carry_materialization(data_materialized))
+    if dtype == LogicalDType::Unknown {
+        return Ok(selected.carry_materialization(data_materialized));
+    }
+    Ok(cast_eval_value(&selected, &dtype)?.carry_materialization(data_materialized))
 }
 
 fn eval_timestamp_extract(
@@ -1499,18 +1526,26 @@ fn eval_string_substr(
     if args.len() != 3 {
         return Err(EvalFailure::invalid(
             "string_function",
-            format!("function {name:?} requires UTF-8, int64 start, and int64 length arguments"),
+            format!(
+                "function {name:?} requires UTF-8, integer start, and integer length arguments"
+            ),
         ));
     }
     let (values, data_materialized) = eval_function_args(args, row)?;
     if !matches!(values[0], ScalarValue::Utf8(_) | ScalarValue::Null)
-        || !matches!(values[1], ScalarValue::Int64(_) | ScalarValue::Null)
-        || !matches!(values[2], ScalarValue::Int64(_) | ScalarValue::Null)
+        || !matches!(
+            values[1],
+            ScalarValue::Int64(_) | ScalarValue::UInt64(_) | ScalarValue::Null
+        )
+        || !matches!(
+            values[2],
+            ScalarValue::Int64(_) | ScalarValue::UInt64(_) | ScalarValue::Null
+        )
     {
         return Err(EvalFailure::unsupported(
             "string_function",
             format!(
-                "function {name:?} supports UTF-8/null, int64/null, int64/null operands only, got {}, {}, and {}",
+                "function {name:?} supports UTF-8/null and integer/null offsets only, got {}, {}, and {}",
                 values[0].dtype().as_str(),
                 values[1].dtype().as_str(),
                 values[2].dtype().as_str()
@@ -1526,7 +1561,9 @@ fn eval_string_substr(
     let [value, start, length]: [ScalarValue; 3] =
         values.try_into().expect("validated substring arity");
     match (value, start, length) {
-        (ScalarValue::Utf8(value), ScalarValue::Int64(start), ScalarValue::Int64(length)) => {
+        (ScalarValue::Utf8(value), start, length) => {
+            let start = calendar_integer(&start).expect("validated substring start type");
+            let length = calendar_integer(&length).expect("validated substring length type");
             if start < 1 {
                 return Err(EvalFailure::invalid(
                     "string_function",
@@ -1558,7 +1595,7 @@ fn eval_string_substr(
         (value, start, length) => Err(EvalFailure::unsupported(
             "string_function",
             format!(
-                "function {name:?} supports UTF-8/null, int64/null, int64/null operands only, got {}, {}, and {}",
+                "function {name:?} supports UTF-8/null and integer/null offsets only, got {}, {}, and {}",
                 value.dtype().as_str(),
                 start.dtype().as_str(),
                 length.dtype().as_str()
@@ -1576,17 +1613,20 @@ fn eval_string_left_right(
     if args.len() != 2 {
         return Err(EvalFailure::invalid(
             "string_function",
-            format!("function {name:?} requires UTF-8 and int64 count arguments"),
+            format!("function {name:?} requires UTF-8 and integer count arguments"),
         ));
     }
     let (values, data_materialized) = eval_function_args(args, row)?;
     if !matches!(values[0], ScalarValue::Utf8(_) | ScalarValue::Null)
-        || !matches!(values[1], ScalarValue::Int64(_) | ScalarValue::Null)
+        || !matches!(
+            values[1],
+            ScalarValue::Int64(_) | ScalarValue::UInt64(_) | ScalarValue::Null
+        )
     {
         return Err(EvalFailure::unsupported(
             "string_function",
             format!(
-                "function {name:?} supports UTF-8/null and int64/null operands only, got {} and {}",
+                "function {name:?} supports UTF-8/null and integer/null operands only, got {} and {}",
                 values[0].dtype().as_str(),
                 values[1].dtype().as_str()
             ),
@@ -1600,7 +1640,8 @@ fn eval_string_left_right(
     }
     let [value, count]: [ScalarValue; 2] = values.try_into().expect("validated left/right arity");
     match (value, count) {
-        (ScalarValue::Utf8(value), ScalarValue::Int64(count)) => {
+        (ScalarValue::Utf8(value), count) => {
+            let count = calendar_integer(&count).expect("validated string count type");
             if count < 0 {
                 return Err(EvalFailure::invalid(
                     "string_function",
@@ -1627,7 +1668,7 @@ fn eval_string_left_right(
         (value, count) => Err(EvalFailure::unsupported(
             "string_function",
             format!(
-                "function {name:?} supports UTF-8/null and int64/null operands only, got {} and {}",
+                "function {name:?} supports UTF-8/null and integer/null operands only, got {} and {}",
                 value.dtype().as_str(),
                 count.dtype().as_str()
             ),
@@ -1879,8 +1920,11 @@ fn eval_numeric_abs(
     let value = eval_expression(&args[0], row)?;
     let data_materialized = value.data_materialized;
     match value.value {
-        ScalarValue::Null => Ok(EvalValue::null(value.dtype, NullBehavior::NullPropagating)
-            .carry_materialization(data_materialized)),
+        ScalarValue::Null => Ok(EvalValue::null(
+            reference_types::numeric_unary_type(&value.dtype, false)?,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
         ScalarValue::Int64(value) => {
             let output = value.checked_abs().ok_or_else(|| {
                 EvalFailure::invalid("numeric_abs", "int64 absolute value overflow")
@@ -1892,6 +1936,12 @@ fn eval_numeric_abs(
             )
             .carry_materialization(data_materialized))
         }
+        ScalarValue::UInt64(value) => Ok(EvalValue::new(
+            ScalarValue::UInt64(value),
+            LogicalDType::UInt64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
         ScalarValue::Float64(value) if value.is_finite() => Ok(EvalValue::new(
             ScalarValue::Float64(value.abs()),
             LogicalDType::Float64,
@@ -1909,7 +1959,7 @@ fn eval_numeric_abs(
         other => Err(EvalFailure::unsupported(
             "numeric_abs",
             format!(
-                "function {name:?} supports finite int64/float64/null operands only, got {}",
+                "function {name:?} requires int64, uint64, decimal128, finite float64, or null, got {}",
                 other.dtype().as_str()
             ),
         )),
@@ -1932,20 +1982,19 @@ fn eval_numeric_rounding(
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => {
-            let dtype = if let Some((precision, scale)) = decimal128_dtype_parts(&value.dtype) {
-                let (precision, scale) = decimal128_checked_operand(0, precision, scale)?
-                    .round()
-                    .precision_scale();
-                decimal128_dtype(precision, scale)
-            } else {
-                value.dtype
-            };
+            let dtype = reference_types::numeric_unary_type(&value.dtype, true)?;
             Ok(EvalValue::null(dtype, NullBehavior::NullPropagating)
                 .carry_materialization(data_materialized))
         }
         ScalarValue::Int64(value) => Ok(EvalValue::new(
             ScalarValue::Int64(value),
             LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        ScalarValue::UInt64(value) => Ok(EvalValue::new(
+            ScalarValue::UInt64(value),
+            LogicalDType::UInt64,
             NullBehavior::NullPropagating,
         )
         .carry_materialization(data_materialized)),
@@ -1971,7 +2020,7 @@ fn eval_numeric_rounding(
         other => Err(EvalFailure::unsupported(
             "numeric_rounding",
             format!(
-                "function {name:?} supports finite int64/float64/null operands only, got {}",
+                "function {name:?} requires int64, uint64, decimal128, finite float64, or null, got {}",
                 other.dtype().as_str()
             ),
         )),
@@ -2151,6 +2200,7 @@ fn eval_numeric_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalR
     }
     match (left.value, right.value) {
         (ScalarValue::Int64(left), ScalarValue::Int64(right)) => eval_i64_binary(left, op, right),
+        (ScalarValue::UInt64(left), ScalarValue::UInt64(right)) => eval_u64_binary(left, op, right),
         (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
             eval_f64_binary(left, op, right)
         }
@@ -2160,10 +2210,16 @@ fn eval_numeric_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalR
         (ScalarValue::Float64(left), ScalarValue::Int64(right)) => {
             eval_f64_binary(left, op, i64_to_exact_f64(right)?)
         }
+        (ScalarValue::UInt64(left), ScalarValue::Float64(right)) => {
+            eval_f64_binary(u64_to_exact_f64(left)?, op, right)
+        }
+        (ScalarValue::Float64(left), ScalarValue::UInt64(right)) => {
+            eval_f64_binary(left, op, u64_to_exact_f64(right)?)
+        }
         (left, right) => Err(EvalFailure::unsupported(
             "numeric_binary",
             format!(
-                "{} supports int64, float64, or exact int64/float64 mixed operands for this slice, got {} and {}",
+                "{} has no admitted numeric coercion for {} and {}",
                 op.as_str(),
                 left.dtype().as_str(),
                 right.dtype().as_str()
@@ -2546,6 +2602,38 @@ fn eval_i64_binary(left: i64, op: BinaryOp, right: i64) -> EvalResult<EvalValue>
     ))
 }
 
+fn u64_to_exact_f64(value: u64) -> EvalResult<f64> {
+    if value <= 9_007_199_254_740_992 {
+        #[allow(clippy::cast_precision_loss)]
+        let output = value as f64;
+        Ok(output)
+    } else {
+        Err(EvalFailure::unsupported(
+            "numeric_coercion",
+            "mixed uint64/float64 numeric coercion requires the uint64 operand to be exactly representable as float64",
+        ))
+    }
+}
+
+fn eval_u64_binary(left: u64, op: BinaryOp, right: u64) -> EvalResult<EvalValue> {
+    let output = match op {
+        BinaryOp::Add => left.checked_add(right),
+        BinaryOp::Subtract => left.checked_sub(right),
+        BinaryOp::Multiply => left.checked_mul(right),
+        BinaryOp::Divide if right == 0 => {
+            return Err(EvalFailure::invalid("divide", "division by zero"));
+        }
+        BinaryOp::Divide => left.checked_div(right),
+        BinaryOp::And | BinaryOp::Or => None,
+    }
+    .ok_or_else(|| EvalFailure::invalid("numeric_binary", "uint64 arithmetic overflow"))?;
+    Ok(EvalValue::new(
+        ScalarValue::UInt64(output),
+        LogicalDType::UInt64,
+        NullBehavior::NullPropagating,
+    ))
+}
+
 fn eval_f64_binary(left: f64, op: BinaryOp, right: f64) -> EvalResult<EvalValue> {
     if !left.is_finite() || !right.is_finite() {
         return Err(EvalFailure::unsupported(
@@ -2581,20 +2669,22 @@ fn numeric_output_dtype(
     op: BinaryOp,
     right: &EvalValue,
 ) -> EvalResult<LogicalDType> {
+    use LogicalDType::{Float64, Int64, UInt64, Unknown};
     if let Some(dtype) = decimal128_null_output_dtype(left, op, right)? {
         return Ok(dtype);
     }
-    match (&left.value, &right.value) {
-        (ScalarValue::Float64(_), _) | (_, ScalarValue::Float64(_)) => Ok(LogicalDType::Float64),
-        (ScalarValue::Int64(_), _)
-        | (_, ScalarValue::Int64(_))
-        | (ScalarValue::Null, ScalarValue::Null) => Ok(LogicalDType::Int64),
+    match (&left.dtype, &right.dtype) {
+        (Float64, Float64 | Int64 | UInt64 | Unknown) | (Int64 | UInt64 | Unknown, Float64) => {
+            Ok(Float64)
+        }
+        (UInt64, UInt64 | Unknown) | (Unknown, UInt64) => Ok(UInt64),
+        (Int64 | Unknown, Int64 | Unknown) => Ok(Int64),
         (left, right) => Err(EvalFailure::unsupported(
             "numeric_binary",
             format!(
                 "null numeric operations require admitted numeric peers, got {} and {}",
-                left.dtype().as_str(),
-                right.dtype().as_str()
+                left.as_str(),
+                right.as_str()
             ),
         )),
     }
@@ -2643,7 +2733,8 @@ fn decimal128_operand_from_eval_value(value: &EvalValue) -> EvalResult<Option<De
             precision: match value.dtype {
                 LogicalDType::Int64 => 19,
                 LogicalDType::UInt64 => 20,
-                _ => 1,
+                LogicalDType::Unknown => 1,
+                _ => return Ok(None),
             },
             scale: 0,
             source: Decimal128OperandSource::Integer,
@@ -2672,6 +2763,12 @@ fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalRe
         }
         (ScalarValue::UInt64(left), ScalarValue::UInt64(right)) => {
             compare_ordering(left.cmp(right), op, "")?
+        }
+        (ScalarValue::UInt64(left), ScalarValue::Int64(right)) => {
+            compare_ordering(i128::from(*left).cmp(&i128::from(*right)), op, "")?
+        }
+        (ScalarValue::Int64(left), ScalarValue::UInt64(right)) => {
+            compare_ordering(i128::from(*left).cmp(&i128::from(*right)), op, "")?
         }
         (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
             compare_f64(*left, *right, op)?
@@ -3163,6 +3260,7 @@ pub fn format_decimal128_value(value: i128, scale: u8) -> String {
 )]
 fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
     let data_materialized = value.data_materialized;
+    reference_types::cast_type(&value.dtype, target_dtype)?;
     if matches!(value.value, ScalarValue::Float64(value) if !value.is_finite()) {
         return Err(EvalFailure::unsupported(
             "cast",
@@ -3313,11 +3411,17 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
             }
             ScalarValue::Float64(parsed)
         }
-        (ScalarValue::Utf8(value), LogicalDType::Boolean) if value == "true" => {
-            ScalarValue::Boolean(true)
-        }
-        (ScalarValue::Utf8(value), LogicalDType::Boolean) if value == "false" => {
-            ScalarValue::Boolean(false)
+        (ScalarValue::Utf8(value), LogicalDType::Boolean) => {
+            ScalarValue::Boolean(match value.as_str() {
+                "true" => true,
+                "false" => false,
+                _ => {
+                    return Err(EvalFailure::invalid(
+                        "cast",
+                        "utf8 value must be true or false for boolean conversion",
+                    ));
+                }
+            })
         }
         (source, target) => {
             return Err(EvalFailure::unsupported(
@@ -4428,6 +4532,13 @@ impl KernelSelectionResult {
 #[cfg(test)]
 #[path = "expression_typed_tests.rs"]
 mod typed_tests;
+
+#[cfg(test)]
+#[path = "expression_reference_tests.rs"]
+mod reference_tests;
+
+#[path = "expression_reference_types.rs"]
+mod reference_types;
 
 #[cfg(test)]
 mod tests {

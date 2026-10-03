@@ -12828,7 +12828,7 @@ fn local_source_runtime_blocks_unsupported_string_function_shapes_without_fallba
                 "SELECT id FROM '{}' WHERE RIGHT(label) = 'a' LIMIT 10",
                 source_path.display()
             ),
-            "requires UTF-8 and int64 count arguments",
+            "requires UTF-8 and integer count arguments",
         ),
         (
             format!(
