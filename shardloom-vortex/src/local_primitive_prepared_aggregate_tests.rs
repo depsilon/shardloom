@@ -135,6 +135,51 @@ fn optional_preparation_is_nonexecuting_and_shape_declines_before_source_open() 
 }
 
 #[test]
+fn aggregate_source_handoff_preserves_worker_ownership_and_generation() {
+    let fixture = Fixture::new();
+    let request = fixture
+        .request(
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("metric").unwrap()],
+                vec![measure("count_distinct", Some("value"), "n")],
+            )
+            .with_order_by(vec![VortexAggregateOrderExpr::new("n", true)])
+            .with_offset(1),
+        )
+        .with_source_order_limit(2);
+    let policy = VortexLocalPrimitiveExecutionPolicy::new(2).unwrap();
+    let source = super::super::prepared_dispatch::prepare_source(&request, policy).unwrap();
+    let session = source.retained_session();
+    let memory = session.memory().clone();
+    assert_eq!(session.snapshot().provider_background_workers, 0);
+    let prepared = prepare_aggregate_from_source(&request, policy, source).unwrap();
+    assert!(prepared.worker_pool);
+    for execution in 1..=2 {
+        let result = prepared
+            .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())
+            .unwrap();
+        certified(&result.execution, execution);
+        let rows = result
+            .result_jsonl
+            .value()
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            rows,
+            [20, 30].map(|metric| serde_json::json!({"metric":metric,"n":1}))
+        );
+        assert_eq!(result.execution.runtime.provider_background_workers, 0);
+    }
+    fixture.replace();
+    assert!(prepared.execute().is_err());
+    assert_eq!(session.snapshot().prepared_source_opens, 1);
+    drop(prepared);
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn prepared_scalar_reexecutes_complete_values_and_retains_only_source_and_lowering() {
     let fixture = Fixture::new();
     for parallelism in [1, 2] {

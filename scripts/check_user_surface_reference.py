@@ -73,6 +73,8 @@ REQUIRED_JSON_POINTERS = (
     "native_nested_composition.denied_nested_writers",
     "native_typed_payloads.reference",
     "native_typed_payloads.types",
+    "native_typed_keys.reference",
+    "native_typed_keys.types",
 )
 
 REQUIRED_COMMANDS = (
@@ -260,6 +262,29 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
             blockers.append(f"{JSON_PATH}: native_typed_payloads.{field} differs from its contract")
     if "timestamp_timezone" not in typed or typed["timestamp_timezone"] is not None:
         blockers.append(f"{JSON_PATH}: typed temporal payloads require timezone-free microseconds")
+
+    keys = payload.get("native_typed_keys", {})
+    if set(keys.get("types", [])) != types:
+        blockers.append(f"{JSON_PATH}: typed keys must share the payload type admission")
+    for field, value in (
+        ("scope", "current_source_build_flat_native_relational_keys"),
+        ("binary_order", "unsigned_lexicographic_bytes"),
+        ("decimal_comparison", "exact_i128_with_identical_precision_and_scale"),
+        ("temporal_comparison", "exact_signed_storage_with_distinct_logical_types"),
+        ("operators", ["join", "set", "group", "sort", "window", "subquery"]),
+        ("aggregates", ["count", "count_distinct", "min", "max"]),
+        ("scalar_selection", ["comparison", "is_null", "is_not_null", "case", "coalesce", "nullif"]),
+        ("native_sort_spill", "explicit_relational_sort_policy"),
+        ("ordinary_sql_source_handoff", True),
+        ("inspection_side_effect_free", True),
+    ):
+        if keys.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_typed_keys.{field} differs from its contract")
+    for field in ("arithmetic", "casts", "retained_unary_state", "nested_keys",
+                  "group_join_window_spill", "total_rss_bound", "fallback_attempted",
+                  "external_engine_invoked"):
+        if keys.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_typed_keys.{field} must be false")
 
     pivot = payload.get("native_dynamic_pivot_composition", {})
     for field in ("preparation_metadata_only", "inspection_side_effect_free",

@@ -103,6 +103,25 @@ pub fn prepare_rows_in_session(
     request: &VortexQueryPrimitiveRequest,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexCollect> {
+    prepare_rows(request, session, None)
+}
+
+/// Bind a projection to a source already admitted by native strategy selection.
+/// # Errors
+/// Rejects changed/mismatched sources and unsupported projection semantics.
+pub fn prepare_rows_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    source: PreparedVortexSource,
+) -> Result<PreparedVortexCollect> {
+    let session = super::prepared_dispatch::source_session(&source, request, None)?;
+    prepare_rows(request, &session, Some(source))
+}
+
+fn prepare_rows(
+    request: &VortexQueryPrimitiveRequest,
+    session: &ResidentVortexSession,
+    prepared: Option<PreparedVortexSource>,
+) -> Result<PreparedVortexCollect> {
     if request.diagnostics.iter().any(|diagnostic| {
         matches!(
             diagnostic.severity,
@@ -127,7 +146,11 @@ pub fn prepare_rows_in_session(
         .ok_or_else(|| collect_error("source URI is required"))?;
     let path = local_vortex_path(uri, request.kind)?
         .ok_or_else(|| collect_error("local Vortex source is required"))?;
-    let source = session.prepare_file(path)?;
+    let source = if let Some(source) = prepared {
+        source
+    } else {
+        session.prepare_file(path)?
+    };
     let plan = row_export_scan_plan(request, source.dtype())?;
     if plan.residual_predicate.is_some() {
         return Err(collect_error(

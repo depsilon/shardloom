@@ -18,6 +18,9 @@ mod io_tests;
 #[path = "local_primitive_relational_typed_key_tests.rs"]
 mod key_tests;
 
+#[path = "local_primitive_relational_source_handoff_tests.rs"]
+mod source_handoff_tests;
+
 const DECIMAL_EDGE: i128 = 99_999_999_999_999_999_999_999_999_999_999_999_999;
 
 fn payloads() -> Vec<ArrayRef> {

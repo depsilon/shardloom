@@ -186,6 +186,9 @@ mod pair_partition_workers;
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_prepared_dispatch.rs"]
+pub mod prepared_dispatch;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_relational.rs"]
 pub mod prepared_relational;
 #[cfg(all(feature = "vortex-local-primitives", unix))]

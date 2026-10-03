@@ -151,6 +151,38 @@ impl<'a> Binder<'a> {
         }
     }
 
+    pub(super) fn seed_source(
+        &mut self,
+        uri: &shardloom_core::DatasetUri,
+        source: PreparedVortexSource,
+    ) -> Result<()> {
+        if uri.as_str().len() > 16_384 {
+            return Err(failed("source URI exceeds 16384 bytes"));
+        }
+        let request = VortexQueryPrimitiveRequest::project(
+            uri.clone(),
+            shardloom_plan::ProjectionRequest::All,
+        );
+        let session = super::super::prepared_dispatch::source_session(&source, &request, None)?;
+        if !session.same_owner(self.session) {
+            return Err(failed("retained source belongs to another resource owner"));
+        }
+        let path = super::super::local_vortex_path(uri, request.kind)?
+            .ok_or_else(|| failed("relational scans require local Vortex input"))?;
+        let path = std::path::absolute(path).map_err(vortex_error)?;
+        self.charge(
+            uri.as_str()
+                .len()
+                .checked_mul(8)
+                .ok_or_else(|| failed("source metadata overflow"))?,
+        )?;
+        self.paths.reserve_one()?;
+        self.sources.reserve_one()?;
+        self.paths.values.push(path);
+        self.sources.values.push(source);
+        Ok(())
+    }
+
     pub(super) fn source(&mut self, uri: &shardloom_core::DatasetUri) -> Result<usize> {
         if uri.as_str().len() > 16_384 {
             return Err(failed("source URI exceeds 16384 bytes"));

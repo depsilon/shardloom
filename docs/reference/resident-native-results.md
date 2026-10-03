@@ -113,8 +113,14 @@ account for every existing aggregate state and upstream allocation. The
 extends shared payload ownership, relational delivery and representable writers.
 The [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md)
 adds binary, exact Decimal128, Date32 and timezone-free microsecond timestamps,
-including nested leaves, to this delivery path. Key/arithmetic/unary-state
-semantics, unadmitted nested shapes, general Variant/extension operations and
+including nested leaves, to this delivery path. The subsequent [typed key contract](../architecture/native-typed-keys-2026-10-03.md)
+admits flat binary, exact Decimal128 with matching precision/scale, Date32 and
+timezone-free timestamp-microsecond equality, hashing and ordering through
+relational joins, sets, groups, windows and subqueries, plus COUNT/COUNT
+DISTINCT/MIN/MAX and the scoped expressions it lists. Its existing explicit
+ORDER BY spill policy applies to these flat keys. It adds no group, join or
+window state spill. Nested key equality, casts, arithmetic/rescaling, retained
+unary state, unadmitted nested shapes, general Variant/extension operations and
 broader state-spill families remain explicit gaps.
 See the [streaming contract and acceptance](../architecture/native-workflow-streaming-2026-10-01.md).
 

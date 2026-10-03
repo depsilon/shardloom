@@ -34,12 +34,18 @@ Selection precedes ownership: small binary results must not retain unselected
 source domains. Vortex's generic allocator-taking builder still discards the
 allocator argument in this version; keep the established explicit buffer path.
 
-Payload admission does not admit arithmetic, sorting/grouping/join keys, unary
-state, casts or decimal/temporal predicates. Existing key/expression admission
-must reject those uses before execution until their own semantics are implemented
-and tested. Filtering/ordering/joining on already admitted scalar keys may carry
-the new fields as payloads through projection, limits, UNION ALL, windows,
-subqueries, outer-join null extension and list explosion.
+At the original payload acceptance boundary, these types were payloads only;
+that acceptance excluded them as keys and excluded arithmetic, casts, unary
+state and decimal/temporal predicates. The subsequent [typed key contract](native-typed-keys-2026-10-03.md)
+extends flat Binary, exact Decimal128 (matching precision and scale), Date32 and
+timezone-free timestamp-microsecond equality, hashing and ordering across
+relational joins, sets, groups, windows and subqueries. It also admits COUNT,
+COUNT DISTINCT, MIN/MAX, same-type comparisons, IS NULL, CASE, COALESCE and
+NULLIF. Casts, arithmetic/rescaling, retained unary state and nested key equality
+remain separate unsupported boundaries. Filtering/ordering/joining on already
+admitted scalar keys may carry these fields as payloads through projection,
+limits, UNION ALL, windows, subqueries, outer-join null extension and list
+explosion.
 
 ## Shared components and delivery
 

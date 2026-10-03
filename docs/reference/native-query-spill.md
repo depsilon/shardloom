@@ -38,6 +38,11 @@ live inputs, merge output and ownership metadata; it must cover that overlap.
 Returned evidence records runs, merge passes, peak reserved bytes, peak disk bytes
 and successful owned cleanup. Values are exact, including unsigned keys above
 the signed integer range and signed integer extremes.
+Public query and writer envelopes expose this existing report through
+`local_primitive_native_sort_spill_*` fields, including `runs_written`,
+`runs_validated`, `merge_passes`, `peak_reserved_bytes`, `peak_disk_bytes` and
+`owned_cleanup_completed`. Ordinary SQL output preserves the specialized sort
+provider and its resource contract.
 
 Run leaves contain 256 to 1,024 rows, chosen within the existing merge reservation.
 At 4 MiB the operator uses 1,024-row leaves and up to eight input runs; at 1 MiB
@@ -79,7 +84,10 @@ not close the whole PERF-06 shared-spill packet or establish a throughput claim.
 
 Composed SQL and DataFrame ordering can spill full native rows, including multiple
 keys, nullable keys with explicit null order, finite floats, booleans, exact signed
-and unsigned integers, and UTF8. It shares native key comparison, stable ordering,
+and unsigned integers, UTF8, binary, exact Decimal128, Date32 and timezone-free
+microsecond timestamps. The [typed key contract](../architecture/native-typed-keys-2026-10-03.md)
+requires matching decimal precision/scale and preserves distinct temporal types.
+It shares native key comparison, stable ordering,
 run storage, memory ownership and sinks with the existing engine. Adjacent two-run
 merges preserve input order on ties. All ordering stages in one query share the
 same disk quota and resident grant; no nested stage creates another execution budget.

@@ -101,10 +101,14 @@ representable scalar results within the existing field and state budgets. See th
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md">dynamic pivot contract</a>.
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
-arithmetic, keys and unary state remain unadmitted. Binary supports all eight
-writers; ORC rejects decimal and temporal payloads. Text output uses explicit
-typed encodings and does not preserve native logical types. See the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-payloads-2026-10-03.md">typed payload contract</a>.
+flat equality, hashing and ordering are admitted through relational joins, sets,
+groups, windows and subqueries, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
+comparisons and expressions; Decimal precision and scale must match. Nested key
+equality, casts, arithmetic/rescaling and retained unary state remain unsupported.
+See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>.
+Binary supports all eight writers; ORC rejects decimal and temporal payloads.
+Text output uses explicit typed encodings and does not preserve native logical
+types. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-payloads-2026-10-03.md">typed payload contract</a>.
 Nested keys, general nested unary state, general Variant/extension operations and wider operator
 state spill remain separate boundaries.
 General joins, set operations, analytic windows, and subqueries still have native coverage
@@ -206,10 +210,11 @@ do not guarantee full CPU utilization or a total-process RSS ceiling. See the
 DataFrame collection and local writers. Optional <code dir="auto">spill</code> declares an existing local workspace,
 <code dir="auto">quota_bytes</code>, and <code dir="auto">buffer_bytes</code>. Nullable multi-key relational ordering can flush typed
 Vortex runs and merge them under the same query grant and disk quota, including composed inputs.
+This includes flat typed keys in the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>.
 The buffer is a flush threshold; it is not a second memory grant or a whole-process RSS ceiling.
 Verified cleanup must finish before an execution or writer reports success.</p>
 <p>COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies. Aggregate,
-join, and window state do not gain spill from relational ordering permission. Wider types and
+join, and window state do not gain spill from relational ordering permission. Other key types and
 broader resource accounting remain separate work. See
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md">COUNT/DISTINCT contracts</a>,
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md">native spill contracts</a>,

@@ -158,6 +158,10 @@ mod spill;
 mod resident_count;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "public_resident_sql.rs"]
+mod resident_sql;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "public_resident_count_where.rs"]
 mod resident_count_where;
 
@@ -392,8 +396,14 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
-    mut extra_fields: Vec<(String, String)>,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    let mut extra_fields = extra_fields;
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    if let Some(exit) = resident_sql::write_if_needed(request, plan, format, &mut extra_fields) {
+        return exit;
+    }
     let Some(input_uri) = request.input_uri.clone() else {
         let blocked = input_not_declared_route();
         return emit_blocked_facade("run", format, request, &blocked);
@@ -430,13 +440,24 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
                 );
             }
         };
+    emit_native_vortex_primitive_row_export(request, plan, format, extra_fields, &targets, &reports)
+}
+
+fn emit_native_vortex_primitive_row_export(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    mut extra_fields: Vec<(String, String)>,
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
+) -> ExitCode {
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.append(&mut extra_fields);
     let primary_report = reports
         .first()
         .expect("native Vortex primitive row export has a primary target");
     append_native_vortex_primitive_row_export_fields(&mut fields, primary_report);
-    append_native_vortex_primitive_row_export_target_fields(&mut fields, &targets, &reports);
+    append_native_vortex_primitive_row_export_target_fields(&mut fields, targets, reports);
     let has_errors = reports
         .iter()
         .any(shardloom_vortex::VortexLocalPrimitiveRowExportReport::has_errors);
@@ -1606,6 +1627,44 @@ fn append_local_primitive_state_budget_fields(
     if let Some(spill) = &state_budget.native_weighted_count_spill {
         append_native_weighted_count_spill_fields(fields, spill);
     }
+    if let Some(spill) = &state_budget.native_sort_spill {
+        append_native_sort_spill_fields(fields, spill);
+    }
+}
+
+fn append_native_sort_spill_fields(
+    fields: &mut Vec<(String, String)>,
+    spill: &shardloom_vortex::VortexSortSpillReport,
+) {
+    let prefix = "local_primitive_native_sort_spill_";
+    push_field(
+        fields,
+        format!("{prefix}workspace"),
+        spill.workspace.display().to_string(),
+    );
+    for (name, value) in [
+        ("quota_bytes", spill.quota_bytes),
+        ("memory_bytes", spill.memory_bytes),
+        ("peak_reserved_bytes", spill.peak_reserved_bytes),
+        ("peak_disk_bytes", spill.peak_disk_bytes),
+        ("runs_written", spill.runs_written),
+        ("runs_validated", spill.runs_validated),
+        ("merge_passes", spill.merge_passes),
+    ] {
+        push_field(fields, format!("{prefix}{name}"), value.to_string());
+    }
+    for (name, value) in [
+        ("run_block_rows", spill.run_block_rows),
+        ("merge_fan_in", spill.merge_fan_in),
+        ("max_open_runs", spill.max_open_runs),
+    ] {
+        push_field(fields, format!("{prefix}{name}"), value.to_string());
+    }
+    push_bool_field(
+        fields,
+        format!("{prefix}owned_cleanup_completed"),
+        spill.owned_cleanup_completed,
+    );
 }
 
 fn append_native_weighted_count_spill_fields(
@@ -2718,6 +2777,12 @@ fn execute_native_vortex_primitive_run_with_extra(
     mut extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if let Some(exit) =
+        resident_sql::run_if_needed(request, plan, format, &mut extra_fields, execution_session)
+    {
+        return exit;
+    }
     if request.requested_output != "collect" {
         execution_session.clear();
     }
@@ -2853,10 +2918,34 @@ fn execute_native_vortex_owned_collect(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
+    extra_fields: Vec<(String, String)>,
+    primitive: PublicVortexPrimitive,
+    binding: &NativeVortexInputBinding,
+    execution_session: &mut PublicExecutionSession,
+) -> ExitCode {
+    execute_native_vortex_owned_collect_with_source(
+        request,
+        plan,
+        format,
+        extra_fields,
+        primitive,
+        binding,
+        execution_session,
+        None,
+    )
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[allow(clippy::too_many_arguments)]
+fn execute_native_vortex_owned_collect_with_source(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
     mut extra_fields: Vec<(String, String)>,
     primitive: PublicVortexPrimitive,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
 ) -> ExitCode {
     let result = (|| {
         if request.materialization_policy == "zero_decode" {
@@ -2874,14 +2963,21 @@ fn execute_native_vortex_owned_collect(
         {
             // Release the previous reader/runtime before admitting the next budget.
             execution_session.clear();
-            let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
-                policy.resource_envelope.memory_budget_bytes,
-                policy.max_parallelism,
-            )?;
-            let operation = shardloom_vortex::local_primitives::collect::prepare_rows_in_session(
-                &primitive_request,
-                &session,
-            )?;
+            let operation = if let Some(source) = source {
+                shardloom_vortex::local_primitives::collect::prepare_rows_from_source(
+                    &primitive_request,
+                    source,
+                )?
+            } else {
+                let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+                    policy.resource_envelope.memory_budget_bytes,
+                    policy.max_parallelism,
+                )?;
+                shardloom_vortex::local_primitives::collect::prepare_rows_in_session(
+                    &primitive_request,
+                    &session,
+                )?
+            };
             execution_session.collect = Some(PreparedPublicCollect {
                 request: request.clone(),
                 operation,
@@ -3141,8 +3237,29 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
+    extra_fields: Vec<(String, String)>,
+    primitive: PublicVortexPrimitive,
+) -> ExitCode {
+    execute_native_vortex_materializing_with_source(
+        request,
+        plan,
+        format,
+        extra_fields,
+        primitive,
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        None,
+    )
+}
+
+fn execute_native_vortex_materializing_with_source(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
     mut extra_fields: Vec<(String, String)>,
     primitive: PublicVortexPrimitive,
+    #[cfg(all(feature = "vortex-local-primitives", unix))] source: Option<
+        shardloom_vortex::resident_session::PreparedVortexSource,
+    >,
 ) -> ExitCode {
     if primitive == PublicVortexPrimitive::Aggregate
         && request.materialization_policy == "zero_decode"
@@ -3171,7 +3288,24 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
         Ok(policy) => policy,
         Err(error) => return native_vortex_materializing_error(format, primitive, &error),
     };
-    let report = if binding.mode == "single_file" {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let prepared = source.map(|source| {
+        shardloom_vortex::local_primitives::prepared_dispatch::execute_sort(
+            &primitive_request,
+            policy,
+            &source,
+        )
+    });
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let prepared: Option<
+        Result<shardloom_vortex::VortexLocalPrimitiveExecutionReport, ShardLoomError>,
+    > = None;
+    let report = if let Some(report) = prepared {
+        match report {
+            Ok(report) => report,
+            Err(error) => return native_vortex_materializing_error(format, primitive, &error),
+        }
+    } else if binding.mode == "single_file" {
         match shardloom_vortex::execute_vortex_local_primitive_with_policy(
             &primitive_request,
             policy,
@@ -4652,6 +4786,17 @@ fn execute_prepared_local_native_route(
     execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
     match native_plan.route_id {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        "native_vortex_relational_collect" | "native_vortex_relational_write" => {
+            resident_relational::run_with_source(
+                request,
+                native_plan,
+                format,
+                execution_session,
+                extra_fields,
+                None,
+            )
+        }
         "native_vortex_count_all"
         | "native_vortex_count_where"
         | "native_vortex_filter"
@@ -6001,6 +6146,11 @@ fn plan_public_workflow_route_inner(
 
     if request.generated_source_kind.is_some() && request.requested_output == "collect" {
         return generated_memory_collect_route(request);
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if let Some(plan) = resident_sql::route(request) {
+        return plan;
     }
 
     if request.requested_output != "prepare"

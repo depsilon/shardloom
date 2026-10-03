@@ -37677,6 +37677,16 @@ fn parse_generic_expression_projection(
     if expression_raw.is_empty() || alias.is_empty() {
         return Ok(None);
     }
+    if let Some(expression) = parse_column_null_selection(expression_raw, alias)? {
+        validate_sql_identifier(alias)?;
+        return Ok(Some(ParsedGenericExpressionProjection {
+            alias: alias.to_owned(),
+            source_columns: expression_source_columns(&expression),
+            operator_families: expression_operator_families(&expression),
+            binary_operator_count: 0,
+            expression,
+        }));
+    }
     if validate_sql_column_ref(expression_raw).is_ok() && parse_sql_literal(expression_raw).is_err()
     {
         validate_sql_identifier(alias)?;
@@ -37719,6 +37729,50 @@ fn parse_generic_expression_projection(
         operator_families,
         binary_operator_count,
     }))
+}
+
+fn parse_column_null_selection(
+    raw: &str,
+    alias: &str,
+) -> Result<Option<Expression>, ShardLoomError> {
+    let Some(name) = ["coalesce", "nullif"].into_iter().find(|name| {
+        raw.get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && raw.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+    let Some(close) = matching_closing_parenthesis(raw, name.len())? else {
+        return Ok(None);
+    };
+    if close + 1 != raw.len() {
+        return Ok(None);
+    }
+    let arguments = split_sql_csv(&raw[name.len() + 1..close])?;
+    if arguments.len() != 2
+        || arguments.iter().any(|argument| {
+            validate_sql_column_ref(argument).is_err() || parse_sql_literal(argument).is_ok()
+        })
+    {
+        return Ok(None);
+    }
+    let args = arguments
+        .iter()
+        .enumerate()
+        .map(|(index, argument)| {
+            Ok(Expression::column(
+                ExprId::new(format!("project.{name}.{alias}.{index}"))?,
+                ColumnRef::new(argument.clone())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    Ok(Some(Expression::new(
+        ExprId::new(format!("project.{name}.{alias}"))?,
+        ExpressionKind::FunctionCall {
+            name: name.to_owned(),
+            args,
+        },
+    )))
 }
 
 fn is_simple_numeric_arithmetic_projection_shape(raw: &str) -> Result<bool, ShardLoomError> {

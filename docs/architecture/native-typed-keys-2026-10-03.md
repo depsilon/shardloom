@@ -64,6 +64,34 @@ storage without Arrow or terminal JSON conversion. Existing canonicalization and
 provider scratch boundaries remain explicit; this is not a zero-decode or complete
 process-RSS claim.
 
+## Ordinary SQL preparation
+
+Plain SELECT statements must reach the same typed semantics as composed SQL.
+Route inspection remains syntax-only. During execution, open one generation-bound
+native source under the requested CPU/memory grant, inspect the referenced field
+types from the already-lowered native request, and hand that source to the selected
+native operation. Output aliases do not count as source fields. Existing optimized
+aggregate, order, projection and filtered-count strategies remain available for
+their admitted scalar types. Extended typed fields select the shared relational
+binder before scanning; failed binding or execution is terminal, never a retry.
+Both strategies retain the same source generation and resource owner. Retained
+aggregate, projection/filter, filtered-count and relational worker handles execute
+fresh results on matching repeated calls.
+
+Single-target plain SQL writers use the same metadata admission and source handoff.
+Existing aggregate and sort writers retain their specialized providers and spill contracts;
+simple projection/filter writers retain native array sinks. A source shape outside
+those writers' admission selects the shared relational binder before execution.
+Shapes without a complete optimized lowering use the shared relational plan
+directly. This includes LIMIT 0, which still binds all operations and validates
+types. Explicit primitive APIs keep their own contracts. No source
+is opened by route inspection, and source normalization and sink certificates
+remain attached to the actual execution. Column-to-column COALESCE and NULLIF
+lower into existing expression nodes; type compatibility is checked by the binder.
+Ordinary trailing `LIMIT n OFFSET m` binds through the existing relational limit
+node, preserving ordering, complete output and empty-plan type checks. Nested or
+dynamic-schema OFFSET forms remain separate syntax admission.
+
 ## Resource and acceptance contract
 
 Retain one operation grant, native leases, cancellation and state admission.
