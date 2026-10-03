@@ -45,10 +45,10 @@ impl PreparedVortexUnary {
                     let plan = super::super::native_sink::NativeSinkPlan::produced(
                         self.session.clone(),
                         super::DType::struct_(
-                            completed.fields.clone(),
+                            completed.result.fields.clone(),
                             super::Nullability::NonNullable,
                         ),
-                        completed.rows as u64,
+                        completed.result.rows as u64,
                         source_path,
                         Some(self.source.clone()),
                     )?;
@@ -62,14 +62,16 @@ impl PreparedVortexUnary {
                         if delivered {
                             return Err(failed("pivot result producer was invoked twice"));
                         }
-                        completed.emit(&self.bound, context, batch_rows, &mut |array| {
-                            if !consume(array)? {
-                                return Err(failed(
-                                    "pivot result consumer stopped before completion",
-                                ));
-                            }
-                            Ok(())
-                        })?;
+                        completed
+                            .result
+                            .emit(&self.bound, context, batch_rows, &mut |array| {
+                                if !consume(array)? {
+                                    return Err(failed(
+                                        "pivot result consumer stopped before completion",
+                                    ));
+                                }
+                                Ok(())
+                            })?;
                         delivered = true;
                         Ok(())
                     };

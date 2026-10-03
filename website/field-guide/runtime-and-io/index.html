@@ -94,8 +94,13 @@ Current source builds also carry bounded static list/struct payloads through adm
 relational stages and ordered/repeated explode. Vortex, JSON, JSONL, Arrow IPC, Parquet
 and Avro accept representable nested output; nested CSV and ORC are denied. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-composition-2026-10-02.md">nested composition contract</a>.
-Nested keys, general nested unary state, Variant/extensions, dynamic pivot and wider
-operator state spill remain separate boundaries.
+Scalar pivot and pivot-table stages also compose through the same native plan.
+Their observed columns bind during execution, including independent domains for
+correlated inner rows; inspection remains inert. All eight local writers accept
+representable scalar results within the existing field and state budgets. See the
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md">dynamic pivot contract</a>.
+Nested keys, general nested unary state, Variant/extensions and wider operator
+state spill remain separate boundaries.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md">front-door contract</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory">remaining family inventory</a>.</p>

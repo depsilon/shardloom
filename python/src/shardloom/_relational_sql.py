@@ -160,7 +160,7 @@ def _render_stages(
             statement = f"SELECT * FROM {source} LIMIT {values[0]}"
         elif kind == "distinct":
             statement = f"SELECT * FROM DISTINCT_ROWS(({statement}), '*') AS _sl_stage_{index}"
-        elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window", "explode"}:
+        elif kind in {"tail", "sample", "drop_duplicates", "duplicate_mask", "expression_project", "melt", "rolling_window", "explode", "pivot"}:
             if kind == "tail":
                 function, argument = "TAIL", values[0]
             elif kind == "sample":
@@ -183,7 +183,7 @@ def _render_stages(
                     columns = ("duplicated",)
             else:
                 payload = json.loads(values[0])
-                function = {"expression_project": "REWRITE", "melt": "MELT", "rolling_window": "ROLLING", "explode": "EXPLODE"}[kind]
+                function = {"expression_project": "REWRITE", "melt": "MELT", "rolling_window": "ROLLING", "explode": "EXPLODE", "pivot": "PIVOT"}[kind]
                 argument = q._sql_string_literal(values[0])
                 if kind == "expression_project":
                     selected = payload["columns"]
@@ -193,6 +193,8 @@ def _render_stages(
                         for rewrite in payload["rewrites"]:
                             if rewrite["kind"] == "row_number" and rewrite["target_column"] not in columns:
                                 columns = (*columns, rewrite["target_column"])
+                elif kind == "pivot":
+                    columns = None  # Observed domains belong to the native execution.
                 elif kind == "melt":
                     columns = (*payload["id_columns"], payload["variable_column"], payload["value_column"])
                 elif kind == "explode":

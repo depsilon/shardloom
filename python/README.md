@@ -466,8 +466,20 @@ Static List/FixedSizeList/Struct payloads compose through admitted relational
 stages and ordered/repeated explode. Nested payloads can be written as Vortex,
 JSON, JSONL, Arrow IPC, Parquet or Avro when the dtype is representable; nested
 CSV and ORC are denied. Exploded flat output still supports all eight writers.
-Nested keys and general nested unary state, Variant/extensions and dynamic pivot
-remain unsupported in composition. See the [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
+Nested keys, general nested unary state and Variant/extensions remain unsupported
+in composition. See the [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
+
+Current source builds also compose scalar `pivot` and `pivot_table` at their
+declared position, including renamed/ordered input, downstream filters,
+projections, aggregates, joins, sets, windows, melt and successive pivots. SQL
+uses `PIVOT((SELECT ...), '{"index":"entity","columns":"category","values":"amount","aggregate":"sum"}')`.
+Observed domains determine the columns during native execution; preparation and
+inspection do not read rows to guess them. Empty input keeps its actual index-only
+schema, with the declared margins column when requested. Referencing an absent
+domain fails explicitly. Correlated inner pivots bind independently for each
+outer row. All eight writers accept representable scalar results above the small
+collection limit, subject to the existing 128-field and memory limits. Pivot
+state has no spill path. See the [dynamic pivot contract and acceptance](../docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and

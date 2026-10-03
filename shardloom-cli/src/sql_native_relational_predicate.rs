@@ -74,6 +74,34 @@ fn direct_outer(predicate: &ParsedPredicate) -> bool {
     }
 }
 
+pub(super) fn select_direct_outer(parsed: &ParsedSqlLocalSource) -> bool {
+    parsed.predicate_surfaces().into_iter().any(direct_outer)
+}
+
+fn source_outer(source: &ParsedRelationSource) -> bool {
+    match source {
+        ParsedRelationSource::Local(_) => false,
+        ParsedRelationSource::Derived(query) => query_outer(query),
+        ParsedRelationSource::Unary(unary) => query_outer(&unary.input),
+    }
+}
+
+fn query_outer(query: &super::ParsedRelationQuery) -> bool {
+    match query {
+        super::ParsedRelationQuery::Select(parsed) => select_outer(parsed),
+        super::ParsedRelationQuery::Set(set) => set.branches.iter().any(select_outer),
+    }
+}
+
+fn select_outer(parsed: &ParsedSqlLocalSource) -> bool {
+    select_direct_outer(parsed)
+        || source_outer(&parsed.source)
+        || parsed
+            .join
+            .as_ref()
+            .is_some_and(|join| source_outer(&join.right_source))
+}
+
 #[derive(Clone, Copy)]
 struct Inner<'a> {
     source: &'a ParsedRelationSource,
@@ -82,6 +110,41 @@ struct Inner<'a> {
     projected: Option<&'a ParsedSqlLocalSource>,
     order: Option<&'a ParsedOrderBy>,
     limit: Option<usize>,
+}
+
+struct OwnedInner {
+    source: ParsedRelationSource,
+    selected: Vec<String>,
+    predicate: ParsedPredicate,
+    projected: Option<ParsedSqlLocalSource>,
+    order: Option<ParsedOrderBy>,
+    limit: Option<usize>,
+}
+
+impl From<Inner<'_>> for OwnedInner {
+    fn from(inner: Inner<'_>) -> Self {
+        Self {
+            source: inner.source.clone(),
+            selected: inner.selected.to_vec(),
+            predicate: inner.predicate.clone(),
+            projected: inner.projected.cloned(),
+            order: inner.order.cloned(),
+            limit: inner.limit,
+        }
+    }
+}
+
+impl OwnedInner {
+    fn as_inner(&self) -> Inner<'_> {
+        Inner {
+            source: &self.source,
+            selected: &self.selected,
+            predicate: &self.predicate,
+            projected: self.projected.as_ref(),
+            order: self.order.as_ref(),
+            limit: self.limit,
+        }
+    }
 }
 
 impl Lowerer<'_, '_> {
@@ -237,18 +300,82 @@ impl Lowerer<'_, '_> {
         inner: Inner<'_>,
         kind: SubqueryKind,
     ) -> NativeResult<(Lowered, Expression)> {
-        let parameterized = inner.projected.map_or_else(
-            || direct_outer(inner.predicate),
-            |parsed| parsed.predicate_surfaces().into_iter().any(direct_outer),
-        );
-        let outer = parameterized.then_some(input.columns.as_slice());
+        let parameterized = source_outer(inner.source)
+            || direct_outer(inner.predicate)
+            || inner.projected.is_some_and(select_outer);
+        let dynamic = super::dynamic::source_required(inner.source)
+            || super::dynamic::predicate_required(inner.predicate)
+            || inner.projected.is_some_and(super::dynamic::select_required);
+        let relation = if parameterized && dynamic {
+            let declaration = self.declaration.clone().ok_or_else(|| {
+                unsupported_sql_error("dynamic subquery requires an execution declaration")
+            })?;
+            let owned = OwnedInner::from(inner);
+            let columns = input.columns.clone();
+            let kind = kind.clone();
+            self.schemas
+                .defer_subquery(declaration.bytes, move |schemas| {
+                    let mut resolver = |leaf: &super::ParsedRelationLeaf| {
+                        declaration.sources.get(leaf).cloned().ok_or_else(|| {
+                            unsupported_sql_error(
+                                "dynamic subquery referenced an undeclared source",
+                            )
+                        })
+                    };
+                    let mut lowerer = Lowerer {
+                        schemas,
+                        serial: 0,
+                        resolve_source: &mut resolver,
+                        declaration: Some(declaration.clone()),
+                        outer: Some(columns.clone()),
+                    };
+                    let mut relation = lowerer.inner_relation(owned.as_inner(), &kind)?;
+                    lowerer.prune(
+                        &mut relation.plan,
+                        None,
+                        &mut std::collections::BTreeSet::new(),
+                    )?;
+                    Ok(relation.plan)
+                })?
+        } else {
+            let previous = self.outer.clone();
+            if parameterized {
+                self.outer = Some(input.columns.clone());
+            }
+            let relation = self.inner_relation(inner, &kind);
+            self.outer = previous;
+            relation?.plan
+        };
+        let output_column = self.fresh(&input.columns);
+        let query = Box::new(Subquery {
+            input: input.plan,
+            relation,
+            kind,
+            correlation: vec![],
+            output_column: output_column.clone(),
+            negated: false,
+        });
+        input.plan = if parameterized {
+            Plan::CorrelatedSubquery(query)
+        } else {
+            Plan::Subquery(query)
+        };
+        input.columns.push(output_column.clone());
+        Ok((input, column(&output_column)?))
+    }
+
+    fn inner_relation(&mut self, inner: Inner<'_>, kind: &SubqueryKind) -> NativeResult<Lowered> {
         let relation = if let Some(parsed) = inner.projected {
-            self.select(parsed, outer, !parsed.limit_is_synthetic)?
+            self.select(parsed, None, !parsed.limit_is_synthetic)?
         } else {
             let relation = self.relation(inner.source)?;
             for selected in inner.selected {
                 relation.resolve(selected)?;
             }
+            let outer = self
+                .outer
+                .as_deref()
+                .filter(|_| direct_outer(inner.predicate));
             let relation = Self::with_outer(relation, outer)?;
             let relation = self.filter(relation, inner.predicate)?.order(inner.order)?;
             if let Some(limit) = inner.limit {
@@ -257,7 +384,7 @@ impl Lowerer<'_, '_> {
                 relation
             }
         };
-        let selected = match &kind {
+        let selected = match kind {
             SubqueryKind::In { columns } => columns
                 .iter()
                 .map(|key| key.right.as_str())
@@ -278,21 +405,6 @@ impl Lowerer<'_, '_> {
                 .collect::<NativeResult<_>>()?;
             relation.project(expressions)
         };
-        let output_column = self.fresh(&input.columns);
-        let query = Box::new(Subquery {
-            input: input.plan,
-            relation: relation.plan,
-            kind,
-            correlation: vec![],
-            output_column: output_column.clone(),
-            negated: false,
-        });
-        input.plan = if parameterized {
-            Plan::CorrelatedSubquery(query)
-        } else {
-            Plan::Subquery(query)
-        };
-        input.columns.push(output_column.clone());
-        Ok((input, column(&output_column)?))
+        Ok(relation)
     }
 }

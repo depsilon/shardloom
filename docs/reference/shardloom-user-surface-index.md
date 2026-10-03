@@ -210,6 +210,15 @@ objects. Common admitted methods include:
   plus admitted `fill_value`, `dropna`, `margins`, and `margins_name` output policy; multi-level
   nested-field accessor explode, multi-index/multi-value pivot, custom pivot aggregates,
   hidden index-state reshape, and broad reshape parity remain deterministic blockers.
+  Current source builds compose scalar pivot stages with preceding and following
+  native operators, including successive pivot/melt stages and correlated inner
+  queries. SQL spells the stage as `PIVOT((SELECT ...), '<options JSON>')`.
+  Actual domains bind during execution; inspection and preparation stay inert.
+  Empty input retains the index field and any declared margins field; an absent
+  named domain fails explicitly. Complete scalar output can use all eight local
+  writers within the existing 128-field and memory limits. Pivot-state spill and
+  cross-call answer reuse are unsupported. See the
+  [dynamic pivot ownership and acceptance contract](../architecture/native-dynamic-pivot-composition-2026-10-03.md).
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
   primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows
   use bounded lookahead evidence, and time/calendar windows, custom frames, callbacks, and broad pandas rolling parity remain deterministic

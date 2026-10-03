@@ -25,6 +25,8 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 mod aggregate_tests;
 #[path = "local_primitive_relational_correlated_tests.rs"]
 mod correlated_tests;
+#[path = "local_primitive_relational_dynamic_tests.rs"]
+mod dynamic_tests;
 #[path = "local_primitive_relational_expression_tests.rs"]
 mod expression_tests;
 #[path = "local_primitive_relational_join_condition_tests.rs"]
@@ -313,8 +315,11 @@ fn native_relational_sets_align_by_position_and_prove_null_equal_lossless_semant
             kind,
         }));
         let prepared = prepare_relational(&plan, policy()).unwrap();
+        let PreparedRoot::Bound(root) = &prepared.root else {
+            panic!("static plan")
+        };
         assert_eq!(
-            prepared.root.fields[0].1,
+            root.fields[0].1,
             DType::Primitive(PType::I16, Nullability::Nullable)
         );
         for _ in 0..2 {

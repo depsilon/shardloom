@@ -37,33 +37,39 @@ impl PreparedVortexRelational {
         overwrite: bool,
         cancellation: &CancellationToken,
     ) -> Result<WrittenVortexRelational> {
-        let source = self
-            .source_paths
-            .first()
-            .ok_or_else(|| failed("relational source is absent"))?;
-        // This request describes only the terminal adapter's projection of the
-        // completed native columns. The relational tree has its own certificate.
-        let request = VortexQueryPrimitiveRequest::project(
-            DatasetUri::new(source.display().to_string())?,
-            shardloom_plan::ProjectionRequest::columns(
-                self.root
-                    .fields
-                    .iter()
-                    .map(|(name, _)| ColumnRef::new(name))
-                    .collect::<Result<Vec<_>>>()?,
-            ),
-        );
-        let plan = super::super::native_sink::NativeSinkPlan::produced_sources(
-            self.session.clone(),
-            self.output_dtype(),
-            self.root.upper_rows(&self.sources).unwrap_or(u64::MAX),
-            None,
-            self.sources.clone(),
-        )?;
-        #[cfg(feature = "universal-format-io")]
-        let plan = plan.with_preparation_sources(self.preparation_sources.clone());
-        let mut execution = None;
-        let mut producer =
+        let mut written =
+            self.session
+                .with_sources_execution(&self.sources, cancellation, |context| {
+                    self.with_bound_root(context, |root, metrics| {
+                        let source = self
+                            .source_paths
+                            .first()
+                            .ok_or_else(|| failed("relational source is absent"))?;
+                        // This request describes only the terminal adapter's projection of the
+                        // completed native columns. The relational tree has its own certificate.
+                        let request = VortexQueryPrimitiveRequest::project(
+                            DatasetUri::new(source.display().to_string())?,
+                            shardloom_plan::ProjectionRequest::columns(
+                                root.fields
+                                    .iter()
+                                    .map(|(name, _)| ColumnRef::new(name))
+                                    .collect::<Result<Vec<_>>>()?,
+                            ),
+                        );
+                        let plan = super::super::native_sink::NativeSinkPlan::produced_sources(
+                            self.session.clone(),
+                            super::DType::struct_(
+                                root.fields.clone(),
+                                super::Nullability::NonNullable,
+                            ),
+                            root.upper_rows(&self.sources).unwrap_or(u64::MAX),
+                            None,
+                            self.sources.clone(),
+                        )?;
+                        #[cfg(feature = "universal-format-io")]
+                        let plan = plan.with_preparation_sources(self.preparation_sources.clone());
+                        let mut execution = None;
+                        let mut producer =
             |context: &NativeExecutionContext<'_>,
              batch_rows: usize,
              consume: &mut dyn FnMut(ArrayRef) -> Result<bool>| {
@@ -75,8 +81,10 @@ impl PreparedVortexRelational {
                     context,
                     |context| {
                         let mut submitted = 0u64;
-                        let completed = self.consume_in_context(
+                        let completed = self.consume_bound(
+                            root,
                             context,
+                            metrics,
                             batch_rows.min(BATCH_ROWS),
                             &mut |array| {
                                 submitted = submitted
@@ -100,22 +108,26 @@ impl PreparedVortexRelational {
                 )?);
                 Ok(())
             };
-        let mut output = super::super::completed_result::write_stream(
-            plan,
-            &request,
-            path,
-            format,
-            overwrite,
-            self.policy,
-            &mut producer,
-            cancellation,
-        )?;
-        let (mut execution, arrays_read) =
-            execution.ok_or_else(|| failed("relational producer did not complete"))?;
-        debug_assert_eq!(execution.output_rows, output.rows_written);
-        execution.runtime = self.snapshot();
-        output.rows_scanned = execution.scan_rows_delivered;
-        output.arrays_read_count = arrays_read;
-        Ok(WrittenVortexRelational { execution, output })
+                        let mut output = super::super::completed_result::write_stream_admitted(
+                            plan,
+                            &request,
+                            path,
+                            format,
+                            overwrite,
+                            self.policy,
+                            &mut producer,
+                            cancellation,
+                            Some(context),
+                        )?;
+                        let (execution, arrays_read) = execution
+                            .ok_or_else(|| failed("relational producer did not complete"))?;
+                        debug_assert_eq!(execution.output_rows, output.rows_written);
+                        output.rows_scanned = execution.scan_rows_delivered;
+                        output.arrays_read_count = arrays_read;
+                        Ok(WrittenVortexRelational { execution, output })
+                    })
+                })?;
+        written.execution.runtime = self.snapshot();
+        Ok(written)
     }
 }

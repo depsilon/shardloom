@@ -3241,8 +3241,8 @@ pub(crate) fn parse_explode_primitive_request(
     })
 }
 
-fn parse_pivot_primitive_request(
-    uri: DatasetUri,
+pub(crate) fn parse_pivot_primitive_request(
+    uri: impl Into<Option<DatasetUri>>,
     payload: &str,
 ) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
     let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
@@ -3266,11 +3266,18 @@ fn parse_pivot_primitive_request(
     let margins_name = json_optional_string_field_any(object, &["margins_name"])?
         .unwrap_or("All")
         .to_string();
-    Ok(shardloom_vortex::VortexQueryPrimitiveRequest::pivot_rows(
-        uri,
+    let pivot =
         VortexPivotProjectionRequest::new(index_column, pivot_column, value_column, aggregate)
-            .with_output_policy(fill_value, dropna, margins, margins_name),
-    ))
+            .with_output_policy(fill_value, dropna, margins, margins_name);
+    Ok(shardloom_vortex::VortexQueryPrimitiveRequest {
+        source_uri: uri.into(),
+        projection: ProjectionRequest::columns(pivot.projected_columns()),
+        pivot_projection: Some(pivot),
+        ..shardloom_vortex::VortexQueryPrimitiveRequest::for_relational_input(
+            shardloom_vortex::VortexQueryPrimitiveKind::PivotRows,
+            ProjectionRequest::All,
+        )
+    })
 }
 
 pub(crate) fn parse_rolling_primitive_request(
@@ -7630,9 +7637,33 @@ pub(crate) fn append_vortex_local_primitive_execution_report_fields(
     fields: &mut Vec<(String, String)>,
     local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
 ) {
+    append_primitive_report_with_cache_evidence(
+        fields,
+        local,
+        local.is_some_and(|report| report.embedded_layout.no_query_answer_cache),
+    );
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn append_vortex_footer_count_report_fields(fields: &mut Vec<(String, String)>) {
+    // The retained footer count has no row-primitive report. Its own native
+    // execution still validates and reads the exact footer count on every call.
+    append_primitive_report_with_cache_evidence(fields, None, true);
+}
+
+fn append_primitive_report_with_cache_evidence(
+    fields: &mut Vec<(String, String)>,
+    local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,
+    no_query_answer_cache: bool,
+) {
     append_vortex_run_local_primitive_status_fields(fields, local);
     append_vortex_run_local_primitive_row_fields(fields, local);
     append_vortex_run_local_primitive_execution_fields(fields, local);
+    push_bool_field(
+        fields,
+        "local_primitive_no_query_answer_cache",
+        no_query_answer_cache,
+    );
 }
 
 fn append_vortex_run_local_primitive_status_fields(
@@ -8347,12 +8378,6 @@ fn append_vortex_run_local_primitive_embedded_layout_fields(
                 |local| local.embedded_layout.late_materialization_status.clone(),
             ),
         ),
-        (
-            "local_primitive_no_query_answer_cache".to_string(),
-            local
-                .is_some_and(|local| local.embedded_layout.no_query_answer_cache)
-                .to_string(),
-        ),
     ]);
 }
 
@@ -8999,6 +9024,24 @@ mod tests {
             .iter()
             .find_map(|(field_key, value)| (field_key == key).then_some(value.clone()))
             .unwrap_or_else(|| panic!("missing field {key}"))
+    }
+
+    #[test]
+    fn absent_local_report_does_not_infer_answer_cache_evidence() {
+        let mut fields = Vec::new();
+        append_vortex_local_primitive_execution_report_fields(&mut fields, None);
+        assert_eq!(
+            test_field(&fields, "local_primitive_report_present"),
+            "false"
+        );
+        assert_eq!(
+            fields
+                .iter()
+                .filter(|(key, _)| key == "local_primitive_no_query_answer_cache")
+                .map(|(_, value)| value.as_str())
+                .collect::<Vec<_>>(),
+            ["false"]
+        );
     }
 
     #[test]

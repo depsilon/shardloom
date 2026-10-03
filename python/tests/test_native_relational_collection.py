@@ -336,6 +336,64 @@ class NativeRelationalCollectionTests(unittest.TestCase):
         indexed = suffix.melt(id_vars="id", value_vars="value", ignore_index=False)
         self.assertIn('"id_columns":["index","id"]', indexed._relation_statement())
 
+    def test_dynamic_pivot_composes_after_renaming_and_submits_the_complete_statement(self) -> None:
+        source = self.context.read_csv(
+            "o'clock.csv", schema={"key": "int64", "kind": "utf8", "value": "int64"}
+        )
+        pivot = (source.sort("value", descending=True).limit(4)
+                 .select("key AS entity", "kind AS category", "value AS amount")
+                 .pivot_table(index="entity", columns="category", values="amount", aggfunc="sum"))
+        workflow = pivot.filter(sl.col("pivot_a") > 3.0).sort("entity").select("entity", "pivot_a")
+        statement = workflow._native_relational_statement()
+        self.assertIn("FROM PIVOT((", statement)
+        self.assertIn("key AS entity,kind AS category,value AS amount", statement)
+        self.assertIn("LIMIT 4)", statement)
+        self.assertIn("o''clock.csv", statement)
+        self.assertIn('"pivot_column":"category"', statement)
+        self.assertTrue(statement.startswith("SELECT entity,pivot_a FROM ("))
+        expected = [{"entity": 1, "pivot_a": 5.0}]
+        with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply(expected)) as run, mock.patch.object(self.client, "vortex_prepare") as prepare:
+            self.assertEqual(workflow.collect(check=True).result_rows, tuple(expected))
+            for extension in ["vortex", "json", "jsonl", "csv", "parquet", "arrow_ipc", "avro", "orc"]:
+                getattr(workflow, f"write_{extension}")(f"out.{extension}", check=True)
+            self.assertEqual(run.call_count, 9)
+            for call in run.call_args_list:
+                self.assertEqual(call.kwargs["sql_statement"], statement)
+                self.assertEqual(call.kwargs["source_bindings"], {
+                    "o'clock.csv": {"input_format": "csv", "source_schema": source.source.schema},
+                })
+            prepare.assert_not_called()
+
+    def test_dynamic_pivot_unknown_columns_remain_native_and_construction_is_inert(self) -> None:
+        source = self.context.read_vortex("missing.vortex")
+        with mock.patch.object(self.client, "public_workflow_run") as run, mock.patch.object(self.client, "vortex_prepare") as prepare:
+            pivot = source.limit(3).pivot_table(index="entity", columns="category", values="amount", aggfunc="sum")
+            changed = pivot.with_column("total", sl.col("pivot_a") + 1.0)
+            self.assertIn("SELECT * REPLACE OR ADD", changed._native_relational_statement())
+            self.assertIn("FROM PIVOT((", changed._native_relational_statement())
+            from shardloom._relational_sql import frame_stages
+            self.assertIsNone(frame_stages(pivot).columns)
+            melted = pivot.melt(id_vars="entity", value_vars="pivot_a", var_name="category", value_name="amount")
+            repeated = melted.pivot_table(index="entity", columns="category", values="amount", aggfunc="sum").select("pivot_pivot_a")
+            statement = repeated._native_relational_statement()
+            self.assertEqual(statement.count("FROM PIVOT(("), 2)
+            self.assertIn("FROM MELT((", statement)
+            run.assert_not_called()
+            prepare.assert_not_called()
+
+    def test_dynamic_pivot_preserves_join_and_set_source_declarations(self) -> None:
+        source = self.context.read_csv("facts.csv", schema={"entity": "int64", "category": "utf8", "amount": "int64"})
+        other = self.context.read_vortex("other.vortex", schema={"entity": "int64"})
+        pivot = source.pivot_table(index="entity", columns="category", values="amount", aggfunc="sum")
+        for index, workflow in enumerate([pivot.join(other, on="entity").select("f.entity", "f.pivot_a"), pivot.select("entity").union_all(other)]):
+            with self.subTest(index=index), mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run:
+                statement = workflow._relation_statement()
+                self.assertIn("FROM PIVOT((", statement)
+                workflow.collect(check=True)
+                self.assertEqual(run.call_count, 1)
+                self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+                self.assertEqual(set(run.call_args.kwargs["source_bindings"]), {"facts.csv", "other.vortex"})
+
     def test_unary_rendering_retains_escaped_json_and_join_set_operands(self) -> None:
         source = self.context.read_csv("o'clock.data", schema={"key": "utf8", "value": "utf8"})
         changed = source.sort("key").limit(3).replace({"value": {"isn't,(join)": "it's fine"}})

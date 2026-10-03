@@ -11,7 +11,7 @@ use super::{
     native_relational_expression, native_relational_join,
     native_relational_set::RowSet,
     native_relational_sort, native_relational_subquery, native_relational_window,
-    prepared_unary::BoundUnary,
+    prepared_unary::{BoundUnary, CompletedPivot},
     vortex_error,
 };
 use crate::{
@@ -26,7 +26,10 @@ use shardloom_exec::{
     compute_pool::CancellationToken,
     live_memory::{Budgeted, MemoryLease},
 };
-use std::{cell::Cell, path::PathBuf};
+use std::{
+    cell::{Cell, RefCell},
+    path::PathBuf,
+};
 #[cfg(test)]
 use vortex::array::VortexSessionExecute as _;
 use vortex::array::{
@@ -38,6 +41,9 @@ use vortex::array::{
 
 #[path = "local_primitive_relational_bind.rs"]
 mod bind;
+#[path = "local_primitive_relational_dynamic.rs"]
+mod dynamic;
+pub use dynamic::prepare_relational_with_dynamic_schema;
 #[path = "local_primitive_relational_correlated.rs"]
 mod correlated;
 #[path = "local_primitive_relational_report.rs"]
@@ -66,6 +72,9 @@ pub struct ExecutedVortexRelational {
     pub scan_rows_delivered: u64,
     pub scan_batches: u64,
     pub prepared_sources: usize,
+    /// Data-dependent declarations are lowered afresh inside this execution.
+    pub schema_binding_deferred: bool,
+    pub dynamic_schema_stages: u64,
     pub output_columns: Vec<String>,
     /// Physical decoder work inside upstream providers is not measured here.
     pub bytes_decoded: Option<u64>,
@@ -92,7 +101,7 @@ pub struct PreparedVortexRelational {
     sources: Vec<PreparedVortexSource>,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     source_paths: Vec<PathBuf>,
-    root: Node,
+    root: PreparedRoot,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     policy: VortexLocalPrimitiveExecutionPolicy,
     _metadata: MemoryLease,
@@ -107,6 +116,18 @@ pub struct PreparedVortexRelational {
     _preparation_metadata: Option<MemoryLease>,
 }
 
+type DynamicLowerer = dyn Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>;
+
+enum PreparedRoot {
+    Bound(Box<Node>),
+    Dynamic(Box<DynamicLowerer>),
+}
+
+enum SubqueryRelation {
+    Bound(Box<Node>),
+    Dynamic(Box<DynamicLowerer>),
+}
+
 struct Node {
     fields: Vec<(String, DType)>,
     kind: NodeKind,
@@ -118,6 +139,7 @@ impl Node {
     fn upper_rows(&self, sources: &[PreparedVortexSource]) -> Option<u64> {
         use crate::relational_query::VortexRelationalJoinKind as JoinKind;
         match &self.kind {
+            NodeKind::CompletedPivot { rows, .. } => Some(*rows as u64),
             NodeKind::Outer => Some(1),
             NodeKind::Scan { source, .. } => Some(sources[*source].file().row_count()),
             NodeKind::Project { input, .. }
@@ -176,6 +198,11 @@ impl Node {
 }
 
 enum NodeKind {
+    CompletedPivot {
+        operation: Box<BoundUnary>,
+        result: RefCell<Option<CompletedPivot>>,
+        rows: usize,
+    },
     Outer,
     Unary {
         input: Box<Node>,
@@ -225,13 +252,15 @@ enum NodeKind {
     },
     Subquery {
         input: Box<Node>,
-        relation: Box<Node>,
+        relation: SubqueryRelation,
         spec: native_relational_subquery::Spec,
         parameterized: bool,
     },
 }
 
-/// Bind all schemas and source generations before reading payload rows.
+/// Bind a static-schema plan and source generations without reading payload rows.
+/// Use [`prepare_relational_with_dynamic_schema`] when a frontend must discover
+/// data-dependent fields before building its downstream plan.
 /// # Errors
 /// Rejects unsupported types, ambiguous names, invalid CPU/memory policies,
 /// incompatible keys, excessive plan metadata and inaccessible native sources.
@@ -295,7 +324,7 @@ pub fn prepare_relational_with_schema(
         session,
         sources,
         source_paths,
-        root,
+        root: PreparedRoot::Bound(Box::new(root)),
         policy,
         _metadata: metadata,
         #[cfg(feature = "vortex-write")]
@@ -331,7 +360,7 @@ pub fn prepare_relational_in_session(
         session: session.clone(),
         sources,
         source_paths,
-        root,
+        root: PreparedRoot::Bound(Box::new(root)),
         policy,
         _metadata: metadata,
         #[cfg(feature = "vortex-write")]
@@ -358,6 +387,7 @@ struct Metrics {
     unary_stages: Cell<u64>,
     unary_state_items: Cell<u64>,
     unary_population_retention: Cell<u64>,
+    schema_discovery_stages: Cell<u64>,
 }
 
 impl Metrics {
@@ -454,9 +484,17 @@ impl PreparedVortexRelational {
         self.session.snapshot()
     }
 
+    /// Metadata-only schema query. A dynamic declaration returns `None`; its
+    /// authoritative schema accompanies the actual execution's native batches.
     #[must_use]
-    pub fn output_dtype(&self) -> DType {
-        DType::struct_(self.root.fields.clone(), Nullability::NonNullable)
+    pub fn output_dtype(&self) -> Option<DType> {
+        match &self.root {
+            PreparedRoot::Bound(root) => Some(DType::struct_(
+                root.fields.clone(),
+                Nullability::NonNullable,
+            )),
+            PreparedRoot::Dynamic(_) => None,
+        }
     }
 
     /// Synchronously consume bounded native batches. Even an empty result has a
@@ -485,10 +523,23 @@ impl PreparedVortexRelational {
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
+        self.with_bound_root(context, |root, metrics| {
+            self.consume_bound(root, context, metrics, batch_rows, consume)
+        })
+    }
+
+    fn consume_bound(
+        &self,
+        root: &Node,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources()?;
         let metadata_bytes =
-            65_536 + self.sources.len() as u64 * 4096 + self.root.fields.len() as u64 * 1024;
+            65_536 + self.sources.len() as u64 * 4096 + root.fields.len() as u64 * 1024;
         #[cfg(feature = "vortex-write")]
         let metadata_bytes = metadata_bytes
             .checked_add(
@@ -498,22 +549,12 @@ impl PreparedVortexRelational {
             )
             .ok_or_else(|| failed("spill report metadata capacity overflow"))?;
         let metadata = context.memory().reserve(metadata_bytes)?;
-        let metrics = Metrics {
-            #[cfg(feature = "vortex-write")]
-            spill: self
-                .spill
-                .as_ref()
-                .map(|policy| super::native_relational_spill::State::new(policy, context))
-                .transpose()?,
-            ..Metrics::default()
-        };
         let mut rows = 0u64;
         let mut batches = 0u64;
         let mut bytes = 0u64;
         let mut max_rows = 0usize;
-        let dtype = self.output_dtype();
-        let nested = self
-            .root
+        let dtype = DType::struct_(root.fields.clone(), Nullability::NonNullable);
+        let nested = root
             .fields
             .iter()
             .any(|(_, dtype)| super::native_payload::is_nested(dtype));
@@ -543,7 +584,7 @@ impl PreparedVortexRelational {
             consume(array)?;
             context.check_cancelled()
         };
-        self.run(&self.root, context, &metrics, batch_rows, None, &mut emit)?;
+        self.run(root, context, metrics, batch_rows, None, &mut emit)?;
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {
             let array = super::native_payload::defaults(&dtype, 0, context)?;
@@ -560,7 +601,7 @@ impl PreparedVortexRelational {
         #[cfg(not(feature = "vortex-write"))]
         let spill: Option<crate::relational_query::VortexRelationalSpillReport> = None;
         let certificate = report::certificate(
-            &metrics,
+            metrics,
             rows,
             batch_rows,
             self.sources.len(),
@@ -574,12 +615,9 @@ impl PreparedVortexRelational {
             scan_rows_delivered: metrics.scan_rows.get(),
             scan_batches: metrics.scan_batches.get(),
             prepared_sources: self.sources.len(),
-            output_columns: self
-                .root
-                .fields
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect(),
+            schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
+            dynamic_schema_stages: metrics.schema_discovery_stages.get(),
+            output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
             bytes_decoded: None,
             native_io_certificate: certificate,
             runtime: self.snapshot(),
@@ -588,6 +626,7 @@ impl PreparedVortexRelational {
         })
     }
 
+    #[allow(clippy::too_many_lines)] // Keep the exhaustive dispatch table together; native kernels own the algorithms.
     fn run(
         &self,
         node: &Node,
@@ -599,6 +638,15 @@ impl PreparedVortexRelational {
     ) -> Result<()> {
         context.check_cancelled()?;
         match &node.kind {
+            NodeKind::CompletedPivot {
+                operation, result, ..
+            } => {
+                let result = result
+                    .borrow_mut()
+                    .take()
+                    .ok_or_else(|| failed("dynamic pivot result was consumed twice"))?;
+                result.emit(operation, context, batch_rows, consume)
+            }
             NodeKind::Unary { input, operation } => {
                 let usage = operation.consume_relation(
                     context,
