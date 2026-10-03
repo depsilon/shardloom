@@ -2,8 +2,9 @@
 
 # Native nested payload composition
 
-Status: implemented with complete local acceptance; hosted review and checks are
-still pending. This continues
+Status: implemented with fresh local acceptance after hosted review repairs;
+hosted checks remain blocked on the website advisory approval described below.
+This continues
 the [universal workflow plan](universal-workflow-completion-2026-10-01.md) after
 [flat unary composition](native-unary-composition-2026-10-02.md), under
 PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. The expert comparator is a columnar
@@ -220,6 +221,9 @@ real Vortex output proof is distinct from placeholder artifacts.
 
 ## Frozen public acceptance
 
+The original `9f172abf` record below is preserved. The current reviewed candidate
+and fresh acceptance are recorded in the following section.
+
 The optimized `release-user-surfaces` executable from clean source revision
 `9f172abf8a087752aad8de280628ed889c885b7a` passes the complete public matrix on
 October 3 UTC: 2,459 checks, including 496 nested checks, 6,636,187 complete row
@@ -259,3 +263,33 @@ sums are 51.688471 and 51.678695 seconds (−0.0189%). No query or aggregate tim
 or memory screen crosses its predeclared repeat threshold. The observed behavior
 is unchanged at those thresholds; availability does not depend on claiming a
 speedup. The earlier unpaired control measurement remains preserved.
+
+## Acceptance after hosted review repairs
+
+Frozen `3b94ba2e1fdc7d1860398265856c44aa02a28f74` passes the complete public
+matrix again: 2,459 checks, 496 nested checks, 6,636,187 row comparisons and 5,585
+execution envelopes. The fresh verifier checks all 96 expected denials and 166
+inert inspections. The three review findings are repaired: text-only schema-hint
+forwarding, exact nested empty/intake nullability, and recursive JSON/JSONL UTF8
+copy evidence. Expanded intake regressions additionally preserve complete nested
+validity through the existing Vortex field-writer seam and four writer profiles.
+
+The [fresh Full43 report](../benchmarks/native-nested-review-full43-2026-10-03.md)
+records 258/258 matching results. Fastest-query sums are 51.112827 seconds control
+and 51.254897 seconds candidate (+0.2780%); median sums differ by −0.8194%.
+Q21's +10.4217% median RSS observation triggers the required reversed-order repeat,
+which passes all six results and records −7.7394% median RSS with no threshold
+crossed. The initial increase does not reproduce; both observations remain intact.
+The unpaired public correctness-suite wall-time increase is reported separately.
+
+All 24 selected local gates pass, including 3,446 default workspace tests,
+2,227 native Vortex tests (23 existing ignored), 1,577 native CLI tests and 718
+Python tests (144 existing skips). Required runtime/test hashes match the clean
+frozen build; unchanged harness-only gates retain their verified earlier receipts.
+The [new immutable packet](../benchmarks/evidence/native-nested-composition-review-2026-10-03.json.xz)
+has SHA-256 `59260176b250dc1c80f0a218fe911ab16aeeb244e800aed5428af3b4cfe1955f`.
+
+The [website advisory proposal](../dependencies/website-build-dependency-review.md)
+is disabled pending explicit maintainer approval. This blocks hosted acceptance
+and merge, without weakening the audit or claiming a fixed dependency. The finite
+unit and broader PERF owners remain open until their respective gates close.

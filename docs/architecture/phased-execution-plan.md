@@ -270,11 +270,15 @@ the ledger.
     - [ ] Freeze complete public, workspace/native/Python/feature/doc/site and
       Full43 acceptance, finish hosted review/checks and move the finite record
       to the completed ledger.
-  - Local acceptance: frozen `9f172abf` passes 2,459 public checks, including 496
-    nested checks and 6,636,187 complete row comparisons, and all 258 paired
-    Full43 comparisons. The predeclared timing/RSS screens flag no material
-    change. Workspace/native/Python, feature/MSRV and docs/site gates pass;
-    hosted review/checks and ledger movement remain pending.
+  - Local acceptance after review repairs: frozen `3b94ba2e` passes 2,459 public
+    checks, including 496 nested checks and 6,636,187 complete row comparisons,
+    all 258 paired Full43 results and the six-result Q21 reversed-order repeat.
+    Aggregate timing is effectively unchanged; the initial Q21 RSS increase
+    does not reproduce. All 24 local gates pass. The
+    [fresh report](../benchmarks/native-nested-review-full43-2026-10-03.md)
+    preserves both observations and the original acceptance. Hosted checks and
+    merge await the disabled website advisory proposal's approval or remediation;
+    ledger movement remains pending.
   - Acceptance: complete static nested workflows without prefix collection,
     serialized intermediates, replay or external fallback; existing flat kernels
     and small collection bounds are preserved. Dynamic pivot, richer type/key

@@ -70,7 +70,11 @@ traversal and writers. Its frozen build passes 1,963 complete public checks and
 129/129 Full43 comparisons. The [static nested continuation](native-nested-composition-2026-10-02.md)
 implements owned list/struct payload transport and ordered/repeated explode; its
 frozen build passes 2,459 public checks, including 496 nested checks, and all 258
-paired Full43 comparisons. Hosted acceptance remains pending. Wider types/adapters,
+paired Full43 comparisons. Fresh acceptance after the three review repairs also
+passes the required Q21 memory repeat; the
+[new report](../benchmarks/native-nested-review-full43-2026-10-03.md) preserves the
+original measurements and the unreproduced memory flag. Hosted acceptance awaits
+the website advisory decision. Wider types/adapters,
 dynamic-schema composition and remaining resource/spill transitions require the work below.
 
 | Area | Existing foundation | Completion requirement | Owner |
