@@ -164,8 +164,8 @@ def run(context, output, guard, exercise, remember, original, fields, schema, na
         pivot_columns = [
             "id",
             "pivot_binary",
-            "pivot_binary_00ff10",
             "pivot_binary_c3a9",
+            "pivot_binary_00ff10",
             "pivot_value",
         ]
         pivot_rows = []

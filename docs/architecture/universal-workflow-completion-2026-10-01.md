@@ -107,8 +107,12 @@ correction adds 90 checks and preserves the original cases and complete oracles;
 no speedup is claimed. See the [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
 and [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz),
 which retain the original acceptance as a separate immutable observation.
-Hosted review remains pending. Nested keys, retained unary state, wider adapters
-and remaining resource/spill transitions require the work below.
+Hosted review remains pending. The [typed-unary continuation](native-typed-unary-2026-10-03.md)
+extends the existing retained state with exact binary, Decimal128, Date32 and
+microsecond timestamp values for selectors, rewrites, melt, rolling COUNT and
+scoped pivot policies. Its complete public and regression acceptance is in
+progress. Nested keys/state, wider aggregate/window semantics, adapters and
+remaining resource/spill transitions retain the obligations below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
