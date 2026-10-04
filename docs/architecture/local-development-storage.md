@@ -97,6 +97,21 @@ public attempts remain intact, including the later resource-evidence reader
 correction; all three executable artifacts and frozen oracles are identical
 across attempts. The [typed-unary packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz)
 reopens every archived envelope and preserves the complete failure history.
+The October 4 nested-key public expansion reaches the same 192-MiB ceiling
+after 13,717 passing checks and 8,628,943 complete row comparisons. Wrapping
+already-compressed gzip members in xz saves too little space at this scale.
+The archive helper now checks each closed gzip file's identity and stored hash,
+decompresses it, and verifies the original JSON size/hash before archiving raw
+JSON members together. It reads every member back before removing temporary
+gzip files. Manifests explicitly identify `raw_json` members and retain both
+the original JSON hash and the source gzip size/hash; archived JSON bytes are
+identical to the original reports, while the gzip wrapper is no longer retained.
+Original failed-run archives and summaries remain unchanged. A guarded check of
+384 copied reports from three original batches reduces archive bytes from
+2,265,960 to 203,656 and verifies every original JSON byte. Corrupt input, source
+mutation and failed archive/manifest readback preserve all source files. These
+are evidence-storage measurements, not query-performance results; storage
+ceilings remain unchanged.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 
