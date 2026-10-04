@@ -69,6 +69,17 @@ Unaliased NULL, TRUE and FALSE use lowercase keyword output names. A WHERE claus
 cannot turn an unsupported scalar projection into a filter-only operation;
 complete expression binding and evaluation remain required.
 
+Columnar inputs retain field names admitted by the existing shared schema
+reader. A qualified output field such as `q.id` must reopen through Parquet,
+Arrow IPC and ORC and normalize to Vortex without another SQL-identifier check
+in the CLI. This removes duplicate admission logic; the native provider and
+schema owner remain unchanged. Avro record field names have a narrower
+[ASCII identifier grammar](https://avro.apache.org/docs/1.12.0/specification/#names).
+The pinned Arrow Avro provider rejects a dotted field before output publication.
+Keep that explicit format boundary and use an explicit SQL alias, such as
+`q.id AS id`, when Avro is requested; do not silently rename persisted fields.
+The acceptance matrix checks both the rejection and the aliased complete result.
+
 Rolling preserves source order, valid-observation min_periods, omission of
 not-ready results, centered lookahead, limits and end-of-input flushing. Retain
 the existing primitive floating calculation order. Decimal additive state uses

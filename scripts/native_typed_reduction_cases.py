@@ -69,7 +69,15 @@ def run(context, output, guard, exercise, exercise_workflow, remember, denied,
         sql_cases.append((prefix + "-qualified-having", SqlWorkflow(
             statement, context.client, source_bindings=money._declared_sources()),
             [{"q.id": 3, "total": decimal(600)}, {"q.id": 4, "total": decimal(800)}],
-            ["q.id", "total"], {"json_cells": ("total",)}))
+            ["q.id", "total"], {"json_cells": ("total",),
+                               "denied_writers": {"avro": "Schema mismatch for field 'q_id'"}}))
+        # Avro record field names cannot contain a dot. An explicit SQL alias
+        # uses the existing native projection and preserves the result values.
+        sql_cases.append((prefix + "-qualified-having-aliased", SqlWorkflow(
+            statement.replace("SELECT q.id,", "SELECT q.id AS id,", 1),
+            context.client, source_bindings=money._declared_sources()),
+            [{"id": 3, "total": decimal(600)}, {"id": 4, "total": decimal(800)}],
+            ["id", "total"], {"json_cells": ("total",)}))
 
         # Expectations use integer coefficients independently of runtime output.
         observations = [100, 200, 300, 400]

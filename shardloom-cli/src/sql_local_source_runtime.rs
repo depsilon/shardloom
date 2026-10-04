@@ -8600,10 +8600,8 @@ fn run_columnar_vortex_prepare(
             .unwrap_or(u64::MAX),
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
-    for column in &columnar_source.header {
-        validate_sql_identifier(column)?;
-    }
-
+    // Embedded field names are already validated by the shared columnar source
+    // reader. SQL output may contain qualified names such as `q.id`.
     let prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
         source_adapter,
         &columnar_source,
@@ -34108,9 +34106,8 @@ where
         read_full(path, max_input_rows)?
     };
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
-    for column in &columnar_source.header {
-        validate_sql_identifier(column)?;
-    }
+    // Preserve the schema admitted by the shared columnar reader, including
+    // qualified result field names; SQL identifier rules apply to SQL syntax.
     let record_batch_count = columnar_source.batches.len();
     let table = shardloom_vortex::materialize_flat_columnar_source_to_scalar_table(
         &columnar_source,

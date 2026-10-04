@@ -20,6 +20,115 @@ impl Drop for Fixture {
     }
 }
 
+fn qualified_column_inputs() -> Vec<(&'static str, Vec<u8>)> {
+    let columns = vec!["q.id".to_owned(), "total".to_owned()];
+    let rows = vec![
+        vec![
+            ("q.id".into(), ScalarValue::Int64(3)),
+            ("total".into(), ScalarValue::Int64(600)),
+        ],
+        vec![
+            ("q.id".into(), ScalarValue::Int64(4)),
+            ("total".into(), ScalarValue::Null),
+        ],
+    ];
+    vec![
+        (
+            "parquet",
+            shardloom_vortex::encode_flat_parquet_rows(&columns, &rows).unwrap(),
+        ),
+        (
+            "arrow_ipc",
+            shardloom_vortex::encode_flat_arrow_ipc_rows(&columns, &rows).unwrap(),
+        ),
+        (
+            "orc",
+            shardloom_vortex::encode_flat_orc_rows(&columns, &rows).unwrap(),
+        ),
+    ]
+}
+
+#[test]
+fn public_io_qualified_column_names_reopen_through_columnar_reader() {
+    let fixture = Fixture::new();
+    for (format, bytes) in qualified_column_inputs() {
+        let source = fixture.0.join(format!("input.{format}"));
+        fs::write(&source, bytes).unwrap();
+        let input = read_local_source_with_plan_and_format(
+            &source,
+            &LocalSourceReadPlan::full("qualified_column_round_trip"),
+            Some(LocalSourceFormat::parse(format).unwrap()),
+            SqlLocalSourceRuntimeProfile::Smoke.read_limits(),
+        )
+        .unwrap_or_else(|error| panic!("{format}: {error}"));
+        assert_eq!(input.header, ["q.id", "total"]);
+        assert_eq!(
+            input.rows,
+            [
+                BTreeMap::from([
+                    ("q.id".into(), ScalarValue::Int64(3)),
+                    ("total".into(), ScalarValue::Int64(600))
+                ]),
+                BTreeMap::from([
+                    ("q.id".into(), ScalarValue::Int64(4)),
+                    ("total".into(), ScalarValue::Null)
+                ]),
+            ]
+        );
+    }
+}
+
+#[test]
+#[cfg(feature = "vortex-local-primitives")]
+fn public_io_qualified_column_names_prepare_preserves_native_schema_and_values() {
+    let fixture = Fixture::new();
+    for (format, bytes) in qualified_column_inputs() {
+        let source = fixture.0.join(format!("input.{format}"));
+        fs::write(&source, bytes).unwrap();
+        let target = fixture.0.join(format!("prepared-{format}.vortex"));
+        prepare_local_source_as_vortex_for_public_workflow(
+            &source,
+            &target,
+            Some(format),
+            false,
+            1,
+            Some(1),
+            None,
+        )
+        .unwrap_or_else(|error| panic!("{format}: {error}"));
+        for empty in [false, true] {
+            let suffix = if empty { " LIMIT 0" } else { "" };
+            let prepared = native_relational::prepare(
+                &format!(
+                    "SELECT * FROM (SELECT * FROM '{}') AS reopened{suffix}",
+                    target.display()
+                ),
+                shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                |path| shardloom_core::DatasetUri::new(path.path.to_string_lossy().into_owned()),
+            )
+            .unwrap();
+            let result = prepared
+                .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())
+                .unwrap();
+            assert_eq!(result.execution.output_columns, ["q.id", "total"]);
+            let rows = result
+                .result_jsonl
+                .value()
+                .lines()
+                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                .collect::<Vec<_>>();
+            let expected = if empty {
+                serde_json::json!([])
+            } else {
+                serde_json::json!([
+                    {"q.id":3,"total":600}, {"q.id":4,"total":null},
+                ])
+            };
+            assert_eq!(serde_json::json!(rows), expected, "{format}");
+        }
+    }
+}
+
 #[test]
 fn public_io_declared_schema_is_bound_to_cold_warm_and_held_generations() {
     let fixture = Fixture::new();

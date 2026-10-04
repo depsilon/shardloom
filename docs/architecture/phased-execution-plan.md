@@ -81,6 +81,10 @@
   strategy, and verification across existing and composed workloads. Sharing a crate or allocator
   alone is insufficient proof of algorithm reuse. Preserve justified semantic/physical strategies
   inside shared components and apply the measured retain/drop gate to performance changes.
+- The October 4 clarification keeps computation and policy in the Vortex-normalized middle.
+  Reuse existing Vortex providers and ShardLoom native owners before adding logic. Frontends
+  translate declarations; adapters validate format-specific constraints. Remove duplicate
+  admission or evaluation in wrappers instead of adding equivalent execution there.
 - Focused validation entries must use exact test targets before broad gates. Rust unit filters must
   target the exact crate surface: `cargo test -p <crate> --bin <name> <filter>` for binary crates
   and `cargo test -p <crate> --lib <filter>` for library crates. Rust integration filters must use
@@ -522,6 +526,47 @@ the ledger.
   - Dependency: locally accepted nested keys/state. Wider analytic frames,
     scalar-value subqueries, nested pivot state, adapters and general state spill
     remain subsequent work under the universal queue; this is not their closure.
+
+- [ ] `HARDWARE-INFORMED-EXECUTION` — after core universal workflow completion,
+  evaluate the October 4 maintainer's hardware-design transfer proposals under
+  existing PERF-02/03/06/07/10/11/12 owners and CG-5/6/19. This is accepted future
+  experiment intake, not a measured performance result or a new execution layer.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
+  - Dependency: finish the active core operator/type/adapter/resource work first;
+    preserve all paused workstreams. Reconcile the proposal's `61d318db` baseline
+    against then-current main, development branches and prior experiment evidence.
+  - ShardLoom technique review: reuse the native memory pool, packed key directory,
+    PulseWeave grant, capillary work units, shared executor and timing/evidence
+    owners. Prefer upstream Vortex capabilities where equivalent; no per-frontend
+    kernels, second planner, second executor or permanent thread per partition.
+  - Execution checklist:
+    - [ ] Inventory existing providers, prior owner-versus-dynamic prototype results,
+      reservation transitions and the current 16-bit-tag/48-bit-ordinal directory;
+      classify each candidate as already addressed, admitted, merged or dropped.
+    - [ ] Measure zero-work reservations/releases, equal-size resizing and ownership
+      transfer before testing elimination of redundant shared updates; preserve
+      synchronization, reservation-before-allocation, replacement peaks and leases.
+    - [ ] Compare grouped metadata rejection with the current packed directory on
+      the actual CPU target, including growth, misses, duplicates, near-unique keys
+      and forced collisions; preserve full hash and exact-key verification.
+    - [ ] Test locality-aware state scheduling through the existing executor over
+      complete operations, accounting for routing, skew, queues and retained bytes.
+    - [ ] Trace service, readiness, queue, credit and ordered-emission waits in the
+      existing ingest pipeline; test useful bytes per completion interval under the
+      unchanged CPU/storage grants and complete artifact-identity checks.
+    - [ ] Merge the circuit-style expression-graph prototype into the existing
+      proof-guided kernel/specialization owner only after proving Vortex leaves
+      repeated pure predicates or avoidable intermediates; preserve nullable truth
+      tables, lazy errors, cancellation and ownership, with no unproved arithmetic
+      reordering or software simulation of hardware gates.
+    - [ ] Freeze hardware/tool provenance and held-out materiality/timing/RSS gates,
+      separate instrumentation from final paired timing, and publish complete
+      ship/drop evidence with failed and discarded observations retained.
+  - Acceptance: complete-operation gains determine retention; component counters
+    alone do not. Each candidate preserves exact outputs, native Vortex fidelity,
+    resource policy, serial local guards and explicit no-fallback evidence.
+  - Non-goals: FPGA/ASIC/PIM deployment or purchase, analog exact-query execution,
+    unsupported hardware-counter claims, or reopening paused format/text sweeps.
 
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
@@ -2969,6 +3014,10 @@ This does not authorize unbounded rewrites or resume the paused large text-forma
 and format-pulse performance tests. The experimental procedure below applies when
 a separate performance candidate is admitted; it does not displace workflow
 completion with another automatic optimization sweep.
+
+The October 4 hardware-informed campaign is queued after that core completion.
+Its intake above must be refreshed against the current Vortex-native owners and
+prior ship/drop results before any experiment starts.
 
 The September 29 resumption supersedes the earlier release/format stop for the
 finite September 26 intake. All 29 decisions and the final profiling refresh

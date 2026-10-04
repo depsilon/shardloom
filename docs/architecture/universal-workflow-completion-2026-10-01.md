@@ -74,8 +74,9 @@ frozen build passes 2,459 public checks, including 496 nested checks, and all 25
 paired Full43 comparisons. Fresh acceptance after the three review repairs also
 passes the required Q21 memory repeat; the
 [new report](../benchmarks/native-nested-review-full43-2026-10-03.md) preserves the
-original measurements and the unreproduced memory flag. Hosted acceptance awaits
-the website advisory decision. The [dynamic pivot continuation](native-dynamic-pivot-composition-2026-10-03.md)
+original measurements and the unreproduced memory flag. Hosted runtime review and
+checks remain pending; the website dependency update is handled separately in
+[PR #1517](https://github.com/depsilon/shardloom/pull/1517). The [dynamic pivot continuation](native-dynamic-pivot-composition-2026-10-03.md)
 connects scalar pivot-domain discovery to the same binder, operators and sinks,
 including separate correlated parameter scopes. Its frozen local runtime passes
 3,305 public checks, including 846 pivot checks, all 24 selected local gates and

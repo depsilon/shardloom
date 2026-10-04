@@ -65,13 +65,16 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         complete(name, [], [])
 
     def write_all(family, workflow, expected, columns, *, nested=False, typed_orc=True,
-                  json_cells=("payload", "amount"), spill=None):
+                  json_cells=("payload", "amount"), spill=None, denied_writers=None):
         execution = resources if spill is None else dict(resources, spill=spill)
         for extension in ("vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl", "csv", "orc"):
             guard()
             name = f"{family}-{extension}"
             destination = output / f"{name}.{extension}"
             report = getattr(workflow, f"write_{extension}")(destination, check=False, **execution)
+            if denied_writers and extension in denied_writers:
+                denied(name, report, destination, denied_writers[extension])
+                continue
             if nested and extension in ("csv", "orc"):
                 denied(name, report, destination, "nested")
                 continue
