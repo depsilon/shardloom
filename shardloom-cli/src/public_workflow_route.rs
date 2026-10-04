@@ -8150,7 +8150,18 @@ fn infer_native_vortex_sql_payload(
     if native_relational_sql_candidate(statement) {
         return None;
     }
-    infer_native_vortex_sql_primitive_payload(statement, request)
+    let shape = parse_native_vortex_sql_single_source_shape(statement);
+    // An empty SQL result needs the native relational limit operator. Metadata
+    // count and positive-limit primitives must not omit LIMIT 0.
+    if shape
+        .as_ref()
+        .and_then(|shape| shape.limit.as_deref())
+        .is_some_and(|limit| limit.parse::<usize>() == Ok(0))
+    {
+        return None;
+    }
+    shape
+        .and_then(|shape| infer_native_vortex_sql_primitive_payload(shape, request))
         .or_else(|| infer_native_vortex_sql_provider_payload(statement, is_write_request(request)))
 }
 
@@ -8263,7 +8274,7 @@ struct NativeVortexSqlSingleSourceShape {
 
 #[allow(clippy::too_many_lines)]
 fn infer_native_vortex_sql_primitive_payload(
-    statement: &str,
+    shape: NativeVortexSqlSingleSourceShape,
     request: &PublicWorkflowRouteRequest,
 ) -> Option<InferredNativeVortexRoutePayload> {
     if !matches!(
@@ -8280,7 +8291,6 @@ fn infer_native_vortex_sql_primitive_payload(
     ) {
         return None;
     }
-    let shape = parse_native_vortex_sql_single_source_shape(statement)?;
     if !native_vortex_sql_source_ref_matches_request(&shape.source_ref, request) {
         return None;
     }
@@ -8621,7 +8631,7 @@ fn parse_native_vortex_sql_limit_literal(value: &str) -> Option<String> {
         return None;
     }
     let limit = &value[..digit_count];
-    summary_positive_limit(limit).then(|| limit.to_string())
+    limit.parse::<usize>().ok().map(|_| limit.to_string())
 }
 
 fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
@@ -15363,6 +15373,45 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn flat_source_bindings_accept_zero_limit_and_offset_without_io() {
+        for source in ["absent.csv", "declared.data", "absent.vortex"] {
+            let input_format = if source.ends_with(".vortex") {
+                "vortex"
+            } else {
+                "csv"
+            };
+            let bindings = format!(r#"{{"{source}":{{"input_format":"{input_format}"}}}}"#);
+            for suffix in ["LIMIT 0", "LIMIT 00 OFFSET 0", "LIMIT 2 OFFSET 0"] {
+                let statement =
+                    format!("SELECT label, count(*) AS n FROM '{source}' GROUP BY label {suffix}");
+                let request = PublicWorkflowRouteRequest::parse(
+                    ["sql", "--sql", &statement, "--source-bindings", &bindings]
+                        .into_iter()
+                        .map(str::to_owned),
+                )
+                .unwrap();
+                assert_eq!(request.input_uri.as_deref(), Some(source));
+                assert_eq!(request.input_format.as_deref(), Some(input_format));
+                if input_format == "vortex" {
+                    let lowered = effective_public_workflow_request(&request);
+                    if suffix.starts_with("LIMIT 0") {
+                        assert!(lowered.vortex_primitive.is_none());
+                        assert!(lowered.native_vortex_provider_scenario.is_none());
+                    } else {
+                        assert_eq!(lowered.vortex_primitive.as_deref(), Some("aggregate"));
+                    }
+                }
+            }
+        }
+        for invalid in ["-1", "+1", "1.0", "1 trailing", "18446744073709551616"] {
+            for keyword in ["LIMIT", "OFFSET"] {
+                let statement = format!("SELECT value FROM 'absent.vortex' {keyword} {invalid}");
+                assert!(parse_native_vortex_sql_single_source_shape(&statement).is_none());
+            }
+        }
     }
 
     #[test]

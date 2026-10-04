@@ -115,6 +115,50 @@ fn worker_relational_families_reuse_bound_readers_and_deliver_complete_results()
     }
 }
 
+#[test]
+fn worker_flat_declared_sources_preserve_zero_limit_and_zero_offset() {
+    let source = fixture().display().to_string();
+    let bindings = json!({source.clone(): {"input_format":"vortex"}}).to_string();
+    let mut worker = Worker::new();
+    for surface in ["sql", "dataframe"] {
+        for (body, tail, expected) in [
+            ("value", "LIMIT 0", json!([])),
+            ("COUNT(*)", "LIMIT 0", json!([])),
+            ("COUNT(value) AS n", "LIMIT 0 OFFSET 0", json!([])),
+            ("value, COUNT(*) AS n", "GROUP BY value LIMIT 0", json!([])),
+            (
+                "value",
+                "WHERE value >= 3 ORDER BY value LIMIT 00",
+                json!([]),
+            ),
+            (
+                "value + 1 AS next",
+                "LIMIT 2 OFFSET 0",
+                json!([{"next":2}, {"next":3}]),
+            ),
+        ] {
+            let statement = format!("SELECT {body} FROM '{source}' {tail}");
+            for execution in 1..=2 {
+                let result = worker.request(&[
+                    "run",
+                    surface,
+                    "--sql",
+                    &statement,
+                    "--source-bindings",
+                    &bindings,
+                    "--request",
+                    "collect",
+                    "--memory-gb",
+                    "1",
+                    "--max-parallelism",
+                    "2",
+                ]);
+                completed(&result, &expected, 1, execution);
+            }
+        }
+    }
+}
+
 struct Cleanup(PathBuf);
 impl Cleanup {
     fn new() -> Self {
