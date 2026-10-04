@@ -57,6 +57,41 @@ fn native_typed_reductions_sql_decimal_results_have_exact_declared_scales() {
 }
 
 #[test]
+fn native_typed_reductions_sql_outer_ranges_stop_before_unused_rolling_errors() {
+    let source = fixture();
+    let input = format!(
+        "SELECT CAST((CASE WHEN value=3 THEN 3 ELSE 0 END) + (CASE WHEN value=4 THEN 1 ELSE 0 END) AS decimal128(8,0)) AS money FROM '{source}' LIMIT 4"
+    );
+    let options = r#"{"source_column":"money","output_column":"value","window_size":5,"min_periods":1,"aggregate":"mean","center":true}"#;
+    let rolling = format!("ROLLING(({input}), '{options}') AS r");
+    for (suffix, rows) in [("LIMIT 0", 0), ("LIMIT 3", 3), ("LIMIT 2 OFFSET 1", 2)] {
+        verify(
+            &format!("SELECT value AS renamed FROM {rolling} {suffix}"),
+            &json!(vec![json!({"renamed":"decimal128(38,6):1000000"}); rows]),
+        );
+    }
+    let prepared = prepare(
+        &format!("SELECT value FROM {rolling}"),
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
+    )
+    .unwrap();
+    let error = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("nonzero fractional digits"));
+    assert!(
+        prepare(
+            &format!("SELECT absent FROM {rolling} LIMIT 0"),
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn native_typed_reductions_sql_qualified_derived_grouped_having_and_private_aliases() {
     let source = fixture();
     verify(

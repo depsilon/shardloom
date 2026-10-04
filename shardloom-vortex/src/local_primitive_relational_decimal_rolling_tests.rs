@@ -160,6 +160,81 @@ fn native_decimal_rolling_limit_stops_before_unused_inexact_eof_windows() {
 }
 
 #[test]
+fn native_decimal_rolling_relational_limits_cap_only_safe_output_prefixes() {
+    use crate::relational_query::{VortexRelationalFilter, VortexRelationalProject};
+    use shardloom_core::{ExprId, Expression};
+
+    let range = |input, offset, count| {
+        VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+            input,
+            offset,
+            count,
+        }))
+    };
+    for chunk in [1, 4] {
+        let fixture = fixture(&[Some(0), Some(0), Some(3), Some(1)], 8, 0, chunk);
+        let request = rolling("mean", 5, 1, true);
+        let rolling = || unary(fixture.scan(), request.clone());
+        let projected = || {
+            VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+                input: rolling(),
+                expressions: vec![(
+                    "renamed".into(),
+                    Expression::column(
+                        ExprId::new("alias").unwrap(),
+                        ColumnRef::new("value").unwrap(),
+                    ),
+                )],
+            }))
+        };
+        for (offset, count) in [(0, 0), (0, 3), (1, 2), (2, 1)] {
+            assert_eq!(
+                collect(&range(projected(), offset, count)),
+                vec![json!({"renamed":"decimal128(38,6):1000000"}); count],
+            );
+        }
+        assert_eq!(
+            collect(&range(range(projected(), 1, 3), 1, 1)),
+            vec![json!({"renamed":"decimal128(38,6):1000000"})],
+        );
+        let mut already_limited = request.clone();
+        already_limited.source_order_limit = Some(2);
+        assert_eq!(
+            collect(&range(unary(fixture.scan(), already_limited), 1, 3)),
+            vec![json!({"value":"decimal128(38,6):1000000"})],
+        );
+        // These operators need more than a fixed input prefix. A filter that
+        // keeps every row is deliberately not special-cased by this rule.
+        for barrier in [
+            VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+                input: rolling(),
+                predicate: Expression::literal(
+                    ExprId::new("all").unwrap(),
+                    ScalarValue::Boolean(true),
+                ),
+            })),
+            VortexRelationalPlan::Sort(Box::new(VortexRelationalSort {
+                input: rolling(),
+                keys: vec![VortexRelationalOrderKey {
+                    column: ColumnRef::new("value").unwrap(),
+                    descending: false,
+                    nulls: Some(VortexRelationalNullOrder::Last),
+                }],
+            })),
+        ] {
+            let prepared = prepare_relational(&range(barrier, 0, 1), policy()).unwrap();
+            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let error = prepared
+                .collect_jsonl(&CancellationToken::default())
+                .err()
+                .unwrap();
+            assert!(error.to_string().contains("nonzero fractional digits"));
+            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        }
+    }
+}
+
+#[test]
 fn native_decimal_rolling_empty_and_all_null_results_keep_declared_type() {
     for input in [vec![], vec![None, None]] {
         let fixture = fixture(&input, 38, 38, 1);

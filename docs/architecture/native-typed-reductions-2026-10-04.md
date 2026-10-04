@@ -68,6 +68,14 @@ must not rescan the complete source or grow state with input length. Decimal
 extrema use the same bounded window and exact comparison. New output remains
 nonnullable when the existing min_periods policy only emits a valid observation.
 
+A relational output range must reach a preceding rolling operator through
+row-local projections and other output ranges after complete schema binding.
+Its required prefix includes skipped rows and intersects existing limits.
+Filters, sorting, other unary operations, aggregation, windows, sets, joins and
+subqueries stop this propagation. Keep the outer range to apply its offset and
+count. This avoids evaluating an inexact or overflowing rolling result outside
+the requested prefix without truncating a filter's input or changing ordering.
+
 Pivot retains domain discovery, index order, labels, fill, dropna, row limits and
 margin behavior. Its COUNT continues to count rows, including NULL payloads.
 Decimal numeric pivots retain the existing numeric pivot's non-NULL value

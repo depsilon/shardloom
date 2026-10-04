@@ -92,11 +92,14 @@ impl Binder<'_> {
     }
 
     pub(super) fn limit(&mut self, limit: &VortexRelationalLimit, depth: usize) -> Result<Node> {
-        limit
+        let prefix = limit
             .offset
             .checked_add(limit.count)
             .ok_or_else(|| failed("output range overflow"))?;
-        let input = Box::new(self.bind(&limit.input, depth + 1)?);
+        let mut input = Box::new(self.bind(&limit.input, depth + 1)?);
+        if limit.count != 0 {
+            cap_rolling_prefix(&mut input, prefix)?;
+        }
         self.charge(input.fields.len() * 4096)?;
         Ok(Node {
             fields: input.fields.clone(),
@@ -107,4 +110,27 @@ impl Binder<'_> {
             },
         })
     }
+}
+
+fn cap_rolling_prefix(node: &mut Node, rows: usize) -> Result<()> {
+    // Binding has already validated every expression and range. Projections
+    // preserve order and cardinality; ranges contribute their skipped prefix.
+    // Stop at every other operator, especially filters and sorting, whose
+    // output prefix need not be a prefix of their input.
+    match &mut node.kind {
+        NodeKind::Project { input, .. } => cap_rolling_prefix(input, rows)?,
+        NodeKind::Limit {
+            input,
+            offset,
+            count,
+        } if *count != 0 => {
+            let prefix = offset
+                .checked_add(rows.min(*count))
+                .ok_or_else(|| failed("output range overflow"))?;
+            cap_rolling_prefix(input, prefix)?;
+        }
+        NodeKind::Unary { operation, .. } => operation.cap_rolling_output(rows),
+        _ => {}
+    }
+    Ok(())
 }

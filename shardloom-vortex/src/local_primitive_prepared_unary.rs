@@ -347,6 +347,18 @@ impl BoundUnary {
         &self.fields
     }
 
+    /// Tighten only rolling output; other unary limits can select a different
+    /// population (for example tail or sample) and cannot receive this bound.
+    pub(super) fn cap_rolling_output(&mut self, rows: usize) {
+        if rows != 0 && self.request.kind == VortexQueryPrimitiveKind::RollingWindowRows {
+            self.request.source_order_limit = Some(
+                self.request
+                    .source_order_limit
+                    .map_or(rows, |existing| existing.min(rows)),
+            );
+        }
+    }
+
     /// A conservative metadata bound, never a row count obtained by replay.
     pub(super) fn upper_output_rows(&self, input: Option<u64>) -> Option<u64> {
         if self.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
