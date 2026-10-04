@@ -33,7 +33,11 @@ pub(super) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
         DataType::LargeList(_) => validate_list_values(column, array.as_list::<i64>()),
         DataType::FixedSizeList(..) => {
             let list = array.as_fixed_size_list();
-            let width = list.value_length() as usize;
+            let width = usize::try_from(list.value_length()).map_err(|_| {
+                ShardLoomError::InvalidOperation(format!(
+                    "native nested intake column '{column}' has a negative fixed-size-list width; no fallback execution was attempted"
+                ))
+            })?;
             for_valid_parent_ranges(array, |start, end| {
                 validate_child_range(column, list.values().as_ref(), start * width, end * width)
             })
