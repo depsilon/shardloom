@@ -59,6 +59,9 @@ is untyped NULL receives a nullable boolean carrier. This preserves every NULL
 row and provides one stable, persistable schema at empty and nonempty input.
 The full expression is bound before that coercion; typed NULLs retain their
 declared domain and unsupported expressions are not replaced by NULL.
+Standalone DataFrame scalar projections submit their complete declaration to
+native SQL admission, including aliases and untyped NULL without a LIMIT.
+An artificial derived relation is not required to reach the shared binder.
 
 Rolling preserves source order, valid-observation min_periods, omission of
 not-ready results, centered lookahead, limits and end-of-input flushing. Retain

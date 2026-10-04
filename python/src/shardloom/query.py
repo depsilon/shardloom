@@ -10967,7 +10967,17 @@ class LazyFrame:
         )
         if statement is None:
             statement = render_frame(self)
-        if statement and _native_relational_sql_candidate(statement):
+        # Flat scalar projections also need complete native SQL admission. The
+        # primitive facade accepts bare columns only; aliases and literals must
+        # not depend on a later LIMIT introducing a derived relation.
+        scalar_projection = any(
+            operation.kind == "select" and any(
+                value != "*" and not _is_sql_identifier(value)
+                for value in operation.values
+            )
+            for operation in self.operations
+        )
+        if statement and (_native_relational_sql_candidate(statement) or scalar_projection):
             return statement
         return self._native_vortex_aggregate_statement()
 

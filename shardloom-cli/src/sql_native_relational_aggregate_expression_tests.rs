@@ -3,6 +3,10 @@ use super::*;
 #[test]
 fn native_typed_reductions_sql_untyped_null_projection_admits_direct_composed_and_empty() {
     let source = fixture();
+    verify(
+        &format!("SELECT NULL AS missing FROM '{source}'"),
+        &json!(vec![json!({"missing":null}); 5]),
+    );
     for input in [
         format!("'{source}'"),
         format!("(SELECT * FROM '{source}' LIMIT 2) AS q"),

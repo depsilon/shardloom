@@ -80,6 +80,33 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 self.assertIn(operator, run.call_args.kwargs["sql_statement"])
                 self.assertEqual(run.call_count, 2)
 
+    def test_flat_scalar_projections_reach_native_admission_without_a_limit(self) -> None:
+        sources = [
+            self.context.read_vortex("missing.vortex"),
+            self.context.read_csv("missing.data", schema={"value": "int64"}),
+        ]
+        for source in sources:
+            for expression in ["NULL AS missing", "1 AS one", "value AS renamed",
+                               "COALESCE(NULL,NULL) AS missing", "value + 1 AS next_value"]:
+                frame = source.select(expression)
+                statement = f"SELECT {expression} FROM '{source.source.uri}'"
+                with self.subTest(source=source.source, expression=expression), mock.patch.object(
+                    self.client, "public_workflow_run", return_value=self.reply([])
+                ) as run, mock.patch.object(self.client, "vortex_prepare") as prepare, mock.patch.object(
+                    sl.LazyFrame, "_unsupported_operation", side_effect=AssertionError("projection not submitted")
+                ):
+                    self.assertEqual(frame.collect(check=True, memory_gb=3, max_parallelism=2).result_rows, ())
+                    run.assert_called_once()
+                    kwargs = run.call_args.kwargs
+                    self.assertEqual(kwargs["sql_statement"], statement)
+                    self.assertEqual(kwargs["memory_gb"], 3)
+                    self.assertEqual(kwargs["max_parallelism"], 2)
+                    self.assertEqual(kwargs["materialization_policy"], "bounded")
+                    self.assertNotIn("vortex_primitive", kwargs)
+                    self.assertNotIn("native_vortex_provider_scenario", kwargs)
+                    self.assertEqual(set(kwargs["source_bindings"]), {source.source.uri})
+                    prepare.assert_not_called()
+
     def test_python_objects_preserve_empty_and_nonempty_payloads_without_reexecution(self) -> None:
         frame = self.context.read_vortex("a.vortex").select("key").window("ROW_NUMBER() OVER (ORDER BY key) AS position")
         statement = "SELECT key FROM 'a.csv' INTERSECT SELECT key FROM 'b.vortex'"
