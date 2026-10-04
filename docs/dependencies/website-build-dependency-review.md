@@ -38,6 +38,25 @@ publication, runtime execution fallback, public performance claims, or productio
   - `python3 scripts/check_website_readiness.py` passed.
   - `node website/validate_static_assets.js` passed.
 
+## 2026-10-04 Static Website Cache Dependency
+
+The registry published `http-cache-semantics` 4.3.0 on October 4. Update only
+that transitive lockfile entry; Astro's existing `^4.2.0` requirement admits it.
+The package retains its BSD-2-Clause license and adds no dependency. The registry
+integrity and [upstream source revision](https://github.com/kornelski/http-cache-semantics/commit/b1d4bd682fbab0252985de45219f4e7497c0067c)
+identify the selected release. No other package entry changes.
+
+Local validation passed on this main-based change: dependency installation,
+`npm audit --audit-level=low` with zero vulnerabilities, website build, Astro
+checks with zero errors/warnings/hints, all eight link tests, public-status
+validation, website readiness and static assets. The audit gate is unchanged
+and no exception is introduced. Hosted checks and production deployment remain
+required before publication is complete.
+The clean audit is not evidence that the earlier reported `max-stale` behavior
+changed: upstream [disputed that report](https://github.com/kornelski/http-cache-semantics/issues/56#issuecomment-5975759591),
+and the 4.3.0 changes address Vary matching and expose response status. The site
+uses Astro static output; this update remains a build-time dependency change.
+
 ## Runtime Boundary
 
 - Astro, Starlight, MDX, sitemap, Pagefind, TypeScript, and related packages are website-only build
