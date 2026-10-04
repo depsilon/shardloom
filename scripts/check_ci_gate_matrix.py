@@ -438,7 +438,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         lane_id="website_docs_validation",
         job_id="website-docs",
         commands=(
-            "npm run audit:dependencies",
+            "npm audit --audit-level=low",
             "npm run build",
             "npm run check",
             "python scripts/check_public_status_docs.py",
