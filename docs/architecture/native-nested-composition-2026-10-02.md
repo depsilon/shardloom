@@ -2,8 +2,8 @@
 
 # Native nested payload composition
 
-Status: implemented with the local acceptance records below; a further nested
-intake review correction is undergoing validation before hosted acceptance.
+Status: implemented with the local acceptance records below, including the
+null-parent intake review correction; hosted acceptance remains pending.
 This continues
 the [universal workflow plan](universal-workflow-completion-2026-10-01.md) after
 [flat unary composition](native-unary-composition-2026-10-02.md), under
@@ -316,6 +316,19 @@ recursive schema admission independent of parent validity.
 
 Focused coverage passes for lists, large lists, fixed-size lists, structs,
 all-null and empty slices, visible non-finite rejection, and complete Arrow IPC
-to Vortex readback through buffered, streamed and budgeted intake. The broader
-source checks are pending. The earlier immutable public and Full43 records above
-remain evidence for their original revisions, not fresh acceptance of this fix.
+to Vortex readback through buffered, streamed and budgeted intake. All eight
+selected source checks pass on `90891423b8cfcf0fd865aeb84bb3b7eb82160c37`:
+formatting, default and native strict Clippy, default workspace tests (3,446),
+native Vortex tests (2,246; 23 existing ignored), native CLI tests (1,577),
+native-without-write Clippy and the lean workspace check. These configuration
+counts overlap. The
+[review packet](../benchmarks/evidence/native-nested-intake-review-2026-10-04.json.xz)
+retains exact source hashes, all logs, the initial reproduction and the corrected
+signed-width compiler check. Its SHA-256 is
+`604e17f3826a745cb8aff2635fc22f540d6943eca1c612c6d697afb4098c0a41`.
+
+The earlier immutable public and Full43 records remain evidence for their
+original revisions. Full43 was not rerun for this correction: it reads an
+existing native Vortex artifact and cannot reach the changed nested Arrow-intake
+traversal. No timing, benchmark artifact or performance claim changes. The full
+native suites include the new adapter regression; hosted checks still gate merge.
