@@ -4081,14 +4081,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.col("payload_b64").from_base64().byte_length() >= 4),
             "BYTE_LENGTH(FROM_BASE64(payload_b64)) >= 4",
         )
-        with self.assertRaisesRegex(
-            ValueError, "binary byte length expressions admit"
-        ):
-            sl.col("label").byte_length()
-        with self.assertRaisesRegex(
-            ValueError, "binary helper expressions require a source-backed"
-        ):
-            sl.byte_length(sl.ColumnExpression("UNHEX('aa')"))
+        self.assertEqual(str(sl.col("label").byte_length()), "BYTE_LENGTH(label)")
+        self.assertEqual(
+            str(sl.byte_length(sl.ColumnExpression("UNHEX('aa')"))),
+            "BYTE_LENGTH(UNHEX('aa'))",
+        )
         self.assertEqual(
             str(
                 sl.concat(sl.col("label").trim().lower(), "-", sl.col("segment").upper())
@@ -4151,7 +4148,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sl.col("event_dt").date_add_days(sl.interval_seconds(1))
         with self.assertRaises(ValueError):
-            sl.col("event_dt").date_add_days(366_001)
+            sl.col("event_dt").date_add_days(1 << 64)
         with self.assertRaises(ValueError):
             sl.interval_days(True)
         with self.assertRaises(ValueError):
@@ -4163,7 +4160,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sl.col("event_ts").timestamp_add_seconds("1 minute")
         with self.assertRaises(ValueError):
-            sl.col("event_ts").timestamp_add_seconds(31_622_400_001)
+            sl.col("event_ts").timestamp_add_seconds(1 << 64)
         with self.assertRaises(TypeError):
             sl.col("event_dt").date_diff_days(
                 datetime(2026, 5, 19, 12, 0, tzinfo=timezone.utc)

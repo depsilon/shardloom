@@ -10,6 +10,7 @@ import subprocess
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
 from native_typed_key_cases import run as typed_key_cases
+from native_typed_expression_cases import run as typed_expression_cases
 
 
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
@@ -117,6 +118,14 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         for parallelism in (1, 2):
             guard()
             label = f"{name}-collect-{parallelism}"
+            if len(expected) > 65_536:
+                execution = dict(resources, max_parallelism=parallelism)
+                denied(label, workflow.collect(check=False, **execution), reason="collect exceeds 65,536 rows")
+                report = workflow.limit(97).collect(check=False, **execution)
+                if verified(label + "-limited", report).field("result_payload_complete") != "true":
+                    raise ValueError(f"{label}: limited collection was incomplete")
+                equal(label + "-limited", list(report.result_rows), expected[:97])
+                continue
             report = workflow.collect(check=False, **dict(resources, max_parallelism=parallelism))
             if verified(label, report).field("result_payload_complete") != "true":
                 raise ValueError(f"{label}: collection was incomplete")
@@ -230,6 +239,8 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
 
     typed_key_cases(context, output, guard, exercise, remember, original, fields, schema,
                     native, output / "typed.data")
+    typed_expression_cases(context, output, guard, exercise, exercise_workflow, remember,
+                           original, schema, native, output / "typed.data", prepared, count)
 
     spill_workspace = output / "typed-key-spill"
     spill_workspace.mkdir()
@@ -284,6 +295,10 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         ]:
             guard()
             label = f"typed-denied-{name}-{operation}"
+            if name == "amount" and operation == "cast":
+                exercise_workflow("typed-expression-promoted-decimal-float-empty", context.sql(statement),
+                                  [], ["changed"], typed_orc=False, json_cells=())
+                continue
             destination = output / f"{label}.vortex"
             denied(label, context.sql(statement).write_vortex(destination, check=False, **resources), destination)
     guard()

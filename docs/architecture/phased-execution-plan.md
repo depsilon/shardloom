@@ -351,8 +351,8 @@ the ledger.
     No predeclared timing or memory threshold is crossed; no speedup is claimed.
   - Acceptance: exact type/value/null/order preservation across the complete
     admitted workflow, without scalar-row execution, intermediate files, replay
-    or fallback. Nested key semantics, typed expressions, adapters and
-    resource/spill remain open.
+    or fallback. Nested key semantics, adapters and resource/spill remain open;
+    typed expressions continue in the separately accepted unit below.
   - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
     hosted completion remains subject to its existing website advisory decision.
 
@@ -385,11 +385,45 @@ the ledger.
     retain complete values, schemas, source/binary identity and local gate evidence.
   - Acceptance: exact logical type identity, full-value comparison after hash
     lookup, existing NULL rules and no implicit decimal rescaling or temporal
-    coercion, including empty plans. Nested keys, typed arithmetic/literals/casts,
-    retained unary state, broader adapters and state spill remain with their
-    existing phase owners.
+    coercion, including empty plans. Typed expressions continue in the separately
+    accepted unit below. Nested keys, retained unary state, broader adapters and
+    state spill remain with their existing phase owners.
   - Dependency: locally accepted typed payload composition; hosted merge remains
     subject to the existing nested/pivot/typed stack and website advisory decision.
+
+- [ ] `NATIVE-TYPED-EXPRESSIONS` — complete typed literals, explicit casts and
+  checked decimal/binary/calendar expressions through the shared native binder
+  and scalar kernels under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed expression contract](native-typed-expressions-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: use native column/constant owners, lazy selected
+    branches, one PulseWeave grant and reserved result construction; preserve
+    metadata/pruning, capillary delivery and existing timing/evidence owners.
+  - Execution checklist:
+    - [x] Share checked core helpers, fixed output-type derivation and native
+      typed literal/cast/arithmetic/function kernels; prove boundary semantics.
+    - [x] Converge public SQL/DataFrame declarations on those expressions and
+      preserve complete typed result/writer behavior and resource ownership.
+    - [x] Freeze independent public correctness, required local gates and paired
+      Full43 regression; update exact support records and immutable evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+      then move this finite item to the completed ledger.
+  - Local evidence: frozen review source `895a45c9` passes 6,600 public checks/14,120,333
+    complete row comparisons, including 868 expression checks/1,837,436 rows.
+    All 202 direct-unary checks, 24 local gate categories and 258 paired Full43
+    comparisons pass. No timing, RSS or aggregate threshold is crossed; no
+    repeat is prescribed and no speedup is claimed. Decimal branch promotion
+    adds 90 checks while preserving the original 6,510 cases and complete oracles. The
+    [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
+    and [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz)
+    preserve independent complete-value expectations, ownership/failure evidence,
+    source/binary hashes, failed observations and final check provenance. The
+    original acceptance and Q26 repeat remain separately recorded.
+  - Acceptance: exact decimal and temporal behavior, explicit conversion failures,
+    lazy NULL/branch semantics and deterministic unsupported empty plans; no
+    frontend-specific executor or external-engine fallback.
+  - Dependency: locally accepted typed keys. Retained unary state, nested keys,
+    broader adapters and state-spill obligations keep their existing owners.
 
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and

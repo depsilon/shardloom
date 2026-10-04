@@ -37481,6 +37481,15 @@ fn parse_conditional_projection(
             "CASE projections require non-empty predicate, THEN branch, and ELSE branch",
         ));
     }
+    if [then_raw, else_raw].iter().any(|raw| {
+        parse_projection_literal_value(raw).is_ok_and(|value| matches!(value, ScalarValue::Null))
+            || (parse_projection_literal_value(raw).is_err()
+                && validate_sql_column_ref(raw).is_err())
+    }) {
+        // The generic scalar declaration owns composed branches; the native
+        // binder determines their common type before selected evaluation.
+        return Ok(None);
+    }
     let predicate = parse_predicate(predicate_raw)?;
     let then_branch = parse_conditional_projection_branch(then_raw, "THEN")?;
     let else_branch = parse_conditional_projection_branch(else_raw, "ELSE")?;
@@ -37637,6 +37646,12 @@ fn parse_predicate_projection(
 }
 
 fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomError> {
+    if raw
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("case "))
+    {
+        return Ok(false);
+    }
     if parse_regex_function_prefix(raw.trim()).is_some() {
         return Ok(true);
     }
@@ -37705,8 +37720,10 @@ fn parse_generic_expression_projection(
     }
     let contains_temporal_difference =
         expression_contains_temporal_difference_call(expression_raw)?;
+    let has_numeric_operator = expression_contains_numeric_operator(expression_raw)?;
+    let composed = !has_numeric_operator && scalar_expression::composed(expression_raw)?;
     if is_simple_numeric_arithmetic_projection_shape(expression_raw)?
-        || (!expression_contains_numeric_operator(expression_raw)? && !contains_temporal_difference)
+        || (!has_numeric_operator && !contains_temporal_difference && !composed)
     {
         return Ok(None);
     }
@@ -37714,14 +37731,9 @@ fn parse_generic_expression_projection(
     let expression =
         parse_numeric_scalar_expression(expression_raw, &format!("project.generic.{alias}"))?;
     let source_columns = expression_source_columns(&expression);
-    if source_columns.is_empty() {
-        return Err(unsupported_sql_error(
-            "generic expression projections require at least one source column",
-        ));
-    }
     let operator_families = expression_operator_families(&expression);
     let binary_operator_count = expression_binary_operator_count(&expression);
-    if binary_operator_count == 0 && !expression_has_temporal_difference(&expression) {
+    if binary_operator_count == 0 && !expression_has_temporal_difference(&expression) && !composed {
         return Ok(None);
     }
     Ok(Some(ParsedGenericExpressionProjection {
@@ -37794,140 +37806,14 @@ fn is_simple_numeric_arithmetic_projection_shape(raw: &str) -> Result<bool, Shar
     Ok(parse_numeric_arithmetic_literal(&tokens[2]).is_ok())
 }
 
+#[path = "sql_scalar_expression.rs"]
+mod scalar_expression;
+
 fn parse_numeric_scalar_expression(
     raw: &str,
     id_prefix: &str,
 ) -> Result<Expression, ShardLoomError> {
-    let trimmed = trim_enclosing_scalar_expression_parentheses(raw)?;
-    if let Some((index, op)) = find_top_level_numeric_operator(trimmed, &['+', '-'])? {
-        return numeric_binary_expression(trimmed, id_prefix, index, op);
-    }
-    if let Some((index, op)) = find_top_level_numeric_operator(trimmed, &['*', '/'])? {
-        return numeric_binary_expression(trimmed, id_prefix, index, op);
-    }
-    if let Some(expression) = parse_numeric_cast_expression(trimmed, id_prefix)? {
-        return Ok(expression);
-    }
-    if let Some(expression) = parse_temporal_difference_function_expression(trimmed, id_prefix)? {
-        return Ok(expression);
-    }
-    if let Some(expression) = parse_numeric_function_expression(trimmed, id_prefix)? {
-        return Ok(expression);
-    }
-    if let Ok(value) = parse_numeric_arithmetic_literal(trimmed) {
-        return Ok(Expression::literal(
-            ExprId::new(format!("{id_prefix}.literal"))?,
-            value,
-        ));
-    }
-    validate_sql_column_ref(trimmed)?;
-    Ok(Expression::column(
-        ExprId::new(format!("{id_prefix}.{trimmed}"))?,
-        ColumnRef::new(trimmed.to_string())?,
-    ))
-}
-
-fn numeric_binary_expression(
-    raw: &str,
-    id_prefix: &str,
-    op_index: usize,
-    op_char: char,
-) -> Result<Expression, ShardLoomError> {
-    let left_raw = raw[..op_index].trim();
-    let right_raw = raw[op_index + op_char.len_utf8()..].trim();
-    if left_raw.is_empty() || right_raw.is_empty() {
-        return Err(unsupported_sql_error(
-            "generic numeric expressions require operands on both sides of an arithmetic operator",
-        ));
-    }
-    if op_char == '/'
-        && matches!(
-            parse_numeric_arithmetic_literal(right_raw),
-            Ok(ScalarValue::Int64(0) | ScalarValue::Float64(0.0))
-        )
-    {
-        return Err(unsupported_sql_error(
-            "generic numeric expression division by zero is not admitted",
-        ));
-    }
-    Ok(Expression::new(
-        ExprId::new(format!("{id_prefix}.binary"))?,
-        ExpressionKind::Binary {
-            left: Box::new(parse_numeric_scalar_expression(
-                left_raw,
-                &format!("{id_prefix}.left"),
-            )?),
-            op: numeric_binary_op_from_char(op_char)?,
-            right: Box::new(parse_numeric_scalar_expression(
-                right_raw,
-                &format!("{id_prefix}.right"),
-            )?),
-        },
-    ))
-}
-
-fn numeric_binary_op_from_char(op: char) -> Result<BinaryOp, ShardLoomError> {
-    match op {
-        '+' => Ok(BinaryOp::Add),
-        '-' => Ok(BinaryOp::Subtract),
-        '*' => Ok(BinaryOp::Multiply),
-        '/' => Ok(BinaryOp::Divide),
-        _ => Err(unsupported_sql_error(
-            "generic numeric expressions admit +, -, *, and / operators only",
-        )),
-    }
-}
-
-fn parse_numeric_cast_expression(
-    raw: &str,
-    id_prefix: &str,
-) -> Result<Option<Expression>, ShardLoomError> {
-    if !raw
-        .get(..5)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
-    {
-        return Ok(None);
-    }
-    let close_index = matching_closing_parenthesis(raw, 4)?.ok_or_else(|| {
-        unsupported_sql_error(
-            "generic numeric CAST expressions must use CAST(<expr> AS int64|float64|decimal128(p,s))",
-        )
-    })?;
-    if !raw[close_index + 1..].trim().is_empty() {
-        return Err(unsupported_sql_error(
-            "generic numeric CAST projections must be a single CAST expression",
-        ));
-    }
-    let inner = raw[5..close_index].trim();
-    let as_index = find_keyword_outside_quotes_and_parentheses(inner, "as")?.ok_or_else(|| {
-        unsupported_sql_error("generic numeric CAST expressions must use CAST(<expr> AS <dtype>)")
-    })?;
-    let source_raw = inner[..as_index].trim();
-    let target_raw = inner[as_index + "as".len()..].trim();
-    let target_dtype = parse_cast_target_dtype(target_raw)?;
-    let target_is_decimal = logical_dtype_is_decimal128(&target_dtype);
-    if !matches!(target_dtype, LogicalDType::Int64 | LogicalDType::Float64) && !target_is_decimal {
-        return Err(unsupported_sql_error(
-            "generic numeric CAST projections currently admit int64, float64, and scoped decimal128 targets only",
-        ));
-    }
-    let source_expression = if target_is_decimal {
-        match parse_projection_literal_value(source_raw) {
-            Ok(value) => {
-                Expression::literal(ExprId::new(format!("{id_prefix}.cast.literal"))?, value)
-            }
-            Err(_) => {
-                parse_numeric_scalar_expression(source_raw, &format!("{id_prefix}.cast.source"))?
-            }
-        }
-    } else {
-        parse_numeric_scalar_expression(source_raw, &format!("{id_prefix}.cast.source"))?
-    };
-    Ok(Some(Expression::cast(
-        ExprId::new(format!("{id_prefix}.cast"))?,
-        source_expression,
-        target_dtype,
-    )))
+    scalar_expression::parse(raw, id_prefix)
 }
 
 fn logical_dtype_is_decimal128(dtype: &LogicalDType) -> bool {
@@ -37993,174 +37879,6 @@ fn temporal_difference_function_prefix(raw: &str) -> Option<(&'static str, Logic
         }
     }
     None
-}
-
-fn parse_temporal_difference_function_expression(
-    raw: &str,
-    id_prefix: &str,
-) -> Result<Option<Expression>, ShardLoomError> {
-    let Some((function_name, target_dtype)) = temporal_difference_function_prefix(raw) else {
-        return Ok(None);
-    };
-    let open_index = function_name.len();
-    let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
-        unsupported_sql_error(
-            "temporal difference expressions must use DATE_DIFF_DAYS(left, right) or TIMESTAMP_DIFF_SECONDS(left, right)",
-        )
-    })?;
-    if !raw[close_index + 1..].trim().is_empty() {
-        return Err(unsupported_sql_error(
-            "temporal difference expressions must be a single function expression",
-        ));
-    }
-    let args = split_sql_csv(raw[open_index + 1..close_index].trim())?;
-    let [left_raw, right_raw] = args.as_slice() else {
-        return Err(unsupported_sql_error(
-            "temporal difference expressions require exactly two arguments",
-        ));
-    };
-    let left = parse_temporal_difference_arg_expression(
-        left_raw,
-        &format!("{id_prefix}.{function_name}.left"),
-        &target_dtype,
-    )?;
-    let right = parse_temporal_difference_arg_expression(
-        right_raw,
-        &format!("{id_prefix}.{function_name}.right"),
-        &target_dtype,
-    )?;
-    Ok(Some(Expression::new(
-        ExprId::new(format!("{id_prefix}.{function_name}"))?,
-        ExpressionKind::FunctionCall {
-            name: function_name.to_string(),
-            args: vec![left, right],
-        },
-    )))
-}
-
-fn parse_temporal_difference_arg_expression(
-    raw: &str,
-    id_prefix: &str,
-    target_dtype: &LogicalDType,
-) -> Result<Expression, ShardLoomError> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Err(unsupported_sql_error(
-            "temporal difference arguments must not be empty",
-        ));
-    }
-    if let Some(expression) = parse_temporal_difference_cast_arg(trimmed, id_prefix, target_dtype)?
-    {
-        return Ok(expression);
-    }
-    if let Ok(value) = parse_projection_literal_value(trimmed) {
-        if matches!(value, ScalarValue::Null) || &value.dtype() == target_dtype {
-            return Ok(Expression::literal(
-                ExprId::new(format!("{id_prefix}.literal"))?,
-                value,
-            ));
-        }
-        return Err(unsupported_sql_error(&format!(
-            "temporal difference literals for {} arguments must match the function dtype, got {}",
-            target_dtype.as_str(),
-            value.dtype().as_str()
-        )));
-    }
-    validate_sql_column_ref(trimmed)?;
-    Ok(Expression::column(
-        ExprId::new(format!("{id_prefix}.{trimmed}"))?,
-        ColumnRef::new(trimmed.to_string())?,
-    ))
-}
-
-fn parse_temporal_difference_cast_arg(
-    raw: &str,
-    id_prefix: &str,
-    target_dtype: &LogicalDType,
-) -> Result<Option<Expression>, ShardLoomError> {
-    if !raw
-        .get(..5)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
-    {
-        return Ok(None);
-    }
-    let close_index = matching_closing_parenthesis(raw, 4)?.ok_or_else(|| {
-        unsupported_sql_error(
-            "temporal difference CAST arguments must use CAST(<column> AS date32|timestamp_micros)",
-        )
-    })?;
-    if !raw[close_index + 1..].trim().is_empty() {
-        return Err(unsupported_sql_error(
-            "temporal difference CAST arguments must be a single CAST expression",
-        ));
-    }
-    let inner = raw[5..close_index].trim();
-    let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
-        unsupported_sql_error("temporal difference CAST arguments must use CAST(<column> AS dtype)")
-    })?;
-    let column = inner[..as_index].trim();
-    let target_raw = inner[as_index + "as".len()..].trim();
-    validate_sql_column_ref(column)?;
-    let parsed_target = parse_cast_target_dtype(target_raw)?;
-    if parsed_target != *target_dtype {
-        return Err(unsupported_sql_error(&format!(
-            "temporal difference CAST arguments must target {}, got {}",
-            target_dtype.as_str(),
-            parsed_target.as_str()
-        )));
-    }
-    Ok(Some(Expression::cast(
-        ExprId::new(format!("{id_prefix}.cast"))?,
-        Expression::column(
-            ExprId::new(format!("{id_prefix}.{column}"))?,
-            ColumnRef::new(column.to_string())?,
-        ),
-        parsed_target,
-    )))
-}
-
-fn parse_numeric_function_expression(
-    raw: &str,
-    id_prefix: &str,
-) -> Result<Option<Expression>, ShardLoomError> {
-    let Some(open_index) = raw.find('(') else {
-        return Ok(None);
-    };
-    let function_raw = raw[..open_index].trim();
-    let function_name = match function_raw.to_ascii_lowercase().as_str() {
-        "abs" => "abs",
-        "floor" => "floor",
-        "ceil" | "ceiling" => "ceil",
-        "round" => "round",
-        _ => return Ok(None),
-    };
-    let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
-        unsupported_sql_error(
-            "generic numeric function projections must use ABS/FLOOR/CEIL/ROUND(<expr>)",
-        )
-    })?;
-    if !raw[close_index + 1..].trim().is_empty() {
-        return Err(unsupported_sql_error(
-            "generic numeric function projections must be a single function expression",
-        ));
-    }
-    let inner = raw[open_index + 1..close_index].trim();
-    let args = split_sql_csv(inner)?;
-    let [arg] = args.as_slice() else {
-        return Err(unsupported_sql_error(
-            "generic numeric function projections require exactly one expression argument",
-        ));
-    };
-    Ok(Some(Expression::new(
-        ExprId::new(format!("{id_prefix}.{function_name}"))?,
-        ExpressionKind::FunctionCall {
-            name: function_name.to_string(),
-            args: vec![parse_numeric_scalar_expression(
-                arg,
-                &format!("{id_prefix}.{function_name}.arg"),
-            )?],
-        },
-    )))
 }
 
 fn trim_enclosing_scalar_expression_parentheses(mut raw: &str) -> Result<&str, ShardLoomError> {
@@ -38285,7 +38003,15 @@ fn is_unary_numeric_sign(raw: &str, index: usize, ch: char) -> bool {
         .find(|candidate| !candidate.is_whitespace());
     let sign_position =
         before.is_none_or(|candidate| matches!(candidate, '(' | ',' | '+' | '-' | '*' | '/'));
-    sign_position && after.is_some_and(|candidate| candidate.is_ascii_digit() || candidate == '.')
+    let exponent_sign = raw[..index].ends_with(['e', 'E']) && {
+        let mantissa = raw[..index - 1]
+            .rsplit(|c: char| c.is_whitespace() || matches!(c, '(' | ',' | '+' | '-' | '*' | '/'))
+            .next()
+            .unwrap_or_default();
+        !mantissa.is_empty() && mantissa.parse::<f64>().is_ok()
+    };
+    (sign_position && after.is_some())
+        || (exponent_sign && after.is_some_and(|ch| ch.is_ascii_digit()))
 }
 
 fn expression_source_columns(expression: &Expression) -> Vec<String> {
@@ -41467,6 +41193,7 @@ fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
     }
     match trimmed.to_ascii_lowercase().as_str() {
         "int64" | "bigint" | "integer" | "int" => Ok(LogicalDType::Int64),
+        "uint64" => Ok(LogicalDType::UInt64),
         "float64" | "double" | "float" => Ok(LogicalDType::Float64),
         "utf8" | "string" | "text" => Ok(LogicalDType::Utf8),
         "boolean" | "bool" => Ok(LogicalDType::Boolean),
@@ -41657,24 +41384,23 @@ fn parse_generic_expression_predicate(
     }
     let contains_temporal_difference = expression_contains_temporal_difference_call(left_raw)?
         || expression_contains_temporal_difference_call(right_raw)?;
-    if !expression_contains_numeric_operator(left_raw)?
-        && !expression_contains_numeric_operator(right_raw)?
-        && !contains_temporal_difference
-    {
+    let numeric = expression_contains_numeric_operator(left_raw)?
+        || expression_contains_numeric_operator(right_raw)?;
+    let composed = !numeric
+        && (scalar_expression::composed(left_raw)? || scalar_expression::composed(right_raw)?);
+    if !numeric && !contains_temporal_difference && !composed {
         return Ok(None);
     }
     let left = parse_numeric_scalar_expression(left_raw, "where.generic.left")?;
     let right = parse_numeric_scalar_expression(right_raw, "where.generic.right")?;
     let source_columns = expression_pair_source_columns(&left, &right);
-    if source_columns.is_empty() {
-        return Err(unsupported_sql_error(
-            "generic numeric expression predicates require at least one source column",
-        ));
-    }
     let operator_families = expression_pair_operator_families(&left, &right);
     let binary_operator_count =
         expression_binary_operator_count(&left) + expression_binary_operator_count(&right);
-    if binary_operator_count == 0 && !expression_pair_has_temporal_difference(&left, &right) {
+    if binary_operator_count == 0
+        && !expression_pair_has_temporal_difference(&left, &right)
+        && !composed
+    {
         return Ok(None);
     }
     Ok(Some(ParsedPredicate::GenericExpressionCompare {
@@ -43701,6 +43427,9 @@ fn parse_sql_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     }
     if let Ok(parsed) = value.parse::<i64>() {
         return Ok(ScalarValue::Int64(parsed));
+    }
+    if let Ok(parsed) = value.parse::<u64>() {
+        return Ok(ScalarValue::UInt64(parsed));
     }
     if let Ok(parsed) = value.parse::<f64>()
         && parsed.is_finite()
@@ -48687,15 +48416,12 @@ mod tests {
             "SELECT id,CASE WHEN id = 1 THEN X'00' ELSE X'ff' END AS payload FROM 'target/input.csv' LIMIT 5",
             "SELECT id,CASE WHEN id = 1 THEN BINARY 'x' ELSE BLOB 'y' END AS payload FROM 'target/input.csv' LIMIT 5",
         ] {
-            let error = parse_sql_local_source_statement(statement)
-                .expect_err("binary literals in conditional branches remain blocked");
-            assert!(
-                error
-                    .to_string()
-                    .contains("CASE projection branches must be literals or source columns"),
-                "unexpected error for {statement}: {error}"
+            let parsed = parse_sql_local_source_statement(statement)
+                .expect("binary conditional declarations lower to the native expression binder");
+            assert_eq!(
+                parsed.generic_expression_projection_output_columns(),
+                "payload"
             );
-            assert!(error.to_string().contains("external_engine_invoked=false"));
         }
     }
 
@@ -49281,16 +49007,14 @@ mod tests {
     }
 
     #[test]
-    fn parser_blocks_left_right_literal_first_argument_without_fallback() {
-        let error = parse_sql_local_source_statement(
+    fn parser_admits_left_literal_first_argument() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,LEFT('literal', 2) AS prefix FROM 'target/input.csv' LIMIT 5",
         )
-        .expect_err("LEFT requires a source column first argument");
-
-        assert!(
-            error.to_string().contains(
-                "LEFT string function expressions require a source column first argument"
-            )
+        .expect("constant scalar calls lower to the native expression binder");
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "prefix"
         );
     }
 
@@ -50361,17 +50085,14 @@ mod tests {
     }
 
     #[test]
-    fn null_coalesce_projection_null_fallback_is_blocked() {
-        let error = parse_sql_local_source_statement(
+    fn null_coalesce_projection_null_fallback_is_admitted() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,COALESCE(label, NULL) AS label_clean FROM 'target/input.csv' LIMIT 5",
         )
-        .expect_err("null fallback is blocked during parsing");
-
-        assert!(
-            error
-                .to_string()
-                .contains("COALESCE projections require a non-NULL fallback literal"),
-            "{error}"
+        .expect("NULL coalesce declarations lower to the native expression binder");
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "label_clean"
         );
     }
 
@@ -50395,17 +50116,14 @@ mod tests {
     }
 
     #[test]
-    fn nullif_projection_null_sentinel_is_blocked() {
-        let error = parse_sql_local_source_statement(
+    fn nullif_projection_null_sentinel_is_admitted() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,NULLIF(label, NULL) AS label_clean FROM 'target/input.csv' LIMIT 5",
         )
-        .expect_err("null sentinel is blocked during parsing");
-
-        assert!(
-            error
-                .to_string()
-                .contains("NULLIF projections require a non-NULL sentinel literal"),
-            "{error}"
+        .expect("NULL sentinel declarations lower to the native expression binder");
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "label_clean"
         );
     }
 
@@ -50429,17 +50147,14 @@ mod tests {
     }
 
     #[test]
-    fn conditional_projection_null_branch_is_blocked() {
-        let error = parse_sql_local_source_statement(
+    fn conditional_projection_null_branch_is_admitted() {
+        let parsed = parse_sql_local_source_statement(
             "SELECT id,CASE WHEN amount >= 10 THEN NULL ELSE 'small' END AS size_band FROM 'target/input.csv' LIMIT 5",
         )
-        .expect_err("null CASE branch is blocked during parsing");
-
-        assert!(
-            error
-                .to_string()
-                .contains("CASE projections require a non-NULL THEN branch literal"),
-            "{error}"
+        .expect("NULL CASE branch declarations lower to the native expression binder");
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "size_band"
         );
     }
 
@@ -52955,13 +52670,19 @@ mod tests {
     }
 
     #[test]
-    fn binary_byte_length_blocks_non_binary_arguments_without_fallback() {
+    fn binary_byte_length_admits_utf8_and_rejects_numeric_arguments_without_fallback() {
         let path = sql_local_source_test_path("csv");
         fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
 
-        for statement in [
-            "SELECT id,BYTE_LENGTH(label) AS label_len FROM '{}' LIMIT 5",
-            "SELECT id FROM '{}' WHERE BYTE_LENGTH('literal') >= 1 LIMIT 5",
+        for (statement, expected) in [
+            (
+                "SELECT id,BYTE_LENGTH(label) AS label_len FROM '{}' LIMIT 5",
+                "{\"id\":1,\"label_len\":5}\n",
+            ),
+            (
+                "SELECT id FROM '{}' WHERE BYTE_LENGTH('literal') >= 1 LIMIT 5",
+                "{\"id\":1}\n",
+            ),
         ] {
             let request = SqlLocalSourceRequest {
                 source_format_override: None,
@@ -52972,13 +52693,23 @@ mod tests {
                 allow_overwrite: false,
                 runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
             };
-            let error = run_local_source_runtime_single(&request)
-                .expect_err("non-binary byte length argument remains blocked");
-
+            let report = run_local_source_runtime_single(&request).unwrap();
+            let fields = field_map(report.fields());
+            assert_field_eq(&fields, "result_jsonl", expected);
+            assert_field_eq(&fields, "fallback_attempted", "false");
+            assert_field_eq(&fields, "external_engine_invoked", "false");
+            let invalid = SqlLocalSourceRequest {
+                statement: format!(
+                    "SELECT id,BYTE_LENGTH(id) AS invalid FROM '{}' LIMIT 5",
+                    path.display()
+                ),
+                ..request
+            };
+            let error = run_local_source_runtime_single(&invalid).unwrap_err();
             assert!(
                 error
                     .to_string()
-                    .contains("binary byte length expressions admit BYTE_LENGTH"),
+                    .contains("Binary/UTF-8/null operands only"),
                 "{error}"
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
@@ -58202,7 +57933,7 @@ mod tests {
             ),
             (
                 "SELECT id,DATE_ADD_DAYS(event_date, intervaé) AS shifted FROM 'target/input.csv' LIMIT 5",
-                "date arithmetic day count must be a signed integer literal",
+                "SQL identifiers may contain only ASCII letters, numbers, and underscores",
             ),
         ] {
             let error =
