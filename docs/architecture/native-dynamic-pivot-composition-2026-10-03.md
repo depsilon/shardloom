@@ -164,6 +164,6 @@ Python, feature/MSRV and documentation checks. All 258 paired Full43 retained
 results match; no predeclared timing or memory investigation threshold is crossed.
 The [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
 records the unchanged aggregate timing, complete readbacks, certificate payloads
-and portable proof. Hosted review and the inherited website advisory decision
+and portable proof. Hosted runtime review and checks
 remain pending. This evidence does not establish a performance improvement or
 complete the broader PERF and competitive gates.

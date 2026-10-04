@@ -158,7 +158,7 @@ existing universal-workflow owners and are subsequent implementation work.
 - [ ] Run paired Full43 under the existing serial storage/process guards and
   predeclared timing/RSS/aggregate screens, retaining prescribed repeats and
   every failed or inconclusive observation.
-- [ ] Complete hosted review/gates after the inherited website advisory decision
+- [ ] Complete hosted review/gates
   and record the finite completion in the ledger.
 
 Availability requires correctness, resource and failure proof. No speedup,

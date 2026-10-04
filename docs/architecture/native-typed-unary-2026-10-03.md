@@ -196,8 +196,9 @@ Q15 timing and Q34 RSS flags do not reproduce; Q9 reverses timing direction and
 remains flagged for timing/RSS. Its performance conclusion stays inconclusive,
 with both cohorts retained and no speedup or uniformly unchanged-performance
 claim. The report distinguishes these observations from functional acceptance.
-The hosted website advisory decision and the review bot's exhausted quota remain
-external acceptance limits; no package, tag or release is published.
+Hosted runtime review and checks remain pending. The earlier review exhausted
+the bot's quota; local review evidence is retained. No package, tag or release
+is published.
 
 Broader aggregate/window semantics, nested keys, adapters, general state
 spill/recovery, native Python binding experiments, paused large text/format

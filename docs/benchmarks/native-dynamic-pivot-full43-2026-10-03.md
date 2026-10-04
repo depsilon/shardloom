@@ -135,3 +135,12 @@ accounting and total-RSS enforcement retain their own owners. The execution
 certificate records decoding and materialization; no zero-decode claim is made.
 This completes local pivot acceptance, not the broader PERF or CG gates, and
 does not publish a package or certify production readiness.
+
+## October 4 website dependency follow-up
+
+The [dependency update](../dependencies/website-build-dependency-review.md#2026-10-04-registry-update)
+selects `http-cache-semantics` 4.3.0 and passes the standard dependency audit.
+The unused exception proposal is removed. Earlier website-blocker statements
+in this report describe its original frozen revision; they no longer identify
+the current dependency posture. Hosted runtime review and checks remain separate.
+The recorded benchmark results, source identities and immutable packets are unchanged.

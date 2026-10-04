@@ -104,7 +104,7 @@ coverage or broader spill admission.
 
 Availability requires correctness, ownership and output evidence, not a speedup.
 Paused large format/text performance runs, native Python binding experiments,
-package publication and the inherited website advisory decision stay separate.
+package publication and hosted runtime acceptance stay separate.
 
 The frozen `8237a900` acceptance passes 4,109 complete public checks, including
 804 typed-payload checks, the separate 202-check direct-unary matrix, all 24

@@ -191,3 +191,12 @@ state spill/recovery remain open. Successful native runs retain
 `fallback_attempted=false` and `external_engine_invoked=false`. This evidence
 does not establish general speedup, total-process memory enforcement, broad
 SQL/DataFrame parity, production readiness or competitive superiority.
+
+## October 4 website dependency follow-up
+
+The [dependency update](../dependencies/website-build-dependency-review.md#2026-10-04-registry-update)
+selects `http-cache-semantics` 4.3.0 and passes the standard dependency audit.
+The unused exception proposal is removed. Earlier website-blocker statements
+in this report describe its original frozen revision; they no longer identify
+the current dependency posture. Hosted runtime review and checks remain separate.
+The recorded benchmark results, source identities and immutable packets are unchanged.

@@ -123,3 +123,12 @@ Hosted merge still depends on the nested-composition base and the website audit'
 explicit advisory decision or remediation. This repair does not activate the
 disabled exception, publish packages, close broader type/adapter/spill work, or
 establish competitive or production certification.
+
+## October 4 website dependency follow-up
+
+The [dependency update](../dependencies/website-build-dependency-review.md#2026-10-04-registry-update)
+selects `http-cache-semantics` 4.3.0 and passes the standard dependency audit.
+The unused exception proposal is removed. Earlier website-blocker statements
+in this report describe its original frozen revision; they no longer identify
+the current dependency posture. Hosted runtime review and checks remain separate.
+The recorded benchmark results, source identities and immutable packets are unchanged.

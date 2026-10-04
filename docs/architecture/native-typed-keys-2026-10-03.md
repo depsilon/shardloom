@@ -138,8 +138,8 @@ incompatible-type cases; record that transition in the evidence. Availability is
 accepted on correctness and resource proof, not a required speedup.
 
 All execution and Native I/O certificates retain `fallback_attempted=false` and
-`external_engine_invoked=false`. Hosted dependency completion and the inherited
-website advisory decision stay separate. Paused large format/text performance
+`external_engine_invoked=false`. Hosted runtime review and
+checks stay separate. Paused large format/text performance
 runs, native Python bindings, publication and broader PERF/CG completion are not
 authorized by this finite implementation contract.
 

@@ -129,7 +129,7 @@ Vortex file directly does not imply a dependency on its historical raw input.
 - [x] Run paired Full43 under the existing serial storage/process guards,
   using the existing symmetric timing/RSS/aggregate screens and prescribed
   reversed-order repeats. Preserve every observation and any inconclusive flags.
-- [ ] Complete hosted review/gates after the inherited website advisory decision.
+- [ ] Complete hosted runtime review and checks.
 
 Availability requires complete correctness, resource and failure evidence; a
 speedup is not required and must not be inferred. Broader aggregate/window,

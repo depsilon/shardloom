@@ -310,8 +310,8 @@ the ledger.
     owned-result lifetime. All 24 selected local gates and 258 paired Full43
     retained-result comparisons pass. No predeclared timing or memory threshold
     is crossed; the [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
-    preserves the complete observation. Hosted review and the inherited website
-    advisory decision remain pending; no performance improvement is claimed.
+    preserves the complete observation. Hosted runtime review and checks
+    remain pending; no performance improvement is claimed.
   - Acceptance follow-up: the [report-integrity repair](../benchmarks/native-report-integrity-full43-2026-10-03.md)
     gives footer-count/cache and execution no-fallback fields one owner, with
     regression checks rejecting duplicate names. Fresh acceptance passes
@@ -324,7 +324,7 @@ the ledger.
     scan for discovery, prefix collection, intermediate files or fallback. Keep
     inspection inert and all existing direct pivot semantics and bounds explicit.
   - Dependency: uses the locally accepted nested-composition tree; its hosted
-    website advisory decision remains separate and cannot be bypassed by this work.
+    runtime review and checks remain separate.
 
 - [ ] `NATIVE-TYPED-PAYLOADS` — carry existing binary, Decimal128, Date32 and
   timezone-free microsecond timestamp types through shared native composition
@@ -341,7 +341,7 @@ the ledger.
       output, with explicit unsupported-format and operated-type diagnostics.
     - [x] Prove complete public workflows, selected ownership, resource/failure
       behavior, required local gates and Full43 regression; record immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+    - [ ] Complete hosted runtime review and checks,
       then move this finite item to the completed ledger.
   - Local evidence: frozen `8237a900` passes 4,109 complete public checks,
     including 804 typed checks, the separate 202-check direct-unary matrix, all
@@ -355,7 +355,7 @@ the ledger.
     and resource/spill remain open;
     typed expressions continue in the separately accepted unit below.
   - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
-    hosted completion remains subject to its existing website advisory decision.
+    hosted completion remains subject to review and checks for that stack.
 
 - [ ] `NATIVE-TYPED-KEYS` — complete exact binary, Decimal128, Date32 and
   timezone-free microsecond timestamp comparisons and keys in the shared native
@@ -373,7 +373,7 @@ the ledger.
       typed ordering spill/merge, cancellation, constrained grants and cleanup.
     - [x] Prove complete public writer/readback workflows, required local gates
       and paired Full43 regression; update exact public support and immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+    - [ ] Complete hosted runtime review and checks,
       then move this finite item to the completed ledger.
   - Local evidence: frozen runtime `2f402226` passes 5,733 public checks with
     12,282,897 complete row comparisons, including 2,428 typed checks and
@@ -390,7 +390,7 @@ the ledger.
     accepted unit below. Nested keys, retained unary state, broader adapters and
     state spill remain with their existing phase owners.
   - Dependency: locally accepted typed payload composition; hosted merge remains
-    subject to the existing nested/pivot/typed stack and website advisory decision.
+    subject to review and checks for the existing nested/pivot/typed stack.
 
 - [ ] `NATIVE-TYPED-EXPRESSIONS` — complete typed literals, explicit casts and
   checked decimal/binary/calendar expressions through the shared native binder
@@ -407,7 +407,7 @@ the ledger.
       preserve complete typed result/writer behavior and resource ownership.
     - [x] Freeze independent public correctness, required local gates and paired
       Full43 regression; update exact support records and immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+    - [ ] Complete hosted runtime review and checks,
       then move this finite item to the completed ledger.
   - Local evidence: frozen review source `895a45c9` passes 6,600 public checks/14,120,333
     complete row comparisons, including 868 expression checks/1,837,436 rows.
@@ -442,8 +442,8 @@ the ledger.
       ownership, output, cancellation, constrained grants and failure cleanup.
     - [x] Freeze independent public/direct-unary correctness, required local
       gates and paired Full43 regression; update precise support and evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory
-      decision, then move this finite item to the completed ledger.
+    - [ ] Complete hosted runtime review and checks, then move this finite item
+      to the completed ledger.
   - Acceptance: direct and composed calls share exact logical type preservation
     and deterministic empty-plan admission. Existing primitive floating-key,
     seed/tie, ordering and margin behavior remains compatible. No decoded
@@ -457,13 +457,12 @@ the ledger.
     inconclusive with both cohorts retained. See the
     [report](../benchmarks/native-typed-unary-full43-2026-10-03.md) and
     [immutable packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz).
-    Hosted completion still requires the website advisory decision; the review
-    bot has exhausted its quota. No general performance improvement is claimed.
+    Hosted runtime review and checks remain pending. The earlier review exhausted
+    the bot's quota. No general performance improvement is claimed.
   - Dependency: locally accepted typed expressions and 0.4.0 source preparation.
     Nested keys continue under NATIVE-NESTED-KEYS-STATE; broader aggregate/window
     semantics, adapters and general state spill keep their existing owners;
-    hosted completion retains the stack's
-    website advisory decision.
+    hosted completion requires review and checks for the stack.
 
 - [ ] `NATIVE-NESTED-KEYS-STATE` — extend shared logical keys and compact retained
   native state to static lists, fixed-size lists and structs under
@@ -480,8 +479,8 @@ the ledger.
       prove NULL semantics, selected ownership, grants, cancellation and cleanup.
     - [x] Freeze complete public/writer correctness, required local checks and
       paired Full43 regression with exact support and immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory
-      decision, then move this finite item to the completed ledger.
+    - [ ] Complete hosted runtime review and checks, then move this finite item
+      to the completed ledger.
   - Local evidence: frozen `d65907f6` passes 17,458 public checks/14,143,015 complete
     row comparisons, including 8,162 new checks/17,270 rows from 406 independent
     declarations. All 9,296 unaffected prior cases remain; four nested-key
@@ -492,8 +491,8 @@ the ledger.
     The [report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md) and
     [immutable packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz)
     retain complete values, resource evidence and all four interrupted public
-    attempts. Independent packet inspection passes. Hosted review/gates retain
-    the inherited website advisory decision; no speedup is claimed.
+    attempts. Independent packet inspection passes. Hosted runtime review and
+    checks remain pending; no speedup is claimed.
   - Dependency: locally accepted typed unary state. Broader pivot aggregation,
     aggregate/window semantics, adapters and general state spill keep their
     existing owners and remain subsequent work in the universal queue.
@@ -514,8 +513,8 @@ the ledger.
       bounded ownership, constrained grants, cancellation and failed publication.
     - [ ] Freeze independent complete public/direct correctness, required local
       checks and paired Full43; update exact support and immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory
-      decision, then move this finite item to the completed ledger.
+    - [ ] Complete hosted runtime review and checks, then move this finite item
+      to the completed ledger.
   - Acceptance: complete native expression/reduction workflows with exact decimal
     values, schemas and writer readback. Existing primitive calculation order,
     bare-column paths and pivot/rolling policies remain compatible. No frontend
