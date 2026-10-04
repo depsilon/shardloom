@@ -89,8 +89,12 @@ pub(super) fn write_if_needed(
             native_vortex_bound_request_and_arg(request, primitive, &binding)?;
         let policy = native_vortex_materializing_policy(request)?;
         let source = prepared_dispatch::prepare_source(&primitive_request, policy)?;
-        if preparations.is_empty()
-            && !prepared_dispatch::request_requires_relational(&source, &primitive_request)?
+        #[cfg(feature = "universal-format-io")]
+        let (source, preparations) = (
+            source.with_preparation_sources(preparations.sources)?,
+            PublicSourcePreparations::default(),
+        );
+        if !prepared_dispatch::request_requires_relational(&source, &primitive_request)?
             && let Some(report) = prepared_dispatch::try_write_source(
                 &primitive_request,
                 &target.path,

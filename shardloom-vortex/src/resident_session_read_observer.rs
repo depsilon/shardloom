@@ -316,6 +316,8 @@ impl super::ResidentVortexSession {
             file,
             identity: Some(Arc::clone(&observer.identity)),
             runtime: Arc::clone(&self.0),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            preparation: None,
         }));
         OPERATION_OBSERVATION.with(|current| {
             *current.borrow_mut() = Some(OperationObservation {

@@ -328,6 +328,8 @@ impl ResidentVortexSession {
             file,
             identity: None,
             runtime: Arc::clone(&self.0),
+            #[cfg(all(feature = "universal-format-io", unix))]
+            preparation: None,
         }))
     }
 
@@ -525,6 +527,8 @@ impl ResidentVortexSession {
             file,
             identity: Some(identity),
             runtime: Arc::clone(&self.0),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            preparation: None,
         })))
     }
 }
@@ -534,13 +538,28 @@ struct PreparedSourceOwner {
     // Engine-owned immutable memory needs no external pathname validation.
     identity: Option<Arc<SourceIdentity>>,
     runtime: Arc<RuntimeOwner>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    preparation: Option<Box<PreparedSourceProvenance>>,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+struct PreparedSourceProvenance {
+    sources: Vec<Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
+    _metadata: shardloom_exec::live_memory::MemoryLease,
 }
 
 impl PreparedSourceOwner {
     fn validate(&self) -> Result<()> {
         self.identity
             .as_ref()
-            .map_or(Ok(()), |identity| identity.validate())
+            .map_or(Ok(()), |identity| identity.validate())?;
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+        if let Some(preparation) = &self.preparation {
+            for source in &preparation.sources {
+                source.validate_generation()?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -548,6 +567,50 @@ impl PreparedSourceOwner {
 pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
 impl PreparedVortexSource {
+    /// Retain explicit compatibility preparation generations on this native owner.
+    /// Every clone shares their validation, writer alias checks and memory credit.
+    /// Persisted Vortex inputs without this attachment remain independent sources.
+    ///
+    /// # Errors
+    /// Rejects changed identities, more than 128 preparations, insufficient memory,
+    /// and attachment after the source has already been shared or bound.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    pub fn with_preparation_sources(
+        mut self,
+        sources: Vec<Arc<crate::prepared_source_binding::LocalPreparationIdentity>>,
+    ) -> Result<Self> {
+        if sources.is_empty() {
+            return Ok(self);
+        }
+        if sources.len() > 128 {
+            return Err(resident_error(
+                "source preparation exceeds 128 compatibility sources",
+            ));
+        }
+        let owner = Arc::get_mut(&mut self.0).ok_or_else(|| {
+            resident_error("source preparation must be attached before sharing the source")
+        })?;
+        if owner.preparation.is_some() {
+            return Err(resident_error(
+                "source preparation has already been attached",
+            ));
+        }
+        owner.validate()?;
+        // Bound each <=64-KiB binding, two digests, descriptor and owner metadata.
+        let metadata = owner
+            .runtime
+            .memory
+            .reserve(sources.len() as u64 * 131_072)?;
+        for source in &sources {
+            source.validate_generation()?;
+        }
+        owner.preparation = Some(Box::new(PreparedSourceProvenance {
+            sources,
+            _metadata: metadata,
+        }));
+        Ok(self)
+    }
+
     /// Retain the source's existing owner without creating a second runtime.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn retained_session(&self) -> ResidentVortexSession {
@@ -574,7 +637,7 @@ impl PreparedVortexSource {
                 "prepared source does not match the admitted file generation",
             ));
         }
-        identity.validate()
+        self.0.validate()
     }
 
     #[cfg(unix)]
@@ -592,6 +655,12 @@ impl PreparedVortexSource {
     /// Include hard links and symlinks when rejecting an input as a write target.
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
     pub(crate) fn aliases_file(&self, path: &Path) -> Result<bool> {
+        #[cfg(feature = "universal-format-io")]
+        if let Some(preparation) = &self.0.preparation {
+            for source in &preparation.sources {
+                source.validate_destination(path)?;
+            }
+        }
         let Some(identity) = &self.0.identity else {
             return Ok(false);
         };

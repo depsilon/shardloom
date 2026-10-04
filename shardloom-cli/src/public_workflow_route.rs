@@ -4700,15 +4700,6 @@ impl PublicSourcePreparations {
         #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
         true
     }
-
-    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
-    #[cfg_attr(not(feature = "universal-format-io"), allow(clippy::unused_self))]
-    fn is_empty(&self) -> bool {
-        #[cfg(feature = "universal-format-io")]
-        return self.sources.is_empty();
-        #[cfg(not(feature = "universal-format-io"))]
-        true
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -4872,7 +4863,7 @@ fn execute_prepared_local_native_route(
     #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
     let _ = preparations;
     // Resolve the same strategy with the original preparation owners attached.
-    // The relational writer carries them through its final commit checks.
+    // Native source/plan owners carry them through final writer commit checks.
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
     if is_write_request(request)
         && let Some(exit) = resident_sql::write_if_needed(

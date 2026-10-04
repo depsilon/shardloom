@@ -2,6 +2,9 @@ use super::*;
 use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
 use std::sync::Arc;
 
+#[path = "resident_source_provenance_tests.rs"]
+mod source_provenance_tests;
+
 const FORMATS: [Format; 8] = [
     Format::Vortex,
     Format::Parquet,
@@ -618,7 +621,9 @@ fn native_relational_every_writer_checks_original_preparation_source_through_com
 
     let origin = Fixture::new(keyed(&[], &[]), 1);
     let csv = origin.0.join("source.csv");
-    for during_consumption in [true, false] {
+    for (during_consumption, source_owned) in
+        [(true, false), (false, false), (true, true), (false, true)]
+    {
         for format in FORMATS {
             fs::write(&csv, "entity,amount\n1,10\n1,11\n").unwrap();
             let binding = local_preparation_binding(&csv, "csv", "metadata_only").unwrap();
@@ -628,10 +633,7 @@ fn native_relational_every_writer_checks_original_preparation_source_through_com
                 vec![(KEY, binding.as_bytes().to_vec())],
             );
             let identity = Arc::new(local_preparation_identity(&source.path(), &binding).unwrap());
-            let prepared = prepare_relational(&source.scan(), policy())
-                .unwrap()
-                .with_preparation_sources(vec![identity])
-                .unwrap();
+            let prepared = source_provenance_tests::prepare(&source, identity, source_owned);
             let baseline = prepared.session.memory().snapshot().reserved_bytes;
             let plan = crate::local_primitives::native_sink::NativeSinkPlan::produced_sources(
                 prepared.session.clone(),

@@ -101,6 +101,14 @@ their explicit grant-denial behavior until their own spill implementation is
 verified. Reservation counters do not claim coverage of all provider scratch,
 allocator metadata or process RSS.
 
+Compatibility preparation rebinds declared source paths to the authoritative
+Vortex schema. Retained relational reuse also compares original preparation
+identities. Shared SQL writers retain those identities on the native source or
+relational plan through final commit and output-alias validation; schema routing
+preserves the existing optimized flat writer. Preparation metadata uses the same
+memory grant and stays credited until its last owner drops. Opening a persisted
+Vortex file directly does not imply a dependency on its historical raw input.
+
 ## Acceptance
 
 - [ ] Verify recursive equality/hash/order across different dictionaries,
