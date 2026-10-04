@@ -4829,7 +4829,7 @@ fn execute_local_file_prepare_once_first_query_run(
             format,
             extra_fields,
             execution_session,
-            preparations,
+            &preparations,
         )
     })
     .unwrap_or_else(|error| {
@@ -4865,7 +4865,7 @@ fn execute_prepared_local_native_route(
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
-    preparations: PublicSourcePreparations,
+    preparations: &PublicSourcePreparations,
 ) -> ExitCode {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     let mut extra_fields = extra_fields;
@@ -4906,7 +4906,7 @@ fn execute_prepared_local_native_route(
                 execution_session,
                 extra_fields,
                 None,
-                preparations,
+                preparations.clone(),
             )
         }
         "native_vortex_count_all"
