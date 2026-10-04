@@ -134,6 +134,34 @@ def run(context, output, guard, exercise, exercise_workflow, remember, denied,
         failures.append((prefix + "-inexact-rolling", repeating.rolling(3, min_periods=3, center=True).mean("money"), "nonzero fractional digits"))
         failures.append((prefix + "-null-pivot", base.pivot_table(index="id", columns="payload", values="amount", aggfunc="sum"), "non-null"))
 
+        if not composed:
+            # Exercise bare native columns as well as the computed money stages:
+            # direct strategy selection must admit the same decimal semantics.
+            add(prefix + "-bare-aggregate", source.agg(
+                total="sum(amount)", low="min(amount)", high="max(amount)", present="count(amount)"),
+                [{"total": decimal(1_234_567 - maximum, scale=6),
+                  "low": decimal(-maximum, scale=6), "high": decimal(1_234_567, scale=6),
+                  "present": 3}], ["total", "low", "high", "present"], cells=("total", "low", "high"))
+            add(prefix + "-bare-average", source.filter("id=1").agg(value="avg(amount)"),
+                [{"value": decimal(1_234_567, scale=6)}], ["value"])
+            pivot_columns = ["id", "pivot_binary", "pivot_binary_c3a9", "pivot_binary_00ff10"]
+            pivot_expected = [
+                {"id": 1, "pivot_binary": None, "pivot_binary_c3a9": None,
+                 "pivot_binary_00ff10": decimal(1_234_567, scale=6)},
+                {"id": 2, "pivot_binary": decimal(-maximum, scale=6),
+                 "pivot_binary_c3a9": None, "pivot_binary_00ff10": None},
+                {"id": 4, "pivot_binary": None, "pivot_binary_c3a9": decimal(0, scale=6),
+                 "pivot_binary_00ff10": None},
+            ]
+            for aggregate in ("sum", "mean", "min", "max"):
+                add(prefix + "-bare-rolling-" + aggregate,
+                    getattr(source.rolling(1, min_periods=1), aggregate)("amount", alias="value"),
+                    [{"value": decimal(value, scale=6)} for value in (1_234_567, -maximum, 0)], ["value"])
+                add(prefix + "-bare-pivot-" + aggregate,
+                    source.filter("id<>3").pivot_table(index="id", columns="payload", values="amount",
+                                                      aggfunc=aggregate, dropna=False),
+                    pivot_expected, pivot_columns, cells=pivot_columns[1:])
+
     # Boundary scales need a direct public SQL spelling in addition to the
     # composed, renamed decimal columns above.
     for scale, expression, total, mean in [
