@@ -93,7 +93,7 @@ def run(context, output, guard, exercise, exercise_workflow, remember, denied,
                     add(f"{prefix}-rolling-{aggregate}-limited", frame.limit(2), expected[:2], ["value"])
 
         shrinking = base.select(
-            "CAST(CASE WHEN id=3 THEN 3 WHEN id=4 THEN 1 ELSE 0 END AS decimal128(8,0)) AS money"
+            "CAST((CASE WHEN id=3 THEN 3 ELSE 0 END) + (CASE WHEN id=4 THEN 1 ELSE 0 END) AS decimal128(8,0)) AS money"
         ).rolling(5, min_periods=1, center=True).mean("money", alias="value")
         add(prefix + "-rolling-eof-limited", shrinking.limit(3),
             [{"value": decimal(1_000_000, scale=6)}] * 3, ["value"])
