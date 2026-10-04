@@ -20,6 +20,10 @@ struct field order and exact integer domains. Recursively bound schema depth,
 field metadata and selected child counts before allocating. This is an extension
 of Vortex DType and native arrays, not a second row representation.
 
+The subsequent [typed payload extension](native-typed-payloads-2026-10-03.md)
+adds binary, exact Decimal128, Date32 and timezone-free microsecond timestamp
+leaves while preserving these structural bounds and ownership rules.
+
 The implementation admits schema depth at most 24, at most 4,096 recursive nodes
 and at most 8 MiB of conservatively charged schema metadata. Each nested struct
 has 1–1,024 nonempty, distinct field names. Empty structs are explicitly rejected:
@@ -80,11 +84,12 @@ source sampling, query replay or Python execution is allowed.
 
 Retained scalar unary state continues to use its existing admitted value domain.
 General nested deduplication, sampling/rewrite state, nested key semantics,
-heterogeneous Variant payloads, decimals/binary/extension types and dynamic pivot
-binding require their own concrete type or state extensions under the existing
-owners. Dynamic pivot is a separate dependency because its column names and
-types become known during execution; widening a fixed-schema binder cannot
-implement it. These remaining gaps are not completion of the broader PERF gates.
+heterogeneous Variant payloads and general extension operations require their
+own concrete type or state extensions under the existing owners. The later
+[typed payload work](native-typed-payloads-2026-10-03.md) admits the four additional
+payload families, and [dynamic pivot](native-dynamic-pivot-composition-2026-10-03.md)
+binds observed domains during execution. Neither closes broader PERF gates or
+admits the new payload types as keys, arithmetic operands or retained unary state.
 
 ## Reuse and Vortex-first provider decision
 

@@ -71,6 +71,8 @@ REQUIRED_JSON_POINTERS = (
     "native_nested_composition.payload_types",
     "native_nested_composition.nested_writers",
     "native_nested_composition.denied_nested_writers",
+    "native_typed_payloads.reference",
+    "native_typed_payloads.types",
 )
 
 REQUIRED_COMMANDS = (
@@ -241,6 +243,23 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         blockers.append(f"{JSON_PATH}: nested writers must match the representable static nested contract")
     if set(nested.get("denied_nested_writers", [])) != {"csv", "orc"}:
         blockers.append(f"{JSON_PATH}: nested CSV and ORC must remain explicitly denied")
+
+    typed = payload.get("native_typed_payloads", {})
+    types = {"binary", "decimal128", "date32", "timestamp_micros"}
+    if set(typed.get("types", [])) != types or not types.issubset(nested.get("leaf_types", [])):
+        blockers.append(f"{JSON_PATH}: typed payloads and nested leaves must share exact type admission")
+    for field in ("typed_keys_arithmetic_and_unary_state", "total_rss_bound",
+                  "fallback_attempted", "external_engine_invoked"):
+        if typed.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_typed_payloads.{field} must be false")
+    for field, value in (("nested_leaves", True), ("decimal_precision", [1, 38]),
+                         ("decimal_scale", "0_to_precision"), ("binary_local_writer_count", 8),
+                         ("decimal_temporal_local_writer_count", 7),
+                         ("denied_decimal_temporal_writers", ["orc"])):
+        if typed.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_typed_payloads.{field} differs from its contract")
+    if "timestamp_timezone" not in typed or typed["timestamp_timezone"] is not None:
+        blockers.append(f"{JSON_PATH}: typed temporal payloads require timezone-free microseconds")
 
     pivot = payload.get("native_dynamic_pivot_composition", {})
     for field in ("preparation_metadata_only", "inspection_side_effect_free",

@@ -223,6 +223,18 @@ pub(super) fn prepare_plan(
     let Some(schema) = schema_for(&plan.dtype, limits.columns) else {
         return Ok(None);
     };
+    if format == VortexLocalPrimitiveRowExportFormat::Orc
+        && schema.fields().iter().any(|field| {
+            matches!(
+                field.data_type(),
+                DataType::Decimal128(..) | DataType::Date32 | DataType::Timestamp(..)
+            )
+        })
+    {
+        return Err(error(
+            "ORC does not admit decimal or temporal output in the pinned writer; use Vortex, Arrow IPC or Parquet",
+        ));
+    }
     let schema_fields = plan
         .dtype
         .as_struct_fields_opt()

@@ -1,0 +1,948 @@
+{
+  "allocation_contract": {
+    "credit_lifetime": "last buffer owner including slices/clones",
+    "custom_allocator_trait": "unsafe allocator_api2::Allocator",
+    "scope": "Only provider allocations through the admitted allocator; not total process RSS.",
+    "try_methods": "Iterator errors and unique-owner conversion; no fallible allocation/growth boundary.",
+    "typed_denial": "required",
+    "upstream_denial_path": "Allocation::allocate_impl/grow -> handle_alloc_error"
+  },
+  "cargo_info": [
+    {
+      "command": [
+        "rustup",
+        "run",
+        "stable",
+        "cargo",
+        "info",
+        "--offline",
+        "vortex@0.87.0"
+      ],
+      "cwd": "<review-workspace>",
+      "output": "vortex #vortex\nVortex file format with all builtin codecs and a sampling compressor.\nversion: 0.87.0\nlicense: Apache-2.0\nrust-version: 1.95\ndocumentation: https://docs.rs/vortex/0.87.0\nhomepage: https://github.com/vortex-data/vortex\nrepository: https://github.com/vortex-data/vortex\ncrates.io: https://crates.io/crates/vortex/0.87.0\nfeatures:\n +default               = [files, parquet-variant, wasm-bindgen, zstd]\n  files                 = [dep:vortex-file]\n  parquet-variant       = [dep:vortex-parquet-variant]\n  wasm-bindgen          = [vortex-file?/wasm-bindgen, vortex-io/wasm-bindgen, vortex-layout/wasm-bindgen]\n  zstd                  = [dep:vortex-zstd, vortex-file?/zstd]\n  hf                    = [object_store_registry, vortex-cloud/hf]\n  memmap2               = [vortex-buffer/memmap2]\n  object_store          = [vortex-file?/object_store, vortex-io/object_store]\n  object_store_registry = [object_store, vortex-cloud/registry]\n  opendal               = [object_store_registry, vortex-cloud/opendal]\n  pretty                = [vortex-array/table-display]\n  serde                 = [vortex-array/serde, vortex-buffer/serde, vortex-mask/serde]\n  tensor                = [dep:vortex-tensor, vortex-file?/tensor]\n  tokio                 = [vortex-error/tokio, vortex-file?/tokio, vortex-io/tokio, vortex-layout/tokio]\n  unstable_row_fns      = [vortex-array/unstable_row_fns]\n  vortex-cloud          = [dep:vortex-cloud]\n"
+    },
+    {
+      "command": [
+        "rustup",
+        "run",
+        "stable",
+        "cargo",
+        "info",
+        "--offline",
+        "vortex-zstd@0.87.0"
+      ],
+      "cwd": "<review-workspace>",
+      "output": "vortex-zstd #vortex\nVortex zstd compression array encoding\nversion: 0.87.0\nlicense: Apache-2.0\nrust-version: 1.95\ndocumentation: https://docs.rs/vortex-zstd/0.87.0\nhomepage: https://github.com/vortex-data/vortex\nrepository: https://github.com/vortex-data/vortex\ncrates.io: https://crates.io/crates/vortex-zstd/0.87.0\n"
+    },
+    {
+      "command": [
+        "rustup",
+        "run",
+        "stable",
+        "cargo",
+        "info",
+        "--offline",
+        "vortex-array@0.87.0"
+      ],
+      "cwd": "<review-workspace>",
+      "output": "vortex-array #vortex\nVortex in memory columnar data format\nversion: 0.87.0\nlicense: Apache-2.0\nrust-version: 1.95\ndocumentation: https://docs.rs/vortex-array/0.87.0\nhomepage: https://github.com/vortex-data/vortex\nrepository: https://github.com/vortex-data/vortex\ncrates.io: https://crates.io/crates/vortex-array/0.87.0\nfeatures:\n  _test-harness     = [dep:goldenfile, dep:rstest, dep:rstest_reuse]\n  arbitrary         = [dep:arbitrary, dep:primitive-types]\n  canonical_counter = []\n  cudarc            = [dep:cudarc]\n  serde             = [dep:serde, vortex-buffer/serde, vortex-mask/serde]\n  table-display     = [dep:tabled]\n  unstable_row_fns  = []\n"
+    },
+    {
+      "command": [
+        "rustup",
+        "run",
+        "stable",
+        "cargo",
+        "info",
+        "--offline",
+        "vortex-buffer@0.87.0"
+      ],
+      "cwd": "<review-workspace>",
+      "output": "vortex-buffer #vortex\nA byte buffer implementation for Vortex\nversion: 0.87.0\nlicense: Apache-2.0\nrust-version: 1.95\ndocumentation: https://docs.rs/vortex-buffer/0.87.0\nhomepage: https://github.com/vortex-data/vortex\nrepository: https://github.com/vortex-data/vortex\ncrates.io: https://crates.io/crates/vortex-buffer/0.87.0\nfeatures:\n  arrow     = []\n  memmap2   = [dep:memmap2]\n  serde     = [dep:serde, serde/serde_derive]\n  warn-copy = [dep:tracing]\n"
+    }
+  ],
+  "decision": "retain_vortex_085_at_resource_contract_gate",
+  "dependency_changes": false,
+  "external_engine_invoked": false,
+  "failed_observation": {
+    "diagnosis": "Login-shell path_helper reordered Homebrew ahead of rustup; repaired with local zprofile and both shells/checkouts rerun.",
+    "log": "Traceback (most recent call last):\n  File \"<review-workspace>/verify_toolchain.py\", line 21, in <module>\n    assert 'release: 1.99.0' in run(['rustc', '-Vv'], cwd=repo)\nAssertionError\n",
+    "receipt": {
+      "command": [
+        "python3",
+        "-B",
+        "<review-workspace>/verify_toolchain.py"
+      ],
+      "cwd": "<source-worktree>",
+      "error": "RuntimeError: acceptance returned 1; inspect <review-workspace>/llvm-toolchain-smoke-1.log",
+      "log_sha256": "55665ba67940c1c3820d4e8cacb9da5e63b9f94dfd721afddc6ab7c6ef3f6cb7",
+      "pid": 47184,
+      "returncode": 1,
+      "serial_workload_guard": true,
+      "status": "failed",
+      "storage_final_observation": {
+        "free_bytes": 80266493952,
+        "log_bytes": 0,
+        "reserved_candidate_bytes": 134217728,
+        "workspace_bytes": 1523712
+      },
+      "storage_preflight": {
+        "free_bytes": 80266498048,
+        "log_bytes": 0,
+        "reserved_candidate_bytes": 134217728,
+        "workspace_bytes": 1519616
+      },
+      "supervised_seconds": 0.259445917,
+      "timeout": 300.0
+    }
+  },
+  "fallback_attempted": false,
+  "generator_sha256": "4b804c5b47f428edc2c98ab0f7deaf9f01fac55239476e9404df7ffb6a9adb76",
+  "local_raw_evidence": "<review-workspace>; source URLs and SHA-256 values above permit independent verification",
+  "locked_vortex_packages": {
+    "vortex": "0.85.0",
+    "vortex-alp": "0.85.0",
+    "vortex-array": "0.85.0",
+    "vortex-array-macros": "0.85.0",
+    "vortex-arrow": "0.85.0",
+    "vortex-btrblocks": "0.85.0",
+    "vortex-buffer": "0.85.0",
+    "vortex-bytebool": "0.85.0",
+    "vortex-compressor": "0.85.0",
+    "vortex-compute": "0.85.0",
+    "vortex-datetime-parts": "0.85.0",
+    "vortex-decimal-byte-parts": "0.85.0",
+    "vortex-edition": "0.85.0",
+    "vortex-error": "0.85.0",
+    "vortex-fastlanes": "0.85.0",
+    "vortex-file": "0.85.0",
+    "vortex-flatbuffers": "0.85.0",
+    "vortex-fsst": "0.85.0",
+    "vortex-io": "0.85.0",
+    "vortex-ipc": "0.85.0",
+    "vortex-layout": "0.85.0",
+    "vortex-mask": "0.85.0",
+    "vortex-metrics": "0.85.0",
+    "vortex-onpair": "0.85.0",
+    "vortex-pco": "0.85.0",
+    "vortex-proto": "0.85.0",
+    "vortex-runend": "0.85.0",
+    "vortex-scan": "0.85.0",
+    "vortex-sequence": "0.85.0",
+    "vortex-session": "0.85.0",
+    "vortex-sparse": "0.85.0",
+    "vortex-utils": "0.85.0",
+    "vortex-zigzag": "0.85.0",
+    "vortex-zstd": "0.85.0"
+  },
+  "new_provider": "0.87.0",
+  "new_provider_benchmarks_run": false,
+  "new_provider_build_attempted": false,
+  "performance_claim": false,
+  "published_source_comparison": [
+    {
+      "crate": "vortex-array",
+      "matches_tag": true,
+      "path": "src/memory.rs",
+      "published_path": "<user-home>/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-array-0.87.0/src/memory.rs",
+      "sha256": "bdde26a9dabef091f38cafc381f772f56e7afa9e8634f6b827769e4f43554624"
+    },
+    {
+      "crate": "vortex-array",
+      "matches_tag": true,
+      "path": "src/builders/mod.rs",
+      "published_path": "<user-home>/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-array-0.87.0/src/builders/mod.rs",
+      "sha256": "debc032ddff98f5064a8d985df834b15d7de7cd1fbe32566e80e187f6c91b2f5"
+    },
+    {
+      "crate": "vortex-buffer",
+      "matches_tag": true,
+      "path": "src/allocation.rs",
+      "published_path": "<user-home>/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-buffer-0.87.0/src/allocation.rs",
+      "sha256": "6fa9bcdd9d2c0e89ef27c810b75193c6e776b653389a3b4a9624f34ae7d01d17"
+    },
+    {
+      "crate": "vortex-buffer",
+      "matches_tag": true,
+      "path": "src/buffer_mut.rs",
+      "published_path": "<user-home>/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-buffer-0.87.0/src/buffer_mut.rs",
+      "sha256": "82911feb42fca7017efd46e8664bd217511df61db95d5acc59191a5acb686d80"
+    }
+  ],
+  "registry_versions": [
+    {
+      "checksum": "9dfb3e18caa6b443cdea6da53de9d9be74e353d73f4e2fa22d18b463cb3c063a",
+      "crate": "vortex",
+      "created_at": "2026-10-02T21:45:48.244465Z",
+      "license": "Apache-2.0",
+      "num": "0.87.0",
+      "repository": "https://github.com/vortex-data/vortex",
+      "rust_version": "1.95",
+      "yanked": false
+    },
+    {
+      "checksum": "2bf93c77a5fe52fa9631bd406b2f162a7e67dc5b391d4a30ba9e930478fae3ef",
+      "crate": "vortex-zstd",
+      "created_at": "2026-10-02T21:41:22.725701Z",
+      "license": "Apache-2.0",
+      "num": "0.87.0",
+      "repository": "https://github.com/vortex-data/vortex",
+      "rust_version": "1.95",
+      "yanked": false
+    }
+  ],
+  "release": {
+    "draft": false,
+    "html_url": "https://github.com/vortex-data/vortex/releases/tag/0.87.0",
+    "prerelease": false,
+    "published_at": "2026-10-02T20:51:54Z",
+    "tag_name": "0.87.0"
+  },
+  "retained_provider": "0.85.0",
+  "retrieved_metadata_sources": [
+    {
+      "bytes": 943486,
+      "final_url": "https://static.rust-lang.org/dist/channel-rust-stable.toml",
+      "retrieved_at": "2026-10-03T10:11:04.361586+00:00",
+      "sha256": "ce6dddc886364f8d786514771212cebe9b731ba82d6b859951c6b0ccc516b6a2",
+      "source_url": "https://static.rust-lang.org/dist/channel-rust-stable.toml"
+    },
+    {
+      "bytes": 21290,
+      "final_url": "https://api.github.com/repos/vortex-data/vortex/releases/latest",
+      "retrieved_at": "2026-10-03T10:11:04.431059+00:00",
+      "sha256": "5a0d0d614b32267a93b05b57a0ee780df2e51deb60911c3c85f0b33f26734a3b",
+      "source_url": "https://api.github.com/repos/vortex-data/vortex/releases/latest"
+    },
+    {
+      "bytes": 154344,
+      "final_url": "https://crates.io/api/v1/crates/vortex",
+      "retrieved_at": "2026-10-03T10:11:04.436472+00:00",
+      "sha256": "8a2eb1d2d1fffc04f3a80baf590b5d507167acfff9c415f94eef850e7b2e7206",
+      "source_url": "https://crates.io/api/v1/crates/vortex"
+    },
+    {
+      "bytes": 85413,
+      "final_url": "https://crates.io/api/v1/crates/vortex-zstd",
+      "retrieved_at": "2026-10-03T10:11:04.414382+00:00",
+      "sha256": "471741ca58fbb11f1125a3b28a61e178d5cc71813113f8633e12a7048d6ed427",
+      "source_url": "https://crates.io/api/v1/crates/vortex-zstd"
+    }
+  ],
+  "reviewed_on": "2026-10-03",
+  "rust_stable": {
+    "local_shell_fix": {
+      "path": "<user-home>/.zprofile",
+      "sha256": "5c6b8cfda8bfee2867d788cf5a87db29f11913b991a169b087e1d916d29f8d33",
+      "text": "# macOS path_helper runs after .zshenv in login shells. Keep rustup authoritative.\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\n"
+    },
+    "manifest_date": "2026-10-01",
+    "prior_default_stable": "1.98.0",
+    "shadowing_homebrew_version": "1.98.1",
+    "version": "1.99.0 (b940084d7 2026-09-28)",
+    "workspace_minimum": "1.96"
+  },
+  "schema_version": "shardloom.rust_vortex_release_review.v1",
+  "source_commit": "6a9bd301dbae933f91b973b181660d1282fb74f6",
+  "source_sha256": {
+    ".github/workflows/ci.yml": "493fd08d055020f4d7b681261d774ff049243cda291bbc690b381d6cf21146d3",
+    "Cargo.lock": "12bee6ea82fbfe059670f84a1fcf9a97be557b8a597f7eb2b99eee5a1a9b1605",
+    "Cargo.toml": "9f1f1aea714a491454f6034947396776eeab1fae2d8ca560e5719ec3ee81d694",
+    "scripts/check_workspace_version_sources.py": "0ab99f5e85fe180442781a2f8641a060977d445cbcc649e07c93586b273c5cce",
+    "shardloom-vortex/Cargo.toml": "fda371027d20e78ce57e6e1108dd5f72e043e1f3c0425a817e37dd89b8f474cc",
+    "shardloom-vortex/build.rs": "dacaf04370b7126b9dee369160ec5a10c9f504822b25f919152ee33433d29c3f",
+    "shardloom-vortex/src/local_primitive_result_batch.rs": "2052abc8263ef08ca6ecb7d2ce646305601ca1d1879006849b750e8abfa4be2a",
+    "shardloom-vortex/src/local_primitives/encoded_numeric_reduction.rs": "362fa72c5da9ccfc57bf4b6cc003cccaa74218d2af083d37330478870e53ba61",
+    "shardloom-vortex/src/owned_buffers.rs": "b258aa24b7f896be01a32a41387f50706efc97336d787817e273038f9e4d6882",
+    "shardloom-vortex/src/vortex_ingest_numeric_encoding.rs": "ff280ab558ace78fad56d038c44d1250855dd2508f90fe4aed762690b851d978"
+  },
+  "tagged_source_manifest": [
+    {
+      "bytes": 2482,
+      "path": "vortex-array/src/memory.rs",
+      "ref": "0.86.1",
+      "sha256": "2c160ae23dbf04d85cb5a6c1a978a76f99f4ee7b00b76b03fce4467712776ade",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.86.1/vortex-array/src/memory.rs"
+    },
+    {
+      "bytes": 18166,
+      "path": "vortex-buffer/src/allocation.rs",
+      "ref": "0.86.1",
+      "sha256": "4444ac885588ec2ed99184a351cff6e31629b007f4f9201cfb9745c476e1a831",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.86.1/vortex-buffer/src/allocation.rs"
+    },
+    {
+      "bytes": 40679,
+      "path": "vortex-buffer/src/buffer_mut.rs",
+      "ref": "0.86.1",
+      "sha256": "f8b16dc89c6f1c6da2fa9c31a1d7168fc9ed320c0662c969c5fc699c86f050a6",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.86.1/vortex-buffer/src/buffer_mut.rs"
+    },
+    {
+      "bytes": 17014,
+      "path": "vortex-array/src/builders/mod.rs",
+      "ref": "0.86.1",
+      "sha256": "0e7b9219085cb008e4f3bb45c552f110a1cbec0ca341ef47995b5aa3943b8d8a",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.86.1/vortex-array/src/builders/mod.rs"
+    },
+    {
+      "bytes": 15235,
+      "path": "Cargo.toml",
+      "ref": "0.86.1",
+      "sha256": "b205f8eb812878814a0b8fb2577449cd1c7f6256e2905a9eb6f0f0e09d56ae51",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.86.1/Cargo.toml"
+    },
+    {
+      "bytes": 3780,
+      "path": "vortex/Cargo.toml",
+      "ref": "0.86.1",
+      "sha256": "83eb05a8308e19169f06385578c42b803b2e3dbbe394f2014b656eed4ab682a8",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.86.1/vortex/Cargo.toml"
+    },
+    {
+      "bytes": 11358,
+      "path": "LICENSE",
+      "ref": "0.86.1",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.86.1/LICENSE"
+    },
+    {
+      "bytes": 5904,
+      "path": "vortex-array/src/memory.rs",
+      "ref": "0.87.0",
+      "sha256": "bdde26a9dabef091f38cafc381f772f56e7afa9e8634f6b827769e4f43554624",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.87.0/vortex-array/src/memory.rs"
+    },
+    {
+      "bytes": 18178,
+      "path": "vortex-buffer/src/allocation.rs",
+      "ref": "0.87.0",
+      "sha256": "6fa9bcdd9d2c0e89ef27c810b75193c6e776b653389a3b4a9624f34ae7d01d17",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.87.0/vortex-buffer/src/allocation.rs"
+    },
+    {
+      "bytes": 45832,
+      "path": "vortex-buffer/src/buffer_mut.rs",
+      "ref": "0.87.0",
+      "sha256": "82911feb42fca7017efd46e8664bd217511df61db95d5acc59191a5acb686d80",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.87.0/vortex-buffer/src/buffer_mut.rs"
+    },
+    {
+      "bytes": 17091,
+      "path": "vortex-array/src/builders/mod.rs",
+      "ref": "0.87.0",
+      "sha256": "debc032ddff98f5064a8d985df834b15d7de7cd1fbe32566e80e187f6c91b2f5",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.87.0/vortex-array/src/builders/mod.rs"
+    },
+    {
+      "bytes": 15446,
+      "path": "Cargo.toml",
+      "ref": "0.87.0",
+      "sha256": "b9227799db21d1d78b80598c1bce68344cb59565d3c62eb66c4e3531866ee8f8",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.87.0/Cargo.toml"
+    },
+    {
+      "bytes": 3951,
+      "path": "vortex/Cargo.toml",
+      "ref": "0.87.0",
+      "sha256": "e32d0504e66b94a10e88a7e1f61097d026dadbc28346297bec54c1ba33ecf832",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.87.0/vortex/Cargo.toml"
+    },
+    {
+      "bytes": 11358,
+      "path": "LICENSE",
+      "ref": "0.87.0",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "url": "https://raw.githubusercontent.com/vortex-data/vortex/0.87.0/LICENSE"
+    }
+  ],
+  "toolchain_verification": [
+    {
+      "command": [
+        "rustc",
+        "-Vv"
+      ],
+      "cwd": "<primary-checkout>",
+      "output": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "-V"
+      ],
+      "cwd": "<primary-checkout>",
+      "output": "cargo 1.99.0 (5f94df478 2026-08-27)\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "/bin/zsh",
+        "-lc",
+        "command -v rustc; rustc --version"
+      ],
+      "cwd": "<primary-checkout>",
+      "output": "<user-home>/.cargo/bin/rustc\nrustc 1.99.0 (b940084d7 2026-09-28)\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "/bin/zsh",
+        "-c",
+        "command -v rustc; rustc --version"
+      ],
+      "cwd": "<primary-checkout>",
+      "output": "<user-home>/.cargo/bin/rustc\nrustc 1.99.0 (b940084d7 2026-09-28)\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustc",
+        "-Vv"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "-V"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "cargo 1.99.0 (5f94df478 2026-08-27)\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "/bin/zsh",
+        "-lc",
+        "command -v rustc; rustc --version"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "<user-home>/.cargo/bin/rustc\nrustc 1.99.0 (b940084d7 2026-09-28)\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "/bin/zsh",
+        "-c",
+        "command -v rustc; rustc --version"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "<user-home>/.cargo/bin/rustc\nrustc 1.99.0 (b940084d7 2026-09-28)\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustup",
+        "show",
+        "active-toolchain"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "stable-aarch64-apple-darwin (default)\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustup",
+        "override",
+        "list"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "no overrides\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustup",
+        "component",
+        "list",
+        "--toolchain",
+        "stable",
+        "--installed"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "cargo-aarch64-apple-darwin\nclippy-aarch64-apple-darwin\nllvm-tools-aarch64-apple-darwin\nrust-std-aarch64-apple-darwin\nrustc-aarch64-apple-darwin\nrustfmt-aarch64-apple-darwin\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustup",
+        "run",
+        "stable",
+        "rustc",
+        "--print",
+        "sysroot"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "<user-home>/.rustup/toolchains/stable-aarch64-apple-darwin\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "<user-home>/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy",
+        "--version"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "llvm-objcopy, compatible with GNU objcopy\nLLVM (http://llvm.org/):\n  LLVM version 23.1.1-rust-1.99.0-stable\n  Optimized build.\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustup",
+        "run",
+        "stable",
+        "rustc",
+        "--crate-name",
+        "llvm_smoke",
+        "-g",
+        "-C",
+        "split-debuginfo=off",
+        "-o",
+        "<review-workspace>/llvm-smoke-stable",
+        "-"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "<user-home>/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy",
+        "--strip-debug",
+        "<review-workspace>/llvm-smoke-stable",
+        "<review-workspace>/llvm-smoke-stable-stripped"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "<review-workspace>/llvm-smoke-stable-stripped"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "llvm-toolchain-smoke-ok\n",
+      "returncode": 0
+    },
+    {
+      "artifact": "llvm-smoke-stable",
+      "bytes": 472176,
+      "sha256": "5699228174025bc3774456a35458e3b5695ed9cb6611fe4ba57010797c3a1cd5"
+    },
+    {
+      "artifact": "llvm-smoke-stable-stripped",
+      "bytes": 435600,
+      "sha256": "7590dce22e20d223ae0216c222e291665190c029215f6a5eed4eb47d14f364c2"
+    },
+    {
+      "command": [
+        "rustup",
+        "component",
+        "list",
+        "--toolchain",
+        "1.99.0",
+        "--installed"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "cargo-aarch64-apple-darwin\nclippy-aarch64-apple-darwin\nllvm-tools-aarch64-apple-darwin\nrust-src\nrust-std-aarch64-apple-darwin\nrustc-aarch64-apple-darwin\nrustfmt-aarch64-apple-darwin\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustup",
+        "run",
+        "1.99.0",
+        "rustc",
+        "--print",
+        "sysroot"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "<user-home>/.rustup/toolchains/1.99.0-aarch64-apple-darwin\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "<user-home>/.rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy",
+        "--version"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "llvm-objcopy, compatible with GNU objcopy\nLLVM (http://llvm.org/):\n  LLVM version 23.1.1-rust-1.99.0-stable\n  Optimized build.\n",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "rustup",
+        "run",
+        "1.99.0",
+        "rustc",
+        "--crate-name",
+        "llvm_smoke",
+        "-g",
+        "-C",
+        "split-debuginfo=off",
+        "-o",
+        "<review-workspace>/llvm-smoke-1.99.0",
+        "-"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "<user-home>/.rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy",
+        "--strip-debug",
+        "<review-workspace>/llvm-smoke-1.99.0",
+        "<review-workspace>/llvm-smoke-1.99.0-stripped"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "<review-workspace>/llvm-smoke-1.99.0-stripped"
+      ],
+      "cwd": "<source-worktree>",
+      "output": "llvm-toolchain-smoke-ok\n",
+      "returncode": 0
+    },
+    {
+      "artifact": "llvm-smoke-1.99.0",
+      "bytes": 472160,
+      "sha256": "e0f50b1fadab2199471ffb27f86b60a19e5989c6da1035b8f74a6363bc4a336b"
+    },
+    {
+      "artifact": "llvm-smoke-1.99.0-stripped",
+      "bytes": 435600,
+      "sha256": "81d2befa0725400704bcfb09459932ef906edff50f3cf34bcd09f190ef89000d"
+    }
+  ],
+  "upstream_compatibility_work_remaining": [
+    "safe fallible allocator and owner-credit admission",
+    "Arrow/Parquet 59.2 bridge",
+    "0.86 writer/sink and 0.87 executor/aggregate migrations",
+    "CompressionSession and serialized encoding IDs",
+    "feature/MSRV/dependency-footprint matrix",
+    "ownership pressure cancellation and malformed-input tests",
+    "complete query and ingest acceptance"
+  ],
+  "verification": [
+    {
+      "name": "retained-allocation-stable-1",
+      "passed_tests": 3,
+      "receipt": {
+        "command": [
+          "rustup",
+          "run",
+          "stable",
+          "cargo",
+          "test",
+          "--offline",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "release-user-surfaces",
+          "owned_buffers::tests",
+          "--",
+          "--test-threads=2"
+        ],
+        "cwd": "<source-worktree>",
+        "log_sha256": "2f67db1b119e981edded02f7b763a5528bb9ac4938b135f5bf252e9186ac8e76",
+        "pid": 47063,
+        "returncode": 0,
+        "serial_workload_guard": true,
+        "status": "passed",
+        "storage_final_observation": {
+          "free_bytes": 80271343616,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1511424
+        },
+        "storage_last_observation": {
+          "free_bytes": 80271351808,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1511424
+        },
+        "storage_preflight": {
+          "free_bytes": 80271458304,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1507328
+        },
+        "supervised_seconds": 38.54023304099999,
+        "timeout": 600.0
+      },
+      "result_lines": [
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 2274 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "msrv-release-metadata-1",
+      "passed_tests": 58,
+      "receipt": {
+        "command": [
+          "rustup",
+          "run",
+          "1.96.0",
+          "cargo",
+          "test",
+          "--offline",
+          "-p",
+          "shardloom-contract-tests",
+          "--test",
+          "release_readiness_metadata"
+        ],
+        "cwd": "<source-worktree>",
+        "log_sha256": "81ee08d7a857ce46e455005a880fa3ff7a1d64cb097f51bac2fa85d0d874968b",
+        "pid": 47286,
+        "returncode": 0,
+        "serial_workload_guard": true,
+        "status": "passed",
+        "storage_final_observation": {
+          "free_bytes": 79953895424,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 3391488
+        },
+        "storage_last_observation": {
+          "free_bytes": 79993569280,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 3387392
+        },
+        "storage_preflight": {
+          "free_bytes": 80277712896,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 3383296
+        },
+        "supervised_seconds": 11.172185332980007,
+        "timeout": 600.0
+      },
+      "result_lines": [
+        "test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s"
+      ]
+    },
+    {
+      "log": "info: syncing channel updates for stable-aarch64-apple-darwin\ninfo: latest update on 2026-10-01 for version 1.99.0 (b940084d7 2026-09-28)\ninfo: removing previous version of component llvm-tools\ninfo: removing previous version of component clippy\ninfo: removing previous version of component rustfmt\ninfo: removing previous version of component cargo\ninfo: removing previous version of component rust-std\ninfo: removing previous version of component rustc\ninfo: downloading 6 components\n\n  stable-aarch64-apple-darwin updated - rustc 1.99.0 (b940084d7 2026-09-28) (from rustc 1.98.0 (88d9e12ae 2026-08-18))\n\n",
+      "name": "rust-stable-update-1",
+      "receipt": {
+        "command": [
+          "<user-home>/.cargo/bin/rustup",
+          "update",
+          "stable",
+          "--no-self-update"
+        ],
+        "cwd": "<source-worktree>",
+        "log_sha256": "e458b87b93e1e65d4ae67cd3ed65747fbf1d60d85bd470cbb796f26a8f68d56c",
+        "pid": 46595,
+        "returncode": 0,
+        "serial_workload_guard": true,
+        "status": "passed",
+        "storage_final_observation": {
+          "free_bytes": 80437215232,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1490944
+        },
+        "storage_last_observation": {
+          "free_bytes": 79797780480,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1490944
+        },
+        "storage_preflight": {
+          "free_bytes": 80450064384,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1232896
+        },
+        "supervised_seconds": 6.216608374961652,
+        "timeout": 600.0
+      }
+    },
+    {
+      "log": "info: downloading component llvm-tools\n",
+      "name": "rust199-llvm-tools-1",
+      "receipt": {
+        "command": [
+          "<user-home>/.cargo/bin/rustup",
+          "component",
+          "add",
+          "llvm-tools",
+          "--toolchain",
+          "1.99.0"
+        ],
+        "cwd": "<source-worktree>",
+        "log_sha256": "fb4562bf999148ffcae6ca67cc6213e519d3fdd3c752a25f96cf7638369293aa",
+        "pid": 46782,
+        "returncode": 0,
+        "serial_workload_guard": true,
+        "status": "passed",
+        "storage_final_observation": {
+          "free_bytes": 80276353024,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1499136
+        },
+        "storage_preflight": {
+          "free_bytes": 80425242624,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1495040
+        },
+        "supervised_seconds": 1.290421292069368,
+        "timeout": 600.0
+      }
+    },
+    {
+      "log": "Both global and explicit 1.99.0 toolchains compiled, stripped and ran successfully.\n",
+      "name": "llvm-toolchain-smoke-2",
+      "receipt": {
+        "command": [
+          "python3",
+          "-B",
+          "<review-workspace>/verify_toolchain.py"
+        ],
+        "cwd": "<source-worktree>",
+        "log_sha256": "4df13c1fcb4cafa2fe54236d61dcf4aa38c887a97fbf269c24933fc2b7279793",
+        "pid": 47233,
+        "returncode": 0,
+        "serial_workload_guard": true,
+        "status": "passed",
+        "storage_final_observation": {
+          "free_bytes": 80271806464,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 3379200
+        },
+        "storage_last_observation": {
+          "free_bytes": 80271806464,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 3379200
+        },
+        "storage_preflight": {
+          "free_bytes": 80273674240,
+          "log_bytes": 0,
+          "reserved_candidate_bytes": 134217728,
+          "workspace_bytes": 1527808
+        },
+        "supervised_seconds": 2.358676041,
+        "timeout": 300.0
+      }
+    }
+  ],
+  "version_source_verification": {
+    "active_doc_version_literal_audit_paths": [
+      "README.md",
+      "python/README.md",
+      "python/src/shardloom.egg-info/PKG-INFO",
+      "docs/architecture/effectful-operation-admission-matrix.md",
+      "docs/architecture/pulseweave-runtime-control.md",
+      "docs/architecture/v1-local-output-sink-scope.md",
+      "docs/architecture/v1-source-prepared-state-scope.md",
+      "docs/architecture/v1-vortex-runtime-scope.md",
+      "docs/architecture/wrapper-connector-implementation-registry.md",
+      "docs/dependencies/vortex-upstream-release-intake-runbook.md",
+      "docs/release/ci-gate-matrix.md",
+      "docs/release/hard-release-readiness-gate.md"
+    ],
+    "active_version_literal_audit_paths": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/pypi-publish-draft.yml",
+      "scripts/write_ci_version_env.py",
+      "scripts/check_release_readiness.py",
+      "scripts/check_package_channel_readiness.py",
+      "scripts/python_registry_package_proof.py",
+      "scripts/run_release_validation_evidence.py",
+      "scripts/check_ci_gate_matrix.py",
+      "scripts/check_v1_security_ci_hardening.py",
+      "benchmarks/traditional_analytics/run.py"
+    ],
+    "blockers": [],
+    "cargo_member_count": 6,
+    "cargo_member_inheritance": [
+      {
+        "blockers": [],
+        "manifest": "shardloom-core/Cargo.toml",
+        "member": "shardloom-core",
+        "status": "passed"
+      },
+      {
+        "blockers": [],
+        "manifest": "shardloom-vortex/Cargo.toml",
+        "member": "shardloom-vortex",
+        "status": "passed"
+      },
+      {
+        "blockers": [],
+        "manifest": "shardloom-plan/Cargo.toml",
+        "member": "shardloom-plan",
+        "status": "passed"
+      },
+      {
+        "blockers": [],
+        "manifest": "shardloom-exec/Cargo.toml",
+        "member": "shardloom-exec",
+        "status": "passed"
+      },
+      {
+        "blockers": [],
+        "manifest": "shardloom-cli/Cargo.toml",
+        "member": "shardloom-cli",
+        "status": "passed"
+      },
+      {
+        "blockers": [],
+        "manifest": "shardloom-contract-tests/Cargo.toml",
+        "member": "shardloom-contract-tests",
+        "status": "passed"
+      }
+    ],
+    "claim_gate_status": "not_claim_grade",
+    "derived_package_version_sources": [
+      "python/src/shardloom/_version.py",
+      "website-src/package.json",
+      "website-src/package-lock.json",
+      "Cargo.lock"
+    ],
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "package_upload_attempted": false,
+    "performance_claim_allowed": false,
+    "production_claim_allowed": false,
+    "public_package_claim_allowed": false,
+    "public_release_claim_allowed": false,
+    "publication_attempted": false,
+    "rust_msrv_source": "Cargo.toml#[workspace.package].rust-version",
+    "schema_version": "shardloom.workspace_version_source_report.v1",
+    "secrets_required": false,
+    "selected_package_channel_status_marker": "published_v0.3.3_selected_channels",
+    "selected_package_release_tag": "v0.3.3",
+    "selected_package_release_version": "0.3.3",
+    "selected_package_release_version_source": "scripts/release_channel_contract.py#SELECTED_PACKAGE_RELEASE_VERSION",
+    "spark_replacement_claim_allowed": false,
+    "status": "passed",
+    "tag_created": false,
+    "upstream_vortex_lock_source": "Cargo.lock#package:vortex.version",
+    "upstream_vortex_manifest_source": "Cargo.toml#[workspace.dependencies].vortex",
+    "upstream_vortex_provider_source": "Cargo.toml#[workspace.dependencies].vortex via shardloom-vortex/build.rs",
+    "version_env": {
+      "SHARDLOOM_PACKAGE_VERSION": "0.3.3",
+      "SHARDLOOM_RUST_MSRV_LANE": "rust_msrv_1_96",
+      "SHARDLOOM_RUST_MSRV_TOOLCHAIN": "1.96.0",
+      "SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION": "0.85.0",
+      "SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION": "0.85",
+      "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION": "0.85"
+    },
+    "workspace_package_version": "0.3.3",
+    "workspace_package_version_source": "Cargo.toml#[workspace.package].version",
+    "workspace_version_sources_status": "passed"
+  }
+}

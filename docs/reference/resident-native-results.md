@@ -111,8 +111,11 @@ writer retention/metadata grants. It does not establish a total RSS bound or
 account for every existing aggregate state and upstream allocation. The
 [static nested contract](../architecture/native-nested-composition-2026-10-02.md)
 extends shared payload ownership, relational delivery and representable writers.
-Unadmitted nested shapes, Variant/extension composition and broader state-spill
-families remain explicit gaps.
+The [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md)
+adds binary, exact Decimal128, Date32 and timezone-free microsecond timestamps,
+including nested leaves, to this delivery path. Key/arithmetic/unary-state
+semantics, unadmitted nested shapes, general Variant/extension operations and
+broader state-spill families remain explicit gaps.
 See the [streaming contract and acceptance](../architecture/native-workflow-streaming-2026-10-01.md).
 
 ## Compose Owned Native Results

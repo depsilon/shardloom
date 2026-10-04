@@ -326,6 +326,35 @@ the ledger.
   - Dependency: uses the locally accepted nested-composition tree; its hosted
     website advisory decision remains separate and cannot be bypassed by this work.
 
+- [ ] `NATIVE-TYPED-PAYLOADS` — carry existing binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp types through shared native composition
+  and local delivery under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed payload contract](native-typed-payloads-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: extend selected native buffer ownership, recursive
+    type admission, one operation allocation and bounded shared writers; preserve
+    existing metadata/pruning and key/expression admission.
+  - Execution checklist:
+    - [x] Extend exact payload and compatible intake types, compact result buffers,
+      nested leaves and typed empty/null output through existing components.
+    - [x] Preserve terminal text conventions and representable native/columnar
+      output, with explicit unsupported-format and operated-type diagnostics.
+    - [x] Prove complete public workflows, selected ownership, resource/failure
+      behavior, required local gates and Full43 regression; record immutable evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+      then move this finite item to the completed ledger.
+  - Local evidence: frozen `8237a900` passes 4,109 complete public checks,
+    including 804 typed checks, the separate 202-check direct-unary matrix, all
+    24 selected local gate categories and all 258 paired Full43 comparisons.
+    The [acceptance report](../benchmarks/native-typed-payloads-full43-2026-10-03.md)
+    retains complete values, schemas, unique report fields and source/binary hashes.
+    No predeclared timing or memory threshold is crossed; no speedup is claimed.
+  - Acceptance: exact type/value/null/order preservation across the complete
+    admitted workflow, without scalar-row execution, intermediate files, replay
+    or fallback. Wider key semantics, adapters and resource/spill remain open.
+  - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
+    hosted completion remains subject to its existing website advisory decision.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then
@@ -334,9 +363,9 @@ The preceding resource, allocation, aggregate and flat unary units merged in
 hosted checks passed. Their finite completions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
-nested payloads and dynamic pivot schemas have complete local acceptance awaiting
-hosted completion; broader adapters and resource obligations remain open under
-their existing owners.
+nested payloads, dynamic pivot schemas and binary/decimal/temporal payloads have
+complete local acceptance awaiting hosted completion; broader key semantics,
+adapters and resource obligations remain open under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
@@ -508,6 +537,10 @@ held-out boundary/resource acceptance and all 258 Full43 results. See
 `small-numeric-count-selection-screen-2026-09-27.md`. C1 drops the released
 0.86.x upgrade at allocator-resource admission; the current typed-denial and
 buffer-credit contract stays intact. See `vortex-086-upgrade-admission-2026-09-27.md`.
+The [October 3 release review](../dependencies/rust-vortex-refresh-2026-10-03.md)
+rechecks released Vortex 0.87.0 against the same contract and retains 0.85.0;
+new provider opportunities map to existing PERF owners. Global Rust stable is
+updated to 1.99.0, with the workspace's 1.96 compatibility floor preserved.
 C5.a retains portable ThinLTO (3.21% lower query total, 7.53% lower ingest) with
 ordinary release artifact acceptance passing. C5.b/C5.c preserve their measured
 query gains but decline promotion of the tested PGO/native CPU configurations after

@@ -466,8 +466,16 @@ Static List/FixedSizeList/Struct payloads compose through admitted relational
 stages and ordered/repeated explode. Nested payloads can be written as Vortex,
 JSON, JSONL, Arrow IPC, Parquet or Avro when the dtype is representable; nested
 CSV and ORC are denied. Exploded flat output still supports all eight writers.
-Nested keys, general nested unary state and Variant/extensions remain unsupported
-in composition. See the [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
+Nested keys, general nested unary state and general Variant/extension operations
+remain unsupported in composition. See the [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
+Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
+microsecond timestamps can travel as payloads, including nested leaves. Their
+arithmetic, key and unary-state semantics remain unadmitted. Binary supports all
+eight writers; ORC rejects decimal and temporal payloads. JSON/JSONL and collection
+encode binary as lowercase hex, decimals as `decimal128(precision,scale):unscaled_integer`,
+and temporal values as signed integer units. CSV uses the existing JSON scalar
+cell convention for binary/decimal strings. Text output does not retain native
+logical types. See the [typed payload contract](../docs/architecture/native-typed-payloads-2026-10-03.md).
 
 Current source builds also compose scalar `pivot` and `pivot_table` at their
 declared position, including renamed/ordered input, downstream filters,

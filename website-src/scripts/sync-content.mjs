@@ -524,7 +524,13 @@ Their observed columns bind during execution, including independent domains for
 correlated inner rows; inspection remains inert. All eight local writers accept
 representable scalar results within the existing field and state budgets. See the
 [dynamic pivot contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
-Nested keys, general nested unary state, Variant/extensions and wider operator
+Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
+microsecond timestamps can travel as payloads, including nested leaves. Their
+arithmetic, keys and unary state remain unadmitted. Binary supports all eight
+writers; ORC rejects decimal and temporal payloads. Text output uses explicit
+typed encodings and does not preserve native logical types. See the
+[typed payload contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-payloads-2026-10-03.md).
+Nested keys, general nested unary state, general Variant/extension operations and wider operator
 state spill remain separate boundaries.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
@@ -697,8 +703,11 @@ Current source builds deliver complete admitted flat results through bounded nat
 all eight local writers, including admitted ordering spill, above the collection row and byte
 limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet
 and Avro; nested CSV/ORC output is denied. Recursive schema/child-buffer admission,
-format fidelity, resources and write policy still apply. Variant/extension composition
-has separate coverage limits. See the
+format fidelity, resources and write policy still apply. Binary, exact Decimal128,
+Date32 and timezone-free microsecond timestamps are admitted payloads, including
+nested leaves. Their key/arithmetic/unary-state semantics remain unadmitted;
+ORC rejects decimal/temporal output. General Variant/extension operations retain
+separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
 
 Use [runtime and I/O](/field-guide/runtime-and-io), the

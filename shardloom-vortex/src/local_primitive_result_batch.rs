@@ -10,8 +10,10 @@ use shardloom_core::{Result, ShardLoomError, StatValue};
 use vortex::{
     array::{
         ArrayRef, IntoArray as _,
-        arrays::{BoolArray, PrimitiveArray, StructArray, VarBinArray},
-        dtype::{DType, FieldNames, PType},
+        arrays::{
+            BoolArray, DecimalArray, ExtensionArray, PrimitiveArray, StructArray, VarBinArray,
+        },
+        dtype::{DType, DecimalDType, FieldNames, PType},
         memory::{HostAllocatorRef, WritableHostBuffer},
         validity::Validity,
     },
@@ -33,6 +35,9 @@ pub(super) enum Value<'a> {
     Float(f64),
     Text(Cow<'a, str>),
     SharedText(vortex::buffer::BufferString),
+    Binary(Cow<'a, [u8]>),
+    SharedBinary(ByteBuffer),
+    Decimal(i128, DecimalDType),
 }
 
 impl Value<'_> {
@@ -40,6 +45,16 @@ impl Value<'_> {
         match self {
             Self::Text(value) => Some(value.as_ref()),
             Self::SharedText(value) => Some(value.as_str()),
+            _ => None,
+        }
+    }
+
+    fn variable_bytes(&self) -> Option<&[u8]> {
+        match self {
+            Self::Text(value) => Some(value.as_bytes()),
+            Self::SharedText(value) => Some(value.as_str().as_bytes()),
+            Self::Binary(value) => Some(value.as_ref()),
+            Self::SharedBinary(value) => Some(value.as_ref()),
             _ => None,
         }
     }
@@ -61,6 +76,14 @@ impl Value<'_> {
             Self::Float(value) => super::json_number_from_f64(value)?,
             Self::Text(value) => value.into_owned().into(),
             Self::SharedText(value) => value.as_str().into(),
+            Self::Binary(value) => super::binary_to_hex(&value).into(),
+            Self::SharedBinary(value) => super::binary_to_hex(&value).into(),
+            Self::Decimal(value, dtype) => format!(
+                "decimal128({},{}):{value}",
+                dtype.precision(),
+                dtype.scale()
+            )
+            .into(),
         })
     }
 }
@@ -74,7 +97,7 @@ pub(super) fn scalar_value(
     context: &mut vortex::array::ExecutionCtx,
 ) -> Result<Value<'static>> {
     use vortex::array::scalar::ScalarValue;
-    let scalar = array.execute_scalar(row, context).map_err(vortex_error)?;
+    let scalar = scalar(array, row, context)?;
     Ok(match scalar.value() {
         None => Value::Null,
         Some(ScalarValue::Bool(value)) => Value::Bool(*value),
@@ -83,12 +106,97 @@ pub(super) fn scalar_value(
                 .ok_or_else(|| failed("unsupported primitive result dtype"))?,
         ),
         Some(ScalarValue::Utf8(value)) => Value::SharedText(value.clone()),
+        Some(ScalarValue::Binary(value)) => Value::SharedBinary(value.clone()),
+        Some(ScalarValue::Decimal(value)) => {
+            let DType::Decimal(dtype, _) = scalar.dtype() else {
+                return Err(failed("decimal scalar lost its declared dtype"));
+            };
+            if !crate::native_payload_schema::admitted_decimal(*dtype) {
+                return Err(failed(
+                    "decimal payload exceeds admitted precision or scale",
+                ));
+            }
+            Value::Decimal(
+                value
+                    .cast::<i128>()
+                    .ok_or_else(|| failed("decimal payload exceeds signed 128-bit storage"))?,
+                *dtype,
+            )
+        }
         _ => {
             return Err(failed(
                 "native scalar result requires an admitted flat dtype",
             ));
         }
     })
+}
+
+/// Keep invalid decimal data on the Result path: the provider's convenience
+/// scalar constructor panics when a selected value exceeds its precision.
+#[cfg(unix)]
+pub(super) fn scalar(
+    array: &ArrayRef,
+    row: usize,
+    context: &mut vortex::array::ExecutionCtx,
+) -> Result<vortex::array::scalar::Scalar> {
+    use vortex::array::{
+        arrays::decimal::DecimalArrayExt as _,
+        scalar::{DecimalValue, Scalar},
+    };
+    if row >= array.len() {
+        return Err(failed("selected scalar exceeds its source domain"));
+    }
+    let array = scalar_storage(array, context)?;
+    if let DType::Decimal(dtype, _) = array.dtype() {
+        if !crate::native_payload_schema::admitted_decimal(*dtype) {
+            return Err(failed(
+                "decimal payload exceeds admitted precision or scale",
+            ));
+        }
+        let decimal = array
+            .clone()
+            .execute::<DecimalArray>(context)
+            .map_err(vortex_error)?;
+        let value = if decimal
+            .validity()
+            .map_err(vortex_error)?
+            .execute_is_valid(row, context)
+            .map_err(vortex_error)?
+        {
+            Some(vortex::array::match_each_decimal_value_type!(
+                decimal.values_type(),
+                |D| { DecimalValue::from(decimal.buffer::<D>()[row]).into() }
+            ))
+        } else {
+            None
+        };
+        return Scalar::try_new(array.dtype().clone(), value).map_err(vortex_error);
+    }
+    array.execute_scalar(row, context).map_err(vortex_error)
+}
+
+/// Read the native integer storage of an admitted temporal payload. Constructing
+/// provider timestamp scalars can panic outside its calendar formatting range;
+/// payload transport and terminal integer encoding do not need that conversion.
+#[cfg(unix)]
+pub(super) fn scalar_storage(
+    array: &ArrayRef,
+    context: &mut vortex::array::ExecutionCtx,
+) -> Result<ArrayRef> {
+    use vortex::array::arrays::extension::ExtensionArrayExt as _;
+    if matches!(array.dtype(), DType::Extension(_)) {
+        if crate::native_payload_schema::temporal_storage(array.dtype()).is_none() {
+            return Err(failed(
+                "extension payload requires Date32 or timezone-free TimestampMicros",
+            ));
+        }
+        return array
+            .clone()
+            .execute::<ExtensionArray>(context)
+            .map(|array| array.storage_array().clone())
+            .map_err(vortex_error);
+    }
+    Ok(array.clone())
 }
 
 /// Reports serialize values only at their terminal delivery boundary. Native
@@ -231,8 +339,14 @@ fn multiply(left: usize, right: usize) -> Result<usize> {
 fn width(dtype: &DType) -> Result<usize> {
     match dtype {
         DType::Bool(_) => Ok(0),
-        DType::Utf8(_) => Ok(8),
+        DType::Utf8(_) | DType::Binary(_) => Ok(8),
         DType::Primitive(ptype, _) if *ptype != PType::F16 => Ok(ptype.byte_width()),
+        DType::Decimal(dtype, _) if crate::native_payload_schema::admitted_decimal(*dtype) => {
+            Ok(16)
+        }
+        DType::Extension(_) => crate::native_payload_schema::temporal_storage(dtype)
+            .map(|ptype| ptype.byte_width())
+            .ok_or_else(|| failed("unsupported temporal output dtype")),
         _ => Err(failed("output requires a declared flat scalar dtype")),
     }
 }
@@ -262,7 +376,10 @@ pub(super) fn buffer_bytes<'a>(
                 rows.div_ceil(8)
             } else {
                 multiply(
-                    add(rows, usize::from(matches!(dtype, DType::Utf8(_))))?,
+                    add(
+                        rows,
+                        usize::from(matches!(dtype, DType::Utf8(_) | DType::Binary(_))),
+                    )?,
                     stride,
                 )?
             },
@@ -270,11 +387,13 @@ pub(super) fn buffer_bytes<'a>(
         if dtype.is_nullable() {
             bytes = add(bytes, rows.div_ceil(8))?;
         }
-        if matches!(dtype, DType::Utf8(_)) {
+        if matches!(dtype, DType::Utf8(_) | DType::Binary(_)) {
             for row in 0..rows {
                 match value(row, column)? {
                     Value::Text(text) => bytes = add(bytes, text.len())?,
                     Value::SharedText(text) => bytes = add(bytes, text.len())?,
+                    Value::Binary(value) => bytes = add(bytes, value.len())?,
+                    Value::SharedBinary(value) => bytes = add(bytes, value.len())?,
                     Value::Null if dtype.is_nullable() => {}
                     _ => return Err(failed("UTF8 value differs from the declared dtype")),
                 }
@@ -337,13 +456,13 @@ fn set_bit(buffer: &mut WritableHostBuffer, row: usize) {
     buffer.as_mut_slice()[row / 8] |= 1 << (row % 8);
 }
 
-fn copy_text(buffer: &mut WritableHostBuffer, start: usize, value: &str) -> Result<usize> {
+fn copy_bytes(buffer: &mut WritableHostBuffer, start: usize, value: &[u8]) -> Result<usize> {
     let next = add(start, value.len())?;
     let destination = buffer
         .as_mut_slice()
         .get_mut(start..next)
         .ok_or_else(|| failed("completed text changed during construction"))?;
-    destination.copy_from_slice(value.as_bytes());
+    destination.copy_from_slice(value);
     Ok(next)
 }
 
@@ -355,7 +474,7 @@ pub(super) fn build_column<'a>(
 ) -> Result<ArrayRef> {
     let stride = width(dtype)?;
     let boolean = matches!(dtype, DType::Bool(_));
-    let text = matches!(dtype, DType::Utf8(_));
+    let text = matches!(dtype, DType::Utf8(_) | DType::Binary(_));
     let mut validity = dtype
         .is_nullable()
         .then(|| allocate(allocator, rows.div_ceil(8), 1))
@@ -365,7 +484,7 @@ pub(super) fn build_column<'a>(
         if boolean {
             rows.div_ceil(8)
         } else {
-            multiply(rows + usize::from(text), stride)?
+            multiply(add(rows, usize::from(text))?, stride)?
         },
         stride.max(1),
     )?;
@@ -374,11 +493,7 @@ pub(super) fn build_column<'a>(
         for row in 0..rows {
             text_bytes = add(
                 text_bytes,
-                match value(row)? {
-                    Value::Text(value) => value.len(),
-                    Value::SharedText(value) => value.len(),
-                    _ => 0,
-                },
+                value(row)?.variable_bytes().map_or(0, <[u8]>::len),
             )?;
         }
     }
@@ -402,11 +517,12 @@ pub(super) fn build_column<'a>(
                         set_bit(&mut data, row);
                     }
                 }
-                (DType::Utf8(_), value @ (Value::Text(_) | Value::SharedText(_))) => {
-                    text_end = copy_text(
-                        text_data.as_mut().expect("UTF8 buffer allocated"),
+                (DType::Utf8(_), value @ (Value::Text(_) | Value::SharedText(_)))
+                | (DType::Binary(_), value @ (Value::Binary(_) | Value::SharedBinary(_))) => {
+                    text_end = copy_bytes(
+                        text_data.as_mut().expect("variable buffer allocated"),
                         text_end,
-                        value.as_text().expect("text variant matched"),
+                        value.variable_bytes().expect("variable variant matched"),
                     )?;
                 }
                 (DType::Primitive(ptype, _), value) => {
@@ -415,6 +531,19 @@ pub(super) fn build_column<'a>(
                         value,
                         &mut data.as_mut_slice()[row * stride..(row + 1) * stride],
                     )?;
+                }
+                (DType::Extension(_), value) => write_primitive(
+                    crate::native_payload_schema::temporal_storage(dtype)
+                        .ok_or_else(|| failed("unsupported temporal output dtype"))?,
+                    value,
+                    &mut data.as_mut_slice()[row * stride..(row + 1) * stride],
+                )?,
+                (DType::Decimal(dtype, _), Value::Decimal(value, actual))
+                    if *dtype == actual
+                        && value.unsigned_abs() < 10_u128.pow(u32::from(dtype.precision())) =>
+                {
+                    data.as_mut_slice()[row * stride..(row + 1) * stride]
+                        .copy_from_slice(&value.to_ne_bytes());
                 }
                 _ => return Err(failed("value differs from the declared output dtype")),
             }
@@ -430,24 +559,55 @@ pub(super) fn build_column<'a>(
                 .into_array(),
         )
     });
-    let data = data.freeze();
+    if text_end != text_bytes {
+        return Err(failed(
+            "completed variable payload changed during construction",
+        ));
+    }
+    finish_column(
+        dtype,
+        rows,
+        data.freeze(),
+        validity,
+        text_data.map(WritableHostBuffer::freeze),
+    )
+}
+
+fn finish_column(
+    dtype: &DType,
+    rows: usize,
+    data: ByteBuffer,
+    validity: Validity,
+    variable: Option<ByteBuffer>,
+) -> Result<ArrayRef> {
     match dtype {
         DType::Bool(_) => Ok(BoolArray::new(BitBuffer::new(data, rows), validity).into_array()),
         DType::Primitive(ptype, _) => primitive(*ptype, data, validity),
-        DType::Utf8(_) => {
-            if text_end != text_bytes {
-                return Err(failed("completed text changed during construction"));
-            }
-            VarBinArray::try_new(
-                PrimitiveArray::new(Buffer::<u64>::from_byte_buffer(data), Validity::NonNullable)
-                    .into_array(),
-                text_data.expect("UTF8 buffer allocated").freeze(),
-                dtype.clone(),
-                validity,
-            )
-            .map(vortex::array::IntoArray::into_array)
-            .map_err(vortex_error)
+        DType::Decimal(decimal, _) => {
+            DecimalArray::try_new(Buffer::<i128>::from_byte_buffer(data), *decimal, validity)
+                .map(vortex::array::IntoArray::into_array)
+                .map_err(vortex_error)
         }
+        DType::Extension(extension) => ExtensionArray::try_new(
+            extension.clone(),
+            primitive(
+                crate::native_payload_schema::temporal_storage(dtype)
+                    .ok_or_else(|| failed("unsupported temporal output dtype"))?,
+                data,
+                validity,
+            )?,
+        )
+        .map(vortex::array::IntoArray::into_array)
+        .map_err(vortex_error),
+        DType::Utf8(_) | DType::Binary(_) => VarBinArray::try_new(
+            PrimitiveArray::new(Buffer::<u64>::from_byte_buffer(data), Validity::NonNullable)
+                .into_array(),
+            variable.expect("variable buffer allocated"),
+            dtype.clone(),
+            validity,
+        )
+        .map(vortex::array::IntoArray::into_array)
+        .map_err(vortex_error),
         _ => Err(failed("output dtype changed during construction")),
     }
 }
