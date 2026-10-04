@@ -672,6 +672,18 @@ pub(super) fn write(
     policy: super::VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
     let plan = super::native_sink::NativeSinkPlan::completed(result)?;
+    write_plan(plan, request, path, format, overwrite, policy)
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn write_plan(
+    plan: super::native_sink::NativeSinkPlan,
+    request: &VortexQueryPrimitiveRequest,
+    path: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
     if format == super::VortexLocalPrimitiveRowExportFormat::Vortex {
         return plan.write(request, path, overwrite, policy);
     }
@@ -695,16 +707,18 @@ pub(super) fn write(
     }
     #[cfg(feature = "universal-format-io")]
     {
-        super::columnar_compat_sink::prepare_plan(
-            request,
-            plan,
-            format,
-            policy,
-            super::columnar_compat_sink::CompatibilityLimits::default(),
-        )?
-        .ok_or_else(|| failed("result exceeds compatibility sink admission"))?
-        .write(path, overwrite)
-        .map(|completed| completed.report)
+        let limits = if plan.source.is_source() {
+            super::columnar_compat_sink::CompatibilityLimits::streaming(
+                plan.row_count,
+                &CancellationToken::default(),
+            )
+        } else {
+            super::columnar_compat_sink::CompatibilityLimits::default()
+        };
+        super::columnar_compat_sink::prepare_plan(request, plan, format, policy, limits)?
+            .ok_or_else(|| failed("result exceeds compatibility sink admission"))?
+            .write(path, overwrite)
+            .map(|completed| completed.report)
     }
     #[cfg(not(feature = "universal-format-io"))]
     Err(failed("compatibility output requires universal-format-io"))
@@ -717,6 +731,20 @@ pub(super) fn export_sort(
     format: super::VortexLocalPrimitiveRowExportFormat,
     overwrite: bool,
     policy: super::VortexLocalPrimitiveExecutionPolicy,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    super::required_sort_rows(request)?;
+    let source = super::prepared_dispatch::prepare_source(request, policy)?;
+    export_sort_from_source(request, output, format, overwrite, policy, &source)
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn export_sort_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    output: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    source: &crate::resident_session::PreparedVortexSource,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
     let sort = super::required_sort_rows(request)?;
     let cancellation = sort
@@ -731,11 +759,7 @@ pub(super) fn export_sort(
         .ok_or_else(|| failed("sort source is absent"))?;
     let path = super::local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("sort requires local Vortex"))?;
-    let session = crate::resident_session::ResidentVortexSession::new(
-        policy.resource_envelope().memory_budget_bytes,
-        policy.max_parallelism,
-    )?;
-    let source = session.prepare_file(&path)?;
+    let session = super::prepared_dispatch::source_session(source, request, Some(policy))?;
     let columns = super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
     let fields: Vec<(String, DType)> = columns
         .iter()

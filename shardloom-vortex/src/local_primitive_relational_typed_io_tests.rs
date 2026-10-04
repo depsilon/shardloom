@@ -1,7 +1,7 @@
 use super::*;
 use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
 
-fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<Value> {
+pub(super) fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<Value> {
     if format == Format::Vortex {
         let plan = VortexRelationalPlan::Scan(VortexRelationalScan {
             source_uri: DatasetUri::new(path.display().to_string()).unwrap(),

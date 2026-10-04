@@ -22,6 +22,43 @@ enum Column {
     Utf8(VarBinViewArray, Mask),
 }
 
+/// One provider decode shared by admission accounting and Top-K consumption.
+pub(super) struct Prepared {
+    columns: Vec<Column>,
+    rows: usize,
+}
+
+pub(super) fn prepare(
+    chunk: &ArrayRef,
+    declared_columns: &[String],
+    tie_policy: VortexSortTiePolicy,
+    retained_cap: usize,
+    ctx: &mut ExecutionCtx,
+) -> Result<Option<Prepared>> {
+    if tie_policy == VortexSortTiePolicy::All || retained_cap == 0 || retained_cap > 16_384 {
+        return Ok(None);
+    }
+    Ok(
+        decode_columns(chunk, declared_columns, ctx)?.map(|columns| Prepared {
+            columns,
+            rows: chunk.len(),
+        }),
+    )
+}
+
+impl Prepared {
+    pub(super) fn scratch_bytes(&self) -> Result<u64> {
+        let mut bytes =
+            super::sort_output_stream::scalar_scratch_bytes(self.rows, self.columns.len());
+        for column in &self.columns {
+            if let Column::Utf8(values, valid) = column {
+                bytes = super::sort_output_stream::add_utf8_scratch_bytes(bytes, values, valid)?;
+            }
+        }
+        Ok(bytes)
+    }
+}
+
 /// Admission covers every source schema before any cutoff is applied. Reopening
 /// a changed schema must fail: earlier partitions may already have lost rows.
 pub(super) fn validate_partition_dtype(
@@ -178,98 +215,134 @@ pub(super) fn append(
     candidates: &mut Vec<SortRowCandidate>,
     ctx: &mut ExecutionCtx,
 ) -> Result<Option<Work>> {
-    if tie_policy == VortexSortTiePolicy::All || retained_cap == 0 || retained_cap > 16_384 {
-        return Ok(None);
-    }
-    let Some(columns) = decode_columns(chunk, declared_columns, ctx)? else {
+    let Some(prepared) = prepare(chunk, declared_columns, tie_policy, retained_cap, ctx)? else {
         return Ok(None);
     };
-    let rows = chunk.len();
-    if value_indices.iter().any(|&index| index >= columns.len())
-        || source_id_index.is_some_and(|index| index >= columns.len())
-    {
-        return Err(failed("mismatched sort column lengths or indices"));
-    }
-    next_ordinal
-        .checked_add(rows)
-        .ok_or_else(|| failed("selected ordinal overflow"))?;
-    source_base
-        .checked_add(rows)
-        .ok_or_else(|| failed("source ordinal overflow"))?;
-    if candidates.len() > retained_cap {
-        retain_sort_top_window(
-            candidates,
-            order_by,
+    prepared
+        .append(
+            value_indices,
             order_indices,
-            retained_cap,
+            order_by,
             tie_policy,
-        );
-    }
-    let cutoff = (candidates.len() >= retained_cap)
-        .then(|| {
-            candidates
-                .iter()
-                .enumerate()
-                .max_by(|(_, left), (_, right)| {
-                    compare_sort_row_candidates(left, right, order_by, order_indices, tie_policy)
-                })
-                .map(|(index, _)| index)
-        })
-        .flatten();
-    let mut work = Work {
-        chunks: 1,
-        rows: rows as u64,
-        ..Work::default()
-    };
-    for row in 0..rows {
-        let ordinal = next_ordinal + row;
-        let source_ordinal = if let Some(index) = source_id_index {
-            let StatValue::UInt64(value) = columns[index].owned_value(row)? else {
-                return Err(failed("hidden row-id projection produced a non-u64 value"));
-            };
-            usize::try_from(value).map_err(|_| failed("hidden row-id exceeded usize"))?
-        } else {
-            source_base + row
+            retained_cap,
+            next_ordinal,
+            source_partition,
+            source_base,
+            source_id_index,
+            candidates,
+        )
+        .map(Some)
+}
+
+impl Prepared {
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn append(
+        &self,
+        value_indices: &[usize],
+        order_indices: &[usize],
+        order_by: &[crate::VortexAggregateOrderExpr],
+        tie_policy: VortexSortTiePolicy,
+        retained_cap: usize,
+        next_ordinal: usize,
+        source_partition: usize,
+        source_base: usize,
+        source_id_index: Option<usize>,
+        candidates: &mut Vec<SortRowCandidate>,
+    ) -> Result<Work> {
+        let columns = &self.columns;
+        let rows = self.rows;
+        if value_indices.iter().any(|&index| index >= columns.len())
+            || source_id_index.is_some_and(|index| index >= columns.len())
+        {
+            return Err(failed("mismatched sort column lengths or indices"));
+        }
+        next_ordinal
+            .checked_add(rows)
+            .ok_or_else(|| failed("selected ordinal overflow"))?;
+        source_base
+            .checked_add(rows)
+            .ok_or_else(|| failed("source ordinal overflow"))?;
+        if candidates.len() > retained_cap {
+            retain_sort_top_window(
+                candidates,
+                order_by,
+                order_indices,
+                retained_cap,
+                tie_policy,
+            );
+        }
+        let cutoff = (candidates.len() >= retained_cap)
+            .then(|| {
+                candidates
+                    .iter()
+                    .enumerate()
+                    .max_by(|(_, left), (_, right)| {
+                        compare_sort_row_candidates(
+                            left,
+                            right,
+                            order_by,
+                            order_indices,
+                            tie_policy,
+                        )
+                    })
+                    .map(|(index, _)| index)
+            })
+            .flatten();
+        let mut work = Work {
+            chunks: 1,
+            rows: rows as u64,
+            ..Work::default()
         };
-        if let Some(index) = cutoff {
-            let worst = &candidates[index];
-            let mut ordering = Ordering::Equal;
-            for (order, &index) in order_by.iter().zip(order_indices) {
-                let right = worst.values.get(index).unwrap_or(&StatValue::Null);
-                ordering = if let Some(&column) = value_indices.get(index) {
-                    columns[column].compare_to(row, right, order)?
-                } else {
-                    order.compare(true, matches!(right, StatValue::Null), || Ordering::Equal)
+        for row in 0..rows {
+            let ordinal = next_ordinal + row;
+            let source_ordinal = if let Some(index) = source_id_index {
+                let StatValue::UInt64(value) = columns[index].owned_value(row)? else {
+                    return Err(failed("hidden row-id projection produced a non-u64 value"));
                 };
-                if ordering != Ordering::Equal {
-                    break;
+                usize::try_from(value).map_err(|_| failed("hidden row-id exceeded usize"))?
+            } else {
+                source_base + row
+            };
+            if let Some(index) = cutoff {
+                let worst = &candidates[index];
+                let mut ordering = Ordering::Equal;
+                for (order, &index) in order_by.iter().zip(order_indices) {
+                    let right = worst.values.get(index).unwrap_or(&StatValue::Null);
+                    ordering = if let Some(&column) = value_indices.get(index) {
+                        columns[column].compare_to(row, right, order)?
+                    } else {
+                        order.compare(true, matches!(right, StatValue::Null), || Ordering::Equal)
+                    };
+                    if ordering != Ordering::Equal {
+                        break;
+                    }
+                }
+                if ordering == Ordering::Equal {
+                    ordering = match tie_policy {
+                        VortexSortTiePolicy::Last => worst.ordinal.cmp(&ordinal),
+                        VortexSortTiePolicy::First | VortexSortTiePolicy::All => {
+                            ordinal.cmp(&worst.ordinal)
+                        }
+                    };
+                }
+                if ordering != Ordering::Less {
+                    continue;
                 }
             }
-            if ordering == Ordering::Equal {
-                ordering = match tie_policy {
-                    VortexSortTiePolicy::Last => worst.ordinal.cmp(&ordinal),
-                    VortexSortTiePolicy::First | VortexSortTiePolicy::All => {
-                        ordinal.cmp(&worst.ordinal)
-                    }
-                };
-            }
-            if ordering != Ordering::Less {
-                continue;
-            }
+            let values = value_indices
+                .iter()
+                .map(|&column| columns[column].owned_value(row))
+                .collect::<Result<Vec<_>>>()?;
+            work.record_candidate(&values)?;
+            candidates.push(SortRowCandidate {
+                ordinal,
+                source_partition_index: source_partition,
+                source_ordinal,
+                values,
+            });
         }
-        let values = value_indices
-            .iter()
-            .map(|&column| columns[column].owned_value(row))
-            .collect::<Result<Vec<_>>>()?;
-        work.record_candidate(&values)?;
-        candidates.push(SortRowCandidate {
-            ordinal,
-            source_partition_index: source_partition,
-            source_ordinal,
-            values,
-        });
+        Ok(work)
     }
-    Ok(Some(work))
 }
 
 fn decode_columns(

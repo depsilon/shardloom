@@ -2,9 +2,10 @@
 
 # Universal workflow breadth and scale
 
-Status: implementation plan for the October 1 product clarification. This document
-does not claim new runtime support or measured performance. Active phase owners
-remain PERF-02/03/06/07/10/11/12 in the [phase plan](phased-execution-plan.md).
+Status: implementation plan for the October 1 product clarification. The local
+acceptance records below document finite runtime units; they do not establish
+hosted release completion or performance superiority. Active phase owners remain
+PERF-02/03/06/07/10/11/12 in the [phase plan](phased-execution-plan.md).
 
 ## Product contract
 
@@ -87,14 +88,22 @@ static nested leaves, through the same native result and writer components.
 Its frozen `8237a900` passes 4,109 public checks (804 typed), 202 direct-unary
 checks, all 24 selected local gate categories and all 258 paired Full43 results;
 the [typed acceptance report](../benchmarks/native-typed-payloads-full43-2026-10-03.md)
-preserves exact scope and evidence. Hosted review remains pending. Typed key,
-expression and retained-state semantics, wider adapters and remaining
-resource/spill transitions require the work below.
+preserves exact scope and evidence. Hosted review remains pending. Flat typed-key
+hashing, equality, ordering, expression selection and aggregate extrema now have
+local acceptance on `2f402226`: 5,733 public checks/12,282,897 rows, a 2,428-check
+typed subset/4,595,372 rows, 202 direct checks/131,734 rows, all 24 local gate
+categories and 258/258 Full43 results plus six reversed-order Q21 repeats. No
+aggregate or RSS flags remain, and no speedup is claimed; see the
+[typed-key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
+and [immutable evidence packet](../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz).
+Hosted review remains pending. Nested keys, typed literals/casts/arithmetic,
+retained unary state, wider adapters and remaining resource/spill transitions
+require the work below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs; binary, exact Decimal128, Date32 and microsecond timestamp payloads, including admitted nested leaves. | Broader typed/nested semantics, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
-| Operator composition | Native flat-scalar relational stages and shared unary families compose with ordered public declarations; static nested payload transport/repeated explode and execution-scoped scalar pivot schemas extend the same runtime. | Wider join/set/window/subquery semantics and nested key/unary-state semantics; broader prepared/public parity. Finish hosted acceptance of the nested/pivot units and use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
+| Operator composition | Native flat-scalar relational stages and shared unary families compose with ordered public declarations; static nested payload transport/repeated explode, execution-scoped scalar pivot schemas and flat binary/decimal/temporal key semantics extend the same runtime. | Typed literals/casts/arithmetic, wider join/set/window/subquery semantics and nested key/unary-state semantics; broader prepared/public parity. Finish hosted acceptance of the nested/pivot/typed units and use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
 | Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output has six representable destinations, including the four new typed leaf families. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
@@ -116,9 +125,10 @@ for already executable flat-scalar aggregate and ordered-result families; its
 [contract and acceptance](native-workflow-streaming-2026-10-01.md) record exact
 coverage. Retained unary execution and admitted flat-scalar relational/unary
 composition now have their own acceptance records. Finish hosted acceptance of
-the static nested, scalar dynamic-pivot and typed-payload continuations, and continue
-through missing type/key, adapter and resource families with their ownership contracts. Freeze exact
-expressions, sinks and pressure cases against current source at intake. Unsupported
+the static nested, scalar dynamic-pivot, typed-payload and typed-key continuations,
+and continue through missing nested-key, expression, adapter and resource
+families with their ownership contracts. Freeze exact expressions, sinks and
+pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only
 designation. Availability work ships on correctness and resource proof; a speedup is
 not required for completing a missing workflow.

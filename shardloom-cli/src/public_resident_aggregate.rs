@@ -39,6 +39,17 @@ pub(super) fn run(
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
+    run_with_source(request, plan, format, extra_fields, execution_session, None)
+}
+
+pub(super) fn run_with_source(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    extra_fields: Vec<(String, String)>,
+    execution_session: &mut PublicExecutionSession,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+) -> ExitCode {
     // Keep the ordinary materialization-policy rejection before any source open.
     if request.materialization_policy == "zero_decode" {
         execution_session.clear();
@@ -59,7 +70,7 @@ pub(super) fn run(
         execution_session.clear();
         return ordinary(request, plan, format, extra_fields);
     }
-    match execute(request, &binding, execution_session) {
+    match execute(request, &binding, execution_session, source) {
         Ok(Some(executed)) => render(request, plan, format, extra_fields, &binding, executed),
         Ok(None) => {
             execution_session.clear();
@@ -93,6 +104,7 @@ fn execute(
     request: &PublicWorkflowRouteRequest,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
 ) -> Result<Option<Executed>, ShardLoomError> {
     let (mut primitive, primitive_arg, _) =
         native_vortex_bound_request_and_arg(request, PublicVortexPrimitive::Aggregate, binding)?;
@@ -125,7 +137,16 @@ fn execute(
     });
     if !matches {
         execution_session.clear();
-        match prepare_aggregate_for_optional_reuse(&primitive, policy)? {
+        let prepared = if let Some(source) = source {
+            Some(PreparedAggregateDisposition::Reusable(
+                shardloom_vortex::local_primitives::prepared_aggregate::prepare_aggregate_from_source(
+                    &primitive, policy, source,
+                )?,
+            ))
+        } else {
+            prepare_aggregate_for_optional_reuse(&primitive, policy)?
+        };
+        match prepared {
             None => return Ok(None),
             Some(PreparedAggregateDisposition::Unretained(operation)) => {
                 return Ok(Some(Executed {

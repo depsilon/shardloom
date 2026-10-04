@@ -1,6 +1,10 @@
 //! Native key owners shared by relational matching. Numeric execution reuses
-//! the existing original-width owner; text keeps its native dictionary domain.
+//! the existing original-width owner; variable bytes keep native dictionary domains.
 //! Equality normalizes finite floating signed zero and integer signedness.
+
+#[cfg(test)]
+#[path = "native_relational_typed_keys_tests.rs"]
+mod typed_tests;
 
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
 use shardloom_core::{Result, ShardLoomError};
@@ -13,10 +17,12 @@ use vortex::{
     array::{
         ArrayRef, ExecutionCtx,
         arrays::{
-            BoolArray, Dict, PrimitiveArray, VarBinViewArray, bool::BoolArrayExt as _,
-            dict::DictArraySlotsExt as _, varbinview::VarBinViewArrayExt as _,
+            BoolArray, DecimalArray, Dict, PrimitiveArray, VarBinViewArray,
+            bool::BoolArrayExt as _, decimal::DecimalArrayExt as _, dict::DictArraySlotsExt as _,
+            varbinview::VarBinViewArrayExt as _,
         },
-        dtype::{DType, PType},
+        dtype::{DType, DecimalDType, PType},
+        scalar::DecimalValue,
     },
     buffer::ByteBuffer,
     mask::Mask,
@@ -30,22 +36,36 @@ pub(super) enum Cell {
     Float(u64),
     Boolean(bool),
     Utf8(ByteBuffer),
+    Binary(ByteBuffer),
+    Decimal(i128, DecimalDType),
+    Date(i32),
+    Timestamp(i64),
 }
 
 pub(super) enum KeyColumn {
     Null(usize),
     Numeric(NativeNumericOwner),
     Boolean { values: BoolArray, valid: Mask },
-    Text(TextColumn),
+    Variable(VariableColumn),
+    Decimal(DecimalColumn),
+    Date(NativeNumericOwner),
+    Timestamp(NativeNumericOwner),
 }
 
-pub(super) struct TextColumn {
+pub(super) struct VariableColumn {
     values: VarBinViewArray,
     valid: Mask,
     codes: Option<NativeNumericOwner>,
     hashes: Vec<u64>,
     _hash_ownership: MemoryLease,
     rows: usize,
+    binary: bool,
+}
+
+pub(super) struct DecimalColumn {
+    values: DecimalArray,
+    valid: Mask,
+    dtype: DecimalDType,
 }
 
 impl KeyColumn {
@@ -59,14 +79,7 @@ impl KeyColumn {
         let column = match array.dtype() {
             DType::Null => Self::Null(array.len()),
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {
-                let values = array
-                    .clone()
-                    .execute::<PrimitiveArray>(context)
-                    .map_err(vortex_error)?;
-                if values.dtype() != array.dtype() || values.len() != array.len() {
-                    return Err(failed("numeric execution changed dtype or row count"));
-                }
-                Self::Numeric(NativeNumericOwner::new(values, context)?)
+                Self::Numeric(numeric_owner(array, context)?)
             }
             DType::Bool(_) => {
                 let values = array
@@ -83,10 +96,31 @@ impl KeyColumn {
                     .map_err(vortex_error)?;
                 Self::Boolean { values, valid }
             }
-            DType::Utf8(_) => Self::Text(TextColumn::new(array, context, memory, cancellation)?),
+            DType::Utf8(_) | DType::Binary(_) => {
+                Self::Variable(VariableColumn::new(array, context, memory, cancellation)?)
+            }
+            DType::Decimal(dtype, _) if crate::native_payload_schema::admitted_decimal(*dtype) => {
+                Self::Decimal(DecimalColumn::new(array, *dtype, context)?)
+            }
+            DType::Extension(_) => {
+                let ptype = crate::native_payload_schema::temporal_storage(array.dtype())
+                    .ok_or_else(|| {
+                        failed("temporal key requires Date32 or timezone-free TimestampMicros")
+                    })?;
+                let storage = super::result_batch::scalar_storage(array, context)?;
+                if storage.len() != array.len() {
+                    return Err(failed("temporal execution changed row count"));
+                }
+                let values = numeric_owner(&storage, context)?;
+                match ptype {
+                    PType::I32 => Self::Date(values),
+                    PType::I64 => Self::Timestamp(values),
+                    _ => return Err(failed("temporal key has an unsupported storage type")),
+                }
+            }
             _ => {
                 return Err(failed(
-                    "key requires integer, finite float, boolean or UTF8 dtype",
+                    "key requires integer, finite float, boolean, UTF8, binary, admitted Decimal128, Date32 or timezone-free TimestampMicros dtype",
                 ));
             }
         };
@@ -97,9 +131,10 @@ impl KeyColumn {
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Null(rows) => *rows,
-            Self::Numeric(values) => values.len(),
+            Self::Numeric(values) | Self::Date(values) | Self::Timestamp(values) => values.len(),
             Self::Boolean { values, .. } => values.len(),
-            Self::Text(values) => values.rows,
+            Self::Variable(values) => values.rows,
+            Self::Decimal(values) => values.values.len(),
         }
     }
 
@@ -115,9 +150,22 @@ impl KeyColumn {
             } else {
                 Cell::Null
             }),
-            Self::Text(values) => Ok(values.index(row)?.map_or(Cell::Null, |index| {
-                Cell::Utf8(values.values.bytes_at(index))
+            Self::Variable(values) => Ok(values.index(row)?.map_or(Cell::Null, |index| {
+                let bytes = values.values.bytes_at(index);
+                if values.binary {
+                    Cell::Binary(bytes)
+                } else {
+                    Cell::Utf8(bytes)
+                }
             })),
+            Self::Decimal(values) => values.cell(row),
+            Self::Date(values) => Ok(match temporal_value(values, row)? {
+                None => Cell::Null,
+                Some(value) => Cell::Date(i32::try_from(value).map_err(vortex_error)?),
+            }),
+            Self::Timestamp(values) => {
+                Ok(temporal_value(values, row)?.map_or(Cell::Null, Cell::Timestamp))
+            }
         }
     }
 
@@ -150,7 +198,9 @@ impl KeyColumn {
         if row >= self.len() || other_row >= other.len() {
             return Err(failed("comparison row index exceeds key owner"));
         }
-        if let (Self::Text(left), Self::Text(right)) = (self, other) {
+        if let (Self::Variable(left), Self::Variable(right)) = (self, other)
+            && left.binary == right.binary
+        {
             return Ok(match (left.index(row)?, right.index(other_row)?) {
                 (None, None) => Ordering::Equal,
                 (None, Some(_)) => Ordering::Less,
@@ -170,9 +220,12 @@ impl KeyColumn {
         }
         Ok(match self {
             Self::Null(_) => true,
-            Self::Numeric(values) => values.distinct_value(row)? == AggregateDistinctValue::Null,
+            Self::Numeric(values) | Self::Date(values) | Self::Timestamp(values) => {
+                values.distinct_value(row)? == AggregateDistinctValue::Null
+            }
             Self::Boolean { valid, .. } => !valid.value(row),
-            Self::Text(values) => values.index(row)?.is_none(),
+            Self::Variable(values) => values.index(row)?.is_none(),
+            Self::Decimal(values) => !values.valid.value(row),
         })
     }
 
@@ -196,9 +249,9 @@ impl KeyColumn {
         if row >= self.len() {
             return Err(failed("hash row index exceeds key owner"));
         }
-        if let Self::Text(values) = self {
+        if let Self::Variable(values) = self {
             if let Some(index) = values.index(row)? {
-                hash.write_u8(5);
+                hash.write_u8(if values.binary { 6 } else { 5 });
                 hash.write_u64(values.hashes[index]);
                 return Ok(true);
             }
@@ -226,19 +279,38 @@ impl KeyColumn {
                 hash.write_u8(4);
                 hash.write_u8(u8::from(value));
             }
-            Cell::Utf8(_) => unreachable!("text owner handled above"),
+            Cell::Utf8(_) | Cell::Binary(_) => unreachable!("variable owner handled above"),
+            Cell::Decimal(value, dtype) => {
+                hash.write_u8(7);
+                hash.write_u8(dtype.precision());
+                hash.write_i8(dtype.scale());
+                hash.write_i128(value);
+            }
+            Cell::Date(value) => {
+                hash.write_u8(8);
+                hash.write_i32(value);
+            }
+            Cell::Timestamp(value) => {
+                hash.write_u8(9);
+                hash.write_i64(value);
+            }
         }
         Ok(true)
     }
 }
 
 pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
-    use Cell::{Boolean, Float, NegativeInteger, NonnegativeInteger, Null, Utf8};
+    use Cell::{
+        Binary, Boolean, Date, Decimal, Float, NegativeInteger, NonnegativeInteger, Null,
+        Timestamp, Utf8,
+    };
     Ok(match (left, right) {
         (Null, Null) => Ordering::Equal,
         (Null, _) | (NegativeInteger(_), NonnegativeInteger(_)) => Ordering::Less,
         (_, Null) | (NonnegativeInteger(_), NegativeInteger(_)) => Ordering::Greater,
-        (NegativeInteger(left), NegativeInteger(right)) => left.cmp(&right),
+        (NegativeInteger(left), NegativeInteger(right)) | (Timestamp(left), Timestamp(right)) => {
+            left.cmp(&right)
+        }
         (NonnegativeInteger(left), NonnegativeInteger(right)) => left.cmp(&right),
         (Float(left), Float(right)) => {
             let (left, right) = (f64::from_bits(left), f64::from_bits(right));
@@ -249,7 +321,13 @@ pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
             }
         }
         (Boolean(left), Boolean(right)) => left.cmp(&right),
-        (Utf8(left), Utf8(right)) => left.as_slice().cmp(right.as_slice()),
+        (Utf8(left), Utf8(right)) | (Binary(left), Binary(right)) => {
+            left.as_slice().cmp(right.as_slice())
+        }
+        (Decimal(left, left_dtype), Decimal(right, right_dtype)) if left_dtype == right_dtype => {
+            left.cmp(&right)
+        }
+        (Date(left), Date(right)) => left.cmp(&right),
         _ => {
             return Err(failed(
                 "incompatible relational key types require an explicit cast",
@@ -258,13 +336,69 @@ pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
     })
 }
 
-impl TextColumn {
+fn numeric_owner(array: &ArrayRef, context: &mut ExecutionCtx) -> Result<NativeNumericOwner> {
+    let values = array
+        .clone()
+        .execute::<PrimitiveArray>(context)
+        .map_err(vortex_error)?;
+    if values.dtype() != array.dtype() || values.len() != array.len() {
+        return Err(failed("numeric execution changed dtype or row count"));
+    }
+    NativeNumericOwner::new(values, context)
+}
+
+fn temporal_value(values: &NativeNumericOwner, row: usize) -> Result<Option<i64>> {
+    match values.distinct_value(row)? {
+        AggregateDistinctValue::Null => Ok(None),
+        AggregateDistinctValue::Int64(value) => Ok(Some(value)),
+        _ => Err(failed("temporal storage returned a non-signed integer key")),
+    }
+}
+
+impl DecimalColumn {
+    fn new(array: &ArrayRef, dtype: DecimalDType, context: &mut ExecutionCtx) -> Result<Self> {
+        let values = array
+            .clone()
+            .execute::<DecimalArray>(context)
+            .map_err(vortex_error)?;
+        if values.dtype() != array.dtype() || values.len() != array.len() {
+            return Err(failed("decimal execution changed dtype or row count"));
+        }
+        let valid = values
+            .validity()
+            .map_err(vortex_error)?
+            .execute_mask(values.len(), context)
+            .map_err(vortex_error)?;
+        Ok(Self {
+            values,
+            valid,
+            dtype,
+        })
+    }
+
+    fn cell(&self, row: usize) -> Result<Cell> {
+        if !self.valid.value(row) {
+            return Ok(Cell::Null);
+        }
+        let value = vortex::array::match_each_decimal_value_type!(self.values.values_type(), |D| {
+            DecimalValue::from(self.values.buffer::<D>()[row]).cast::<i128>()
+        })
+        .ok_or_else(|| failed("decimal key exceeds signed 128-bit storage"))?;
+        if value.unsigned_abs() >= 10_u128.pow(u32::from(self.dtype.precision())) {
+            return Err(failed("decimal key exceeds its declared precision"));
+        }
+        Ok(Cell::Decimal(value, self.dtype))
+    }
+}
+
+impl VariableColumn {
     fn new(
         array: &ArrayRef,
         context: &mut ExecutionCtx,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
     ) -> Result<Self> {
+        let binary = matches!(array.dtype(), DType::Binary(_));
         let dictionary = array.as_opt::<Dict>();
         let domain = dictionary
             .as_ref()
@@ -320,7 +454,9 @@ impl TextColumn {
             }
             hashes.push(if valid.value(index) {
                 let value = values.bytes_at(index);
-                std::str::from_utf8(value.as_slice()).map_err(vortex_error)?;
+                if !binary {
+                    std::str::from_utf8(value.as_slice()).map_err(vortex_error)?;
+                }
                 compound_count_partial::string_hash(value.as_slice())
             } else {
                 0
@@ -333,6 +469,7 @@ impl TextColumn {
             hashes,
             _hash_ownership: ownership,
             rows: array.len(),
+            binary,
         })
     }
 

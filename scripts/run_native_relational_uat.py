@@ -144,6 +144,7 @@ def main() -> int:
     nested_code = code.with_name("native_nested_composition_cases.py")
     pivot_code = code.with_name("native_dynamic_pivot_cases.py")
     typed_code = code.with_name("native_typed_payload_cases.py")
+    typed_key_code = code.with_name("native_typed_key_cases.py")
     renderer_code = query.with_name("_relational_sql.py")
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
@@ -161,6 +162,7 @@ def main() -> int:
         "nested_cases_sha256": file_sha256(nested_code),
         "dynamic_pivot_cases_sha256": file_sha256(pivot_code),
         "typed_payload_cases_sha256": file_sha256(typed_code),
+        "typed_key_cases_sha256": file_sha256(typed_key_code),
         "nested_fixture_generator_sha256": (file_sha256(fixture_generator) if fixture_generator else None),
         "typed_fixture_generator_sha256": (file_sha256(typed_generator) if typed_generator else None),
         "python_relational_renderer_sha256": file_sha256(renderer_code),
@@ -374,6 +376,7 @@ def main() -> int:
                           (nested_code, "nested_cases_sha256"),
                           (pivot_code, "dynamic_pivot_cases_sha256"),
                           (typed_code, "typed_payload_cases_sha256"),
+                          (typed_key_code, "typed_key_cases_sha256"),
                           (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")

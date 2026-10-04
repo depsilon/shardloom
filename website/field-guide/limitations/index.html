@@ -127,8 +127,9 @@ limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, 
 and Avro; nested CSV/ORC output is denied. Recursive schema/child-buffer admission,
 format fidelity, resources and write policy still apply. Binary, exact Decimal128,
 Date32 and timezone-free microsecond timestamps are admitted payloads, including
-nested leaves. Their key/arithmetic/unary-state semantics remain unadmitted;
-ORC rejects decimal/temporal output. General Variant/extension operations retain
+nested leaves. Flat key operations for these types follow the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>;
+nested key equality, casts, arithmetic/rescaling and retained unary state remain
+unsupported. ORC rejects decimal/temporal output. General Variant/extension operations retain
 separate coverage limits. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md">output contract</a>.</p>
 <p>Use <a href="/field-guide/runtime-and-io">runtime and I/O</a>, the

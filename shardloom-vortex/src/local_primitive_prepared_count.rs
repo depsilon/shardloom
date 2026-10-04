@@ -45,6 +45,27 @@ pub fn prepare_count_where_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexCountWhere> {
+    prepare_count_where(request, policy, session, None)
+}
+
+/// Bind the filtered count to the same source used for native strategy selection.
+/// # Errors
+/// Rejects changed/mismatched sources, resources and unsupported predicates.
+pub fn prepare_count_where_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+) -> Result<PreparedVortexCountWhere> {
+    let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
+    prepare_count_where(request, policy, &session, Some(source))
+}
+
+fn prepare_count_where(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    prepared: Option<PreparedVortexSource>,
+) -> Result<PreparedVortexCountWhere> {
     if request.kind != VortexQueryPrimitiveKind::CountWhere
         || request.diagnostics.iter().any(|diagnostic| {
             matches!(
@@ -75,7 +96,11 @@ pub fn prepare_count_where_in_session(
     }
     let path = local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("local Vortex source is required"))?;
-    let source = session.prepare_file(&path)?;
+    let source = if let Some(source) = prepared {
+        source
+    } else {
+        session.prepare_file(&path)?
+    };
     let mut plan = LocalVortexScanPlan::passthrough();
     let planned_predicate =
         attach_predicate_to_scan_plan(&mut plan, predicate, source.dtype(), request.kind)?;

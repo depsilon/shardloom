@@ -70,10 +70,15 @@ query replay. Provisional batches and staging files are not successful publicati
   output boundaries, with their predicate semantics checked independently.
 - Integer key equality is exact across widths and signedness, without a floating
   conversion. Finite floating keys compare in their widened floating domain with
-  signed zeros equal. Mixed integer/float keys need an explicit cast. Nonfinite,
-  nested, extension and binary keys remain rejected until separately admitted.
-  UTF8 uses exact bytes and boolean keys retain their type. Hash equality only
-  selects candidates; complete value equality proves a match.
+  signed zeros equal. Mixed integer/float keys need an explicit cast. UTF8 uses
+  exact bytes and boolean keys retain their type. The [typed key contract](native-typed-keys-2026-10-03.md)
+  extends flat binary, exact Decimal128 (matching precision and scale), Date32
+  and timezone-free timestamp-microsecond equality, hashing and ordering through
+  joins, sets, groups, windows and subqueries. COUNT/COUNT DISTINCT/MIN/MAX,
+  same-type comparisons, IS NULL, CASE, COALESCE and NULLIF are admitted. Casts,
+  arithmetic/rescaling, retained unary state, nested key equality, other extensions
+  and nonfinite numeric keys remain separate unsupported boundaries. Hash
+  equality only selects candidates; complete value equality proves a match.
 - UNION ALL preserves branch order and duplicates. UNION DISTINCT, INTERSECT and
   EXCEPT use explicit set semantics, including null-equal row membership and first
   occurrence order before an explicit final sort. Align columns by position and
@@ -181,9 +186,11 @@ DataFrame flat renderer rejected transformed join and subquery inputs. The
 adds derived relations, ordered chains, transformed operands and post-set stages
 through the existing native tree. Scalar-value subqueries, arbitrary window
 frames/default expressions and relational fanout remain pending.
-The current relational payload admits bool, original-width integers, F32/F64 and
-UTF8 with validity. Binary, F16, nested and extension payloads require further
-native admission. Numeric nonfinite keys remain unsupported.
+The current relational payload admits bool, original-width integers, F32/F64,
+UTF8, binary, exact Decimal128, Date32 and timezone-free microsecond timestamps
+with validity. F16 and other extension payloads require further native admission.
+Nested values remain payloads only: nested key equality is unsupported. Typed
+key comparison/aggregate/expression scope is tracked in the [typed key contract](native-typed-keys-2026-10-03.md).
 
 Public repeated calls retain the request, source readers and lowering, with fresh
 operator state per call. A request or resource change replaces the handle; source

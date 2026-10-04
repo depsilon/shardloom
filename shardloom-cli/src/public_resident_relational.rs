@@ -34,6 +34,13 @@ pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkfl
         Ok(true) => {}
         Err(error) => return Some(denied(&error.to_string())),
     }
+    route_admitted_statement(request)
+}
+
+pub(super) fn route_admitted_statement(
+    request: &PublicWorkflowRouteRequest,
+) -> Option<PublicWorkflowRoutePlan> {
+    let statement = request.sql_statement.as_deref()?;
     if let Err(error) = sources::validate_bindings(statement, request) {
         return Some(denied(&error.to_string()));
     }
@@ -120,7 +127,18 @@ pub(super) fn run(
     format: OutputFormat,
     session: &mut PublicExecutionSession,
 ) -> ExitCode {
-    match execute(request, plan, format, session) {
+    run_with_source(request, plan, format, session, Vec::new(), None)
+}
+
+pub(super) fn run_with_source(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    session: &mut PublicExecutionSession,
+    extra_fields: Vec<(String, String)>,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+) -> ExitCode {
+    match execute(request, plan, format, session, extra_fields, source) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             session.clear();
@@ -134,6 +152,8 @@ fn execute(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     session: &mut PublicExecutionSession,
+    extra_fields: Vec<(String, String)>,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
 ) -> Result<(), ShardLoomError> {
     let reused = session
         .relational
@@ -144,7 +164,8 @@ fn execute(
         let statement = request.sql_statement.as_deref().ok_or_else(|| {
             ShardLoomError::InvalidOperation("native relational SQL is absent".into())
         })?;
-        let (operation, prepared_sources) = sources::prepare(statement, request)?;
+        let (operation, prepared_sources) =
+            sources::prepare_with_source(statement, request, source)?;
         session.relational = Some(PreparedPublicRelational {
             request: request.clone(),
             operation,
@@ -156,6 +177,7 @@ fn execute(
     })?;
     let operation = &prepared.operation;
     let mut fields = execution_attachment_fields("run", request, plan);
+    fields.extend(extra_fields);
     fields.extend([
         (
             "relational_normalized_source_count".into(),

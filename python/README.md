@@ -227,7 +227,9 @@ ordered.write_parquet("ordered.parquet", memory_gb=1, max_parallelism=2, spill=s
 Create the workspace before execution. `route()` validates the declaration without
 probing or creating it. Composed relational order uses `buffer_bytes` as a retained
 input flush threshold within one query memory grant; specialized numeric sort and
-aggregate providers use their existing operator-memory admission. Supported keys,
+aggregate providers use their existing operator-memory admission. Native sort spill
+also applies to the flat typed keys scoped by the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
+Supported keys,
 minimum buffers and spill families remain provider-specific. A spill request does
 not enable other relational state spill or fanout, relax collection limits, or
 establish an RSS bound. Successful writes require verified spill cleanup before
@@ -470,8 +472,12 @@ Nested keys, general nested unary state and general Variant/extension operations
 remain unsupported in composition. See the [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
-arithmetic, key and unary-state semantics remain unadmitted. Binary supports all
-eight writers; ORC rejects decimal and temporal payloads. JSON/JSONL and collection
+flat equality, hashing and ordering are admitted for relational joins, sets,
+groups, windows and subqueries, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
+comparisons and expressions; Decimal precision and scale must match. Nested key
+equality, casts, arithmetic/rescaling and retained unary state remain unsupported.
+See the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
+Binary supports all eight writers; ORC rejects decimal and temporal payloads. JSON/JSONL and collection
 encode binary as lowercase hex, decimals as `decimal128(precision,scale):unscaled_integer`,
 and temporal values as signed integer units. CSV uses the existing JSON scalar
 cell convention for binary/decimal strings. Text output does not retain native

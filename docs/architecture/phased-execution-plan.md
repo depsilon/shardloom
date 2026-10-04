@@ -351,9 +351,45 @@ the ledger.
     No predeclared timing or memory threshold is crossed; no speedup is claimed.
   - Acceptance: exact type/value/null/order preservation across the complete
     admitted workflow, without scalar-row execution, intermediate files, replay
-    or fallback. Wider key semantics, adapters and resource/spill remain open.
+    or fallback. Nested key semantics, typed expressions, adapters and
+    resource/spill remain open.
   - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
     hosted completion remains subject to its existing website advisory decision.
+
+- [ ] `NATIVE-TYPED-KEYS` — complete exact binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp comparisons and keys in the shared native
+  relational runtime under PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed key contract](native-typed-keys-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native dictionary domains, selected
+    payload ownership, one operation admission, bounded capillary delivery and
+    existing native sort runs; metadata-first pruning and timing/evidence surfaces
+    retain their shared owners.
+  - Execution checklist:
+    - [x] Extend shared key hashing/equality/order and precise binder admission;
+      reuse existing joins, sets, groups, windows, subqueries and scalar selection.
+    - [x] Extend exact COUNT/DISTINCT/MIN/MAX and prove binary extrema ownership,
+      typed ordering spill/merge, cancellation, constrained grants and cleanup.
+    - [x] Prove complete public writer/readback workflows, required local gates
+      and paired Full43 regression; update exact public support and immutable evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory decision,
+      then move this finite item to the completed ledger.
+  - Local evidence: frozen runtime `2f402226` passes 5,733 public checks with
+    12,282,897 complete row comparisons, including 2,428 typed checks and
+    4,595,372 typed row comparisons; the separate direct matrix passes 202 checks
+    and 131,734 rows. All 24 local gate categories pass. Full43 passes 258/258,
+    with six reversed-order Q21 repeats. The initial Q21 timing gain of 10.65%
+    (0.131 s) becomes 2.49% (0.020 s) under reversed role order; no aggregate or
+    RSS flags remain and no speedup is claimed. The [acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
+    and immutable [evidence packet](../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz)
+    retain complete values, schemas, source/binary identity and local gate evidence.
+  - Acceptance: exact logical type identity, full-value comparison after hash
+    lookup, existing NULL rules and no implicit decimal rescaling or temporal
+    coercion, including empty plans. Nested keys, typed arithmetic/literals/casts,
+    retained unary state, broader adapters and state spill remain with their
+    existing phase owners.
+  - Dependency: locally accepted typed payload composition; hosted merge remains
+    subject to the existing nested/pivot/typed stack and website advisory decision.
 
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
@@ -363,9 +399,10 @@ The preceding resource, allocation, aggregate and flat unary units merged in
 hosted checks passed. Their finite completions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
-nested payloads, dynamic pivot schemas and binary/decimal/temporal payloads have
-complete local acceptance awaiting hosted completion; broader key semantics,
-adapters and resource obligations remain open under their existing owners.
+nested payloads, dynamic pivot schemas and flat binary/decimal/temporal payloads
+and keys have complete local acceptance awaiting hosted completion; nested key semantics,
+typed expressions, adapters and resource obligations remain open under their
+existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one

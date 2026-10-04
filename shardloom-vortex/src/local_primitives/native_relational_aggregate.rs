@@ -321,22 +321,29 @@ fn update(
                 }
             };
             if replace {
-                state.extreme = Some(if let Cell::Utf8(bytes) = value {
-                    let mut owned = context
-                        .native_session()
-                        .allocator()
-                        .allocate(bytes.len(), Alignment::new(1))
-                        .map_err(vortex_error)?;
-                    owned.as_mut_slice().copy_from_slice(bytes.as_slice());
-                    Cell::Utf8(owned.freeze())
-                } else {
-                    value
-                });
+                state.extreme = Some(owned_extreme(value, context)?);
             }
             Ok(())
         }
         Function::CountDistinct => Err(failed("distinct state must use the exact native set")),
     }
+}
+
+fn owned_extreme(value: Cell, context: &NativeExecutionContext<'_>) -> Result<Cell> {
+    let (Cell::Utf8(bytes) | Cell::Binary(bytes)) = &value else {
+        return Ok(value);
+    };
+    let mut owned = context
+        .native_session()
+        .allocator()
+        .allocate(bytes.len(), Alignment::new(1))
+        .map_err(vortex_error)?;
+    owned.as_mut_slice().copy_from_slice(bytes.as_slice());
+    Ok(if matches!(value, Cell::Binary(_)) {
+        Cell::Binary(owned.freeze())
+    } else {
+        Cell::Utf8(owned.freeze())
+    })
 }
 
 #[allow(clippy::cast_precision_loss)] // Same explicit ordered floating SUM/AVG policy as the existing aggregate runner.
@@ -359,7 +366,7 @@ fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
         Function::Avg => Value::Float(super::simple_average_value(state.sum, state.count)),
         Function::Min | Function::Max => match &state.extreme {
             None | Some(Cell::Null) => Value::Null,
-            Some(Cell::NegativeInteger(value)) => Value::Int(*value),
+            Some(Cell::NegativeInteger(value) | Cell::Timestamp(value)) => Value::Int(*value),
             Some(Cell::NonnegativeInteger(value)) => {
                 if matches!(
                     measure.dtype,
@@ -375,6 +382,41 @@ fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
             Some(Cell::Utf8(bytes)) => Value::Text(Cow::Borrowed(
                 std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?,
             )),
+            Some(Cell::Binary(bytes)) => Value::Binary(Cow::Borrowed(bytes.as_slice())),
+            Some(Cell::Decimal(value, dtype)) => Value::Decimal(*value, *dtype),
+            Some(Cell::Date(value)) => Value::Int(i64::from(*value)),
         },
     })
+}
+
+#[cfg(test)]
+mod ownership_tests {
+    use super::*;
+    use crate::resident_session::ResidentVortexSession;
+    use shardloom_exec::compute_pool::CancellationToken;
+    use vortex::buffer::ByteBuffer;
+
+    #[test]
+    fn native_typed_keys_binary_extremum_owns_only_selected_bytes_and_credits() {
+        let source = ByteBuffer::from(vec![255u8; 2 << 20]);
+        let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+        let memory = session.memory().clone();
+        let owned = session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                owned_extreme(Cell::Binary(source.slice(2..6)), context)
+            })
+            .unwrap();
+        drop((source, session));
+        assert!(memory.snapshot().reserved_bytes > 0);
+        assert!(memory.snapshot().reserved_bytes < 1024);
+        let Cell::Binary(bytes) = &owned else {
+            panic!("binary logical identity changed")
+        };
+        assert_eq!(bytes.as_slice(), &[255; 4]);
+        let retained = owned.clone();
+        drop(owned);
+        assert!(memory.snapshot().reserved_bytes > 0);
+        drop(retained);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
