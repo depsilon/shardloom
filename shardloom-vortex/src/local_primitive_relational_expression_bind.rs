@@ -1,8 +1,8 @@
 //! Bind the shared expression IR to explicit native scalar kernels.
 
 use super::{
-    Binder, DType, Nullability, PType, Result, common_dtype, failed, field, integer, validate_key,
-    validate_key_pair, validate_name,
+    Binder, DType, Nullability, PType, Result, common_dtype, failed, field, integer,
+    validate_flat_operand, validate_key, validate_key_pair, validate_name,
 };
 use crate::local_primitives::native_relational_expression::scalar::{Function, decimal_operand};
 use crate::local_primitives::native_relational_expression::{Expression, Kind};
@@ -89,7 +89,11 @@ impl Binder<'_> {
             ExpressionKind::Literal(value) => return self.literal_expression(value),
             ExpressionKind::Unary { op, expr } => {
                 let child = Box::new(self.expression(expr, fields, depth + 1)?);
-                scalar_operand(&child.dtype)?;
+                if matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull) {
+                    selected_operand(&child.dtype)?;
+                } else {
+                    scalar_operand(&child.dtype)?;
+                }
                 let dtype = match op {
                     UnaryOp::IsNull | UnaryOp::IsNotNull => DType::Bool(Nullability::NonNullable),
                     UnaryOp::Not => {
@@ -143,7 +147,7 @@ impl Binder<'_> {
                 let child = Box::new(self.expression(expr, fields, depth + 1)?);
                 let tolerant = matches!(input.kind, ExpressionKind::TryCast { .. });
                 if child.dtype != DType::Null {
-                    validate_key(&child.dtype)?;
+                    validate_flat_operand(&child.dtype)?;
                 }
                 let dtype = cast_dtype(&child.dtype, target_dtype, tolerant)?;
                 (
@@ -179,7 +183,7 @@ impl Binder<'_> {
             .map(|arg| self.expression(arg, fields, depth + 1))
             .collect::<Result<Vec<_>>>()?;
         for argument in &args {
-            scalar_operand(&argument.dtype)?;
+            selected_operand(&argument.dtype)?;
         }
         let (dtype, kind) = match (name.to_ascii_lowercase().as_str(), args.len()) {
             ("case_when", 3) => {
@@ -218,6 +222,9 @@ impl Binder<'_> {
 
     fn scalar_function(&mut self, name: &str, args: Vec<Expression>) -> Result<Expression> {
         use crate::local_primitives::native_relational_expression::scalar::Function as F;
+        for argument in &args {
+            scalar_operand(&argument.dtype)?;
+        }
         let normalized = name.to_ascii_lowercase();
         let function = match (normalized.as_str(), args.len()) {
             ("abs" | "numeric_abs", 1) => F::Abs,
@@ -618,8 +625,8 @@ fn typed_function_dtype(
 }
 
 fn compatible(left: &DType, right: &DType) -> Result<()> {
-    scalar_operand(left)?;
-    scalar_operand(right)?;
+    selected_operand(left)?;
+    selected_operand(right)?;
     if left == &DType::Null || right == &DType::Null {
         Ok(())
     } else {
@@ -628,6 +635,14 @@ fn compatible(left: &DType, right: &DType) -> Result<()> {
 }
 
 fn scalar_operand(dtype: &DType) -> Result<()> {
+    if dtype == &DType::Null {
+        Ok(())
+    } else {
+        validate_flat_operand(dtype)
+    }
+}
+
+fn selected_operand(dtype: &DType) -> Result<()> {
     if dtype == &DType::Null {
         Ok(())
     } else {

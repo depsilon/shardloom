@@ -288,6 +288,11 @@ fn main() -> Result<()> {
     write(root, "typed.data", &[&typed])?;
     write(root, "typed-empty.data", &[&typed_empty])?;
     write(root, "typed-nested.data", &[&typed_nested])?;
+    write(
+        root,
+        "typed-nested-duplicates.data",
+        &[&typed_nested, &typed_nested.slice(0, 2)],
+    )?;
     write(root, "typed-large.data", &[&typed_large])?;
     write(
         root,

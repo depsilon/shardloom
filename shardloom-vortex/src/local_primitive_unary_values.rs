@@ -1,8 +1,14 @@
 //! Native scalar access only for keys, predicates and selected final values.
 //! Strings remain borrowed native buffers until retained state needs a copy.
 
+use super::super::{
+    native_capacity::ReservedVec, native_payload, native_relational_batch,
+    native_relational_keys::KeyColumn, result_batch,
+};
 use super::{Result, StatValue, Value, failed, vortex_error};
+use crate::resident_session::NativeExecutionContext;
 use shardloom_core::ScalarValue;
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use vortex::array::{
     ArrayRef, ExecutionCtx, VortexSessionExecute as _,
@@ -85,6 +91,8 @@ pub(in crate::local_primitives) struct NativeBatch {
     columns: Vec<ArrayRef>,
     context: ExecutionCtx,
     memory: LiveMemoryPool,
+    cancellation: CancellationToken,
+    nested_keys: Option<ReservedVec<Option<KeyColumn>>>,
     _metadata: MemoryLease,
 }
 
@@ -118,6 +126,8 @@ impl NativeBatch {
             columns: values,
             context: execution,
             memory: context.memory().clone(),
+            cancellation: context.cancellation().clone(),
+            nested_keys: None,
             _metadata: metadata,
         })
     }
@@ -137,8 +147,13 @@ impl NativeBatch {
             .ok_or_else(|| failed("column index is absent"))
     }
 
-    pub(super) fn row(&mut self, columns: &[usize], row: usize) -> Result<OwnedRow> {
-        self.row_with_padding(columns, row, 0)
+    pub(super) fn row(
+        &mut self,
+        columns: &[usize],
+        row: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<OwnedRow> {
+        self.row_with_padding(columns, row, 0, context)
     }
 
     pub(super) fn row_with_padding(
@@ -146,6 +161,7 @@ impl NativeBatch {
         columns: &[usize],
         row: usize,
         padding: usize,
+        context: &NativeExecutionContext<'_>,
     ) -> Result<OwnedRow> {
         let width = columns
             .len()
@@ -160,7 +176,35 @@ impl NativeBatch {
         if values.capacity() > width {
             return Err(failed("retained row exceeded reserved capacity"));
         }
-        for &column in columns {
+        let mut native = if columns.iter().any(|&column| {
+            self.columns
+                .get(column)
+                .is_some_and(|array| native_payload::is_nested(array.dtype()))
+        }) {
+            let mut native = ReservedVec::new(&self.memory)?;
+            native.reserve(width)?;
+            native.values.resize_with(width, || None);
+            Some(native)
+        } else {
+            None
+        };
+        for (position, &column) in columns.iter().enumerate() {
+            if native_payload::is_nested(self.column(column)?.dtype()) {
+                let indices =
+                    native_relational_batch::index_array(1, false, context, |_| Ok(Some(row)))?;
+                let selected = native_payload::take(
+                    &self.columns[column],
+                    &indices,
+                    self.columns[column].dtype(),
+                    context,
+                )?;
+                native
+                    .as_mut()
+                    .ok_or_else(|| failed("nested row storage absent"))?
+                    .values[position] = Some(selected);
+                values.push(ScalarValue::Null);
+                continue;
+            }
             let value = self.value(column, row)?;
             values.push(owned_scalar(
                 value,
@@ -169,7 +213,11 @@ impl NativeBatch {
             )?);
         }
         values.resize(width, ScalarValue::Null);
-        Ok(OwnedRow { values, lease })
+        Ok(OwnedRow {
+            values,
+            native,
+            lease,
+        })
     }
 
     pub(in crate::local_primitives) fn stat(
@@ -218,6 +266,15 @@ impl NativeBatch {
         output: &mut impl std::fmt::Write,
     ) -> Result<()> {
         for &column in columns {
+            if native_payload::is_nested(self.column(column)?.dtype()) {
+                let cancellation = self.cancellation.clone();
+                let key = self.nested_key(column)?;
+                let mut count = ByteCount::default();
+                key.write_exact_key(row, &mut count, &cancellation)?;
+                write!(output, "|{}:", count.0).map_err(vortex_error)?;
+                key.write_exact_key(row, output, &cancellation)?;
+                continue;
+            }
             let value = self.value(column, row)?;
             let mut count = ByteCount::default();
             let dtype = self.columns[column].dtype();
@@ -227,10 +284,78 @@ impl NativeBatch {
         }
         Ok(())
     }
+
+    fn nested_key(&mut self, column: usize) -> Result<&KeyColumn> {
+        if self.nested_keys.is_none() {
+            let mut keys = ReservedVec::new(&self.memory)?;
+            keys.reserve(self.columns.len())?;
+            keys.values.resize_with(self.columns.len(), || None);
+            self.nested_keys = Some(keys);
+        }
+        let values = self
+            .nested_keys
+            .as_mut()
+            .ok_or_else(|| failed("nested key storage absent"))?;
+        let key = values
+            .values
+            .get_mut(column)
+            .ok_or_else(|| failed("key column absent"))?;
+        if key.is_none() {
+            *key = Some(KeyColumn::new(
+                &self.columns[column],
+                &mut self.context,
+                &self.memory,
+                &self.cancellation,
+            )?);
+        }
+        key.as_ref()
+            .ok_or_else(|| failed("nested key owner absent"))
+    }
+
+    pub(super) fn is_null(&mut self, column: usize, row: usize) -> Result<bool> {
+        let array = self.column(column)?;
+        if row >= array.len() {
+            return Err(failed("null-check row exceeds native input"));
+        }
+        array
+            .validity()
+            .map_err(vortex_error)?
+            .execute_is_valid(row, &mut self.context)
+            .map(|valid| !valid)
+            .map_err(vortex_error)
+    }
+
+    pub(super) fn selected(
+        &self,
+        fields: &[(String, DType)],
+        columns: &[usize],
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+        row: impl Fn(usize) -> usize,
+    ) -> Result<ArrayRef> {
+        if fields.len() != columns.len() {
+            return Err(failed("native projection width changed"));
+        }
+        let indices = native_relational_batch::index_array(rows, false, context, |index| {
+            Ok(Some(row(index)))
+        })?;
+        let mut arrays = ReservedVec::new(context.memory())?;
+        arrays.reserve(columns.len())?;
+        for ((_, dtype), &column) in fields.iter().zip(columns) {
+            arrays.values.push(native_relational_batch::take_column(
+                &self.column(column)?,
+                &indices,
+                dtype,
+                context,
+            )?);
+        }
+        native_struct(fields, rows, arrays)
+    }
 }
 
 pub(super) struct OwnedRow {
     values: Vec<ScalarValue>,
+    native: Option<ReservedVec<Option<ArrayRef>>>,
     lease: MemoryLease,
 }
 
@@ -244,11 +369,44 @@ impl std::borrow::Borrow<StatValue> for OwnedStat {
 }
 
 impl OwnedRow {
-    pub(super) fn values(&self) -> &[ScalarValue] {
-        &self.values
+    pub(super) fn scalar(&self, column: usize) -> Result<&ScalarValue> {
+        if self.native(column).is_some() {
+            return Err(failed("nested retained value requires native selection"));
+        }
+        self.values
+            .get(column)
+            .ok_or_else(|| failed("retained column absent"))
+    }
+
+    pub(super) fn native(&self, column: usize) -> Option<&ArrayRef> {
+        self.native
+            .as_ref()
+            .and_then(|native| native.values.get(column))
+            .and_then(Option::as_ref)
+    }
+
+    pub(super) fn replace_native(&mut self, column: usize, value: ArrayRef) -> Result<()> {
+        let current = self
+            .native
+            .as_mut()
+            .and_then(|native| native.values.get_mut(column))
+            .and_then(Option::as_mut)
+            .ok_or_else(|| failed("nested rewrite column absent"))?;
+        if value.dtype() != current.dtype() || value.len() != 1 {
+            return Err(failed(
+                "nested rewrite changed its declared type or row count",
+            ));
+        }
+        *current = value;
+        Ok(())
     }
 
     pub(super) fn replace(&mut self, column: usize, value: OwnedScalar) -> Result<()> {
+        if self.native(column).is_some() {
+            return Err(failed(
+                "nested retained state cannot be replaced by a scalar",
+            ));
+        }
         let current = self
             .values
             .get_mut(column)
@@ -260,6 +418,65 @@ impl OwnedRow {
         self.lease
             .resize(self.lease.bytes() - old_bytes - std::mem::size_of::<ScalarValue>() as u64)
     }
+}
+
+pub(super) fn retained_batch<'a>(
+    fields: &[(String, DType)],
+    rows: usize,
+    context: &NativeExecutionContext<'_>,
+    row: impl Fn(usize) -> Result<&'a OwnedRow>,
+    column: impl Fn(usize) -> usize,
+) -> Result<ArrayRef> {
+    use vortex::array::memory::MemorySessionExt as _;
+    let mut arrays = ReservedVec::new(context.memory())?;
+    arrays.reserve(fields.len())?;
+    for (index, (_, dtype)) in fields.iter().enumerate() {
+        context.check_cancelled()?;
+        let column = column(index);
+        let array = if native_payload::is_nested(dtype) {
+            native_payload::retained_column(dtype, rows, context, |index| {
+                row(index)?
+                    .native(column)
+                    .cloned()
+                    .map(Some)
+                    .ok_or_else(|| failed("nested retained column absent"))
+            })?
+        } else {
+            result_batch::build_column(
+                dtype,
+                rows,
+                &context.native_session().allocator(),
+                |index| {
+                    if index.is_multiple_of(1024) {
+                        context.check_cancelled()?;
+                    }
+                    borrowed(row(index)?.scalar(column)?)
+                },
+            )?
+        };
+        arrays.values.push(array);
+    }
+    native_struct(fields, rows, arrays)
+}
+
+fn native_struct(
+    fields: &[(String, DType)],
+    rows: usize,
+    arrays: ReservedVec<ArrayRef>,
+) -> Result<ArrayRef> {
+    use vortex::array::{arrays::StructArray, dtype::FieldNames, validity::Validity};
+    let (arrays, _ownership) = arrays.into_parts();
+    StructArray::try_new(
+        fields
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<FieldNames>(),
+        arrays,
+        rows,
+        Validity::NonNullable,
+    )
+    .map(vortex::array::IntoArray::into_array)
+    .map_err(vortex_error)
 }
 
 fn payload_capacity(value: &ScalarValue) -> Result<usize> {

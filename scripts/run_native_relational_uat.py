@@ -152,6 +152,8 @@ def main() -> int:
     typed_key_code = code.with_name("native_typed_key_cases.py")
     typed_expression_code = code.with_name("native_typed_expression_cases.py")
     typed_unary_code = code.with_name("native_typed_unary_cases.py")
+    nested_key_state_code = code.with_name("native_nested_key_state_cases.py")
+    resource_evidence_code = code.with_name("native_report_evidence.py")
     archive_code = code.with_name("native_uat_envelope_archive.py")
     renderer_code = query.with_name("_relational_sql.py")
     summary = {
@@ -174,6 +176,8 @@ def main() -> int:
         "typed_key_cases_sha256": file_sha256(typed_key_code),
         "typed_expression_cases_sha256": file_sha256(typed_expression_code),
         "typed_unary_cases_sha256": file_sha256(typed_unary_code),
+        "nested_key_state_cases_sha256": file_sha256(nested_key_state_code),
+        "native_resource_evidence_sha256": file_sha256(resource_evidence_code),
         "envelope_archive_helper_sha256": file_sha256(archive_code),
         "nested_fixture_generator_sha256": (file_sha256(fixture_generator) if fixture_generator else None),
         "typed_fixture_generator_sha256": (file_sha256(typed_generator) if typed_generator else None),
@@ -404,6 +408,8 @@ def main() -> int:
                           (typed_key_code, "typed_key_cases_sha256"),
                           (typed_expression_code, "typed_expression_cases_sha256"),
                           (typed_unary_code, "typed_unary_cases_sha256"),
+                          (nested_key_state_code, "nested_key_state_cases_sha256"),
+                          (resource_evidence_code, "native_resource_evidence_sha256"),
                           (archive_code, "envelope_archive_helper_sha256"),
                           (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:

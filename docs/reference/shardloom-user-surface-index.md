@@ -203,8 +203,15 @@ objects. Common admitted methods include:
   payloads through admitted relational stages and ordered/repeated explode; see
   the [nested composition contract](../architecture/native-nested-composition-2026-10-02.md).
   Vortex, JSON, JSONL, Arrow IPC, Parquet and Avro accept representable nested
-  output; nested CSV/ORC output is denied. Nested keys, general nested unary
-  state and general Variant/extension operations remain separate boundaries.
+  output; nested CSV/ORC output is denied. The subsequent [native nested keys
+  and retained state contract](../architecture/native-nested-keys-state-2026-10-04.md)
+  admits static List/FixedSizeList/Struct relational keys and finite selected
+  nested-value unary operations. Its `native_nested_keys_state` section records
+  that subsequent contract; older payload/key section flags continue to
+  describe their original unit scope. The new contract's local and hosted
+  acceptance remains pending. General Variant/extension operations, structured
+  literals, nested arithmetic/string operations, broader aggregate/window
+  behavior, adapters and general state spill remain separate boundaries.
   Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
   microsecond timestamps are admitted payloads, including nested leaves. The
   [typed key contract](../architecture/native-typed-keys-2026-10-03.md) admits
@@ -214,11 +221,21 @@ objects. Common admitted methods include:
   [typed expression contract](../architecture/native-typed-expressions-2026-10-03.md)
   separately admits explicit casts and scoped exact decimal/binary/calendar
   operations. Flat retained state follows the
-  [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
-  Its [acceptance report](../benchmarks/native-typed-unary-full43-2026-10-03.md)
+  [typed unary contract](../architecture/native-typed-unary-2026-10-03.md). The
+  subsequent nested contract extends equality, hashing and ordering for static
+  List/FixedSizeList/Struct keys through the existing join, set, group, sort,
+  window and subquery kernels, with COUNT/COUNT DISTINCT/MIN/MAX and comparisons,
+  NULL tests and selected CASE/COALESCE/NULLIF results. Exact compatible
+  recursive schemas require matching field names/order, list identity and fixed
+  widths, leaf widths, decimal precision/scale and temporal identity; recursive
+  nullability is ignored. It also admits selected nested DISTINCT/duplicate
+  selection and masks, tail, sampling, parent forward-fill, lossless same-shape
+  melt and rolling COUNT. Do not infer broader key coercion or unary state from
+  those operations.
+  The earlier [typed unary acceptance report](../benchmarks/native-typed-unary-full43-2026-10-03.md)
   records 2,700 new unary checks within the complete 9,300-check public cohort;
   hosted acceptance and the inconclusive Q9 performance observation remain explicit.
-  Nested key equality remains unsupported. Binary supports
+  Binary supports
   all eight writers; ORC rejects decimal and temporal payloads. Text output uses
   explicit typed encodings; see the [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md).
   In the JSON index, `native_typed_keys` and `native_typed_unary` record their
@@ -252,7 +269,9 @@ objects. Common admitted methods include:
   `replace(pattern, replacement, regex=True)`, and in-place UTF-8
   `with_column("col", col("col").replace(...))` string replacement when the schema and projection
   admit the native Vortex expression-project primitive; broad pandas alignment, callable,
-  method/limit, nested, or mixed-dtype variants remain deterministic blockers.
+  method/limit, nested operations outside the finite [nested key and retained-state
+  contract](../architecture/native-nested-keys-state-2026-10-04.md), or mixed-dtype
+  variants remain deterministic blockers.
   Flat binary, Decimal128, Date32 and timestamp-microsecond payloads also retain
   their declared types through duplicate selection/masks, tail/sample,
   replacement/forward-fill, lossless melt, rolling COUNT and scoped pivot

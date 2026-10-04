@@ -96,6 +96,10 @@ impl Rolling {
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<bool> {
         let request = super::super::required_rolling_window(&plan.request)?;
+        let nested_count = request.aggregate == "count"
+            && super::super::native_payload::is_nested(
+                batch.column(plan.output_indices[0])?.dtype(),
+            );
         for row in 0..rows {
             if row % 256 == 0 {
                 context.check_cancelled()?;
@@ -106,7 +110,15 @@ impl Rolling {
                 continue;
             }
             // COUNT needs validity only, so avoid retaining or cloning a string.
-            let value = batch.value(plan.output_indices[0], row)?;
+            let value = if nested_count {
+                if batch.is_null(plan.output_indices[0], row)? {
+                    Value::Null
+                } else {
+                    Value::UInt(1)
+                }
+            } else {
+                batch.value(plan.output_indices[0], row)?
+            };
             let stat = if matches!(value, Value::Null) {
                 super::StatValue::Null
             } else if request.aggregate == "count" {

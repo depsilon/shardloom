@@ -174,7 +174,7 @@ impl State {
     ) -> Result<usize> {
         match self {
             Self::Select(state) => state.finish(plan, context, output),
-            Self::Tail(state) => state.finish(context, output),
+            Self::Tail(state) => state.finish(plan, context, output),
             Self::Sample(state) => state.finish(plan, context, output),
             Self::Rolling(state) => state.finish(plan, context, output),
             Self::Expression(state) => state.finish(),
@@ -217,9 +217,11 @@ impl Tail {
             }
             if self.rows.values.len() < limit {
                 self.rows.reserve_one()?;
-                self.rows.values.push(batch.row(&plan.output_indices, row)?);
+                self.rows
+                    .values
+                    .push(batch.row(&plan.output_indices, row, context)?);
             } else {
-                self.rows.values[self.next] = batch.row(&plan.output_indices, row)?;
+                self.rows.values[self.next] = batch.row(&plan.output_indices, row, context)?;
                 self.next = (self.next + 1) % limit;
             }
         }
@@ -228,16 +230,23 @@ impl Tail {
 
     fn finish(
         self,
+        plan: &BoundUnary,
         context: &NativeExecutionContext<'_>,
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<usize> {
         let count = self.rows.values.len();
         for start in (0..count).step_by(BATCH_ROWS) {
             context.check_cancelled()?;
-            output.emit((count - start).min(BATCH_ROWS), |row, column| {
-                let index = (self.next + start + row) % count;
-                super::values::borrowed(&self.rows.values[index].values()[column])
-            })?;
+            output.emit_retained(
+                &plan.fields,
+                (count - start).min(BATCH_ROWS),
+                context,
+                |row| {
+                    let index = (self.next + start + row) % count;
+                    Ok(&self.rows.values[index])
+                },
+                |column| column,
+            )?;
         }
         Ok(self.seen)
     }
@@ -268,9 +277,7 @@ impl Selector {
             .checked_add(rows)
             .ok_or_else(|| failed("visited row count overflow"))?;
         if kind == Kind::TailRows {
-            output.emit(rows, |row, column| {
-                batch.value(plan.output_indices[column], row)
-            })?;
+            output.emit_selected(plan, batch, rows, context, |row| row)?;
             return Ok(false);
         }
         let mut selected = ReservedVec::new(context.memory())?;
@@ -308,13 +315,13 @@ impl Selector {
                     Keep::Last => {
                         if output.payload.is_some() {
                             self.keys.entries.values[index].row =
-                                Some(batch.row(&plan.output_indices, row)?);
+                                Some(batch.row(&plan.output_indices, row, context)?);
                         }
                     }
                     Keep::AllDuplicates => {
                         if first && output.payload.is_some() {
                             self.keys.entries.values[index].row =
-                                Some(batch.row(&plan.output_indices, row)?);
+                                Some(batch.row(&plan.output_indices, row, context)?);
                         } else {
                             self.keys.entries.values[index].row = None;
                         }
@@ -346,8 +353,8 @@ impl Selector {
                 Ok(Value::Bool(mask.values[row]))
             })?;
         } else {
-            output.emit(selected.values.len(), |row, column| {
-                batch.value(plan.output_indices[column], selected.values[row])
+            output.emit_selected(plan, batch, selected.values.len(), context, |row| {
+                selected.values[row]
             })?;
         }
         Ok(complete)
@@ -400,13 +407,18 @@ impl Selector {
                 let pre_limit = retained.values.len();
                 for batch in retained.values[..pre_limit.min(limit)].chunks(BATCH_ROWS) {
                     context.check_cancelled()?;
-                    output.emit(batch.len(), |row, column| {
-                        let values = self.keys.entries.values[batch[row]]
-                            .row
-                            .as_ref()
-                            .ok_or_else(|| failed("selected retained row is absent"))?;
-                        super::values::borrowed(&values.values()[column])
-                    })?;
+                    output.emit_retained(
+                        &plan.fields,
+                        batch.len(),
+                        context,
+                        |row| {
+                            self.keys.entries.values[batch[row]]
+                                .row
+                                .as_ref()
+                                .ok_or_else(|| failed("selected retained row is absent"))
+                        },
+                        |column| column,
+                    )?;
                 }
                 Ok(pre_limit)
             }

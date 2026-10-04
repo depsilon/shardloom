@@ -78,6 +78,9 @@ REQUIRED_JSON_POINTERS = (
     "native_typed_unary.reference",
     "native_typed_unary.types",
     "native_typed_unary.operators",
+    "native_nested_keys_state.reference",
+    "native_nested_keys_state.types",
+    "native_nested_keys_state.retained_unary",
 )
 
 REQUIRED_COMMANDS = (
@@ -311,6 +314,37 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "external_engine_invoked"):
         if unary.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_typed_unary.{field} must be false")
+
+    nested_state = payload.get("native_nested_keys_state", {})
+    for field, value in (
+        ("scope", "current_source_build_static_nested_keys_and_retained_state"),
+        ("types", ["list", "fixed_size_list", "struct"]),
+        ("leaf_contract", "native_nested_composition"),
+        ("key_schema", "same_recursive_logical_types_ignoring_nullability"),
+        ("list_order", "lexicographic_children_then_length"),
+        ("struct_order", "declared_field_order"),
+        ("child_null_order", "first"),
+        ("null_parent_hides_children", True),
+        ("relational_float_zero", "normalized"),
+        ("unary_float_zero", "exact_bits"),
+        ("operators", ["join", "set", "group", "sort", "window", "subquery"]),
+        ("aggregates", ["count", "count_distinct", "min", "max"]),
+        ("scalar_selection", ["comparison", "is_null", "is_not_null", "case", "coalesce", "nullif"]),
+        ("retained_unary", ["distinct", "drop_duplicates", "duplicate_mask", "tail",
+                            "sample", "forward_fill", "melt", "rolling_count"]),
+        ("forward_fill", "null_parent_only"),
+        ("melt_conversion", "same_shape_and_declared_child_types"),
+        ("shared_direct_and_relational_state", True),
+        ("compact_selected_payload", True),
+        ("native_sort_spill", "explicit_relational_sort_policy"),
+    ):
+        if nested_state.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_nested_keys_state.{field} differs from its contract")
+    for field in ("nested_pivot_state", "structured_scalar_literals", "nested_arithmetic",
+                  "group_join_window_spill", "general_state_spill", "total_rss_bound",
+                  "fallback_attempted", "external_engine_invoked"):
+        if nested_state.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_nested_keys_state.{field} must be false")
 
     pivot = payload.get("native_dynamic_pivot_composition", {})
     for field in ("preparation_metadata_only", "inspection_side_effect_free",

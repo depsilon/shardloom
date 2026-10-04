@@ -119,11 +119,18 @@ timezone-free timestamp-microsecond equality, hashing and ordering through
 relational joins, sets, groups, windows and subqueries, plus COUNT/COUNT
 DISTINCT/MIN/MAX and the scoped expressions it lists. Its existing explicit
 ORDER BY spill policy applies to these flat keys. It adds no group, join or
-window state spill. Nested key equality, unadmitted nested
-shapes, general Variant/extension operations and broader state-spill families
-remain explicit gaps. Current source builds admit typed literals, explicit
-CAST/TRY_CAST, exact decimal arithmetic/rounding and scoped binary/calendar
-functions through the shared native expression binder. Decimal arithmetic
+window state spill. The subsequent [nested key and retained-state contract](../architecture/native-nested-keys-state-2026-10-04.md)
+admits static List/FixedSizeList/Struct equality, hashing and ordering through
+existing relational kernels, plus selected nested values for DISTINCT/duplicate
+selection and masks, tail, sampling, parent forward fill, lossless same-shape
+melt and rolling COUNT. Forward fill replaces a NULL parent with the prior
+complete value; child NULLs do not trigger filling. Exact recursive key schemas
+must match except for nullability. Local and hosted acceptance remains pending.
+General Variant/extension operations, structured literals, nested
+arithmetic/string operations and broader state-spill families remain explicit
+gaps. Current source builds admit typed literals, explicit CAST/TRY_CAST, exact
+decimal arithmetic/rounding and scoped binary/calendar functions through the
+shared native expression binder. Decimal arithmetic
 output metadata binds before execution; explicit decimal downscaling requires
 zero discarded digits. Key compatibility still requires matching decimal
 precision/scale and preserves distinct temporal types. Richer aggregate/window
@@ -131,7 +138,10 @@ semantics, broader adapters and state spill remain separate. See the [typed
 expression contract](../architecture/native-typed-expressions-2026-10-03.md).
 Retained unary state also admits those four flat scalar domains for DISTINCT,
 duplicate selection/masks, tail, sampling, scalar replacement/forward-fill,
-lossless melt, rolling COUNT and scoped pivot first/first-unique/COUNT. Direct
+lossless melt, rolling COUNT and scoped pivot first/first-unique/COUNT. The
+nested contract adds the finite selected-value operations listed above; nested
+values retain their exact logical shape for same-shape melt, and forward fill
+replaces a NULL parent with the prior complete valid value. Direct
 file requests and composed unary stages share binding and native ownership.
 Typed sampling weights, decimal rolling aggregates and decimal pivot SUM/MEAN
 are not implied. Legacy primitive predicates retain their narrower domain; use

@@ -141,13 +141,15 @@ fn batch(columns: Vec<(&str, ArrayRef, bool)>) -> Result<RecordBatch> {
     )?)
 }
 
-fn write(root: &Path, name: &str, batch: &RecordBatch) -> Result<()> {
+fn write(root: &Path, name: &str, batches: &[&RecordBatch]) -> Result<()> {
     let output = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(root.join(name))?;
-    let mut writer = FileWriter::try_new(output, batch.schema().as_ref())?;
-    writer.write(batch)?;
+    let mut writer = FileWriter::try_new(output, batches[0].schema().as_ref())?;
+    for batch in batches {
+        writer.write(batch)?;
+    }
     writer.finish()?;
     Ok(())
 }
@@ -161,9 +163,17 @@ fn main() -> Result<()> {
     if !root.is_dir() {
         return Err("fixture directory must already exist under the UAT storage guard".into());
     }
-    write(root, "nested.data", &small()?)?;
-    write(root, "large.data", &large()?)?;
-    write(root, "unsigned.data", &unsigned()?)?;
-    println!("typed Arrow IPC fixtures: 4 nested rows, 65541 nested rows, 1 uint64 boundary row");
+    let nested = small()?;
+    write(root, "nested.data", &[&nested])?;
+    write(
+        root,
+        "nested-duplicates.data",
+        &[&nested, &nested.slice(0, 2)],
+    )?;
+    write(root, "large.data", &[&large()?])?;
+    write(root, "unsigned.data", &[&unsigned()?])?;
+    println!(
+        "typed Arrow IPC fixtures: 4 nested rows, 6 duplicate rows, 65541 nested rows, 1 uint64 boundary row"
+    );
     Ok(())
 }

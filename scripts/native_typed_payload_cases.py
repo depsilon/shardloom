@@ -12,24 +12,8 @@ from run_native_unary_uat import csv_cell
 from native_typed_key_cases import run as typed_key_cases
 from native_typed_expression_cases import run as typed_expression_cases
 from native_typed_unary_cases import run as typed_unary_cases
-
-
-def require_native_resource_admission(name, envelope):
-    peak_key = "resident_peak_reserved_buffer_bytes"
-    if envelope.field("public_workflow_route_id") == "native_vortex_primitive_row_export":
-        if (envelope.field("native_vortex_result_export_kind") != "owned_native_array_stream"
-                or envelope.field("native_vortex_array_sink_source_generation_validated") != "true"):
-            raise ValueError(f"{name}: direct writer lacks owned native stream evidence")
-        # All three native writer implementations snapshot this same session's
-        # LiveMemoryPool after consuming the admitted producer. This is their
-        # existing field, distinct from the resident collect/relational field.
-        peak_key = "native_vortex_array_sink_peak_reserved_bytes"
-    peak = envelope.field(peak_key)
-    if (envelope.field("public_workflow_memory_gb") != "1"
-            or envelope.field("public_workflow_native_vortex_provider_scenario") != "none"
-            or not isinstance(peak, str) or not peak.isascii() or not peak.isdecimal()
-            or int(peak) > 1 << 30):
-        raise ValueError(f"{name}: shared native resource admission differs")
+from native_report_evidence import require_native_resource_admission
+from native_nested_key_state_cases import run as nested_key_state_cases
 
 
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
@@ -230,6 +214,25 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             family = f"typed-nested-{source_name}-field-{name}"
             exercise(family, projected, projected_rows, ["id", name], typed_orc=name != "payload")
             exercise(family + "-empty", projected.limit(0), [], ["id", name], typed_orc=name != "payload")
+
+    nested_duplicate_raw = output / "typed-nested-duplicates.data"
+    nested_duplicate_native = output / "typed-nested-duplicates.vortex"
+    remember(nested_duplicate_raw)
+    guard()
+    accepted("typed-nested-duplicates-prepare", context.read_arrow_ipc(nested_duplicate_raw).prepare(
+        nested_duplicate_native, check=False))
+    remember(nested_duplicate_native)
+    nested_leaf_type = "struct<payload:binary,amount:decimal128(38,6),day:date32,instant:timestamp_micros>"
+    nested_schema = {"id": "int64", "details": nested_leaf_type, "records": f"list<{nested_leaf_type}>"}
+
+    def exercise_nested_key_state(name, frame, expected, columns, *, nested):
+        exercise(name, frame, expected, columns, nested=nested, typed_orc=False, json_cells=())
+
+    nested_key_state_cases(context, output, guard, exercise_nested_key_state, remember,
+                           prefix="nested-typed-key", original=nested_rows, fields=list(nested_schema),
+                           schema=nested_schema, native=prepared, raw=raw,
+                           duplicate_native=nested_duplicate_native, duplicate_raw=nested_duplicate_raw,
+                           orders={"details": [1, 2, 0, 3], "records": [2, 1, 0, 3]})
 
     count = 65_541
     raw, prepared = output / "typed-large.data", output / "typed-large.vortex"

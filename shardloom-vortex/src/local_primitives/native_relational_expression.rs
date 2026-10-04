@@ -89,10 +89,19 @@ impl Expression {
             }
             Kind::Unary(op, expression) => {
                 let array = expression.evaluate(input, context)?;
-                let values = keys(&array, context)?;
-                self.build(input.len(), context, |row| {
-                    unary(*op, values.raw_cell(row)?)
-                })?
+                if super::native_payload::is_nested(array.dtype())
+                    && matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull)
+                {
+                    let valid = parent_validity(&array, context)?;
+                    self.build(input.len(), context, |row| {
+                        Ok(Value::Bool(valid.value(row) == (*op == UnaryOp::IsNotNull)))
+                    })?
+                } else {
+                    let values = keys(&array, context)?;
+                    self.build(input.len(), context, |row| {
+                        unary(*op, values.raw_cell(row)?)
+                    })?
+                }
             }
             Kind::Binary(left, op, right) => {
                 let left_values = keys(&left.evaluate(input, context)?, context)?;
@@ -128,19 +137,7 @@ impl Expression {
                 })?
             }
             Kind::Coalesce(expressions) => self.coalesce(input, context, expressions)?,
-            Kind::NullIf(left, right) => {
-                let array = left.evaluate(input, context)?;
-                let left = keys(&array, context)?;
-                let right = keys(&right.evaluate(input, context)?, context)?;
-                let mut execution = context.native_session().create_execution_ctx();
-                self.build(input.len(), context, |row| {
-                    if left.equals_at(row, &right, row, false)? {
-                        Ok(Value::Null)
-                    } else {
-                        result_batch::scalar_value(&array, row, &mut execution)
-                    }
-                })?
-            }
+            Kind::NullIf(left, right) => self.null_if(input, context, left, right)?,
             Kind::Cast {
                 input: expression,
                 tolerant,
@@ -174,12 +171,45 @@ impl Expression {
         Ok(result)
     }
 
+    fn null_if(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        left: &Expression,
+        right: &Expression,
+    ) -> Result<ArrayRef> {
+        let array = left.evaluate(input, context)?;
+        let left = keys(&array, context)?;
+        let right = keys(&right.evaluate(input, context)?, context)?;
+        if super::native_payload::is_nested(&self.dtype) {
+            let indices = index_array(input.len(), true, context, |row| {
+                Ok((!left.equals_at(row, &right, row, false)?).then_some(row))
+            })?;
+            super::native_relational_batch::take_column(&array, &indices, &self.dtype, context)
+        } else {
+            let mut execution = context.native_session().create_execution_ctx();
+            self.build(input.len(), context, |row| {
+                if left.equals_at(row, &right, row, false)? {
+                    Ok(Value::Null)
+                } else {
+                    result_batch::scalar_value(&array, row, &mut execution)
+                }
+            })
+        }
+    }
+
     fn build<'a>(
         &self,
         rows: usize,
         context: &NativeExecutionContext<'_>,
         mut value: impl FnMut(usize) -> Result<Value<'a>>,
     ) -> Result<ArrayRef> {
+        if super::native_payload::is_nested(&self.dtype) {
+            if rows != 0 {
+                return Err(failed("nested expressions require native selected values"));
+            }
+            return super::native_payload::defaults(&self.dtype, 0, context);
+        }
         if self.dtype == DType::Null {
             return Ok(ConstantArray::new(Scalar::null(DType::Null), rows).into_array());
         }
@@ -280,13 +310,24 @@ impl Expression {
                 &self.dtype.as_nullable(),
                 context,
             )?;
-            let keys = keys(&array, context)?;
+            let nested = super::native_payload::is_nested(array.dtype());
+            let valid = nested
+                .then(|| parent_validity(&array, context))
+                .transpose()?;
+            let keys = (!nested).then(|| keys(&array, context)).transpose()?;
             let mut next = ReservedVec::new(context.memory())?;
             for (index, &row) in remaining.values.iter().enumerate() {
                 if index.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                if keys.is_null(index)? {
+                let missing = if let Some(valid) = &valid {
+                    !valid.value(index)
+                } else {
+                    keys.as_ref()
+                        .ok_or_else(|| failed("coalesce validity owner absent"))?
+                        .is_null(index)?
+                };
+                if missing {
                     next.push(row)?;
                 } else {
                     positions.values[row] = Some(
@@ -323,6 +364,24 @@ pub(super) fn keys(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Re
         context.memory(),
         context.cancellation(),
     )
+}
+
+/// Parent validity does not require preparing nested coordinates or child keys.
+pub(super) fn parent_validity(
+    array: &ArrayRef,
+    context: &NativeExecutionContext<'_>,
+) -> Result<vortex::mask::Mask> {
+    context.check_cancelled()?;
+    let valid = array
+        .validity()
+        .map_err(vortex_error)?
+        .execute_mask(
+            array.len(),
+            &mut context.native_session().create_execution_ctx(),
+        )
+        .map_err(vortex_error)?;
+    context.check_cancelled()?;
+    Ok(valid)
 }
 
 fn cast(array: &ArrayRef, dtype: &DType, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {

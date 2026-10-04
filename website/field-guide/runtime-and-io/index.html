@@ -103,8 +103,8 @@ Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-
 microsecond timestamps can travel as payloads, including nested leaves. Their
 flat equality, hashing and ordering are admitted through relational joins, sets,
 groups, windows and subqueries, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
-comparisons and expressions; Decimal key precision and scale must match. Nested
-key equality remains unsupported. Current source
+comparisons and expressions; Decimal key precision and scale must match.
+Nested keys follow the subsequent contract below. Current source
 builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
 arithmetic/rounding and scoped binary/calendar functions through the shared
 native expression binder. Decimal arithmetic output metadata binds before
@@ -121,8 +121,15 @@ See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architectu
 Binary supports all eight writers; ORC rejects decimal and temporal payloads.
 Text output uses explicit typed encodings and does not preserve native logical
 types. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-payloads-2026-10-03.md">typed payload contract</a>.
-Nested keys, general nested unary state, general Variant/extension operations and wider operator
-state spill remain separate boundaries.
+The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-keys-state-2026-10-04.md">nested key and retained-state contract</a>
+extends static List/FixedSizeList/Struct equality, hashing and ordering through
+the existing relational kernels, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
+comparisons, NULL tests and CASE/COALESCE/NULLIF selection. Exact recursive key
+schemas must match except for nullability. Retained nested values support
+DISTINCT/duplicate selection and masks, tail, sampling, parent forward fill,
+lossless same-shape melt and rolling COUNT. Local and hosted acceptance remains
+pending. General Variant/extensions, structured literals, nested arithmetic,
+nested pivot state and wider operator state spill remain separate boundaries.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md">front-door contract</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory">remaining family inventory</a>.</p>
