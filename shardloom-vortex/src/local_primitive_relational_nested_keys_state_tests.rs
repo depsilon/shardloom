@@ -42,6 +42,65 @@ fn function(name: &str, args: Vec<Expression>) -> Expression {
         args,
     })
 }
+
+#[test]
+fn native_nested_selected_branches_require_exact_child_types_even_when_empty() {
+    let children = [
+        PrimitiveArray::from_iter([] as [i64; 0]).into_array(),
+        PrimitiveArray::from_option_iter([] as [Option<i64>; 0]).into_array(),
+    ];
+    let lists = children.map(|child| {
+        ListViewArray::try_new(
+            child,
+            PrimitiveArray::from_iter([] as [u64; 0]).into_array(),
+            PrimitiveArray::from_iter([] as [u64; 0]).into_array(),
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array()
+    });
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(["a", "b"]),
+            lists.to_vec(),
+            0,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        1,
+    );
+    let selection = project(
+        fixture.scan(),
+        vec![("value", function("coalesce", vec![col("a"), col("b")]))],
+    );
+    assert!(prepare_relational(&selection, policy()).is_err());
+    for kind in [
+        SetKind::UnionAll,
+        SetKind::UnionDistinct,
+        SetKind::Intersect,
+        SetKind::Except,
+    ] {
+        let plan = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+            left: project(fixture.scan(), vec![("value", col("a"))]),
+            right: project(fixture.scan(), vec![("value", col("b"))]),
+            kind,
+        }));
+        assert!(prepare_relational(&plan, policy()).is_err());
+    }
+    // Key compatibility is deliberately broader than selected-output coercion.
+    let comparison = project(
+        fixture.scan(),
+        vec![(
+            "same",
+            expr(ExpressionKind::Compare {
+                left: Box::new(col("a")),
+                op: ComparisonOp::Eq,
+                right: Box::new(col("b")),
+            }),
+        )],
+    );
+    assert_eq!(collect(&comparison), [] as [serde_json::Value; 0]);
+}
 fn project(
     input: VortexRelationalPlan,
     expressions: Vec<(&str, Expression)>,

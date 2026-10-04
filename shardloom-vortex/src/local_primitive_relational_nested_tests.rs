@@ -15,6 +15,9 @@ mod keys_state_tests;
 #[path = "local_primitive_relational_nested_state_ownership_tests.rs"]
 mod state_ownership_tests;
 
+#[path = "local_primitive_relational_nested_handoff_tests.rs"]
+mod handoff_tests;
+
 fn lists() -> ArrayRef {
     ListViewArray::try_new(
         PrimitiveArray::from_option_iter([Some(9i64), None, Some(-4)]).into_array(),

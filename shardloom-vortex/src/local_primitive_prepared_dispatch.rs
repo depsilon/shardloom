@@ -38,10 +38,11 @@ pub fn requires_relational(
         .as_struct_fields_opt()
         .ok_or_else(|| failed("requires a struct source schema"))?;
     let extended = |dtype: &DType| {
-        matches!(
-            dtype,
-            DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
-        )
+        super::native_payload::is_nested(dtype)
+            || matches!(
+                dtype,
+                DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
+            )
     };
     if let Some(columns) = columns {
         for column in columns {

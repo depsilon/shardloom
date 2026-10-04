@@ -25,6 +25,10 @@ fixed-size-list identity, fixed widths, primitive widths, decimal precision and
 scale, and temporal units are part of that contract. No recursive numeric
 widening, decimal rescaling, storage-integer reinterpretation or list-shape
 conversion is implicit. Existing flat key compatibility is unchanged.
+Output selection has a stricter existing common-type contract: set branches,
+CASE/COALESCE branches and melt values require identical declared child types,
+including child nullability. Only root nullability may be promoted. Key-pair
+compatibility does not authorize recursive output-type coercion.
 
 Lists compare lexicographically and then by length. Structs compare in declared
 field order. Child NULLs compare equal and sort before non-NULL children; hidden
@@ -42,6 +46,7 @@ including inside nested keys. Every hash match requires complete value equality.
 | --- | --- |
 | `native_relational_keys::KeyColumn` | Recursive native key owners, prepared list coordinates, parent validity, logical hash and arbitrary-row comparison for existing joins, sets, grouping, ordering, windows and membership. Preserve flat owners and dictionary-domain access. |
 | Relational binder | Separate flat scalar operand admission from nested key/payload admission. Bind exact nested compatibility before reading rows. Keep arithmetic, text, calendar and conversion kernels scoped to their existing operands. |
+| Retained source strategy selection | Include referenced nested field types when choosing the shared relational strategy for direct aggregate, order, filter and project declarations. Reuse one source generation and leave unreferenced nested columns out of strategy selection. |
 | Native expressions | Admit nested comparisons, NULL tests and selected CASE/COALESCE/NULLIF results through native arrays. Preserve lazy branches and typed empty output. |
 | Native aggregation | COUNT uses parent validity; COUNT DISTINCT reuses the existing compact row set. Nested MIN/MAX retain only a selected native value and use the same key comparator. Additive measures retain numeric admission. |
 | Unary retained rows and exact keys | Carry compact selected native nested values through tail, sampling, deduplication/uniqueness, value counts, selected rewrites and melt. Preserve source order, first/last/remove-all and sampling seeds/ties. |
