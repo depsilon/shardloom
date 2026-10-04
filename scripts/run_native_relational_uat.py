@@ -28,6 +28,7 @@ from native_unary_composition_cases import run as unary_cases
 from native_nested_composition_cases import run as nested_cases
 from native_dynamic_pivot_cases import run as dynamic_pivot_cases
 from native_typed_payload_cases import run as typed_payload_cases
+from native_uat_envelope_archive import archive_envelopes
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -113,7 +114,11 @@ def main() -> int:
     parser.add_argument("--typed-fixture-generator", type=Path,
                         help="native_typed_uat_fixture example binary, required for all/typed")
     parser.add_argument("--compress-logs", action="store_true")
+    parser.add_argument("--archive-logs", action="store_true",
+                        help="losslessly batch closed gzip envelopes within the existing log budget")
     args = parser.parse_args()
+    if args.archive_logs and not args.compress_logs:
+        parser.error("--archive-logs requires --compress-logs")
     binary = args.binary.resolve(strict=True)
     if args.family in ("all", "nested") and args.nested_fixture_generator is None:
         parser.error("--nested-fixture-generator is required for the nested input fixtures")
@@ -147,6 +152,7 @@ def main() -> int:
     typed_key_code = code.with_name("native_typed_key_cases.py")
     typed_expression_code = code.with_name("native_typed_expression_cases.py")
     typed_unary_code = code.with_name("native_typed_unary_cases.py")
+    archive_code = code.with_name("native_uat_envelope_archive.py")
     renderer_code = query.with_name("_relational_sql.py")
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
@@ -154,6 +160,7 @@ def main() -> int:
         "acceptance_family": args.family,
         "compressed_envelopes": args.compress_logs,
         "envelope_files": [],
+        "envelope_archives": [],
         "binary_sha256": file_sha256(binary), "harness_sha256": file_sha256(code),
         "python_query_sha256": file_sha256(query), "fallback_attempted": False,
         "python_client_sha256": file_sha256(client_code),
@@ -167,6 +174,7 @@ def main() -> int:
         "typed_key_cases_sha256": file_sha256(typed_key_code),
         "typed_expression_cases_sha256": file_sha256(typed_expression_code),
         "typed_unary_cases_sha256": file_sha256(typed_unary_code),
+        "envelope_archive_helper_sha256": file_sha256(archive_code),
         "nested_fixture_generator_sha256": (file_sha256(fixture_generator) if fixture_generator else None),
         "typed_fixture_generator_sha256": (file_sha256(typed_generator) if typed_generator else None),
         "python_relational_renderer_sha256": file_sha256(renderer_code),
@@ -177,6 +185,15 @@ def main() -> int:
     lock.mkdir()
     client = None
     sources = []
+    pending_envelopes = []
+
+    def compact_envelopes():
+        if pending_envelopes:
+            guard()
+            summary["envelope_archives"].append(archive_envelopes(
+                output, pending_envelopes, len(summary["envelope_archives"]) + 1))
+            pending_envelopes.clear()
+            guard()
 
     def accepted(name, report):
         envelope = report.envelope
@@ -197,6 +214,10 @@ def main() -> int:
             "raw_sha256": hashlib.sha256(raw).hexdigest(),
             "stored_bytes": len(persisted), "stored_sha256": hashlib.sha256(persisted).hexdigest(),
         })
+        if args.archive_logs:
+            pending_envelopes.append(summary["envelope_files"][-1])
+            if len(pending_envelopes) == 128:
+                compact_envelopes()
         require_unique_report_fields(envelope.raw)
         if envelope.status != "success" or envelope.fallback.attempted:
             raise ValueError(f"{name}: request failed: {envelope.raw}")
@@ -383,9 +404,11 @@ def main() -> int:
                           (typed_key_code, "typed_key_cases_sha256"),
                           (typed_expression_code, "typed_expression_cases_sha256"),
                           (typed_unary_code, "typed_unary_cases_sha256"),
+                          (archive_code, "envelope_archive_helper_sha256"),
                           (renderer_code, "python_relational_renderer_sha256")]:
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")
+        compact_envelopes()
         summary["status"] = "passed"
         guard()
         return 0
