@@ -215,6 +215,9 @@ objects. Common admitted methods include:
   separately admits explicit casts and scoped exact decimal/binary/calendar
   operations. Flat retained state follows the
   [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
+  Its [acceptance report](../benchmarks/native-typed-unary-full43-2026-10-03.md)
+  records 2,700 new unary checks within the complete 9,300-check public cohort;
+  hosted acceptance and the inconclusive Q9 performance observation remain explicit.
   Nested key equality remains unsupported. Binary supports
   all eight writers; ORC rejects decimal and temporal payloads. Text output uses
   explicit typed encodings; see the [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md).

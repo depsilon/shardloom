@@ -2,21 +2,23 @@
 
 # Native typed unary state
 
-Status: implementation in progress under PERF-02/03/07/10/11/12 and
+Status: implemented with local functional acceptance under PERF-02/03/07/10/11/12 and
 CG-3/5/19/20/21. The [phase plan](phased-execution-plan.md) owns sequencing.
 This continues the locally accepted [typed expressions](native-typed-expressions-2026-10-03.md),
 [unary composition](native-unary-composition-2026-10-02.md) and
 [dynamic pivot](native-dynamic-pivot-composition-2026-10-03.md) contracts.
 The source version is 0.4.0; source preparation does not establish publication.
-Implementation, correctness, resource and complete public acceptance remain open.
+The [acceptance report](../benchmarks/native-typed-unary-full43-2026-10-03.md)
+records complete public, resource and retained-result regression evidence.
+Hosted review remains open; the Q9 timing/RSS observation is inconclusive.
 
 ## Decision and reuse
 
-The existing native result boundary can carry Binary, Decimal128, Date32 and
-timezone-free TimestampMicros, but retained unary values and several binders
-still require the narrower statistics scalar representation. Complete that
-specific boundary in the existing unary operators. Direct file calls and
-relational composition must share type admission, state transitions and output
+The native result boundary already carried Binary, Decimal128, Date32 and
+timezone-free TimestampMicros, while retained unary values and several binders
+required the narrower statistics scalar representation. This unit completes
+that boundary in the existing unary operators. Direct file calls and
+relational composition share type admission, state transitions and output
 ownership. Existing primitive, boolean and UTF8 behavior remains compatible.
 
 Vortex-first decision: `implement_shardloom_kernel`, extending the existing
@@ -176,6 +178,26 @@ direct-unary matrices, then paired Full43 regression under the existing serial
 storage/process guards. Retain initial failures and any prescribed repeats.
 Performance observations establish only their recorded scope; they do not
 establish a general speedup, process-RSS bound or competitive superiority.
+
+### Local acceptance
+
+Frozen source `948551d4` passes 9,300 public checks and 14,125,745 complete row
+comparisons. The new unary subset contains 2,700 checks and 5,412 rows from 135
+independent declarations; all 6,600 prior cases and their row counts are retained.
+The separate direct-unary matrix passes 202 checks/131,734 rows. All 25 selected
+local gate categories pass, with 2,526 route-specific resource proofs for the new
+successful calls and 174 explicit ORC denials. Source/binary identity, complete
+oracles, output hashes, raw envelopes and failed observations are preserved in
+the [immutable packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz).
+
+All 258 paired Full43 results and 18 prescribed reversed-order calls match their
+complete retained references. The initial aggregate crosses neither threshold.
+Q15 timing and Q34 RSS flags do not reproduce; Q9 reverses timing direction and
+remains flagged for timing/RSS. Its performance conclusion stays inconclusive,
+with both cohorts retained and no speedup or uniformly unchanged-performance
+claim. The report distinguishes these observations from functional acceptance.
+The hosted website advisory decision and the review bot's exhausted quota remain
+external acceptance limits; no package, tag or release is published.
 
 Broader aggregate/window semantics, nested keys, adapters, general state
 spill/recovery, native Python binding experiments, paused large text/format
