@@ -702,7 +702,7 @@ jobs:
         run: npm ci
       - name: Audit website dependencies
         working-directory: website-src
-        run: npm run audit:dependencies
+        run: npm audit --audit-level=low
       - name: Build website
         working-directory: website-src
         run: npm run build

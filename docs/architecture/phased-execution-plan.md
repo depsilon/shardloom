@@ -276,9 +276,11 @@ the ledger.
     Aggregate timing is effectively unchanged; the initial Q21 RSS increase
     does not reproduce. All 24 local gates pass. The
     [fresh report](../benchmarks/native-nested-review-full43-2026-10-03.md)
-    preserves both observations and the original acceptance. Hosted checks and
-    merge await the disabled website advisory proposal's approval or remediation;
-    ledger movement remains pending.
+    preserves both observations and the original acceptance. The October 4
+    dependency update restores a clean website audit without an exception.
+    The additional null-parent nested-intake correction passes all eight selected
+    source checks with its own immutable review packet;
+    hosted acceptance and ledger movement remain pending.
   - Acceptance: complete static nested workflows without prefix collection,
     serialized intermediates, replay or external fallback; existing flat kernels
     and small collection bounds are preserved. Dynamic pivot, richer type/key
