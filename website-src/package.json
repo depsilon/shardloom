@@ -5,7 +5,6 @@
   "type": "module",
   "description": "Astro/Starlight static website source for shardloom.io.",
   "scripts": {
-    "audit:dependencies": "node --test scripts/audit-dependencies.test.mjs && node scripts/audit-dependencies.mjs",
     "sync-content": "node scripts/sync-content.mjs",
     "clean:static": "node scripts/prebuild-static.mjs",
     "settle:static": "node scripts/prebuild-static.mjs --settle-output",

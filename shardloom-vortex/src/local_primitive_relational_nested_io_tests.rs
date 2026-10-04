@@ -250,6 +250,80 @@ fn native_nested_columnar_intake_reuses_shared_owned_stream_and_empty_schema() {
     }
 }
 
+#[test]
+fn native_nested_intake_preserves_null_parents_with_hidden_nonfinite_children() {
+    use arrow_array::{
+        Array as _, RecordBatch, StructArray as ArrowStructArray, UInt32Array,
+        builder::{FixedSizeListBuilder, Float32Builder, Float64Builder, ListBuilder},
+    };
+    use arrow_schema::{Field, Schema};
+    use std::sync::Arc;
+
+    let fixture = fixture();
+    let mut items = FixedSizeListBuilder::new(Float32Builder::new(), 2);
+    for (valid, values) in [
+        (false, [f32::NAN, f32::INFINITY]),
+        (true, [1.0, 2.0]),
+        (false, [f32::NEG_INFINITY, f32::NAN]),
+        (true, [3.0, 4.0]),
+    ] {
+        items.values().append_slice(&values);
+        items.append(valid);
+    }
+    let items = items.finish();
+    let mut children = ListBuilder::new(Float64Builder::new());
+    children.values().append_value(f64::NAN);
+    children.append(true);
+    children.values().append_value(f64::INFINITY);
+    children.append(false);
+    children.values().append_value(5.0);
+    children.values().append_null();
+    children.append(true);
+    children.append(true);
+    let children = children.finish();
+    let detail = ArrowStructArray::new(
+        vec![Field::new("child", children.data_type().clone(), true)].into(),
+        vec![Arc::new(children)],
+        Some(vec![false, true, true, true].into()),
+    );
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", arrow_schema::DataType::UInt32, false),
+        Field::new("items", items.data_type().clone(), true),
+        Field::new("detail", detail.data_type().clone(), true),
+    ]));
+    let batch = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(UInt32Array::from(vec![1, 2, 3, 4])),
+            Arc::new(items),
+            Arc::new(detail),
+        ],
+    )
+    .unwrap();
+    let ipc = fixture.0.join("hidden-nonfinite.arrow");
+    let mut writer =
+        arrow_ipc::writer::FileWriter::try_new(fs::File::create(&ipc).unwrap(), &schema).unwrap();
+    writer.write(&batch).unwrap();
+    writer.finish().unwrap();
+    let expected = vec![
+        json!({"id":1,"items":null,"detail":null}),
+        json!({"id":2,"items":[1.0,2.0],"detail":{"child":null}}),
+        json!({"id":3,"items":null,"detail":{"child":[5.0,null]}}),
+        json!({"id":4,"items":[3.0,4.0],"detail":{"child":[]}}),
+    ];
+    for mode in ["buffered", "streamed", "budgeted"] {
+        let native = fixture.0.join(format!("hidden-nonfinite-{mode}.vortex"));
+        let report = write_nested_intake(&ipc, &native, mode);
+        assert_eq!(report.reopen_row_count, 4);
+        let scan = VortexRelationalPlan::Scan(VortexRelationalScan {
+            source_uri: DatasetUri::new(native.display().to_string()).unwrap(),
+            projection: shardloom_plan::ProjectionRequest::All,
+            predicate: None,
+        });
+        assert_eq!(collect(&scan), expected, "{mode}");
+    }
+}
+
 fn write_nested_intake(
     ipc: &std::path::Path,
     native: &std::path::Path,

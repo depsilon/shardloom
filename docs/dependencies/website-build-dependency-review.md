@@ -58,8 +58,8 @@ both Wrangler configurations deploy the `website` assets directory without a
 server entrypoint. This is application reachability counterevidence, not a claim
 that the installed package is fixed or that every Astro deployment is unaffected.
 
-The proposed exception in `website-src/dependency-audit-exception.json` is disabled
-pending explicit maintainer approval. If approved, it expires at
+The proposed exception in `website-src/dependency-audit-exception.json` was disabled
+pending explicit maintainer approval. The proposal would expire at
 2026-10-10 00:00 UTC and admits only this exact advisory and its transitive reports.
 The complete lockfile, Astro helper, vulnerable library source, Astro config and
 both deployment configs must match their reviewed SHA-256 fingerprints. A new
@@ -79,8 +79,9 @@ The registry integrity and
 [upstream source revision](https://github.com/kornelski/http-cache-semantics/commit/b1d4bd682fbab0252985de45219f4e7497c0067c)
 identify the selected release. No other package entry changes.
 
-The exact revised dependency graph has a clean `npm audit` result. The previous
-exception remains disabled and is not used to obtain that result. The update
+The exact revised dependency graph has a clean `npm audit` result. The unused
+exception proposal, helper and helper tests are removed; CI, its command registry
+and documentation again run the standard `npm audit --audit-level=low`. The update
 does not establish that the earlier `max-stale` behavior changed: upstream
 [disputed the report](https://github.com/kornelski/http-cache-semantics/issues/56#issuecomment-5975759591),
 and the 4.3.0 source changes address Vary matching and expose response status.
