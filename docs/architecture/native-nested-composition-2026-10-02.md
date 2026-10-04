@@ -2,8 +2,8 @@
 
 # Native nested payload composition
 
-Status: implemented with fresh local acceptance after hosted review repairs;
-hosted checks remain blocked on the website advisory approval described below.
+Status: implemented with the local acceptance records below, including the
+null-parent intake review correction; hosted acceptance remains pending.
 This continues
 the [universal workflow plan](universal-workflow-completion-2026-10-01.md) after
 [flat unary composition](native-unary-composition-2026-10-02.md), under
@@ -47,6 +47,11 @@ Typed compatible intake extends the existing streaming Arrow-to-Vortex adapter,
 recursive input-buffer copying and native writer. It shares the payload schema
 budget with execution, preserves the retained child domain's finite-float policy,
 and rejects unsupported nested leaves and Arrow extensions before conversion.
+Value validation follows valid parent ranges and sliced list offsets, so hidden
+children beneath null parents and children outside the logical slice do not
+cause rejection. Visible non-finite leaves remain rejected. The adapter reuses
+Arrow's validity-range iterator and buffer-sharing slices before the existing
+Vortex conversion; it constructs no replacement value or validity buffers.
 It does not create scalar-row intermediates. Ingest's recorded memory exclusions
 still include original Arrow owners, reader internals and codec/metadata
 allocations that bypass the host allocator; this is not full RSS accounting.
@@ -297,7 +302,33 @@ frozen build; unchanged harness-only gates retain their verified earlier receipt
 The [new immutable packet](../benchmarks/evidence/native-nested-composition-review-2026-10-03.json.xz)
 has SHA-256 `59260176b250dc1c80f0a218fe911ab16aeeb244e800aed5428af3b4cfe1955f`.
 
-The [website advisory proposal](../dependencies/website-build-dependency-review.md)
-is disabled pending explicit maintainer approval. This blocks hosted acceptance
-and merge, without weakening the audit or claiming a fixed dependency. The finite
-unit and broader PERF owners remain open until their respective gates close.
+The [October 4 website dependency update](../dependencies/website-build-dependency-review.md#2026-10-04-registry-update)
+restores a clean dependency audit without enabling the earlier exception. The
+finite unit and broader PERF owners remain open until their respective gates close.
+
+## Null-parent intake review correction
+
+An additional review found that recursive finite-float admission traversed whole
+child arrays, including values hidden by null list/struct parents and children
+outside a sliced list's logical offsets. Two regressions reproduce the rejection
+before the fix. Validation now visits only reachable child ranges while keeping
+recursive schema admission independent of parent validity.
+
+Focused coverage passes for lists, large lists, fixed-size lists, structs,
+all-null and empty slices, visible non-finite rejection, and complete Arrow IPC
+to Vortex readback through buffered, streamed and budgeted intake. All eight
+selected source checks pass on `90891423b8cfcf0fd865aeb84bb3b7eb82160c37`:
+formatting, default and native strict Clippy, default workspace tests (3,446),
+native Vortex tests (2,246; 23 existing ignored), native CLI tests (1,577),
+native-without-write Clippy and the lean workspace check. These configuration
+counts overlap. The
+[review packet](../benchmarks/evidence/native-nested-intake-review-2026-10-04.json.xz)
+retains exact source hashes, all logs, the initial reproduction and the corrected
+signed-width compiler check. Its SHA-256 is
+`604e17f3826a745cb8aff2635fc22f540d6943eca1c612c6d697afb4098c0a41`.
+
+The earlier immutable public and Full43 records remain evidence for their
+original revisions. Full43 was not rerun for this correction: it reads an
+existing native Vortex artifact and cannot reach the changed nested Arrow-intake
+traversal. No timing, benchmark artifact or performance claim changes. The full
+native suites include the new adapter regression; hosted checks still gate merge.
