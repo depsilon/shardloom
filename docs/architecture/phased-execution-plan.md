@@ -278,7 +278,8 @@ the ledger.
     [fresh report](../benchmarks/native-nested-review-full43-2026-10-03.md)
     preserves both observations and the original acceptance. The October 4
     dependency update restores a clean website audit without an exception.
-    An additional null-parent nested-intake correction is under validation;
+    The additional null-parent nested-intake correction passes all eight selected
+    source checks with its own immutable review packet;
     hosted acceptance and ledger movement remain pending.
   - Acceptance: complete static nested workflows without prefix collection,
     serialized intermediates, replay or external fallback; existing flat kernels
