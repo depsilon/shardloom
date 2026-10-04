@@ -120,7 +120,7 @@ impl Sample {
                     ordinal,
                     cumulative_weight: self.total_weight,
                     row: payload
-                        .then(|| batch.row(&plan.output_indices, row))
+                        .then(|| batch.row(&plan.output_indices, row, context))
                         .transpose()?,
                 });
             } else if self.candidates.values.len() < self.cap {
@@ -131,7 +131,7 @@ impl Sample {
                     ordinal,
                     cumulative_weight: 0.0,
                     row: payload
-                        .then(|| batch.row(&plan.output_indices, row))
+                        .then(|| batch.row(&plan.output_indices, row, context))
                         .transpose()?,
                 });
                 self.sift_up(slot);
@@ -143,7 +143,7 @@ impl Sample {
                     ordinal,
                     cumulative_weight: 0.0,
                     row: payload
-                        .then(|| batch.row(&plan.output_indices, row))
+                        .then(|| batch.row(&plan.output_indices, row, context))
                         .transpose()?,
                 };
                 self.sift_down();
@@ -209,31 +209,37 @@ impl Sample {
         let seed = plan.request.sample_seed.unwrap_or(0);
         for start in (0..target).step_by(BATCH_ROWS) {
             context.check_cancelled()?;
-            output.emit((target - start).min(BATCH_ROWS), |row, column| {
-                let draw = start + row;
-                let index = if !plan.request.sample_with_replacement {
-                    draw
-                } else if plan.weight_index.is_some() {
-                    let threshold =
-                        super::super::deterministic_sample_unit(seed ^ 0xa076_1d64_78bd_642f, draw)
-                            * self.total_weight;
-                    self.candidates
-                        .values
-                        .partition_point(|candidate| candidate.cumulative_weight < threshold)
-                        .min(self.candidates.values.len() - 1)
-                } else {
-                    super::super::deterministic_sample_replacement_index(
-                        seed,
-                        draw,
-                        self.candidates.values.len(),
-                    )
-                };
-                let row = self.candidates.values[index]
-                    .row
-                    .as_ref()
-                    .ok_or_else(|| failed("sample retained row is absent"))?;
-                super::values::borrowed(&row.values()[column])
-            })?;
+            output.emit_retained(
+                &plan.fields,
+                (target - start).min(BATCH_ROWS),
+                context,
+                |row| {
+                    let draw = start + row;
+                    let index = if !plan.request.sample_with_replacement {
+                        draw
+                    } else if plan.weight_index.is_some() {
+                        let threshold = super::super::deterministic_sample_unit(
+                            seed ^ 0xa076_1d64_78bd_642f,
+                            draw,
+                        ) * self.total_weight;
+                        self.candidates
+                            .values
+                            .partition_point(|candidate| candidate.cumulative_weight < threshold)
+                            .min(self.candidates.values.len() - 1)
+                    } else {
+                        super::super::deterministic_sample_replacement_index(
+                            seed,
+                            draw,
+                            self.candidates.values.len(),
+                        )
+                    };
+                    self.candidates.values[index]
+                        .row
+                        .as_ref()
+                        .ok_or_else(|| failed("sample retained row is absent"))
+                },
+                |column| column,
+            )?;
         }
         Ok(self.seen)
     }

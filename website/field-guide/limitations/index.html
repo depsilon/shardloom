@@ -75,7 +75,7 @@
 Coverage is specific to the operation, types, source layout, enabled features, and output contract.
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.</p>
-<p>Current capabilities, reviewed <strong>October 3, 2026</strong>. See the
+<p>Current capabilities, reviewed <strong>October 4, 2026</strong>. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md">public support matrix</a>
 for the detailed evidence behind this scope.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="runtime-limits">Runtime Limits</h2><a class="sl-anchor-link" href="#runtime-limits"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Runtime Limits”</span></a></div>
@@ -95,8 +95,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Relational and DataFrame operations</td>
-<td>Current source builds compose admitted flat-scalar joins, sets, windows and subqueries with DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites, melt, rolling and scalar pivot. Pivot columns bind from observed domains during execution, including correlated inner scopes. Bounded static list/struct payloads and repeated explode also compose through admitted relational stages.</td>
-<td>Nested keys, general nested unary state, Variant/extensions and broader SQL/DataFrame semantics still have gaps. Pivot retains its scalar type, 128-field and memory boundaries; pivot-state spill is unsupported.</td>
+<td>Current source builds compose admitted relational and unary stages, including static nested payloads/explode and finite nested key/retained-state operations. Scalar pivot columns bind during execution, including correlated inner scopes.</td>
+<td>Operation/type coverage is finite. Nested key/state acceptance remains pending. Variant/extensions and broader SQL/DataFrame semantics retain gaps; scalar pivot keeps its 128-field, type and memory boundaries.</td>
 </tr>
 <tr>
 <td>Repeated queries</td>
@@ -127,8 +127,14 @@ limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, 
 and Avro; nested CSV/ORC output is denied. Recursive schema/child-buffer admission,
 format fidelity, resources and write policy still apply. Binary, exact Decimal128,
 Date32 and timezone-free microsecond timestamps are admitted payloads, including
-nested leaves. Flat key operations for these types follow the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>;
-nested key equality remains unsupported. Current
+nested leaves. Flat key operations for these types follow the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>.
+The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-keys-state-2026-10-04.md">nested key and retained-state contract</a>
+extends equality, hashing and ordering to static lists, fixed-size lists and
+structs through existing joins, sets, groups, sort, windows and subqueries,
+with COUNT/COUNT DISTINCT/MIN/MAX and scoped selected expressions. Exact
+recursive schemas include field names/order, widths, decimal metadata and
+temporal identity; recursive nullability is ignored for key compatibility.
+Local and hosted acceptance remains pending. Current
 source builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
 arithmetic/rounding and scoped binary/calendar functions through the shared
 native expression binder. Decimal arithmetic output metadata binds before
@@ -138,8 +144,12 @@ distinct temporal types. Richer aggregate/window semantics, broader adapters
 and state spill remain separate. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-expressions-2026-10-03.md">typed expression contract</a>.
 Flat retained unary state admits the four typed domains for duplicate selection,
 tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and scoped
-pivot policies. Nested state, decimal rolling arithmetic, temporal arithmetic
-rewrites, typed legacy predicates and general state spill remain unsupported.
+pivot policies. The nested contract also admits DISTINCT/duplicate selection
+and masks, tail, sampling, parent forward fill, same-shape melt and rolling COUNT.
+Forward fill replaces a NULL parent; child NULLs do not trigger filling.
+Nested pivot state, structured literals, nested arithmetic/string operations,
+decimal rolling arithmetic, temporal arithmetic rewrites, typed legacy predicates
+and general state spill remain unsupported.
 See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md">typed unary contract</a>.
 ORC rejects decimal/temporal output. General Variant/extension operations retain
 separate coverage limits. See the

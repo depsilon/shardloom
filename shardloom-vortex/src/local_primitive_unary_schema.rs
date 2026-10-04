@@ -49,7 +49,7 @@ pub(super) fn predicate_types(
 }
 
 /// Select the retained provider from schema before executing any rows. Existing
-/// nested native providers remain available until their typed state is admitted.
+/// providers remain available only for schemas outside the retained contract.
 pub(super) fn retained_source_admitted(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
@@ -92,7 +92,7 @@ pub(super) fn retained_source_admitted(
                 continue;
             }
         }
-        if request.kind == Kind::ExplodeRows {
+        if request.kind == Kind::ExplodeRows || super::super::native_payload::is_nested(&field) {
             if super::super::native_payload::metadata_bytes(&field).is_err() {
                 return Ok(false);
             }

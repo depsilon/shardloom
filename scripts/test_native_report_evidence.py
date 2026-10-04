@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 
 from run_native_unary_uat import require_unique_report_fields
-from native_typed_payload_cases import require_native_resource_admission
+from native_report_evidence import require_native_resource_admission
 
 
 class NativeReportEvidenceTests(unittest.TestCase):

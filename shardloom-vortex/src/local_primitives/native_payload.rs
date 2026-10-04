@@ -13,7 +13,8 @@ use shardloom_core::Result;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray, VortexSessionExecute as _,
     arrays::struct_::StructArrayExt as _,
-    arrays::{FixedSizeListArray, ListArray, StructArray},
+    arrays::{ChunkedArray, FixedSizeListArray, ListArray, StructArray},
+    builtins::ArrayBuiltins as _,
     dtype::{DType, Nullability, PType},
     memory::{HostAllocatorRef, MemorySessionExt as _},
     validity::Validity,
@@ -86,6 +87,51 @@ pub(super) fn defaults(
     indices.reserve(rows)?;
     indices.values.resize(rows, None);
     copy_rows(None, &indices.values, dtype, context, &allocator)
+}
+
+/// Coalesce retained one-row native values into one compact, bounded column.
+/// Missing values denote NULL parents; transient chunk metadata is reserved.
+pub(super) fn retained_column(
+    dtype: &DType,
+    rows: usize,
+    context: &NativeExecutionContext<'_>,
+    mut value: impl FnMut(usize) -> Result<Option<ArrayRef>>,
+) -> Result<ArrayRef> {
+    let mut arrays = ReservedVec::new(context.memory())?;
+    let mut positions = ReservedVec::new(context.memory())?;
+    arrays.reserve(rows)?;
+    positions.reserve(rows)?;
+    for row in 0..rows {
+        check(row, context)?;
+        if let Some(array) = value(row)? {
+            if array.len() != 1 || array.dtype().as_nonnullable() != dtype.as_nonnullable() {
+                return Err(failed(
+                    "retained native value changed its bound dtype or row count",
+                ));
+            }
+            positions.values.push(Some(arrays.values.len()));
+            arrays
+                .values
+                .push(array.cast(dtype.clone()).map_err(vortex_error)?);
+        } else {
+            if !dtype.is_nullable() {
+                return Err(failed("missing retained value requires a nullable output"));
+            }
+            positions.values.push(None);
+        }
+    }
+    if arrays.values.is_empty() {
+        return defaults(dtype, rows, context);
+    }
+    let (arrays, _ownership) = arrays.into_parts();
+    let array = ChunkedArray::try_new(arrays, dtype.clone())
+        .map_err(vortex_error)?
+        .into_array();
+    let indices =
+        super::native_relational_batch::index_array(rows, dtype.is_nullable(), context, |row| {
+            Ok(positions.values[row])
+        })?;
+    take(&array, &indices, dtype, context)
 }
 
 fn check(row: usize, context: &NativeExecutionContext<'_>) -> Result<()> {

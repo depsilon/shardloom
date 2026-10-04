@@ -919,6 +919,50 @@ impl<'schema> UnaryOutput<'schema, '_> {
             .ok_or_else(|| failed("result row count overflow"))?;
         Ok(())
     }
+    fn emit_selected(
+        &mut self,
+        plan: &BoundUnary,
+        batch: &mut NativeBatch,
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+        row: impl Fn(usize) -> usize,
+    ) -> Result<()> {
+        if plan
+            .fields
+            .iter()
+            .any(|(_, dtype)| super::native_payload::is_nested(dtype))
+        {
+            self.emit_native(rows, context, || {
+                batch.selected(&plan.fields, &plan.output_indices, rows, context, row)
+            })
+        } else {
+            self.emit(rows, |index, column| {
+                batch.value(plan.output_indices[column], row(index))
+            })
+        }
+    }
+
+    fn emit_retained<'a>(
+        &mut self,
+        fields: &[(String, DType)],
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+        row: impl Fn(usize) -> Result<&'a values::OwnedRow>,
+        column: impl Fn(usize) -> usize,
+    ) -> Result<()> {
+        if fields
+            .iter()
+            .any(|(_, dtype)| super::native_payload::is_nested(dtype))
+        {
+            self.emit_native(rows, context, || {
+                values::retained_batch(fields, rows, context, row, column)
+            })
+        } else {
+            self.emit(rows, |index, field| {
+                values::borrowed(row(index)?.scalar(column(field))?)
+            })
+        }
+    }
     fn finish(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
         if let Some(payload) = &mut self.payload {
             if self.rows == 0 {

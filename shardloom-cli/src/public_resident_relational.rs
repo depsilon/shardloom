@@ -2,8 +2,8 @@
 
 use super::{
     CommandStatus, Diagnostic, DiagnosticCode, ExitCode, OutputFormat, PublicExecutionSession,
-    PublicWorkflowRoutePlan, PublicWorkflowRouteRequest, ShardLoomError, admitted_route,
-    blocked_route, emit, emit_error, execution_attachment_fields, is_write_request,
+    PublicSourcePreparations, PublicWorkflowRoutePlan, PublicWorkflowRouteRequest, ShardLoomError,
+    admitted_route, blocked_route, emit, emit_error, execution_attachment_fields, is_write_request,
     native_vortex_materializing_policy, native_vortex_row_export_format_for_output_request,
     output_required_route, sql_local_source_runtime::native_relational, vortex_primitive_execution,
 };
@@ -25,6 +25,7 @@ pub(super) struct PreparedPublicRelational {
     pub(super) request: PublicWorkflowRouteRequest,
     operation: PreparedVortexRelational,
     prepared_sources: usize,
+    preparations: PublicSourcePreparations,
 }
 
 pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkflowRoutePlan> {
@@ -127,7 +128,15 @@ pub(super) fn run(
     format: OutputFormat,
     session: &mut PublicExecutionSession,
 ) -> ExitCode {
-    run_with_source(request, plan, format, session, Vec::new(), None)
+    run_with_source(
+        request,
+        plan,
+        format,
+        session,
+        Vec::new(),
+        None,
+        PublicSourcePreparations::default(),
+    )
 }
 
 pub(super) fn run_with_source(
@@ -137,8 +146,17 @@ pub(super) fn run_with_source(
     session: &mut PublicExecutionSession,
     extra_fields: Vec<(String, String)>,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    preparations: PublicSourcePreparations,
 ) -> ExitCode {
-    match execute(request, plan, format, session, extra_fields, source) {
+    match execute(
+        request,
+        plan,
+        format,
+        session,
+        extra_fields,
+        source,
+        preparations,
+    ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             session.clear();
@@ -154,22 +172,23 @@ fn execute(
     session: &mut PublicExecutionSession,
     extra_fields: Vec<(String, String)>,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    preparations: PublicSourcePreparations,
 ) -> Result<(), ShardLoomError> {
-    let reused = session
-        .relational
-        .as_ref()
-        .is_some_and(|entry| entry.request == *request);
+    let reused = session.relational.as_ref().is_some_and(|entry| {
+        entry.request == *request && entry.preparations.same_generations(&preparations)
+    });
     if !reused {
         session.clear();
         let statement = request.sql_statement.as_deref().ok_or_else(|| {
             ShardLoomError::InvalidOperation("native relational SQL is absent".into())
         })?;
         let (operation, prepared_sources) =
-            sources::prepare_with_source(statement, request, source)?;
+            sources::prepare_with_source(statement, request, source, preparations.clone())?;
         session.relational = Some(PreparedPublicRelational {
             request: request.clone(),
             operation,
             prepared_sources,
+            preparations,
         });
     }
     let prepared = session.relational.as_ref().ok_or_else(|| {

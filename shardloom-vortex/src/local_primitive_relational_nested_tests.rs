@@ -9,6 +9,15 @@ mod io_tests;
 #[path = "local_primitive_relational_nested_resource_tests.rs"]
 mod resource_tests;
 
+#[path = "local_primitive_relational_nested_keys_state_tests.rs"]
+mod keys_state_tests;
+
+#[path = "local_primitive_relational_nested_state_ownership_tests.rs"]
+mod state_ownership_tests;
+
+#[path = "local_primitive_relational_nested_handoff_tests.rs"]
+mod handoff_tests;
+
 fn lists() -> ArrayRef {
     ListViewArray::try_new(
         PrimitiveArray::from_option_iter([Some(9i64), None, Some(-4)]).into_array(),
@@ -489,7 +498,7 @@ fn native_nested_repeated_explode_uses_preceding_order_and_preserves_struct_comp
 }
 
 #[test]
-fn native_nested_keys_and_scalar_operands_are_rejected_even_for_empty_sources() {
+fn native_nested_keys_and_null_checks_bind_empty_sources() {
     use crate::relational_query::{
         VortexRelationalFilter, VortexRelationalOrderKey, VortexRelationalSort,
     };
@@ -544,7 +553,6 @@ fn native_nested_keys_and_scalar_operands_are_rejected_even_for_empty_sources() 
         }],
     }));
     for plan in [sorted, filtered, joined] {
-        let error = prepare_relational(&plan, policy()).err().unwrap();
-        assert!(error.to_string().contains("operated scalar"), "{error}");
+        assert_eq!(collect(&plan), [] as [serde_json::Value; 0]);
     }
 }

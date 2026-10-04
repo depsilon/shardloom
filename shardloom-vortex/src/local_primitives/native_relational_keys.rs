@@ -3,8 +3,14 @@
 //! Equality normalizes finite floating signed zero and integer signedness.
 
 #[cfg(test)]
+#[path = "native_relational_nested_keys_tests.rs"]
+mod nested_tests;
+#[cfg(test)]
 #[path = "native_relational_typed_keys_tests.rs"]
 mod typed_tests;
+
+#[path = "native_relational_nested_keys.rs"]
+mod nested;
 
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
 use shardloom_core::{Result, ShardLoomError};
@@ -50,6 +56,7 @@ pub(super) enum KeyColumn {
     Decimal(DecimalColumn),
     Date(NativeNumericOwner),
     Timestamp(NativeNumericOwner),
+    Nested(Box<nested::Column>),
 }
 
 pub(super) struct VariableColumn {
@@ -74,6 +81,21 @@ impl KeyColumn {
         context: &mut ExecutionCtx,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        let schema = if super::native_payload::is_nested(array.dtype()) {
+            Some(memory.reserve(crate::native_payload_schema::metadata_bytes(array.dtype())?)?)
+        } else {
+            None
+        };
+        Self::new_inner(array, context, memory, cancellation, schema)
+    }
+
+    fn new_inner(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        schema: Option<MemoryLease>,
     ) -> Result<Self> {
         cancellation.check()?;
         let column = match array.dtype() {
@@ -118,6 +140,15 @@ impl KeyColumn {
                     _ => return Err(failed("temporal key has an unsupported storage type")),
                 }
             }
+            DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..) => {
+                Self::Nested(Box::new(nested::Column::new(
+                    array,
+                    context,
+                    memory,
+                    cancellation,
+                    schema,
+                )?))
+            }
             _ => {
                 return Err(failed(
                     "key requires integer, finite float, boolean, UTF8, binary, admitted Decimal128, Date32 or timezone-free TimestampMicros dtype",
@@ -135,6 +166,7 @@ impl KeyColumn {
             Self::Boolean { values, .. } => values.len(),
             Self::Variable(values) => values.rows,
             Self::Decimal(values) => values.values.len(),
+            Self::Nested(values) => values.len(),
         }
     }
 
@@ -166,6 +198,9 @@ impl KeyColumn {
             Self::Timestamp(values) => {
                 Ok(temporal_value(values, row)?.map_or(Cell::Null, Cell::Timestamp))
             }
+            Self::Nested(_) => Err(failed(
+                "nested keys require native comparison or selection, not a scalar cell",
+            )),
         }
     }
 
@@ -198,6 +233,9 @@ impl KeyColumn {
         if row >= self.len() || other_row >= other.len() {
             return Err(failed("comparison row index exceeds key owner"));
         }
+        if let (Self::Nested(left), Self::Nested(right)) = (self, other) {
+            return left.compare_at(row, right, other_row);
+        }
         if let (Self::Variable(left), Self::Variable(right)) = (self, other)
             && left.binary == right.binary
         {
@@ -226,6 +264,7 @@ impl KeyColumn {
             Self::Boolean { valid, .. } => !valid.value(row),
             Self::Variable(values) => values.index(row)?.is_none(),
             Self::Decimal(values) => !values.valid.value(row),
+            Self::Nested(values) => values.is_null(row)?,
         })
     }
 
@@ -248,6 +287,9 @@ impl KeyColumn {
     pub(super) fn hash_into(&self, row: usize, hash: &mut rustc_hash::FxHasher) -> Result<bool> {
         if row >= self.len() {
             return Err(failed("hash row index exceeds key owner"));
+        }
+        if let Self::Nested(values) = self {
+            return values.hash_into(row, hash);
         }
         if let Self::Variable(values) = self {
             if let Some(index) = values.index(row)? {
@@ -296,6 +338,62 @@ impl KeyColumn {
             }
         }
         Ok(true)
+    }
+
+    /// Exact unary identity inside a newly admitted nested key. This preserves
+    /// signed floating zero, unlike relational hash/equality. Self-delimiting
+    /// leaf lengths avoid repeated subtree sizing at every nesting level.
+    pub(super) fn write_exact_key(
+        &self,
+        row: usize,
+        output: &mut impl std::fmt::Write,
+        cancellation: &CancellationToken,
+    ) -> Result<()> {
+        cancellation.check()?;
+        if let Self::Nested(values) = self {
+            return values.write_exact_key(row, output);
+        }
+        match self.raw_cell(row)? {
+            Cell::Null => output.write_str("n;"),
+            Cell::NegativeInteger(value) => write!(output, "i{value};"),
+            Cell::NonnegativeInteger(value) => {
+                let signed = matches!(self, Self::Numeric(owner) if owner.ptype().is_signed_int());
+                write!(output, "{}{value};", if signed { 'i' } else { 'u' })
+            }
+            Cell::Float(bits) => write!(output, "f{bits:016x};"),
+            Cell::Boolean(value) => write!(output, "b{};", u8::from(value)),
+            Cell::Utf8(value) => {
+                let value = std::str::from_utf8(value.as_slice()).map_err(vortex_error)?;
+                write!(output, "s{}:", value.len()).map_err(vortex_error)?;
+                let mut start = 0;
+                while start < value.len() {
+                    cancellation.check()?;
+                    let mut end = start.saturating_add(4096).min(value.len());
+                    while !value.is_char_boundary(end) {
+                        end -= 1;
+                    }
+                    output.write_str(&value[start..end]).map_err(vortex_error)?;
+                    start = end;
+                }
+                Ok(())
+            }
+            Cell::Binary(value) => {
+                write!(output, "x{}:", value.len()).map_err(vortex_error)?;
+                for (index, byte) in value.as_slice().iter().enumerate() {
+                    if index.is_multiple_of(1024) {
+                        cancellation.check()?;
+                    }
+                    write!(output, "{byte:02x}").map_err(vortex_error)?;
+                }
+                Ok(())
+            }
+            Cell::Decimal(value, dtype) => {
+                write!(output, "d{},{}:{value};", dtype.precision(), dtype.scale())
+            }
+            Cell::Date(value) => write!(output, "D{value};"),
+            Cell::Timestamp(value) => write!(output, "T{value};"),
+        }
+        .map_err(vortex_error)
     }
 }
 

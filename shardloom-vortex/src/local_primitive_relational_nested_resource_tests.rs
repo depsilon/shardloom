@@ -44,7 +44,7 @@ fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_
 }
 
 #[test]
-fn native_nested_empty_schema_rejects_hash_set_and_aggregate_key_semantics() {
+fn native_nested_empty_schema_admits_hash_sets_and_typed_aggregate_state() {
     use crate::query_primitive::VortexSimpleAggregateMeasure as Measure;
     let source = fixture();
     let empty =
@@ -59,16 +59,10 @@ fn native_nested_empty_schema_rejects_hash_set_and_aggregate_key_semantics() {
             right: empty.clone(),
             kind,
         }));
-        assert!(
-            prepare_relational(&plan, policy())
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("operated scalar")
-        );
+        assert_eq!(collect(&plan), [] as [serde_json::Value; 0]);
     }
-    for (groups, measures) in [
-        (vec![column("items")], vec![]),
+    for (groups, measures, expected) in [
+        (vec![column("items")], vec![], vec![]),
         (
             vec![],
             vec![Measure::new(
@@ -76,10 +70,20 @@ fn native_nested_empty_schema_rejects_hash_set_and_aggregate_key_semantics() {
                 Some(column("items")),
                 "n".into(),
             )],
+            vec![json!({"n":0})],
         ),
         (
             vec![],
             vec![Measure::new("count", Some(column("items")), "n".into())],
+            vec![json!({"n":0})],
+        ),
+        (
+            vec![],
+            vec![
+                Measure::new("min", Some(column("items")), "min".into()),
+                Measure::new("max", Some(column("items")), "max".into()),
+            ],
+            vec![json!({"min":null,"max":null})],
         ),
     ] {
         let plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
@@ -87,13 +91,7 @@ fn native_nested_empty_schema_rejects_hash_set_and_aggregate_key_semantics() {
             group_by: groups,
             measures,
         }));
-        assert!(
-            prepare_relational(&plan, policy())
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("operated scalar")
-        );
+        assert_eq!(collect(&plan), expected);
     }
 }
 
@@ -179,7 +177,7 @@ fn native_nested_json_cancellation_is_checked_within_a_single_list() {
 }
 
 #[test]
-fn native_nested_order_spill_preserves_payloads_and_cleans_up_after_consumer_failure() {
+fn native_nested_key_order_spill_preserves_payloads_and_cleans_up_after_consumer_failure() {
     let count = 24_001u32;
     let labels = (0..count)
         .rev()
@@ -222,7 +220,7 @@ fn native_nested_order_spill_preserves_payloads_and_cleans_up_after_consumer_fai
     let plan = VortexRelationalPlan::Sort(Box::new(VortexRelationalSort {
         input: fixture.scan(),
         keys: vec![VortexRelationalOrderKey {
-            column: column("id"),
+            column: column("items"),
             descending: false,
             nulls: None,
         }],

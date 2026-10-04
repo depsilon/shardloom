@@ -13,6 +13,8 @@ import subprocess
 
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
+from native_report_evidence import require_native_resource_admission
+from native_nested_key_state_cases import run as nested_key_state_cases
 
 
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
@@ -32,10 +34,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
 
     def verified(name, report):
         envelope = accepted(name, report)
-        if (envelope.field("public_workflow_memory_gb") != "1"
-                or envelope.field("public_workflow_native_vortex_provider_scenario") != "none"
-                or int(envelope.field("resident_peak_reserved_buffer_bytes")) > 1 << 30):
-            raise ValueError(f"{name}: shared native resource admission differs")
+        require_native_resource_admission(name, envelope)
         return envelope
 
     def equal(name, actual, expected, destination=None):
@@ -100,6 +99,28 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                 actual = [strict_json(line) for line in decoded.read_text().splitlines()]
             equal(name, actual, expected, destination)
 
+    def exercise_workflow(family, workflow, expected, columns, nested):
+        route = workflow.route(bounded=True, check=False, **resources)
+        (output / f"{family}-route.json").write_text(json.dumps(route.envelope.raw, indent=2) + "\n")
+        if (route.route_status != "admitted" or not route.side_effect_free
+                or route.fallback_attempted or route.external_engine_invoked):
+            raise ValueError(f"{family}: route was not admitted and inert")
+        for parallelism in (1, 2):
+            guard()
+            name = f"{family}-collect-{parallelism}"
+            report = workflow.collect(check=False, **dict(resources, max_parallelism=parallelism))
+            if verified(name, report).field("result_payload_complete") != "true":
+                raise ValueError(f"{name}: collection was incomplete")
+            equal(name, list(report.result_rows), expected)
+        write_all(family, workflow, expected, columns, nested)
+
+    def exercise(family, frame, expected, columns, *, nested):
+        statement = frame._relation_statement()
+        for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(
+                statement, context.client, source_bindings=frame._declared_sources()))]:
+            name = family.format(spelling=spelling) if "{spelling}" in family else f"{family}-{spelling}"
+            exercise_workflow(name, workflow, expected, columns, nested)
+
     schema = {"id": "int64", "items": "list<list<int64>>",
               "records": "list<struct<code:list<int64>,label:utf8>>",
               "detail": "struct<tag:utf8,enabled:boolean>"}
@@ -156,22 +177,19 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             ("empty", payload.limit(0), [], ["key", "groups", "detail"], True),
         ]
         for label, frame, expected, columns, nested in cases:
-            statement = frame._relation_statement()
-            for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(statement, context.client, source_bindings=frame._declared_sources()))]:
-                family = f"nested-{source_name}-{spelling}-{label}"
-                route = workflow.route(bounded=True, check=False, **resources)
-                (output / f"{family}-route.json").write_text(json.dumps(route.envelope.raw, indent=2) + "\n")
-                if (route.route_status != "admitted" or not route.side_effect_free
-                        or route.fallback_attempted or route.external_engine_invoked):
-                    raise ValueError(f"{family}: route was not admitted and inert")
-                for parallelism in (1, 2):
-                    guard()
-                    name = f"{family}-collect-{parallelism}"
-                    report = workflow.collect(check=False, **dict(resources, max_parallelism=parallelism))
-                    if verified(name, report).field("result_payload_complete") != "true":
-                        raise ValueError(f"{name}: collection was incomplete")
-                    equal(name, list(report.result_rows), expected)
-                write_all(family, workflow, expected, columns, nested)
+            exercise(f"nested-{source_name}-{{spelling}}-{label}", frame, expected, columns, nested=nested)
+
+    duplicate_raw = output / "nested-duplicates.data"
+    duplicate_native = output / "nested-duplicates.vortex"
+    remember(duplicate_raw)
+    guard()
+    accepted("nested-duplicates-prepare", context.read_arrow_ipc(duplicate_raw).prepare(duplicate_native, check=False))
+    remember(duplicate_native)
+    nested_key_state_cases(context, output, guard, exercise, remember,
+                           prefix="nested-key", original=original, fields=list(schema), schema=schema,
+                           native=native, raw=typed, duplicate_native=duplicate_native,
+                           duplicate_raw=duplicate_raw,
+                           orders={"items": [2, 1, 3, 0], "records": [2, 1, 3, 0], "detail": [3, 2, 1, 0]})
 
     # One source feeds a nested payload and two expansions above small-collect's
     # row limit. Full results are independently specified before execution.
@@ -231,11 +249,20 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     verified("nested-scalar-hint-collect", report)
     equal("nested-scalar-hint-collect", list(report.result_rows), [{"label": "001"}, {"label": "0009"}])
 
+    # Retain the exact four formerly rejected SQL forms as positive workflows.
+    for label, statement, expected, columns, nested in [
+        ("order", f"SELECT * FROM {literal(native)} ORDER BY items LIMIT 0", [], list(schema), True),
+        ("set", f"SELECT items FROM {literal(native)} UNION SELECT items FROM {literal(native)}",
+         [{"items":row["items"]} for row in original], ["items"], True),
+        ("group", f"SELECT items,COUNT(*) AS n FROM {literal(native)} GROUP BY items",
+         [{"items":row["items"],"n":1} for row in original], ["items","n"], True),
+        ("distinct-count", f"SELECT COUNT(DISTINCT items) AS n FROM {literal(native)}", [{"n":3}], ["n"], False),
+    ]:
+        exercise_workflow(f"nested-key-direct-{label}", context.sql(statement), expected, columns, nested)
+
     for label, statement in [
-        ("nested-order", f"SELECT * FROM {literal(native)} ORDER BY items LIMIT 0"),
-        ("nested-set", f"SELECT items FROM {literal(native)} UNION SELECT items FROM {literal(native)}"),
-        ("nested-group", f"SELECT items,COUNT(*) AS n FROM {literal(native)} GROUP BY items"),
-        ("nested-distinct-count", f"SELECT COUNT(DISTINCT items) AS n FROM {literal(native)}"),
+        ("nested-sum", f"SELECT SUM(items) AS n FROM {literal(native)} LIMIT 0"),
+        ("nested-text", f"SELECT LOWER(items) AS value FROM {literal(native)} LIMIT 0"),
         ("zip-mismatch", f"SELECT * FROM EXPLODE((SELECT * FROM {literal(native)} ORDER BY id), '{{\"explode_columns\":[\"items\",\"records\"]}}') AS expanded"),
     ]:
         guard()

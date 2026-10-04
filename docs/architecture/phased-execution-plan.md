@@ -351,7 +351,8 @@ the ledger.
     No predeclared timing or memory threshold is crossed; no speedup is claimed.
   - Acceptance: exact type/value/null/order preservation across the complete
     admitted workflow, without scalar-row execution, intermediate files, replay
-    or fallback. Nested key semantics, adapters and resource/spill remain open;
+    or fallback. Nested keys continue under NATIVE-NESTED-KEYS-STATE; adapters
+    and resource/spill remain open;
     typed expressions continue in the separately accepted unit below.
   - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
     hosted completion remains subject to its existing website advisory decision.
@@ -422,8 +423,9 @@ the ledger.
   - Acceptance: exact decimal and temporal behavior, explicit conversion failures,
     lazy NULL/branch semantics and deterministic unsupported empty plans; no
     frontend-specific executor or external-engine fallback.
-  - Dependency: locally accepted typed keys. Retained unary state, nested keys,
-    broader adapters and state-spill obligations keep their existing owners.
+  - Dependency: locally accepted typed keys. Retained unary state and nested
+    keys continue under their subsequent named units; broader adapters and
+    state-spill obligations keep their existing owners.
 
 - [ ] `NATIVE-TYPED-UNARY` — complete exact binary, Decimal128, Date32 and
   timezone-free microsecond timestamp state in the existing unary operators
@@ -458,9 +460,43 @@ the ledger.
     Hosted completion still requires the website advisory decision; the review
     bot has exhausted its quota. No general performance improvement is claimed.
   - Dependency: locally accepted typed expressions and 0.4.0 source preparation.
-    Nested keys, broader aggregate/window semantics, adapters and general state
-    spill keep their existing owners; hosted completion retains the stack's
+    Nested keys continue under NATIVE-NESTED-KEYS-STATE; broader aggregate/window
+    semantics, adapters and general state spill keep their existing owners;
+    hosted completion retains the stack's
     website advisory decision.
+
+- [ ] `NATIVE-NESTED-KEYS-STATE` — extend shared logical keys and compact retained
+  native state to static lists, fixed-size lists and structs under
+  PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [nested key/state contract](native-nested-keys-state-2026-10-04.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native dictionary domains, compact
+    selected buffers, one operation grant, bounded capillary delivery and existing
+    sort runs; reuse shared operators and output rather than a nested row engine.
+  - Execution checklist:
+    - [x] Extend exact recursive keys, binder admission and native selected
+      expression/aggregate output across the existing relational families.
+    - [x] Extend retained unary rows/keys, native delivery and scoped rewrites;
+      prove NULL semantics, selected ownership, grants, cancellation and cleanup.
+    - [x] Freeze complete public/writer correctness, required local checks and
+      paired Full43 regression with exact support and immutable evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory
+      decision, then move this finite item to the completed ledger.
+  - Local evidence: frozen `d65907f6` passes 17,458 public checks/14,143,015 complete
+    row comparisons, including 8,162 new checks/17,270 rows from 406 independent
+    declarations. All 9,296 unaffected prior cases remain; four nested-key
+    denials become positive checks. The separate direct matrix passes 202
+    checks/131,734 rows, and all 25 local gate categories pass. All 258 paired
+    Full43 results and six prescribed Q28 repeats match. Aggregate and RSS
+    thresholds are not crossed; Q28's initial timing gain does not reproduce.
+    The [report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md) and
+    [immutable packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz)
+    retain complete values, resource evidence and all four interrupted public
+    attempts. Independent packet inspection passes. Hosted review/gates retain
+    the inherited website advisory decision; no speedup is claimed.
+  - Dependency: locally accepted typed unary state. Broader pivot aggregation,
+    aggregate/window semantics, adapters and general state spill keep their
+    existing owners and remain subsequent work in the universal queue.
 
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
@@ -471,9 +507,9 @@ hosted checks passed. Their finite completions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
 nested payloads, dynamic pivot schemas, flat binary/decimal/temporal payloads
-and keys, scoped typed expressions and typed unary state have local functional
+and keys, scoped typed expressions, typed unary state and nested keys/state have local functional
 acceptance awaiting hosted completion. The typed-unary report retains Q9's
-inconclusive performance observation. Nested keys/state, broader aggregate/window
+inconclusive performance observation. Broader aggregate/window
 semantics, adapters and resource obligations remain open under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and

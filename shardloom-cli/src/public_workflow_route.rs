@@ -224,6 +224,49 @@ impl PublicExecutionSession {
     pub(crate) fn clear(&mut self) {
         *self = Self::default();
     }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn invalidate_changed_request(
+        &mut self,
+        request: &PublicWorkflowRouteRequest,
+        plan: &PublicWorkflowRoutePlan,
+    ) {
+        // Prepared routes retain the normalized native request. Source preparation
+        // still validates original and prepared generations before every call.
+        let prepared = (plan.route_id == "local_file_prepare_once_first_query")
+            .then(|| prepared_local_workflow_native_request(request).ok())
+            .flatten()
+            .map(|prepared| prepared.request);
+        let retained = prepared.as_ref().unwrap_or(request);
+        if self
+            .collect
+            .as_ref()
+            .is_some_and(|entry| &entry.request != retained)
+            || self
+                .count
+                .as_ref()
+                .is_some_and(|entry| &entry.request != retained)
+            || self
+                .count_where
+                .as_ref()
+                .is_some_and(|entry| &entry.request != retained)
+            || self
+                .aggregate
+                .as_ref()
+                .is_some_and(|entry| &entry.request != retained)
+            || self
+                .unary
+                .as_ref()
+                .is_some_and(|entry| &entry.request != retained)
+            || self
+                .relational
+                .as_ref()
+                .is_some_and(|entry| &entry.request != retained)
+            || (self.memory.is_some() && plan.route_id != "generated_rows_memory_collect")
+        {
+            self.clear();
+        }
+    }
 }
 
 pub(crate) fn handle_public_workflow_route(
@@ -266,34 +309,7 @@ pub(crate) fn handle_public_workflow_run(
     let request = effective_public_workflow_request(&request);
     let plan = plan_public_workflow_route(&request);
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    if execution_session
-        .collect
-        .as_ref()
-        .is_some_and(|entry| entry.request != request)
-        || execution_session
-            .count
-            .as_ref()
-            .is_some_and(|entry| entry.request != request)
-        || execution_session
-            .count_where
-            .as_ref()
-            .is_some_and(|entry| entry.request != request)
-        || execution_session
-            .aggregate
-            .as_ref()
-            .is_some_and(|entry| entry.request != request)
-        || execution_session
-            .unary
-            .as_ref()
-            .is_some_and(|entry| entry.request != request)
-        || execution_session
-            .relational
-            .as_ref()
-            .is_some_and(|entry| entry.request != request)
-        || (execution_session.memory.is_some() && plan.route_id != "generated_rows_memory_collect")
-    {
-        execution_session.clear();
-    }
+    execution_session.invalidate_changed_request(&request, &plan);
     if plan.status != CommandStatus::Success {
         execution_session.clear();
         return emit_blocked_facade("run", format, &request, &plan);
@@ -342,12 +358,18 @@ pub(crate) fn handle_public_workflow_run(
         "native_vortex_primitive_row_export" => {
             execute_native_vortex_primitive_row_export_run(&request, &plan, format)
         }
-        "local_file_prepare_once_first_query" => execute_local_file_prepare_once_first_query_run(
-            &request,
-            &plan,
-            format,
-            execution_session,
-        ),
+        "local_file_prepare_once_first_query" => {
+            let result = execute_local_file_prepare_once_first_query_run(
+                &request,
+                &plan,
+                format,
+                execution_session,
+            );
+            if result != ExitCode::SUCCESS {
+                execution_session.clear();
+            }
+            result
+        }
         _ => {
             let blocked = run_route_not_executable_yet(&plan);
             emit_blocked_facade("run", format, &request, &blocked)
@@ -401,7 +423,13 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
     let mut extra_fields = extra_fields;
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
-    if let Some(exit) = resident_sql::write_if_needed(request, plan, format, &mut extra_fields) {
+    if let Some(exit) = resident_sql::write_if_needed(
+        request,
+        plan,
+        format,
+        &mut extra_fields,
+        PublicSourcePreparations::default(),
+    ) {
         return exit;
     }
     let Some(input_uri) = request.input_uri.clone() else {
@@ -2770,6 +2798,7 @@ fn native_vortex_primitive_materializes(primitive: PublicVortexPrimitive) -> boo
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn execute_native_vortex_primitive_run_with_extra(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -2778,9 +2807,14 @@ fn execute_native_vortex_primitive_run_with_extra(
     execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    if let Some(exit) =
-        resident_sql::run_if_needed(request, plan, format, &mut extra_fields, execution_session)
-    {
+    if let Some(exit) = resident_sql::run_if_needed(
+        request,
+        plan,
+        format,
+        &mut extra_fields,
+        execution_session,
+        PublicSourcePreparations::default(),
+    ) {
         return exit;
     }
     if request.requested_output != "collect" {
@@ -4639,6 +4673,35 @@ struct PreparedLocalWorkflowRightSource {
     target: PathBuf,
 }
 
+#[derive(Clone, Default)]
+struct PublicSourcePreparations {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    sources:
+        Vec<std::sync::Arc<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>>,
+}
+
+impl PublicSourcePreparations {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[cfg_attr(
+        not(all(feature = "vortex-write", feature = "universal-format-io")),
+        allow(clippy::unused_self, unused_variables)
+    )]
+    fn same_generations(&self, other: &Self) -> bool {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        return self.sources.len() == other.sources.len()
+            && self
+                .sources
+                .iter()
+                .zip(&other.sources)
+                .all(|(left, right)| {
+                    left.source_digest == right.source_digest
+                        && left.prepared_digest == right.prepared_digest
+                });
+        #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+        true
+    }
+}
+
 #[derive(Clone, Copy)]
 struct PublicWorkflowPreparationInput<'a> {
     source_uri: &'a str,
@@ -4648,6 +4711,7 @@ struct PublicWorkflowPreparationInput<'a> {
     error_title: &'static str,
 }
 
+#[allow(clippy::too_many_lines)]
 fn execute_local_file_prepare_once_first_query_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -4743,12 +4807,20 @@ fn execute_local_file_prepare_once_first_query_run(
     };
 
     with_prepared_source_generations(&left_preparation, right_preparation.as_ref(), || {
+        let preparations = PublicSourcePreparations {
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            sources: std::iter::once(&left_preparation)
+                .chain(right_preparation.as_ref())
+                .filter_map(|preparation| preparation.identity.clone())
+                .collect(),
+        };
         execute_prepared_local_native_route(
             &prepared_run.request,
             &native_plan,
             format,
             extra_fields,
             execution_session,
+            &preparations,
         )
     })
     .unwrap_or_else(|error| {
@@ -4784,7 +4856,37 @@ fn execute_prepared_local_native_route(
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
+    preparations: &PublicSourcePreparations,
 ) -> ExitCode {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let mut extra_fields = extra_fields;
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let _ = preparations;
+    // Resolve the same strategy with the original preparation owners attached.
+    // Native source/plan owners carry them through final writer commit checks.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    if is_write_request(request)
+        && let Some(exit) = resident_sql::write_if_needed(
+            request,
+            native_plan,
+            format,
+            &mut extra_fields,
+            preparations.clone(),
+        )
+    {
+        return exit;
+    }
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if let Some(exit) = resident_sql::run_if_needed(
+        request,
+        native_plan,
+        format,
+        &mut extra_fields,
+        execution_session,
+        preparations.clone(),
+    ) {
+        return exit;
+    }
     match native_plan.route_id {
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         "native_vortex_relational_collect" | "native_vortex_relational_write" => {
@@ -4795,6 +4897,7 @@ fn execute_prepared_local_native_route(
                 execution_session,
                 extra_fields,
                 None,
+                preparations.clone(),
             )
         }
         "native_vortex_count_all"
@@ -5110,6 +5213,24 @@ fn prepared_local_workflow_native_request(
     );
     let right_source = prepared_local_workflow_right_source(request)?;
     let mut native_request = request.clone();
+    // Normalization changes both the SQL source leaf and its declaration. The
+    // original request still owns the compatibility schema and preparation proof;
+    // the native request must bind only the prepared artifact's authoritative type.
+    for (source, target) in std::iter::once((input_uri.as_str(), left_target.as_path())).chain(
+        right_source
+            .as_ref()
+            .map(|right| (right.source_uri.as_str(), right.target.as_path())),
+    ) {
+        if native_request.source_bindings.remove(source).is_some() {
+            native_request.source_bindings.insert(
+                target.display().to_string(),
+                PublicSourceBinding {
+                    input_format: "vortex".into(),
+                    source_schema: None,
+                },
+            );
+        }
+    }
     if let Some(plan_summary) =
         prepared_local_workflow_plan_summary(request, &left_target, right_source.as_ref())
     {
@@ -5134,7 +5255,9 @@ fn prepared_local_workflow_native_request(
         native_request.plan_summary = Some("sql(statement)".to_string());
         if let Some(payload) = infer_native_vortex_sql_payload(&native_request) {
             payload.apply(&mut native_request);
-        } else {
+        } else if plan_public_workflow_route(&native_request).status != CommandStatus::Success {
+            // Native relational SQL, including LIMIT 0, has no positive-limit
+            // primitive payload. Admit it through the same inert route planner.
             let blocked = if is_write_request(request) {
                 local_file_compatibility_sink_contract_missing_route(request)
             } else {
@@ -8150,7 +8273,18 @@ fn infer_native_vortex_sql_payload(
     if native_relational_sql_candidate(statement) {
         return None;
     }
-    infer_native_vortex_sql_primitive_payload(statement, request)
+    let shape = parse_native_vortex_sql_single_source_shape(statement);
+    // An empty SQL result needs the native relational limit operator. Metadata
+    // count and positive-limit primitives must not omit LIMIT 0.
+    if shape
+        .as_ref()
+        .and_then(|shape| shape.limit.as_deref())
+        .is_some_and(|limit| limit.parse::<usize>() == Ok(0))
+    {
+        return None;
+    }
+    shape
+        .and_then(|shape| infer_native_vortex_sql_primitive_payload(shape, request))
         .or_else(|| infer_native_vortex_sql_provider_payload(statement, is_write_request(request)))
 }
 
@@ -8263,7 +8397,7 @@ struct NativeVortexSqlSingleSourceShape {
 
 #[allow(clippy::too_many_lines)]
 fn infer_native_vortex_sql_primitive_payload(
-    statement: &str,
+    shape: NativeVortexSqlSingleSourceShape,
     request: &PublicWorkflowRouteRequest,
 ) -> Option<InferredNativeVortexRoutePayload> {
     if !matches!(
@@ -8280,7 +8414,6 @@ fn infer_native_vortex_sql_primitive_payload(
     ) {
         return None;
     }
-    let shape = parse_native_vortex_sql_single_source_shape(statement)?;
     if !native_vortex_sql_source_ref_matches_request(&shape.source_ref, request) {
         return None;
     }
@@ -8621,7 +8754,7 @@ fn parse_native_vortex_sql_limit_literal(value: &str) -> Option<String> {
         return None;
     }
     let limit = &value[..digit_count];
-    summary_positive_limit(limit).then(|| limit.to_string())
+    limit.parse::<usize>().ok().map(|_| limit.to_string())
 }
 
 fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
@@ -15335,6 +15468,14 @@ mod tests {
                 Some("aggregate")
             );
             assert!(!prepared.left_target.exists());
+            let native_bindings = &prepared.request.source_bindings;
+            assert_eq!(native_bindings.len(), 1);
+            let binding = native_bindings
+                .get(&prepared.left_target.display().to_string())
+                .unwrap();
+            assert_eq!(binding.input_format, "vortex");
+            assert!(binding.source_schema.is_none());
+            assert!(request.source_bindings.contains_key(source));
             for extra in [
                 vec!["--input", "other.csv"],
                 vec!["--input-format", "jsonl"],
@@ -15363,6 +15504,45 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn flat_source_bindings_accept_zero_limit_and_offset_without_io() {
+        for source in ["absent.csv", "declared.data", "absent.vortex"] {
+            let input_format = if source.ends_with(".vortex") {
+                "vortex"
+            } else {
+                "csv"
+            };
+            let bindings = format!(r#"{{"{source}":{{"input_format":"{input_format}"}}}}"#);
+            for suffix in ["LIMIT 0", "LIMIT 00 OFFSET 0", "LIMIT 2 OFFSET 0"] {
+                let statement =
+                    format!("SELECT label, count(*) AS n FROM '{source}' GROUP BY label {suffix}");
+                let request = PublicWorkflowRouteRequest::parse(
+                    ["sql", "--sql", &statement, "--source-bindings", &bindings]
+                        .into_iter()
+                        .map(str::to_owned),
+                )
+                .unwrap();
+                assert_eq!(request.input_uri.as_deref(), Some(source));
+                assert_eq!(request.input_format.as_deref(), Some(input_format));
+                if input_format == "vortex" {
+                    let lowered = effective_public_workflow_request(&request);
+                    if suffix.starts_with("LIMIT 0") {
+                        assert!(lowered.vortex_primitive.is_none());
+                        assert!(lowered.native_vortex_provider_scenario.is_none());
+                    } else {
+                        assert_eq!(lowered.vortex_primitive.as_deref(), Some("aggregate"));
+                    }
+                }
+            }
+        }
+        for invalid in ["-1", "+1", "1.0", "1 trailing", "18446744073709551616"] {
+            for keyword in ["LIMIT", "OFFSET"] {
+                let statement = format!("SELECT value FROM 'absent.vortex' {keyword} {invalid}");
+                assert!(parse_native_vortex_sql_single_source_shape(&statement).is_none());
+            }
+        }
     }
 
     #[test]

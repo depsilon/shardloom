@@ -52,9 +52,7 @@ impl Plan {
             .map(|name| super::schema::source_field(source, name.as_str()))
             .collect::<Result<Vec<_>>>()?;
         for dtype in &dtypes {
-            if !crate::native_payload_schema::admitted_scalar(dtype) {
-                return Err(failed("melt values require admitted scalar source types"));
-            }
+            super::super::native_payload::metadata_bytes(dtype)?;
         }
         fields.push((
             melt.variable_column.clone(),
@@ -105,10 +103,11 @@ pub(super) fn common_dtype(dtypes: &[DType]) -> Result<DType> {
         return Ok(common);
     }
     if dtypes.iter().any(|dtype| {
-        matches!(
-            dtype,
-            DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
-        )
+        super::super::native_payload::is_nested(dtype)
+            || matches!(
+                dtype,
+                DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
+            )
     }) {
         return Err(failed(
             "melt requires one lossless common scalar domain; typed values cannot be mixed with storage integers or unrelated types",
@@ -172,14 +171,14 @@ impl Melt {
                 if selected.values.len() == BATCH_ROWS
                     || output.rows.saturating_add(selected.values.len()) >= limit
                 {
-                    emit(plan, compiled, batch, &mut selected, output)?;
+                    emit(plan, compiled, batch, &mut selected, context, output)?;
                     if output.rows >= limit {
                         return Ok(true);
                     }
                 }
             }
         }
-        emit(plan, compiled, batch, &mut selected, output)?;
+        emit(plan, compiled, batch, &mut selected, context, output)?;
         Ok(false)
     }
 }
@@ -189,9 +188,27 @@ fn emit(
     compiled: &Plan,
     batch: &mut NativeBatch,
     selected: &mut ReservedVec<(usize, usize)>,
+    context: &NativeExecutionContext<'_>,
     output: &mut UnaryOutput<'_, '_>,
 ) -> Result<()> {
     let request = super::super::required_melt_projection(&plan.request)?;
+    if compiled
+        .fields
+        .iter()
+        .any(|(_, dtype)| super::super::native_payload::is_nested(dtype))
+    {
+        output.emit_native(selected.values.len(), context, || {
+            native_melt(
+                compiled,
+                batch,
+                &selected.values,
+                &request.value_columns,
+                context,
+            )
+        })?;
+        selected.values.clear();
+        return Ok(());
+    }
     output.emit(selected.values.len(), |row, column| {
         let (source, value) = selected.values[row];
         match column.cmp(&compiled.ids.len()) {
@@ -212,4 +229,106 @@ fn emit(
     })?;
     selected.values.clear();
     Ok(())
+}
+
+fn native_melt(
+    compiled: &Plan,
+    batch: &mut NativeBatch,
+    selected: &[(usize, usize)],
+    names: &[shardloom_core::ColumnRef],
+    context: &NativeExecutionContext<'_>,
+) -> Result<vortex::array::ArrayRef> {
+    use super::super::{
+        native_relational_batch::{index_array, take_column},
+        result_batch,
+    };
+    use vortex::array::{
+        IntoArray as _,
+        arrays::{ChunkedArray, StructArray},
+        builtins::ArrayBuiltins as _,
+        dtype::FieldNames,
+        memory::MemorySessionExt as _,
+        validity::Validity,
+    };
+    let rows = selected.len();
+    let indices = index_array(rows, false, context, |row| Ok(Some(selected[row].0)))?;
+    let mut columns = ReservedVec::new(context.memory())?;
+    columns.reserve(compiled.fields.len())?;
+    for (index, &column) in compiled.ids.iter().enumerate() {
+        context.check_cancelled()?;
+        columns.values.push(take_column(
+            &batch.column(column)?,
+            &indices,
+            &compiled.fields[index].1,
+            context,
+        )?);
+    }
+    columns.values.push(result_batch::build_column(
+        &DType::Utf8(Nullability::NonNullable),
+        rows,
+        &context.native_session().allocator(),
+        |row| {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            Ok(Value::Text(std::borrow::Cow::Borrowed(
+                names[selected[row].1].as_str(),
+            )))
+        },
+    )?);
+    let dtype = &compiled
+        .fields
+        .last()
+        .ok_or_else(|| failed("melt output dtype absent"))?
+        .1;
+    let value = if super::super::native_payload::is_nested(dtype) {
+        let mut arrays = ReservedVec::new(context.memory())?;
+        arrays.reserve(compiled.values.len())?;
+        let source_rows = batch.column(compiled.values[0])?.len();
+        for &column in &compiled.values {
+            context.check_cancelled()?;
+            let array = batch.column(column)?;
+            if array.len() != source_rows {
+                return Err(failed("melt source columns changed row count"));
+            }
+            arrays
+                .values
+                .push(array.cast(dtype.clone()).map_err(super::vortex_error)?);
+        }
+        let (arrays, _ownership) = arrays.into_parts();
+        let array = ChunkedArray::try_new(arrays, dtype.clone())
+            .map_err(super::vortex_error)?
+            .into_array();
+        let indices = index_array(rows, false, context, |row| {
+            let (source, value) = selected[row];
+            value
+                .checked_mul(source_rows)
+                .and_then(|index| index.checked_add(source))
+                .map(Some)
+                .ok_or_else(|| failed("melt source ordinal overflow"))
+        })?;
+        take_column(&array, &indices, dtype, context)?
+    } else {
+        result_batch::build_column(dtype, rows, &context.native_session().allocator(), |row| {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            let (source, value) = selected[row];
+            super::values::common_value(batch.value(compiled.values[value], source)?, dtype)
+        })?
+    };
+    columns.values.push(value);
+    let (columns, _ownership) = columns.into_parts();
+    StructArray::try_new(
+        compiled
+            .fields
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<FieldNames>(),
+        columns,
+        rows,
+        Validity::NonNullable,
+    )
+    .map(vortex::array::IntoArray::into_array)
+    .map_err(super::vortex_error)
 }

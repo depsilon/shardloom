@@ -4,8 +4,9 @@
 use super::{
     SimpleAggregateFunction as Function, logical_field_from_native_array,
     native_capacity::ReservedVec,
+    native_payload,
     native_relational_batch::{failed, index_array},
-    native_relational_expression::keys,
+    native_relational_expression::{keys, parent_validity},
     native_relational_keys::{Cell, KeyColumn, compare_cells},
     native_relational_set::RowSet,
     result_batch::{self, Value},
@@ -47,11 +48,17 @@ struct State {
     extreme: Option<Cell>,
 }
 
+struct NativeExtreme {
+    array: ArrayRef,
+    key: KeyColumn,
+}
+
 pub(super) struct Aggregate<'a> {
     spec: &'a Spec,
     groups: Option<RowSet<'a>>,
     states: ReservedVec<State>,
     distinct: ReservedVec<Option<RowSet<'a>>>,
+    nested_extrema: Option<ReservedVec<Option<NativeExtreme>>>,
 }
 
 impl<'a> Aggregate<'a> {
@@ -81,11 +88,24 @@ impl<'a> Aggregate<'a> {
                     None
                 });
         }
+        let nested_extrema = if spec
+            .measures
+            .iter()
+            .any(|measure| native_payload::is_nested(&measure.dtype))
+        {
+            let mut values = ReservedVec::new(memory)?;
+            values.reserve(states.values.len())?;
+            values.values.resize_with(states.values.len(), || None);
+            Some(values)
+        } else {
+            None
+        };
         Ok(Self {
             spec,
             groups,
             states,
             distinct,
+            nested_extrema,
         })
     }
 
@@ -109,6 +129,12 @@ impl<'a> Aggregate<'a> {
             ordinals.reserve(array.len())?;
             ordinals.values.resize(array.len(), 0);
         }
+        if let Some(extrema) = &mut self.nested_extrema {
+            extrema.reserve(self.states.values.len() - extrema.values.len())?;
+            extrema
+                .values
+                .resize_with(self.states.values.len(), || None);
+        }
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
             let column = measure
@@ -116,10 +142,15 @@ impl<'a> Aggregate<'a> {
                 .as_ref()
                 .map(|name| logical_field_from_native_array(array, name))
                 .transpose()?;
-            let values = column
-                .as_ref()
-                .map(|array| keys(array, context))
-                .transpose()?;
+            let count_nested = measure.function == Function::Count
+                && column
+                    .as_ref()
+                    .is_some_and(|array| native_payload::is_nested(array.dtype()));
+            let (validity, values) = match &column {
+                Some(array) if count_nested => (Some(parent_validity(array, context)?), None),
+                Some(array) => (None, Some(keys(array, context)?)),
+                None => (None, None),
+            };
             if let Some(distinct) = self.distinct.values[measure_index].as_mut() {
                 accumulate_distinct(
                     distinct,
@@ -138,12 +169,39 @@ impl<'a> Aggregate<'a> {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
+                let state_index = group * self.spec.measures.len() + measure_index;
+                if let Some(extrema) = &mut self.nested_extrema
+                    && native_payload::is_nested(&measure.dtype)
+                {
+                    update_native_extreme(
+                        &mut extrema.values[state_index],
+                        measure,
+                        column
+                            .as_ref()
+                            .ok_or_else(|| failed("nested extremum column absent"))?,
+                        values
+                            .as_ref()
+                            .ok_or_else(|| failed("nested extremum keys absent"))?,
+                        row,
+                        context,
+                    )?;
+                    continue;
+                }
+                let state = &mut self.states.values[state_index];
+                if count_nested {
+                    if validity
+                        .as_ref()
+                        .ok_or_else(|| failed("nested COUNT validity absent"))?
+                        .value(row)
+                    {
+                        update(state, measure, None, context)?;
+                    }
+                    continue;
+                }
                 let value = values
                     .as_ref()
                     .map(|values| values.raw_cell(row))
                     .transpose()?;
-                let state =
-                    &mut self.states.values[group * self.spec.measures.len() + measure_index];
                 update(state, measure, value, context)?;
             }
         }
@@ -173,6 +231,25 @@ impl<'a> Aggregate<'a> {
                 }
             }
             for (index, measure) in self.spec.measures.iter().enumerate() {
+                if native_payload::is_nested(&measure.dtype) {
+                    let extrema = self
+                        .nested_extrema
+                        .as_ref()
+                        .ok_or_else(|| failed("nested aggregate state absent"))?;
+                    columns.values.push(native_payload::retained_column(
+                        &measure.dtype,
+                        end - start,
+                        context,
+                        |row| {
+                            let state = extrema
+                                .values
+                                .get((start + row) * self.spec.measures.len() + index)
+                                .ok_or_else(|| failed("nested aggregate state index absent"))?;
+                            Ok(state.as_ref().map(|extreme| extreme.array.clone()))
+                        },
+                    )?);
+                    continue;
+                }
                 columns.values.push(result_batch::build_column(
                     &measure.dtype,
                     end - start,
@@ -206,6 +283,42 @@ impl<'a> Aggregate<'a> {
         }
         Ok(())
     }
+}
+
+fn update_native_extreme(
+    state: &mut Option<NativeExtreme>,
+    measure: &Measure,
+    array: &ArrayRef,
+    values: &KeyColumn,
+    row: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    if values.is_null(row)? {
+        return Ok(());
+    }
+    let replace = match state {
+        None => true,
+        Some(prior) => {
+            let order = values.compare_at(row, &prior.key, 0)?;
+            match measure.function {
+                Function::Min => order.is_lt(),
+                Function::Max => order.is_gt(),
+                _ => return Err(failed("nested aggregate output requires MIN or MAX")),
+            }
+        }
+    };
+    if replace {
+        let indices = index_array(1, false, context, |_| Ok(Some(row)))?;
+        let selected = native_payload::take(array, &indices, &measure.dtype, context)?;
+        let key = keys(&selected, context)?;
+        // Construct while the previous owner is still credited. Only selected
+        // child buffers survive the input batch, and replacement then drops it.
+        *state = Some(NativeExtreme {
+            array: selected,
+            key,
+        });
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)] // A bounded batch updates one measure's state through the shared exact set.
@@ -394,6 +507,10 @@ mod ownership_tests {
     use super::*;
     use crate::resident_session::ResidentVortexSession;
     use shardloom_exec::compute_pool::CancellationToken;
+    use vortex::array::{
+        VortexSessionExecute as _,
+        arrays::{ListViewArray, PrimitiveArray, VarBinArray},
+    };
     use vortex::buffer::ByteBuffer;
 
     #[test]
@@ -417,6 +534,94 @@ mod ownership_tests {
         drop(owned);
         assert!(memory.snapshot().reserved_bytes > 0);
         drop(retained);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn native_nested_extremum_compacts_children_and_admits_replacement_before_releasing_old_state()
+    {
+        let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+        let memory = session.memory().clone();
+        let mut state = None;
+        let list = |values: ArrayRef, offset: u64| {
+            ListViewArray::try_new(
+                values,
+                PrimitiveArray::from_iter([offset]).into_array(),
+                PrimitiveArray::from_iter([1u64]).into_array(),
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array()
+        };
+        let mut measure = Measure {
+            function: Function::Min,
+            column: Some("items".into()),
+            dtype: DType::Null,
+            distinct_fields: vec![],
+            distinct_names: vec![],
+        };
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                let huge = vec![255u8; 2 << 20];
+                let values = result_batch::build_column(
+                    &DType::Binary(vortex::array::dtype::Nullability::NonNullable),
+                    2,
+                    &context.native_session().allocator(),
+                    |row| {
+                        Ok(Value::Binary(Cow::Borrowed(if row == 0 {
+                            &huge
+                        } else {
+                            b"\x02"
+                        })))
+                    },
+                )?;
+                let array = list(values, 1);
+                measure.dtype = array.dtype().as_nullable();
+                let key = keys(&array, context)?;
+                update_native_extreme(&mut state, &measure, &array, &key, 0, context)?;
+                assert!(memory.snapshot().reserved_bytes >= 2 << 20);
+                drop((array, key));
+                assert!(
+                    memory.snapshot().reserved_bytes < 64 << 10,
+                    "extremum retained the unused child domain"
+                );
+                let retained_bytes = memory.snapshot().reserved_bytes;
+                let old = state.as_ref().unwrap().array.clone();
+                let next = list(VarBinArray::from(vec![&b"\x01"[..]]).into_array(), 0);
+                let next_key = keys(&next, context)?;
+                let blocked = memory.reserve(
+                    memory.snapshot().limit_bytes - memory.snapshot().reserved_bytes - 1024,
+                )?;
+                let error =
+                    update_native_extreme(&mut state, &measure, &next, &next_key, 0, context)
+                        .unwrap_err();
+                assert!(error.to_string().contains("reservation denied"), "{error}");
+                assert!(ArrayRef::ptr_eq(&state.as_ref().unwrap().array, &old));
+                drop(blocked);
+                drop(next_key);
+                assert_eq!(memory.snapshot().reserved_bytes, retained_bytes);
+                let next_key = keys(&next, context)?;
+                update_native_extreme(&mut state, &measure, &next, &next_key, 0, context)?;
+                assert!(!ArrayRef::ptr_eq(&state.as_ref().unwrap().array, &old));
+                drop((old, next, next_key));
+                assert!(memory.snapshot().reserved_bytes < 64 << 10);
+                Ok(())
+            })
+            .unwrap();
+        let selected = state.as_ref().unwrap().array.clone();
+        drop((state, session));
+        assert!(memory.snapshot().reserved_bytes > 0);
+        let mut execution = vortex::array::legacy_session().create_execution_ctx();
+        assert_eq!(
+            selected
+                .execute_scalar(0, &mut execution)
+                .unwrap()
+                .as_list()
+                .elements()
+                .unwrap(),
+            vec![vortex::array::scalar::Scalar::from(&b"\x01"[..])]
+        );
+        drop(selected);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }

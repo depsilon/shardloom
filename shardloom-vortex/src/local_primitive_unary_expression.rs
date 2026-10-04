@@ -5,7 +5,7 @@ use super::super::{MaterializedPredicateEvaluator, VortexExpressionRewrite as Re
 use super::{
     BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, Nullability, ReservedVec,
     Result, UnaryOutput, VortexQueryPrimitiveRequest, failed, scalar,
-    values::{OwnedRow, OwnedScalar, OwnedStat, borrowed},
+    values::{OwnedRow, OwnedScalar, OwnedStat},
     vortex_error,
 };
 use shardloom_core::ScalarValue;
@@ -165,6 +165,12 @@ impl Plan {
 }
 
 fn rewritten_dtype(dtype: &DType, rewrite: &Rewrite) -> Result<DType> {
+    if matches!(rewrite, Rewrite::ForwardFillNull { .. })
+        && super::super::native_payload::is_nested(dtype)
+    {
+        super::super::native_payload::metadata_bytes(dtype)?;
+        return Ok(dtype.clone());
+    }
     if !crate::native_payload_schema::admitted_scalar(dtype) {
         return Err(failed("rewrite requires a bound flat scalar target"));
     }
@@ -227,6 +233,7 @@ fn promote(dtype: &DType, nullable: Nullability) -> DType {
 
 struct Fill {
     value: Option<OwnedScalar>,
+    native: Option<vortex::array::ArrayRef>,
     consecutive: usize,
 }
 
@@ -251,6 +258,7 @@ impl Expression {
         for _ in &compiled.steps {
             fills.push(Fill {
                 value: None,
+                native: None,
                 consecutive: 0,
             })?;
         }
@@ -285,6 +293,7 @@ impl Expression {
                 &compiled.source_indices,
                 row,
                 compiled.extra_columns,
+                context,
             )?);
             if pending.values.len() == BATCH_ROWS
                 || output.rows.saturating_add(pending.values.len()) >= limit
@@ -323,6 +332,16 @@ impl Expression {
                     .ordinal
                     .checked_add(index as u64)
                     .ok_or_else(|| failed("rewrite row ordinal overflow"))?;
+                if super::super::native_payload::is_nested(&step.dtype) {
+                    fill_native(
+                        rewrite,
+                        step.target,
+                        row,
+                        &mut self.fills.values[step_index],
+                        context,
+                    )?;
+                    continue;
+                }
                 let value = apply(
                     rewrite,
                     step,
@@ -334,9 +353,13 @@ impl Expression {
                 row.replace(step.target, value)?;
             }
         }
-        output.emit(rows.values.len(), |row, column| {
-            borrowed(&rows.values[row].values()[compiled.output_indices[column]])
-        })?;
+        output.emit_retained(
+            &compiled.fields,
+            rows.values.len(),
+            context,
+            |row| Ok(&rows.values[row]),
+            |column| compiled.output_indices[column],
+        )?;
         self.ordinal = self
             .ordinal
             .checked_add(rows.values.len() as u64)
@@ -350,6 +373,43 @@ impl Expression {
     }
 }
 
+fn fill_native(
+    rewrite: &Rewrite,
+    column: usize,
+    row: &mut OwnedRow,
+    fill: &mut Fill,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    use vortex::array::VortexSessionExecute as _;
+    let Rewrite::ForwardFillNull { limit, .. } = rewrite else {
+        return Err(failed("nested rewrite requires forward fill"));
+    };
+    let current = row
+        .native(column)
+        .ok_or_else(|| failed("nested fill value absent"))?;
+    let mut execution = context.native_session().create_execution_ctx();
+    let valid = current
+        .validity()
+        .map_err(vortex_error)?
+        .execute_is_valid(0, &mut execution)
+        .map_err(vortex_error)?;
+    if valid {
+        // Each row already owns only its selected native children. Sharing that
+        // owner keeps its existing credit alive without copying the payload.
+        fill.native = Some(current.clone());
+        fill.consecutive = 0;
+    } else if let Some(value) = &fill.native
+        && limit.is_none_or(|limit| fill.consecutive < limit)
+    {
+        fill.consecutive = fill
+            .consecutive
+            .checked_add(1)
+            .ok_or_else(|| failed("fill length overflow"))?;
+        row.replace_native(column, value.clone())?;
+    }
+    Ok(())
+}
+
 fn apply(
     rewrite: &Rewrite,
     step: &Step,
@@ -358,7 +418,7 @@ fn apply(
     fill: &mut Fill,
     memory: &LiveMemoryPool,
 ) -> Result<OwnedScalar> {
-    let current = &row.values()[step.target];
+    let current = row.scalar(step.target)?;
     match rewrite {
         Rewrite::MaskScalar { .. } => {
             let predicate = step
@@ -366,7 +426,7 @@ fn apply(
                 .as_ref()
                 .ok_or_else(|| failed("mask predicate is not bound"))?;
             if predicate
-                .matches_with(&mut |column| OwnedStat::from_scalar(&row.values()[column], memory))?
+                .matches_with(&mut |column| OwnedStat::from_scalar(row.scalar(column)?, memory))?
             {
                 OwnedScalar::copy(
                     step.replacement

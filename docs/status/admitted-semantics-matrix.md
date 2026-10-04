@@ -26,6 +26,15 @@ docs/status/admitted-semantics-matrix.json
 shardloom.admitted_semantics_fixture_matrix.v1
 ```
 
+This is the historical 144-row decoded-reference fixture matrix, not the
+current native capability inventory. Its ARRAY/STRUCT literal and constructor
+diagnostics remain scoped to those fixtures. Native static nested source keys,
+selected expressions and retained state have a separate
+[contract](../architecture/native-nested-keys-state-2026-10-04.md) and
+[local acceptance](../benchmarks/native-nested-keys-state-full43-2026-10-04.md).
+Those native results do not change the reference evaluator's fixture semantics
+or establish broad SQL-standard parity.
+
 Current required evidence:
 
 ```text
@@ -198,6 +207,8 @@ Covered fixture rows:
 - `source_qualified_not_exists_subquery_semantics`
 - `source_qualified_quantified_subquery_semantics`
 
+The following coverage and gaps describe this decoded-reference matrix;
+consult the native contract above for current static nested source operations.
 Current remaining gaps are broad SQL-standard subquery parity beyond the admitted bounded local
 scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN,
 projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified,

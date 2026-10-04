@@ -468,14 +468,28 @@ Static List/FixedSizeList/Struct payloads compose through admitted relational
 stages and ordered/repeated explode. Nested payloads can be written as Vortex,
 JSON, JSONL, Arrow IPC, Parquet or Avro when the dtype is representable; nested
 CSV and ORC are denied. Exploded flat output still supports all eight writers.
-Nested keys, general nested unary state and general Variant/extension operations
-remain unsupported in composition. See the [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
+Current source builds extend relational keys to static List, FixedSizeList and
+Struct values for equality, hashing and ordering in the existing join, set,
+group, sort, window and subquery kernels. COUNT, COUNT DISTINCT, MIN/MAX,
+comparisons, NULL tests and selected CASE/COALESCE/NULLIF results use the same
+native nested values. Key schemas must match recursively, including field names
+and order, list kind and width, leaf widths, decimal precision/scale and
+temporal identity; recursive nullability does not affect key compatibility.
+Retained nested values are admitted for DISTINCT/duplicate selection and masks,
+tail, sampling, parent-level forward fill (a NULL parent takes the prior
+complete value; child NULLs do not trigger filling), lossless same-shape melt
+and rolling COUNT. See the [nested key and retained-state contract](../docs/architecture/native-nested-keys-state-2026-10-04.md);
+its local and hosted acceptance remains pending. General Variant/extension
+operations, structured literals, nested arithmetic/string operations, broader
+aggregate/window behavior, adapters and general state spill remain outside this
+scope. Scalar pivot type/domain restrictions remain in force. See also the
+[nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
 flat equality, hashing and ordering are admitted for relational joins, sets,
 groups, windows and subqueries, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
-comparisons and expressions; Decimal key precision and scale must match. Nested
-key equality remains unsupported. Current source
+comparisons and expressions; Decimal key precision and scale must match.
+Nested keys follow the subsequent contract above. Current source
 builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
 arithmetic/rounding and scoped binary/calendar functions through the shared
 native expression binder. Decimal arithmetic output metadata binds before

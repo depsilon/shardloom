@@ -465,6 +465,14 @@ fn validate_payload(dtype: &DType) -> Result<()> {
 }
 
 fn validate_key(dtype: &DType) -> Result<()> {
+    if super::super::native_payload::is_nested(dtype) {
+        validate_payload(dtype)
+    } else {
+        validate_flat_operand(dtype)
+    }
+}
+
+fn validate_flat_operand(dtype: &DType) -> Result<()> {
     match dtype {
         DType::Binary(_) => Ok(()),
         DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
@@ -518,6 +526,9 @@ fn validate_key_pair(left: &DType, right: &DType) -> Result<()> {
     validate_key(left)?;
     validate_key(right)?;
     if left.as_nonnullable() == right.as_nonnullable() {
+        return Ok(());
+    }
+    if super::super::native_payload::is_nested(left) && left.eq_ignore_nullability(right) {
         return Ok(());
     }
     if let (DType::Primitive(left, _), DType::Primitive(right, _)) = (left, right)

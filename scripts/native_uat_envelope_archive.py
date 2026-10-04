@@ -1,14 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Compact closed UAT gzip envelopes without changing their original bytes."""
+"""Compact closed UAT envelopes while preserving their original JSON bytes."""
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import io
 import json
 from pathlib import Path
 import stat
 import tarfile
+import zlib
 
 
 def _identity(path: Path) -> tuple[int, ...]:
@@ -22,6 +24,9 @@ def archive_envelopes(directory: Path, entries: list[dict], number: int) -> dict
     """Verify a bounded archive and every source before removing redundant files.
 
     The caller owns an exclusive UAT lock and passes only closed envelope files.
+    Gzip is temporary storage, not the archived payload: compress original JSON
+    together so repeated report fields share an xz dictionary. Retain both input
+    hashes and verify decoded bytes before removing the redundant gzip files.
     Failed validation leaves every original in place. A partial/failed archive
     also remains visible to storage accounting and failed-run inspection.
     """
@@ -38,19 +43,29 @@ def archive_envelopes(directory: Path, entries: list[dict], number: int) -> dict
             raise ValueError("duplicate or already archived envelope")
         names.add(path.name)
         identity = _identity(path)
-        raw = path.read_bytes()
-        if (len(raw) != entry["stored_bytes"] or
-                hashlib.sha256(raw).hexdigest() != entry["stored_sha256"] or
+        stored = path.read_bytes()
+        if (len(stored) != entry["stored_bytes"] or
+                hashlib.sha256(stored).hexdigest() != entry["stored_sha256"] or
                 _identity(path) != identity):
             raise ValueError(f"envelope changed before archival: {path.name}")
-        members.append({"name": path.name, "bytes": len(raw),
-                        "sha256": entry["stored_sha256"], "source_identity": identity})
+        try:
+            raw = gzip.decompress(stored)
+        except (OSError, EOFError, zlib.error) as error:
+            raise ValueError(f"invalid gzip envelope: {path.name}") from error
+        if (len(raw) != entry["raw_bytes"] or
+                hashlib.sha256(raw).hexdigest() != entry["raw_sha256"]):
+            raise ValueError(f"raw envelope differs before archival: {path.name}")
+        members.append({"name": path.name.removesuffix(".gz"), "bytes": len(raw),
+                        "sha256": entry["raw_sha256"], "source_name": path.name,
+                        "source_stored_bytes": len(stored),
+                        "source_stored_sha256": entry["stored_sha256"],
+                        "source_identity": identity})
         sources.append((path, identity, raw))
 
     with archive_path.open("xb") as destination:
         with tarfile.open(fileobj=destination, mode="w:xz", preset=3) as archive:
             for path, _, raw in sources:
-                info = tarfile.TarInfo(path.name)
+                info = tarfile.TarInfo(path.name.removesuffix(".gz"))
                 info.size = len(raw)
                 info.mode = 0o600
                 archive.addfile(info, io.BytesIO(raw))
@@ -67,6 +82,8 @@ def archive_envelopes(directory: Path, entries: list[dict], number: int) -> dict
     archive_bytes = archive_path.read_bytes()
     manifest = {"path": str(archive_path), "bytes": len(archive_bytes),
                 "sha256": hashlib.sha256(archive_bytes).hexdigest(), "members": members,
+                "member_encoding": "raw_json",
+                "source_gzip_bytes_verified_before_removal": True,
                 "original_bytes_verified_before_removal": True}
     manifest_path = archive_path.with_suffix(".manifest.json")
     manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode()
@@ -78,7 +95,8 @@ def archive_envelopes(directory: Path, entries: list[dict], number: int) -> dict
                     manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest())
     for entry, (path, _, _) in zip(entries, sources):
         entry["archive_path"] = str(archive_path)
-        entry["archive_member"] = path.name
+        entry["archive_member"] = path.name.removesuffix(".gz")
+        entry["archive_member_encoding"] = "raw_json"
     for path, _, _ in sources:
         path.unlink()
     return manifest
