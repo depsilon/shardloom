@@ -571,7 +571,7 @@ impl Lowerer<'_, '_> {
             ));
         }
         input = Self::windows(input, &parsed.window_projections)?;
-        input = self.projection(input, parsed, &visible, aggregate)?;
+        input = self.projection(input, parsed, &visible)?;
         if apply_limit {
             input = input.limit(parsed.limit);
         }

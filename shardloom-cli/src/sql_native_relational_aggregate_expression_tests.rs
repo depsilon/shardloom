@@ -137,6 +137,61 @@ fn native_typed_reductions_sql_qualified_derived_grouped_having_and_private_alia
 }
 
 #[test]
+fn native_typed_reductions_sql_grouped_projection_preserves_aliases_order_and_hidden_keys() {
+    let source = fixture();
+    for order in ["q.renamed", "id"] {
+        let statement = format!(
+            "SELECT SUM(q.pay+1) AS total,q.renamed AS id,MIN(q.pay) AS raw FROM (SELECT value AS renamed,metric AS pay FROM '{source}') AS q GROUP BY q.renamed HAVING q.renamed>=3 ORDER BY {order}"
+        );
+        verify(
+            &statement,
+            &json!([{"total":31.0,"id":3,"raw":30},{"total":41.0,"id":4,"raw":40},{"total":51.0,"id":5,"raw":50}]),
+        );
+        let prepared = prepare(
+            &statement,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
+        )
+        .unwrap();
+        let output = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(output.execution.output_columns, ["total", "id", "raw"]);
+        let empty = prepare(
+            &format!("{statement} LIMIT 0"),
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
+        )
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+        assert_eq!(empty.execution.output_columns, ["total", "id", "raw"]);
+        assert!(empty.result_jsonl.value().is_empty());
+    }
+    verify(
+        &format!(
+            "SELECT SUM(metric) AS total FROM '{source}' GROUP BY value ORDER BY value DESC LIMIT 2"
+        ),
+        &json!([{"total":50.0},{"total":40.0}]),
+    );
+    verify(
+        &format!("SELECT value AS id FROM '{source}' GROUP BY value ORDER BY id LIMIT 2"),
+        &json!([{"id":1},{"id":2}]),
+    );
+    for tail in ["", " LIMIT 0"] {
+        assert!(
+            prepare(
+                &format!("SELECT metric,SUM(value) AS total FROM '{source}' GROUP BY value{tail}"),
+                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
+            )
+            .is_err(),
+            "ungrouped fields must bind-fail even for empty output"
+        );
+    }
+}
+
+#[test]
 fn native_typed_reductions_sql_private_arguments_do_not_expand_unused_wide_input() {
     let source = fixture();
     let columns = (0..128)

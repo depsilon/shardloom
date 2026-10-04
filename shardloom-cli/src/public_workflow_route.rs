@@ -8792,18 +8792,20 @@ fn aggregate_payload_from_sql_projection(
     order_by: Option<&str>,
     offset: Option<&str>,
 ) -> Option<String> {
-    let group_spec = if let Some(group_by) = group_by {
+    let mut group_spec = if let Some(group_by) = group_by {
         parse_sql_group_by_spec(group_by, projection)?
     } else {
         ParsedSqlGroupSpec::default()
     };
     let mut measures = Vec::new();
     let mut parsed_measures = Vec::new();
+    let mut projected_columns = Vec::new();
     for (index, item) in split_sql_projection_list(projection)
         .into_iter()
         .enumerate()
     {
         if let Some(measure) = scalar_aggregate_measure_from_sql(index, item) {
+            projected_columns.push(measure.alias.clone());
             measures.push(measure.payload.clone());
             parsed_measures.push(measure);
             continue;
@@ -8824,6 +8826,20 @@ fn aggregate_payload_from_sql_projection(
         if !direct_group_matches && !expression_group_matches {
             return None;
         }
+        projected_columns.push(
+            projected_group_alias
+                .map(str::to_owned)
+                .or_else(|| {
+                    group_spec
+                        .expressions
+                        .iter()
+                        .find(|expression| {
+                            expression.expression_key == compact_ascii_lower(projected_group_raw)
+                        })
+                        .map(|expression| expression.alias.clone())
+                })
+                .or(projected_group)?,
+        );
     }
     if group_spec.columns.is_empty() && group_spec.expressions.is_empty() && group_by.is_some() {
         return None;
@@ -8831,6 +8847,7 @@ fn aggregate_payload_from_sql_projection(
     if measures.is_empty() {
         return None;
     }
+    group_spec.admit_output_layout(&projected_columns, &parsed_measures)?;
     let order_by = match order_by {
         Some(order_by) => parse_sql_aggregate_order_by(order_by, &group_spec, &parsed_measures)?,
         None => Vec::new(),
@@ -8946,6 +8963,61 @@ struct ParsedSqlGroupExpression {
 struct ParsedSqlGroupSpec {
     columns: Vec<String>,
     expressions: Vec<ParsedSqlGroupExpression>,
+}
+
+impl ParsedSqlGroupSpec {
+    // This strategy emits every group key followed by its measures. Mixed raw
+    // and computed keys use the existing identity expression to keep the SQL
+    // key order in one native key vector. Other projection changes belong to
+    // the shared native projection lowerer, not another result rewriter here.
+    fn admit_output_layout(
+        &mut self,
+        projected_columns: &[String],
+        measures: &[ParsedSqlAggregateMeasure],
+    ) -> Option<()> {
+        if projected_columns.iter().eq(self
+            .columns
+            .iter()
+            .chain(self.expressions.iter().map(|expression| &expression.alias))
+            .chain(measures.iter().map(|measure| &measure.alias)))
+        {
+            return Some(());
+        }
+        let groups = self.columns.len() + self.expressions.len();
+        if self.expressions.is_empty()
+            || projected_columns.len() != groups + measures.len()
+            || !projected_columns[groups..]
+                .iter()
+                .eq(measures.iter().map(|measure| &measure.alias))
+            || projected_columns[..groups]
+                .iter()
+                .collect::<BTreeSet<_>>()
+                .len()
+                != groups
+        {
+            return None;
+        }
+        let expressions = projected_columns[..groups]
+            .iter()
+            .map(|name| {
+                if let Some(expression) = self
+                    .expressions
+                    .iter()
+                    .find(|expression| &expression.alias == name)
+                {
+                    return Some(expression.clone());
+                }
+                self.columns.contains(name).then(|| ParsedSqlGroupExpression {
+                payload: serde_json::json!({"alias":name,"column":name,"function":"identity"}),
+                alias: name.clone(),
+                expression_key: compact_ascii_lower(name),
+            })
+            })
+            .collect::<Option<Vec<_>>>()?;
+        self.columns.clear();
+        self.expressions = expressions;
+        Some(())
+    }
 }
 
 fn scalar_aggregate_measure_from_sql(
@@ -16336,6 +16408,51 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn route_planner_grouped_projections_preserve_complete_sql_declarations() {
+        for projection in [
+            "SUM(metric) AS total,value",
+            "SUM(metric) AS total",
+            "value AS id,SUM(metric) AS total",
+            "value AS id,SUM(metric+1) AS total",
+        ] {
+            let statement =
+                format!("SELECT {projection} FROM 'orders.vortex' GROUP BY value ORDER BY value");
+            let request = PublicWorkflowRouteRequest::parse(
+                [
+                    "sql",
+                    "--input",
+                    "orders.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--sql",
+                    &statement,
+                    "--request",
+                    "collect",
+                    "--bounded",
+                    "true",
+                ]
+                .into_iter()
+                .map(str::to_string),
+            )
+            .unwrap();
+            assert!(
+                infer_native_vortex_sql_payload(&request).is_none(),
+                "{statement}"
+            );
+        }
+        assert!(
+            aggregate_payload_from_sql_projection(
+                "value,SUM(metric) AS total",
+                Some("value"),
+                None,
+                Some("value"),
+                None,
+            )
+            .is_some()
+        );
     }
 
     #[test]

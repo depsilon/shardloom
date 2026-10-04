@@ -81,10 +81,6 @@
   strategy, and verification across existing and composed workloads. Sharing a crate or allocator
   alone is insufficient proof of algorithm reuse. Preserve justified semantic/physical strategies
   inside shared components and apply the measured retain/drop gate to performance changes.
-- The October 4 clarification keeps computation and policy in the Vortex-normalized middle.
-  Reuse existing Vortex providers and ShardLoom native owners before adding logic. Frontends
-  translate declarations; adapters validate format-specific constraints. Remove duplicate
-  admission or evaluation in wrappers instead of adding equivalent execution there.
 - Focused validation entries must use exact test targets before broad gates. Rust unit filters must
   target the exact crate surface: `cargo test -p <crate> --bin <name> <filter>` for binary crates
   and `cargo test -p <crate> --lib <filter>` for library crates. Rust integration filters must use

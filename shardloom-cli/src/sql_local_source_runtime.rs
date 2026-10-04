@@ -2352,6 +2352,7 @@ struct ParsedProjectionList {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ParsedProjectionOutput {
     Raw(String),
+    Aggregate(String),
     Literal(String),
     Complex(String),
     Cast(String),
@@ -2379,7 +2380,8 @@ impl ParsedProjectionOutput {
     fn computed_alias(&self) -> Option<&str> {
         match self {
             Self::Raw(_) => None,
-            Self::Literal(alias)
+            Self::Aggregate(alias)
+            | Self::Literal(alias)
             | Self::Complex(alias)
             | Self::Cast(alias)
             | Self::NullCoalesce(alias)
@@ -14618,7 +14620,7 @@ fn append_ordered_projection_expression(
                 ));
             }
         }
-        ParsedProjectionOutput::Raw(column) => {
+        ParsedProjectionOutput::Raw(column) | ParsedProjectionOutput::Aggregate(column) => {
             expressions.push(Expression::column(
                 ExprId::new(format!("{raw_expr_prefix}.{column}"))?,
                 ColumnRef::new(column.clone())?,
@@ -21035,6 +21037,7 @@ impl ParsedSqlLocalSource {
                     output_columns.extend(header.iter().cloned());
                 }
                 ParsedProjectionOutput::Raw(column)
+                | ParsedProjectionOutput::Aggregate(column)
                 | ParsedProjectionOutput::Literal(column)
                 | ParsedProjectionOutput::Complex(column)
                 | ParsedProjectionOutput::Cast(column)
@@ -21110,7 +21113,8 @@ impl ParsedSqlLocalSource {
                         .find(|projection| projection.alias == *alias)
                         .map(|projection| projection.kind.output_dtype()),
                 ),
-                ParsedProjectionOutput::Literal(_)
+                ParsedProjectionOutput::Aggregate(_)
+                | ParsedProjectionOutput::Literal(_)
                 | ParsedProjectionOutput::NullCoalesce(_)
                 | ParsedProjectionOutput::NullIf(_)
                 | ParsedProjectionOutput::Conditional(_)
@@ -21161,7 +21165,8 @@ impl ParsedSqlLocalSource {
                         column,
                     ));
                 }
-                ParsedProjectionOutput::Literal(_)
+                ParsedProjectionOutput::Aggregate(_)
+                | ParsedProjectionOutput::Literal(_)
                 | ParsedProjectionOutput::Complex(_)
                 | ParsedProjectionOutput::Cast(_)
                 | ParsedProjectionOutput::NullCoalesce(_)
@@ -36425,6 +36430,7 @@ fn reserved_having_aggregate_aliases(projection_list: &ParsedProjectionList) -> 
         match output {
             ParsedProjectionOutput::Raw(column) if column == "*" => {}
             ParsedProjectionOutput::Raw(column)
+            | ParsedProjectionOutput::Aggregate(column)
             | ParsedProjectionOutput::Literal(column)
             | ParsedProjectionOutput::Complex(column)
             | ParsedProjectionOutput::Cast(column)
@@ -36568,6 +36574,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             projection_order.push(ParsedProjectionOutput::Raw("*".to_string()));
             projections.push("*".to_string());
         } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Aggregate(aggregate.output_name()));
             aggregates.push(aggregate);
         } else if let Some(window_projection) = parse_window_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::Window(
@@ -42286,6 +42293,7 @@ fn projected_subquery_output_columns(
             .iter()
             .map(|output| match output {
                 ParsedProjectionOutput::Raw(column)
+                | ParsedProjectionOutput::Aggregate(column)
                 | ParsedProjectionOutput::Literal(column)
                 | ParsedProjectionOutput::Complex(column)
                 | ParsedProjectionOutput::Cast(column)

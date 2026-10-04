@@ -68,6 +68,12 @@ An artificial derived relation is not required to reach the shared binder.
 Unaliased NULL, TRUE and FALSE use lowercase keyword output names. A WHERE clause
 cannot turn an unsupported scalar projection into a filter-only operation;
 complete expression binding and evaluation remain required.
+Grouped SELECT output uses that same ordered projection lowerer, preserving
+aliases, declared order and omitted grouping keys. A specialized aggregate scan
+is admitted only when its complete output layout matches the SELECT declaration;
+other layouts keep the full SQL declaration for shared native projection.
+Mixed raw and computed grouping keys reuse the existing native identity
+expression to preserve their declaration order inside one key vector.
 
 Columnar inputs retain field names admitted by the existing shared schema
 reader. A qualified output field such as `q.id` must reopen through Parquet,
