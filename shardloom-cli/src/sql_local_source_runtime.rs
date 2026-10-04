@@ -1762,12 +1762,23 @@ struct ParsedSqlLocalSource {
     normalized_statement: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedAggregate {
     function: AggregateFunction,
-    column: Option<String>,
+    argument: ParsedAggregateArgument,
     alias: Option<String>,
     distinct: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ParsedAggregateArgument {
+    All,
+    Column(String),
+    Computed {
+        raw: String,
+        expression: Box<Expression>,
+        source_columns: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11802,15 +11813,8 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
     for column in &parsed.group_by {
         columns.insert(column.clone());
     }
-    for aggregate in &parsed.aggregates {
-        if let Some(column) = aggregate.column.as_ref() {
-            columns.insert(column.clone());
-        }
-    }
-    for aggregate in &parsed.having_aggregates {
-        if let Some(column) = aggregate.column.as_ref() {
-            columns.insert(column.clone());
-        }
+    for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
+        columns.extend(aggregate.source_columns().iter().cloned());
     }
     if let Some(order_by) = parsed.order_by.as_ref().filter(|_| !parsed.is_aggregate()) {
         for key in &order_by.keys {
@@ -17160,11 +17164,16 @@ fn evaluate_scalar_aggregate(
     rows: &[&ExpressionInputRow],
     selected_row_indexes: &[usize],
 ) -> Result<ScalarValue, ShardLoomError> {
+    if matches!(aggregate.argument, ParsedAggregateArgument::Computed { .. }) {
+        return Err(unsupported_sql_error(
+            "computed aggregate arguments require the shared native relational runtime",
+        ));
+    }
     match aggregate.function {
         AggregateFunction::Count => {
             let count = if aggregate.distinct {
                 aggregate_count_distinct(aggregate, rows, selected_row_indexes)?
-            } else if let Some(column) = aggregate.column.as_deref() {
+            } else if let Some(column) = aggregate.column() {
                 selected_row_indexes
                     .iter()
                     .filter_map(|row_index| rows.get(*row_index))
@@ -18796,12 +18805,12 @@ fn validate_aggregate_source_columns(
     header: &[String],
 ) -> Result<(), ShardLoomError> {
     for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
-        if let Some(column) = aggregate.column.as_deref()
-            && !header.iter().any(|candidate| candidate == column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "aggregate column {column:?} is not present in the CSV header"
-            )));
+        for column in aggregate.source_columns() {
+            if !header.iter().any(|candidate| candidate == column) {
+                return Err(unsupported_sql_error(&format!(
+                    "aggregate column {column:?} is not present in the CSV header"
+                )));
+            }
         }
     }
     Ok(())
@@ -19577,14 +19586,9 @@ fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&s
             source_refs.insert(key.column.as_str());
         }
     }
-    for aggregate in &parsed.aggregates {
-        if let Some(column) = aggregate.column.as_deref() {
-            source_refs.insert(column);
-        }
-    }
-    for aggregate in &parsed.having_aggregates {
-        if let Some(column) = aggregate.column.as_deref() {
-            source_refs.insert(column);
+    for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
+        for column in aggregate.source_columns() {
+            source_refs.insert(column.as_str());
         }
     }
     for column in parsed.predicate.columns() {
@@ -19743,7 +19747,7 @@ fn validate_join_aggregate_source_columns(
     right_header: &[String],
 ) -> Result<(), ShardLoomError> {
     for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
-        if let Some(column) = aggregate.column.as_deref() {
+        for column in aggregate.source_columns() {
             bind_qualified_column(column, left_alias, left_header, right_alias, right_header)?;
         }
     }
@@ -21243,7 +21247,7 @@ impl ParsedSqlLocalSource {
             .aggregates
             .iter()
             .filter(|aggregate| aggregate.distinct)
-            .filter_map(|aggregate| aggregate.column.as_deref())
+            .filter_map(|aggregate| aggregate.argument_label())
             .collect::<Vec<_>>();
         if columns.is_empty() {
             "not_applicable".to_string()
@@ -22277,11 +22281,45 @@ impl ParsedSqlLocalSource {
 }
 
 impl ParsedAggregate {
+    fn column(&self) -> Option<&str> {
+        match &self.argument {
+            ParsedAggregateArgument::Column(column) => Some(column),
+            _ => None,
+        }
+    }
+
+    fn source_columns(&self) -> &[String] {
+        match &self.argument {
+            ParsedAggregateArgument::All => &[],
+            ParsedAggregateArgument::Column(column) => std::slice::from_ref(column),
+            ParsedAggregateArgument::Computed { source_columns, .. } => source_columns,
+        }
+    }
+
+    fn argument_label(&self) -> Option<&str> {
+        match &self.argument {
+            ParsedAggregateArgument::All => None,
+            ParsedAggregateArgument::Column(column) => Some(column),
+            ParsedAggregateArgument::Computed { raw, .. } => Some(raw),
+        }
+    }
+
     fn output_name(&self) -> String {
         if let Some(alias) = self.alias.as_ref() {
             return alias.clone();
         }
-        match (self.function, self.column.as_deref(), self.distinct) {
+        if let ParsedAggregateArgument::Computed { raw, .. } = &self.argument {
+            use sha2::{Digest as _, Sha256};
+            // Bound the schema name independently of expression length. Existing
+            // output-name validation rejects duplicate or colliding names.
+            return format!(
+                "{}{}_expr_{}",
+                self.function.as_str(),
+                if self.distinct { "_distinct" } else { "" },
+                bytes_to_hex(&Sha256::digest(raw.as_bytes()))
+            );
+        }
+        match (self.function, self.column(), self.distinct) {
             (AggregateFunction::Count, None, _) => "count_all".to_string(),
             (function, Some(column), true) => {
                 format!("{}_distinct_{}", function.as_str(), column)
@@ -22292,7 +22330,7 @@ impl ParsedAggregate {
     }
 
     fn label(&self) -> String {
-        match (self.function, self.column.as_deref(), self.distinct) {
+        match (self.function, self.argument_label(), self.distinct) {
             (AggregateFunction::Count, None, _) => "count(*)".to_string(),
             (function, Some(column), true) => {
                 format!("{}(DISTINCT {column})", function.as_str())
@@ -22303,8 +22341,8 @@ impl ParsedAggregate {
     }
 
     fn required_column(&self) -> Result<&str, ShardLoomError> {
-        self.column.as_deref().ok_or_else(|| {
-            unsupported_sql_error("aggregate function requires a column in this scoped smoke")
+        self.column().ok_or_else(|| {
+            unsupported_sql_error("decoded reference aggregates require a bare input column; computed arguments use the shared native relational runtime")
         })
     }
 }
@@ -37806,6 +37844,9 @@ fn is_simple_numeric_arithmetic_projection_shape(raw: &str) -> Result<bool, Shar
     Ok(parse_numeric_arithmetic_literal(&tokens[2]).is_ok())
 }
 
+#[cfg(test)]
+#[path = "sql_aggregate_expression_tests.rs"]
+mod aggregate_expression_tests;
 #[path = "sql_scalar_expression.rs"]
 mod scalar_expression;
 
@@ -39424,26 +39465,26 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
     };
     if !expression_raw.ends_with(')') {
         return Err(unsupported_sql_error(
-            "aggregate expressions must be written as function(column) or function(column) AS alias in this scoped smoke",
+            "aggregate expressions must be written as function(argument) or function(argument) AS alias",
         ));
     }
     let argument = expression_raw[open_index + 1..expression_raw.len() - 1].trim();
     if argument.is_empty() {
         return Err(unsupported_sql_error(
-            "aggregate expressions require a column or COUNT(*) argument",
+            "aggregate expressions require one scalar argument or COUNT(*)",
         ));
     }
     let (distinct, argument) = if let Some(argument) = strip_leading_keyword(argument, "distinct")?
     {
         if function != AggregateFunction::Count {
             return Err(unsupported_sql_error(
-                "DISTINCT aggregate runtime currently admits COUNT(DISTINCT <column>) only",
+                "DISTINCT aggregate runtime currently admits COUNT(DISTINCT <argument>) only",
             ));
         }
         let argument = argument.trim();
         if argument.is_empty() {
             return Err(unsupported_sql_error(
-                "COUNT(DISTINCT ...) requires one source column",
+                "COUNT(DISTINCT ...) requires one scalar argument",
             ));
         }
         (true, argument)
@@ -39463,15 +39504,24 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
         }
         return Ok(Some(ParsedAggregate {
             function,
-            column: None,
+            argument: ParsedAggregateArgument::All,
             alias,
             distinct,
         }));
     }
-    validate_sql_column_ref(argument)?;
+    let expression = scalar_expression::parse(argument, "aggregate.argument")?;
+    let argument = if let ExpressionKind::Column(column) = &expression.kind {
+        ParsedAggregateArgument::Column(column.as_str().to_owned())
+    } else {
+        ParsedAggregateArgument::Computed {
+            raw: argument.to_owned(),
+            source_columns: expression_source_columns(&expression),
+            expression: Box::new(expression),
+        }
+    };
     Ok(Some(ParsedAggregate {
         function,
-        column: Some(argument.to_string()),
+        argument,
         alias,
         distinct,
     }))
@@ -50289,7 +50339,7 @@ mod tests {
         assert!(
             sum_distinct
                 .to_string()
-                .contains("COUNT(DISTINCT <column>) only"),
+                .contains("COUNT(DISTINCT <argument>) only"),
             "{sum_distinct}"
         );
 
@@ -59294,7 +59344,7 @@ mod tests {
         assert_eq!(parsed.aggregates.len(), 2);
         assert_eq!(parsed.aggregates[0].label(), "sum(f.amount)");
         assert_eq!(parsed.aggregates[0].output_name(), "total_amount");
-        assert_eq!(parsed.aggregates[0].column.as_deref(), Some("f.amount"));
+        assert_eq!(parsed.aggregates[0].column(), Some("f.amount"));
         assert_eq!(parsed.aggregates[1].label(), "count(*)");
         assert_eq!(parsed.aggregates[1].output_name(), "rows");
         assert_eq!(

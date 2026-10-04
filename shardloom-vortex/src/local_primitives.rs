@@ -95,6 +95,9 @@ mod mixed_distinct_workers;
 #[path = "local_primitives/native_capacity.rs"]
 mod native_capacity;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/native_decimal_reduce.rs"]
+mod native_decimal_reduce;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -194,6 +197,9 @@ pub mod prepared_relational;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_unary.rs"]
 pub mod prepared_unary;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/rolling_observation.rs"]
+mod rolling_observation;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/scalar_distinct_partitions.rs"]
 mod scalar_distinct_partitions;
@@ -8182,9 +8188,9 @@ fn validate_rolling_window_request(rolling_window: &VortexRollingWindowRequest) 
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-struct RollingWindowState {
-    values: std::collections::VecDeque<Option<f64>>,
-    sum: f64,
+struct RollingWindowState<T: rolling_observation::Observation = f64> {
+    values: std::collections::VecDeque<Option<T>>,
+    sum: T::Total,
     valid_count: usize,
     center_seen_rows: usize,
     center_next_output_row: usize,
@@ -8194,9 +8200,16 @@ struct RollingWindowState {
 #[cfg(feature = "vortex-local-primitives")]
 impl RollingWindowState {
     fn new(window_size: usize) -> Self {
+        Self::with_values(std::collections::VecDeque::with_capacity(window_size))
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl<T: rolling_observation::Observation> RollingWindowState<T> {
+    fn with_values(values: std::collections::VecDeque<Option<T>>) -> Self {
         Self {
-            values: std::collections::VecDeque::with_capacity(window_size),
-            sum: 0.0,
+            values,
+            sum: T::Total::default(),
             valid_count: 0,
             center_seen_rows: 0,
             center_next_output_row: 0,
@@ -8204,18 +8217,18 @@ impl RollingWindowState {
         }
     }
 
-    fn push(&mut self, value: Option<f64>, window_size: usize, track_sum: bool) -> Result<()> {
+    fn push(&mut self, value: Option<T>, window_size: usize, track_sum: bool) -> Result<()> {
         if self.values.len() == window_size
             && let Some(expired) = self.values.pop_front().flatten()
         {
             if track_sum {
-                self.sum -= expired;
+                T::remove(&mut self.sum, expired)?;
             }
             self.valid_count = self.valid_count.saturating_sub(1);
         }
         if let Some(value) = value {
             if track_sum {
-                self.sum += value;
+                T::add(&mut self.sum, value)?;
             }
             self.valid_count = self.valid_count.checked_add(1).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
@@ -8223,12 +8236,6 @@ impl RollingWindowState {
                         .to_string(),
                 )
             })?;
-            if !self.sum.is_finite() {
-                return Err(ShardLoomError::InvalidOperation(
-                    "local Vortex rolling window produced a non-finite sum; no fallback execution was attempted"
-                        .to_string(),
-                ));
-            }
         }
         self.values.push_back(value);
         Ok(())
@@ -8242,6 +8249,10 @@ impl RollingWindowState {
         self.valid_count
     }
 
+    fn current_value(&self, request: &VortexRollingWindowRequest) -> Result<T::Output> {
+        T::current(self, request)
+    }
+
     fn input_rows_needed_for_outputs(&self, min_periods: usize, output_rows: usize) -> usize {
         if output_rows == 0 {
             return 0;
@@ -8253,7 +8264,15 @@ impl RollingWindowState {
         )
     }
 
-    fn push_centered(&mut self, value: Option<f64>) -> Result<()> {
+    fn push_centered(&mut self, value: Option<T>) -> Result<()> {
+        if T::TRACK_CENTERED_TOTAL
+            && let Some(value) = value
+        {
+            T::add(&mut self.sum, value)?;
+            self.valid_count = self.valid_count.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation("centered rolling count overflow".into())
+            })?;
+        }
         self.values.push_back(value);
         self.center_seen_rows = self.center_seen_rows.checked_add(1).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
@@ -8268,11 +8287,24 @@ impl RollingWindowState {
         &mut self,
         rolling_window: &VortexRollingWindowRequest,
         end_of_input: bool,
-    ) -> Result<Vec<StatValue>> {
+    ) -> Result<Vec<T::Output>> {
+        self.emit_ready_centered_controlled(rolling_window, end_of_input, usize::MAX, || Ok(()))
+    }
+
+    fn emit_ready_centered_controlled(
+        &mut self,
+        rolling_window: &VortexRollingWindowRequest,
+        end_of_input: bool,
+        output_limit: usize,
+        mut check_cancelled: impl FnMut() -> Result<()>,
+    ) -> Result<Vec<T::Output>> {
         let left_rows = rolling_center_left_rows(rolling_window.window_size);
         let right_rows = rolling_center_right_rows(rolling_window.window_size);
         let mut output = Vec::new();
-        while self.center_next_output_row < self.center_seen_rows {
+        while self.center_next_output_row < self.center_seen_rows && output.len() < output_limit {
+            if self.center_next_output_row.is_multiple_of(256) {
+                check_cancelled()?;
+            }
             let right_boundary = self.center_next_output_row.saturating_add(right_rows);
             if right_boundary >= self.center_seen_rows && !end_of_input {
                 break;
@@ -8287,12 +8319,7 @@ impl RollingWindowState {
             }
             let start_offset = start - self.center_buffer_start_row;
             let end_offset = end - self.center_buffer_start_row;
-            if let Some(value) = rolling_aggregate_from_window(
-                &self.values,
-                start_offset,
-                end_offset,
-                rolling_window,
-            )? {
+            if let Some(value) = T::centered(self, start_offset, end_offset, rolling_window)? {
                 output.push(value);
             }
             self.center_next_output_row =
@@ -8302,19 +8329,28 @@ impl RollingWindowState {
                             .to_string(),
                     )
                 })?;
-            self.trim_centered_buffer(left_rows);
+            self.trim_centered_buffer(left_rows)?;
         }
         Ok(output)
     }
 
-    fn trim_centered_buffer(&mut self, left_rows: usize) {
+    fn trim_centered_buffer(&mut self, left_rows: usize) -> Result<()> {
         let earliest_needed = self.center_next_output_row.saturating_sub(left_rows);
         while self.center_buffer_start_row < earliest_needed {
-            if self.values.pop_front().is_none() {
+            let Some(value) = self.values.pop_front() else {
                 break;
+            };
+            if T::TRACK_CENTERED_TOTAL
+                && let Some(value) = value
+            {
+                T::remove(&mut self.sum, value)?;
+                self.valid_count = self.valid_count.checked_sub(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation("centered rolling count underflow".into())
+                })?;
             }
             self.center_buffer_start_row = self.center_buffer_start_row.saturating_add(1);
         }
+        Ok(())
     }
 }
 
@@ -8353,66 +8389,7 @@ fn rolling_window_values(
             matches!(rolling_window.aggregate.as_str(), "sum" | "mean"),
         )?;
         if state.ready(rolling_window.min_periods) {
-            let value = match rolling_window.aggregate.as_str() {
-                "sum" => StatValue::Float64(state.sum),
-                "mean" => {
-                    let count = state.current_count();
-                    if count == 0 {
-                        return Err(ShardLoomError::InvalidOperation(
-                            "local Vortex rolling mean had zero rows in state; no fallback execution was attempted"
-                                .to_string(),
-                        ));
-                    }
-                    let mean = state.sum / count as f64;
-                    if !mean.is_finite() {
-                        return Err(ShardLoomError::InvalidOperation(
-                            "local Vortex rolling mean produced a non-finite value; no fallback execution was attempted"
-                                .to_string(),
-                        ));
-                    }
-                    StatValue::Float64(mean)
-                }
-                "count" => StatValue::UInt64(usize_to_u64(state.current_count())?),
-                "min" => {
-                    let value =
-                        state
-                            .values
-                            .iter()
-                            .flatten()
-                            .copied()
-                            .reduce(f64::min)
-                            .ok_or_else(|| {
-                                ShardLoomError::InvalidOperation(
-                                    "local Vortex rolling min had zero rows in state; no fallback execution was attempted"
-                                        .to_string(),
-                                )
-                            })?;
-                    StatValue::Float64(value)
-                }
-                "max" => {
-                    let value =
-                        state
-                            .values
-                            .iter()
-                            .flatten()
-                            .copied()
-                            .reduce(f64::max)
-                            .ok_or_else(|| {
-                                ShardLoomError::InvalidOperation(
-                                    "local Vortex rolling max had zero rows in state; no fallback execution was attempted"
-                                        .to_string(),
-                                )
-                            })?;
-                    StatValue::Float64(value)
-                }
-                _ => {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "local Vortex rolling window aggregate was not admitted; no fallback execution was attempted"
-                            .to_string(),
-                    ));
-                }
-            };
-            output.push(value);
+            output.push(state.current_value(rolling_window)?);
         }
     }
     if rolling_window.center {
@@ -17594,23 +17571,26 @@ struct PivotAggregateCell {
 
 #[cfg(feature = "vortex-local-primitives")]
 #[derive(Debug)]
-struct PivotRowExportState<T = StatValue> {
+struct PivotRowExportState<
+    T = StatValue,
+    C = std::collections::BTreeMap<(String, String), PivotAggregateCell>,
+> {
     index_keys: std::collections::BTreeSet<String>,
     index_values: std::collections::BTreeMap<String, T>,
     pivot_columns: std::collections::BTreeMap<String, String>,
     first_cells: std::collections::BTreeMap<(String, String), T>,
-    aggregate_cells: std::collections::BTreeMap<(String, String), PivotAggregateCell>,
+    aggregate_cells: C,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-impl<T> Default for PivotRowExportState<T> {
+impl<T, C: Default> Default for PivotRowExportState<T, C> {
     fn default() -> Self {
         Self {
             index_keys: std::collections::BTreeSet::default(),
             index_values: std::collections::BTreeMap::default(),
             pivot_columns: std::collections::BTreeMap::default(),
             first_cells: std::collections::BTreeMap::default(),
-            aggregate_cells: std::collections::BTreeMap::default(),
+            aggregate_cells: C::default(),
         }
     }
 }
@@ -17624,6 +17604,58 @@ impl<T: PivotValue> PivotRowExportState<T> {
         index_values: &[T],
         pivot_values: &[T],
         value_values: &[T],
+    ) -> Result<()> {
+        self.update_with(
+            projection,
+            aggregate,
+            index_values,
+            pivot_values,
+            value_values,
+            |cells, key, value| {
+                let mut cell = cells.get(&key).copied().unwrap_or_default();
+                cell.count = cell.count.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex pivot cell count overflow; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+                if aggregate != "count" {
+                    let value = value.pivot_numeric().map_err(|_| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "local Vortex scoped pivot_table row export aggregate '{aggregate}' requires a numeric value column '{}'; no fallback execution was attempted",
+                            projection.value_column.as_str()
+                        ))
+                    })?;
+                    if !value.is_finite() {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "local Vortex scoped pivot_table row export aggregate '{aggregate}' found non-finite value in '{}'; no fallback execution was attempted",
+                            projection.value_column.as_str()
+                        )));
+                    }
+                    cell.sum += value;
+                    cell.min = Some(cell.min.map_or(value, |current| current.min(value)));
+                    cell.max = Some(cell.max.map_or(value, |current| current.max(value)));
+                }
+                cells.insert(key, cell);
+                Ok(())
+            },
+        )
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl<T: PivotValue, C> PivotRowExportState<T, C> {
+    // Domain naming, duplicate-first semantics and index retention are shared
+    // across primitive and typed native cell stores.
+    #[allow(clippy::too_many_arguments)]
+    fn update_with(
+        &mut self,
+        projection: &VortexPivotProjectionRequest,
+        aggregate: &str,
+        index_values: &[T],
+        pivot_values: &[T],
+        value_values: &[T],
+        mut update_cell: impl FnMut(&mut C, (String, String), &T) -> Result<()>,
     ) -> Result<()> {
         if index_values.len() != pivot_values.len() || index_values.len() != value_values.len() {
             return Err(ShardLoomError::InvalidOperation(
@@ -17661,28 +17693,11 @@ impl<T: PivotValue> PivotRowExportState<T> {
                             .insert(cell_key, value_values[row_index].clone());
                     }
                 }
-                "count" => {
-                    self.aggregate_cells.entry(cell_key).or_default().count += 1;
-                }
-                "sum" | "mean" | "min" | "max" => {
-                    let value = value_values[row_index].pivot_numeric().map_err(|_| {
-                        ShardLoomError::InvalidOperation(format!(
-                            "local Vortex scoped pivot_table row export aggregate '{aggregate}' requires a numeric value column '{}'; no fallback execution was attempted",
-                            projection.value_column.as_str()
-                        ))
-                    })?;
-                    if !value.is_finite() {
-                        return Err(ShardLoomError::InvalidOperation(format!(
-                            "local Vortex scoped pivot_table row export aggregate '{aggregate}' found non-finite value in '{}'; no fallback execution was attempted",
-                            projection.value_column.as_str()
-                        )));
-                    }
-                    let cell = self.aggregate_cells.entry(cell_key).or_default();
-                    cell.count += 1;
-                    cell.sum += value;
-                    cell.min = Some(cell.min.map_or(value, |current| current.min(value)));
-                    cell.max = Some(cell.max.map_or(value, |current| current.max(value)));
-                }
+                "count" | "sum" | "mean" | "min" | "max" => update_cell(
+                    &mut self.aggregate_cells,
+                    cell_key,
+                    &value_values[row_index],
+                )?,
                 _ => unreachable!("pivot aggregate normalized before row export state update"),
             }
         }

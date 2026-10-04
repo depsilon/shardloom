@@ -7633,7 +7633,7 @@ fn local_source_runtime_executes_count_distinct_aggregates_without_fallback() {
         String::from_utf8_lossy(&blocked.stdout),
         String::from_utf8_lossy(&blocked.stderr)
     );
-    assert!(blocked_output.contains("COUNT(DISTINCT <column>) only"));
+    assert!(blocked_output.contains("COUNT(DISTINCT <argument>) only"));
     assert!(blocked_output.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");
@@ -7864,7 +7864,7 @@ fn local_source_runtime_executes_aggregate_having_without_fallback() {
         String::from_utf8_lossy(&blocked_distinct.stdout),
         String::from_utf8_lossy(&blocked_distinct.stderr)
     );
-    assert!(blocked_distinct_output.contains("COUNT(DISTINCT <column>) only"));
+    assert!(blocked_distinct_output.contains("COUNT(DISTINCT <argument>) only"));
     assert!(blocked_distinct_output.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");

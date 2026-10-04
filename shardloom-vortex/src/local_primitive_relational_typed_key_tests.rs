@@ -480,7 +480,7 @@ fn native_typed_keys_keep_incompatible_numeric_and_mixed_type_denials_on_empty_i
             );
         }
         for function in ["sum", "avg"] {
-            assert!(
+            assert_eq!(
                 prepare_relational(
                     &aggregate(
                         empty.clone(),
@@ -489,7 +489,8 @@ fn native_typed_keys_keep_incompatible_numeric_and_mixed_type_denials_on_empty_i
                     ),
                     policy()
                 )
-                .is_err()
+                .is_ok(),
+                name == "amount"
             );
         }
     }

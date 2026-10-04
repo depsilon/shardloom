@@ -14,10 +14,20 @@ mod ownership_tests;
 
 #[path = "local_primitive_relational_typed_unary_boundary_tests.rs"]
 mod boundary_tests;
+#[path = "local_primitive_relational_decimal_pivot_tests.rs"]
+mod decimal_pivot_tests;
+#[path = "local_primitive_relational_decimal_rolling_tests.rs"]
+mod decimal_rolling_tests;
+#[path = "local_primitive_relational_decimal_unary_ownership_tests.rs"]
+mod decimal_unary_ownership_tests;
 
 #[cfg(feature = "universal-format-io")]
 #[path = "local_primitive_relational_typed_unary_io_tests.rs"]
 mod io_tests;
+
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_decimal_unary_io_tests.rs"]
+mod decimal_unary_io_tests;
 
 const TYPED: [&str; 4] = ["bytes", "decimal", "day", "instant"];
 const ALL: [&str; 5] = ["id", "bytes", "decimal", "day", "instant"];
@@ -591,11 +601,11 @@ fn typed_unary_empty_and_populated_plans_reject_incompatible_domains() {
             operator: "*".into(),
             operand: decimal(1, 38, 0),
         }]),
-        pivot("bytes", "id", "decimal", "sum"),
+        pivot("bytes", "id", "day", "sum"),
     ];
-    let mut rolling = request(Kind::RollingWindowRows, &["decimal"]);
+    let mut rolling = request(Kind::RollingWindowRows, &["day"]);
     rolling.rolling_window = Some(VortexRollingWindowRequest::new(
-        ColumnRef::new("decimal").unwrap(),
+        ColumnRef::new("day").unwrap(),
         "total".into(),
         2,
         1,

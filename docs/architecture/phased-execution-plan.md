@@ -496,6 +496,32 @@ the ledger.
     aggregate/window semantics, adapters and general state spill keep their
     existing owners and remain subsequent work in the universal queue.
 
+- [ ] `NATIVE-TYPED-REDUCTIONS` — complete computed aggregate arguments and exact
+  Decimal128 reductions through existing aggregate, rolling and scalar pivot
+  state under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed reduction contract](native-typed-reductions-2026-10-04.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve metadata/pruning and optimized primitive
+    routes; share native expression projection, exact state, one PulseWeave
+    admission, reserved capacity, capillary delivery and existing timing/evidence
+    owners across public declarations. Availability is not a speedup claim.
+  - Execution checklist:
+    - [ ] Lower aggregate expressions and implement exact wide decimal totals,
+      fixed result types, NULL handling and checked finalization in shared owners.
+    - [ ] Extend existing rolling/pivot state and margins; prove empty admission,
+      bounded ownership, constrained grants, cancellation and failed publication.
+    - [ ] Freeze independent complete public/direct correctness, required local
+      checks and paired Full43; update exact support and immutable evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory
+      decision, then move this finite item to the completed ledger.
+  - Acceptance: complete native expression/reduction workflows with exact decimal
+    values, schemas and writer readback. Existing primitive calculation order,
+    bare-column paths and pivot/rolling policies remain compatible. No frontend
+    evaluator, source replay or external-engine fallback.
+  - Dependency: locally accepted nested keys/state. Wider analytic frames,
+    scalar-value subqueries, nested pivot state, adapters and general state spill
+    remain subsequent work under the universal queue; this is not their closure.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then

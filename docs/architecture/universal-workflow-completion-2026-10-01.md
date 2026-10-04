@@ -159,8 +159,10 @@ coverage. Retained unary execution and admitted flat-scalar relational/unary
 composition now have their own acceptance records. Finish hosted acceptance of
 the static nested, scalar dynamic-pivot, typed-payload, typed-key, typed-expression,
 typed-unary and nested-key/state continuations,
-and continue through broader aggregate/window, adapter and resource families
-with their ownership contracts.
+and continue with the [typed reduction contract](native-typed-reductions-2026-10-04.md)
+for computed aggregate arguments and exact decimal aggregate/rolling/pivot state.
+Its acceptance is pending. Broader aggregate/window, adapter and resource
+families continue under their ownership contracts.
 Freeze exact expressions, sinks and
 pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only

@@ -64,6 +64,163 @@ pub(super) fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> V
 }
 
 #[test]
+fn native_decimal_reduction_writers_preserve_declared_results_and_retained_buffers() {
+    use crate::query_primitive::VortexSimpleAggregateMeasure;
+    use crate::relational_query::VortexRelationalAggregate;
+    for empty in [false, true] {
+        let input = StructArray::new(
+            FieldNames::from(["amount"]),
+            vec![
+                DecimalArray::from_option_iter(
+                    [Some(100i128), Some(300), None],
+                    DecimalDType::new(12, 2),
+                )
+                .into_array(),
+            ],
+            3,
+            Validity::NonNullable,
+        )
+        .into_array();
+        let fixture = Fixture::new(
+            if empty {
+                input.slice(0..0).unwrap()
+            } else {
+                input
+            },
+            1,
+        );
+        let plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
+            input: fixture.scan(),
+            group_by: vec![],
+            measures: ["sum", "avg", "min", "max", "count", "count_distinct"]
+                .map(|function| {
+                    VortexSimpleAggregateMeasure::new(
+                        function,
+                        Some(ColumnRef::new("amount").unwrap()),
+                        function.into(),
+                    )
+                })
+                .to_vec(),
+        }));
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        let memory = prepared.session.memory().clone();
+        let baseline = memory.snapshot().reserved_bytes;
+        let expected = if empty {
+            json!({"sum":null, "avg":null, "min":null, "max":null, "count":0, "count_distinct":0})
+        } else {
+            json!({"sum":"decimal128(38,2):400", "avg":"decimal128(38,6):2000000", "min":"decimal128(12,2):100", "max":"decimal128(12,2):300", "count":2, "count_distinct":2})
+        };
+        let dtype = prepared.output_dtype().unwrap();
+        for format in [
+            Format::Vortex,
+            Format::Parquet,
+            Format::ArrowIpc,
+            Format::Avro,
+            Format::Json,
+            Format::Jsonl,
+        ] {
+            let path = fixture.0.join(format!("reduced.{}", format.as_str()));
+            let report = prepared.write(&path, format, false).unwrap();
+            assert_eq!(report.output.rows_written, 1);
+            assert!(report.execution.native_io_certificate.is_certified());
+            assert!(
+                !report
+                    .execution
+                    .native_io_certificate
+                    .side_effects
+                    .fallback_attempted
+            );
+            assert_eq!(
+                reopen(&path, format, &dtype),
+                std::slice::from_ref(&expected),
+                "{empty}/{format:?}"
+            );
+            drop(report);
+            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+            fs::remove_file(path).unwrap();
+        }
+        let output = prepared.execute_owned().unwrap();
+        let retained = output.result.arrays()[0].slice(0..1).unwrap();
+        drop((output, prepared));
+        assert!(memory.snapshot().reserved_bytes > 0);
+        let mut context = VortexSession::default().create_execution_ctx();
+        let field =
+            crate::local_primitives::logical_field_from_native_array(&retained, "avg").unwrap();
+        assert_eq!(
+            result_batch::scalar_value(&field, 0, &mut context)
+                .unwrap()
+                .into_json()
+                .unwrap(),
+            expected["avg"]
+        );
+        drop((field, retained, context));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn native_untyped_null_projection_has_stable_empty_and_persisted_validity() {
+    use crate::relational_query::VortexRelationalProject;
+    use shardloom_core::{ExprId, Expression, ScalarValue};
+    let fixture = fixture();
+    for count in [0, 3] {
+        let plan = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+            input: VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+                input: fixture.scan(),
+                offset: 0,
+                count,
+            })),
+            expressions: vec![(
+                "missing".into(),
+                Expression::literal(ExprId::new("missing").unwrap(), ScalarValue::Null),
+            )],
+        }));
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        let dtype = prepared.output_dtype().unwrap();
+        assert_eq!(
+            dtype
+                .as_struct_fields_opt()
+                .unwrap()
+                .field("missing")
+                .unwrap(),
+            DType::Bool(Nullability::Nullable)
+        );
+        for format in [
+            Format::Vortex,
+            Format::Parquet,
+            Format::ArrowIpc,
+            Format::Avro,
+            Format::Orc,
+            Format::Json,
+            Format::Jsonl,
+            Format::Csv,
+        ] {
+            let path = fixture.0.join(format!("null-{count}.{}", format.as_str()));
+            assert_eq!(
+                prepared
+                    .write(&path, format, false)
+                    .unwrap()
+                    .output
+                    .rows_written,
+                count as u64
+            );
+            if format == Format::Csv {
+                assert_eq!(
+                    fs::read_to_string(&path).unwrap(),
+                    format!("missing\n{}", "\"\"\n".repeat(count))
+                );
+            } else {
+                assert_eq!(
+                    reopen(&path, format, &dtype),
+                    vec![json!({"missing":null}); count]
+                );
+            }
+            fs::remove_file(path).unwrap();
+        }
+    }
+}
+
+#[test]
 fn native_typed_payload_writers_preserve_complete_values_types_and_empty_outputs() {
     let fixture = fixture();
     for count in [4, 0] {

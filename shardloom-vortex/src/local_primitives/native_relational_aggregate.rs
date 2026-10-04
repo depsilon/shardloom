@@ -1,10 +1,10 @@
 //! Exact grouping and distinct membership over native keys. Additive measures
-//! retain the existing ordered floating accumulation policy across input batches.
+//! retain the existing ordered floating policy, with separate exact decimal totals.
 
 use super::{
     SimpleAggregateFunction as Function, logical_field_from_native_array,
     native_capacity::ReservedVec,
-    native_payload,
+    native_decimal_reduce, native_payload,
     native_relational_batch::{failed, index_array},
     native_relational_expression::{keys, parent_validity},
     native_relational_keys::{Cell, KeyColumn, compare_cells},
@@ -20,7 +20,7 @@ use vortex::{
     array::{
         ArrayRef, IntoArray as _,
         arrays::StructArray,
-        dtype::{DType, FieldNames, PType},
+        dtype::{DType, DecimalDType, FieldNames, PType},
         memory::MemorySessionExt as _,
         validity::Validity,
     },
@@ -31,6 +31,7 @@ pub(super) struct Measure {
     pub(super) function: Function,
     pub(super) column: Option<String>,
     pub(super) dtype: DType,
+    pub(super) decimal_source: Option<DecimalDType>,
     pub(super) distinct_fields: Vec<(String, DType)>,
     pub(super) distinct_names: Vec<String>,
 }
@@ -59,6 +60,8 @@ pub(super) struct Aggregate<'a> {
     states: ReservedVec<State>,
     distinct: ReservedVec<Option<RowSet<'a>>>,
     nested_extrema: Option<ReservedVec<Option<NativeExtreme>>>,
+    decimal_totals: Option<ReservedVec<native_decimal_reduce::Total>>,
+    decimal_width: usize,
 }
 
 impl<'a> Aggregate<'a> {
@@ -100,13 +103,62 @@ impl<'a> Aggregate<'a> {
         } else {
             None
         };
+        let decimal_width = spec
+            .measures
+            .iter()
+            .filter(|measure| measure.decimal_source.is_some())
+            .count();
+        let decimal_totals = if decimal_width == 0 {
+            None
+        } else {
+            let mut totals = ReservedVec::new(memory)?;
+            if groups.is_none() {
+                totals.reserve(decimal_width)?;
+                totals
+                    .values
+                    .resize(decimal_width, native_decimal_reduce::Total::default());
+            }
+            Some(totals)
+        };
         Ok(Self {
             spec,
             groups,
             states,
             distinct,
             nested_extrema,
+            decimal_totals,
+            decimal_width,
         })
+    }
+
+    fn reserve_states(&mut self) -> Result<()> {
+        if let Some(groups) = &self.groups {
+            let count = groups
+                .rows()
+                .checked_mul(self.spec.measures.len())
+                .ok_or_else(|| failed("aggregate state cardinality overflow"))?;
+            self.states.reserve(count - self.states.values.len())?;
+            self.states.values.resize_with(count, State::default);
+        }
+        if let Some(extrema) = &mut self.nested_extrema {
+            extrema.reserve(self.states.values.len() - extrema.values.len())?;
+            extrema
+                .values
+                .resize_with(self.states.values.len(), || None);
+        }
+        if let Some(totals) = &mut self.decimal_totals {
+            let count = self
+                .groups
+                .as_ref()
+                .map_or(1, RowSet::rows)
+                .checked_mul(self.decimal_width)
+                .ok_or_else(|| failed("decimal aggregate state cardinality overflow"))?;
+            totals.reserve(count - totals.values.len())?;
+            totals
+                .values
+                .resize(count, native_decimal_reduce::Total::default());
+        }
+        Ok(())
     }
 
     pub(super) fn consume(
@@ -119,22 +171,12 @@ impl<'a> Aggregate<'a> {
         let mut ordinals = ReservedVec::new(context.memory())?;
         if let Some(groups) = &mut self.groups {
             ordinals = groups.intern_batch(array.clone(), context, batch_rows)?;
-            let count = groups
-                .rows()
-                .checked_mul(self.spec.measures.len())
-                .ok_or_else(|| failed("aggregate state cardinality overflow"))?;
-            self.states.reserve(count - self.states.values.len())?;
-            self.states.values.resize_with(count, State::default);
         } else {
             ordinals.reserve(array.len())?;
             ordinals.values.resize(array.len(), 0);
         }
-        if let Some(extrema) = &mut self.nested_extrema {
-            extrema.reserve(self.states.values.len() - extrema.values.len())?;
-            extrema
-                .values
-                .resize_with(self.states.values.len(), || None);
-        }
+        self.reserve_states()?;
+        let mut decimal_index = 0;
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
             let column = measure
@@ -151,6 +193,25 @@ impl<'a> Aggregate<'a> {
                 Some(array) => (None, Some(keys(array, context)?)),
                 None => (None, None),
             };
+            if let Some(source) = measure.decimal_source {
+                let totals = self
+                    .decimal_totals
+                    .as_mut()
+                    .ok_or_else(|| failed("decimal aggregate state absent"))?;
+                accumulate_decimal(
+                    &mut totals.values,
+                    &ordinals.values,
+                    values
+                        .as_ref()
+                        .ok_or_else(|| failed("decimal aggregate input absent"))?,
+                    self.decimal_width,
+                    decimal_index,
+                    source,
+                    context,
+                )?;
+                decimal_index += 1;
+                continue;
+            }
             if let Some(distinct) = self.distinct.values[measure_index].as_mut() {
                 accumulate_distinct(
                     distinct,
@@ -230,6 +291,7 @@ impl<'a> Aggregate<'a> {
                     columns.values.push(gather.column(name, dtype, context)?);
                 }
             }
+            let mut decimal_index = 0;
             for (index, measure) in self.spec.measures.iter().enumerate() {
                 if native_payload::is_nested(&measure.dtype) {
                     let extrema = self
@@ -250,6 +312,11 @@ impl<'a> Aggregate<'a> {
                     )?);
                     continue;
                 }
+                let decimal = measure.decimal_source.map(|source| {
+                    let index = decimal_index;
+                    decimal_index += 1;
+                    (index, source)
+                });
                 columns.values.push(result_batch::build_column(
                     &measure.dtype,
                     end - start,
@@ -257,6 +324,20 @@ impl<'a> Aggregate<'a> {
                     |row| {
                         if row.is_multiple_of(1024) {
                             context.check_cancelled()?;
+                        }
+                        if let Some((index, source)) = decimal {
+                            let totals = self
+                                .decimal_totals
+                                .as_ref()
+                                .ok_or_else(|| failed("decimal aggregate state absent"))?;
+                            let DType::Decimal(output, _) = measure.dtype else {
+                                return Err(failed("decimal aggregate output type changed"));
+                            };
+                            return totals.values[(start + row) * self.decimal_width + index]
+                                .finish(source, measure.function == Function::Avg)
+                                .map(|value| {
+                                    value.map_or(Value::Null, |value| Value::Decimal(value, output))
+                                });
                         }
                         final_value(
                             &self.states.values[(start + row) * self.spec.measures.len() + index],
@@ -283,6 +364,30 @@ impl<'a> Aggregate<'a> {
         }
         Ok(())
     }
+}
+
+fn accumulate_decimal(
+    totals: &mut [native_decimal_reduce::Total],
+    ordinals: &[usize],
+    values: &KeyColumn,
+    width: usize,
+    index: usize,
+    source: DecimalDType,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    for (row, &group) in ordinals.iter().enumerate() {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        match values.raw_cell(row)? {
+            Cell::Null => {}
+            Cell::Decimal(value, dtype) if dtype == source => {
+                totals[group * width + index].add(value, source)?;
+            }
+            _ => return Err(failed("decimal aggregate input domain changed")),
+        }
+    }
+    Ok(())
 }
 
 fn update_native_extreme(
@@ -557,6 +662,7 @@ mod ownership_tests {
             function: Function::Min,
             column: Some("items".into()),
             dtype: DType::Null,
+            decimal_source: None,
             distinct_fields: vec![],
             distinct_names: vec![],
         };

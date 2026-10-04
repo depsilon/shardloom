@@ -2,6 +2,8 @@ use super::*;
 use serde_json::{Value, json};
 use shardloom_exec::compute_pool::CancellationToken;
 
+#[path = "sql_native_relational_aggregate_expression_tests.rs"]
+mod aggregate_expression_tests;
 #[path = "sql_native_relational_dynamic_tests.rs"]
 mod dynamic_tests;
 #[path = "sql_native_relational_unary_tests.rs"]

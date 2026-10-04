@@ -563,7 +563,7 @@ impl Lowerer<'_, '_> {
             ));
         }
         if aggregate {
-            input = Self::aggregate(input, parsed)?;
+            input = self.aggregate(input, parsed)?;
             input = self.filter(input, &parsed.having)?;
         } else if !parsed.having.is_all() {
             return Err(unsupported_sql_error(
@@ -590,12 +590,27 @@ impl Lowerer<'_, '_> {
         Ok(input)
     }
 
-    fn aggregate(mut input: Lowered, parsed: &ParsedSqlLocalSource) -> NativeResult<Lowered> {
+    fn aggregate(
+        &mut self,
+        mut input: Lowered,
+        parsed: &ParsedSqlLocalSource,
+    ) -> NativeResult<Lowered> {
         let group_by = parsed
             .group_by
             .iter()
             .map(|name| ColumnRef::new(input.resolve(name)?))
             .collect::<NativeResult<Vec<_>>>()?;
+        let mut retained = group_by
+            .iter()
+            .map(|column| column.as_str().to_owned())
+            .collect::<BTreeSet<_>>();
+        for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
+            if let ParsedAggregateArgument::Column(name) = &aggregate.argument {
+                retained.insert(input.resolve(name)?);
+            }
+        }
+        let mut projection = Vec::new();
+        let mut names = input.columns.clone();
         let measures = parsed
             .aggregates
             .iter()
@@ -606,21 +621,47 @@ impl Lowerer<'_, '_> {
                         "only COUNT DISTINCT has an admitted native distinct aggregate",
                     ));
                 }
+                let argument = match &aggregate.argument {
+                    ParsedAggregateArgument::All => None,
+                    ParsedAggregateArgument::Column(name) => {
+                        Some(ColumnRef::new(input.resolve(name)?)?)
+                    }
+                    ParsedAggregateArgument::Computed { expression, .. } => {
+                        if projection.is_empty() {
+                            projection = input
+                                .columns
+                                .iter()
+                                .filter(|name| retained.contains(*name))
+                                .map(|name| Ok((name.clone(), column(name)?)))
+                                .collect::<NativeResult<Vec<_>>>()?;
+                        }
+                        let mut expression = (**expression).clone();
+                        map_columns(&mut expression, &mut |name| input.resolve(name))?;
+                        let name = self.fresh(&names);
+                        names.push(name.clone());
+                        projection.push((name.clone(), expression));
+                        Some(ColumnRef::new(name)?)
+                    }
+                };
                 Ok(VortexSimpleAggregateMeasure::new(
                     if aggregate.distinct {
                         "count_distinct"
                     } else {
                         aggregate.function.as_str()
                     },
-                    aggregate
-                        .column
-                        .as_deref()
-                        .map(|name| ColumnRef::new(input.resolve(name)?))
-                        .transpose()?,
+                    argument,
                     aggregate.output_name(),
                 ))
             })
             .collect::<NativeResult<Vec<_>>>()?;
+        if !projection.is_empty() {
+            // These private arguments do not change the SQL qualification of
+            // group keys. Retain only columns the reduction itself consumes.
+            input.plan = Plan::Project(Box::new(Project {
+                input: input.plan,
+                expressions: projection,
+            }));
+        }
         input.columns = group_by
             .iter()
             .map(|column| column.as_str().to_owned())

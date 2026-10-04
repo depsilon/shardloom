@@ -108,7 +108,7 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--build-commit", required=True)
-    parser.add_argument("--family", choices=("all", "unary", "nested", "pivot", "typed"), default="all")
+    parser.add_argument("--family", choices=("all", "unary", "nested", "pivot", "typed", "reductions"), default="all")
     parser.add_argument("--nested-fixture-generator", type=Path,
                         help="native_nested_uat_fixture example binary, required for all/nested")
     parser.add_argument("--typed-fixture-generator", type=Path,
@@ -124,7 +124,7 @@ def main() -> int:
         parser.error("--nested-fixture-generator is required for the nested input fixtures")
     fixture_generator = (args.nested_fixture_generator.resolve(strict=True)
                          if args.nested_fixture_generator is not None else None)
-    if args.family in ("all", "typed") and args.typed_fixture_generator is None:
+    if args.family in ("all", "typed", "reductions") and args.typed_fixture_generator is None:
         parser.error("--typed-fixture-generator is required for the typed input fixtures")
     typed_generator = (args.typed_fixture_generator.resolve(strict=True)
                        if args.typed_fixture_generator is not None else None)
@@ -152,6 +152,7 @@ def main() -> int:
     typed_key_code = code.with_name("native_typed_key_cases.py")
     typed_expression_code = code.with_name("native_typed_expression_cases.py")
     typed_unary_code = code.with_name("native_typed_unary_cases.py")
+    typed_reduction_code = code.with_name("native_typed_reduction_cases.py")
     nested_key_state_code = code.with_name("native_nested_key_state_cases.py")
     resource_evidence_code = code.with_name("native_report_evidence.py")
     archive_code = code.with_name("native_uat_envelope_archive.py")
@@ -176,6 +177,7 @@ def main() -> int:
         "typed_key_cases_sha256": file_sha256(typed_key_code),
         "typed_expression_cases_sha256": file_sha256(typed_expression_code),
         "typed_unary_cases_sha256": file_sha256(typed_unary_code),
+        "typed_reduction_cases_sha256": file_sha256(typed_reduction_code),
         "nested_key_state_cases_sha256": file_sha256(nested_key_state_code),
         "native_resource_evidence_sha256": file_sha256(resource_evidence_code),
         "envelope_archive_helper_sha256": file_sha256(archive_code),
@@ -383,6 +385,10 @@ def main() -> int:
         if args.family in ("all", "typed"):
             typed_payload_cases(context, root / "data" / f"typed_{stamp}", guard,
                                 accepted, complete, sources, identity, typed_generator)
+        if args.family == "reductions":
+            typed_payload_cases(context, root / "data" / f"reductions_{stamp}", guard,
+                                accepted, complete, sources, identity, typed_generator,
+                                reductions_only=True)
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")
@@ -408,6 +414,7 @@ def main() -> int:
                           (typed_key_code, "typed_key_cases_sha256"),
                           (typed_expression_code, "typed_expression_cases_sha256"),
                           (typed_unary_code, "typed_unary_cases_sha256"),
+                          (typed_reduction_code, "typed_reduction_cases_sha256"),
                           (nested_key_state_code, "nested_key_state_cases_sha256"),
                           (resource_evidence_code, "native_resource_evidence_sha256"),
                           (archive_code, "envelope_archive_helper_sha256"),

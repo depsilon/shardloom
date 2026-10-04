@@ -12,11 +12,13 @@ from run_native_unary_uat import csv_cell
 from native_typed_key_cases import run as typed_key_cases
 from native_typed_expression_cases import run as typed_expression_cases
 from native_typed_unary_cases import run as typed_unary_cases
+from native_typed_reduction_cases import run as typed_reduction_cases
 from native_report_evidence import require_native_resource_admission
 from native_nested_key_state_cases import run as nested_key_state_cases
 
 
-def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
+def run(context, output, guard, accepted, complete, sources, identity, fixture_generator,
+        *, reductions_only=False):
     import shardloom as sl
     from shardloom.query import SqlWorkflow
 
@@ -147,6 +149,15 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     oracle = output / "source-expected.json"
     oracle.write_text(json.dumps(original, indent=2) + "\n")
     remember(oracle)
+    if reductions_only:
+        raw, native = output / "typed.data", output / "typed.vortex"
+        remember(raw)
+        guard()
+        accepted("typed-reductions-prepare", context.read_arrow_ipc(raw).prepare(native, check=False))
+        remember(native)
+        typed_reduction_cases(context, output, guard, exercise, exercise_workflow, remember,
+                              denied, schema, native, raw)
+        return
     native = None
     for fixture_name, expected_source in [("typed", original), ("typed-empty", [])]:
         raw, prepared = output / f"{fixture_name}.data", output / f"{fixture_name}.vortex"
@@ -269,6 +280,8 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     remember(duplicate_native)
     typed_unary_cases(context, output, guard, exercise, remember, original, fields,
                       schema, native, output / "typed.data")
+    typed_reduction_cases(context, output, guard, exercise, exercise_workflow, remember,
+                          denied, schema, native, output / "typed.data")
 
     spill_workspace = output / "typed-key-spill"
     spill_workspace.mkdir()

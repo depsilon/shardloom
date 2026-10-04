@@ -21,7 +21,22 @@ impl Binder<'_> {
         let mut expressions = Vec::new();
         for (name, expression) in &project.expressions {
             validate_name(name)?;
-            let expression = self.expression(expression, &input.fields, 0)?;
+            let mut expression = self.expression(expression, &input.fields, 0)?;
+            // A wholly untyped NULL has no value domain to preserve. Give the
+            // projected column a stable nullable boolean carrier, so downstream
+            // validity reductions keep every NULL row without requiring a new
+            // persistence type. Bind the entire expression before this coercion.
+            if expression.dtype == DType::Null {
+                use crate::local_primitives::native_relational_expression::{Expression, Kind};
+                self.charge(4096)?;
+                expression = Expression {
+                    dtype: DType::Bool(super::Nullability::Nullable),
+                    kind: Kind::Cast {
+                        input: Box::new(expression),
+                        tolerant: false,
+                    },
+                };
+            }
             validate_payload(&expression.dtype)?;
             self.charge(
                 usize::try_from(crate::local_primitives::native_payload::metadata_bytes(

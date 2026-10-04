@@ -223,7 +223,15 @@ fn fixed_fields(
         .into_iter()
         .map(|name| {
             let field = match request.kind {
-                Kind::RollingWindowRows => super::rolling::dtype(request)?,
+                Kind::RollingWindowRows => super::rolling::dtype(
+                    request,
+                    &source_field(
+                        dtype,
+                        super::super::required_rolling_window(request)?
+                            .source_column
+                            .as_str(),
+                    )?,
+                )?,
                 Kind::DuplicateMaskRows => DType::Bool(Nullability::NonNullable),
                 _ => source_field(dtype, &name)?,
             };
@@ -244,6 +252,7 @@ fn rolling_columns(
     let input = source_field(dtype, &selected[0])?;
     if rolling.aggregate != "count"
         && !matches!(input, DType::Primitive(p, _) if p != vortex::array::dtype::PType::F16)
+        && !matches!(input, DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(decimal))
     {
         return Err(failed("rolling numeric aggregate requires numeric input"));
     }

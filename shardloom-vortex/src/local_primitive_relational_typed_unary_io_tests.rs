@@ -2,7 +2,7 @@ use super::*;
 use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
 use std::path::Path;
 
-const FORMATS: [Format; 7] = [
+pub(super) const FORMATS: [Format; 7] = [
     Format::Vortex,
     Format::Parquet,
     Format::ArrowIpc,
@@ -12,7 +12,7 @@ const FORMATS: [Format; 7] = [
     Format::Csv,
 ];
 
-fn write(
+pub(super) fn write(
     fixture: &Fixture,
     request: &VortexQueryPrimitiveRequest,
     direct: bool,
