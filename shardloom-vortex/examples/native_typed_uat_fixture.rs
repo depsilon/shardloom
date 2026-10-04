@@ -258,13 +258,15 @@ fn large() -> Result<RecordBatch> {
     )?)
 }
 
-fn write(root: &Path, name: &str, batch: &RecordBatch) -> Result<()> {
+fn write(root: &Path, name: &str, batches: &[&RecordBatch]) -> Result<()> {
     let output = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(root.join(name))?;
-    let mut writer = FileWriter::try_new(output, batch.schema().as_ref())?;
-    writer.write(batch)?;
+    let mut writer = FileWriter::try_new(output, batches[0].schema().as_ref())?;
+    for batch in batches {
+        writer.write(batch)?;
+    }
     writer.finish()?;
     Ok(())
 }
@@ -283,12 +285,17 @@ fn main() -> Result<()> {
     let typed_empty = RecordBatch::new_empty(typed.schema());
     let typed_nested = nested()?;
     let typed_large = large()?;
-    write(root, "typed.data", &typed)?;
-    write(root, "typed-empty.data", &typed_empty)?;
-    write(root, "typed-nested.data", &typed_nested)?;
-    write(root, "typed-large.data", &typed_large)?;
+    write(root, "typed.data", &[&typed])?;
+    write(root, "typed-empty.data", &[&typed_empty])?;
+    write(root, "typed-nested.data", &[&typed_nested])?;
+    write(root, "typed-large.data", &[&typed_large])?;
+    write(
+        root,
+        "typed-unary-duplicates.data",
+        &[&typed, &typed.slice(0, 2)],
+    )?;
     println!(
-        "typed Arrow IPC fixtures: {} typed rows, {} empty rows, {} nested rows, {} large rows",
+        "typed Arrow IPC fixtures: {} typed rows, {} empty rows, {} nested rows, {} large rows, 6 unary duplicate rows",
         typed.num_rows(),
         typed_empty.num_rows(),
         typed_nested.num_rows(),

@@ -26,11 +26,19 @@ pub(super) fn source_field(dtype: &DType, name: &str) -> Result<DType> {
     }
 }
 
-fn predicate_types(predicate: &shardloom_core::PredicateExpr, dtype: &DType) -> Result<()> {
+pub(super) fn predicate_types(
+    predicate: &shardloom_core::PredicateExpr,
+    dtype: &DType,
+) -> Result<()> {
     if let Some(column) = predicate.column()
-        && super::super::native_payload::is_nested(&source_field(dtype, column.as_str())?)
+        && !matches!(
+            source_field(dtype, column.as_str())?,
+            DType::Bool(_) | DType::Utf8(_) | DType::Primitive(_, _)
+        )
     {
-        return Err(failed("unary predicates require admitted scalar fields"));
+        return Err(failed(
+            "legacy unary predicates require primitive or UTF8 fields; use a typed native expression for binary, decimal or temporal predicates",
+        ));
     }
     if let shardloom_core::PredicateExpr::And(children) = predicate {
         for child in children {
@@ -55,12 +63,6 @@ pub(super) fn retained_source_admitted(
     if columns.is_empty() || columns.len() > 128 {
         return Ok(false);
     }
-    let flat = |dtype: &DType| {
-        matches!(
-            dtype,
-            DType::Bool(_) | DType::Utf8(_) | DType::Primitive(_, _)
-        ) && !matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F16, _))
-    };
     if let Some(predicate) = &request.predicate {
         predicate_types(predicate, dtype)?;
     }
@@ -96,7 +98,7 @@ pub(super) fn retained_source_admitted(
             }
             continue;
         }
-        if !flat(&field) {
+        if !crate::native_payload_schema::admitted_scalar(&field) {
             return Ok(false);
         }
     }
@@ -109,6 +111,16 @@ pub(super) fn bind(
     plan: &LocalVortexScanPlan,
     memory: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> Result<Binding> {
+    if let Some(predicate) = &request.predicate {
+        predicate_types(predicate, dtype)?;
+    }
+    if let Some(name) = &request.sample_weight_column
+        && !matches!(source_field(dtype, name.as_str())?, DType::Primitive(p, _) if p != vortex::array::dtype::PType::F16)
+    {
+        return Err(failed(
+            "sampling weights require an admitted primitive numeric field",
+        ));
+    }
     let columns = if plan.projected_columns.is_empty() {
         super::super::local_field_names(dtype, request.kind)?
     } else {
@@ -167,7 +179,7 @@ pub(super) fn bind(
         None
     };
     let pivot = if request.kind == Kind::PivotRows {
-        Some(super::pivot::Plan::bind(request, dtype, &columns)?)
+        Some(super::pivot::Plan::bind(request, dtype, &columns, memory)?)
     } else {
         None
     };

@@ -2,7 +2,7 @@
 
 use super::{
     BATCH_ROWS, BoundUnary, NativeBatch, NativeExecutionContext, ReservedVec, Result, UnaryOutput,
-    Value, failed, values::OwnedRow,
+    failed, values::OwnedRow,
 };
 use std::{borrow::Borrow as _, cmp::Ordering};
 
@@ -232,7 +232,7 @@ impl Sample {
                     .row
                     .as_ref()
                     .ok_or_else(|| failed("sample retained row is absent"))?;
-                Ok(Value::from(&row.values()[column]))
+                super::values::borrowed(&row.values()[column])
             })?;
         }
         Ok(self.seen)

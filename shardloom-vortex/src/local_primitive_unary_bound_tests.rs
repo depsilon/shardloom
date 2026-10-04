@@ -245,7 +245,7 @@ fn composed_unary_rewrites_bind_nullable_targets_before_looking_at_rows() {
         Rewrite::MaskScalar {
             target_column: ColumnRef::new(VALUE).unwrap(),
             predicate: PredicateExpr::AlwaysTrue,
-            replacement: StatValue::Int64(7),
+            replacement: shardloom_core::ScalarValue::Int64(7),
         },
     ]));
     let expected = vec![
@@ -264,7 +264,7 @@ fn composed_unary_rewrites_bind_nullable_targets_before_looking_at_rows() {
         Rewrite::MaskScalar {
             target_column: ColumnRef::new(VALUE).unwrap(),
             predicate: PredicateExpr::AlwaysTrue,
-            replacement: StatValue::Utf8("invalid numeric replacement".into()),
+            replacement: shardloom_core::ScalarValue::Utf8("invalid numeric replacement".into()),
         },
     ]));
     assert!(
@@ -279,7 +279,7 @@ fn composed_unary_rewrites_bind_nullable_targets_before_looking_at_rows() {
         Rewrite::NumericScalarArithmetic {
             target_column: ColumnRef::new(VALUE).unwrap(),
             operator: "+".into(),
-            operand: StatValue::Int64(2),
+            operand: shardloom_core::ScalarValue::Int64(2),
         },
     ]));
     assert_eq!(
@@ -302,8 +302,8 @@ fn composed_unary_rewrites_bind_nullable_targets_before_looking_at_rows() {
     for rewrite in [
         Rewrite::ReplaceScalar {
             target_column: ColumnRef::new(VALUE).unwrap(),
-            to_replace: StatValue::Utf8("a'b".into()),
-            replacement: StatValue::Utf8("changed".into()),
+            to_replace: shardloom_core::ScalarValue::Utf8("a'b".into()),
+            replacement: shardloom_core::ScalarValue::Utf8("changed".into()),
         },
         Rewrite::StringReplaceScalar {
             target_column: ColumnRef::new(VALUE).unwrap(),

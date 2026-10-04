@@ -236,7 +236,7 @@ impl Tail {
             context.check_cancelled()?;
             output.emit((count - start).min(BATCH_ROWS), |row, column| {
                 let index = (self.next + start + row) % count;
-                Ok(Value::from(&self.rows.values[index].values()[column]))
+                super::values::borrowed(&self.rows.values[index].values()[column])
             })?;
         }
         Ok(self.seen)
@@ -405,7 +405,7 @@ impl Selector {
                             .row
                             .as_ref()
                             .ok_or_else(|| failed("selected retained row is absent"))?;
-                        Ok(Value::from(&values.values()[column]))
+                        super::values::borrowed(&values.values()[column])
                     })?;
                 }
                 Ok(pre_limit)

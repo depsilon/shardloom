@@ -4736,7 +4736,7 @@ def _json_scalar_policy_value(value: object) -> object | None:
         return value
     if isinstance(value, float) and math.isfinite(value):
         return value
-    return None
+    return _vortex_exact_scalar_payload(value)
 
 
 def _normalize_pivot_table_single_aggregate(
@@ -14441,17 +14441,36 @@ def _sql_literal(value: object) -> str:
 
 def _sql_decimal_literal(value: Decimal) -> str:
     """Carry exact declared decimal values; the native kernel owns evaluation."""
+    precision, scale = _decimal_literal_metadata(value)
+    return f"CAST('{format(value, 'f')}' AS decimal128({precision},{scale}))"
+
+
+def _decimal_literal_metadata(value: Decimal) -> tuple[int, int]:
     if not value.is_finite():
-        raise ValueError("SQL Decimal literals must be finite")
+        raise ValueError("Decimal literals must be finite")
     _, digits, exponent = value.as_tuple()
     assert isinstance(exponent, int)
     scale = max(-exponent, 0)
     precision = max(len(digits) + max(exponent, 0), scale, 1)
     if precision > 38 or scale > 38:
-        raise ValueError("SQL Decimal literals must fit decimal128 precision and scale <= 38")
+        raise ValueError("Decimal literals must fit decimal128 precision and scale <= 38")
     # Check metadata first: formatting a huge exponent must never allocate a
     # correspondingly huge SQL string. This formatted value is at most 41 bytes.
-    return f"CAST('{format(value, 'f')}' AS decimal128({precision},{scale}))"
+    return precision, scale
+
+
+def _vortex_exact_scalar_payload(value: object) -> dict[str, object] | None:
+    """Declare exact literal bytes or text; native binding owns all conversion."""
+    if isinstance(value, Decimal):
+        precision, scale = _decimal_literal_metadata(value)
+        return {"type": f"decimal128({precision},{scale})", "value": format(value, "f")}
+    if isinstance(value, datetime):
+        return {"type": "timestamp_micros", "value": _normalize_timestamp_literal(value)}
+    if isinstance(value, date):
+        return {"type": "date32", "value": value.isoformat()}
+    if isinstance(value, (bytes, bytearray)):
+        return {"type": "binary", "value": bytes(value).hex()}
+    return None
 
 
 def _vortex_expression_scalar_payload(
@@ -14473,8 +14492,9 @@ def _vortex_expression_scalar_payload(
             return {"type": "float64", "value": value}
         if isinstance(value, str):
             return {"type": "utf8", "value": value}
-        return None
+        return _vortex_exact_scalar_payload(value)
     dtype = target_dtype.strip().lower().replace("-", "_")
+    decimal_dtype = _normalize_decimal_cast_dtype(dtype)
     supported_dtype = dtype in {
         "bool",
         "boolean",
@@ -14490,11 +14510,23 @@ def _vortex_expression_scalar_payload(
         "utf8",
         "string",
         "str",
-    }
+        "binary",
+        "date32",
+        "timestamp_micros",
+    } or decimal_dtype is not None
     if value is None:
         if not allow_null:
             return None
         return {"type": "null", "value": None} if supported_dtype else None
+    if decimal_dtype is not None:
+        if isinstance(value, Decimal):
+            return _vortex_exact_scalar_payload(value)
+        if isinstance(value, int) and not isinstance(value, bool) and -(1 << 63) <= value < (1 << 64):
+            return {"type": "int64" if value < (1 << 63) else "uint64", "value": value}
+        return None
+    if dtype in {"binary", "date32", "timestamp_micros"}:
+        literal = _vortex_exact_scalar_payload(value)
+        return literal if literal is not None and literal["type"] == dtype else None
     if dtype in {"bool", "boolean"}:
         if isinstance(value, bool):
             return {"type": "boolean", "value": value}

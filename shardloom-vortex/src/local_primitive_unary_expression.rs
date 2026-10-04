@@ -4,18 +4,56 @@
 use super::super::{MaterializedPredicateEvaluator, VortexExpressionRewrite as Rewrite};
 use super::{
     BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, Nullability, ReservedVec,
-    Result, StatValue, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed,
-    values::{OwnedRow, OwnedStat},
+    Result, UnaryOutput, VortexQueryPrimitiveRequest, failed, scalar,
+    values::{OwnedRow, OwnedScalar, OwnedStat, borrowed},
     vortex_error,
 };
+use shardloom_core::ScalarValue;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::array::dtype::PType;
 
 struct Step {
     target: usize,
-    coercion_target: StatValue,
+    dtype: DType,
+    comparison: Option<OwnedScalar>,
+    replacement: Option<OwnedScalar>,
+    arithmetic: Option<Arithmetic>,
     predicate: Option<MaterializedPredicateEvaluator>,
     regex: Option<(regex::Regex, String)>,
+}
+
+struct Arithmetic {
+    left_dtype: DType,
+    right_dtype: DType,
+    operator: shardloom_core::BinaryOp,
+    operand: OwnedScalar,
+}
+
+impl Arithmetic {
+    fn bind(
+        rewrite: &Rewrite,
+        input_dtype: DType,
+        output_dtype: &DType,
+        memory: &LiveMemoryPool,
+    ) -> Result<Option<Self>> {
+        let Rewrite::NumericScalarArithmetic {
+            operator, operand, ..
+        } = rewrite
+        else {
+            return Ok(None);
+        };
+        let operand = if matches!(output_dtype, DType::Decimal(..)) {
+            OwnedScalar::copy(operand, memory)?
+        } else {
+            scalar::coerce(output_dtype, operand, memory)?
+        };
+        Ok(Some(Self {
+            left_dtype: input_dtype,
+            right_dtype: scalar::literal_dtype(operand.value())?,
+            operator: scalar::operator(operator)?,
+            operand,
+        }))
+    }
 }
 
 pub(super) struct Plan {
@@ -67,10 +105,29 @@ impl Plan {
         let mut steps = Vec::with_capacity(projection.rewrites.len());
         for rewrite in &projection.rewrites {
             let target = position(rewrite.target_column().as_str())?;
-            fields[target].1 = rewritten_dtype(&fields[target].1, rewrite)?;
-            let coercion_target = coercion_target(&fields[target].1)?;
-            validate_literals(rewrite, &coercion_target)?;
+            let input_dtype = fields[target].1.clone();
+            fields[target].1 = rewritten_dtype(&input_dtype, rewrite)?;
+            let dtype = fields[target].1.clone();
+            let (comparison, replacement) = match rewrite {
+                Rewrite::MaskScalar { replacement, .. } => {
+                    (None, Some(scalar::coerce(&dtype, replacement, memory)?))
+                }
+                Rewrite::ReplaceScalar {
+                    to_replace,
+                    replacement,
+                    ..
+                } => (
+                    Some(scalar::coerce(&dtype, to_replace, memory)?),
+                    Some(scalar::coerce(&dtype, replacement, memory)?),
+                ),
+                _ => (None, None),
+            };
+            let arithmetic = Arithmetic::bind(rewrite, input_dtype, &dtype, memory)?;
             let predicate = if let Rewrite::MaskScalar { predicate, .. } = rewrite {
+                super::schema::predicate_types(
+                    predicate,
+                    &DType::struct_(fields.clone(), Nullability::NonNullable),
+                )?;
                 Some(MaterializedPredicateEvaluator::compile(
                     predicate, &working,
                 )?)
@@ -85,7 +142,10 @@ impl Plan {
             }
             steps.push(Step {
                 target,
-                coercion_target,
+                dtype,
+                comparison,
+                replacement,
+                arithmetic,
                 predicate,
                 regex: super::super::expression_projection_regex_replacement(rewrite)?,
             });
@@ -104,51 +164,10 @@ impl Plan {
     }
 }
 
-// Reuse the existing checked scalar conversion rules with a schema-bound type
-// witness, as the typed predicate helpers do. A null row carries no type evidence.
-fn coercion_target(dtype: &DType) -> Result<StatValue> {
-    match dtype {
-        DType::Bool(_) => Ok(StatValue::Boolean(false)),
-        DType::Utf8(_) => Ok(StatValue::Utf8(String::new())),
-        DType::Primitive(p, _) if p.is_signed_int() => Ok(StatValue::Int64(0)),
-        DType::Primitive(p, _) if p.is_unsigned_int() => Ok(StatValue::UInt64(0)),
-        DType::Primitive(PType::F32 | PType::F64, _) => Ok(StatValue::Float64(0.0)),
-        _ => Err(failed("rewrite requires a bound flat scalar target")),
-    }
-}
-
-fn validate_literals(rewrite: &Rewrite, target: &StatValue) -> Result<()> {
-    match rewrite {
-        Rewrite::MaskScalar { replacement, .. } => {
-            super::super::coerce_rewrite_value(target, replacement)?;
-        }
-        Rewrite::ReplaceScalar {
-            to_replace,
-            replacement,
-            ..
-        } => {
-            super::super::coerce_rewrite_value(target, to_replace)?;
-            super::super::coerce_rewrite_value(target, replacement)?;
-        }
-        Rewrite::NumericScalarArithmetic {
-            operator, operand, ..
-        } => {
-            if matches!(operand, StatValue::Null)
-                || !(matches!(operator.trim(), "+" | "-" | "*")
-                    || (matches!(target, StatValue::Float64(_)) && operator.trim() == "/"))
-            {
-                return Err(failed(
-                    "arithmetic rewrite requires an admitted operator and non-null operand",
-                ));
-            }
-            super::super::coerce_rewrite_value(target, operand)?;
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
 fn rewritten_dtype(dtype: &DType, rewrite: &Rewrite) -> Result<DType> {
+    if !crate::native_payload_schema::admitted_scalar(dtype) {
+        return Err(failed("rewrite requires a bound flat scalar target"));
+    }
     let mut nullable = dtype.nullability();
     match rewrite {
         Rewrite::RowNumber { .. } => Ok(DType::Primitive(PType::U64, Nullability::NonNullable)),
@@ -160,14 +179,30 @@ fn rewritten_dtype(dtype: &DType, rewrite: &Rewrite) -> Result<DType> {
             Ok(dtype.clone())
         }
         Rewrite::MaskScalar { replacement, .. } | Rewrite::ReplaceScalar { replacement, .. } => {
-            if matches!(replacement, StatValue::Null) {
+            if matches!(replacement, ScalarValue::Null) {
                 nullable = Nullability::Nullable;
             }
             Ok(promote(dtype, nullable))
         }
-        Rewrite::NumericScalarArithmetic { .. } => {
+        Rewrite::NumericScalarArithmetic {
+            operator, operand, ..
+        } => {
+            let op = scalar::operator(operator)?;
+            let right = scalar::literal_dtype(operand)?;
+            if right == DType::Null {
+                return Err(failed("arithmetic rewrite requires a non-null operand"));
+            }
+            if matches!(dtype, DType::Decimal(..)) || matches!(right, DType::Decimal(..)) {
+                return scalar::arithmetic_dtype(dtype, op, &right)
+                    .map_err(|error| failed(&error.to_string()));
+            }
             if !matches!(dtype, DType::Primitive(p, _) if *p != PType::F16) {
                 return Err(failed("arithmetic rewrite requires numeric input"));
+            }
+            if op == shardloom_core::BinaryOp::Divide
+                && !matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
+            {
+                return Err(failed("primitive integer rewrite division is not admitted"));
             }
             Ok(promote(dtype, nullable))
         }
@@ -191,7 +226,7 @@ fn promote(dtype: &DType, nullable: Nullability) -> DType {
 }
 
 struct Fill {
-    value: Option<OwnedStat>,
+    value: Option<OwnedScalar>,
     consecutive: usize,
 }
 
@@ -300,9 +335,7 @@ impl Expression {
             }
         }
         output.emit(rows.values.len(), |row, column| {
-            Ok(Value::from(
-                &rows.values[row].values()[compiled.output_indices[column]],
-            ))
+            borrowed(&rows.values[row].values()[compiled.output_indices[column]])
         })?;
         self.ordinal = self
             .ordinal
@@ -324,30 +357,43 @@ fn apply(
     ordinal: u64,
     fill: &mut Fill,
     memory: &LiveMemoryPool,
-) -> Result<OwnedStat> {
+) -> Result<OwnedScalar> {
     let current = &row.values()[step.target];
     match rewrite {
-        Rewrite::MaskScalar { replacement, .. } => {
+        Rewrite::MaskScalar { .. } => {
             let predicate = step
                 .predicate
                 .as_ref()
                 .ok_or_else(|| failed("mask predicate is not bound"))?;
-            if predicate.matches_with(&mut |column| Ok(&row.values()[column]))? {
-                coerce(&step.coercion_target, replacement, memory)
+            if predicate
+                .matches_with(&mut |column| OwnedStat::from_scalar(&row.values()[column], memory))?
+            {
+                OwnedScalar::copy(
+                    step.replacement
+                        .as_ref()
+                        .ok_or_else(|| failed("mask replacement is not bound"))?
+                        .value(),
+                    memory,
+                )
             } else {
-                OwnedStat::copy(current, memory)
+                OwnedScalar::copy(current, memory)
             }
         }
-        Rewrite::ReplaceScalar {
-            to_replace,
-            replacement,
-            ..
-        } => {
-            let comparable = coerce(&step.coercion_target, to_replace, memory)?;
-            if super::super::stat_value_equal(current, comparable.value()) {
-                coerce(&step.coercion_target, replacement, memory)
+        Rewrite::ReplaceScalar { .. } => {
+            let comparable = step
+                .comparison
+                .as_ref()
+                .ok_or_else(|| failed("replacement comparison is not bound"))?;
+            if current == comparable.value() {
+                OwnedScalar::copy(
+                    step.replacement
+                        .as_ref()
+                        .ok_or_else(|| failed("replacement is not bound"))?
+                        .value(),
+                    memory,
+                )
             } else {
-                OwnedStat::copy(current, memory)
+                OwnedScalar::copy(current, memory)
             }
         }
         Rewrite::StringReplaceScalar {
@@ -356,17 +402,23 @@ fn apply(
             ..
         } => replace_text(current, needle, replacement, memory),
         Rewrite::RegexReplaceScalar { .. } => replace_regex(current, step, memory),
-        Rewrite::NumericScalarArithmetic {
-            operator, operand, ..
-        } => OwnedStat::produce(memory, 0, || {
-            if matches!(current, StatValue::Null) {
-                Ok(StatValue::Null)
-            } else {
-                super::super::apply_numeric_scalar_arithmetic(current, operator, operand)
-            }
-        }),
+        Rewrite::NumericScalarArithmetic { .. } => {
+            let arithmetic = step
+                .arithmetic
+                .as_ref()
+                .ok_or_else(|| failed("arithmetic is not bound"))?;
+            let value = super::super::native_relational_expression::binary(
+                scalar::numeric_cell(current)?,
+                arithmetic.operator,
+                scalar::numeric_cell(arithmetic.operand.value())?,
+                &arithmetic.left_dtype,
+                &arithmetic.right_dtype,
+                &step.dtype,
+            )?;
+            OwnedScalar::from_native(value, &step.dtype, memory)
+        }
         Rewrite::ForwardFillNull { limit, .. } => {
-            if matches!(current, StatValue::Null) {
+            if matches!(current, ScalarValue::Null) {
                 if let Some(value) = &fill.value
                     && limit.is_none_or(|n| fill.consecutive < n)
                 {
@@ -374,16 +426,16 @@ fn apply(
                         .consecutive
                         .checked_add(1)
                         .ok_or_else(|| failed("fill length overflow"))?;
-                    return OwnedStat::copy(value.value(), memory);
+                    return OwnedScalar::copy(value.value(), memory);
                 }
             } else {
-                fill.value = Some(OwnedStat::copy(current, memory)?);
+                fill.value = Some(OwnedScalar::copy(current, memory)?);
                 fill.consecutive = 0;
             }
-            OwnedStat::copy(current, memory)
+            OwnedScalar::copy(current, memory)
         }
-        Rewrite::RowNumber { start, .. } => OwnedStat::produce(memory, 0, || {
-            Ok(StatValue::UInt64(
+        Rewrite::RowNumber { start, .. } => OwnedScalar::produce(memory, 0, || {
+            Ok(ScalarValue::UInt64(
                 ordinal
                     .checked_add(*start)
                     .ok_or_else(|| failed("row-number overflow"))?,
@@ -392,31 +444,16 @@ fn apply(
     }
 }
 
-fn coerce(
-    current: &StatValue,
-    replacement: &StatValue,
-    memory: &LiveMemoryPool,
-) -> Result<OwnedStat> {
-    let bytes = if let StatValue::Utf8(text) = replacement {
-        text.len()
-    } else {
-        0
-    };
-    OwnedStat::produce(memory, bytes, || {
-        super::super::coerce_rewrite_value(current, replacement)
-    })
-}
-
 fn replace_text(
-    current: &StatValue,
+    current: &ScalarValue,
     needle: &str,
     replacement: &str,
     memory: &LiveMemoryPool,
-) -> Result<OwnedStat> {
-    if matches!(current, StatValue::Null) {
-        return OwnedStat::copy(current, memory);
+) -> Result<OwnedScalar> {
+    if matches!(current, ScalarValue::Null) {
+        return OwnedScalar::copy(current, memory);
     }
-    let StatValue::Utf8(text) = current else {
+    let ScalarValue::Utf8(text) = current else {
         return Err(failed("string replacement requires UTF8 input"));
     };
     let matches = text.match_indices(needle).count();
@@ -427,7 +464,7 @@ fn replace_text(
         .checked_mul(replacement.len())
         .and_then(|n| n.checked_add(text.len() - removed))
         .ok_or_else(|| failed("replacement size overflow"))?;
-    OwnedStat::produce(memory, bytes, || {
+    OwnedScalar::produce(memory, bytes, || {
         let mut value = String::new();
         value.try_reserve_exact(bytes).map_err(vortex_error)?;
         let mut end = 0;
@@ -437,15 +474,19 @@ fn replace_text(
             end = offset + matched.len();
         }
         value.push_str(&text[end..]);
-        Ok(StatValue::Utf8(value))
+        Ok(ScalarValue::Utf8(value))
     })
 }
 
-fn replace_regex(current: &StatValue, step: &Step, memory: &LiveMemoryPool) -> Result<OwnedStat> {
-    if matches!(current, StatValue::Null) {
-        return OwnedStat::copy(current, memory);
+fn replace_regex(
+    current: &ScalarValue,
+    step: &Step,
+    memory: &LiveMemoryPool,
+) -> Result<OwnedScalar> {
+    if matches!(current, ScalarValue::Null) {
+        return OwnedScalar::copy(current, memory);
     }
-    let StatValue::Utf8(text) = current else {
+    let ScalarValue::Utf8(text) = current else {
         return Err(failed("regex replacement requires UTF8 input"));
     };
     let (regex, replacement) = step
@@ -467,8 +508,8 @@ fn replace_regex(current: &StatValue, step: &Step, memory: &LiveMemoryPool) -> R
         .checked_mul(2)
         .ok_or_else(|| failed("regex capacity overflow"))?
         .max(8);
-    OwnedStat::produce(memory, bound, || {
-        Ok(StatValue::Utf8(
+    OwnedScalar::produce(memory, bound, || {
+        Ok(ScalarValue::Utf8(
             regex.replace_all(text, replacement).into_owned(),
         ))
     })

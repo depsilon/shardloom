@@ -11,6 +11,7 @@ from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
 from native_typed_key_cases import run as typed_key_cases
 from native_typed_expression_cases import run as typed_expression_cases
+from native_typed_unary_cases import run as typed_unary_cases
 
 
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
@@ -241,6 +242,15 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                     native, output / "typed.data")
     typed_expression_cases(context, output, guard, exercise, exercise_workflow, remember,
                            original, schema, native, output / "typed.data", prepared, count)
+    duplicate_raw = output / "typed-unary-duplicates.data"
+    duplicate_native = output / "typed-unary-duplicates.vortex"
+    remember(duplicate_raw)
+    guard()
+    accepted("typed-unary-duplicates-prepare", context.read_arrow_ipc(duplicate_raw).prepare(
+        duplicate_native, check=False))
+    remember(duplicate_native)
+    typed_unary_cases(context, output, guard, exercise, remember, original, fields,
+                      schema, native, output / "typed.data")
 
     spill_workspace = output / "typed-key-spill"
     spill_workspace.mkdir()

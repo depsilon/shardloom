@@ -244,6 +244,13 @@ objects. Common admitted methods include:
   `with_column("col", col("col").replace(...))` string replacement when the schema and projection
   admit the native Vortex expression-project primitive; broad pandas alignment, callable,
   method/limit, nested, or mixed-dtype variants remain deterministic blockers.
+  Flat binary, Decimal128, Date32 and timestamp-microsecond payloads also retain
+  their declared types through duplicate selection/masks, tail/sample,
+  replacement/forward-fill, lossless melt, rolling COUNT and scoped pivot
+  first/first-unique/COUNT. Python bytes, Decimal, date and datetime literals
+  lower to exact native declarations. Legacy primitive predicates and numeric
+  weight/rolling/pivot restrictions still apply; see the
+  [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the admitted ShardLoom expression surface.
 - Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar

@@ -41,6 +41,9 @@ use vortex::array::{
 
 #[path = "local_primitive_relational_bind.rs"]
 mod bind;
+pub(super) use bind::{
+    arithmetic_dtype as scalar_arithmetic_dtype, literal_dtype as scalar_literal_dtype,
+};
 #[path = "local_primitive_relational_dynamic.rs"]
 mod dynamic;
 pub use dynamic::prepare_relational_with_dynamic_schema;

@@ -31,6 +31,17 @@ pub(crate) fn temporal_storage(dtype: &DType) -> Option<PType> {
         .then_some(storage)
 }
 
+/// Flat values admitted by native keys and compact retained scalar state.
+pub(crate) fn admitted_scalar(dtype: &DType) -> bool {
+    match dtype {
+        DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => true,
+        DType::Primitive(ptype, _) => *ptype != PType::F16,
+        DType::Decimal(decimal, _) => admitted_decimal(*decimal),
+        DType::Extension(_) => temporal_storage(dtype).is_some(),
+        _ => false,
+    }
+}
+
 #[derive(Default)]
 struct Budget {
     nodes: usize,

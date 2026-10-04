@@ -423,6 +423,32 @@ the ledger.
   - Dependency: locally accepted typed keys. Retained unary state, nested keys,
     broader adapters and state-spill obligations keep their existing owners.
 
+- [ ] `NATIVE-TYPED-UNARY` — complete exact binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp state in the existing unary operators
+  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed unary contract](native-typed-unary-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native source/result owners, compact
+    selected state, one operation grant, exact key identity and existing
+    source-order/sampling policies; reuse typed literal and checked scalar rules.
+  - Execution checklist:
+    - [ ] Extend shared retained values, keys and binding across selectors,
+      tail, sampling, rewrites, melt, rolling COUNT and scoped pivot policies.
+    - [ ] Align typed CLI/Python/Rust declarations and prove complete typed
+      ownership, output, cancellation, constrained grants and failure cleanup.
+    - [ ] Freeze independent public/direct-unary correctness, required local
+      gates and paired Full43 regression; update precise support and evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory
+      decision, then move this finite item to the completed ledger.
+  - Acceptance: direct and composed calls share exact logical type preservation
+    and deterministic empty-plan admission. Existing primitive floating-key,
+    seed/tie, ordering and margin behavior remains compatible. No decoded
+    evaluator or external-engine fallback enters native execution.
+  - Dependency: locally accepted typed expressions and 0.4.0 source preparation.
+    Nested keys, broader aggregate/window semantics, adapters and general state
+    spill keep their existing owners; hosted completion retains the stack's
+    website advisory decision.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then
