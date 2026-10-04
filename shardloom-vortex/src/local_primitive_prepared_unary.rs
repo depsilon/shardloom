@@ -327,16 +327,18 @@ impl BoundUnary {
         memory: &shardloom_exec::live_memory::LiveMemoryPool,
     ) -> Result<Self> {
         canonical(request, false)?;
-        if matches!(
-            request.kind,
-            VortexQueryPrimitiveKind::ExplodeRows | VortexQueryPrimitiveKind::PivotRows
-        ) {
+        if request.kind == VortexQueryPrimitiveKind::PivotRows {
             return Err(failed(
-                "composed unary input requires a statically bound flat scalar operation",
+                "composed pivot requires execution-time schema binding",
             ));
         }
         let metadata = memory.reserve(memory::request_bytes(request)?)?;
         let mut plan = super::row_export_scan_plan(request, dtype)?;
+        if !schema::retained_source_admitted(request, dtype, &plan)? {
+            return Err(failed(
+                "composed unary state does not admit its selected input types",
+            ));
+        }
         // The preceding relation already executed. Any predicate attached to
         // this operation is evaluated here, including scan-pushable predicates.
         plan.residual_predicate.clone_from(&request.predicate);
@@ -349,6 +351,9 @@ impl BoundUnary {
 
     /// A conservative metadata bound, never a row count obtained by replay.
     pub(super) fn upper_output_rows(&self, input: Option<u64>) -> Option<u64> {
+        if self.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
+            return self.request.source_order_limit.map(|limit| limit as u64);
+        }
         if self.request.kind == VortexQueryPrimitiveKind::SampleRows {
             if self.request.sample_fraction.is_none() {
                 return self.request.source_order_limit.map(|n| {
@@ -387,7 +392,7 @@ impl BoundUnary {
         produce: impl FnOnce(&mut dyn FnMut(ArrayRef) -> Result<()>) -> Result<()>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<report::StateUsage> {
-        let rows = super::completed_result::CompletedRows::streaming(
+        let rows = super::completed_result::CompletedRows::streaming_native(
             self.fields.clone(),
             context.memory(),
             batch_rows,
@@ -411,7 +416,7 @@ impl BoundUnary {
         })?;
         let usage = state.usage();
         state.finish(self, context, &mut output)?;
-        output.finish()?;
+        output.finish(context)?;
         Ok(usage)
     }
 
@@ -449,10 +454,26 @@ impl BoundUnary {
             pivot,
         } = schema::bind(request, dtype, plan, memory)?;
         // Validate declared types even for reports and empty sources.
-        drop(super::completed_result::CompletedRows::new(
-            fields.clone(),
-            memory,
-        )?);
+        if request.kind == VortexQueryPrimitiveKind::ExplodeRows {
+            drop(super::completed_result::CompletedRows::new_native(
+                fields.clone(),
+                memory,
+            )?);
+            for (_, dtype) in &fields {
+                let bytes = super::native_payload::metadata_bytes(dtype)?;
+                metadata.resize(
+                    metadata
+                        .bytes()
+                        .checked_add(bytes)
+                        .ok_or_else(|| failed("nested schema metadata overflow"))?,
+                )?;
+            }
+        } else {
+            drop(super::completed_result::CompletedRows::new(
+                fields.clone(),
+                memory,
+            )?);
+        }
         let predicate = plan
             .residual_predicate
             .as_ref()
@@ -527,7 +548,7 @@ impl PreparedVortexUnary {
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexUnary> {
-        let rows = super::completed_result::CompletedRows::streaming(
+        let rows = super::completed_result::CompletedRows::streaming_native(
             self.bound.fields.clone(),
             context.memory(),
             batch_rows,
@@ -609,7 +630,7 @@ impl PreparedVortexUnary {
         let (state, evidence) = self.scan_state(file, context, output)?;
         let usage = state.usage();
         let pre_limit = state.finish(&self.bound, context, output)?;
-        output.finish()?;
+        output.finish(context)?;
         self.certify_scan(
             context,
             evidence,
@@ -876,12 +897,32 @@ impl<'schema> UnaryOutput<'schema, '_> {
             .ok_or_else(|| failed("result row count overflow"))?;
         Ok(())
     }
-    fn finish(&mut self) -> Result<()> {
+    fn emit_native(
+        &mut self,
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+        build: impl FnOnce() -> Result<ArrayRef>,
+    ) -> Result<()> {
+        if rows == 0 {
+            return Ok(());
+        }
+        if let Some(payload) = &mut self.payload {
+            let array = build()?;
+            if array.len() != rows {
+                return Err(failed("native emission changed its row count"));
+            }
+            payload.push_native(array, context)?;
+        }
+        self.rows = self
+            .rows
+            .checked_add(rows)
+            .ok_or_else(|| failed("result row count overflow"))?;
+        Ok(())
+    }
+    fn finish(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
         if let Some(payload) = &mut self.payload {
             if self.rows == 0 {
-                payload.push_values(self.columns, 0, |_, _| {
-                    Err(failed("empty result requested a value"))
-                })?;
+                payload.push_empty_native(self.columns, context)?;
             }
             payload.finish_stream()?;
         }

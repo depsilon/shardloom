@@ -4004,6 +4004,7 @@ where
             schema.header.len()
         )));
     }
+    let reader_schema = reader.schema();
     let mut batches = Vec::new();
     let mut row_count = 0usize;
     for batch in reader {
@@ -4032,6 +4033,23 @@ where
             )));
         }
         batches.push(batch);
+    }
+
+    // Nested DataType hints omit the root Field's nullability and metadata.
+    // Retain the actual schema through the same Arrow-to-Vortex provider used
+    // for populated batches, including readers which emit no empty batch.
+    if batches.is_empty()
+        && reader_schema.fields().iter().any(|field| {
+            matches!(
+                field.data_type(),
+                DataType::List(_)
+                    | DataType::LargeList(_)
+                    | DataType::FixedSizeList(..)
+                    | DataType::Struct(_)
+            )
+        })
+    {
+        batches.push(RecordBatch::new_empty(reader_schema));
     }
 
     Ok(FlatLocalColumnarSource {

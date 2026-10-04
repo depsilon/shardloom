@@ -6987,6 +6987,7 @@ class LazyFrame:
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
+            source_schema=_prepare_vortex_schema_hints(self.source),
             output_ref=target_vortex_path,
             plan_summary=self.operation_summary,
             evidence_level=evidence_level,
@@ -10943,7 +10944,7 @@ class LazyFrame:
 
         if self._has_structured_binary_export_shape():
             return None
-        unary = {"expression_project", "set_index", "distinct", "tail", "sample", "drop_duplicates", "duplicate_mask", "melt", "rolling_window"}
+        unary = {"expression_project", "set_index", "distinct", "tail", "sample", "drop_duplicates", "duplicate_mask", "melt", "rolling_window", "explode"}
         if any(operation.kind in unary for operation in self.operations):
             ordinary = tuple(operation for operation in self.operations if operation.kind not in unary)
             if flat_order_is_safe(ordinary):

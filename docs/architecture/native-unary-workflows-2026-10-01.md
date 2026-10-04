@@ -113,10 +113,14 @@ standalone tail and duplicate-mask requests reject a source predicate. The
 [October 2 composition unit](native-unary-composition-2026-10-02.md) now carries
 preceding filters and downstream consumers through eight admitted flat-scalar
 unary families in the shared relational execution. General nested/extension
-results, composed explode/dynamic pivot and unary state spill remain separate work.
-Heterogeneous scalar Variant results retain their native/text admission and do not
-gain binary compatibility admission from the flat-scalar matrix. Existing native
-structured projections and nested explode providers keep their distinct contracts.
+results, dynamic pivot and unary state spill remain separate work. Current
+source-build composition also carries statically declared List/FixedSizeList/Struct
+payloads through admitted relational stages and ordered/repeated explode; see the
+[nested payload contract](native-nested-composition-2026-10-02.md). General nested
+unary state and Variant/extension payloads remain outside that scope. Heterogeneous
+scalar Variant results retain their native/text admission and do not gain binary
+compatibility admission from the flat-scalar matrix. Existing structured providers
+keep their distinct contracts.
 
 The reproducible `scripts/run_native_unary_uat.py` matrix uses renamed cargo fields,
 three repeated collections and eight complete write/reopen comparisons for each

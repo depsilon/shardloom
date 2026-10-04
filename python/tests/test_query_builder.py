@@ -1889,6 +1889,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(execution.fallback_attempted)
         self.assertFalse(execution.external_engine_invoked)
 
+    def test_workflow_prepare_forwards_schema_hints_only_for_text_adapters(self) -> None:
+        client = ShardLoomClient(binary="unused-shardloom")
+        schema = {"code": "utf8"}
+        for format_name, read in (
+            ("csv", sl.read_csv), ("json", sl.read_json),
+            ("parquet", sl.read_parquet), ("arrow-ipc", sl.read_arrow_ipc),
+            ("avro", sl.read_avro), ("orc", sl.read_orc),
+            ("vortex", sl.read_vortex),
+        ):
+            with self.subTest(format=format_name), mock.patch.object(
+                client, "public_workflow_prepare"
+            ) as prepare:
+                read(f"source.{format_name}", schema=schema, client=client).prepare(
+                    "prepared.vortex"
+                )
+                self.assertEqual(
+                    prepare.call_args.kwargs["source_schema"],
+                    tuple(schema.items()) if format_name in {"csv", "json"} else None,
+                )
+
     def test_from_rows_write_invokes_generated_source_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

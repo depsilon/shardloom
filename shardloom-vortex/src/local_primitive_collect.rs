@@ -12,7 +12,7 @@ use crate::resident_session::{
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use std::io::Write as _;
-use vortex::array::{ArrayRef, Columnar, ExecutionCtx};
+use vortex::array::{ArrayRef, ExecutionCtx};
 
 const MAX_COLLECT_ROWS: u64 = 65_536;
 const MAX_JSON_BYTES: usize = 8 * 1024 * 1024;
@@ -451,14 +451,7 @@ impl JsonRows {
             .iter()
             .map(|column| {
                 let field = logical_field_from_native_array(array, column.as_ref())?;
-                if matches!(field.dtype(), vortex::array::dtype::DType::Variant(_)) {
-                    Ok(field)
-                } else {
-                    field
-                        .execute::<Columnar>(context)
-                        .map(vortex::array::IntoArray::into_array)
-                        .map_err(collect_io_error)
-                }
+                super::native_json::Column::new(&field, context, &self.memory)
             })
             .collect::<Result<Vec<_>>>()?;
         for row in 0..array.len() {
@@ -475,10 +468,7 @@ impl JsonRows {
                     .map_err(collect_io_error)?;
                 self.output.write_all(b":").map_err(collect_io_error)?;
                 let child = &children[index];
-                let scalar = child
-                    .execute_scalar(row, context)
-                    .map_err(collect_io_error)?;
-                write_scalar_json(&mut self.output, &scalar)?;
+                child.write(row, &mut self.output, context, cancellation)?;
             }
             self.output
                 .write_all(if self.lines { b"}\n" } else { b"}" })
@@ -549,10 +539,10 @@ impl JsonRows {
     }
 }
 
-fn write_scalar_json(
+pub(super) fn write_scalar_json(
     writer: &mut impl std::io::Write,
     scalar: &vortex::array::scalar::Scalar,
-) -> Result<()> {
+) -> Result<u64> {
     use shardloom_core::StatValue;
     use vortex::array::scalar::ScalarValue;
     let mut scalar = scalar;
@@ -564,6 +554,10 @@ fn write_scalar_json(
         }
         scalar = inner;
     }
+    let utf8_bytes = match scalar.value() {
+        Some(ScalarValue::Utf8(value)) => super::usize_to_u64(value.as_str().len())?,
+        _ => 0,
+    };
     match scalar.value() {
         None => writer.write_all(b"null").map_err(collect_io_error),
         Some(ScalarValue::Bool(value)) => {
@@ -589,7 +583,8 @@ fn write_scalar_json(
         _ => Err(collect_error(
             "result type is not admitted for JSON collect",
         )),
-    }
+    }?;
+    Ok(utf8_bytes)
 }
 
 struct BoundedJson {

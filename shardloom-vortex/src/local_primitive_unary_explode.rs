@@ -1,15 +1,12 @@
 //! Expand native list coordinates in source order without an expanded row table.
 
+use super::super::native_relational_batch::{index_array, take_column};
 use super::{
     BATCH_ROWS, BoundUnary, DType, NativeBatch, NativeExecutionContext, ReservedVec, Result,
-    UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
+    UnaryOutput, VortexQueryPrimitiveRequest, failed, vortex_error,
 };
 use vortex::array::{
-    ArrayRef, ExecutionCtx, VortexSessionExecute as _,
-    arrays::fixed_size_list::{FixedSizeListArrayExt as _, FixedSizeListArraySlotsExt as _},
-    arrays::listview::{ListViewArrayExt as _, ListViewArraySlotsExt as _},
-    arrays::{FixedSizeListArray, ListViewArray},
-    validity::Validity,
+    VortexSessionExecute as _, arrays::StructArray, dtype::FieldNames, validity::Validity,
 };
 
 pub(super) struct Plan {
@@ -91,87 +88,7 @@ impl Plan {
     }
 }
 
-struct ListColumn {
-    elements: ArrayRef,
-    validity: Validity,
-    offsets: Option<ArrayRef>,
-    sizes: Option<ArrayRef>,
-    fixed: usize,
-}
-
-impl ListColumn {
-    fn new(array: ArrayRef, field: Option<&str>, context: &mut ExecutionCtx) -> Result<Self> {
-        let mut result = match array.dtype() {
-            DType::List(_, _) => {
-                let list = array
-                    .execute::<ListViewArray>(context)
-                    .map_err(vortex_error)?;
-                Self {
-                    elements: list.elements().clone(),
-                    validity: list.listview_validity(),
-                    offsets: Some(list.offsets().clone()),
-                    sizes: Some(list.sizes().clone()),
-                    fixed: 0,
-                }
-            }
-            DType::FixedSizeList(_, _, _) => {
-                let list = array
-                    .execute::<FixedSizeListArray>(context)
-                    .map_err(vortex_error)?;
-                Self {
-                    elements: list.elements().clone(),
-                    validity: list.fixed_size_list_validity(),
-                    offsets: None,
-                    sizes: None,
-                    fixed: list.list_size() as usize,
-                }
-            }
-            _ => return Err(failed("explode source changed its list dtype")),
-        };
-        if let Some(field) = field {
-            result.elements =
-                super::super::logical_field_from_native_array(&result.elements, field)?;
-        }
-        Ok(result)
-    }
-
-    fn coordinates(
-        &self,
-        row: usize,
-        context: &mut ExecutionCtx,
-    ) -> Result<Option<(usize, usize)>> {
-        if !self
-            .validity
-            .execute_is_valid(row, context)
-            .map_err(vortex_error)?
-        {
-            return Ok(None);
-        }
-        let index = |array: &ArrayRef, context: &mut ExecutionCtx| -> Result<usize> {
-            array
-                .execute_scalar(row, context)
-                .map_err(vortex_error)?
-                .as_primitive()
-                .as_::<usize>()
-                .ok_or_else(|| failed("list coordinate is not a nonnegative platform index"))
-        };
-        let (start, count) = match (&self.offsets, &self.sizes) {
-            (Some(offsets), Some(sizes)) => (index(offsets, context)?, index(sizes, context)?),
-            _ => (
-                row.checked_mul(self.fixed)
-                    .ok_or_else(|| failed("list offset overflow"))?,
-                self.fixed,
-            ),
-        };
-        if start
-            .checked_add(count)
-            .is_none_or(|end| end > self.elements.len())
-        {
-            return Err(failed("list coordinates exceed native elements"));
-        }
-        Ok(Some((start, count)))
-    }
-}
+use super::super::native_list::Column as ListColumn;
 
 #[derive(Default)]
 pub(super) struct Explode {
@@ -201,13 +118,20 @@ impl Explode {
             .map(|column| match column {
                 Column::Scalar(_) => Ok(None),
                 Column::List { source, field } => {
-                    ListColumn::new(batch.column(*source)?, field.as_deref(), &mut execution)
-                        .map(Some)
+                    let mut list = ListColumn::new(batch.column(*source)?, &mut execution)?;
+                    if let Some(field) = field {
+                        list.elements =
+                            super::super::logical_field_from_native_array(&list.elements, field)?;
+                    }
+                    Ok(Some(list))
                 }
             })
             .collect::<Result<Vec<_>>>()?;
         let mut selected = ReservedVec::new(context.memory())?;
         let limit = plan.request.source_order_limit.unwrap_or(usize::MAX);
+        if output.rows >= limit {
+            return Ok(true);
+        }
         for row in 0..rows {
             if row % 256 == 0 {
                 context.check_cancelled()?;
@@ -239,14 +163,7 @@ impl Explode {
                 if selected.values.len() == BATCH_ROWS
                     || output.rows.saturating_add(selected.values.len()) >= limit
                 {
-                    emit(
-                        compiled,
-                        batch,
-                        &lists,
-                        &mut execution,
-                        &mut selected,
-                        output,
-                    )?;
+                    emit(compiled, batch, &lists, context, &mut selected, output)?;
                     context.check_cancelled()?;
                     if output.rows >= limit {
                         return Ok(true);
@@ -254,14 +171,7 @@ impl Explode {
                 }
             }
         }
-        emit(
-            compiled,
-            batch,
-            &lists,
-            &mut execution,
-            &mut selected,
-            output,
-        )?;
+        emit(compiled, batch, &lists, context, &mut selected, output)?;
         Ok(false)
     }
 }
@@ -270,26 +180,52 @@ fn emit(
     plan: &Plan,
     batch: &mut NativeBatch,
     lists: &[Option<ListColumn>],
-    context: &mut ExecutionCtx,
+    context: &NativeExecutionContext<'_>,
     selected: &mut ReservedVec<(usize, usize)>,
     output: &mut UnaryOutput<'_, '_>,
 ) -> Result<()> {
-    output.emit(selected.values.len(), |row, column| {
-        let (source, element) = selected.values[row];
-        match &plan.columns[column] {
-            Column::Scalar(index) => batch.value(*index, source),
-            Column::List { .. } => {
-                let list = lists[column]
-                    .as_ref()
-                    .ok_or_else(|| failed("native list is absent"))?;
-                match list.coordinates(source, context)? {
-                    None => Ok(Value::Null),
-                    Some((start, _)) => {
-                        super::values::scalar_value(&list.elements, start + element, context)
-                    }
+    let rows = selected.values.len();
+    output.emit_native(rows, context, || {
+        let parent = index_array(rows, false, context, |row| Ok(Some(selected.values[row].0)))?;
+        let mut execution = context.native_session().create_execution_ctx();
+        let mut columns = ReservedVec::new(context.memory())?;
+        columns.reserve(plan.columns.len())?;
+        for (index, (column, (_, dtype))) in plan.columns.iter().zip(&plan.fields).enumerate() {
+            context.check_cancelled()?;
+            let array = match column {
+                Column::Scalar(source) => {
+                    take_column(&batch.column(*source)?, &parent, dtype, context)?
                 }
-            }
+                Column::List { .. } => {
+                    let list = lists[index]
+                        .as_ref()
+                        .ok_or_else(|| failed("native list is absent"))?;
+                    let indices = index_array(rows, dtype.is_nullable(), context, |row| {
+                        if row.is_multiple_of(1024) {
+                            context.check_cancelled()?;
+                        }
+                        let (source, element) = selected.values[row];
+                        Ok(list
+                            .coordinates(source, &mut execution)?
+                            .map(|(start, _)| start + element))
+                    })?;
+                    take_column(&list.elements, &indices, dtype, context)?
+                }
+            };
+            columns.values.push(array);
         }
+        let (columns, _ownership) = columns.into_parts();
+        StructArray::try_new(
+            plan.fields
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<FieldNames>(),
+            columns,
+            rows,
+            Validity::NonNullable,
+        )
+        .map(vortex::array::IntoArray::into_array)
+        .map_err(vortex_error)
     })?;
     selected.values.clear();
     Ok(())

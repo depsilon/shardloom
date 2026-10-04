@@ -1,7 +1,7 @@
 //! Native row owners and bounded late payload gathering shared by operators.
 
 use super::{
-    logical_field_from_native_array, native_capacity::ReservedVec,
+    logical_field_from_native_array, native_capacity::ReservedVec, native_payload,
     native_relational_keys::KeyColumn, result_batch, vortex_error,
 };
 use crate::resident_session::NativeExecutionContext;
@@ -381,6 +381,9 @@ impl Gather<'_> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         if self.segments.values.is_empty() {
+            if native_payload::is_nested(dtype) {
+                return native_payload::defaults(dtype, self.indices.len(), context);
+            }
             return result_batch::build_column(
                 dtype,
                 self.indices.len(),
@@ -434,6 +437,9 @@ pub(super) fn take_column(
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
+    if native_payload::is_nested(dtype) {
+        return native_payload::take(array, indices, dtype, context);
+    }
     let mut execution = context.native_session().create_execution_ctx();
     let selected = array
         .take(indices.clone())

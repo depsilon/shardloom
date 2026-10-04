@@ -2,7 +2,7 @@
 
 use super::{
     Binder, DType, Node, NodeKind, Nullability, PType, Result, failed, field, validate_name,
-    validate_unique, validate_width,
+    validate_scalar, validate_unique, validate_width,
 };
 use crate::{
     local_primitives::native_relational_window as kernel,
@@ -107,7 +107,7 @@ impl Binder<'_> {
 
 fn key(spec: &mut kernel::Spec, fields: &[(String, DType)], name: &str) -> Result<usize> {
     validate_name(name)?;
-    field(fields, name)?;
+    validate_scalar(field(fields, name)?)?;
     if let Some(index) = spec.keys.iter().position(|key| key == name) {
         return Ok(index);
     }

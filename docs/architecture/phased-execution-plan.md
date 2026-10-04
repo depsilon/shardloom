@@ -249,37 +249,50 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-UNARY-COMPOSITION` — connect existing flat-scalar unary kernels to
-  native relational inputs and consumers under PERF-02/03/07/10/11/12 and
-  CG-5/20/21. Follow the
-  [shared unary composition contract](native-unary-composition-2026-10-02.md).
-  Operation order, source declarations and one resource grant remain explicit;
-  existing kernels own semantics and Python remains a declaration layer.
-  Local acceptance on `e1133f69` passes 1,963 public complete-result checks
-  (1,166 unary) and 129/129 Full43 comparisons; hosted acceptance remains pending.
+- [ ] `NATIVE-NESTED-COMPOSITION` — carry static nested payloads and compose
+  explode through shared native operators and sinks under PERF-02/03/07/10/11/12
+  and CG-3/5/19/20/21. Follow the
+  [nested ownership and composition contract](native-nested-composition-2026-10-02.md).
   - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: reuse prepared native readers, existing unary
-    state and relational traversal, checked row bounds, shared reservations and
-    synchronous result ownership. Preserve applicable metadata/pruning strategies.
+  - ShardLoom technique review: extend shared late payload gathering, native list
+    coordinates, reservations, synchronous delivery and prepared source reuse.
+    Keep metadata/pruning and one PulseWeave allocation; no separate frontend engine.
   - Execution checklist:
-    - [x] Separate source binding from the shared unary operation state and admit
-      flat-scalar unary nodes in the existing native plan and resource context.
-    - [x] Preserve tail, sample, duplicate, rewrite, melt and rolling semantics
-      across preceding/following stages, including unknown cardinality and ties.
-    - [x] Carry SQL/DataFrame stages and source declarations through common
-      collect/write/inspection admission, with explicit invalid-shape denial.
-    - [x] Prove full values, typed empties, retained ownership, pressure,
-      cancellation and complete eight-writer output, then freeze workspace,
-      native, Python, feature/doc, public workflow and Full43 acceptance.
-    - [ ] Align references and evidence, complete review and hosted checks, and move
-      the finite accepted record to the completed ledger.
+    - [x] Implement recursive selected-buffer ownership and typed empties for
+      lists, fixed-size lists and structs with admitted scalar leaves; prove
+      validity, cancellation, narrow grants and retained-buffer lifetime.
+    - [x] Separate payload and key admission, then carry nested values through
+      existing relational operators and connect the shared explode state.
+    - [x] Lower SQL/DataFrame explode stages with ordered source declarations,
+      resources and inert inspection through the common native plan.
+    - [x] Extend shared nested JSON and representable columnar output boundaries;
+      prove complete writer readback and explicit format denials without artifacts.
+    - [ ] Freeze complete public, workspace/native/Python/feature/doc/site and
+      Full43 acceptance, finish hosted review/checks and move the finite record
+      to the completed ledger.
+  - Local acceptance after review repairs: frozen `3b94ba2e` passes 2,459 public
+    checks, including 496 nested checks and 6,636,187 complete row comparisons,
+    all 258 paired Full43 results and the six-result Q21 reversed-order repeat.
+    Aggregate timing is effectively unchanged; the initial Q21 RSS increase
+    does not reproduce. All 24 local gates pass. The
+    [fresh report](../benchmarks/native-nested-review-full43-2026-10-03.md)
+    preserves both observations and the original acceptance. The October 4
+    dependency update restores a clean website audit without an exception.
+    The additional null-parent nested-intake correction passes all eight selected
+    source checks with its own immutable review packet;
+    hosted acceptance and ledger movement remain pending.
+  - Acceptance: complete static nested workflows without prefix collection,
+    serialized intermediates, replay or external fallback; existing flat kernels
+    and small collection bounds are preserved. Dynamic pivot, richer type/key
+    semantics and wider state spill retain their existing concrete owners.
 
-The preceding resource, allocation and aggregate units merged in
+The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then
-[PR #1504](https://github.com/depsilon/shardloom/pull/1504), each after all 40
+[PR #1504](https://github.com/depsilon/shardloom/pull/1504) and
+[PR #1505](https://github.com/depsilon/shardloom/pull/1505), each after all 40
 hosted checks passed. Their finite completions are recorded in the
-[completed ledger](phased-execution-completed-ledger.md). Unary composition
+[completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
 nested payloads, dynamic pivot schemas, broader adapters and resource obligations
 remain open under their existing owners.
@@ -328,7 +341,8 @@ the existing native plan, source preparation, resources and writers. Its compone
 reuse map also governs later optimization lanes. PR #1501 merged at `71036191`
 after all 40 hosted checks passed; the tested and merged trees match. The completed
 finite implementation record is in the ledger. The eight flat-scalar unary
-families now have the local acceptance above. Wider types, nested/dynamic unary
+families are merged with the [unary acceptance](native-unary-composition-2026-10-02.md)
+record. Wider types, nested/dynamic unary
 composition, relational fanout and remaining resource/spill/adapter
 work stay under PERF-02/03/06/07/10/11/12. This does not complete those whole owners.
 
@@ -2696,8 +2710,9 @@ Current autonomous execution order:
 The October 2 maintainer's finite `ADAPTIVE-INGEST-BUDGET` priority is complete in
 PR #1503: P4/P6/P8 ingestion shares the provided CPU budget, with failure, memory
 and complete query acceptance recorded in the completed ledger. Resume the
-preserved native operator work with `NATIVE-AGGREGATE-ORDERING`, then continue the
-dependent universal workflow queue below. The other large format/text experiments
+preserved native operator work through accepted aggregate and flat unary
+composition, then `NATIVE-NESTED-COMPOSITION` and the dependent universal workflow
+queue below. The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 
 The October 1 product clarification makes

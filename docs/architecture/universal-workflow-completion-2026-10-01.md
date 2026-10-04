@@ -67,23 +67,31 @@ Relational source declarations also survive mixed-input joins, sets and nested
 predicate helpers. The [October 2 unary composition unit](native-unary-composition-2026-10-02.md)
 connects eight existing flat-scalar unary families to the shared relational
 traversal and writers. Its frozen build passes 1,963 complete public checks and
-129/129 Full43 comparisons. Wider types/adapters, nested and dynamic-schema
-composition, and remaining resource/spill transitions require the work below.
+129/129 Full43 comparisons. The [static nested continuation](native-nested-composition-2026-10-02.md)
+implements owned list/struct payload transport and ordered/repeated explode; its
+frozen build passes 2,459 public checks, including 496 nested checks, and all 258
+paired Full43 comparisons. Fresh acceptance after the three review repairs also
+passes the required Q21 memory repeat; the
+[new report](../benchmarks/native-nested-review-full43-2026-10-03.md) preserves the
+original measurements and the unreproduced memory flag. Hosted acceptance awaits
+the website advisory decision. Wider types/adapters,
+dynamic-schema composition and remaining resource/spill transitions require the work below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs. | Broader typed/nested schemas, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
-| Operator composition | Native flat-scalar relational stages and eight shared unary families compose with ordered public declarations. | Wider join/set/window/subquery semantics, nested explode and dynamic pivot composition; broader prepared/public parity. Use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
-| Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output. | Extend result streams through the remaining operator/type families and broader chains. | PERF-07/11; CG-3/19/21 |
+| Operator composition | Native flat-scalar relational stages and eight shared unary families compose with ordered public declarations; the static nested continuation adds payload transport and repeated explode. | Wider join/set/window/subquery semantics, nested key/unary-state semantics and dynamic pivot composition; broader prepared/public parity. Use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
+| Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output has six representable destinations. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
 
-The 65,536-row / 128-scalar-field / 8-MiB limits remain on small computed-result
+The 65,536-row / 128-top-level-field / 8-MiB limits remain on small computed-result
 collection. The [October 1 result-stream unit](native-workflow-streaming-2026-10-01.md)
 gives already executable flat-scalar aggregate and ordered local writes a separate
 bounded batch boundary, with complete output above the collection row and byte
-limits. Both still admit at most 128 flat scalar fields. These are not input-size
-limits. Remaining operator state, spill and
+limits. The nested continuation extends admitted fields to bounded static
+list/struct payloads, with recursive schema and child-buffer admission. These are
+not input-size limits. Remaining operator state, spill and
 composition gaps still need their own resource proof. Successful file ingestion
 alone cannot establish a successful query and output workflow.
 
@@ -93,8 +101,9 @@ The first runtime unit connects bounded native result composition and local outp
 for already executable flat-scalar aggregate and ordered-result families; its
 [contract and acceptance](native-workflow-streaming-2026-10-01.md) record exact
 coverage. Retained unary execution and admitted flat-scalar relational/unary
-composition now have their own acceptance records. Continue through missing
-nested/dynamic-schema and type families with their ownership contracts. Freeze exact
+composition now have their own acceptance records. Finish the static nested
+continuation's acceptance, then continue through missing dynamic-schema and type
+families with their ownership contracts. Freeze exact
 expressions, sinks and pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only
 designation. Availability work ships on correctness and resource proof; a speedup is

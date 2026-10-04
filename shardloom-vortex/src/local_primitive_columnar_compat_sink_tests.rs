@@ -91,6 +91,42 @@ fn policy() -> VortexLocalPrimitiveExecutionPolicy {
     policy.resource_envelope.memory_budget_bytes = 256 * 1024 * 1024;
     policy
 }
+
+#[test]
+fn columnar_avro_reopen_checks_nested_names_types_nullability_and_metadata() {
+    let record = |name: &str, dtype, nullable| {
+        Field::new(
+            "item",
+            DataType::Struct(vec![Field::new(name, dtype, true)].into()),
+            nullable,
+        )
+    };
+    let wrap = |field| Field::new("items", DataType::List(Arc::new(field)), true);
+    let original = record("code", DataType::Int64, true);
+    let expected = wrap(original.clone());
+    let record_metadata = [("avro.name".into(), "item_record".into())].into();
+    assert!(nested::avro_field_matches(
+        &wrap(original.clone().with_metadata(record_metadata)),
+        &expected,
+    ));
+    for changed in [
+        record("renamed", DataType::Int64, true),
+        record("code", DataType::Int32, true),
+        record("code", DataType::Int64, false),
+        original.with_metadata([("ARROW:extension:name".into(), "custom".into())].into()),
+    ] {
+        assert!(!nested::avro_field_matches(&wrap(changed), &expected));
+    }
+    assert!(!nested::avro_field_matches(
+        &expected.clone().with_name("renamed"),
+        &expected,
+    ));
+    assert!(!nested::avro_field_matches(
+        &expected.clone().with_nullable(false),
+        &expected,
+    ));
+}
+
 fn identifier(row: usize) -> i64 {
     match row {
         0 => i64::MIN,

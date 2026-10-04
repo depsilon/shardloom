@@ -2,7 +2,7 @@
 
 use super::{
     Binder, DType, Node, NodeKind, Result, failed, field, native_relational_sort, validate_name,
-    validate_scalar, validate_unique, validate_width,
+    validate_payload, validate_scalar, validate_unique, validate_width,
 };
 use crate::relational_query::{
     VortexRelationalFilter, VortexRelationalLimit, VortexRelationalProject, VortexRelationalSort,
@@ -22,7 +22,13 @@ impl Binder<'_> {
         for (name, expression) in &project.expressions {
             validate_name(name)?;
             let expression = self.expression(expression, &input.fields, 0)?;
-            validate_scalar(&expression.dtype)?;
+            validate_payload(&expression.dtype)?;
+            self.charge(
+                usize::try_from(crate::local_primitives::native_payload::metadata_bytes(
+                    &expression.dtype,
+                )?)
+                .map_err(crate::local_primitives::vortex_error)?,
+            )?;
             fields.push((name.clone(), expression.dtype.clone()));
             expressions.push(expression);
         }
@@ -53,7 +59,7 @@ impl Binder<'_> {
         self.charge(input.fields.len() * 4096)?;
         for key in &sort.keys {
             validate_name(key.column.as_str())?;
-            field(&input.fields, key.column.as_str())?;
+            validate_scalar(field(&input.fields, key.column.as_str())?)?;
         }
         let spec = native_relational_sort::Spec {
             fields: input.fields.clone(),

@@ -26,6 +26,20 @@ pub(super) fn source_field(dtype: &DType, name: &str) -> Result<DType> {
     }
 }
 
+fn predicate_types(predicate: &shardloom_core::PredicateExpr, dtype: &DType) -> Result<()> {
+    if let Some(column) = predicate.column()
+        && super::super::native_payload::is_nested(&source_field(dtype, column.as_str())?)
+    {
+        return Err(failed("unary predicates require admitted scalar fields"));
+    }
+    if let shardloom_core::PredicateExpr::And(children) = predicate {
+        for child in children {
+            predicate_types(child, dtype)?;
+        }
+    }
+    Ok(())
+}
+
 /// Select the retained provider from schema before executing any rows. Existing
 /// nested native providers remain available until their typed state is admitted.
 pub(super) fn retained_source_admitted(
@@ -47,6 +61,9 @@ pub(super) fn retained_source_admitted(
             DType::Bool(_) | DType::Utf8(_) | DType::Primitive(_, _)
         ) && !matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F16, _))
     };
+    if let Some(predicate) = &request.predicate {
+        predicate_types(predicate, dtype)?;
+    }
     for name in &columns {
         if name.is_empty() || name.len() > 256 {
             return Ok(false);
@@ -67,11 +84,17 @@ pub(super) fn retained_source_admitted(
                 } else {
                     element.as_ref().clone()
                 };
-                if !flat(&element) {
+                if super::super::native_payload::metadata_bytes(&element).is_err() {
                     return Ok(false);
                 }
                 continue;
             }
+        }
+        if request.kind == Kind::ExplodeRows {
+            if super::super::native_payload::metadata_bytes(&field).is_err() {
+                return Ok(false);
+            }
+            continue;
         }
         if !flat(&field) {
             return Ok(false);

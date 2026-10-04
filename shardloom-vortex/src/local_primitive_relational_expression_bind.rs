@@ -2,7 +2,7 @@
 
 use super::{
     Binder, DType, Nullability, PType, Result, common_dtype, failed, field, integer,
-    validate_key_pair, validate_name,
+    validate_key_pair, validate_name, validate_scalar,
 };
 use crate::local_primitives::native_relational_expression::{Expression, Kind};
 use shardloom_core::{
@@ -94,6 +94,7 @@ impl Binder<'_> {
             }
             ExpressionKind::Unary { op, expr } => {
                 let child = Box::new(self.expression(expr, fields, depth + 1)?);
+                scalar_operand(&child.dtype)?;
                 let dtype = match op {
                     UnaryOp::IsNull | UnaryOp::IsNotNull => DType::Bool(Nullability::NonNullable),
                     UnaryOp::Not => {
@@ -142,6 +143,7 @@ impl Binder<'_> {
             | ExpressionKind::TryCast { expr, target_dtype } => {
                 let child = Box::new(self.expression(expr, fields, depth + 1)?);
                 let tolerant = matches!(input.kind, ExpressionKind::TryCast { .. });
+                scalar_operand(&child.dtype)?;
                 let dtype = cast_dtype(&child.dtype, target_dtype, tolerant)?;
                 (
                     dtype,
@@ -175,6 +177,9 @@ impl Binder<'_> {
             .iter()
             .map(|arg| self.expression(arg, fields, depth + 1))
             .collect::<Result<Vec<_>>>()?;
+        for argument in &args {
+            scalar_operand(&argument.dtype)?;
+        }
         let (dtype, kind) = match (name.to_ascii_lowercase().as_str(), args.len()) {
             ("case_when", 3) => {
                 let no = args.pop().expect("length bound");
@@ -374,10 +379,20 @@ fn arithmetic_dtype(left: &DType, right: &DType) -> Result<DType> {
 }
 
 fn compatible(left: &DType, right: &DType) -> Result<()> {
+    scalar_operand(left)?;
+    scalar_operand(right)?;
     if left == &DType::Null || right == &DType::Null {
         Ok(())
     } else {
         validate_key_pair(left, right)
+    }
+}
+
+fn scalar_operand(dtype: &DType) -> Result<()> {
+    if dtype == &DType::Null {
+        Ok(())
+    } else {
+        validate_scalar(dtype)
     }
 }
 

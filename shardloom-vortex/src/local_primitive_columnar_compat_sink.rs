@@ -30,13 +30,18 @@ use std::{
 };
 use vortex::{
     array::{
-        ArrayRef, Columnar, ExecutionCtx, IntoArray as _, VortexSessionExecute as _,
-        arrays::{StructArray, VarBinViewArray},
-        dtype::{DType, FieldNames, Nullability, PType},
+        ArrayRef, ExecutionCtx, IntoArray as _, VortexSessionExecute as _,
+        arrays::StructArray,
+        dtype::{DType, FieldNames, Nullability},
         validity::Validity,
     },
     arrow::ArrowSessionExt as _,
 };
+
+#[path = "local_primitive_columnar_compat_nested.rs"]
+mod nested;
+#[cfg(test)]
+use vortex::array::arrays::VarBinViewArray;
 
 #[derive(Clone)]
 pub(super) struct CompatibilityLimits {
@@ -146,6 +151,8 @@ pub(super) struct PreparedCompatibilityExport {
     schema: SchemaRef,
     format: VortexLocalPrimitiveRowExportFormat,
     limits: CompatibilityLimits,
+    schema_fields: usize,
+    _schema_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
 }
 
 type CompatibilityWork = super::VortexColumnarCompatibilitySinkEvidence;
@@ -194,9 +201,35 @@ pub(super) fn prepare_plan(
     if plan.limit.is_some_and(|limit| limit > limits.output_rows) {
         return Err(error("requested output limit exceeds row admission"));
     }
+    let nested = plan.dtype.as_struct_fields_opt().is_some_and(|fields| {
+        fields
+            .fields()
+            .any(|dtype| super::native_payload::is_nested(&dtype))
+    });
+    if nested && format == VortexLocalPrimitiveRowExportFormat::Orc {
+        return Err(error(
+            "ORC does not admit nested output: the pinned native ORC writer cannot preserve list/struct fields",
+        ));
+    }
+    let schema_metadata = if nested {
+        Some(
+            plan.session
+                .memory()
+                .reserve(super::native_payload::metadata_bytes(&plan.dtype)?)?,
+        )
+    } else {
+        None
+    };
     let Some(schema) = schema_for(&plan.dtype, limits.columns) else {
         return Ok(None);
     };
+    let schema_fields = plan
+        .dtype
+        .as_struct_fields_opt()
+        .expect("schema is a struct")
+        .fields()
+        .map(|dtype| nested::field_count(&dtype))
+        .sum();
     Ok(Some(PreparedCompatibilityExport {
         request: request.clone(),
         policy,
@@ -204,10 +237,13 @@ pub(super) fn prepare_plan(
         schema,
         format,
         limits,
+        schema_fields,
+        _schema_metadata: schema_metadata,
     }))
 }
 
 fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
+    super::native_payload::metadata_bytes(dtype).ok()?;
     let DType::Struct(fields, Nullability::NonNullable) = dtype else {
         return None;
     };
@@ -220,24 +256,7 @@ fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
         if name.as_ref().is_empty() || name.as_ref().len() > 256 || !names.insert(name.as_ref()) {
             return None;
         }
-        let kind = match dtype {
-            DType::Bool(_) => DataType::Boolean,
-            DType::Utf8(_) => DataType::Utf8,
-            DType::Primitive(ptype, _) => match ptype {
-                PType::I8 => DataType::Int8,
-                PType::I16 => DataType::Int16,
-                PType::I32 => DataType::Int32,
-                PType::I64 => DataType::Int64,
-                PType::U8 => DataType::UInt8,
-                PType::U16 => DataType::UInt16,
-                PType::U32 => DataType::UInt32,
-                PType::U64 => DataType::UInt64,
-                PType::F32 => DataType::Float32,
-                PType::F64 => DataType::Float64,
-                PType::F16 => return None,
-            },
-            _ => return None,
-        };
+        let kind = nested::data_type(&dtype)?;
         arrow_fields.push(Field::new(name.as_ref(), kind, dtype.is_nullable()));
     }
     Some(Arc::new(Schema::new(arrow_fields)))
@@ -267,45 +286,7 @@ fn admitted_canonical(
     for name in names {
         limits.check()?;
         let child = logical_field_from_native_array(array, name)?;
-        let canonical = if matches!(child.dtype(), DType::Utf8(_)) {
-            let text = child
-                .execute::<VarBinViewArray>(ctx)
-                .map_err(vortex_error)?;
-            for view in text.views() {
-                let len = usize::try_from(view.len()).map_err(vortex_error)?;
-                if len > limits.string_bytes {
-                    return Err(error("native string exceeds Arrow expansion admission"));
-                }
-                add(&mut expanded, usize_to_u64(len)?)?;
-            }
-            add(&mut expanded, usize_to_u64(array.len() + 1)? * 4)?;
-            text.into_array()
-        } else {
-            let canonical = child
-                .execute::<Columnar>(ctx)
-                .map_err(vortex_error)?
-                .into_array();
-            let width = match canonical.dtype() {
-                DType::Bool(_) => 1,
-                DType::Primitive(ptype, _) => {
-                    u64::try_from(ptype.byte_width()).map_err(vortex_error)?
-                }
-                _ => return Err(error("canonical field changed its admitted dtype")),
-            };
-            add(
-                &mut expanded,
-                usize_to_u64(array.len())?
-                    .checked_mul(width)
-                    .ok_or_else(|| error("Arrow expansion overflow"))?,
-            )?;
-            canonical
-        };
-        add(&mut expanded, usize_to_u64(array.len().div_ceil(8))? + 128)?;
-        if expanded > limits.arrow_batch_bytes {
-            return Err(error(
-                "native fields exceed Arrow batch expansion admission",
-            ));
-        }
+        let canonical = nested::canonical(&child, ctx, limits, &mut expanded)?;
         children.push(canonical);
     }
     let packed = StructArray::try_new(
@@ -488,9 +469,7 @@ impl PreparedCompatibilityExport {
     ) -> Result<CompletedCompatibilityExport> {
         self.limits.check()?;
         self.plan.validate_destination(output_path)?;
-        let mut metadata = self
-            .limits
-            .metadata_reservation(self.schema.fields().len())?;
+        let mut metadata = self.limits.metadata_reservation(self.schema_fields)?;
         let initial = metadata
             .checked_add(64 * 1024)
             .ok_or_else(|| error("writer admission overflow"))?;
@@ -572,7 +551,7 @@ impl PreparedCompatibilityExport {
                             )?;
                             if self.limits.streaming {
                                 metadata = CompatibilityLimits::metadata_for_batches(
-                                    self.schema.fields().len(),
+                                    self.schema_fields,
                                     usize::try_from(work.arrow_batches + 1)
                                         .map_err(vortex_error)?,
                                 )?;
@@ -691,7 +670,7 @@ impl PreparedCompatibilityExport {
             output_sha256: checksum,
             metadata_fidelity: match self.format {
                 VortexLocalPrimitiveRowExportFormat::Avro => {
-                    "compatibility_arrow_boundary;avro_integer_widths_widened_unsigned_to_signed_checked;uint64_above_i64_max_rejected;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
+                    "compatibility_arrow_boundary;avro_integer_widths_widened_unsigned_to_signed_checked;uint64_above_i64_max_rejected;fixed_size_lists_reopen_as_variable_lists;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
                 }
                 VortexLocalPrimitiveRowExportFormat::Orc => {
                     "compatibility_arrow_boundary;orc_unsigned_to_signed_checked;uint64_above_i64_max_rejected;schema_nullability_relaxed;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
@@ -797,8 +776,12 @@ fn validate_reopen(
                     .iter()
                     .zip(expected.fields())
                     .any(|(actual, expected)| {
-                        actual.name() != expected.name()
-                            || actual.data_type() != expected.data_type()
+                        if format == VortexLocalPrimitiveRowExportFormat::Avro {
+                            !nested::avro_field_matches(actual, expected)
+                        } else {
+                            actual.name() != expected.name()
+                                || actual.data_type() != expected.data_type()
+                        }
                     })
             {
                 return Err(error(
@@ -826,22 +809,37 @@ fn validate_reopen(
 }
 
 fn translated_schema(schema: &SchemaRef, format: VortexLocalPrimitiveRowExportFormat) -> SchemaRef {
+    fn translate(field: &Field, format: VortexLocalPrimitiveRowExportFormat) -> Field {
+        let dtype = match (format, field.data_type()) {
+            (
+                VortexLocalPrimitiveRowExportFormat::Avro,
+                DataType::Int8 | DataType::Int16 | DataType::UInt8 | DataType::UInt16,
+            )
+            | (_, DataType::UInt16) => DataType::Int32,
+            (_, DataType::UInt8) => DataType::Int16,
+            (_, DataType::UInt32 | DataType::UInt64) => DataType::Int64,
+            (_, DataType::List(child)) => DataType::List(Arc::new(translate(child, format))),
+            (VortexLocalPrimitiveRowExportFormat::Avro, DataType::FixedSizeList(child, _)) => {
+                DataType::List(Arc::new(translate(child, format)))
+            }
+            (_, DataType::FixedSizeList(child, size)) => {
+                DataType::FixedSizeList(Arc::new(translate(child, format)), *size)
+            }
+            (_, DataType::Struct(children)) => DataType::Struct(
+                children
+                    .iter()
+                    .map(|child| translate(child, format))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            (_, dtype) => dtype.clone(),
+        };
+        Field::new(field.name(), dtype, field.is_nullable())
+    }
     let fields = schema
         .fields()
         .iter()
-        .map(|field| {
-            let dtype = match (format, field.data_type()) {
-                (
-                    VortexLocalPrimitiveRowExportFormat::Avro,
-                    DataType::Int8 | DataType::Int16 | DataType::UInt8 | DataType::UInt16,
-                )
-                | (_, DataType::UInt16) => DataType::Int32,
-                (_, DataType::UInt8) => DataType::Int16,
-                (_, DataType::UInt32 | DataType::UInt64) => DataType::Int64,
-                (_, dtype) => dtype.clone(),
-            };
-            Field::new(field.name(), dtype, field.is_nullable())
-        })
+        .map(|field| translate(field, format))
         .collect::<Vec<_>>();
     Arc::new(Schema::new(fields))
 }

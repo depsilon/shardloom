@@ -67,6 +67,10 @@ REQUIRED_JSON_POINTERS = (
     "native_relational_order_spill.reference",
     "native_relational_order_spill.public_resource_arguments",
     "native_relational_order_spill.spill_fields",
+    "native_nested_composition.reference",
+    "native_nested_composition.payload_types",
+    "native_nested_composition.nested_writers",
+    "native_nested_composition.denied_nested_writers",
 )
 
 REQUIRED_COMMANDS = (
@@ -225,6 +229,19 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
             blockers.append(f"{JSON_PATH}: native_relational_order_spill.{field} must be false")
 
     guardrails = payload["guardrails"]
+    nested = payload.get("native_nested_composition", {})
+    if nested.get("ordered_repeated_explode") is not True:
+        blockers.append(f"{JSON_PATH}: native_nested_composition.ordered_repeated_explode must be true")
+    for field in ("nested_text_schema_hints", "nested_keys", "general_nested_unary_state",
+                  "dynamic_pivot_composition", "variant_extension_composition", "total_rss_bound",
+                  "fallback_attempted", "external_engine_invoked"):
+        if nested.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_nested_composition.{field} must be false")
+    if set(nested.get("nested_writers", [])) != {"vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro"}:
+        blockers.append(f"{JSON_PATH}: nested writers must match the representable static nested contract")
+    if set(nested.get("denied_nested_writers", [])) != {"csv", "orc"}:
+        blockers.append(f"{JSON_PATH}: nested CSV and ORC must remain explicitly denied")
+
     for field in (
         "no_fallback_policy",
         "metadata_first_discovery",

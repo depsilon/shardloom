@@ -17,6 +17,34 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-UNARY-COMPOSITION` compose eight shared flat-scalar unary families.
+  - Date: 2026-10-03 UTC. Frozen runtime `e1133f69` and tested head
+    `7875b2e984db89ff5910d1e54d1cba98fd5794ee` merged in
+    [PR #1505](https://github.com/depsilon/shardloom/pull/1505) as
+    `61d318db5cfa2e74f65423cd5b44b529cfb5818c` after all 40 hosted checks passed.
+    Automated Codex review completed without findings. Tested and merged trees
+    match. The [contract and immutable evidence](native-unary-composition-2026-10-02.md)
+    preserve the full matrix, focused regressions, failed observations and
+    losslessly compacted earlier artifacts.
+  - Existing distinct, duplicate selection/mask, tail, sampling, scalar rewrite,
+    melt and rolling state consumes preceding native stages under one allocation.
+    SQL/DataFrame spellings preserve operation order and source declarations
+    through shared collection, inspection and all eight local writers.
+  - All 1,963 public complete-result checks pass, including 1,166 unary checks,
+    3,750,635 row comparisons, 122 inert inspections and 15 expected denials.
+    An eight-family chain writes all 65,541 rows through both public spellings
+    and every writer; small collection retains its unchanged denial. Full43
+    passes 129/129 complete retained-result comparisons.
+  - Workspace tests pass 3,446; native Vortex 2,204 with 23 existing ignores;
+    native CLI 1,576; Python 715 with 144 existing skips. Counts overlap across
+    configurations. Formatting, strict Clippy, lean/MSRV, harness and docs/site
+    gates pass. Availability and correctness do not establish a speedup.
+  - V1 scope classification: `required_for_v1`; finite promotion under
+    PERF-02/03/07/10/11/12 and CG-5/20/21. Static nested payload/explode ownership
+    is promoted to `NATIVE-NESTED-COMPOSITION`. Dynamic pivot, richer types and
+    adapters, and remaining resources/spill stay open. No total-RSS, production,
+    publication or whole PERF/CG completion claim is made.
+
 - [x] `NATIVE-AGGREGATE-ORDERING` complete flat aggregate collection and explicit null ordering.
   - Date: 2026-10-02 UTC. Repaired runtime `59e658d8` and tested head
     `10b39c2bab9b1d568e953ff9c0342b5af15410ee` merged in
