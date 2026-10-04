@@ -9042,7 +9042,7 @@ fn apply_expression_projection_rewrite(
                 context.column_values,
                 context.row_index,
             )? {
-                coerce_rewrite_value(&current, replacement)
+                coerce_rewrite_value(&current, &crate::query_primitive::primitive_scalar_literal(replacement)?)
             } else {
                 Ok(current)
             }
@@ -9052,9 +9052,9 @@ fn apply_expression_projection_rewrite(
             replacement,
             ..
         } => {
-            let comparable = coerce_rewrite_value(&current, to_replace)?;
+            let comparable = coerce_rewrite_value(&current, &crate::query_primitive::primitive_scalar_literal(to_replace)?)?;
             if stat_value_equal(&current, &comparable) {
-                coerce_rewrite_value(&current, replacement)
+                coerce_rewrite_value(&current, &crate::query_primitive::primitive_scalar_literal(replacement)?)
             } else {
                 Ok(current)
             }
@@ -9075,7 +9075,7 @@ fn apply_expression_projection_rewrite(
         }
         VortexExpressionRewrite::NumericScalarArithmetic {
             operator, operand, ..
-        } => apply_numeric_scalar_arithmetic(&current, operator, operand),
+        } => apply_numeric_scalar_arithmetic(&current, operator, &crate::query_primitive::primitive_scalar_literal(operand)?),
         VortexExpressionRewrite::ForwardFillNull { limit, .. } => state.apply_forward_fill(
             rewrite.target_column().as_str(),
             current,
@@ -17537,15 +17537,15 @@ fn pivot_output_column_name(value: &StatValue) -> String {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn ensure_pivot_output_column_name(
+fn ensure_pivot_output_column_name<T: PivotValue>(
     pivot_columns: &mut std::collections::BTreeMap<String, String>,
     pivot_key: &str,
-    pivot_value: &StatValue,
-) {
+    pivot_value: &T,
+) -> Result<()> {
     if pivot_columns.contains_key(pivot_key) {
-        return;
+        return Ok(());
     }
-    let base = pivot_output_column_name(pivot_value);
+    let base = pivot_value.pivot_name()?;
     let mut candidate = base.clone();
     let mut suffix = 2usize;
     while pivot_columns
@@ -17556,6 +17556,31 @@ fn ensure_pivot_output_column_name(
         suffix += 1;
     }
     pivot_columns.insert(pivot_key.to_string(), candidate);
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+trait PivotValue: Clone {
+    fn pivot_key(&self) -> Result<String>;
+    fn pivot_name(&self) -> Result<String>;
+    fn pivot_equal(&self, other: &Self) -> bool;
+    fn pivot_numeric(&self) -> Result<f64>;
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl PivotValue for StatValue {
+    fn pivot_key(&self) -> Result<String> {
+        Ok(pivot_value_key(self))
+    }
+    fn pivot_name(&self) -> Result<String> {
+        Ok(pivot_output_column_name(self))
+    }
+    fn pivot_equal(&self, other: &Self) -> bool {
+        stat_value_equal(self, other)
+    }
+    fn pivot_numeric(&self) -> Result<f64> {
+        stat_value_to_f64(self)
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -17568,24 +17593,37 @@ struct PivotAggregateCell {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[derive(Debug, Default)]
-struct PivotRowExportState {
+#[derive(Debug)]
+struct PivotRowExportState<T = StatValue> {
     index_keys: std::collections::BTreeSet<String>,
-    index_values: std::collections::BTreeMap<String, StatValue>,
+    index_values: std::collections::BTreeMap<String, T>,
     pivot_columns: std::collections::BTreeMap<String, String>,
-    first_cells: std::collections::BTreeMap<(String, String), StatValue>,
+    first_cells: std::collections::BTreeMap<(String, String), T>,
     aggregate_cells: std::collections::BTreeMap<(String, String), PivotAggregateCell>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-impl PivotRowExportState {
+impl<T> Default for PivotRowExportState<T> {
+    fn default() -> Self {
+        Self {
+            index_keys: std::collections::BTreeSet::default(),
+            index_values: std::collections::BTreeMap::default(),
+            pivot_columns: std::collections::BTreeMap::default(),
+            first_cells: std::collections::BTreeMap::default(),
+            aggregate_cells: std::collections::BTreeMap::default(),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl<T: PivotValue> PivotRowExportState<T> {
     fn update(
         &mut self,
         projection: &VortexPivotProjectionRequest,
         aggregate: &str,
-        index_values: &[StatValue],
-        pivot_values: &[StatValue],
-        value_values: &[StatValue],
+        index_values: &[T],
+        pivot_values: &[T],
+        value_values: &[T],
     ) -> Result<()> {
         if index_values.len() != pivot_values.len() || index_values.len() != value_values.len() {
             return Err(ShardLoomError::InvalidOperation(
@@ -17594,8 +17632,8 @@ impl PivotRowExportState {
             ));
         }
         for row_index in 0..index_values.len() {
-            let index_key = pivot_value_key(&index_values[row_index]);
-            let pivot_key = pivot_value_key(&pivot_values[row_index]);
+            let index_key = index_values[row_index].pivot_key()?;
+            let pivot_key = pivot_values[row_index].pivot_key()?;
             self.index_keys.insert(index_key.clone());
             self.index_values
                 .entry(index_key.clone())
@@ -17604,13 +17642,13 @@ impl PivotRowExportState {
                 &mut self.pivot_columns,
                 &pivot_key,
                 &pivot_values[row_index],
-            );
+            )?;
             let cell_key = (index_key, pivot_key);
             match aggregate {
                 "first" | "first_unique" => {
                     if let Some(existing) = self.first_cells.get(&cell_key) {
                         if aggregate == "first_unique"
-                            && !stat_value_equal(existing, &value_values[row_index])
+                            && !existing.pivot_equal(&value_values[row_index])
                         {
                             return Err(ShardLoomError::InvalidOperation(format!(
                                 "local Vortex scoped pivot row export found multiple values for index '{}' and pivot '{}'; use pivot_table with an explicit aggregate or provide unique cells; no fallback execution was attempted",
@@ -17627,7 +17665,7 @@ impl PivotRowExportState {
                     self.aggregate_cells.entry(cell_key).or_default().count += 1;
                 }
                 "sum" | "mean" | "min" | "max" => {
-                    let value = stat_value_to_f64(&value_values[row_index]).map_err(|_| {
+                    let value = value_values[row_index].pivot_numeric().map_err(|_| {
                         ShardLoomError::InvalidOperation(format!(
                             "local Vortex scoped pivot_table row export aggregate '{aggregate}' requires a numeric value column '{}'; no fallback execution was attempted",
                             projection.value_column.as_str()
@@ -17650,7 +17688,10 @@ impl PivotRowExportState {
         }
         Ok(())
     }
+}
 
+#[cfg(feature = "vortex-local-primitives")]
+impl PivotRowExportState {
     fn output_columns(&self, projection: &VortexPivotProjectionRequest) -> Vec<String> {
         let active_pivot_keys = self.active_pivot_keys(projection.aggregate.as_str(), projection);
         let mut columns =
@@ -17699,13 +17740,13 @@ impl PivotRowExportState {
                 row.push(Self::apply_pivot_fill(
                     self.materialized_cell(aggregate, &cell_key),
                     projection,
-                ));
+                )?);
             }
             if projection.margins {
                 row.push(Self::apply_pivot_fill(
                     self.row_margin_value(aggregate, index_key, &active_pivot_keys)?,
                     projection,
-                ));
+                )?);
             }
             rows.push(row);
         }
@@ -17720,7 +17761,7 @@ impl PivotRowExportState {
                         self.index_keys.iter().take(limit),
                     )?,
                     projection,
-                ));
+                )?);
             }
             margin_row.push(Self::apply_pivot_fill(
                 self.grand_margin_value(
@@ -17729,7 +17770,7 @@ impl PivotRowExportState {
                     &active_pivot_keys,
                 )?,
                 projection,
-            ));
+            )?);
             rows.push(margin_row);
         }
         Ok(rows)
@@ -17760,8 +17801,15 @@ impl PivotRowExportState {
     fn apply_pivot_fill(
         value: Option<StatValue>,
         projection: &VortexPivotProjectionRequest,
-    ) -> Option<StatValue> {
-        value.or_else(|| projection.fill_value.clone())
+    ) -> Result<Option<StatValue>> {
+        if value.is_some() {
+            return Ok(value);
+        }
+        projection
+            .fill_value
+            .as_ref()
+            .map(crate::query_primitive::primitive_scalar_literal)
+            .transpose()
     }
 
     fn materialized_cell(&self, aggregate: &str, cell_key: &(String, String)) -> Option<StatValue> {
@@ -17915,7 +17963,7 @@ fn update_pivot_state(
         let index_key = pivot_value_key(&index_values[row_index]);
         let pivot_key = pivot_value_key(&pivot_values[row_index]);
         index_keys.insert(index_key.clone());
-        ensure_pivot_output_column_name(pivot_columns, &pivot_key, &pivot_values[row_index]);
+        ensure_pivot_output_column_name(pivot_columns, &pivot_key, &pivot_values[row_index])?;
         let cell_key = (index_key, pivot_key);
         match aggregate {
             "first" | "first_unique" => {
@@ -53776,7 +53824,7 @@ mod tests {
                     op: ComparisonOp::Lt,
                     value: StatValue::Int64(30),
                 },
-                replacement: StatValue::Int64(0),
+                replacement: shardloom_core::ScalarValue::Int64(0),
             }]),
         )
         .with_source_order_limit(2);
@@ -53850,7 +53898,7 @@ mod tests {
                 VortexExpressionRewrite::NumericScalarArithmetic {
                     target_column: ColumnRef::new("metric").expect("column"),
                     operator: "+".to_string(),
-                    operand: StatValue::Int64(5),
+                    operand: shardloom_core::ScalarValue::Int64(5),
                 },
             ]),
         );
@@ -56106,8 +56154,8 @@ mod tests {
             ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
             VortexExpressionProjectionRequest::new(vec![VortexExpressionRewrite::ReplaceScalar {
                 target_column: ColumnRef::new("metric").expect("column"),
-                to_replace: StatValue::Int64(20),
-                replacement: StatValue::Int64(99),
+                to_replace: shardloom_core::ScalarValue::Int64(20),
+                replacement: shardloom_core::ScalarValue::Int64(99),
             }]),
         );
 
@@ -56161,8 +56209,8 @@ mod tests {
             ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
             VortexExpressionProjectionRequest::new(vec![VortexExpressionRewrite::ReplaceScalar {
                 target_column: ColumnRef::new("metric").expect("column"),
-                to_replace: StatValue::Int64(20),
-                replacement: StatValue::Null,
+                to_replace: shardloom_core::ScalarValue::Int64(20),
+                replacement: shardloom_core::ScalarValue::Null,
             }]),
         );
 
@@ -56782,7 +56830,7 @@ mod tests {
                 VortexExpressionRewrite::NumericScalarArithmetic {
                     target_column: ColumnRef::new("metric").expect("column"),
                     operator: "+".to_string(),
-                    operand: StatValue::Int64(5),
+                    operand: shardloom_core::ScalarValue::Int64(5),
                 },
             ]),
         );
@@ -57076,7 +57124,12 @@ mod tests {
                 ColumnRef::new("amount").expect("column"),
                 "sum",
             )
-            .with_output_policy(Some(StatValue::Int64(0)), false, true, "total"),
+            .with_output_policy(
+                Some(shardloom_core::ScalarValue::Int64(0)),
+                false,
+                true,
+                "total",
+            ),
         )
         .with_source_order_limit(2);
 
@@ -57189,7 +57242,12 @@ mod tests {
                 ColumnRef::new("amount").expect("column"),
                 "sum",
             )
-            .with_output_policy(Some(StatValue::Int64(0)), false, true, "total"),
+            .with_output_policy(
+                Some(shardloom_core::ScalarValue::Int64(0)),
+                false,
+                true,
+                "total",
+            ),
         );
 
         let report = execute_vortex_local_primitive_row_export_with_policy(

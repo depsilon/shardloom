@@ -52,9 +52,7 @@ impl Plan {
             .map(|name| super::schema::source_field(source, name.as_str()))
             .collect::<Result<Vec<_>>>()?;
         for dtype in &dtypes {
-            if !matches!(dtype, DType::Bool(_) | DType::Utf8(_))
-                && !matches!(dtype, DType::Primitive(p, _) if *p != PType::F16)
-            {
+            if !crate::native_payload_schema::admitted_scalar(dtype) {
                 return Err(failed("melt values require admitted scalar source types"));
             }
         }
@@ -85,6 +83,36 @@ pub(super) fn common_dtype(dtypes: &[DType]) -> Result<DType> {
         .all(|dtype| dtype.as_nonnullable() == first.as_nonnullable())
     {
         return Ok(first.with_nullability(nullability));
+    }
+    if dtypes
+        .iter()
+        .any(|dtype| matches!(dtype, DType::Decimal(..))) && dtypes.iter().all(|dtype| {
+        matches!(dtype, DType::Decimal(..))
+            || matches!(dtype, DType::Primitive(p, _) if p.is_signed_int() || p.is_unsigned_int())
+    }) {
+        let decimal = super::super::native_relational_expression::scalar::decimal_operand;
+        let mut common = first.clone();
+        for dtype in &dtypes[1..] {
+            let (precision, scale) = decimal(0, &common)?.common_type(decimal(0, dtype)?)?;
+            common = DType::Decimal(
+                vortex::array::dtype::DecimalDType::new(
+                    precision,
+                    i8::try_from(scale).map_err(super::vortex_error)?,
+                ),
+                nullability,
+            );
+        }
+        return Ok(common);
+    }
+    if dtypes.iter().any(|dtype| {
+        matches!(
+            dtype,
+            DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
+        )
+    }) {
+        return Err(failed(
+            "melt requires one lossless common scalar domain; typed values cannot be mixed with storage integers or unrelated types",
+        ));
     }
     let signed = dtypes
         .iter()
@@ -171,7 +199,15 @@ fn emit(
             std::cmp::Ordering::Equal => Ok(Value::Text(std::borrow::Cow::Borrowed(
                 request.value_columns[value].as_str(),
             ))),
-            std::cmp::Ordering::Greater => batch.value(compiled.values[value], source),
+            std::cmp::Ordering::Greater => {
+                let value = batch.value(compiled.values[value], source)?;
+                let target = &compiled
+                    .fields
+                    .last()
+                    .ok_or_else(|| failed("melt value type is absent"))?
+                    .1;
+                super::values::common_value(value, target)
+            }
         }
     })?;
     selected.values.clear();

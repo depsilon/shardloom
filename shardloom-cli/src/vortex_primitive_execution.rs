@@ -3260,7 +3260,7 @@ pub(crate) fn parse_pivot_primitive_request(
     let aggregate = json_optional_string_field_any(object, &["aggregate", "aggfunc"])?
         .unwrap_or("first_unique")
         .to_string();
-    let fill_value = json_optional_stat_value_field_any(object, &["fill_value", "fill"])?;
+    let fill_value = json_optional_scalar_value_field_any(object, &["fill_value", "fill"])?;
     let dropna = json_optional_bool_field_any(object, &["dropna"])?.unwrap_or(true);
     let margins = json_optional_bool_field_any(object, &["margins"])?.unwrap_or(false);
     let margins_name = json_optional_string_field_any(object, &["margins_name"])?
@@ -3930,19 +3930,19 @@ fn parse_structured_scalar(
     value: &serde_json::Value,
     field: &str,
 ) -> Result<ScalarValue, ShardLoomError> {
-    if value.is_null() {
-        return Ok(ScalarValue::Null);
+    let value = parse_expression_scalar(value, field, NullScalarPolicy::Allow)?;
+    if matches!(
+        value,
+        ScalarValue::Binary(_)
+            | ScalarValue::Decimal128 { .. }
+            | ScalarValue::Date32(_)
+            | ScalarValue::TimestampMicros(_)
+    ) {
+        return Err(ShardLoomError::InvalidOperation(
+            "structured scalar declarations require primitive literals; typed unary literals do not widen nested construction".into(),
+        ));
     }
-    Ok(
-        match parse_expression_scalar(value, field, NullScalarPolicy::Allow)? {
-            StatValue::Null => ScalarValue::Null,
-            StatValue::Boolean(value) => ScalarValue::Boolean(value),
-            StatValue::Int64(value) => ScalarValue::Int64(value),
-            StatValue::UInt64(value) => ScalarValue::UInt64(value),
-            StatValue::Float64(value) => ScalarValue::Float64(value),
-            StatValue::Utf8(value) => ScalarValue::Utf8(value),
-        },
-    )
+    Ok(value)
 }
 
 fn parse_expression_project_rewrite(
@@ -4213,30 +4213,36 @@ fn json_optional_bool_field_any(
     Ok(None)
 }
 
-fn json_optional_stat_value_field_any(
+fn json_optional_scalar_value_field_any(
     object: &serde_json::Map<String, serde_json::Value>,
     fields: &[&str],
-) -> Result<Option<StatValue>, ShardLoomError> {
+) -> Result<Option<ScalarValue>, ShardLoomError> {
     for field in fields {
         if let Some(value) = object.get(*field) {
-            return json_stat_value(value, field).map(Some);
+            return json_scalar_value(value, field).map(Some);
         }
     }
     Ok(None)
 }
 
-fn json_stat_value(value: &serde_json::Value, field: &str) -> Result<StatValue, ShardLoomError> {
+fn json_scalar_value(
+    value: &serde_json::Value,
+    field: &str,
+) -> Result<ScalarValue, ShardLoomError> {
+    if value.is_object() {
+        return parse_expression_scalar(value, field, NullScalarPolicy::Allow);
+    }
     match value {
-        serde_json::Value::Null => Ok(StatValue::Null),
-        serde_json::Value::Bool(value) => Ok(StatValue::Boolean(*value)),
+        serde_json::Value::Null => Ok(ScalarValue::Null),
+        serde_json::Value::Bool(value) => Ok(ScalarValue::Boolean(*value)),
         serde_json::Value::Number(value) => {
             if let Some(value) = value.as_i64() {
-                Ok(StatValue::Int64(value))
+                Ok(ScalarValue::Int64(value))
             } else if let Some(value) = value.as_u64() {
-                Ok(StatValue::UInt64(value))
+                Ok(ScalarValue::UInt64(value))
             } else if let Some(value) = value.as_f64() {
                 if value.is_finite() {
-                    Ok(StatValue::Float64(value))
+                    Ok(ScalarValue::Float64(value))
                 } else {
                     Err(ShardLoomError::InvalidOperation(format!(
                         "field {field} must be a finite scalar"
@@ -4248,7 +4254,7 @@ fn json_stat_value(value: &serde_json::Value, field: &str) -> Result<StatValue, 
                 )))
             }
         }
-        serde_json::Value::String(value) => Ok(StatValue::Utf8(value.clone())),
+        serde_json::Value::String(value) => Ok(ScalarValue::Utf8(value.clone())),
         serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
             Err(ShardLoomError::InvalidOperation(format!(
                 "field {field} supports only scalar fill values"
@@ -4309,7 +4315,7 @@ fn parse_expression_scalar(
     value: &serde_json::Value,
     field: &str,
     null_policy: NullScalarPolicy,
-) -> Result<StatValue, ShardLoomError> {
+) -> Result<ScalarValue, ShardLoomError> {
     if let Some(object) = value.as_object() {
         let dtype = json_string_field(object, "type")?
             .trim()
@@ -4330,7 +4336,7 @@ fn parse_typed_expression_scalar(
     value: &serde_json::Value,
     field: &str,
     null_policy: NullScalarPolicy,
-) -> Result<StatValue, ShardLoomError> {
+) -> Result<ScalarValue, ShardLoomError> {
     match dtype {
         "null" => {
             if null_policy == NullScalarPolicy::Reject {
@@ -4339,32 +4345,34 @@ fn parse_typed_expression_scalar(
                 )));
             }
             if value.is_null() {
-                Ok(StatValue::Null)
+                Ok(ScalarValue::Null)
             } else {
                 Err(ShardLoomError::InvalidOperation(format!(
                     "expression-project scalar {field} null value must be JSON null"
                 )))
             }
         }
-        "boolean" | "bool" => value.as_bool().map(StatValue::Boolean).ok_or_else(|| {
+        "boolean" | "bool" => value.as_bool().map(ScalarValue::Boolean).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
                 "expression-project scalar {field} boolean value must be true or false"
             ))
         }),
-        "int64" | "int" | "integer" => value.as_i64().map(StatValue::Int64).ok_or_else(|| {
+        "int64" | "int" | "integer" => value.as_i64().map(ScalarValue::Int64).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
                 "expression-project scalar {field} int64 value must be an integer"
             ))
         }),
-        "uint64" | "uint" | "unsigned" => value.as_u64().map(StatValue::UInt64).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(format!(
-                "expression-project scalar {field} uint64 value must be a non-negative integer"
-            ))
-        }),
+        "uint64" | "uint" | "unsigned" => {
+            value.as_u64().map(ScalarValue::UInt64).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "expression-project scalar {field} uint64 value must be a non-negative integer"
+                ))
+            })
+        }
         "float64" | "float" | "double" => value
             .as_f64()
             .filter(|value| value.is_finite())
-            .map(StatValue::Float64)
+            .map(ScalarValue::Float64)
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(format!(
                     "expression-project scalar {field} float64 value must be finite"
@@ -4372,15 +4380,65 @@ fn parse_typed_expression_scalar(
             }),
         "utf8" | "string" | "str" => value
             .as_str()
-            .map(|value| StatValue::Utf8(value.to_string()))
+            .map(|value| ScalarValue::Utf8(value.to_string()))
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(format!(
                     "expression-project scalar {field} utf8 value must be a string"
                 ))
             }),
-        _ => Err(ShardLoomError::InvalidOperation(format!(
+        _ => parse_exact_expression_scalar(dtype, value, field),
+    }
+}
+
+fn parse_exact_expression_scalar(
+    dtype: &str,
+    value: &serde_json::Value,
+    field: &str,
+) -> Result<ScalarValue, ShardLoomError> {
+    use shardloom_core::expression::{
+        decimal128_dtype_parts, decode_hex_bytes, parse_decimal128_text, parse_iso_date32,
+        parse_iso_timestamp_micros,
+    };
+    let decimal = decimal128_dtype_parts(&shardloom_core::LogicalDType::Extension(dtype.into()));
+    if !matches!(dtype, "binary" | "date32" | "timestamp_micros") && decimal.is_none() {
+        return Err(ShardLoomError::InvalidOperation(format!(
             "expression-project scalar {field} has unsupported type {dtype}"
-        ))),
+        )));
+    }
+    let raw = value.as_str().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "expression-project scalar {field} {dtype} value must be exact text"
+        ))
+    })?;
+    let invalid = |reason: String| {
+        ShardLoomError::InvalidOperation(format!(
+            "expression-project scalar {field} {dtype}: {reason}"
+        ))
+    };
+    match dtype {
+        "binary" => decode_hex_bytes(raw)
+            .map(ScalarValue::Binary)
+            .map_err(|reason| invalid(reason.into())),
+        "date32" => raw
+            .parse::<i32>()
+            .map(ScalarValue::Date32)
+            .or_else(|_| parse_iso_date32(raw).map(ScalarValue::Date32))
+            .map_err(|reason| invalid(reason.to_string())),
+        "timestamp_micros" => raw
+            .parse::<i64>()
+            .map(ScalarValue::TimestampMicros)
+            .or_else(|_| parse_iso_timestamp_micros(raw).map(ScalarValue::TimestampMicros))
+            .map_err(|reason| invalid(reason.to_string())),
+        _ => {
+            let (precision, scale) = decimal.expect("admitted decimal type above");
+            parse_decimal128_text(raw, precision, scale)
+                .map(|value| ScalarValue::Decimal128 {
+                    value,
+                    precision,
+                    scale,
+                })
+                .map_err(invalid)
+        }
     }
 }
 
@@ -4388,32 +4446,32 @@ fn parse_untyped_expression_scalar(
     value: &serde_json::Value,
     field: &str,
     null_policy: NullScalarPolicy,
-) -> Result<StatValue, ShardLoomError> {
+) -> Result<ScalarValue, ShardLoomError> {
     match value {
         serde_json::Value::Null => {
             if null_policy == NullScalarPolicy::Allow {
-                Ok(StatValue::Null)
+                Ok(ScalarValue::Null)
             } else {
                 Err(ShardLoomError::InvalidOperation(format!(
                     "expression-project scalar {field} does not admit null"
                 )))
             }
         }
-        serde_json::Value::Bool(value) => Ok(StatValue::Boolean(*value)),
+        serde_json::Value::Bool(value) => Ok(ScalarValue::Boolean(*value)),
         serde_json::Value::Number(value) => {
             if let Some(value) = value.as_i64() {
-                Ok(StatValue::Int64(value))
+                Ok(ScalarValue::Int64(value))
             } else if let Some(value) = value.as_u64() {
-                Ok(StatValue::UInt64(value))
+                Ok(ScalarValue::UInt64(value))
             } else if let Some(value) = value.as_f64().filter(|value| value.is_finite()) {
-                Ok(StatValue::Float64(value))
+                Ok(ScalarValue::Float64(value))
             } else {
                 Err(ShardLoomError::InvalidOperation(format!(
                     "expression-project scalar {field} numeric value must be finite"
                 )))
             }
         }
-        serde_json::Value::String(value) => Ok(StatValue::Utf8(value.clone())),
+        serde_json::Value::String(value) => Ok(ScalarValue::Utf8(value.clone())),
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "expression-project scalar {field} must be a typed scalar object, null, boolean, finite number, or string"
         ))),
@@ -9229,7 +9287,97 @@ mod tests {
             panic!("expected one mask rewrite");
         };
         assert_eq!(target_column.as_str(), "amount");
-        assert_eq!(*replacement, StatValue::Null);
+        assert_eq!(*replacement, ScalarValue::Null);
+    }
+
+    #[test]
+    fn typed_unary_literals_preserve_exact_binary_decimal_and_temporal_values() {
+        use serde_json::json;
+        for (kind, raw, expected) in [
+            ("binary", "00FF10", ScalarValue::Binary(vec![0, 255, 16])),
+            ("binary", "", ScalarValue::Binary(vec![])),
+            (
+                "decimal128(38,18)",
+                "12345678901234567890.123456789012345678",
+                ScalarValue::Decimal128 {
+                    value: 12_345_678_901_234_567_890_123_456_789_012_345_678,
+                    precision: 38,
+                    scale: 18,
+                },
+            ),
+            (
+                "decimal128(5,2)",
+                "1.23e2",
+                ScalarValue::Decimal128 {
+                    value: 12300,
+                    precision: 5,
+                    scale: 2,
+                },
+            ),
+            ("date32", "-2147483648", ScalarValue::Date32(i32::MIN)),
+            ("date32", "2147483647", ScalarValue::Date32(i32::MAX)),
+            ("date32", "1969-12-31", ScalarValue::Date32(-1)),
+            (
+                "timestamp_micros",
+                "-9223372036854775808",
+                ScalarValue::TimestampMicros(i64::MIN),
+            ),
+            (
+                "timestamp_micros",
+                "9223372036854775807",
+                ScalarValue::TimestampMicros(i64::MAX),
+            ),
+            (
+                "timestamp_micros",
+                "1969-12-31T23:59:59.999999Z",
+                ScalarValue::TimestampMicros(-1),
+            ),
+        ] {
+            let payload = json!({"type":kind,"value":raw});
+            assert_eq!(
+                parse_expression_scalar(&payload, "replacement", NullScalarPolicy::Allow).unwrap(),
+                expected
+            );
+            assert_eq!(json_scalar_value(&payload, "fill_value").unwrap(), expected);
+            let request = parse_expression_project_primitive_request(None, &json!({
+                "columns":["id","value"], "rewrites":[{"kind":"mask_scalar","target_column":"value",
+                "predicate":"eq:id:1","replacement":payload}]
+            }).to_string()).unwrap();
+            let VortexExpressionRewrite::MaskScalar { replacement, .. } =
+                &request.expression_projection.unwrap().rewrites[0]
+            else {
+                panic!("mask rewrite");
+            };
+            assert_eq!(replacement, &expected);
+        }
+    }
+
+    #[test]
+    fn typed_unary_literals_reject_lossy_or_malformed_declarations() {
+        use serde_json::json;
+        for payload in [
+            json!({"type":"binary","value":"f"}),
+            json!({"type":"binary","value":"zz"}),
+            json!({"type":"binary","value":[0,255]}),
+            json!({"type":"decimal128(2,1)","value":"10.0"}),
+            json!({"type":"decimal128(3,1)","value":"1.23"}),
+            json!({"type":"decimal128(39,1)","value":"1.0"}),
+            json!({"type":"decimal128(5,2)","value":1.23}),
+            json!({"type":"date32","value":"2147483648"}),
+            json!({"type":"date32","value":"2026-02-30"}),
+            json!({"type":"timestamp_micros","value":"9223372036854775808"}),
+            json!({"type":"timestamp_micros","value":1}),
+        ] {
+            assert!(
+                parse_expression_scalar(&payload, "replacement", NullScalarPolicy::Allow).is_err(),
+                "{payload}"
+            );
+            assert!(
+                json_scalar_value(&payload, "fill_value").is_err(),
+                "{payload}"
+            );
+        }
+        assert!(parse_structured_scalar(&json!({"type":"binary","value":"00ff"}), "item").is_err());
     }
 
     #[test]

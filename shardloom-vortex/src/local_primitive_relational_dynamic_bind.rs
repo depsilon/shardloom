@@ -179,7 +179,7 @@ impl<'a> Binder<'a> {
         super::validate_width(result.fields.len())?;
         for (name, dtype) in &result.fields {
             super::validate_name(name)?;
-            super::validate_scalar(dtype)?;
+            super::validate_key(dtype)?;
         }
         super::validate_unique(&result.fields)?;
         self.charge(result.fields.len() * 4096)?;

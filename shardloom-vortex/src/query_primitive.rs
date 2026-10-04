@@ -1,8 +1,10 @@
 use std::fmt::Write as _;
 
+#[cfg(feature = "vortex-local-primitives")]
+use shardloom_core::StatValue;
 use shardloom_core::{
     ColumnRef, ComparisonOp, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity,
-    PredicateExpr, Result, ScalarValue, ShardLoomError, StatValue,
+    PredicateExpr, Result, ScalarValue, ShardLoomError,
 };
 use shardloom_plan::ProjectionRequest;
 
@@ -97,12 +99,12 @@ pub enum VortexExpressionRewrite {
     MaskScalar {
         target_column: ColumnRef,
         predicate: PredicateExpr,
-        replacement: StatValue,
+        replacement: ScalarValue,
     },
     ReplaceScalar {
         target_column: ColumnRef,
-        to_replace: StatValue,
-        replacement: StatValue,
+        to_replace: ScalarValue,
+        replacement: ScalarValue,
     },
     StringReplaceScalar {
         target_column: ColumnRef,
@@ -117,7 +119,7 @@ pub enum VortexExpressionRewrite {
     NumericScalarArithmetic {
         target_column: ColumnRef,
         operator: String,
-        operand: StatValue,
+        operand: ScalarValue,
     },
     ForwardFillNull {
         target_column: ColumnRef,
@@ -492,7 +494,7 @@ pub struct VortexPivotProjectionRequest {
     pub pivot_column: ColumnRef,
     pub value_column: ColumnRef,
     pub aggregate: String,
-    pub fill_value: Option<StatValue>,
+    pub fill_value: Option<ScalarValue>,
     pub dropna: bool,
     pub margins: bool,
     pub margins_name: String,
@@ -520,7 +522,7 @@ impl VortexPivotProjectionRequest {
     #[must_use]
     pub fn with_output_policy(
         mut self,
-        fill_value: Option<StatValue>,
+        fill_value: Option<ScalarValue>,
         dropna: bool,
         margins: bool,
         margins_name: impl Into<String>,
@@ -551,7 +553,7 @@ impl VortexPivotProjectionRequest {
             self.aggregate,
             self.fill_value
                 .as_ref()
-                .map_or_else(|| "none".to_string(), stat_value_summary),
+                .map_or_else(|| "none".to_string(), scalar_value_summary),
             self.dropna,
             self.margins,
             self.margins_name
@@ -559,14 +561,14 @@ impl VortexPivotProjectionRequest {
     }
 }
 
-fn stat_value_summary(value: &StatValue) -> String {
+fn scalar_value_summary(value: &ScalarValue) -> String {
     match value {
-        StatValue::Null => "null".to_string(),
-        StatValue::Boolean(value) => value.to_string(),
-        StatValue::Int64(value) => value.to_string(),
-        StatValue::UInt64(value) => value.to_string(),
-        StatValue::Float64(value) => value.to_string(),
-        StatValue::Utf8(value) => {
+        ScalarValue::Null => "null".to_string(),
+        ScalarValue::Boolean(value) => value.to_string(),
+        ScalarValue::Int64(value) => value.to_string(),
+        ScalarValue::UInt64(value) => value.to_string(),
+        ScalarValue::Float64(value) => value.to_string(),
+        ScalarValue::Utf8(value) => {
             let mut escaped = String::new();
             for ch in value.chars() {
                 match ch {
@@ -577,7 +579,25 @@ fn stat_value_summary(value: &StatValue) -> String {
             }
             format!("utf8:{escaped}")
         }
+        _ => value.summary(),
     }
+}
+
+/// Explicit compatibility mapping for the legacy primitive provider. Typed
+/// declarations must use the native owner rather than lose their logical type.
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn primitive_scalar_literal(value: &ScalarValue) -> Result<StatValue> {
+    Ok(match value {
+        ScalarValue::Null => StatValue::Null,
+        ScalarValue::Boolean(value) => StatValue::Boolean(*value),
+        ScalarValue::Int64(value) => StatValue::Int64(*value),
+        ScalarValue::UInt64(value) => StatValue::UInt64(*value),
+        ScalarValue::Float64(value) => StatValue::Float64(*value),
+        ScalarValue::Utf8(value) => StatValue::Utf8(value.clone()),
+        _ => return Err(ShardLoomError::InvalidOperation(
+            "typed unary literals require the retained native provider; no fallback execution was attempted".into(),
+        )),
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

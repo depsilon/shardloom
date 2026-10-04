@@ -124,7 +124,7 @@ pub(super) fn request_bytes(request: &super::VortexQueryPrimitiveRequest) -> Res
             size.add(name.len())?;
         }
         if let Some(value) = &pivot.fill_value {
-            size.value(value)?;
+            size.scalar(value)?;
         }
     }
     for diagnostic in &request.diagnostics {
@@ -161,15 +161,15 @@ impl RequestSize {
                 ..
             } => {
                 self.predicate(predicate, 0)?;
-                self.value(replacement)?;
+                self.scalar(replacement)?;
             }
             Rewrite::ReplaceScalar {
                 to_replace,
                 replacement,
                 ..
             } => {
-                self.value(to_replace)?;
-                self.value(replacement)?;
+                self.scalar(to_replace)?;
+                self.scalar(replacement)?;
             }
             Rewrite::StringReplaceScalar {
                 needle,
@@ -191,7 +191,7 @@ impl RequestSize {
                 operator, operand, ..
             } => {
                 self.add(operator.len())?;
-                self.value(operand)?;
+                self.scalar(operand)?;
             }
             Rewrite::ForwardFillNull { .. } | Rewrite::RowNumber { .. } => {}
         }
@@ -217,6 +217,21 @@ impl RequestSize {
         self.add(std::mem::size_of_val(value))?;
         if let super::StatValue::Utf8(text) = value {
             self.add(text.len())?;
+        }
+        Ok(())
+    }
+    fn scalar(&mut self, value: &shardloom_core::ScalarValue) -> Result<()> {
+        use shardloom_core::ScalarValue;
+        self.add(std::mem::size_of_val(value))?;
+        match value {
+            ScalarValue::Utf8(value) => self.add(value.capacity())?,
+            ScalarValue::Binary(value) => self.add(value.capacity())?,
+            ScalarValue::List(_) | ScalarValue::Struct(_) => {
+                return Err(super::failed(
+                    "unary literal requires an admitted flat scalar",
+                ));
+            }
+            _ => {}
         }
         Ok(())
     }

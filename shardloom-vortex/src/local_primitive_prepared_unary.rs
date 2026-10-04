@@ -39,6 +39,8 @@ mod report;
 mod rolling;
 #[path = "local_primitive_unary_sample.rs"]
 mod sample;
+#[path = "local_primitive_unary_scalar.rs"]
+mod scalar;
 #[path = "local_primitive_unary_schema.rs"]
 mod schema;
 #[path = "local_primitive_unary_select.rs"]
@@ -465,7 +467,7 @@ impl BoundUnary {
                 )?;
             }
         } else {
-            drop(super::completed_result::CompletedRows::new(
+            drop(super::completed_result::CompletedRows::new_native(
                 fields.clone(),
                 memory,
             )?);

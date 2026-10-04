@@ -85,6 +85,18 @@ This recovered 5,943,296 accounted log bytes. Failed/incomplete runs and storage
 ceilings remain unchanged; the
 [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz)
 retains the failed preflight, compaction receipt and per-member manifests.
+The typed-unary expansion subsequently reaches the unchanged 192-MiB public log
+ceiling after 7,048 passing checks, despite gzip compression. The public runner
+now accepts `--archive-logs` with `--compress-logs`: it batches up to 128 closed
+gzip envelopes into an xz-compressed tar archive, verifies original identities,
+every compressed byte, member hashes and a sidecar manifest, then removes only
+the redundant originals. Existing archives are never replaced and readback
+failures preserve originals. The accepted 9,300-check cohort retains 20,025
+envelopes in 157 verified archives under the same ceiling. Both interrupted
+public attempts remain intact, including the later resource-evidence reader
+correction; all three executable artifacts and frozen oracles are identical
+across attempts. The [typed-unary packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz)
+reopens every archived envelope and preserves the complete failure history.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 
