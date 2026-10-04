@@ -1,8 +1,10 @@
 use std::fmt::Write as _;
 
+#[cfg(feature = "vortex-local-primitives")]
+use shardloom_core::StatValue;
 use shardloom_core::{
     ColumnRef, ComparisonOp, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity,
-    PredicateExpr, Result, ScalarValue, ShardLoomError, StatValue,
+    PredicateExpr, Result, ScalarValue, ShardLoomError,
 };
 use shardloom_plan::ProjectionRequest;
 
