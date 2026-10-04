@@ -14,6 +14,24 @@ from native_typed_expression_cases import run as typed_expression_cases
 from native_typed_unary_cases import run as typed_unary_cases
 
 
+def require_native_resource_admission(name, envelope):
+    peak_key = "resident_peak_reserved_buffer_bytes"
+    if envelope.field("public_workflow_route_id") == "native_vortex_primitive_row_export":
+        if (envelope.field("native_vortex_result_export_kind") != "owned_native_array_stream"
+                or envelope.field("native_vortex_array_sink_source_generation_validated") != "true"):
+            raise ValueError(f"{name}: direct writer lacks owned native stream evidence")
+        # All three native writer implementations snapshot this same session's
+        # LiveMemoryPool after consuming the admitted producer. This is their
+        # existing field, distinct from the resident collect/relational field.
+        peak_key = "native_vortex_array_sink_peak_reserved_bytes"
+    peak = envelope.field(peak_key)
+    if (envelope.field("public_workflow_memory_gb") != "1"
+            or envelope.field("public_workflow_native_vortex_provider_scenario") != "none"
+            or not isinstance(peak, str) or not peak.isascii() or not peak.isdecimal()
+            or int(peak) > 1 << 30):
+        raise ValueError(f"{name}: shared native resource admission differs")
+
+
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator):
     import shardloom as sl
     from shardloom.query import SqlWorkflow
@@ -33,10 +51,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
 
     def verified(name, report, *, spill=None):
         envelope = accepted(name, report)
-        if (envelope.field("public_workflow_memory_gb") != "1"
-                or envelope.field("public_workflow_native_vortex_provider_scenario") != "none"
-                or int(envelope.field("resident_peak_reserved_buffer_bytes")) > 1 << 30):
-            raise ValueError(f"{name}: shared native resource admission differs")
+        require_native_resource_admission(name, envelope)
         if spill is not None:
             if (envelope.field("spill_io_performed") != "true"
                     or envelope.field("relational_spill_owned_cleanup_completed") != "true"
