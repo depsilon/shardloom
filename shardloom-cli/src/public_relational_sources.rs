@@ -1,5 +1,6 @@
 //! Every parsed source leaf normalizes once; strings in SQL values are untouched.
 
+use super::super::PublicSourcePreparations;
 use super::super::{declared_sql_source_identifier_matches, infer_input_format_from_ref};
 use super::{
     PreparedVortexRelational, PublicWorkflowRouteRequest, ShardLoomError, native_relational,
@@ -21,7 +22,10 @@ pub(super) fn prepare_with_source(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    preparations: PublicSourcePreparations,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+    let _ = preparations;
     validate_bindings(statement, request)?;
     let mut sources = Sources::default();
     let policy = native_vortex_materializing_policy(request)?;
@@ -38,6 +42,8 @@ pub(super) fn prepare_with_source(
     } else {
         native_relational::prepare(statement, policy, |path| sources.resolve(path, request))?
     };
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    sources.preparations.extend(preparations.sources);
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     let operation = operation.with_preparation_sources(sources.preparations)?;
     #[cfg(feature = "vortex-write")]
@@ -214,11 +220,11 @@ impl Sources {
                 failed("compatibility preparation is feature gated")
             }
         })?;
-        self.preparations.push(std::sync::Arc::new(
+        self.preparations.push(
             preparation
                 .identity
                 .ok_or_else(|| failed("preparation source generation proof is absent"))?,
-        ));
+        );
         self.normalized += 1;
         DatasetUri::new(preparation.target_path.to_string_lossy().into_owned())
     }

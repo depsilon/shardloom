@@ -5152,7 +5152,7 @@ pub(crate) struct PublicWorkflowVortexPreparation {
     pub(crate) fields: Vec<(String, String)>,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     pub(crate) identity:
-        Option<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>,
+        Option<std::sync::Arc<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>>,
 }
 
 impl PublicWorkflowVortexPreparation {
@@ -6041,7 +6041,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
                 &binding,
             )?;
             public_preparation_identity_fields(&mut fields, &identity, false);
-            Some(identity)
+            Some(std::sync::Arc::new(identity))
         } else {
             None
         };
@@ -6090,7 +6090,7 @@ fn public_workflow_reused_preparation(
     PublicWorkflowVortexPreparation {
         target_path,
         fields: public_workflow_preparation_fields(&raw_fields),
-        identity: Some(identity),
+        identity: Some(std::sync::Arc::new(identity)),
     }
 }
 

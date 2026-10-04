@@ -181,6 +181,224 @@ impl Drop for Cleanup {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn declared_nested_arrow_source() -> (Cleanup, PathBuf, String) {
+    use arrow_array::{ArrayRef, ListArray, RecordBatch, types::Int64Type};
+    use std::sync::Arc;
+
+    let root = Cleanup::new();
+    let source = root.0.join("input.data");
+    let items = ListArray::from_iter_primitive::<Int64Type, _, _>([
+        Some(vec![Some(1), None]),
+        Some(vec![]),
+        None,
+        Some(vec![Some(1), None]),
+    ]);
+    let batch = RecordBatch::try_from_iter([("items", Arc::new(items) as ArrayRef)]).unwrap();
+    let mut writer = arrow_ipc::writer::FileWriter::try_new(
+        std::fs::File::create(&source).unwrap(),
+        &batch.schema(),
+    )
+    .unwrap();
+    writer.write(&batch).unwrap();
+    writer.finish().unwrap();
+    drop(writer);
+    let bindings = json!({source.display().to_string(): {"input_format":"arrow-ipc"}}).to_string();
+    (root, source, bindings)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation() {
+    let (root, source, bindings) = declared_nested_arrow_source();
+    let original = std::fs::read(&source).unwrap();
+    let mut worker = Worker::new();
+    for surface in ["sql", "dataframe"] {
+        for (index, (body, tail, expected)) in [
+            (
+                "items, COUNT(*) AS n",
+                "GROUP BY items LIMIT 10",
+                json!([{"items":[1,null],"n":2},{"items":[],"n":1},{"items":null,"n":1}]),
+            ),
+            ("items, COUNT(*) AS n", "GROUP BY items LIMIT 0", json!([])),
+            ("COUNT(*)", "LIMIT 0", json!([])),
+            (
+                "MIN(items) AS lo, MAX(items) AS hi, COUNT(DISTINCT items) AS n",
+                "LIMIT 1 OFFSET 0",
+                json!([{"lo":[],"hi":[1,null],"n":2}]),
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let statement = format!("SELECT {body} FROM '{}' {tail}", source.display());
+            for execution in 1..=2 {
+                let result = worker.request(&[
+                    "run",
+                    surface,
+                    "--sql",
+                    &statement,
+                    "--source-bindings",
+                    &bindings,
+                    "--request",
+                    "collect",
+                    "--memory-gb",
+                    "1",
+                    "--max-parallelism",
+                    "2",
+                ]);
+                completed(&result, &expected, 1, execution);
+                assert_eq!(
+                    field(&result, "public_workflow_preparation_included"),
+                    "false"
+                );
+                assert_eq!(
+                    field(&result, "public_workflow_local_source_preparation_included"),
+                    "true"
+                );
+                assert_eq!(
+                    field(&result, "public_workflow_local_source_format"),
+                    "arrow-ipc"
+                );
+                let prepared = field(&result, "public_workflow_local_source_prepared_vortex_path");
+                assert_ne!(prepared, source.to_str().unwrap());
+                assert!(std::path::Path::new(prepared).is_file());
+            }
+            let output = root.0.join(format!("{surface}-{index}.jsonl"));
+            let written = worker.request(&[
+                "run",
+                surface,
+                "--sql",
+                &statement,
+                "--source-bindings",
+                &bindings,
+                "--request",
+                "write_jsonl",
+                "--output",
+                output.to_str().unwrap(),
+                "--memory-gb",
+                "1",
+                "--max-parallelism",
+                "2",
+            ]);
+            assert_eq!(written["status"], "success", "{written}");
+            let rows = std::fs::read_to_string(output)
+                .unwrap()
+                .lines()
+                .map(|line| serde_json::from_str::<Value>(line).unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(json!(rows), expected);
+            assert_eq!(field(&written, "fallback_attempted"), "false");
+            assert_eq!(field(&written, "external_engine_invoked"), "false");
+        }
+    }
+    assert_eq!(std::fs::read(source).unwrap(), original);
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
+    let (_root, source, bindings) = declared_nested_arrow_source();
+    let statement = format!(
+        "SELECT items, COUNT(*) AS n FROM '{}' GROUP BY items LIMIT 10",
+        source.display()
+    );
+    let expected = json!([{"items":[1,null],"n":2},{"items":[],"n":1},{"items":null,"n":1}]);
+    let mut worker = Worker::new();
+    let first = worker.relational(&statement, &["--source-bindings", &bindings]);
+    completed(&first, &expected, 1, 1);
+    completed(
+        &worker.relational(&statement, &["--source-bindings", &bindings]),
+        &expected,
+        1,
+        2,
+    );
+    let prepared = PathBuf::from(field(
+        &first,
+        "public_workflow_local_source_prepared_vortex_path",
+    ));
+    // Direct native use and use through an original compatibility source have
+    // distinct preparation obligations even when their lowered SQL is identical.
+    drop(worker);
+    let mut worker = Worker::new();
+    let native_statement = format!(
+        "SELECT items, COUNT(*) AS n FROM '{}' GROUP BY items LIMIT 10",
+        prepared.display()
+    );
+    let native_bindings =
+        json!({prepared.display().to_string(): {"input_format":"vortex"}}).to_string();
+    completed(
+        &worker.relational(&native_statement, &["--source-bindings", &native_bindings]),
+        &expected,
+        1,
+        1,
+    );
+    for execution in 1..=2 {
+        completed(
+            &worker.relational(&statement, &["--source-bindings", &bindings]),
+            &expected,
+            1,
+            execution,
+        );
+    }
+    let original = std::fs::read(&source).unwrap();
+    std::fs::write(&source, &original).unwrap();
+    let rejected = worker.relational(&statement, &["--source-bindings", &bindings]);
+    assert_eq!(rejected["status"], "error", "{rejected}");
+    assert!(
+        rejected.to_string().contains("source binding"),
+        "{rejected}"
+    );
+    // Explicitly retire this fixture's stale preparation. The next call must
+    // prepare the new generation and cannot keep the rejected reader alive.
+    std::fs::remove_file(prepared).unwrap();
+    completed(
+        &worker.relational(&statement, &["--source-bindings", &bindings]),
+        &expected,
+        1,
+        1,
+    );
+    assert_eq!(std::fs::read(source).unwrap(), original);
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn worker_flat_prepared_nested_writers_preserve_the_original_source() {
+    for request in [
+        "write_vortex",
+        "write_json",
+        "write_jsonl",
+        "write_parquet",
+        "write_arrow_ipc",
+        "write_avro",
+    ] {
+        let (_root, source, bindings) = declared_nested_arrow_source();
+        let original = std::fs::read(&source).unwrap();
+        let statement = format!(
+            "SELECT items, COUNT(*) AS n FROM '{}' GROUP BY items LIMIT 10",
+            source.display()
+        );
+        let rejected = Worker::new().relational(
+            &statement,
+            &[
+                "--source-bindings",
+                &bindings,
+                "--request",
+                request,
+                "--output",
+                source.to_str().unwrap(),
+                "--allow-overwrite",
+            ],
+        );
+        assert_eq!(rejected["status"], "error", "{request}: {rejected}");
+        assert_eq!(std::fs::read(&source).unwrap(), original, "{request}");
+        assert!(
+            rejected.to_string().contains("different files"),
+            "{request}: {rejected}"
+        );
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn worker_relational_retains_each_sources_declared_format_and_schema() {
     let root = Cleanup::new();

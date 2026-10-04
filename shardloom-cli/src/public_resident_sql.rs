@@ -2,9 +2,9 @@
 
 use super::{
     CommandStatus, ExitCode, NativeVortexInputBinding, OutputFormat, PublicExecutionSession,
-    PublicVortexPrimitive, PublicWorkflowRoutePlan, PublicWorkflowRouteRequest, ShardLoomError,
-    effective_public_workflow_request, emit_blocked_facade,
-    execute_native_vortex_materializing_with_source,
+    PublicSourcePreparations, PublicVortexPrimitive, PublicWorkflowRoutePlan,
+    PublicWorkflowRouteRequest, ShardLoomError, effective_public_workflow_request,
+    emit_blocked_facade, execute_native_vortex_materializing_with_source,
     execute_native_vortex_owned_collect_with_source, is_write_request,
     native_vortex_bound_request_and_arg, native_vortex_input_binding_for_request,
     native_vortex_materializing_error, native_vortex_materializing_policy,
@@ -55,6 +55,7 @@ pub(super) fn write_if_needed(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     extra_fields: &mut Vec<(String, String)>,
+    preparations: PublicSourcePreparations,
 ) -> Option<ExitCode> {
     if request.sql_statement.is_none()
         || !request.fanout_outputs.is_empty()
@@ -88,7 +89,8 @@ pub(super) fn write_if_needed(
             native_vortex_bound_request_and_arg(request, primitive, &binding)?;
         let policy = native_vortex_materializing_policy(request)?;
         let source = prepared_dispatch::prepare_source(&primitive_request, policy)?;
-        if !prepared_dispatch::request_requires_relational(&source, &primitive_request)?
+        if preparations.is_empty()
+            && !prepared_dispatch::request_requires_relational(&source, &primitive_request)?
             && let Some(report) = prepared_dispatch::try_write_source(
                 &primitive_request,
                 &target.path,
@@ -120,6 +122,7 @@ pub(super) fn write_if_needed(
             &mut PublicExecutionSession::default(),
             std::mem::take(extra_fields),
             Some(source),
+            preparations,
         )))
     })();
     match result {
@@ -134,6 +137,7 @@ pub(super) fn run_if_needed(
     format: OutputFormat,
     extra_fields: &mut Vec<(String, String)>,
     session: &mut PublicExecutionSession,
+    preparations: PublicSourcePreparations,
 ) -> Option<ExitCode> {
     if request.sql_statement.is_none()
         || request.requested_output != "collect"
@@ -166,6 +170,7 @@ pub(super) fn run_if_needed(
             session,
             std::mem::take(extra_fields),
             None,
+            preparations,
         ));
     }
     if session
@@ -211,6 +216,7 @@ pub(super) fn run_if_needed(
                 session,
                 fields,
                 Some(source),
+                preparations,
             )
         } else {
             run_optimized_source(request, plan, format, fields, &binding, session, source)?
