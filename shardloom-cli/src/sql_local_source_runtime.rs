@@ -36757,11 +36757,6 @@ fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>
     }
     validate_sql_identifier(alias)?;
     let value = parse_top_level_projection_literal_value(literal_raw)?;
-    if matches!(value, ScalarValue::Null) {
-        return Err(unsupported_sql_error(
-            "literal projections do not admit NULL values in this scoped runtime slice",
-        ));
-    }
     Ok(Some(ParsedLiteralProjection {
         alias: alias.to_string(),
         value,

@@ -1,6 +1,28 @@
 use super::*;
 
 #[test]
+fn native_typed_reductions_sql_untyped_null_projection_admits_direct_composed_and_empty() {
+    let source = fixture();
+    for input in [
+        format!("'{source}'"),
+        format!("(SELECT * FROM '{source}' LIMIT 2) AS q"),
+    ] {
+        verify(
+            &format!("SELECT NULL AS missing FROM {input} LIMIT 2"),
+            &json!([{"missing":null},{"missing":null}]),
+        );
+        verify(
+            &format!("SELECT NULL AS missing FROM {input} LIMIT 0"),
+            &json!([]),
+        );
+    }
+    assert_eq!(
+        source_count("SELECT NULL AS missing FROM '/missing/null.vortex' LIMIT 0").unwrap(),
+        1
+    );
+}
+
+#[test]
 fn native_typed_reductions_sql_computed_arguments_nulls_constants_and_lazy_branches() {
     let source = fixture();
     verify(

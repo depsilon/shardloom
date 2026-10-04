@@ -172,7 +172,7 @@ def run(context, output, guard, exercise, exercise_workflow, remember, denied,
         sql_cases.append((f"typed-reductions-scale-{scale}", context.sql(
             f"SELECT SUM({expression}) AS total,AVG({expression}) AS mean FROM '{native}'"),
             [{"total": decimal(total, scale=scale), "mean": decimal(mean, scale=max(scale, 6))}],
-            ["total", "mean"], {}))
+            ["total", "mean"], {"json_cells": ("total", "mean")}))
     for name, statement, reason in [
         ("missing-empty", f"SELECT SUM(absent+1) FROM '{native}' LIMIT 0", "absent"),
         ("nested-empty", f"SELECT SUM(AVG(id)) FROM '{native}' LIMIT 0", None),
