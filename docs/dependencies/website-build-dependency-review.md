@@ -43,7 +43,7 @@ publication, runtime execution fallback, public performance claims, or productio
 PR #1506's website job failed on
 [GHSA-ch52-4w7c-c8xp](https://github.com/advisories/GHSA-ch52-4w7c-c8xp).
 The local audit reproduces five high-severity dependency-chain entries for this
-single advisory. `http-cache-semantics` 4.2.0 remains the registry's latest release;
+single advisory. As of October 3, `http-cache-semantics` 4.2.0 was the registry's latest release;
 Astro 7.3.5 also depends on it. The audit's proposed Astro 2.10.9 downgrade is not
 a compatible remediation for this Astro 7 site. No dependency fix is claimed.
 
@@ -69,6 +69,29 @@ The command still runs `npm audit --audit-level=low --json`; accepted output say
 report a clean dependency audit. Seven deterministic tests cover acceptance and
 denial conditions. Reassess and remove the exception when an upstream remedy is
 available; renewal requires a new explicit decision.
+
+## 2026-10-04 Registry Update
+
+The registry published `http-cache-semantics` 4.3.0 on October 4. Update only
+that existing transitive lockfile entry; Astro's existing `^4.2.0` requirement
+admits it. The package retains its BSD-2-Clause license and adds no dependency.
+The registry integrity and
+[upstream source revision](https://github.com/kornelski/http-cache-semantics/commit/b1d4bd682fbab0252985de45219f4e7497c0067c)
+identify the selected release. No other package entry changes.
+
+The exact revised dependency graph has a clean `npm audit` result. The previous
+exception remains disabled and is not used to obtain that result. The update
+does not establish that the earlier `max-stale` behavior changed: upstream
+[disputed the report](https://github.com/kornelski/http-cache-semantics/issues/56#issuecomment-5975759591),
+and the 4.3.0 source changes address Vary matching and expose response status.
+Retain the static-deployment and build-helper reachability boundaries above;
+do not describe this as a general shared-cache vulnerability fix.
+
+Local validation passed for this lockfile update: clean dependency installation,
+the unchanged dependency audit gate, website build and type/content checks,
+public-status validation, all eight link regressions, website readiness and
+static-asset validation. Hosted checks must pass for the updated commit before
+merge; production deployment follows the existing Cloudflare integration.
 
 ## Runtime Boundary
 
