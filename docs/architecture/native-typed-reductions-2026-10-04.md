@@ -125,7 +125,7 @@ separate implementation. Reservations are not a whole-process RSS bound.
 The source remains 0.4.0. Existing primitive floating SUM/AVG and numeric
 rolling/pivot behavior remain compatible. No fallback, intermediate result file,
 source replay, new execution mode, external effect or package publication is
-introduced. Wider analytic frames, scalar-value subqueries, non-decimal pivot
+introduced. Wider analytic frames, scalar-value subqueries, nonnumeric pivot
 extrema, nested pivot state, adapters and general state spill retain their
 existing universal-workflow owners and are subsequent implementation work.
 

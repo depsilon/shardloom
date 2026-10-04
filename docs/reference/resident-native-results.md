@@ -146,8 +146,16 @@ nested contract adds the finite selected-value operations listed above; nested
 values retain their exact logical shape for same-shape melt, and forward fill
 replaces a NULL parent with the prior complete valid value. Direct
 file requests and composed unary stages share binding and native ownership.
-Typed sampling weights, decimal rolling aggregates and decimal pivot SUM/MEAN
-are not implied. Legacy primitive predicates retain their narrower domain; use
+Typed sampling weights remain unsupported. The
+[typed reduction continuation](../architecture/native-typed-reductions-2026-10-04.md)
+adds computed aggregate arguments and exact Decimal128 SUM/AVG, rolling
+sum/mean/min/max and numeric pivot cells/margins through the existing owners.
+SUM binds precision 38 at the input scale; AVG binds precision 38 at scale
+`max(input_scale,6)` and fails on inexact division. Extrema preserve the input
+decimal type, and numeric pivot NULL values remain errors. Wide intermediate
+totals allow cancellation and representable averages without floating conversion.
+Public workflow and performance acceptance is pending. Legacy primitive predicates
+retain their narrower domain; use
 the shared typed expression binder for typed filtering around a unary stage.
 The [typed unary contract](../architecture/native-typed-unary-2026-10-03.md)
 defines exact literal JSON and the 0.4 Rust request migration from `StatValue` to

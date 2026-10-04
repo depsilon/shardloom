@@ -258,8 +258,9 @@ objects. Common admitted methods include:
   queries. SQL spells the stage as `PIVOT((SELECT ...), '<options JSON>')`.
   Actual domains bind during execution; inspection and preparation stay inert.
   Empty input retains the index field and any declared margins field; an absent
-  named domain fails explicitly. Complete scalar output can use all eight local
-  writers within the existing 128-field and memory limits. Pivot-state spill and
+  named domain fails explicitly. Representable scalar output can use all eight local
+  writers within the existing 128-field and memory limits; decimal output retains
+  the explicit ORC denial. Pivot-state spill and
   cross-call answer reuse are unsupported. See the
   [dynamic pivot ownership and acceptance contract](../architecture/native-dynamic-pivot-composition-2026-10-03.md).
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
@@ -278,9 +279,22 @@ objects. Common admitted methods include:
   their declared types through duplicate selection/masks, tail/sample,
   replacement/forward-fill, lossless melt, rolling COUNT and scoped pivot
   first/first-unique/COUNT. Python bytes, Decimal, date and datetime literals
-  lower to exact native declarations. Legacy primitive predicates and numeric
-  weight/rolling/pivot restrictions still apply; see the
+  lower to exact native declarations. Legacy primitive predicates and typed
+  sampling-weight restrictions still apply; see the
   [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
+- Exact reductions: the [typed reduction contract](../architecture/native-typed-reductions-2026-10-04.md)
+  adds computed arguments to COUNT, COUNT DISTINCT, SUM, AVG, MIN and MAX through
+  the shared native projection and aggregate. Decimal SUM returns
+  `decimal128(38,input_scale)`; AVG returns `decimal128(38,max(input_scale,6))`
+  and rejects inexact division. MIN/MAX preserve the input decimal type.
+  The same policies apply to source-order rolling sum/mean/min/max and numeric
+  pivot cells/margins. Grouped reductions skip NULLs; numeric pivot NULLs still
+  fail. Centered rolling uses bounded lookahead and stops before unused
+  end-of-input frames once its limit is reached. Fully untyped NULL projections
+  use a nullable boolean carrier; explicitly typed NULLs retain their type.
+  Public workflow and performance acceptance is pending. The JSON index records
+  this unit separately as `native_typed_reductions`; older unit flags retain their
+  original scope. Wider analytic frames and general state spill remain open.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the admitted ShardLoom expression surface.
 - Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar

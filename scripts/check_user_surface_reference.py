@@ -78,6 +78,9 @@ REQUIRED_JSON_POINTERS = (
     "native_typed_unary.reference",
     "native_typed_unary.types",
     "native_typed_unary.operators",
+    "native_typed_reductions.reference",
+    "native_typed_reductions.computed_aggregates",
+    "native_typed_reductions.decimal_rolling",
     "native_nested_keys_state.reference",
     "native_nested_keys_state.types",
     "native_nested_keys_state.retained_unary",
@@ -314,6 +317,42 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "external_engine_invoked"):
         if unary.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_typed_unary.{field} must be false")
+
+    reductions = payload.get("native_typed_reductions", {})
+    for field, value in (
+        ("scope", "current_source_build_computed_arguments_and_decimal_reductions"),
+        ("computed_aggregates", ["count", "count_distinct", "sum", "avg", "min", "max"]),
+        ("argument_lowering", "shared_native_projection_then_aggregate"),
+        ("distinct_aggregates", ["count"]),
+        ("decimal_precision", [1, 38]),
+        ("decimal_scale", "0_to_precision"),
+        ("decimal_sum_result", "decimal128(38,input_scale)"),
+        ("decimal_mean_result", "decimal128(38,max(input_scale,6))"),
+        ("decimal_extrema_result", "preserve_input_precision_and_scale"),
+        ("decimal_average_policy", "exact_or_error"),
+        ("decimal_overflow_policy", "checked_error"),
+        ("decimal_rolling", ["sum", "mean", "min", "max"]),
+        ("decimal_numeric_pivot", ["sum", "mean", "min", "max"]),
+        ("numeric_pivot_nulls", "error"),
+        ("pivot_margins", "merge_totals_and_counts_before_finalization"),
+        ("untyped_null_projection", "nullable_boolean_carrier"),
+        ("shared_direct_and_relational_state", True),
+    ):
+        if reductions.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_typed_reductions.{field} differs from its contract")
+    for field in ("hosted_acceptance_complete", "state_spill", "wider_analytic_frames",
+                  "total_rss_bound", "fallback_attempted", "external_engine_invoked"):
+        if reductions.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_typed_reductions.{field} must be false")
+    if type(reductions.get("local_acceptance_complete")) is not bool:
+        blockers.append(f"{JSON_PATH}: typed reduction acceptance must be explicit")
+    evidence = reductions.get("local_acceptance_report")
+    if reductions.get("local_acceptance_complete") is True:
+        if (not isinstance(evidence, str) or not evidence.startswith("docs/benchmarks/")
+                or ".." in Path(evidence).parts or not (repo_root / evidence).is_file()):
+            blockers.append(f"{JSON_PATH}: accepted typed reductions require their local report")
+    elif evidence is not None:
+        blockers.append(f"{JSON_PATH}: pending typed reductions cannot claim an acceptance report")
 
     nested_state = payload.get("native_nested_keys_state", {})
     for field, value in (
