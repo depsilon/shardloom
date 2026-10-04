@@ -32,6 +32,7 @@ impl Lowerer<'_, '_> {
             ));
         }
         match plan {
+            Plan::ExecutionResult(_) | Plan::DeferredSubquery(_) => Ok(()),
             Plan::Scan(scan) => {
                 if let Some(mut required) = required {
                     // Native batches retain a row-bearing field even for COUNT(*)
@@ -207,6 +208,12 @@ impl Lowerer<'_, '_> {
         parameterized: bool,
         depth: usize,
     ) -> NativeResult<()> {
+        if matches!(query.relation, Plan::DeferredSubquery(_)) {
+            // The inner tree binds after discovery for each parameter. Keep its
+            // entire declared outer schema; pruning it here would invalidate
+            // names captured by that deferred declaration.
+            return self.prune_at(&mut query.input, None, outer, depth + 1);
+        }
         let mut relation = Columns::new();
         let mut input = Columns::new();
         let keys = match &query.kind {

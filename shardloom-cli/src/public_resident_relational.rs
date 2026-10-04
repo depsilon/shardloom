@@ -371,10 +371,6 @@ fn append_execution(
         ),
         ("resident_relational_handle_retained".into(), "true".into()),
         (
-            "resident_relational_lowering_reused".into(),
-            reused.to_string(),
-        ),
-        (
             "resident_source_generation_validation".into(),
             "all_sources_before_and_after_native_execution_and_final_consumer".into(),
         ),
@@ -389,8 +385,37 @@ fn append_execution(
         ),
     ];
     // Shared sink helpers also report effects; retain one unambiguous value per key.
-    for (key, value) in execution_fields {
+    for (key, value) in execution_fields
+        .into_iter()
+        .chain(schema_binding_fields(result, reused))
+    {
         fields.retain(|(existing, _)| existing != &key);
         fields.push((key, value));
     }
+}
+
+fn schema_binding_fields(result: &ExecutedVortexRelational, reused: bool) -> [(String, String); 4] {
+    [
+        (
+            "resident_relational_declaration_reused".into(),
+            reused.to_string(),
+        ),
+        (
+            "resident_relational_lowering_reused".into(),
+            (reused && !result.schema_binding_deferred).to_string(),
+        ),
+        (
+            "relational_schema_binding".into(),
+            if result.schema_binding_deferred {
+                "during_execution"
+            } else {
+                "during_preparation"
+            }
+            .into(),
+        ),
+        (
+            "relational_dynamic_schema_stages".into(),
+            result.dynamic_schema_stages.to_string(),
+        ),
+    ]
 }

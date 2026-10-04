@@ -27,6 +27,8 @@ use shardloom_vortex::{
     },
 };
 
+#[path = "sql_native_relational_dynamic.rs"]
+mod dynamic;
 #[path = "sql_native_relational_predicate.rs"]
 mod predicate;
 #[path = "sql_native_relational_projection.rs"]
@@ -47,13 +49,19 @@ pub(crate) fn prepare(
     mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
 ) -> NativeResult<PreparedVortexRelational> {
     let statement = admitted_statement(raw)?;
+    let parsed = ParsedRelationQuery::parse(&statement)?;
+    if dynamic::required(&parsed) {
+        return dynamic::prepare(parsed, policy, &mut resolve_source);
+    }
     prepare_relational_with_schema(policy, |schemas| {
         let mut lowerer = Lowerer {
             schemas,
             serial: 0,
             resolve_source: &mut resolve_source,
+            declaration: None,
+            outer: None,
         };
-        let mut query = lowerer.statement(&statement)?;
+        let mut query = lowerer.query(&parsed)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
         Ok(query.plan)
     })
@@ -231,13 +239,11 @@ struct Lowerer<'a, 'session> {
     schemas: &'a mut VortexRelationalPreparation<'session>,
     serial: usize,
     resolve_source: &'a mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
+    declaration: Option<dynamic::Declaration>,
+    outer: Option<Vec<String>>,
 }
 
 impl Lowerer<'_, '_> {
-    fn statement(&mut self, statement: &str) -> NativeResult<Lowered> {
-        self.query(&ParsedRelationQuery::parse(statement)?)
-    }
-
     fn query(&mut self, query: &ParsedRelationQuery) -> NativeResult<Lowered> {
         let parsed = match query {
             ParsedRelationQuery::Select(parsed) => {
@@ -292,6 +298,19 @@ impl Lowerer<'_, '_> {
             ParsedRelationSource::Unary(operation) => {
                 let input = self.query(&operation.input)?;
                 let request = unary::resolve(operation.request.clone(), &input)?;
+                if request.kind == shardloom_vortex::VortexQueryPrimitiveKind::PivotRows {
+                    let mut plan = Plan::Unary(Box::new(Unary {
+                        input: input.plan,
+                        request,
+                    }));
+                    self.prune(&mut plan, None, &mut BTreeSet::new())?;
+                    let (plan, columns) = self.schemas.resolve_output(&plan)?;
+                    return Ok(Lowered {
+                        plan,
+                        columns,
+                        qualifiers: BTreeMap::new(),
+                    });
+                }
                 let selected = match &request.projection {
                     ProjectionRequest::All => input.columns.clone(),
                     ProjectionRequest::Columns(columns) => columns
@@ -448,6 +467,11 @@ impl Lowerer<'_, '_> {
     ) -> NativeResult<Lowered> {
         let input = self.source(parsed)?;
         let visible = input.columns.clone();
+        let outer = outer.or_else(|| {
+            self.outer
+                .as_deref()
+                .filter(|_| predicate::select_direct_outer(parsed))
+        });
         let input = Self::with_outer(input, outer)?;
         let mut input = self.filter(input, &parsed.predicate)?;
         let aggregate = !parsed.aggregates.is_empty()

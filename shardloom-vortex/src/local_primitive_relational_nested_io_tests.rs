@@ -124,7 +124,7 @@ fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<Value> {
                 predicate: None,
             });
             let prepared = prepare_relational(&plan, policy()).unwrap();
-            assert_eq!(&prepared.output_dtype(), dtype);
+            assert_eq!(&prepared.output_dtype().unwrap(), dtype);
             json_rows(
                 &prepared
                     .collect_jsonl(&CancellationToken::default())
@@ -216,7 +216,7 @@ fn check_six_writers(fixture: &Fixture, expected: &[Value]) {
                 );
             }
             assert_eq!(
-                reopen(&path, format, &prepared.output_dtype()),
+                reopen(&path, format, &prepared.output_dtype().unwrap()),
                 expected[..count],
                 "{format:?} {count}"
             );
@@ -417,16 +417,16 @@ fn check_nested_intake(fixture: &Fixture, expected: &[Value]) {
                         .collect_jsonl(&CancellationToken::default())
                         .unwrap_or_else(|error| panic!(
                             "{count} {mode} {}: {error}",
-                            reopened.output_dtype()
+                            reopened.output_dtype().unwrap()
                         ))
                 ),
                 expected[..count],
             );
             assert!(
-                reopened.output_dtype() == prepared.output_dtype(),
+                reopened.output_dtype().unwrap() == prepared.output_dtype().unwrap(),
                 "{count} {mode}: {} != {}",
-                reopened.output_dtype(),
-                prepared.output_dtype()
+                reopened.output_dtype().unwrap(),
+                prepared.output_dtype().unwrap()
             );
         }
     }
@@ -477,7 +477,10 @@ fn native_nested_empty_intake_retains_nonnullable_lists_and_structs() {
                 projection: shardloom_plan::ProjectionRequest::All,
                 predicate: None,
             });
-            let actual = prepare_relational(&scan, policy()).unwrap().output_dtype();
+            let actual = prepare_relational(&scan, policy())
+                .unwrap()
+                .output_dtype()
+                .unwrap();
             assert!(actual == expected, "{mode}: {actual} != {expected}");
         }
 

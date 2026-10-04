@@ -327,7 +327,7 @@ fn native_nested_projection_order_window_limit_and_union_all_compose() {
         count: 0,
     }));
     let prepared = prepare_relational(&empty, policy()).unwrap();
-    let dtype = prepared.output_dtype();
+    let dtype = prepared.output_dtype().unwrap();
     let mut batches = 0;
     prepared
         .for_each_batch(&CancellationToken::default(), |array, _| {

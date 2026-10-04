@@ -119,7 +119,10 @@ pub(super) fn expected() -> Vec<serde_json::Value> {
 fn native_relational_windows_cover_all_functions_ties_null_partitions_and_source_order() {
     let fixture = fixture();
     let prepared = prepare_relational(&plan(fixture.scan()), policy()).unwrap();
-    let NodeKind::Window { spec, .. } = &prepared.root.kind else {
+    let PreparedRoot::Bound(root) = &prepared.root else {
+        panic!("static plan")
+    };
+    let NodeKind::Window { spec, .. } = &root.kind else {
         panic!("expected window")
     };
     assert_eq!(
@@ -136,11 +139,11 @@ fn native_relational_windows_cover_all_functions_ties_null_partitions_and_source
         assert_eq!(collected.execution.runtime.completed_executions, call);
     }
     assert_eq!(
-        prepared.root.fields[0].1,
+        root.fields[0].1,
         DType::Primitive(PType::U32, Nullability::NonNullable)
     );
     assert_eq!(
-        prepared.root.fields[4].1,
+        root.fields[4].1,
         DType::Primitive(PType::U32, Nullability::Nullable)
     );
 }

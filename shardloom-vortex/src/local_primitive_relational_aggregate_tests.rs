@@ -118,6 +118,7 @@ fn native_relational_aggregate_exact_grouping_and_distinct_across_batches_preser
     assert_eq!(
         prepared
             .output_dtype()
+            .unwrap()
             .as_struct_fields_opt()
             .unwrap()
             .field("min")
@@ -162,7 +163,10 @@ fn native_relational_aggregate_empty_scalar_and_grouped_results_have_authoritati
         policy(),
     )
     .unwrap();
-    assert_eq!(grouped.output_dtype(), full.output_dtype());
+    assert_eq!(
+        grouped.output_dtype().unwrap(),
+        full.output_dtype().unwrap()
+    );
     assert_eq!(grouped.execute_owned().unwrap().execution.output_rows, 0);
     let invalid = aggregate(empty.scan(), &[], vec![measure("sum", Some("word"), "bad")]);
     assert!(prepare_relational(&invalid, policy()).is_err());

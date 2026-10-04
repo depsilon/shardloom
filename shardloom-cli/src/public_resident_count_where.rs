@@ -156,10 +156,6 @@ fn append_fields(
             shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION.into(),
         ),
         (
-            "local_primitive_no_query_answer_cache".into(),
-            "true".into(),
-        ),
-        (
             "metadata_query_primitive_status".into(),
             "separate_metadata_facade_not_executed".into(),
         ),

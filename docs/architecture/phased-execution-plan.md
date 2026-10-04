@@ -286,6 +286,46 @@ the ledger.
     and small collection bounds are preserved. Dynamic pivot, richer type/key
     semantics and wider state spill retain their existing concrete owners.
 
+- [ ] `NATIVE-DYNAMIC-PIVOT-COMPOSITION` — complete data-dependent pivot schemas
+  through the shared native relational binder, operator states and local sinks
+  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [dynamic pivot contract](native-dynamic-pivot-composition-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: retain metadata-only preparation and existing
+    pushdown; discover domains once through the shared pivot kernel, with one
+    PulseWeave grant, capillary delivery and complete work/timing evidence.
+  - Execution checklist:
+    - [x] Share sparse pivot completion between direct and relational consumers;
+      add execution-time binding with reserved state and single-use ownership.
+    - [x] Lower ordered SQL/DataFrame pivot stages, including dependent aliases,
+      wildcards and existing relational/unary consumers, through the common plan.
+    - [x] Prove empty and changing schemas, parameter scopes, all representable
+      writers, generation checks, cancellation, pressure and retained lifetimes.
+    - [ ] Freeze complete public and regression acceptance, required local/hosted
+      gates and review; update support records and the completed ledger.
+  - Frozen local runtime `50cc1e22` passes 3,305 complete public checks, including
+    846 dynamic-pivot checks and 7,687,525 row comparisons. The separate direct
+    unary matrix passes 202 checks. Lifecycle tests cover fresh and per-parameter
+    schemas, one-use references, cancellation, source changes, denied state and
+    owned-result lifetime. All 24 selected local gates and 258 paired Full43
+    retained-result comparisons pass. No predeclared timing or memory threshold
+    is crossed; the [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
+    preserves the complete observation. Hosted review and the inherited website
+    advisory decision remain pending; no performance improvement is claimed.
+  - Acceptance follow-up: the [report-integrity repair](../benchmarks/native-report-integrity-full43-2026-10-03.md)
+    gives footer-count/cache and execution no-fallback fields one owner, with
+    regression checks rejecting duplicate names. Fresh acceptance passes
+    3,305 workflow checks, 202 direct-unary checks and all 258 paired Full43
+    comparisons, without crossing the predeclared timing or memory thresholds.
+    Eleven selected local gates and raw-response uniqueness checks pass.
+    The earlier packet stays immutable, with its 37 aggregate run responses
+    explicitly corrected from the packet's mistaken "preparation" description.
+  - Acceptance: complete admitted dynamic-schema workflows without a second
+    scan for discovery, prefix collection, intermediate files or fallback. Keep
+    inspection inert and all existing direct pivot semantics and bounds explicit.
+  - Dependency: uses the locally accepted nested-composition tree; its hosted
+    website advisory decision remains separate and cannot be bypassed by this work.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then
@@ -294,8 +334,9 @@ The preceding resource, allocation, aggregate and flat unary units merged in
 hosted checks passed. Their finite completions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
-nested payloads, dynamic pivot schemas, broader adapters and resource obligations
-remain open under their existing owners.
+nested payloads and dynamic pivot schemas have complete local acceptance awaiting
+hosted completion; broader adapters and resource obligations remain open under
+their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one

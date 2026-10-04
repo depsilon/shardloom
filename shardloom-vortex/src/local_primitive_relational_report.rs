@@ -23,7 +23,14 @@ pub(super) fn certificate(
         NativeIoSourceCapabilityReport {
             source_kind: "vortex".into(),
             adapter_id: "shardloom.native_relational.vortex_0_85".into(),
-            schema_discovery_status: format!("bound_before_execution_sources={sources}"),
+            schema_discovery_status: if metrics.schema_discovery_stages.get() == 0 {
+                format!("bound_before_execution_sources={sources}")
+            } else {
+                format!(
+                    "source_schemas_prepared_before_execution_sources={sources};dynamic_schemas_bound_in_execution={}",
+                    metrics.schema_discovery_stages.get()
+                )
+            },
             statistics_availability: "held_native_file_metadata".into(),
             pushdown_capabilities: "bound_projection_and_native_predicates".into(),
             encoded_representation_preserved: true,
@@ -37,14 +44,15 @@ pub(super) fn certificate(
             rejected_operations: vec![],
             guarantee: "bound_types_and_generation_checked_before_and_after_final_consumer".into(),
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),
                 metrics.scan_rows.get(),
                 metrics.unary_stages.get(),
                 metrics.unary_state_items.get(),
-                metrics.unary_population_retention.get()
+                metrics.unary_population_retention.get(),
+                metrics.schema_discovery_stages.get()
             ),
             residual_expression: (metrics.residual_batches.get() > 0).then(|| {
                 format!(

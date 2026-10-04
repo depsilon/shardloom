@@ -3,7 +3,8 @@
 use super::*;
 use crate::vortex_primitive_execution::{
     parse_explode_primitive_request, parse_expression_project_primitive_request,
-    parse_melt_primitive_request, parse_projection_columns, parse_rolling_primitive_request,
+    parse_melt_primitive_request, parse_pivot_primitive_request, parse_projection_columns,
+    parse_rolling_primitive_request,
 };
 use shardloom_plan::ProjectionRequest;
 use shardloom_vortex::{
@@ -29,6 +30,7 @@ pub(super) fn parse(raw: &str) -> Result<Option<ParsedRelationUnary>, ShardLoomE
         "MELT" => Kind::MeltRows,
         "ROLLING" => Kind::RollingWindowRows,
         "EXPLODE" => Kind::ExplodeRows,
+        "PIVOT" => Kind::PivotRows,
         _ => {
             return Err(unsupported_sql_error(
                 "unknown native relation table expression",
@@ -111,6 +113,7 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
             };
         }
         Kind::SampleRows => return sample(&value),
+        Kind::PivotRows => return pivot(&value),
         Kind::ExpressionProjectRows => {
             validate_fields(&value, &[&["columns"], &["rewrites"]])?;
             return parse_expression_project_primitive_request(None, &value);
@@ -158,6 +161,23 @@ fn operation(kind: Kind, args: &[String]) -> Result<Request, ShardLoomError> {
         _ => return Err(unsupported_sql_error("unsupported unary table expression")),
     }
     Ok(request)
+}
+
+fn pivot(value: &str) -> Result<Request, ShardLoomError> {
+    validate_fields(
+        value,
+        &[
+            &["index", "index_column"],
+            &["columns", "pivot_column", "column_column"],
+            &["values", "value_column"],
+            &["aggregate", "aggfunc"],
+            &["fill_value", "fill"],
+            &["dropna"],
+            &["margins"],
+            &["margins_name"],
+        ],
+    )?;
+    parse_pivot_primitive_request(None, value)
 }
 
 fn validate_fields(payload: &str, groups: &[&[&str]]) -> Result<(), ShardLoomError> {

@@ -45,7 +45,13 @@ impl Worker {
         input.flush().unwrap();
         let mut line = String::new();
         assert!(self.output.read_line(&mut line).unwrap() > 0);
-        serde_json::from_str(&line).unwrap()
+        let result: Value = serde_json::from_str(&line).unwrap();
+        let mut keys = std::collections::BTreeSet::new();
+        for field in result["fields"].as_array().unwrap() {
+            let key = field["key"].as_str().unwrap();
+            assert!(keys.insert(key), "repeated report field: {key}");
+        }
+        result
     }
 
     fn collect(&mut self, path: &Path, columns: &str, workers: &str) -> Value {

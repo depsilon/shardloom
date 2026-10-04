@@ -1,5 +1,6 @@
 //! Bind subquery arity, exact key domains and the appended SQL boolean.
 
+use super::super::SubqueryRelation;
 use super::{
     Binder, DType, Node, NodeKind, Nullability, Result, failed, field, validate_key_pair,
     validate_name, validate_unique, validate_width,
@@ -39,21 +40,37 @@ impl Binder<'_> {
         };
         self.charge((columns.len() + query.correlation.len() + 1) * 8192)?;
         let input = Box::new(self.bind(&query.input, depth + 1)?);
-        let relation = if parameterized {
-            self.charge(input.fields.len() * 4096)?;
-            let previous = self.outer_fields.replace(input.fields.clone());
-            let relation = self.bind(&query.relation, depth + 1);
-            self.outer_fields = previous;
-            Box::new(relation?)
-        } else {
-            Box::new(self.bind(&query.relation, depth + 1)?)
-        };
+        let relation =
+            if let crate::relational_query::VortexRelationalPlan::DeferredSubquery(reference) =
+                &query.relation
+            {
+                if !parameterized {
+                    return Err(failed("deferred relation requires per-parameter execution"));
+                }
+                SubqueryRelation::Dynamic(self.take_deferred(reference)?)
+            } else if parameterized {
+                self.charge(input.fields.len() * 4096)?;
+                let previous = self.outer_fields.replace(input.fields.clone());
+                let previous_binding = std::mem::replace(&mut self.parameterized_binding, true);
+                let relation = self.bind(&query.relation, depth + 1);
+                self.outer_fields = previous;
+                self.parameterized_binding = previous_binding;
+                SubqueryRelation::Bound(Box::new(relation?))
+            } else {
+                SubqueryRelation::Bound(Box::new(self.bind(&query.relation, depth + 1)?))
+            };
         validate_width(input.fields.len() + 1)?;
         self.charge(input.fields.len() * 4096)?;
         let mut left_keys = Vec::new();
         let mut right_keys = Vec::new();
         for key in query.correlation.iter().chain(columns) {
-            bind_key(key, &input.fields, &relation.fields)?;
+            if let SubqueryRelation::Bound(relation) = &relation {
+                bind_key(key, &input.fields, &relation.fields)?;
+            } else {
+                validate_name(key.left.as_str())?;
+                validate_name(key.right.as_str())?;
+                field(&input.fields, key.left.as_str())?;
+            }
             left_keys.push(key.left.as_str().to_owned());
             right_keys.push(key.right.as_str().to_owned());
         }
@@ -97,6 +114,17 @@ impl Binder<'_> {
             },
         })
     }
+}
+
+pub(in crate::local_primitives::prepared_relational) fn validate_relation(
+    spec: &Spec,
+    left: &[(String, DType)],
+    right: &[(String, DType)],
+) -> Result<()> {
+    for (left_name, right_name) in spec.left_keys.iter().zip(&spec.right_keys) {
+        validate_key_pair(field(left, left_name)?, field(right, right_name)?)?;
+    }
+    Ok(())
 }
 
 fn bind_key(

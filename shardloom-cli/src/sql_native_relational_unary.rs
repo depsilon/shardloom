@@ -23,6 +23,11 @@ pub(super) fn resolve(
     if let Some(rolling) = &mut request.rolling_window {
         column(&mut rolling.source_column, input)?;
     }
+    if let Some(pivot) = &mut request.pivot_projection {
+        column(&mut pivot.index_column, input)?;
+        column(&mut pivot.pivot_column, input)?;
+        column(&mut pivot.value_column, input)?;
+    }
     if let Some(explode) = &mut request.explode_projection {
         column(&mut explode.column, input)?;
         for name in &mut explode.columns {
