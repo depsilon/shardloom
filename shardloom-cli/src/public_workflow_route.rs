@@ -8826,20 +8826,11 @@ fn aggregate_payload_from_sql_projection(
         if !direct_group_matches && !expression_group_matches {
             return None;
         }
-        projected_columns.push(
-            projected_group_alias
-                .map(str::to_owned)
-                .or_else(|| {
-                    group_spec
-                        .expressions
-                        .iter()
-                        .find(|expression| {
-                            expression.expression_key == compact_ascii_lower(projected_group_raw)
-                        })
-                        .map(|expression| expression.alias.clone())
-                })
-                .or(projected_group)?,
-        );
+        projected_columns.push(group_spec.projected_name(
+            projected_group_raw,
+            projected_group_alias,
+            projected_group,
+        )?);
     }
     if group_spec.columns.is_empty() && group_spec.expressions.is_empty() && group_by.is_some() {
         return None;
@@ -8966,6 +8957,23 @@ struct ParsedSqlGroupSpec {
 }
 
 impl ParsedSqlGroupSpec {
+    fn projected_name(
+        &self,
+        raw: &str,
+        alias: Option<&str>,
+        column: Option<String>,
+    ) -> Option<String> {
+        alias
+            .map(str::to_owned)
+            .or_else(|| {
+                self.expressions
+                    .iter()
+                    .find(|expression| expression.expression_key == compact_ascii_lower(raw))
+                    .map(|expression| expression.alias.clone())
+            })
+            .or(column)
+    }
+
     // This strategy emits every group key followed by its measures. Mixed raw
     // and computed keys use the existing identity expression to keep the SQL
     // key order in one native key vector. Other projection changes belong to
