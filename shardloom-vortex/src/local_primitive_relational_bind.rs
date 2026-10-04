@@ -19,6 +19,7 @@ mod aggregate;
 mod dynamic;
 #[path = "local_primitive_relational_expression_bind.rs"]
 mod expression;
+pub(in crate::local_primitives) use expression::{arithmetic_dtype, literal_dtype};
 #[path = "local_primitive_relational_subquery_bind.rs"]
 mod subquery;
 pub(super) use subquery::validate_relation as validate_subquery_relation;
@@ -135,7 +136,7 @@ impl<'a> Binder<'a> {
                     if unary.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
                         validate_payload(dtype)?;
                     } else {
-                        validate_scalar(dtype)?;
+                        validate_key(dtype)?;
                     }
                 }
                 validate_unique(operation.fields())?;

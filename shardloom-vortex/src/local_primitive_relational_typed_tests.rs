@@ -24,6 +24,9 @@ mod expression_tests;
 #[path = "local_primitive_relational_source_handoff_tests.rs"]
 mod source_handoff_tests;
 
+#[path = "local_primitive_relational_typed_unary_tests.rs"]
+mod unary_tests;
+
 const DECIMAL_EDGE: i128 = 99_999_999_999_999_999_999_999_999_999_999_999_999;
 
 fn payloads() -> Vec<ArrayRef> {

@@ -119,7 +119,7 @@ timezone-free timestamp-microsecond equality, hashing and ordering through
 relational joins, sets, groups, windows and subqueries, plus COUNT/COUNT
 DISTINCT/MIN/MAX and the scoped expressions it lists. Its existing explicit
 ORDER BY spill policy applies to these flat keys. It adds no group, join or
-window state spill. Nested key equality, retained unary state, unadmitted nested
+window state spill. Nested key equality, unadmitted nested
 shapes, general Variant/extension operations and broader state-spill families
 remain explicit gaps. Current source builds admit typed literals, explicit
 CAST/TRY_CAST, exact decimal arithmetic/rounding and scoped binary/calendar
@@ -129,6 +129,16 @@ zero discarded digits. Key compatibility still requires matching decimal
 precision/scale and preserves distinct temporal types. Richer aggregate/window
 semantics, broader adapters and state spill remain separate. See the [typed
 expression contract](../architecture/native-typed-expressions-2026-10-03.md).
+Retained unary state also admits those four flat scalar domains for DISTINCT,
+duplicate selection/masks, tail, sampling, scalar replacement/forward-fill,
+lossless melt, rolling COUNT and scoped pivot first/first-unique/COUNT. Direct
+file requests and composed unary stages share binding and native ownership.
+Typed sampling weights, decimal rolling aggregates and decimal pivot SUM/MEAN
+are not implied. Legacy primitive predicates retain their narrower domain; use
+the shared typed expression binder for typed filtering around a unary stage.
+The [typed unary contract](../architecture/native-typed-unary-2026-10-03.md)
+defines exact literal JSON and the 0.4 Rust request migration from `StatValue` to
+`ScalarValue`. Empty inputs bind the same logical types as populated inputs.
 The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
 records complete public writer/readback and forced-sort-run evidence.
 See the [streaming contract and acceptance](../architecture/native-workflow-streaming-2026-10-01.md).

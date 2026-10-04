@@ -127,7 +127,7 @@ fn unary_pivot_fill_margins_and_limit_preserve_types_and_selected_margin_scope()
     let fixture = fixture();
     let mut request = request(&fixture, "sum");
     let projection = request.pivot_projection.as_mut().unwrap();
-    projection.fill_value = Some(StatValue::Float64(0.0));
+    projection.fill_value = Some(shardloom_core::ScalarValue::Float64(0.0));
     projection.margins = true;
     projection.margins_name = "total".into();
     let prepared = prepare(&request);
@@ -186,7 +186,8 @@ fn unary_pivot_null_values_colliding_names_and_typed_fill_are_lossless() {
         1,
     );
     let mut request = request(&fixture, "first");
-    request.pivot_projection.as_mut().unwrap().fill_value = Some(StatValue::UInt64(0));
+    request.pivot_projection.as_mut().unwrap().fill_value =
+        Some(shardloom_core::ScalarValue::UInt64(0));
     let expected = serde_json::json!([{KEY:null,"pivot_a":null,"pivot_a_2":0},{KEY:2,"pivot_a":0,"pivot_a_2":u64::MAX}]).as_array().unwrap().clone();
     for dropna in [false, true] {
         request.pivot_projection.as_mut().unwrap().dropna = dropna;
@@ -202,7 +203,8 @@ fn unary_pivot_null_values_colliding_names_and_typed_fill_are_lossless() {
             Some(DType::Primitive(PType::U64, Nullability::Nullable))
         );
     }
-    request.pivot_projection.as_mut().unwrap().fill_value = Some(StatValue::Utf8("missing".into()));
+    request.pivot_projection.as_mut().unwrap().fill_value =
+        Some(shardloom_core::ScalarValue::Utf8("missing".into()));
     let result = prepare(&request).execute_owned().unwrap();
     assert_eq!(
         result

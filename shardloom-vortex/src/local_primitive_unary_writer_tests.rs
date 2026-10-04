@@ -217,7 +217,7 @@ fn unary_writers_preserve_scalar_rewrite_rolling_melt_explode_and_pivot_through_
             crate::VortexExpressionRewrite::NumericScalarArithmetic {
                 target_column: ColumnRef::new(VALUE).unwrap(),
                 operator: "+".into(),
-                operand: StatValue::UInt64(1),
+                operand: shardloom_core::ScalarValue::UInt64(1),
             },
         ]),
     );

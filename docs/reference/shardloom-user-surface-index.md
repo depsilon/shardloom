@@ -210,13 +210,22 @@ objects. Common admitted methods include:
   [typed key contract](../architecture/native-typed-keys-2026-10-03.md) admits
   flat equality, hashing and ordering for these types through joins, sets, groups,
   windows and subqueries, plus COUNT/COUNT DISTINCT/MIN/MAX and scoped comparisons
-  and expressions; Decimal metadata must match. Casts, arithmetic/rescaling,
-  retained unary state and nested key equality remain unsupported. Binary supports
+  and expressions; Decimal key metadata must match. The
+  [typed expression contract](../architecture/native-typed-expressions-2026-10-03.md)
+  separately admits explicit casts and scoped exact decimal/binary/calendar
+  operations. Flat retained state follows the
+  [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
+  Its [acceptance report](../benchmarks/native-typed-unary-full43-2026-10-03.md)
+  records 2,700 new unary checks within the complete 9,300-check public cohort;
+  hosted acceptance and the inconclusive Q9 performance observation remain explicit.
+  Nested key equality remains unsupported. Binary supports
   all eight writers; ORC rejects decimal and temporal payloads. Text output uses
   explicit typed encodings; see the [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md).
-  In the JSON index, `native_typed_keys` records these individual capabilities.
-  The older combined `typed_keys_arithmetic_and_unary_state` flag stays false:
-  the combined key, arithmetic and unary-state capability is not admitted.
+  In the JSON index, `native_typed_keys` and `native_typed_unary` record their
+  individual capabilities and link related contracts. Older payload/key flags
+  retain the scope of their original contracts; the combined
+  `typed_keys_arithmetic_and_unary_state` flag does not grant unrestricted typed
+  composition. Use the separate contracts for admitted operation/type pairs.
   The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
   records local verification; hosted acceptance remains pending.
   Admitted `pivot(...)` / `pivot_table(...)` over one
@@ -244,6 +253,13 @@ objects. Common admitted methods include:
   `with_column("col", col("col").replace(...))` string replacement when the schema and projection
   admit the native Vortex expression-project primitive; broad pandas alignment, callable,
   method/limit, nested, or mixed-dtype variants remain deterministic blockers.
+  Flat binary, Decimal128, Date32 and timestamp-microsecond payloads also retain
+  their declared types through duplicate selection/masks, tail/sample,
+  replacement/forward-fill, lossless melt, rolling COUNT and scoped pivot
+  first/first-unique/COUNT. Python bytes, Decimal, date and datetime literals
+  lower to exact native declarations. Legacy primitive predicates and numeric
+  weight/rolling/pivot restrictions still apply; see the
+  [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the admitted ShardLoom expression surface.
 - Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar

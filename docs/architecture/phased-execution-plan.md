@@ -425,6 +425,43 @@ the ledger.
   - Dependency: locally accepted typed keys. Retained unary state, nested keys,
     broader adapters and state-spill obligations keep their existing owners.
 
+- [ ] `NATIVE-TYPED-UNARY` — complete exact binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp state in the existing unary operators
+  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed unary contract](native-typed-unary-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native source/result owners, compact
+    selected state, one operation grant, exact key identity and existing
+    source-order/sampling policies; reuse typed literal and checked scalar rules.
+  - Execution checklist:
+    - [x] Extend shared retained values, keys and binding across selectors,
+      tail, sampling, rewrites, melt, rolling COUNT and scoped pivot policies.
+    - [x] Align typed CLI/Python/Rust declarations and prove complete typed
+      ownership, output, cancellation, constrained grants and failure cleanup.
+    - [x] Freeze independent public/direct-unary correctness, required local
+      gates and paired Full43 regression; update precise support and evidence.
+    - [ ] Complete hosted review/gates after the inherited website advisory
+      decision, then move this finite item to the completed ledger.
+  - Acceptance: direct and composed calls share exact logical type preservation
+    and deterministic empty-plan admission. Existing primitive floating-key,
+    seed/tie, ordering and margin behavior remains compatible. No decoded
+    evaluator or external-engine fallback enters native execution.
+  - Local evidence: frozen `948551d4` passes 9,300 public checks/14,125,745 complete
+    row comparisons, including 2,700 new unary checks/5,412 rows from 135 frozen
+    declarations. All 6,600 prior cases remain. The separate direct matrix passes
+    202 checks/131,734 rows, and all 25 local gate categories pass. All 258 Full43
+    results and 18 reversed-order calls match; aggregate thresholds are not
+    crossed. Q15 timing and Q34 RSS flags do not reproduce; Q9 timing/RSS remains
+    inconclusive with both cohorts retained. See the
+    [report](../benchmarks/native-typed-unary-full43-2026-10-03.md) and
+    [immutable packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz).
+    Hosted completion still requires the website advisory decision; the review
+    bot has exhausted its quota. No general performance improvement is claimed.
+  - Dependency: locally accepted typed expressions and 0.4.0 source preparation.
+    Nested keys, broader aggregate/window semantics, adapters and general state
+    spill keep their existing owners; hosted completion retains the stack's
+    website advisory decision.
+
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
 [PR #1503](https://github.com/depsilon/shardloom/pull/1503), then
@@ -433,10 +470,11 @@ The preceding resource, allocation, aggregate and flat unary units merged in
 hosted checks passed. Their finite completions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
-nested payloads, dynamic pivot schemas and flat binary/decimal/temporal payloads
-and keys have complete local acceptance awaiting hosted completion; nested key semantics,
-typed expressions, adapters and resource obligations remain open under their
-existing owners.
+nested payloads, dynamic pivot schemas, flat binary/decimal/temporal payloads
+and keys, scoped typed expressions and typed unary state have local functional
+acceptance awaiting hosted completion. The typed-unary report retains Q9's
+inconclusive performance observation. Nested keys/state, broader aggregate/window
+semantics, adapters and resource obligations remain open under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one

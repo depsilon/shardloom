@@ -378,7 +378,7 @@ fn unary(op: UnaryOp, value: Cell) -> Result<Value<'static>> {
     })
 }
 
-fn binary(
+pub(super) fn binary(
     left: Cell,
     op: BinaryOp,
     right: Cell,
@@ -428,9 +428,13 @@ fn binary(
     }
     .ok_or_else(|| failed("integer arithmetic overflow or division by zero"))?;
     if matches!(dtype, DType::Primitive(vortex::array::dtype::PType::U64, _)) {
-        Ok(Value::UInt(u64::try_from(result).map_err(vortex_error)?))
+        Ok(Value::UInt(u64::try_from(result).map_err(|_| {
+            failed("unsigned integer arithmetic overflow")
+        })?))
     } else {
-        Ok(Value::Int(i64::try_from(result).map_err(vortex_error)?))
+        Ok(Value::Int(i64::try_from(result).map_err(|_| {
+            failed("signed integer arithmetic overflow")
+        })?))
     }
 }
 

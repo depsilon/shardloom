@@ -75,6 +75,9 @@ REQUIRED_JSON_POINTERS = (
     "native_typed_payloads.types",
     "native_typed_keys.reference",
     "native_typed_keys.types",
+    "native_typed_unary.reference",
+    "native_typed_unary.types",
+    "native_typed_unary.operators",
 )
 
 REQUIRED_COMMANDS = (
@@ -285,6 +288,29 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "external_engine_invoked"):
         if keys.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_typed_keys.{field} must be false")
+
+    unary = payload.get("native_typed_unary", {})
+    if set(unary.get("types", [])) != types:
+        blockers.append(f"{JSON_PATH}: typed unary state must share the payload type admission")
+    for field, value in (
+        ("scope", "current_source_build_flat_retained_unary_state"),
+        ("operators", ["distinct", "drop_duplicates", "duplicate_mask", "tail", "sample",
+                       "scalar_rewrite", "melt", "rolling_count", "pivot"]),
+        ("shared_direct_and_relational_state", True),
+        ("compact_selected_variable_payload", True),
+        ("declared_logical_types_preserved", True),
+        ("decimal_arithmetic", "same_scale_checked_native_kernel"),
+        ("melt_conversion", "lossless_common_scalar_type"),
+        ("typed_pivot_aggregates", ["first", "first_unique", "count"]),
+        ("pivot_fill", "missing_cells_only"),
+        ("legacy_predicate_domain", "primitive_boolean_utf8"),
+    ):
+        if unary.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_typed_unary.{field} differs from its contract")
+    for field in ("nested_state", "state_spill", "total_rss_bound", "fallback_attempted",
+                  "external_engine_invoked"):
+        if unary.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_typed_unary.{field} must be false")
 
     pivot = payload.get("native_dynamic_pivot_composition", {})
     for field in ("preparation_metadata_only", "inspection_side_effect_free",

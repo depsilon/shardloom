@@ -28,8 +28,8 @@ fn unary_expression_preserves_rewrite_order_filtered_ordinals_and_empty_schema()
         vec![
             Rewrite::ReplaceScalar {
                 target_column: target.clone(),
-                to_replace: StatValue::UInt64(20),
-                replacement: StatValue::UInt64(99),
+                to_replace: shardloom_core::ScalarValue::UInt64(20),
+                replacement: shardloom_core::ScalarValue::UInt64(99),
             },
             Rewrite::MaskScalar {
                 target_column: target.clone(),
@@ -38,12 +38,12 @@ fn unary_expression_preserves_rewrite_order_filtered_ordinals_and_empty_schema()
                     op: ComparisonOp::Eq,
                     value: StatValue::UInt64(99),
                 },
-                replacement: StatValue::UInt64(5),
+                replacement: shardloom_core::ScalarValue::UInt64(5),
             },
             Rewrite::NumericScalarArithmetic {
                 target_column: target,
                 operator: "*".into(),
-                operand: StatValue::UInt64(2),
+                operand: shardloom_core::ScalarValue::UInt64(2),
             },
             Rewrite::RowNumber {
                 target_column: ColumnRef::new("ordinal").unwrap(),
@@ -168,7 +168,7 @@ fn unary_expression_rejects_overflow_and_reserves_string_growth_before_building(
         vec![Rewrite::NumericScalarArithmetic {
             target_column: ColumnRef::new(VALUE).unwrap(),
             operator: "+".into(),
-            operand: StatValue::UInt64(1),
+            operand: shardloom_core::ScalarValue::UInt64(1),
         }],
     ));
     assert!(

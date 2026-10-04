@@ -310,16 +310,8 @@ impl Binder<'_> {
                     .ok_or_else(|| failed("literal metadata overflow"))?,
             )?;
         }
+        let dtype = literal_dtype(value)?;
         let scalar = literal(value)?;
-        let dtype = match value {
-            ScalarValue::Date32(_) => {
-                DType::Extension(Date::new(TimeUnit::Days, Nullability::NonNullable).erased())
-            }
-            ScalarValue::TimestampMicros(_) => DType::Extension(
-                Timestamp::new(TimeUnit::Microseconds, Nullability::NonNullable).erased(),
-            ),
-            _ => scalar.dtype().clone(),
-        };
         Ok(Expression {
             dtype,
             kind: Kind::Literal(scalar),
@@ -452,6 +444,43 @@ fn literal(value: &ScalarValue) -> Result<Scalar> {
     })
 }
 
+/// Shared literal admission for native expression and retained unary binding.
+/// This inspects metadata without allocating payload or calendar scalars.
+pub(in crate::local_primitives) fn literal_dtype(value: &ScalarValue) -> Result<DType> {
+    let nullability = Nullability::NonNullable;
+    Ok(match value {
+        ScalarValue::Null => DType::Null,
+        ScalarValue::Boolean(_) => DType::Bool(nullability),
+        ScalarValue::Int64(_) => DType::Primitive(PType::I64, nullability),
+        ScalarValue::UInt64(_) => DType::Primitive(PType::U64, nullability),
+        ScalarValue::Float64(value) if value.is_finite() => {
+            DType::Primitive(PType::F64, nullability)
+        }
+        ScalarValue::Utf8(_) => DType::Utf8(nullability),
+        ScalarValue::Binary(_) => DType::Binary(nullability),
+        ScalarValue::Decimal128 {
+            value,
+            precision,
+            scale,
+        } => {
+            shardloom_core::expression::Decimal128Operand::decimal(*value, *precision, *scale)?;
+            DType::Decimal(
+                DecimalDType::new(*precision, i8::try_from(*scale).expect("validated scale")),
+                nullability,
+            )
+        }
+        ScalarValue::Date32(_) => DType::Extension(Date::new(TimeUnit::Days, nullability).erased()),
+        ScalarValue::TimestampMicros(_) => {
+            DType::Extension(Timestamp::new(TimeUnit::Microseconds, nullability).erased())
+        }
+        _ => {
+            return Err(failed(
+                "scalar literal requires an admitted flat type and finite numeric value",
+            ));
+        }
+    })
+}
+
 fn nullable(left: &DType, right: &DType) -> Nullability {
     if left.is_nullable() || right.is_nullable() {
         Nullability::Nullable
@@ -486,7 +515,11 @@ fn floating(dtype: &DType) -> bool {
     matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
 }
 
-fn arithmetic_dtype(left: &DType, op: BinaryOp, right: &DType) -> Result<DType> {
+pub(in crate::local_primitives) fn arithmetic_dtype(
+    left: &DType,
+    op: BinaryOp,
+    right: &DType,
+) -> Result<DType> {
     numeric(left)?;
     numeric(right)?;
     if matches!(left, DType::Decimal(..)) || matches!(right, DType::Decimal(..)) {

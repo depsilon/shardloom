@@ -1,12 +1,17 @@
 //! Discover pivot domains once, then deliver the completed sparse state with its
 //! native schema. Query and writer share one source generation and admission.
 
-use super::super::{PivotAggregateCell, PivotRowExportState, VortexPivotProjectionRequest};
+use super::super::{
+    PivotAggregateCell, PivotRowExportState, PivotValue, VortexPivotProjectionRequest,
+};
+use super::values::{OwnedScalar, borrowed, common_value};
 use super::{
     BATCH_ROWS, BoundUnary, CancellationToken, DType, ExecutedVortexUnary, MemoryLease,
     NativeBatch, NativeExecutionContext, Nullability, PreparedVortexUnary, ReservedVec, Result,
     StatValue, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
 };
+use shardloom_core::ScalarValue;
+use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::{ArrayRef, dtype::PType};
 
 pub(super) struct Plan {
@@ -14,22 +19,42 @@ pub(super) struct Plan {
     cell_dtype: DType,
     indices: [usize; 3],
     aggregate: String,
+    fill: Option<OwnedScalar>,
 }
 
-fn flat(dtype: &DType) -> bool {
-    matches!(dtype, DType::Bool(_) | DType::Utf8(_))
-        || matches!(dtype, DType::Primitive(p, _) if *p != PType::F16)
-}
+impl PivotValue for ScalarValue {
+    fn pivot_key(&self) -> Result<String> {
+        super::values::scalar_key(self)
+    }
 
-fn literal_dtype(value: &StatValue) -> Option<DType> {
-    Some(match value {
-        StatValue::Null => return None,
-        StatValue::Boolean(_) => DType::Bool(Nullability::NonNullable),
-        StatValue::Int64(_) => DType::Primitive(PType::I64, Nullability::NonNullable),
-        StatValue::UInt64(_) => DType::Primitive(PType::U64, Nullability::NonNullable),
-        StatValue::Float64(_) => DType::Primitive(PType::F64, Nullability::NonNullable),
-        StatValue::Utf8(_) => DType::Utf8(Nullability::NonNullable),
-    })
+    fn pivot_name(&self) -> Result<String> {
+        let typed = match self {
+            Self::Binary(value) => format!("binary_{}", super::super::binary_to_hex(value)),
+            Self::Decimal128 {
+                value,
+                precision,
+                scale,
+            } => format!("decimal128_{precision}_{scale}_{value}"),
+            Self::Date32(value) => format!("date32_{value}"),
+            Self::TimestampMicros(value) => format!("timestamp_micros_{value}"),
+            _ => {
+                return Ok(super::super::pivot_output_column_name(
+                    &crate::query_primitive::primitive_scalar_literal(self)?,
+                ));
+            }
+        };
+        Ok(super::super::pivot_output_column_name(&StatValue::Utf8(
+            typed,
+        )))
+    }
+
+    fn pivot_equal(&self, other: &Self) -> bool {
+        self == other
+    }
+
+    fn pivot_numeric(&self) -> Result<f64> {
+        super::super::stat_value_to_f64(&crate::query_primitive::primitive_scalar_literal(self)?)
+    }
 }
 
 impl Plan {
@@ -37,6 +62,7 @@ impl Plan {
         request: &VortexQueryPrimitiveRequest,
         dtype: &DType,
         columns: &[String],
+        memory: &LiveMemoryPool,
     ) -> Result<Self> {
         let projection = super::super::required_pivot_projection(request)?;
         let aggregate = super::super::normalized_pivot_aggregate(projection)?.to_owned();
@@ -58,7 +84,7 @@ impl Plan {
                 .position(|column| column == name)
                 .ok_or_else(|| failed("pivot source column is absent"))?;
             let dtype = super::schema::source_field(dtype, name)?;
-            if !flat(&dtype) {
+            if !crate::native_payload_schema::admitted_scalar(&dtype) {
                 return Err(failed(
                     "pivot keys and values require admitted scalar source types",
                 ));
@@ -77,9 +103,35 @@ impl Plan {
             "count" => DType::Primitive(PType::U64, Nullability::Nullable),
             _ => DType::Primitive(PType::F64, Nullability::Nullable),
         };
-        if let Some(fill) = projection.fill_value.as_ref().and_then(literal_dtype) {
-            cell_dtype = super::melt::common_dtype(&[cell_dtype, fill])?;
+        if let Some(fill) = &projection.fill_value {
+            let fill_dtype = super::scalar::literal_dtype(fill)?;
+            if fill_dtype != DType::Null {
+                cell_dtype = super::melt::common_dtype(&[cell_dtype, fill_dtype])?;
+            }
         }
+        if projection.margins
+            && !matches!(dtypes[0], DType::Utf8(_))
+            && (matches!(
+                dtypes[0],
+                DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
+            ) || matches!(
+                cell_dtype,
+                DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
+            ))
+        {
+            return Err(failed("typed pivot margins require a UTF8 index"));
+        }
+        let fill = projection
+            .fill_value
+            .as_ref()
+            .map(|value| {
+                if matches!(cell_dtype, DType::Variant(_)) {
+                    OwnedScalar::copy(value, memory)
+                } else {
+                    super::scalar::coerce(&cell_dtype, value, memory)
+                }
+            })
+            .transpose()?;
         let index_dtype = if projection.margins && !matches!(dtypes[0], DType::Utf8(_)) {
             DType::Variant(dtypes[0].nullability())
         } else {
@@ -90,21 +142,22 @@ impl Plan {
             cell_dtype,
             indices,
             aggregate,
+            fill,
         })
     }
 }
 
 pub(super) struct Pivot {
-    state: PivotRowExportState,
+    state: PivotRowExportState<ScalarValue>,
     retained: MemoryLease,
     scratch: MemoryLease,
 }
 
-fn text_bytes(value: &StatValue) -> usize {
-    if let StatValue::Utf8(value) = value {
-        value.len()
-    } else {
-        32
+fn text_bytes(value: &ScalarValue) -> usize {
+    match value {
+        ScalarValue::Utf8(value) => value.capacity(),
+        ScalarValue::Binary(value) => value.capacity(),
+        _ => 32,
     }
 }
 
@@ -159,18 +212,18 @@ impl Pivot {
             {
                 continue;
             }
-            let index = batch.stat(compiled.indices[0], row)?;
-            let pivot = batch.stat(compiled.indices[1], row)?;
+            let index = batch.retained(compiled.indices[0], row)?;
+            let pivot = batch.retained(compiled.indices[1], row)?;
             if compiled.aggregate == "count" {
                 self.update(
                     compiled,
                     projection,
                     index.value(),
                     pivot.value(),
-                    &StatValue::Null,
+                    &ScalarValue::Null,
                 )?;
             } else {
-                let value = batch.stat(compiled.indices[2], row)?;
+                let value = batch.retained(compiled.indices[2], row)?;
                 self.update(
                     compiled,
                     projection,
@@ -187,9 +240,9 @@ impl Pivot {
         &mut self,
         compiled: &Plan,
         projection: &VortexPivotProjectionRequest,
-        index: &StatValue,
-        pivot: &StatValue,
-        value: &StatValue,
+        index: &ScalarValue,
+        pivot: &ScalarValue,
+        value: &ScalarValue,
     ) -> Result<()> {
         let payload = text_bytes(index)
             .checked_add(text_bytes(pivot))
@@ -199,14 +252,14 @@ impl Pivot {
         if scratch > self.scratch.bytes() {
             self.scratch.resize(scratch)?;
         }
-        let index_key = super::super::pivot_value_key(index);
-        let pivot_key = super::super::pivot_value_key(pivot);
+        let index_key = index.pivot_key()?;
+        let pivot_key = pivot.pivot_key()?;
         let new_index = !self.state.index_keys.contains(&index_key);
         let new_pivot = !self.state.pivot_columns.contains_key(&pivot_key);
         if new_pivot && self.state.pivot_columns.len() >= 127 - usize::from(projection.margins) {
             return Err(failed("pivot domain exceeds 128 result columns"));
         }
-        if new_pivot && super::super::pivot_output_column_name(pivot).len() > 248 {
+        if new_pivot && pivot.pivot_name()?.len() > 248 {
             return Err(failed(
                 "pivot domain name exceeds the native field-name boundary",
             ));
@@ -223,7 +276,7 @@ impl Pivot {
                 return Err(failed("pivot cell count overflow"));
             }
             if matches!(compiled.aggregate.as_str(), "sum" | "mean") {
-                let value = super::super::stat_value_to_f64(value)?;
+                let value = value.pivot_numeric()?;
                 if !(cell.sum + value).is_finite() {
                     return Err(failed("pivot numeric accumulation is not finite"));
                 }
@@ -391,7 +444,7 @@ impl Pivot {
                 compiled.cell_dtype.clone(),
             ));
         }
-        drop(super::super::completed_result::CompletedRows::new(
+        drop(super::super::completed_result::CompletedRows::new_native(
             fields.clone(),
             context.memory(),
         )?);
@@ -502,7 +555,7 @@ impl CompletedPivot {
             .as_ref()
             .ok_or_else(|| failed("pivot is not bound"))?;
         let projection = super::super::required_pivot_projection(&plan.request)?;
-        let mut output = super::super::completed_result::CompletedRows::streaming(
+        let mut output = super::super::completed_result::CompletedRows::streaming_native(
             self.fields.clone(),
             context.memory(),
             batch_rows,
@@ -526,18 +579,20 @@ impl CompletedPivot {
 
     fn value<'a>(
         &'a self,
-        compiled: &Plan,
+        compiled: &'a Plan,
         projection: &'a VortexPivotProjectionRequest,
         row: usize,
         column: usize,
     ) -> Result<Value<'a>> {
-        let fill = |value: Option<Value<'a>>| {
-            value.unwrap_or_else(|| {
-                projection
-                    .fill_value
-                    .as_ref()
-                    .map_or(Value::Null, Value::from)
-            })
+        let fill = |value: Option<Value<'a>>| -> Result<Value<'a>> {
+            let value = if let Some(value) = value {
+                value
+            } else if let Some(fill) = &compiled.fill {
+                borrowed(fill.value())?
+            } else {
+                Value::Null
+            };
+            common_value(value, &compiled.cell_dtype)
         };
         if row == self.indices.len() {
             if column == 0 {
@@ -545,17 +600,17 @@ impl CompletedPivot {
                     &projection.margins_name,
                 )));
             }
-            return Ok(fill(if column <= self.domains.len() {
+            return fill(if column <= self.domains.len() {
                 self.column_margins.values[column - 1]
                     .as_ref()
                     .map(Value::from)
             } else {
                 self.grand_margin.as_ref().map(Value::from)
-            }));
+            });
         }
         let index = &self.indices[row];
         if column == 0 {
-            return Ok(Value::from(&self.state.state.index_values[index]));
+            return borrowed(&self.state.state.index_values[index]);
         }
         if column > self.domains.len() {
             let mut margin = Margin::default();
@@ -569,11 +624,17 @@ impl CompletedPivot {
                     margin.push(*cell, &compiled.aggregate)?;
                 }
             }
-            return Ok(fill(margin.value(&compiled.aggregate)?.map(Value::from)));
+            return fill(margin.value(&compiled.aggregate)?.map(Value::from));
         }
         let key = (index.clone(), self.domains[column - 1].clone());
         let value = match compiled.aggregate.as_str() {
-            "first" | "first_unique" => self.state.state.first_cells.get(&key).map(Value::from),
+            "first" | "first_unique" => self
+                .state
+                .state
+                .first_cells
+                .get(&key)
+                .map(borrowed)
+                .transpose()?,
             _ => self.state.state.aggregate_cells.get(&key).and_then(|cell| {
                 match compiled.aggregate.as_str() {
                     "count" => Some(Value::UInt(cell.count)),
@@ -587,6 +648,6 @@ impl CompletedPivot {
                 }
             }),
         };
-        Ok(fill(value))
+        fill(value)
     }
 }
