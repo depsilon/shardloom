@@ -36745,6 +36745,15 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
 }
 
 fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>, ShardLoomError> {
+    if ["null", "true", "false"]
+        .iter()
+        .any(|literal| raw.eq_ignore_ascii_case(literal))
+    {
+        return Ok(Some(ParsedLiteralProjection {
+            alias: raw.to_ascii_lowercase(),
+            value: parse_top_level_projection_literal_value(raw)?,
+        }));
+    }
     let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
         return Ok(None);
     };

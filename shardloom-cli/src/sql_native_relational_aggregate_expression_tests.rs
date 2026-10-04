@@ -7,6 +7,13 @@ fn native_typed_reductions_sql_untyped_null_projection_admits_direct_composed_an
         &format!("SELECT NULL AS missing FROM '{source}'"),
         &json!(vec![json!({"missing":null}); 5]),
     );
+    verify(
+        &format!("SELECT NULL,true,False FROM '{source}' WHERE value >= 4"),
+        &json!([
+            {"null":null,"true":true,"false":false},
+            {"null":null,"true":true,"false":false},
+        ]),
+    );
     for input in [
         format!("'{source}'"),
         format!("(SELECT * FROM '{source}' LIMIT 2) AS q"),

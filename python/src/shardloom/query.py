@@ -2242,7 +2242,8 @@ class SqlWorkflow:
                 check=check,
             )
         if (_native_relational_sql_candidate(self.statement)
-                or _native_flat_aggregate_sql_candidate(self.statement)):
+                or _native_flat_aggregate_sql_candidate(self.statement)
+                or _native_flat_projection_sql_candidate(self.statement)):
             envelope = _collect_native_relational(
                 self.client, self.statement, surface="sql",
                 plan_summary=self.operation_summary,
@@ -4274,7 +4275,8 @@ def _sql_native_vortex_public_workflow_kwargs(
     """Return exact native Vortex route payloads inferred from a SQL workflow."""
 
     if (_native_relational_sql_candidate(statement)
-            or _native_flat_aggregate_sql_candidate(statement)):
+            or _native_flat_aggregate_sql_candidate(statement)
+            or _native_flat_projection_sql_candidate(statement)):
         return {}
     if requested_output in _NATIVE_WRITE_REQUESTS:
         provider_shape = _vortex_sql_user_route_shape(statement)
@@ -9603,7 +9605,8 @@ class LazyFrame:
                 ):
                     return None
                 if any(
-                    column != "*" and not _is_sql_identifier(column)
+                    column.lower() in {"null", "true", "false"}
+                    or (column != "*" and not _is_sql_identifier(column))
                     for column in operation.values
                 ):
                     return None
@@ -10034,7 +10037,8 @@ class LazyFrame:
             operations = operations[:-1]
         if not operations or operations[0].kind != "select":
             return False
-        if not all(_is_sql_identifier(column) for column in operations[0].values):
+        if not all(_is_sql_identifier(column) and column.lower() not in {"null", "true", "false"}
+                   for column in operations[0].values):
             return False
         for operation in operations[1:]:
             if operation.kind != "with_column" or len(operation.values) != 2:
@@ -10970,14 +10974,8 @@ class LazyFrame:
         # Flat scalar projections also need complete native SQL admission. The
         # primitive facade accepts bare columns only; aliases and literals must
         # not depend on a later LIMIT introducing a derived relation.
-        scalar_projection = any(
-            operation.kind == "select" and any(
-                value != "*" and not _is_sql_identifier(value)
-                for value in operation.values
-            )
-            for operation in self.operations
-        )
-        if statement and (_native_relational_sql_candidate(statement) or scalar_projection):
+        if statement and (_native_relational_sql_candidate(statement)
+                          or _native_flat_projection_sql_candidate(statement)):
             return statement
         return self._native_vortex_aggregate_statement()
 
@@ -17061,6 +17059,32 @@ def _native_relational_sql_candidate(statement: str) -> bool:
         return True
     first = _find_sql_keyword_outside_quotes(statement, "select")
     return first is not None and _contains_sql_keyword_outside_quotes(statement[first + 6:], "select")
+
+
+def _native_flat_projection_sql_candidate(statement: str) -> bool:
+    """Submit scalar projections whole; Rust owns expression admission."""
+    select = _find_top_level_sql_keyword_outside_quotes(statement, "select")
+    source = _find_top_level_sql_keyword_outside_quotes(statement, "from")
+    if select is None or source is None or source <= select or not _sql_source_refs(statement):
+        return False
+    projection = statement[select + len("select"):source].strip()
+    if _starts_with_sql_keyword(projection, "distinct"):
+        projection = projection[len("distinct"):].strip()
+    if _is_sql_count_star_projection(projection):
+        return False
+    try:
+        columns = _split_projection_function_args(projection)
+    except ValueError:
+        # Do not replace native parser diagnostics with Python parser errors.
+        return True
+    scalar = any(value.lower() in {"null", "true", "false"}
+                 or (value != "*" and not _is_sql_identifier(value))
+                 for value in columns)
+    if scalar:
+        existing = _vortex_sql_user_route_shape(statement)
+        if existing is not None and existing.operation_family == "cast":
+            return False
+    return scalar
 
 
 def _native_flat_aggregate_sql_candidate(statement: str) -> bool:

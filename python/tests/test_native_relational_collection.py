@@ -86,7 +86,7 @@ class NativeRelationalCollectionTests(unittest.TestCase):
             self.context.read_csv("missing.data", schema={"value": "int64"}),
         ]
         for source in sources:
-            for expression in ["NULL AS missing", "1 AS one", "value AS renamed",
+            for expression in ["NULL", "TRUE", "FALSE", "NULL AS missing", "1 AS one", "value AS renamed",
                                "COALESCE(NULL,NULL) AS missing", "value + 1 AS next_value"]:
                 frame = source.select(expression)
                 statement = f"SELECT {expression} FROM '{source.source.uri}'"
@@ -106,6 +106,52 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                     self.assertNotIn("native_vortex_provider_scenario", kwargs)
                     self.assertEqual(set(kwargs["source_bindings"]), {source.source.uri})
                     prepare.assert_not_called()
+
+    def test_flat_scalar_sql_preserves_source_bindings_and_reaches_native_admission(self) -> None:
+        from shardloom.query import SqlWorkflow
+
+        sources = [
+            self.context.read_vortex("missing.vortex"),
+            self.context.read_csv("missing.data", schema={"value": "int64"}),
+        ]
+        for source in sources:
+            for expression in ["NULL", "TRUE", "FALSE", "NULL AS missing", "1 AS one",
+                               "value AS renamed", "COALESCE(NULL,NULL) AS missing",
+                               "value + 1 AS next_value", "'a,from b' AS label"]:
+                statement = f"SELECT {expression} FROM '{source.source.uri}'"
+                workflows = [
+                    SqlWorkflow(statement, self.client, source_bindings=(source.source,)),
+                    self.context.sql(statement, input=source.source.uri,
+                                     input_format=source.source.source_format),
+                ]
+                for workflow in workflows:
+                    with self.subTest(source=source.source, expression=expression,
+                                      bindings=workflow.source_bindings), mock.patch.object(
+                        self.client, "public_workflow_run", return_value=self.reply([])
+                    ) as run, mock.patch.object(self.client, "vortex_prepare") as prepare, mock.patch.object(
+                        self.client, "workflow_unsupported_plan",
+                        side_effect=AssertionError("SQL projection not submitted"),
+                    ):
+                        self.assertEqual(workflow.collect(check=True, memory_gb=3,
+                                                          max_parallelism=2).result_rows, ())
+                        run.assert_called_once()
+                        kwargs = run.call_args.kwargs
+                        self.assertEqual(kwargs["sql_statement"], statement)
+                        self.assertEqual(kwargs["memory_gb"], 3)
+                        self.assertEqual(kwargs["max_parallelism"], 2)
+                        self.assertEqual(kwargs["materialization_policy"], "bounded")
+                        self.assertNotIn("vortex_primitive", kwargs)
+                        self.assertNotIn("native_vortex_provider_scenario", kwargs)
+                        for name, value in workflow._declared_input_kwargs().items():
+                            self.assertEqual(kwargs[name], value)
+                        for extension in ["vortex", "json", "jsonl", "csv", "parquet",
+                                          "arrow_ipc", "avro", "orc"]:
+                            getattr(workflow, f"write_{extension}")(f"result.{extension}", check=True)
+                            self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+                            for name, value in workflow._declared_input_kwargs().items():
+                                self.assertEqual(run.call_args.kwargs[name], value)
+                        self.assertEqual(run.call_count, 9)
+                        prepare.assert_not_called()
 
     def test_python_objects_preserve_empty_and_nonempty_payloads_without_reexecution(self) -> None:
         frame = self.context.read_vortex("a.vortex").select("key").window("ROW_NUMBER() OVER (ORDER BY key) AS position")

@@ -8544,6 +8544,11 @@ fn infer_native_vortex_sql_primitive_payload(
     let columns = normalize_sql_projection_columns(&shape.projection).or_else(|| {
         (shape.projection.trim() == "*" && shape.where_clause.is_none()).then(|| "*".to_string())
     });
+    // Only SELECT * may omit a projection in the filter primitive. A scalar
+    // expression still needs evaluation after the predicate has selected rows.
+    if columns.is_none() && shape.projection.trim() != "*" {
+        return None;
+    }
     let predicate = match shape.where_clause.as_deref() {
         Some(where_clause) => Some(summary_tiny_predicate_from_sql(where_clause)?),
         None => None,
@@ -8767,7 +8772,14 @@ fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
         .map(str::trim)
         .map(|column| column.strip_prefix("f.").unwrap_or(column))
         .collect::<Vec<_>>();
-    if columns.is_empty() || !columns.iter().all(|column| is_summary_identifier(column)) {
+    if columns.is_empty()
+        || !columns.iter().all(|column| {
+            is_summary_identifier(column)
+                && !["null", "true", "false"]
+                    .iter()
+                    .any(|literal| column.eq_ignore_ascii_case(literal))
+        })
+    {
         return None;
     }
     Some(columns.join(","))
@@ -16284,6 +16296,46 @@ mod tests {
             field(&attachments, "public_workflow_vortex_source_order_limit"),
             "5"
         );
+    }
+
+    #[test]
+    fn route_planner_scalar_projections_require_complete_sql_admission() {
+        for projection in [
+            "NULL",
+            "true",
+            "False",
+            "NULL AS missing",
+            "1 AS one",
+            "metric + 1 AS next_metric",
+            "COALESCE(NULL,NULL) AS missing",
+            "unsupported_fn(metric) AS invalid",
+        ] {
+            for suffix in ["", " WHERE metric >= 0", " WHERE metric >= 0 LIMIT 2"] {
+                let statement = format!("SELECT {projection} FROM 'orders.vortex'{suffix}");
+                let request = PublicWorkflowRouteRequest::parse(
+                    [
+                        "sql",
+                        "--input",
+                        "orders.vortex",
+                        "--input-format",
+                        "vortex",
+                        "--sql",
+                        &statement,
+                        "--request",
+                        "collect",
+                        "--bounded",
+                        "true",
+                    ]
+                    .into_iter()
+                    .map(str::to_string),
+                )
+                .unwrap();
+                assert!(
+                    infer_native_vortex_sql_payload(&request).is_none(),
+                    "{statement}"
+                );
+            }
+        }
     }
 
     #[test]
