@@ -208,7 +208,9 @@ objects. Common admitted methods include:
   admits static List/FixedSizeList/Struct relational keys and finite selected
   nested-value unary operations. Its `native_nested_keys_state` section records
   that subsequent contract; older payload/key section flags continue to
-  describe their original unit scope. The new contract's local and hosted
+  describe their original unit scope. The new contract has
+  [local acceptance](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
+  with independently verified complete results and ownership evidence; hosted
   acceptance remains pending. General Variant/extension operations, structured
   literals, nested arithmetic/string operations, broader aggregate/window
   behavior, adapters and general state spill remain separate boundaries.

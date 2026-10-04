@@ -125,7 +125,10 @@ existing relational kernels, plus selected nested values for DISTINCT/duplicate
 selection and masks, tail, sampling, parent forward fill, lossless same-shape
 melt and rolling COUNT. Forward fill replaces a NULL parent with the prior
 complete value; child NULLs do not trigger filling. Exact recursive key schemas
-must match except for nullability. Local and hosted acceptance remains pending.
+must match except for nullability. The
+[local acceptance report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
+records complete results, resource/failure proof and regression checks;
+hosted acceptance remains pending.
 General Variant/extension operations, structured literals, nested
 arithmetic/string operations and broader state-spill families remain explicit
 gaps. Current source builds admit typed literals, explicit CAST/TRY_CAST, exact

@@ -1,5 +1,5 @@
 {
-  "claim_boundary": "admitted SQL local-source expression/operator correctness evidence only; not broad SQL-standard/ANSI-style compliance, production semantic parity, or performance evidence",
+  "claim_boundary": "historical 144-row decoded-reference fixture evidence, not a current native capability inventory; ARRAY/STRUCT literal/constructor diagnostics are scoped to these fixtures; current native static nested key/state scope and local acceptance are recorded in docs/architecture/native-nested-keys-state-2026-10-04.md and docs/benchmarks/native-nested-keys-state-full43-2026-10-04.md; admitted SQL local-source expression/operator correctness evidence only, not broad SQL-standard/ANSI-style compliance, production semantic parity, or performance evidence",
   "fallback_boundary": "external engines may be isolated test oracles or baselines only and are not invoked by this validator",
   "matrix_id": "review-runtime-2.admitted_semantics_fixture_matrix",
   "remaining_matrix_gaps": [

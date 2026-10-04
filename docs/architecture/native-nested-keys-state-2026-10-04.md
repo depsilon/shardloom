@@ -2,7 +2,10 @@
 
 # Native nested keys and retained state
 
-Status: implementation in progress; local and hosted acceptance remain open.
+Status: implemented with local acceptance on frozen source `d65907f6`;
+hosted acceptance remains open. See the
+[acceptance report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
+and [immutable evidence packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz).
 This continues the [universal workflow plan](universal-workflow-completion-2026-10-01.md)
 after [typed unary state](native-typed-unary-2026-10-03.md), under
 PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. The expert comparator is a columnar
@@ -111,19 +114,19 @@ Vortex file directly does not imply a dependency on its historical raw input.
 
 ## Acceptance
 
-- [ ] Verify recursive equality/hash/order across different dictionaries,
+- [x] Verify recursive equality/hash/order across different dictionaries,
   chunks and native layouts, NULL parents/children, empty lists, repeated and
   overlapping coordinates, fixed widths, field order and exact typed leaves.
-- [ ] Verify all affected relational/unary families, lazy/empty expressions,
+- [x] Verify all affected relational/unary families, lazy/empty expressions,
   empty-plan operand denials and unchanged flat floating/seed/tie semantics.
-- [ ] Verify compact selected state against large unselected/hidden child
+- [x] Verify compact selected state against large unselected/hidden child
   domains, buffer lifetime, replacement overlap, narrow grants, cancellation,
   native sort spill/merge and failure cleanup.
-- [ ] Freeze independent complete public SQL/DataFrame results and every
+- [x] Freeze independent complete public SQL/DataFrame results and every
   representable writer/readback path; retain all prior accepted cases.
-- [ ] Run required workspace/native/Python, lean/MSRV and affected documentation
+- [x] Run required workspace/native/Python, lean/MSRV and affected documentation
   checks; freeze source/binary/oracle identity and portable evidence.
-- [ ] Run paired Full43 under the existing serial storage/process guards,
+- [x] Run paired Full43 under the existing serial storage/process guards,
   using the existing symmetric timing/RSS/aggregate screens and prescribed
   reversed-order repeats. Preserve every observation and any inconclusive flags.
 - [ ] Complete hosted review/gates after the inherited website advisory decision.

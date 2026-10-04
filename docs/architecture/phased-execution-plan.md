@@ -476,10 +476,22 @@ the ledger.
       expression/aggregate output across the existing relational families.
     - [x] Extend retained unary rows/keys, native delivery and scoped rewrites;
       prove NULL semantics, selected ownership, grants, cancellation and cleanup.
-    - [ ] Freeze complete public/writer correctness, required local checks and
+    - [x] Freeze complete public/writer correctness, required local checks and
       paired Full43 regression with exact support and immutable evidence.
     - [ ] Complete hosted review/gates after the inherited website advisory
       decision, then move this finite item to the completed ledger.
+  - Local evidence: frozen `d65907f6` passes 17,458 public checks/14,143,015 complete
+    row comparisons, including 8,162 new checks/17,270 rows from 406 independent
+    declarations. All 9,296 unaffected prior cases remain; four nested-key
+    denials become positive checks. The separate direct matrix passes 202
+    checks/131,734 rows, and all 25 local gate categories pass. All 258 paired
+    Full43 results and six prescribed Q28 repeats match. Aggregate and RSS
+    thresholds are not crossed; Q28's initial timing gain does not reproduce.
+    The [report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md) and
+    [immutable packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz)
+    retain complete values, resource evidence and all four interrupted public
+    attempts. Independent packet inspection passes. Hosted review/gates retain
+    the inherited website advisory decision; no speedup is claimed.
   - Dependency: locally accepted typed unary state. Broader pivot aggregation,
     aggregate/window semantics, adapters and general state spill keep their
     existing owners and remain subsequent work in the universal queue.
@@ -493,9 +505,9 @@ hosted checks passed. Their finite completions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
 nested payloads, dynamic pivot schemas, flat binary/decimal/temporal payloads
-and keys, scoped typed expressions and typed unary state have local functional
+and keys, scoped typed expressions, typed unary state and nested keys/state have local functional
 acceptance awaiting hosted completion. The typed-unary report retains Q9's
-inconclusive performance observation. Nested keys/state, broader aggregate/window
+inconclusive performance observation. Broader aggregate/window
 semantics, adapters and resource obligations remain open under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
