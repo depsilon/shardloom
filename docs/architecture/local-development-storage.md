@@ -130,6 +130,17 @@ archive identities and before/after space are recorded in
 This supersedes the September 26 note that the 18.59 GB comparison payload remains
 locally retained; it does not alter the historical timing or correctness evidence.
 
+Before the fresh October 5 Full43 run, four completed historical Full43 cohorts
+were compacted into verified archives of original JSON and companion files.
+Existing archive manifests, summary bytes, original file identities and every
+member's size/hash were checked before redundant containers or loose files were
+removed. The original JSON bytes remain recoverable; superseded gzip wrappers
+do not. This recovered 7,122,944 accounted log bytes without changing the
+256-MiB ceiling, retaining all failed/incomplete observations. The
+[fresh release UAT packet](../benchmarks/release-candidate-fresh-uat-2026-10-05.md)
+includes the receipt, prior manifests and new archive identities. The resident
+Parquet and new 15,713,610,545-byte Vortex output remain retained.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and
