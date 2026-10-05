@@ -16324,8 +16324,13 @@ mod tests {
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
 
-        assert_incomplete_native_plan_blocked(&plan);
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(plan.blocker_id, "cg21.route.native_relational_not_admitted");
+        assert_eq!(plan.diagnostics[0].code, DiagnosticCode::UnsupportedSql);
         assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "vortex_primitive"), "none");
+        assert_eq!(field(&fields, "runtime_execution"), "false");
+        assert_eq!(field(&fields, "source_io_performed"), "false");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }

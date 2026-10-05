@@ -26,13 +26,14 @@ pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkfl
         }
         return resident_relational::route_admitted_statement(request);
     }
-    match sql_local_source_runtime::native_relational::is_plain_select(statement) {
-        Ok(true) => {}
-        Ok(false) => return None,
-        // A rejected SQL declaration must keep its native parser diagnostic.
-        // Returning None would replace it with an unrelated primitive-shape error.
-        Err(_) => return resident_relational::route(request),
+    if matches!(
+        sql_local_source_runtime::native_relational::is_plain_select(statement),
+        Ok(false)
+    ) {
+        return None;
     }
+    // Specialized native primitives admit additional SELECT forms. Check them
+    // before letting relational admission preserve a shared-parser diagnostic.
     let effective = effective_public_workflow_request(request);
     let request = &effective;
     if !request.fanout_outputs.is_empty() {
