@@ -86,6 +86,112 @@ fn decimals() -> Fixture {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Preserve values, empty schema and strict cast denials together.
+fn native_typed_calendar_text_and_decimal_comparisons_share_checked_casts() {
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(["date", "timestamp", "amount"]),
+            vec![
+                VarBinArray::from(vec![Some("2024-02-28"), Some("2024-03-01"), None]).into_array(),
+                VarBinArray::from(vec![
+                    Some("2024-02-28T23:59:59Z"),
+                    Some("2024-03-01T01:00:00+01:00"),
+                    None,
+                ])
+                .into_array(),
+                DecimalArray::from_option_iter(
+                    [Some(125_i128), Some(-100), None],
+                    DecimalDType::new(10, 2),
+                )
+                .into_array(),
+            ],
+            3,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        1,
+    );
+    let compare = |left, right| {
+        expr(ExpressionKind::Compare {
+            left: Box::new(left),
+            op: ComparisonOp::GtEq,
+            right: Box::new(right),
+        })
+    };
+    let expressions = vec![
+        ("year", function("date_year", vec![col("date")])),
+        (
+            "next_day",
+            function(
+                "date_day",
+                vec![function(
+                    "date_add_days",
+                    vec![col("date"), literal(ScalarValue::Int64(1))],
+                )],
+            ),
+        ),
+        ("hour", function("timestamp_hour", vec![col("timestamp")])),
+        (
+            "current",
+            compare(col("date"), literal(ScalarValue::Date32(19783))),
+        ),
+        (
+            "amount_ok",
+            compare(
+                binary(col("amount"), BinaryOp::Add, literal(ScalarValue::Int64(0))),
+                literal(ScalarValue::Decimal128 {
+                    value: 1250,
+                    precision: 6,
+                    scale: 3,
+                }),
+            ),
+        ),
+    ];
+    let plan = project(fixture.scan(), expressions.clone());
+    assert_eq!(
+        collect(&plan),
+        vec![
+            json!({"year":2024,"next_day":29,"hour":23,"current":false,"amount_ok":true}),
+            json!({"year":2024,"next_day":2,"hour":0,"current":true,"amount_ok":false}),
+            json!({"year":null,"next_day":null,"hour":null,"current":null,"amount_ok":null}),
+        ]
+    );
+    let empty_plan = project(empty(fixture.scan()), expressions);
+    assert_eq!(
+        prepare_relational(&plan, policy()).unwrap().output_dtype(),
+        prepare_relational(&empty_plan, policy())
+            .unwrap()
+            .output_dtype()
+    );
+    for function_name in ["date_year", "timestamp_hour"] {
+        let plan = project(
+            fixture.scan(),
+            vec![(
+                "bad",
+                function(
+                    function_name,
+                    vec![literal(ScalarValue::Utf8("not-a-date".into()))],
+                ),
+            )],
+        );
+        assert!(
+            prepare_relational(&plan, policy())
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .is_err()
+        );
+        let invalid = project(
+            empty(fixture.scan()),
+            vec![(
+                "bad",
+                function(function_name, vec![literal(ScalarValue::Int64(1))]),
+            )],
+        );
+        assert!(prepare_relational(&invalid, policy()).is_err());
+    }
+}
+
+#[test]
 #[allow(clippy::too_many_lines)] // Keep value, schema, empty-input and denial checks on one fixture.
 fn native_typed_expressions_promote_decimal_branches_losslessly_before_reading_rows() {
     let fixture = decimals();

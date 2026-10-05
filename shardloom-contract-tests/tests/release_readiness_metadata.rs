@@ -222,26 +222,6 @@ fn optimized_build_profiles_preserve_portable_release_boundary() {
         "portable Cargo profiles must not encode target-cpu=native"
     );
 
-    let benchmark = read_repo_file("benchmarks/traditional_analytics/run.py");
-    for required in [
-        "BUILD_PROFILE_FIELDS",
-        "shardloom.traditional_analytics.build_profile.v1",
-        "release-lto",
-        "release-pgo",
-        "release-native-benchmark",
-        "-Ctarget-cpu=native",
-        "SHARDLOOM_PGO_PROFILE",
-        "release-native-benchmark is host-native and benchmark-only",
-        "build_profile_fallback_attempted",
-        "build_profile_external_engine_invoked",
-        "build_profile_claim_gate_status",
-    ] {
-        assert!(
-            benchmark.contains(required),
-            "missing build-profile benchmark contract text {required}"
-        );
-    }
-
     let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
     for required in [
         "release-lto",
@@ -283,52 +263,6 @@ fn optimized_build_profiles_preserve_portable_release_boundary() {
 
 #[test]
 fn bayesian_performance_layout_advisor_remains_report_only() {
-    let benchmark = read_repo_file("benchmarks/traditional_analytics/run.py");
-    for required in [
-        "BAYESIAN_ADVISOR_SCHEMA_VERSION",
-        "shardloom.traditional_analytics.bayesian_advisor.v1",
-        "gar-perf-1d.report_only.v1",
-        "BAYESIAN_ADVISOR_FIELDS",
-        "bayesian_advisor_confidence",
-        "bayesian_advisor_uncertainty_reason",
-        "bayesian_advisor_input_evidence_refs",
-        "bayesian_advisor_claim_gate_status",
-        "bayesian_advisor_runtime_decision_applied",
-        "bayesian_advisor_fallback_attempted",
-        "bayesian_advisor_external_engine_invoked",
-        "def bayesian_advisor_contract_metadata(",
-        "def bayesian_advisor_contract(",
-        "def render_bayesian_advisor_contract(",
-        "BAYESIAN_CLAIM_CONFIDENCE_SCHEMA_VERSION",
-        "shardloom.traditional_analytics.bayesian_claim_confidence.v1",
-        "gar-novel-1d.bayesian_claim_confidence",
-        "gar-novel-1d.report_only.v1",
-        "BAYESIAN_CLAIM_CONFIDENCE_FIELDS",
-        "bayesian_claim_confidence_posterior_runtime_distribution",
-        "bayesian_claim_confidence_credible_interval",
-        "bayesian_claim_confidence_probability_of_regression",
-        "bayesian_claim_confidence_minimum_iterations_for_claim_grade",
-        "bayesian_claim_confidence_input_evidence_refs",
-        "bayesian_claim_confidence_claim_blocking_allowed",
-        "bayesian_claim_confidence_claim_upgrade_allowed",
-        "bayesian_claim_confidence_runtime_decision_applied",
-        "bayesian_claim_confidence_layout_decision_applied",
-        "bayesian_claim_confidence_benchmark_recomputed",
-        "bayesian_claim_confidence_fallback_attempted",
-        "bayesian_claim_confidence_external_engine_invoked",
-        "bayesian_claim_confidence_claim_gate_status",
-        "def bayesian_claim_confidence_report(",
-        "def render_bayesian_claim_confidence_report(",
-        "report_only_not_fit",
-        "advisory_only_not_claim_grade",
-        "advisory_only",
-    ] {
-        assert!(
-            benchmark.contains(required),
-            "missing Bayesian advisor benchmark contract text {required}"
-        );
-    }
-
     let doc = read_repo_file("docs/architecture/bayesian-performance-layout-advisor.md");
     for required in [
         "Status: implemented report-only contract for GAR-PERF-1D",
@@ -485,10 +419,10 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(dry_run.contains("smoke_check()"));
     assert!(dry_run.contains("generated_source_user_rows_local_output_runtime"));
     assert!(dry_run.contains("generated_source_range_local_output_runtime"));
-    assert!(dry_run.contains("ctx.from_rows(["));
+    assert!(dry_run.contains("ctx.from_rows("));
     assert!(dry_run.contains("ctx.range(0, 8"));
-    assert!(dry_run.contains("generated_source_certificate_status"));
-    assert!(dry_run.contains("output_native_io_certificate_status"));
+    assert!(dry_run.contains("native_result_rows_validated"));
+    assert!(dry_run.contains("native_io_certificate_status"));
     assert!(dry_run.contains("external_engine_invoked"));
     assert!(dry_run.contains("clean_conda_env_install_status"));
     assert!(dry_run.contains("--require-clean-conda"));
@@ -925,9 +859,12 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     let first_ten = read_repo_file("docs/getting-started/first-10-minutes.md");
     assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
     assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
-    assert!(first_ten.contains("ctx.from_rows"));
-    assert!(first_ten.contains("ctx.range"));
-    assert!(first_ten.contains("shardloom-prepared-vortex"));
+    assert!(first_ten.contains(".from_rows([{'id': 1, 'label': 'alpha'}])"));
+    assert!(first_ten.contains("tempfile.mkdtemp(prefix='shardloom-first-steps-')"));
+    assert!(first_ten.contains("/'generated-reference.jsonl'"));
+    assert!(first_ten.contains(".write(output)"));
+    assert!(first_ten.contains("--input-state raw"));
+    assert!(first_ten.contains("--reference-engine pandas"));
     assert!(first_ten.contains("public package release"));
     assert!(first_ten.contains("scripts\\check_production_usability_gate.py"));
 }
@@ -1521,7 +1458,7 @@ fn hard_release_readiness_gate_docs_are_present() {
         "shardloom.production_usability_gate.v1",
         "python scripts\\check_production_usability_gate.py",
         "target/production-usability-gate.json",
-        "shardloom-prepare-batch",
+        "native_vortex_query",
         "Trusted Publisher/OIDC",
         "Internal Rust crates remain unpublished",
         "shardloom.publication_api_schema_stability_gate.v1",
@@ -2619,12 +2556,13 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.golden_workflow_validation_report.v1",
         "RELEASE_USER_SURFACE_EXAMPLE_FEATURES",
-        "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-        "generated_source_to_local_vortex_output_replay_fidelity",
-        "prepared_native_vortex_count_filter_project_execution_certificates",
+        "from golden_workflow_contract import",
+        "\"workflow_id\": LOCAL_FILE_WORKFLOW_ID",
+        "\"workflow_id\": SOURCE_FREE_WORKFLOW_ID",
+        "\"workflow_id\": NATIVE_PRIMITIVE_WORKFLOW_ID",
         "vortex-prepare",
-        "local-source-runtime",
-        "generated-source-user-rows",
+        "cli_public_native_workflow",
+        "source_free_sql_vortex_output",
         "vortex-count-where",
         "vortex-project",
         "vortex-filter-project",
@@ -2643,6 +2581,30 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
         );
     }
 
+    let contract = read_repo_file("scripts/golden_workflow_contract.py");
+    for required in [
+        "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+        "source_free_sql_values_to_local_vortex_output_replay_fidelity",
+        "prepared_native_vortex_count_filter_project_execution_certificates",
+        "GOLDEN_WORKFLOW_IDS = frozenset",
+    ] {
+        assert!(
+            contract.contains(required),
+            "missing shared golden workflow identity {required}"
+        );
+    }
+    for consumer in [
+        "scripts/check_release_readiness.py",
+        "scripts/check_v1_correctness_conformance.py",
+        "scripts/check_v1_example_replay.py",
+    ] {
+        assert!(
+            read_repo_file(consumer)
+                .contains("from golden_workflow_contract import GOLDEN_WORKFLOW_IDS"),
+            "golden workflow consumer must use the shared identity contract: {consumer}"
+        );
+    }
+
     let status_doc = read_repo_file("docs/status/golden-workflow-validator.md");
     for required in [
         "shardloom.golden_workflow_validation_report.v1",
@@ -2652,7 +2614,7 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
         "support_matrix_status=passed",
         "local_primitive_execution_certificate_status=certified",
         "local_primitive_native_io_certificate_status=certified",
-        "result_replay_verified=true",
+        "native_vortex_result_export_all_targets_committed=true",
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "no broad generated SQL",
@@ -3464,8 +3426,8 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     assert!(python_context.contains("OpenLineageFacetMappingReport"));
     assert!(python_context.contains("OpenTelemetryTraceExportContractReport"));
     assert!(python_context.contains("GeneratedSourceCaseCapability"));
-    assert!(python_context.contains("GeneratedRowsSource"));
-    assert!(python_context.contains("GeneratedRangeSource"));
+    assert!(python_context.contains("def from_rows("));
+    assert!(python_context.contains("def range("));
     assert!(python_context.contains("all_no_fallback_no_external_engine"));
 
     let generated_architecture = read_repo_file(
@@ -3683,13 +3645,15 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
     );
 
     let vortex_example = read_repo_file("examples/local-vortex-benchmark/run.py");
-    assert!(vortex_example.contains("shardloom,shardloom-prepared-vortex"));
-    assert!(vortex_example.contains("prepared Vortex"));
+    assert!(vortex_example.contains("--shardloom-binary"));
+    assert!(vortex_example.contains("--workspace"));
+    assert!(vortex_example.contains("--input-state"));
 
     let vortex_expected = read_repo_file("examples/local-vortex-benchmark/expected-output.json");
-    assert!(vortex_expected.contains("\"shardloom-prepared-vortex\""));
-    assert!(vortex_expected.contains("\"fallback_attempted\": false"));
-    assert!(vortex_expected.contains("\"external_engine_invoked\": false"));
+    assert!(vortex_expected.contains("\"candidate\": \"shardloom\""));
+    assert!(vortex_expected.contains("\"reference_engine\": \"pandas\""));
+    assert!(vortex_expected.contains("\"performance_claim\": false"));
+    assert!(vortex_expected.contains("\"publication_admission\": false"));
 
     let foundry = read_repo_file("examples/foundry-lightweight-transform/run.py");
     assert!(foundry.contains("foundry_runtime_invoked"));
@@ -4082,24 +4046,6 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         assert!(
             coverage_validator.contains(required),
             "missing use-case coverage validator field {required}"
-        );
-    }
-
-    let runtime_promotion_validator = read_repo_file("scripts/check_runtime_promotion_evidence.py");
-    for required in [
-        "REQUIRED_PUBLIC_EVIDENCE_TOKENS",
-        "fallback_attempted=false",
-        "external_engine_invoked=false",
-        "claim_gate_status",
-        "REQUIRED_BENCHMARK_MANIFEST_FIELDS",
-        "missing_required_lanes",
-        "REQUIRED_COMPATIBILITY_TIMING_FIELDS",
-        "REQUIRED_PREPARED_TIMING_FIELDS",
-        "validate_runtime_promotion_evidence",
-    ] {
-        assert!(
-            runtime_promotion_validator.contains(required),
-            "missing runtime promotion validator field {required}"
         );
     }
 
@@ -6221,37 +6167,6 @@ fn gar_0015_a_string_property_fuzz_gap_remains_report_only() {
 
 #[test]
 fn gar_runtime_impl_4i_scan_pushdown_completion_remains_projected() {
-    let vortex_runtime = read_repo_file("shardloom-vortex/src/traditional_analytics.rs");
-    for required in [
-        "scan_pushdown_contract_fields",
-        "scan_filter_required",
-        "scan_projection_required",
-        "scan_limit_required",
-        "scan_residual_limit_executor",
-        "scan_pushdown_blocker_reason",
-        "scan_pushdown_claim_boundary",
-        "blocked_no_scan_limit_admission",
-    ] {
-        assert!(
-            vortex_runtime.contains(required),
-            "missing Vortex runtime scan-pushdown marker {required}"
-        );
-    }
-
-    let benchmark = read_repo_file("benchmarks/traditional_analytics/run.py");
-    for required in [
-        "def scan_pushdown_matrix(",
-        "def render_scan_pushdown_matrix(",
-        "\"scan_pushdown_matrix\"",
-        "scan_pushdown_blocker_reason",
-        "scan_pushdown_claim_boundary",
-    ] {
-        assert!(
-            benchmark.contains(required),
-            "missing benchmark scan-pushdown marker {required}"
-        );
-    }
-
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [
         "PreparedVortexScanPushdownRow",
@@ -6490,19 +6405,6 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
         assert!(
             pulseweave_code.contains(required),
             "missing PulseWeave runtime code marker {required}"
-        );
-    }
-
-    let vortex = read_repo_file("shardloom-vortex/src/traditional_analytics.rs");
-    for required in [
-        "pulseweave_report",
-        "prepare_batch_scale_pulseweave_status",
-        "prepare_batch_scale_flow_inventory_min_wip_limit",
-        "prepare_batch_scale_proofbound_claim_allowed_count",
-    ] {
-        assert!(
-            vortex.contains(required),
-            "missing prepared Vortex PulseWeave marker {required}"
         );
     }
 
@@ -6863,27 +6765,6 @@ fn runtime_execution_envelope_validator_is_release_visible() {
     assert!(release_gate.contains("check_runtime_execution_envelopes.py"));
     assert!(release_gate.contains("validate_runtime_execution_envelope_surfaces"));
     assert!(release_gate.contains("runtime-execution-envelope-validation.json"));
-
-    let promoter = read_repo_file("scripts/promote_benchmark_artifact.py");
-    for required in [
-        "prepared_vortex_scale_split_operator_runtime_status",
-        "prepared_vortex_scale_split_operator_execution_certificate_id",
-        "prepared_vortex_scale_split_operator_claim_gate_status",
-        "prepared_vortex_scale_split_operator_retry_replay_status",
-        "prepared_vortex_scale_split_operator_output_commit_proof_status",
-        "prepared_vortex_scale_split_operator_fallback_attempted",
-        "prepared_vortex_scale_split_operator_external_engine_invoked",
-        "pulseweave_status",
-        "flow_inventory_wip_limit",
-        "scarcity_ledger_selected_action",
-        "endopulse_next_wip_limit",
-        "proofbound_claim_allowed",
-    ] {
-        assert!(
-            promoter.contains(required),
-            "missing runtime envelope promoter marker {required}"
-        );
-    }
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(

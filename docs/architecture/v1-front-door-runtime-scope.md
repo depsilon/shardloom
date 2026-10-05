@@ -158,8 +158,6 @@ public run routes are `hot_runtime`/`metadata_sink`, route inspection remains no
 and no result-sink or human evidence-render timing is folded into a query-runtime claim. Users
 should not need to call a separate PulseWeave, capillary, or dynamic-work-shaping command to get the
 admitted route-control evidence for normal Python/SQL/DataFrame execution.
-`ShardLoomContext.native_vortex_provider_route_certificate_report()` is the side-effect-free
-certificate inventory for those exact provider-backed Python and SQL shapes.
 The DataFrame method capability matrix also exposes `future_contract_blocker_ids` for scoped method
 variants that remain outside the admitted runtime contract. This keeps sampling/index/reshape,
 rolling/window, mask/replace, null semantics, expression/UDF, and fanout boundaries

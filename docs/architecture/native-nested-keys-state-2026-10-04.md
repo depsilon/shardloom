@@ -2,8 +2,10 @@
 
 # Native nested keys and retained state
 
-Status: implemented with local acceptance on frozen source `d65907f6`;
-hosted acceptance remains open. See the
+Status: implemented with local acceptance on frozen source `d65907f6`; merged in
+[PR #1516](https://github.com/depsilon/shardloom/pull/1516) on October 4 after all
+37 hosted checks passed. Exact identities and review limitations are recorded
+in the [completed ledger](phased-execution-completed-ledger.md). See the
 [acceptance report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
 and [immutable evidence packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz).
 This continues the [universal workflow plan](universal-workflow-completion-2026-10-01.md)
@@ -97,8 +99,10 @@ traversals as well as between outer rows.
 
 Preserve bounded result batches and collection limits. Native output retains
 logical schema and validity. The six existing nested destinations retain their
-exact support and fidelity contracts; CSV and the pinned ORC nested writer
-remain explicit denials before publication. Existing native ordering spill may
+exact support and fidelity contracts. The subsequent
+[shared native workflow](native-typed-reductions-2026-10-04.md) extends CSV to
+nested JSON text cells without persisting logical dtypes; the pinned ORC nested
+writer remains an explicit denial before publication. Existing native ordering spill may
 carry nested keys after round-trip and merge proof. Other state families retain
 their explicit grant-denial behavior until their own spill implementation is
 verified. Reservation counters do not claim coverage of all provider scratch,
@@ -129,7 +133,8 @@ Vortex file directly does not imply a dependency on its historical raw input.
 - [x] Run paired Full43 under the existing serial storage/process guards,
   using the existing symmetric timing/RSS/aggregate screens and prescribed
   reversed-order repeats. Preserve every observation and any inconclusive flags.
-- [ ] Complete hosted review/gates after the inherited website advisory decision.
+- [x] Complete hosted integration in PR #1516 after all 37 checks passed; retain
+  the recorded review limitations without treating unavailable review as approval.
 
 Availability requires complete correctness, resource and failure evidence; a
 speedup is not required and must not be inferred. Broader aggregate/window,

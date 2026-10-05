@@ -2,8 +2,10 @@
 
 # Native typed comparison and keys
 
-Status: locally accepted under PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21;
-hosted acceptance remains pending. The [phase plan](phased-execution-plan.md) owns sequencing.
+Status: accepted under PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21 and merged in
+[PR #1509](https://github.com/depsilon/shardloom/pull/1509) on October 4 after all
+37 hosted checks passed. The [completed ledger](phased-execution-completed-ledger.md)
+records exact identities and review limitations; the [phase plan](phased-execution-plan.md) owns sequencing.
 This continues the accepted [typed payload contract](native-typed-payloads-2026-10-03.md)
 and [universal workflow plan](universal-workflow-completion-2026-10-01.md).
 
@@ -138,8 +140,8 @@ incompatible-type cases; record that transition in the evidence. Availability is
 accepted on correctness and resource proof, not a required speedup.
 
 All execution and Native I/O certificates retain `fallback_attempted=false` and
-`external_engine_invoked=false`. Hosted dependency completion and the inherited
-website advisory decision stay separate. Paused large format/text performance
+`external_engine_invoked=false`. Hosted runtime review and
+checks stay separate. Paused large format/text performance
 runs, native Python bindings, publication and broader PERF/CG completion are not
 authorized by this finite implementation contract.
 

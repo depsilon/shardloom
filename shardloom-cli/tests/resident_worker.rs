@@ -8,6 +8,9 @@ use std::{
 
 use serde_json::{Value, json};
 
+#[path = "support/complete_result.rs"]
+mod complete_result;
+
 #[path = "support/resident_aggregate.rs"]
 mod aggregate;
 
@@ -160,6 +163,7 @@ fn assert_completed(result: &Value, executions: &str) {
 }
 
 fn assert_filtered_count(result: &Value, count: &str, executions: &str) {
+    assert_count_rows(result, count);
     assert_eq!(result["status"], "success", "{result}");
     for (name, value) in [
         ("count", count),
@@ -261,16 +265,17 @@ fn worker_reuses_prepared_native_execution_and_rebinds_changed_requests() {
     assert_completed(&first, "1");
     let second = worker.collect(&path, "metric", "2");
     assert_completed(&second, "2");
-    assert_eq!(first["human_text"], second["human_text"]);
-    assert!(
-        first["human_text"]
-            .as_str()
-            .unwrap()
-            .contains("\"values\":[")
+    assert_eq!(
+        complete_result::rows(&first),
+        complete_result::rows(&second)
     );
+    assert_ne!(complete_result::rows(&first), [] as [serde_json::Value; 0]);
     let changed = worker.collect(&path, "metric", "3");
     assert_completed(&changed, "1");
-    assert_eq!(first["human_text"], changed["human_text"]);
+    assert_eq!(
+        complete_result::rows(&first),
+        complete_result::rows(&changed)
+    );
     assert_eq!(worker.request(&["--version"])["status"], "success");
     assert_completed(&worker.collect(&path, "metric", "3"), "1");
 }
@@ -341,15 +346,14 @@ fn worker_releases_retained_source_before_binding_error_or_directory_dispatch() 
 #[test]
 fn worker_collects_fresh_typed_memory_without_durable_publication() {
     let mut worker = Worker::new();
+    let binding = serde_json::json!({"memory://inline":{"input_format":"memory","memory_input":{"kind":"rows","schema":[["id","int64"],["label","utf8"]],"rows":[["9223372036854775807","λ"],["-9223372036854775808","hello"]]}}}).to_string();
     let args = [
         "run",
         "dataframe",
-        "--generated-source-kind",
-        "user_rows",
-        "--generated-schema",
-        "id:int64,label:utf8",
-        "--generated-rows",
-        "id=9223372036854775807,label=%CE%BB;id=-9223372036854775808,label=hello",
+        "--source-bindings",
+        &binding,
+        "--sql",
+        "SELECT id,label FROM 'memory://inline'",
         "--request",
         "collect",
         "--bounded",
@@ -364,9 +368,9 @@ fn worker_collects_fresh_typed_memory_without_durable_publication() {
     for executions in ["1", "2"] {
         let result = worker.request(&args);
         assert_eq!(result["status"], "success", "{result}");
-        assert_eq!(field(&result, "publication_state"), "visible_in_memory");
-        assert_eq!(field(&result, "durable"), "false");
-        assert_eq!(field(&result, "write_io_performed"), "false");
+        assert_eq!(field(&result, "output_io_performed"), "false");
+        assert_eq!(field(&result, "source_io_performed"), "false");
+        assert_eq!(field(&result, "result_payload_complete"), "true");
         assert_eq!(field(&result, "resident_source_opens"), "0");
         assert_eq!(field(&result, "resident_completed_executions"), executions);
         assert_eq!(field(&result, "output_row_count"), "2");
@@ -374,22 +378,44 @@ fn worker_collects_fresh_typed_memory_without_durable_publication() {
             field(&result, "public_workflow_fallback_attempted"),
             "false"
         );
-        let text = result["human_text"].as_str().unwrap();
-        let values: Value =
-            serde_json::from_str(text.split_once("values=").unwrap().1.trim()).unwrap();
         assert_eq!(
-            values["values"],
-            json!([
-                {"id": i64::MAX, "label": "λ"}, {"id": i64::MIN, "label": "hello"}
-            ])
+            complete_result::rows(&result),
+            vec![
+                json!({"id": i64::MAX, "label": "λ"}),
+                json!({"id": i64::MIN, "label": "hello"})
+            ]
         );
     }
-    let mut changed = args;
-    changed[7] = "id=17,label=fresh";
+    let changed_binding = serde_json::json!({"memory://inline":{"input_format":"memory","memory_input":{"kind":"rows","schema":[["id","int64"],["label","utf8"]],"rows":[["17","fresh"]]}}}).to_string();
+    let changed = [
+        "run",
+        "dataframe",
+        "--source-bindings",
+        &changed_binding,
+        "--sql",
+        "SELECT id,label FROM 'memory://inline'",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+    ];
     let result = worker.request(&changed);
     assert_eq!(result["status"], "success", "{result}");
-    assert_eq!(field(&result, "resident_completed_executions"), "3");
-    assert!(result["human_text"].as_str().unwrap().contains("\"id\":17"));
+    assert_eq!(field(&result, "resident_completed_executions"), "1");
+    assert_eq!(
+        field(&result, "resident_relational_declaration_reused"),
+        "false"
+    );
+    assert_eq!(
+        complete_result::rows(&result),
+        vec![json!({"id": 17, "label": "fresh"})]
+    );
     for extra in [
         vec!["--vortex-predicate", "gt:id:0"],
         vec!["--materialization-policy", "zero_decode"],
@@ -401,9 +427,71 @@ fn worker_collects_fresh_typed_memory_without_durable_publication() {
         vec!["--vortex-source-order-limit", "1"],
     ] {
         let mut invalid = args.to_vec();
-        invalid.extend(extra);
-        assert_ne!(worker.request(&invalid)["status"], "success");
+        invalid.extend(extra.iter().copied());
+        assert_ne!(worker.request(&invalid)["status"], "success", "{extra:?}");
     }
+}
+
+#[test]
+fn worker_rebinds_file_collections_after_directory_and_manifest_changes() {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "shardloom-worker-parts-{}-{stamp}",
+        std::process::id()
+    ));
+    std::fs::create_dir(&root).unwrap();
+    std::fs::copy(fixture(), root.join("part-1.vortex")).unwrap();
+    let manifest = root.join("parts.vortex-manifest");
+    let mut worker = Worker::new();
+    for manifest_input in [false, true] {
+        let path = if manifest_input { &manifest } else { &root };
+        for (parts, count) in [(1, 5), (2, 10), (1, 5)] {
+            let second = root.join("part-2.vortex");
+            if parts == 2 {
+                std::fs::copy(fixture(), &second).unwrap();
+            } else if second.exists() {
+                std::fs::remove_file(second).unwrap();
+            }
+            let paths = if parts == 1 {
+                json!(["part-1.vortex"])
+            } else {
+                json!(["part-1.vortex", "part-2.vortex"])
+            };
+            std::fs::write(&manifest, json!({"paths": paths}).to_string()).unwrap();
+            let sql = format!(
+                "SELECT COUNT(*) AS n FROM (SELECT metric FROM '{}') AS all_parts",
+                path.display()
+            );
+            let report = worker.request(&[
+                "run",
+                "sql",
+                "--input",
+                path.to_str().unwrap(),
+                "--input-format",
+                "vortex",
+                "--sql",
+                &sql,
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--memory-gb",
+                "1",
+                "--max-parallelism",
+                "2",
+            ]);
+            assert_eq!(complete_result::rows(&report), vec![json!({"n": count})]);
+            assert_eq!(
+                field(&report, "resident_relational_declaration_reused"),
+                "false"
+            );
+        }
+    }
+    drop(worker);
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -444,6 +532,7 @@ fn worker_executes_resident_footer_count_each_call_and_releases_changed_handles(
 fn assert_metadata_count_certificate(result: &Value, count: &str, executions: &str, opened: &str) {
     assert_eq!(result["status"], "success", "{result}");
     assert_eq!(field(result, "count"), count);
+    assert_count_rows(result, count);
     for (key, expected) in [
         ("local_primitive_native_io_certificate_emitted", "true"),
         ("local_primitive_native_io_certificate_status", "certified"),
@@ -502,6 +591,23 @@ fn assert_metadata_count_certificate(result: &Value, count: &str, executions: &s
         );
     }
     assert_metadata_count_proof(result, count, executions, opened);
+}
+
+fn assert_count_rows(result: &Value, count: &str) {
+    assert_eq!(
+        complete_result::rows(result),
+        vec![json!({"count_all": count.parse::<u64>().unwrap()})]
+    );
+    assert_eq!(
+        field(result, "result_schema_format"),
+        "vortex.dtype.serde.v1"
+    );
+    let schema: Value = serde_json::from_str(field(result, "result_schema_json")).unwrap();
+    assert_eq!(
+        schema,
+        json!({"Struct": [{"names": ["count_all"], "dtypes": [{"Primitive": ["u64", false]}]}, false]})
+    );
+    assert_eq!(field(result, "output_row_count"), "1");
 }
 
 fn assert_metadata_count_proof(result: &Value, count: &str, executions: &str, opened: &str) {
@@ -602,15 +708,14 @@ fn worker_parse_failures_release_prepared_context_before_next_valid_request() {
 #[test]
 fn worker_releases_memory_runtime_on_a_different_public_run_route() {
     let path = fixture();
+    let binding = serde_json::json!({"memory://inline":{"input_format":"memory","memory_input":{"kind":"rows","schema":[["id","int64"]],"rows":[["42"]]}}}).to_string();
     let memory = [
         "run",
         "dataframe",
-        "--generated-source-kind",
-        "user_rows",
-        "--generated-schema",
-        "id:int64",
-        "--generated-rows",
-        "id=42",
+        "--source-bindings",
+        &binding,
+        "--sql",
+        "SELECT id FROM 'memory://inline'",
         "--request",
         "collect",
         "--bounded",
@@ -640,7 +745,7 @@ fn worker_releases_memory_runtime_on_a_different_public_run_route() {
         "true",
     ]);
     // Profile is an unsupported native operation here. Its failed admission must
-    // still release the preceding generated-memory runtime.
+    // still release the preceding declared-memory runtime.
     assert_eq!(profile["status"], "unsupported", "{profile}");
     assert_eq!(
         field(&worker.request(&memory), "resident_completed_executions"),

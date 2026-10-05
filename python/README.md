@@ -152,9 +152,9 @@ to put in ordinary application code. Source-tree or CI runs can set `SHARDLOOM_B
 `.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex` local source adapters from
 the path extension. Explicit helpers such as `read_csv(...)`, `read_json(...)`,
 `read_parquet(...)`, `read_arrow_ipc(...)`, `read_avro(...)`, and `read_orc(...)` remain available
-for compatibility, tests, and schema-pinned examples. ShardLoom owns SourceState, preparation,
-execution, OutputPlan, replay, reuse, certificate, and no-fallback evidence behind the query
-surface:
+for compatibility, tests, and schema-pinned examples. The context returns a lazy query that uses
+the shared native workflow for admitted work. Collection returns the complete typed result; a
+write executes the same query into the declared sink:
 
 ```python
 import shardloom as sl
@@ -168,31 +168,26 @@ result = (
     .collect()
 )
 
-print(result.output_row_count)
-print(result.first_result_row)
-print(result.activation_summary.native_vortex_status)
-print(result.activation_summary.execution_mode, result.activation_summary.applied_parallelism)
-print(result.prepared_vortex_path)
-print(result.vortex_ingest_performed)
-print(result.claim_summary.claim_gate_status)
+print(result.status)
+print(result.result_rows)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-Every normal execution result exposes `activation_summary`, a compact view of route ID/status,
-execution mode, native Vortex activation, required feature gate if any, parallelism,
-pushdown/source-state signals when available, decode/materialization status, sink status,
-fallback/external-engine flags, and claim-gate posture. Agents and notebooks should prefer this
-summary before inspecting the full evidence envelope.
+`VortexWorkflowExecutionReport` exposes the result envelope and, for writes, fields such as
+`output_path`, `rows_written`, `output_commit_status`, and
+`native_io_certificate_status`. Use `status`, `fallback_attempted`,
+`external_engine_invoked`, and `claim_gate_status` for execution posture. Exact fields depend on the
+operation and sink; report-only capability views are not runtime evidence.
 
 The same query shape can read admitted local formats through `ctx.read(...)` or the explicit
 format helpers. CSV, flat JSON/JSONL/NDJSON, generated rows, and scoped local Vortex inputs are
 the default public examples. Parquet, Arrow IPC/Feather, Avro, and ORC are admitted scoped
 local-format surfaces when the matching feature-gated build is present; builds without those
 readers return deterministic adapter blockers instead of invoking another engine. Compatibility
-exports such as `write_json(...)` (one JSON array), `write_jsonl(...)`, `write_csv(...)`,
-Parquet/Arrow IPC/Avro/ORC writers, fanout, and quarantine sinks are admitted only when the
-workflow first carries Vortex preparation or native Vortex-input evidence and the sink emits replay
-evidence such as `result_replay_verified`.
+exports such as `write_json(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated
+Parquet/Arrow IPC/Avro/ORC writers, `write_vortex(...)`, and fanout use the same public workflow.
+Admission depends on the selected input, operation, output format, and enabled build features;
+unsupported combinations return a deterministic report.
 Format-specific behavior belongs at read/ingest and write/sink boundaries only; compute semantics
 should lower through the shared ShardLoom/Vortex runtime or return a deterministic unsupported
 report.
@@ -254,8 +249,8 @@ print(preview_report.result_rows)
 rows = ctx.read("target/orders.csv").select("id").limit(20).to_python_objects()
 print(rows)
 
-pandas_view = ctx.read("target/orders.csv").select("id").limit(20).to_pandas(check=False)
-print(getattr(pandas_view, "blocker_id", None))
+pandas_view = ctx.read("target/orders.csv").select("id").limit(20).to_pandas(check=True)
+print(pandas_view)
 ```
 
 For workflows that need caller-scoped reuse evidence, `ctx.session(...)` and `sl.session(...)` expose
@@ -273,13 +268,11 @@ with ctx.session(session_id="orders-run") as sess:
     print(result.reuse_hit, repeat.source_state_reuse_hit)
 ```
 
-The session is explicit, in-process, caller-owned, and closeable. It can reuse admitted local
-`vortex_ingest` prepared-state reports plus admitted local collect reports when source and prepared
-artifact fingerprints still match. Compatibility writes/fanout still require their native Vortex
-export contracts before they are product routes. `ctx.prepare_vortex(...)`,
-`ShardLoomClient.vortex_ingest_smoke(...)`, and raw runtime-envelope inspection remain lower-level
-diagnostic surfaces. Session reuse is not a daemon, remote server, hidden global cache,
-object-store/table cache, broad DataFrame/SQL runtime, or performance claim.
+The session is explicit, caller-owned, and closeable. Its client owns a native worker that can
+reuse admitted source and prepared query state. Every collection executes the query again;
+query answers are not cached. Collection, writes and fanout use the same native workflow.
+Explicit `ctx.prepare_vortex(...)` calls also track source and prepared-artifact fingerprints
+for reuse. Session lifetime and reuse evidence do not establish a performance claim.
 
 Supply `memory_gb` and `max_parallelism` on each operation that needs an explicit
 allocation. Session collection, counts, all `write_*` methods and `fanout` forward
@@ -467,7 +460,8 @@ ID columns; inferred value columns come from the preceding output. See the
 Static List/FixedSizeList/Struct payloads compose through admitted relational
 stages and ordered/repeated explode. Nested payloads can be written as Vortex,
 JSON, JSONL, Arrow IPC, Parquet or Avro when the dtype is representable; nested
-CSV and ORC are denied. Exploded flat output still supports all eight writers.
+CSV translates nested values to quoted JSON text cells without preserving their
+logical dtype; ORC rejects nested output. Exploded flat output supports all eight writers.
 Current source builds extend relational keys to static List, FixedSizeList and
 Struct values for equality, hashing and ordering in the existing join, set,
 group, sort, window and subquery kernels. COUNT, COUNT DISTINCT, MIN/MAX,
@@ -479,9 +473,9 @@ Retained nested values are admitted for DISTINCT/duplicate selection and masks,
 tail, sampling, parent-level forward fill (a NULL parent takes the prior
 complete value; child NULLs do not trigger filling), lossless same-shape melt
 and rolling COUNT. See the [nested key and retained-state contract](../docs/architecture/native-nested-keys-state-2026-10-04.md);
-its local and hosted acceptance remains pending. General Variant/extension
-operations, structured literals, nested arithmetic/string operations, broader
-aggregate/window behavior, adapters and general state spill remain outside this
+it is merged with complete local and hosted check evidence. General Variant/extension
+operations, nested arithmetic/string operations, wider analytic-window behavior,
+adapters and general state spill remain outside this
 scope. Scalar pivot type/domain restrictions remain in force. See also the
 [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
@@ -495,14 +489,22 @@ arithmetic/rounding and scoped binary/calendar functions through the shared
 native expression binder. Decimal arithmetic output metadata binds before
 execution; explicit decimal downscaling requires zero discarded digits. Key
 compatibility still requires matching decimal precision/scale and preserves
-distinct temporal types. Richer aggregate/window semantics, broader adapters
+distinct temporal types. Wider analytic-window semantics, broader adapters
 and state spill remain separate. See the [typed expression contract](../docs/architecture/native-typed-expressions-2026-10-03.md).
 Flat typed values also retain exact logical types through duplicate selection and
 masks, tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and
 scoped pivot first/first-unique/COUNT. Python bytes, Decimal, date and datetime
 declare exact native literals. Decimal rewrites reuse checked native arithmetic;
-legacy predicates, sampling weights and numeric rolling/pivot restrictions remain.
+primitive predicate and typed sampling-weight restrictions remain.
 See the [typed unary contract](../docs/architecture/native-typed-unary-2026-10-03.md).
+Computed aggregate arguments and exact decimal aggregate, rolling and scalar
+pivot reductions now have complete local acceptance through the shared native
+engine. SUM uses precision 38 at the input scale; AVG uses precision 38 at
+`max(input_scale,6)` and rejects inexact division. Final overflow fails explicitly.
+ARRAY/STRUCT constructors preserve admitted logical child types. The
+[revised engine report](../docs/benchmarks/native-typed-reductions-full43-2026-10-05.md)
+records 20,445 public checks, 202 direct checks and all 129 Full43 executions,
+with no benchmark-specific executor or external fallback.
 See the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
 Binary supports all eight writers; ORC rejects decimal and temporal payloads. JSON/JSONL and collection
 encode binary as lowercase hex, decimals as `decimal128(precision,scale):unscaled_integer`,
@@ -522,82 +524,9 @@ outer row. All eight writers accept representable scalar results above the small
 collection limit, subject to the existing 128-field and memory limits. Pivot
 state has no spill path. See the [dynamic pivot contract and acceptance](../docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
 
-Traditional analytics compatibility inputs can also use the explicit context/session prepared route
-or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
-`session.prepare_vortex(..., workspace=...)` return a route handle for
-`compatibility_import_certified -> prepared_vortex`; `query(...).collect()` runs a single prepared
-query and `run_batch([...])` runs a prepared scenario batch. The first compatible call invokes
-`traditional-analytics-prepare-batch-run`, prepares the local fact/dimension inputs once into
-prepared Vortex artifacts, and writes a caller-owned workspace manifest. Later compatible calls
-reuse that manifest and run `traditional-analytics-vortex-batch-run` directly over the existing
-artifacts when source, artifact, and prepare-policy fingerprints match. The returned envelope keeps
-`prepare_batch_*`, source-state reuse, fallback, claim-boundary, `prepared_state_reuse_hit`,
-`prepared_state_reuse_reason`, `prepared_state_reuse_manifest_digest`, and `invalidation_reason`
-fields visible:
-
-```python
-import shardloom as sl
-
-ctx = sl.context()
-prepared = ctx.prepare_vortex(
-    "fact.csv",
-    dim="dim.csv",
-    workspace="target/prepare-batch",
-    input_format="csv",
-    evidence_level="certified",
-)
-result = prepared.run_batch(["selective filter", "filter + projection + limit"])
-
-print(prepared.route_fields())
-print(result.batch.field("prepare_batch_preparation_included_in_batch_timing"))
-print(result.batch.field("source_state_reuse_status"))
-print(result.batch.field("prepare_batch_lifecycle_status"))
-print(result.prepared_state_reuse_hit, result.prepared_state_reuse_reason)
-print(result.batch.field("scenario_selective-filter_prepared_native_vortex_lifecycle_status"))
-print(result.fallback_attempted, result.external_engine_invoked)
-```
-
-This is a scoped local runtime route for avoiding repeated compatibility preparation inside a batch.
-`PreparedVortexBatchResult.lifecycle_status`,
-`PreparedVortexBatchResult.lifecycle_output_status`, and
-`PreparedVortexBatchResult.lifecycle_no_standalone_lane` expose the combined route lifecycle
-posture. `ExecutionResultEnvelopeView.prepared_native_vortex_lifecycle_status` and related output/
-no-standalone accessors expose the per-scenario lifecycle fields when a typed execution result
-contains them.
-Use `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`,
-`prepare_and_run_traditional_analytics_vortex_batch(...)`, or
-`prepare_traditional_analytics_vortex_artifacts(...)` only when the caller needs lower-level CLI
-control or explicit artifact lifecycle management across later commands. This is not a native Python binding,
-persistent cache, object-store/table runtime, package-readiness claim, or performance claim.
-
-For existing native `.vortex` fact/dimension artifacts, use the route-level native handle when you
-want the same benchmark-family runtime path rather than isolated primitive helpers:
-
-```python
-native = ctx.native_vortex_route(
-    "fact.vortex",
-    "dim.vortex",
-    execution_mode="native_vortex",
-    memory_gb=4,
-    max_parallelism=1,
-)
-
-result = native.query("selective filter").collect()
-sink = native.query("selective filter").write_vortex("target/native-result")
-
-print(native.route_fields())
-print(result.field("selected_execution_mode"))
-print(result.fallback.attempted)
-```
-
-`read_vortex(...).count/filter/select/limit/distinct/tail/sample/collect`, admitted grouped
-aggregate/join/top-N/cast/contains chains, and native `write_vortex` sinks route through the public native Vortex facade when
-their shape has a certificate-backed provider route. `native_vortex_route(...)` remains the
-explicit route-comparable surface for the production provider facade
-(`vortex-production-runtime-run`) and the lower-level benchmark-compatible helpers
-(`traditional-analytics-vortex-run` / `traditional-analytics-vortex-batch-run`); it keeps source,
-execution mode, scenario/operator, memory/parallelism hints, result sink, and no-fallback evidence
-visible.
+For explicit preparation, use `LazyFrame.prepare_vortex(...)` or
+`ctx.prepare_vortex(source_path, target_path, ...)` with their documented arguments. These are
+preparation APIs; ordinary query execution uses the shared workflow below.
 
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for
@@ -800,18 +729,15 @@ the explicit `ctx.read_csv(...)`, `ctx.read_json(...)`, `ctx.read_parquet(...)`,
 `ctx.read_vortex(...)` helpers are input adapters. They do not create separate CSV, JSON,
 Parquet, Arrow, Avro, ORC, SQL, or DataFrame execution stacks.
 
-For local compatibility inputs, admitted public workflows now normalize through a caller-local
-Vortex prepared artifact under `.shardloom/prepared/*.vortex`, then execute the admitted native
-Vortex primitive/provider route. Direct decoded `local-source-runtime` remains available only as
-an internal diagnostic smoke safeguard. Public `collect()`, `count()`, `preview()`, `head()`, `take()`, and
-admitted `ctx.sql(...)` local-source reads must either enter the Vortex-prepared/native path or
-return a deterministic unsupported report. They must not silently decode or materialize local
-compatibility files as the runtime middle.
+Local compatibility inputs enter the shared ShardLoom workflow, which converts them to the common
+Vortex-native execution representation before native computation. Source format, SQL, and the
+Python query builder do not create separate execution engines. `collect()` returns the complete
+typed result for admitted work; `write(...)` runs that same workflow to the declared sink.
 
 The invariant on admitted public local workflows is:
 
 ```text
-input adapter -> SourceState -> VortexPreparedState or native Vortex input -> ShardLoom native route -> typed result/sink evidence
+input adapter -> shared Vortex-native execution -> typed result or declared sink
 fallback_attempted=false
 external_engine_invoked=false
 ```
@@ -838,10 +764,8 @@ result = (
     .collect()
 )
 
-print(result.output_row_count)
-print(result.first_result_row)
-print(result.prepared_vortex_path)
-print(result.vortex_ingest_performed)
+print(result.status)
+print(result.result_rows)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
@@ -853,7 +777,7 @@ sql_result = ctx.sql(
     "WHERE amount >= 10 LIMIT 10"
 ).collect()
 
-print(sql_result.prepared_vortex_path)
+print(sql_result.status, sql_result.result_rows)
 print(sql_result.fallback_attempted, sql_result.external_engine_invoked)
 ```
 
@@ -868,109 +792,57 @@ vortex_result = (
     .collect()
 )
 
-print(vortex_result.native_vortex_capability_status)
+print(vortex_result.status, vortex_result.result_rows)
 print(vortex_result.fallback_attempted, vortex_result.external_engine_invoked)
 ```
 
-Exact benchmark-family provider shapes are admitted through the same public facade when the native
-provider route is available: grouped count/sum, null-heavy grouped count/sum, hash join with a
-declared right Vortex input, global top-N, clean/cast/filter, malformed timestamp cast, substring
-contains, and native Vortex result sinks. The current exact-route inventory lives in
-`docs/architecture/v1-vortex-runtime-scope.md` and the machine-readable capability reports.
-General SQL/DataFrame parity, arbitrary expression trees, arbitrary joins, broad schema/profile
-materialization, and broad remote/table exports are not implied by those exact routes.
-
-Compatibility sinks such as JSON arrays/JSONL/CSV/Parquet/Arrow IPC/Avro/ORC are admitted for
-scoped local workflows after Vortex preparation or native Vortex input and declared output replay
-evidence. `write_json(...)` emits one top-level JSON array for admitted ordinary SQL/generated
-local results and primitive filter/project/filter-project row exports; it is not currently admitted
-for provider-backed result summaries. JSON text does not preserve static type or Vortex layout
-metadata.
-`write_vortex(...)` remains the highest-fidelity local Vortex sink route for admitted native-provider
-workflows. If a sink shape is not admitted, call it with `check=False` to inspect the deterministic
-blocker without raising:
+Output adapters accept the selected workflow result when the input, operations, sink, and build
+features are admitted. Vortex remains the native persistence target; compatibility formats are
+explicit output translations. Unsupported combinations return a deterministic report. For example:
 
 ```python
-result = orders.write_jsonl("target/orders.jsonl", allow_overwrite=True, check=False)
+result = orders.write_jsonl("target/orders.jsonl", check=False)
 print(result.output_path)
-print(result.result_replay_verified)
+print(result.output_commit_status)
+print(result.native_io_certificate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
 Use `write_json(...)` when a single top-level JSON array is preferred:
 
 ```python
-result = orders.write_json("target/orders.json", allow_overwrite=True, check=False)
+result = orders.write_json("target/orders.json", check=False)
 print(result.output_path)
-print(result.result_replay_verified)
+print(result.output_commit_status)
 ```
-
-The lower-level `client.sql_local_source_smoke(...)` helper remains documented only for internal
-fixture-smoke and regression work. It is not the public product route and should not be used in
-normal application examples.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
 future Python `explain()` trace should expose optimizer rule status, before/after plan digests,
 rewrite safety, evidence preservation, no-fallback fields, and claim gates without implying broad
 SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
-Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. Public local
-compatibility workflows no longer use a direct local-source fanout/write route as a product runtime:
-they prepare through Vortex first, then emit declared local sink replay evidence. Generated-source
-helpers keep their separate local-output fanout surfaces because those rows are produced by explicit
-source-free/generated-source commands, not by decoding a local compatibility file as the runtime
-middle.
-Current typed result objects expose scoped `SourceState`, `VortexPreparedState`, and `OutputPlan`
-evidence where the CLI emits it; future Python capability/write views may broaden cache
-invalidation, reuse levels, persistent OutputPlan reuse, and claim-grade replay/fidelity evidence.
-Input and output formats remain decoupled, and reuse evidence will not imply performance,
-production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
+Reusable I/O state and broad cross-format fanout are separate capability/evidence questions. The
+public Python query surface uses one shared native workflow for local files, typed-memory inputs,
+and source-free SQL. Input formats and output adapters meet at that workflow; no format selects an
+external execution engine. Capability reports describe their own scope and do not establish runtime
+support or performance evidence.
 
-Unsupported workflow affordances are explicit report surfaces too. These calls show how familiar
-pandas/Arrow/DataFrame/notebook methods either use admitted bounded local-source/materialized-input
-shapes or fail closed when the requested operation is outside that scope:
-
-Unsupported rows expose stable evidence fields such as `blocked.required_evidence`,
-`blocker_id`, `required_evidence`, and `suggested_next_action` for agents.
+Unsupported workflow operations return explicit diagnostics. Wrapper-level operations such as
+an undeclared row UDF expose a blocker and the evidence needed to admit it:
 
 ```python
 import shardloom as sl
 
 ctx = sl.context()
 workflow = ctx.read_csv("events.csv").filter("amount > 0")
-selected_workflow = workflow.select("customer_id", "amount")
+blocked = workflow.apply("row_udf", check=False)
+print(blocked.blocker_id)
+print(blocked.required_evidence)
+print(blocked.suggested_next_action)
+print(blocked.fallback_attempted, blocked.external_engine_invoked)
 
-reports = [
-    sl.from_pandas(object()),
-    sl.from_arrow_table(object()),
-    sl.from_arrow_ipc("events.arrow"),
-    workflow.to_pandas(),
-    workflow.to_arrow_table(),
-    workflow.to_arrow_ipc(),
-    workflow.to_numpy(),
-    workflow.with_column("event_date", "to_date(ts)"),
-    selected_workflow.group_by("customer_id", "region").agg(total="sum(amount)"),
-    selected_workflow.group_by("customer_id").agg(total="sum(amount)"),
-    selected_workflow.agg("count(*)"),
-    workflow.sort("event_date"),
-    workflow.data_quality_check("regex:id"),
-    sl.read_csv("events.data").display(),
-    ctx.sql_parse("select * from events"),
-    ctx.sql_bind("select * from events"),
-    ctx.sql_plan("select * from events"),
-    ctx.sql_execute("select * from events"),
-]
-
-for report in reports:
-    print(getattr(report, "operation", type(report).__name__))
-    print(getattr(report, "blocker_id", None))
-    print(getattr(report, "required_evidence", ()))
-    print(getattr(report, "suggested_next_action", None))
-    print(
-        getattr(report, "runtime_execution", None),
-        getattr(report, "data_read", None),
-        getattr(report, "write_io", None),
-    )
+native_rejection = ctx.sql("SELECT CALL_API('https://example.invalid/score') AS score").collect(check=False)
+print(native_rejection.status, native_rejection.diagnostics)
 ```
 
 Unsupported reports above are generated through `workflow-unsupported-plan` and return
@@ -1080,10 +952,6 @@ The v1 Vortex runtime scope is owned by `docs/architecture/v1-vortex-runtime-sco
 ids, CLI commands, materialization boundaries, and no-fallback evidence posture; broad object-store
 Vortex, table/catalog Vortex, generalized Source/Sink, and broad Vortex SQL/DataFrame support remain
 outside that scope.
-Use `ctx.native_vortex_provider_route_certificate_report()` for the exact feature-gated native
-Vortex provider routes that admit benchmark-family grouped aggregation, hash join, global top-N,
-cast/try-cast, substring contains, and native `write_vortex` sink shapes from Python and SQL.
-
 The v1 SourceState/prepared-state scope is owned by
 `docs/architecture/v1-source-prepared-state-scope.md`. Use
 `ctx.source_prepared_state_scope_report()` to inspect the
@@ -1243,380 +1111,34 @@ print(generated.row("local_output_only_generated_source_posture").blocker_id)
 print(generated.all_no_fallback_no_external_engine)
 ```
 
-This compatibility contract is still a capability map. It can say local JSONL/CSV generated-output
-smokes exist for user rows, literal tables, calendar/date dimensions, range, sequence, scoped
-generated-row projection/literal `with_column`, SQL `VALUES`, SQL literal `SELECT`, and SQL
-`generate_series`/`range`, but it keeps
-broader SQL runtime, broad DataFrame generated expressions, object-store/lakehouse output, and
-Foundry generated-output runtime as report-only or blocked.
+This compatibility contract is a capability map, not a runtime report. Its generated-output rows
+describe declared posture only. Use the shared workflow execution report to inspect a real
+`collect()` or write request; unsupported shapes return deterministic diagnostics.
 
-The supported user-row local smoke uses Python rows supplied by the caller,
-writes a local JSONL/CSV file, and returns generated-source/output evidence:
-
-```python
-from shardloom import context
-
-ctx = context()
-report = ctx.from_rows(
-    [
-        {"id": 1, "label": "alpha"},
-        {"id": 2, "label": "beta"},
-    ]
-).write("target/generated-reference.jsonl")
-
-print(report.generated_source_kind)
-print(report.generated_source_row_count)
-print(report.generated_source_certificate_status)
-print(report.output_native_io_certificate_status)
-print(report.fallback_attempted)
-print(report.external_engine_invoked)
-print(report.claim_gate_status)
-```
-
-The same `GeneratedRowsSource` can now perform a narrow source-free row transform before the write.
-This is intentionally limited to projection plus deterministic literal `with_column` values, then
-the transformed rows still pass through ShardLoom's generated-source local-output command:
+Source-free constructors such as `ctx.from_rows(...)`, `ctx.literal_table(...)`, `ctx.range(...)`,
+`ctx.sequence(...)`, and `ctx.sql_values(...)` return the same `LazyFrame` used by file-backed
+queries. Use `.collect()` for the complete typed result or a `write_*()` method for an admitted
+local sink. For example:
 
 ```python
-transformed = (
-    ctx.from_rows(
-        [
-            {"id": 1, "label": "alpha"},
-            {"id": 2, "label": "beta"},
-        ]
-    )
-    .with_column("segment", "lit('north')")
-    .select("id", "segment")
-    .write("target/generated-reference-transformed.jsonl", allow_overwrite=True)
-)
+import shardloom as sl
 
-print(transformed.generated_source_kind)
-print(transformed.generated_source_row_count)
-print(transformed.generated_source_certificate_status)
-print(transformed.output_native_io_certificate_status)
-print(transformed.fallback_attempted)
-print(transformed.external_engine_invoked)
-print(transformed.claim_gate_status)
+ctx = sl.context()
+frame = ctx.from_rows([{"id": 1, "label": "alpha"}, {"id": 2, "label": "beta"}])
+collected = frame.collect()
+written = frame.write_jsonl("target/generated-reference.jsonl")
+
+print(collected.status, collected.result_rows)
+print(written.status, written.output_path, written.output_commit_status)
+print(written.native_io_certificate_status)
+print(written.fallback_attempted, written.external_engine_invoked)
 ```
 
-This slice is not a broad DataFrame runtime. `with_column` accepts only `lit(...)` expressions or
-direct Python bool/int/float literals, `select` only projects existing generated-row columns, and
-unsupported expressions fail before execution rather than falling back to pandas, Polars, Spark,
-DataFusion, DuckDB, or another engine.
-
-Equivalent CLI command:
-
-```powershell
-shardloom generated-source-user-rows target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --format json
-```
-
-The supported literal-table helper uses the same local generated-source write path while reporting
-`generated_source_kind=literal_table`:
-
-```python
-literal_report = ctx.literal_table(
-    [
-        {"code": "A", "weight": 1.5},
-        {"code": "B", "weight": 2.0},
-    ]
-).write("target/generated-literal-table.jsonl", allow_overwrite=True)
-
-print(literal_report.generated_source_kind)
-print(literal_report.generated_source_row_count)
-print(literal_report.claim_gate_status)
-```
-
-The calendar/date-dimension helper generates deterministic local rows in Python, writes JSONL
-through the same ShardLoom generated-source command, and reports
-`generated_source_kind=calendar`:
-
-```python
-calendar_report = ctx.calendar(
-    "2026-05-18",
-    "2026-05-21",
-    column="dt",
-).write("target/generated-calendar.jsonl", allow_overwrite=True)
-
-print(calendar_report.generated_source_kind)
-print(calendar_report.generated_source_row_count)
-print(calendar_report.claim_gate_status)
-```
-
-The supported engine-native range smoke is separate. It generates deterministic
-`int64` rows inside ShardLoom, writes local JSONL/CSV, and emits the same
-generated-source/output/no-fallback evidence family. `limit(...)`, `head(...)`, and `take(...)`
-adjust the range bounds before invoking the same engine-native range/sequence smoke; they do not
-materialize rows in Python:
-
-```python
-range_report = ctx.range(0, 50, column="id").limit(5).write(
-    "target/generated-range.jsonl",
-    allow_overwrite=True,
-)
-
-print(range_report.generated_source_kind)
-print(range_report.generated_source_range_start)
-print(range_report.generated_source_range_end)
-print(range_report.generated_source_range_step)
-print(range_report.generated_source_row_count)
-print(range_report.claim_gate_status)
-```
-
-Equivalent CLI command:
-
-```powershell
-shardloom generated-source-range target\generated-range.jsonl 0 5 --column id --format json
-```
-
-The supported engine-native sequence smoke uses the same integer generator contract while reporting
-`generated_source_kind=sequence`. It is scoped to local JSONL/CSV output and does not admit broader
-DataFrame generation:
-
-```python
-sequence_report = ctx.sequence(0, 50, column="id").take(5).write(
-    "target/generated-sequence.jsonl",
-    allow_overwrite=True,
-)
-
-print(sequence_report.generated_source_kind)
-print(sequence_report.generated_source_range_start)
-print(sequence_report.generated_source_range_end)
-print(sequence_report.generated_source_range_step)
-print(sequence_report.generated_source_row_count)
-print(sequence_report.claim_gate_status)
-```
-
-Equivalent CLI command:
-
-```powershell
-shardloom generated-source-sequence target\generated-sequence.jsonl 0 5 --column id --format json
-```
-
-The supported source-free SQL smokes parse a deliberately tiny SQL subset inside ShardLoom and write
-local JSONL/CSV with generated-source/output/no-fallback evidence. SQL `VALUES` uses generated column
-names, literal `SELECT` accepts `AS` aliases, and `SELECT * FROM generate_series/range(...)`
-creates an integer source-free table with range evidence:
-
-```python
-values_report = ctx.sql_values("VALUES (1, 'alpha'), (2, 'beta')").write(
-    "target/generated-sql-values.jsonl",
-    allow_overwrite=True,
-)
-select_report = ctx.sql_literal_select(
-    "SELECT 1 AS id, 'alpha' AS label, true AS active"
-).write("target/generated-sql-select.jsonl", allow_overwrite=True)
-ctx_sql_report = ctx.sql("SELECT 2 AS id, 'beta' AS label").write(
-    "target/generated-sql-from-context.jsonl",
-    allow_overwrite=True,
-)
-series_report = ctx.sql("SELECT * FROM generate_series(0, 4)").write(
-    "target/generated-sql-series.jsonl",
-    allow_overwrite=True,
-)
-range_topn_report = (
-    ctx.range(1, 8, column="id")
-    .filter(sl.col("id") >= 3)
-    .with_column("doubled", sl.col("id") * 2)
-    .sort("doubled", descending=True)
-    .limit(2)
-    .write("target/generated-range-topn.jsonl", allow_overwrite=True)
-)
-range_fanout_report = (
-    ctx.range(1, 8, column="id")
-    .filter(sl.col("id") >= 3)
-    .with_column("doubled", sl.col("id") * 2)
-    .sort("doubled", descending=True)
-    .limit(2)
-    .fanout(
-        {
-            "jsonl": "target/generated-range-topn.jsonl",
-            "csv": "target/generated-range-topn.csv",
-        },
-        allow_overwrite=True,
-    )
-)
-
-print(values_report.generated_source_kind)
-print(values_report.generated_source_row_count)
-print(select_report.generated_source_kind)
-print(select_report.claim_gate_status)
-print(ctx_sql_report.generated_source_kind)
-print(series_report.generated_source_kind)
-print(series_report.generated_source_range_end_inclusive)
-print(range_topn_report.sql_source_free_top_n_runtime_execution)
-print(range_topn_report.sql_source_free_sort_keys)
-print(range_fanout_report.output_route)
-print(range_fanout_report.fanout_output_count)
-print(range_fanout_report.fanout_result_reuse_hit)
-```
-
-Equivalent CLI command:
-
-```powershell
-shardloom generated-source-sql target\generated-sql-values.jsonl "VALUES (1, 'alpha'), (2, 'beta')" --format json
-shardloom generated-source-sql target\generated-sql-series.jsonl "SELECT * FROM generate_series(0, 4)" --format json
-```
-
-This SQL smoke accepts only source-free literal `SELECT` expressions and `VALUES` tuples over int64,
-finite float64, bool, and single-quoted UTF-8 string literals, plus `SELECT * FROM
-generate_series(start, end[, step])` and `SELECT * FROM range(start, end[, step])` over int64
-arguments. `generate_series` uses an inclusive end, while `range` uses the same exclusive-end
-semantics as `ctx.range(...)`. The range SQL subset also admits scoped int64 projections,
-single-branch int64 `CASE`, one range-column filter, `ORDER BY` over the range source column or
-projected int64 aliases, and `LIMIT`, so fluent
-`ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)` lowers through the
-same generated-source SQL smoke; the generated range builder also accepts `project`,
-`with_columns`/`assign`, and `order_by`/`sort_by`/`sort_values` aliases over those same operations.
-Source-free top-N reports
-`sql_source_free_order_by_runtime_execution`, `sql_source_free_top_n_runtime_execution`,
-`sql_source_free_sort_keys`, `sql_source_free_sort_direction`,
-`sql_source_free_sort_operator_family`, and `sql_source_free_top_n_limit` alongside projection,
-filter, and limit evidence. `ctx.sql(...).write(...)` dispatches those source-free forms through the
-public workflow `run` facade to the generated-source SQL runtime, and `ctx.sql(...).fanout(...)`
-dispatches source-free generated forms through the same public facade and generated-source fanout
-contract. Generated-source fanout reports
-`output_route=local_sink_and_fanout`, `result_reuse_for_fanout=true`,
-`fanout_result_reuse_hit=true`, per-fanout output formats/paths/digests, workspace path-safety,
-certificate, replay, and fidelity fields. Source-free `ctx.sql(...).collect()` remains a
-deterministic unsupported diagnostic because the generated-source evidence contract requires an
-explicit output sink. The source-free path rejects input datasets, arbitrary `FROM` sources,
-unsupported function projections, joins, subqueries, UDFs, object-store paths, table writes, and
-broad SQL with deterministic no-fallback errors.
-
-The contract separates three cases:
-
-- `no_dataset_smoke`: status/capability/proof smoke only; no generated rows, no
-  source Native I/O certificate, and no output data claim.
-- `user_generated_source`: scoped local user rows, literal tables, calendar/date dimensions, and
-  generated-row projection/literal `with_column` are supported for JSONL/CSV fixture-smoke writes
-  through `ctx.from_rows(...).write(...)`, `ctx.from_rows(...).with_column(...).select(...).write(...)`,
-  `ctx.literal_table(...).write(...)`, and `ctx.calendar(...).write(...)`; feature-gated flat scalar
-  Parquet/Arrow IPC/Avro/ORC local sinks are available through `write_parquet(...)`,
-  `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when the CLI is built with
-  `--features universal-format-io`, and feature-gated local Vortex output is available through
-  `write_vortex(...)` when the CLI is built with `--features vortex-write`; direct writes and
-  `.fanout(...)` route through the public workflow `run` facade, with fanout reusing the computed
-  generated rows through the generated-source fanout evidence contract. Broader generated-source
-  APIs remain report-only.
-- `engine_native_generated_source`: scoped local `range`, `sequence`, and SQL
-  `generate_series`/`range` JSONL/CSV fixture smokes are supported through
-  `ctx.range(...).write(...)`, `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)`,
-  `ctx.sequence(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`;
-  direct writes and `.fanout(...)` route through the public workflow `run` facade for generated
-  range/sequence and source-free SQL, and the same feature-gated flat scalar structured and Vortex
-  sinks are available through the generated-source write helpers.
-  Engine-native `values` and deterministic synthetic profiles remain report-only.
-
-Source-free SQL `VALUES` and literal `SELECT` are runtime-supported as local JSONL/CSV fixture
-smokes, plus feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC and Vortex local sinks. Broad SQL
-execution and broad DataFrame expression execution are not runtime-supported yet.
-Current
-source-free API admission rows classify:
-
-- `python_ctx_from_rows`, `python_ctx_literal_table`, `python_ctx_calendar`,
-  `python_ctx_range`, `python_ctx_sequence`, and `python_generated_source_write`
-  as `fixture_smoke_supported` only for scoped local JSONL/CSV and feature-gated flat scalar
-  Parquet/Arrow IPC/Avro/ORC/Vortex generated-output smokes with generated-source and output evidence.
-  `GeneratedRowsSource.select(...)` and
-  `GeneratedRowsSource.with_column(...)` are scoped Python conveniences over the user-row,
-  literal-table, and calendar rows before that same write path.
-- SQL literal `SELECT`, SQL `VALUES`, and SQL `generate_series`/`range`
-  as `fixture_smoke_supported` only for scoped local JSONL/CSV and feature-gated flat scalar
-  Parquet/Arrow IPC/Avro/ORC/Vortex source-free generated-output smokes with generated-source and output
-  evidence.
-- SQL source-free projection and scoped DataFrame literal projection
-  as `fixture_smoke_supported` only for scoped local JSONL/CSV and feature-gated flat scalar
-  structured/Vortex generated-output smokes with generated-source and output evidence.
-- Broad expression-backed DataFrame projection and expression-backed generated `with_column` forms
-  remain blocked/report-only with deterministic blocker IDs.
-
-Admission capability discovery separates scoped runtime rows from report-only or blocked rows.
-Scoped SQL `VALUES`, literal `SELECT`, `generate_series`/`range`, and local-source SQL ladder rows
-carry parser/binder/planner/runtime evidence when they execute. Report-only or blocked admission
-rows still do not parse SQL, bind names, plan a query, generate rows, write output, probe object
-stores, invoke Foundry, or invoke external engines. Current no-dataset smoke rows report
-`input_dataset_count=0`, `source_io_performed=false`,
-`generated_source_created=false`, `output_io_performed=false`, and
-`generated_source_certificate_status=not_applicable_no_generated_rows`.
-Generated-output runtime must report
-`input_dataset_count=0`, `source_io_performed=false`,
-`generated_source_created=true`, `generated_source_kind`,
-`generated_source_schema_digest`, `generated_source_row_count`,
-`generated_source_plan_digest`, optional `generated_source_seed`,
-`generation_deterministic`, `output_io_performed`,
-`output_native_io_certificate_status`, `generated_source_certificate_status`,
-`fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`. The current user-row, transformed user-row, literal-table, calendar, range,
-sequence, SQL `VALUES`, SQL literal `SELECT`, SQL `generate_series`/`range`, scoped SQL range
-projection, scoped DataFrame literal projection, and scoped generated DataFrame `with_column` paths
-report
-`claim_gate_status=fixture_smoke_only` in their scoped local JSONL/CSV lanes and feature-gated flat
-scalar Parquet/Arrow IPC/Avro/ORC/Vortex lanes. Default binaries return deterministic blockers for
-structured sinks until built with `--features universal-format-io`, and for Vortex until built with
-`--features vortex-write`. Vortex generated-output reports include
-`vortex_output_runtime_execution`, `vortex_output_reopen_verified`, `vortex_artifact_digest`,
-`upstream_vortex_write_called`, and `upstream_vortex_scan_called`.
-`ctx.generated_output_to_object_store(...)` now admits a scoped local-emulator fixture route by
-staging generated rows through `generated-source-user-rows` and then committing them through
-`object-store-write-smoke`; live S3/GCS/ADLS providers, table/lakehouse commits, and production
-object-store claims remain gated. `ctx.foundry_generated_output(...)` admits only the local
-Foundry-style result/evidence dataset proof; real Foundry output APIs, production Foundry runtime,
-and direct S3/object-store shortcuts remain gated.
-
-The scoped DataFrame source-free projection helper lowers literal aliases to the generated-source
-local-output command and returns the same `GeneratedSourceWriteReport` as other generated-output
-paths:
-
-```python
-ctx.dataframe_source_free_projection("lit(1).alias('value')").write("target/generated-df.jsonl")
-```
-
-The scoped generated DataFrame `with_column` helper admits a one-row literal column and writes
-through the same generated-source local-output command:
-
-```python
-(
-    ctx.dataframe_generated_with_column("value", "lit(1)")
-    .write("target/generated-df-column.jsonl")
-)
-```
-
-Generated rows can also be written through the scoped local-emulator object-store route:
-
-```python
-object_store = ctx.generated_output_to_object_store(
-    "target/object-store/generated.jsonl",
-    rows=[{"id": 1, "label": "alpha"}],
-    allow_overwrite=True,
-)
-
-print(object_store.object_store_write_status)
-print(object_store.fallback_attempted, object_store.external_engine_invoked)
-```
-
-The Foundry helper is similarly scoped to the local dev-stack proof. A local path writes generated
-rows through ShardLoom into a result dataset-shaped directory and writes an evidence
-dataset-shaped directory through the local Foundry-style output API:
-
-```python
-foundry = ctx.foundry_generated_output(
-    "target/foundry/result-dataset",
-    rows=[{"id": 1, "label": "alpha"}],
-    allow_overwrite=True,
-)
-
-print(foundry.foundry_style_output_api_invoked)
-print(foundry.fallback_attempted, foundry.external_engine_invoked)
-```
-
-Remote object-store generated-output targets and real Foundry references still expose deterministic
-unsupported reports when called with `check=False`. Those reports do not stage rows, probe
-credentials, invoke real Foundry, call an external engine, or attempt fallback:
-
-```python
-remote_report = ctx.generated_output_to_object_store("s3://bucket/out.jsonl", check=False)
-foundry_report = ctx.foundry_generated_output("foundry://dataset/output")
-```
+Source-free SQL expressions, `VALUES`, and range constructors use the same query path. A generated
+input does not imply support for every operation or sink: dtype, operation, adapter, and build
+feature admission still apply. The `generated_source_*` capability views are declarative maps; they
+do not constitute execution reports. Consult the live workflow report for `status`, and sink reports
+for `output_commit_status` and `native_io_certificate_status`.
 
 The client also exposes the P7 claim gate closeout report:
 
@@ -1757,189 +1279,17 @@ Spark, DataFusion, Polars, DuckDB, pandas, and Dask belong only in optional
 benchmark environments; they are not ShardLoom runtime dependencies or fallback
 engines.
 
-## Live ETL Smoke
+## Local Analytics Benchmark
 
-The current live ETL surface is intentionally narrow and explicit.
-Compatibility-file mode runs `traditional-analytics-run`, which imports CSV,
-JSON/JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC inputs into temporary local
-Vortex files before running the temporary benchmark operator. Native Vortex mode
-runs the same provider runtime exposed to release routes as
-`vortex-production-runtime-run` from existing `.vortex` inputs. The
-low-level `traditional_analytics_vortex_run` helper can also pass an explicit
-`cdc_delta_vortex` artifact for the scoped prepared/native CDC overlay row; that
-does not imply broad table CDC or transaction support.
+Use the parameterized benchmark harness at `benchmarks/traditional_analytics/run.py` for local
+analytics comparisons. The example wrapper in `examples/local-vortex-benchmark/` forwards its
+arguments to that harness and selects the public ShardLoom workflow. Supply a built CLI binary and
+workspace explicitly; the harness owns fixture generation, resource limits, and output handling.
+Benchmark results are workload- and host-specific evidence, not a general performance claim.
 
-```python
-from shardloom import ShardLoomClient
-
-client = ShardLoomClient.from_repo()
-result = client.live_etl_smoke(
-    "selective filter",
-    "benchmarks/traditional_analytics/data/fact.csv",
-    "benchmarks/traditional_analytics/data/dim.csv",
-    input_format="csv",
-    workspace="target/shardloom-python-live-etl",
-    verify_native_replay=True,
-    write_result_vortex=True,
-)
-
-print(result.status)
-print(result.field("rows_scanned"))
-print(result.field("materialization_boundary_reported"))
-print(result.field("output_replay_verified"))
-print(result.field("combined_output_digest"))
-print(result.field("output_replay_native_io_certificate_status"))
-print(result.field("computed_result_sink_replay_verified"))
-print(result.field("computed_result_sink_native_io_certificate_status"))
-print(result.field("runtime_task_graph_executed"))
-print(result.field("runtime_execution_certificate_status"))
-print(result.field("runtime_memory_reservations_released"))
-print(result.fallback.attempted)
-```
-
-Resource sizing is automatic by default. ShardLoom derives applied parallelism,
-batch rows, and target partition count from the local machine and source
-footprint. Pass `memory_gb=` or `max_parallelism=` only when a job or benchmark
-needs explicit caps.
-
-`verify_native_replay=True` maps to the CLI `--verify-native-replay` flag. It
-keeps the smoke workflow local, re-opens the emitted Vortex artifacts, compares
-the replay result with the first execution, and returns workload-scoped evidence
-fields such as `workload_constitution_id`, `benchmark_row_ref`,
-`coverage_row_ref`, Vortex artifact digests, commit/cleanup status, and replay
-Native I/O certificate status. It is only valid for compatibility-file inputs;
-existing `.vortex` inputs already use the native Vortex smoke command directly.
-
-`write_result_vortex=True` maps to `--write-result-vortex`. It writes the
-computed result envelope to `result.vortex`, re-opens that Vortex artifact,
-checks the stored result JSON and materialized-row count, and returns result-sink
-digest, schema, replay, Native I/O certificate, and write-timing fields. A
-workflow is reported as `workload_certified` only when source replay and computed
-result-sink replay both pass.
-
-The same response now includes local runtime closeout fields for the certified
-workflow: deterministic task-graph scheduler refs, bounded queue/backpressure
-status, cancellation and retry gate status, memory reservation/request/grant/
-release counts, fail-before-OOM status, operator spill claim blockers, and the
-runtime execution certificate status. These fields remain workload-scoped
-evidence for `local_vortex_analytics_v1`, not broad SQL/DataFrame runtime
-claims.
-
-For the current compatibility-file universal-I/O path, use the replay helper
-when you want to see both parts separately: boundary import into Vortex, then
-steady-state native Vortex execution from the emitted artifacts.
-
-```python
-from shardloom import ShardLoomClient
-
-client = ShardLoomClient.from_repo()
-result = client.live_etl_csv_to_vortex_replay(
-    "selective filter",
-    "benchmarks/traditional_analytics/data/fact.csv",
-    "benchmarks/traditional_analytics/data/dim.csv",
-    workspace="target/shardloom-python-live-etl",
-)
-
-print(result.csv_import.field("fact_vortex_path"))
-print(result.native_vortex.field("source_format") if result.native_vortex else None)
-print(result.fallback_attempted)
-```
-
-For lower-level local Vortex primitive testing, the wrapper exposes a certified
-fixture smoke workflow over the same explicit CLI JSON commands used by the
-current CG-2/CG-13/CG-16/CG-19 evidence path:
-
-```python
-from shardloom import ShardLoomClient
-
-client = ShardLoomClient.from_repo()
-result = client.local_vortex_primitive_smoke(
-    "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
-)
-
-print(result.commands)
-print(result.all_certified)
-print(result.filter_project.field("filter_project_local_execution_rows_projected"))
-print(result.fallback_attempted)
-```
-
-The Python helper path uses the public `run` facade for explicit local primitive
-execution, so envelopes have `command=run` plus
-`public_workflow_resolved_internal_command` set to `vortex-run`,
-`vortex-count-where`, `vortex-filter`, `vortex-project`, or
-`vortex-filter-project`. Count-all, no-argument row-level distinct, scoped source-order tail, and
-deterministic row-count sampling map through `vortex-run`; count-where, filter, project, and
-filter-project map through their scoped primitive commands. Distinct, tail, and sample use explicit
-projection, source-order limit or sample fraction, sample seed or integer `random_state`,
-optional positive numeric weight column, row-count or fractional replacement-aware sampling,
-`memory_gb`, and `max_parallelism`
-payloads where relevant.
-The lower `vortex-*` commands remain available for direct diagnostics, tests,
-and benchmark evidence. Calls without explicit local primitive execution use
-the existing metadata/plan evidence surfaces where the CLI supports them.
-
-The repository smoke script prints command, status, certificate, Native I/O,
-materialization, work-metric, evidence-artifact, and no-fallback fields:
-
-```powershell
-python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
-$env:RUSTUP_TOOLCHAIN = $env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
-cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom
-
-$env:PYTHONPATH = "python\src"
-python python\examples\local_vortex_primitives_smoke.py --repo-root .
-```
-
-The compatibility-source planning smoke shows the adjacent report-only boundary
-for CSV, JSON/JSONL/NDJSON, Parquet, and Arrow IPC inputs before any execution claim.
-It plans representative local paths without checking that the files exist,
-reading data, writing data, or materializing rows:
-
-```powershell
-$env:PYTHONPATH = "python\src"
-python python\examples\compatibility_source_smoke.py --repo-root .
-```
-
-Override planned sources when you want to inspect your own paths:
-
-```powershell
-python python\examples\compatibility_source_smoke.py --repo-root . `
-  --source csv=data\fact.csv `
-  --source ndjson=data\events.ndjson `
-  --source parquet=data\fact.parquet
-```
-
-The workflow-readiness smoke pulls together the next no-write boundary: output
-target preview, compatibility-output translation planning, staged Vortex
-write/commit readiness, table/catalog/object-store/remote-source planning, and
-migration/correctness/benchmark evidence status.
-
-```python
-from shardloom import ShardLoomClient
-
-client = ShardLoomClient.from_repo()
-readiness = client.workflow_readiness_smoke()
-
-print(readiness.plan_names)
-print(readiness.all_no_write)
-print(readiness.all_report_only_or_planned)
-print(readiness.blocked_plan_names)
-print(readiness.fallback_attempted)
-```
-
-The matching script prints the same surfaces grouped by output/commit,
-table/remote, and evidence readiness:
-
-```powershell
-$env:PYTHONPATH = "python\src"
-python python\examples\workflow_readiness_smoke.py --repo-root .
-```
-
-This smoke does not create the staged workspace, write manifests, write Vortex
-payloads, open object-store credentials, read remote objects, query catalogs,
-materialize rows, or invoke fallback engines. Actual write and commit commands
-remain separate explicit CLI calls gated by their readiness signals and feature
-flags.
+For application queries, use `ctx.read(...)` or a source-free constructor, then call `collect()` or
+write to a declared output with the same `LazyFrame`. See `docs/getting-started/examples.md` for
+runnable SQL and Python examples.
 
 ## Quickstart Proof
 
@@ -2286,12 +1636,10 @@ The example script wires the same calls together:
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python python\examples\live_etl_smoke.py `
-  --mode csv `
-  --scenario "selective filter" `
-  --fact benchmarks\traditional_analytics\data\fact.csv `
-  --dim benchmarks\traditional_analytics\data\dim.csv `
-  --workspace target\shardloom-python-live-etl
+python examples\local-vortex-benchmark\run.py `
+  --shardloom-binary target\release\shardloom.exe `
+  --workspace "$HOME\LocalData\shardloom\traditional-benchmarks" `
+  --input-state raw --output-format collect --reference-engine pandas
 ```
 
 ## Test

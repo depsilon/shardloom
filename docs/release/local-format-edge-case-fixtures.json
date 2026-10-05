@@ -27,12 +27,12 @@
       ],
       "edge_case_families": [
         "prepared_native_replay",
-        "metadata_statistics_preservation",
+        "nullable_schema_preservation",
         "zero_decode_boundary"
       ],
       "fixture_status": "covered_by_existing_focused_tests",
       "fixture_refs": [
-        "shardloom-vortex/src/traditional_analytics.rs::enabled_filter_projection_limit_uses_prepared_native_vortex_scan",
+        "shardloom-vortex/src/local_primitive_native_sink_tests.rs::public_native_sink_streams_nullable_filter_projection_and_ordered_limit_exactly",
         "shardloom-contract-tests/tests/fidelity_invariants.rs::translation_plan_and_report_respect_native_vs_compatibility_contract"
       ],
       "correctness_case_refs": [
@@ -43,7 +43,7 @@
         "filter_project_limit_property_seed_20260618"
       ],
       "expected_diagnostic_or_policy": "unsupported_vortex_layout_or_dtype_must_block_before_broad_native_io_claim",
-      "coverage_boundary": "scoped local prepared routes and native output planning only; broad Vortex schema read/write certification remains open",
+      "coverage_boundary": "nullable schema, filter/projection/limit values, and native Vortex output readback are asserted; physical statistics preservation through rewrite is not covered",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false
@@ -55,14 +55,14 @@
         "csv"
       ],
       "edge_case_families": [
-        "malformed_rows",
+        "malformed_timestamp_values",
         "dirty_numeric_cast",
         "temporal_cast"
       ],
       "fixture_status": "covered_by_existing_focused_tests",
       "fixture_refs": [
-        "shardloom-vortex/src/traditional_analytics.rs::enabled_malformed_timestamp_dirty_csv_uses_prepared_native_vortex_scan",
-        "python/tests/test_v1_front_door_runtime_scope.py::malformed_timestamp_cast"
+        "shardloom-cli/tests/public_workflow_route.rs::public_raw_sql_prepares_vortex_for_text_aggregates_and_writes",
+        "shardloom-cli/src/sql_native_workload_tests.rs::native_workload_sql_text_kernels_preserve_null_and_format_semantics"
       ],
       "correctness_case_refs": [
         "try_cast_projection_null_on_invalid",
@@ -73,7 +73,7 @@
         "expression_parser_fuzz_seed_20260614"
       ],
       "expected_diagnostic_or_policy": "fail_closed_unless_declared_cast_path_admits_dirty_value",
-      "coverage_boundary": "current fixture covers scoped cast-clean path; arbitrary malformed CSV recovery remains unsupported unless admitted by profile",
+      "coverage_boundary": "one malformed timestamp is filtered and mixed numeric/JSON aggregates are checked on collect and JSONL readback; arbitrary malformed CSV recovery remains unsupported unless admitted by profile",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false
@@ -91,8 +91,8 @@
       ],
       "fixture_status": "covered_by_existing_focused_tests",
       "fixture_refs": [
-        "shardloom-vortex/src/traditional_analytics.rs::enabled_null_heavy_aggregate_uses_prepared_native_vortex_scan",
-        "docs/release/v1-correctness-conformance-matrix.json"
+        "shardloom-cli/tests/public_memory_inputs.rs::typed_nullable_and_empty_memory_inputs_keep_native_semantics",
+        "shardloom-cli/tests/public_workflow_route.rs::public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths"
       ],
       "correctness_case_refs": [
         "null_coalesce_nullif",
@@ -104,7 +104,7 @@
         "filter_project_limit_property_seed_20260618"
       ],
       "expected_diagnostic_or_policy": "nullability_and_validity_semantics_preserved_or_blocked",
-      "coverage_boundary": "flat scalar null-heavy aggregate fixture only; nested null semantics remain profile-gated",
+      "coverage_boundary": "declared CSV schemas preserve all-null groups, mixed groups with mostly NULL values, and empty scalar aggregates; the same complete-value semantics are checked for declared-memory input",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false
@@ -123,8 +123,8 @@
       ],
       "fixture_status": "covered_by_existing_focused_tests",
       "fixture_refs": [
-        "benchmarks/traditional_analytics/run.py::write_nested_json_fixture",
-        "shardloom-vortex/src/traditional_analytics.rs::generated_nested_payload_fields_preserves_deterministic_diagnostics"
+        "shardloom-cli/tests/vortex_prepare.rs::vortex_prepare_normalizes_nested_jsonl_as_utf8_payload",
+        "shardloom-cli/tests/public_workflow_route.rs::public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths"
       ],
       "correctness_case_refs": [
         "like_predicate_utf8",
@@ -135,8 +135,8 @@
         "string_function_property_seed_20260622",
         "sql_parser_surface_fuzz_seed_20260613"
       ],
-      "expected_diagnostic_or_policy": "flat_json_or_string_payload_scan_only_until_nested_path_certification",
-      "coverage_boundary": "string/nested-payload scan coverage only; arbitrary JSON path and struct access remain deterministically blocked",
+      "expected_diagnostic_or_policy": "literal_field_and_index_paths_are_admitted_with_missing_path_nulls_and_explicit_unsupported_JSONPath_diagnostics",
+      "coverage_boundary": "nested JSONL objects normalize to UTF8; exact field/index extraction, empty arrays and missing paths are checked through public SQL; arbitrary JSONPath remains unsupported",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false
@@ -155,7 +155,7 @@
       ],
       "fixture_status": "covered_by_existing_focused_tests",
       "fixture_refs": [
-        "shardloom-vortex/src/traditional_analytics.rs::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "shardloom-cli/tests/public_workflow_route.rs::public_columnar_compatibility_reopens_complete_nullable_values_and_filter_limits",
         "shardloom-contract-tests/tests/fidelity_invariants.rs::compatibility_output_writer_matrix_respects_claim_boundaries"
       ],
       "correctness_case_refs": [
@@ -167,7 +167,7 @@
         "output_writer_policy_fuzz_seed_20260617"
       ],
       "expected_diagnostic_or_policy": "unsupported_dtype_or_invalid_file_must_emit_deterministic_blocker",
-      "coverage_boundary": "flat scalar admitted local compatibility export and columnar provider handoff only; nested extension dtype production support remains gated",
+      "coverage_boundary": "nullable source values are asserted through Arrow IPC/Parquet sink readback; adapter smoke is separate, and no broad extension-type claim is made",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false
@@ -181,13 +181,13 @@
       ],
       "edge_case_families": [
         "compatibility_import",
-        "logical_type_loss",
-        "projection_report"
+        "nullable_scalar_roundtrip",
+        "complete_row_readback"
       ],
       "fixture_status": "covered_by_existing_focused_tests",
       "fixture_refs": [
-        "shardloom-vortex/src/traditional_analytics.rs::enabled_build_roundtrips_common_formats_through_vortex_outputs",
-        "docs/release/local-format-pushdown-fidelity-report.json"
+        "shardloom-cli/tests/public_memory_inputs.rs::memory_query_fanout_reopens_all_eight_formats_through_the_public_engine",
+        "shardloom-vortex/src/local_primitive_relational_writer_tests.rs::native_relational_all_eight_writers_preserve_outer_join_and_set_values_and_empty_schema"
       ],
       "correctness_case_refs": [
         "output_jsonl_property_seed_20260626",
@@ -198,7 +198,7 @@
         "expression_parser_fuzz_seed_20260614"
       ],
       "expected_diagnostic_or_policy": "invalid_container_or_unsupported_logical_type_blocks_before_execution",
-      "coverage_boundary": "flat scalar compatibility bridge only; complex unions, maps, and nested lists require semantic certification",
+      "coverage_boundary": "flat nullable scalar and Unicode values have exact import/export readback coverage; broader logical types require separate proof",
       "claim_gate_status": "not_claim_grade",
       "fallback_attempted": false,
       "external_engine_invoked": false

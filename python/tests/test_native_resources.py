@@ -135,7 +135,7 @@ class NativeResourceTransportTests(unittest.TestCase):
                 self.assertEqual(command[command.index("--memory-gb") + 1], str(memory), command)
                 self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant), command)
 
-    def test_session_reuse_does_not_replace_a_new_resource_allocation(self) -> None:
+    def test_each_session_collect_uses_its_native_resource_allocation(self) -> None:
         source = self.root / "cached.csv"
         source.write_text("key\n1\n", encoding="utf-8")
         for as_sql in [False, True]:
@@ -157,8 +157,11 @@ class NativeResourceTransportTests(unittest.TestCase):
                     self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant))
                 executed = len(self.commands)
                 repeated = workflow.collect(check=True, **resources)
-                self.assertTrue(repeated.reuse_hit)
-                self.assertEqual(len(self.commands), executed)
+                self.assertFalse(repeated.reuse_hit)
+                self.assertGreater(len(self.commands), executed)
+                for command in self.commands[executed:]:
+                    self.assertEqual(command[command.index("--memory-gb") + 1], str(memory))
+                    self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant))
 
     def test_environment_defaults_preserve_one_cpu_and_large_allocations(self) -> None:
         for supplied, expected in [("1", 1), ("3", 3), ("17", 17), ("128", 128), ("0", 2), ("invalid", 2)]:

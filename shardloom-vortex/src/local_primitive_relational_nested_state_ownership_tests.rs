@@ -72,6 +72,7 @@ fn native_nested_parent_validity_does_not_prepare_hidden_child_keys() {
                 groups: vec![],
                 group_names: vec![],
                 measures: vec![Measure {
+                    decimal_source: None,
                     function: SimpleAggregateFunction::Count,
                     column: Some("hidden".into()),
                     dtype: count_dtype,

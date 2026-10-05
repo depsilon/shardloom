@@ -19,7 +19,7 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode and finite nested key/retained-state operations. Scalar pivot columns bind during execution, including correlated inner scopes. | Operation/type coverage is finite. Nested key/state acceptance remains pending. Variant/extensions and broader SQL/DataFrame semantics retain gaps; scalar pivot keeps its 128-field, type and memory boundaries. |
+| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations and exact decimal reductions. Scalar pivot columns bind during execution, including correlated inner scopes. | Operation/type coverage is finite. Analytic frames, scalar-value subqueries, nested pivot state and broader adapters remain subsequent work; scalar pivot keeps its 128-field, type and memory boundaries. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
@@ -29,7 +29,8 @@ The **65,536-row / 128-top-level-field / 8-MiB** bound applies to small computed
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte
 limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet
-and Avro; nested CSV/ORC output is denied. Recursive schema/child-buffer admission,
+and Avro. CSV translates nested values to quoted JSON text without logical-type
+preservation; ORC rejects nested output. Recursive schema/child-buffer admission,
 format fidelity, resources and write policy still apply. Binary, exact Decimal128,
 Date32 and timezone-free microsecond timestamps are admitted payloads, including
 nested leaves. Flat key operations for these types follow the [typed key contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md).
@@ -39,23 +40,28 @@ structs through existing joins, sets, groups, sort, windows and subqueries,
 with COUNT/COUNT DISTINCT/MIN/MAX and scoped selected expressions. Exact
 recursive schemas include field names/order, widths, decimal metadata and
 temporal identity; recursive nullability is ignored for key compatibility.
-Local and hosted acceptance remains pending. Current
-source builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
+The finite nested/typed units are merged after complete local and hosted checks.
+Current source builds admit typed literals, explicit CAST/TRY_CAST, exact decimal
 arithmetic/rounding and scoped binary/calendar functions through the shared
 native expression binder. Decimal arithmetic output metadata binds before
 execution; explicit decimal downscaling requires zero discarded digits. Key
 compatibility still requires matching decimal precision/scale and preserves
-distinct temporal types. Richer aggregate/window semantics, broader adapters
+distinct temporal types. Wider analytic-window semantics, broader adapters
 and state spill remain separate. See the [typed expression contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-expressions-2026-10-03.md).
 Flat retained unary state admits the four typed domains for duplicate selection,
 tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and scoped
 pivot policies. The nested contract also admits DISTINCT/duplicate selection
 and masks, tail, sampling, parent forward fill, same-shape melt and rolling COUNT.
 Forward fill replaces a NULL parent; child NULLs do not trigger filling.
-Nested pivot state, structured literals, nested arithmetic/string operations,
-decimal rolling arithmetic, temporal arithmetic rewrites, typed legacy predicates
+Nested pivot state, nested arithmetic/string operations,
+temporal arithmetic rewrites, wider typed predicates
 and general state spill remain unsupported.
 See the [typed unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md).
+Computed aggregate arguments and exact decimal aggregate/rolling/scalar-pivot
+reductions now have complete local acceptance. Inexact decimal averages and final
+overflow remain explicit errors. ARRAY/STRUCT constructors use admitted native
+children. See the [revised engine acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-reductions-full43-2026-10-05.md)
+for the frozen scope, full public and ClickBench results, and remaining work.
 ORC rejects decimal/temporal output. General Variant/extension operations retain
 separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).

@@ -4,7 +4,7 @@
 use super::{
     CommandStatus, ExitCode, NativeVortexInputBinding, OutputFormat, PublicExecutionSession,
     PublicVortexPrimitive, PublicWorkflowRoutePlan, PublicWorkflowRouteRequest, ShardLoomError,
-    append_native_vortex_materializing_primitive_fields, emit,
+    append_native_result_schema_fields, append_native_vortex_materializing_primitive_fields, emit,
     execute_native_vortex_materializing_primitive_run_with_extra, execution_attachment_fields,
     native_vortex_bound_request_and_arg, native_vortex_input_binding_for_request,
     native_vortex_materializing_error, native_vortex_materializing_policy,
@@ -209,6 +209,8 @@ fn render(
         None,
     );
     let (jsonl, _json_ownership) = executed.value.result_jsonl.into_parts();
+    let (schema, _schema_ownership) = executed.value.result_schema_json.into_parts();
+    append_native_result_schema_fields(&mut fields, schema);
     fields.extend([
         ("result_jsonl".into(), jsonl),
         ("result_payload_complete".into(), "true".into()),

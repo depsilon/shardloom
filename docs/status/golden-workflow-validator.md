@@ -27,8 +27,8 @@ shardloom.golden_workflow_validation_report.v1
 
 | Workflow | Runtime proof | Claim boundary |
 | --- | --- | --- |
-| local CSV/JSONL to `vortex_ingest` to prepared query to JSONL/CSV output | `vortex-prepare`, prepared `vortex-filter-project`, Python `ctx.prepare_vortex(...)`, and native Vortex JSONL/CSV fanout over a shared local source | Local runtime path only; the ad hoc ingested artifact has Native I/O evidence, while fixture execution certificates remain limited to checked-in primitive fixtures |
-| generated source to local Vortex output and replay/fidelity evidence | `generated-source-user-rows --output-format vortex` plus local `vortex-filter-project` replay over the emitted `.vortex` artifact | Source-free local Vortex output/replay only; no broad generated SQL, object-store, table, or production sink claim |
+| local CSV/JSONL to `vortex_ingest` to prepared query to JSONL/CSV output | `vortex-prepare`, public `run dataframe` with complete SQL, Python `ctx.prepare_vortex(...)`, and native JSONL/CSV fanout with complete-file value checks | Local runtime path only; input preparation and execution emit native evidence within their declared boundaries |
+| source-free SQL to local Vortex output and complete readback | Public `run sql` with `VALUES` writes Vortex; a second public query reopens every row and column and compares them with literal expected values | Source-free local Vortex output/readback only; no broad generated SQL, object-store, table, or production sink claim |
 | prepared/native Vortex count/filter/project with execution certificates | `vortex-count-where`, `vortex-project`, and `vortex-filter-project` over `local_primitive_struct_five.vortex` | Scoped fixture-certified native Vortex primitive coverage only |
 
 ## Required Evidence
@@ -48,8 +48,9 @@ row_counts
 artifact_refs
 local_primitive_execution_certificate_status=certified
 local_primitive_native_io_certificate_status=certified
-output_native_io_certificate_status=certified_local_fanout_sinks|certified_local_vortex_sink
-result_replay_verified=true
+native_vortex_result_export_all_targets_committed=true
+complete JSONL/CSV files equal declared expected rows
+complete typed Vortex readback equals every expected row and column
 reopen_verification_status=reopen_metadata_row_count_verified for prepared-ingest certification
 fallback_attempted=false
 external_engine_invoked=false

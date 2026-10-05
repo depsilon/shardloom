@@ -16,6 +16,7 @@ use super::{
 };
 use crate::{
     relational_query::{VortexRelationalPlan, VortexRelationalSetKind as SetKind},
+    resident_memory_source::{PreparedMemoryProjection, ResidentMemorySource},
     resident_session::{
         NativeExecutionContext, OwnedVortexResultBatch, PreparedVortexSource,
         ResidentSessionSnapshot, ResidentVortexSession,
@@ -46,7 +47,7 @@ pub(super) use bind::{
 };
 #[path = "local_primitive_relational_dynamic.rs"]
 mod dynamic;
-pub use dynamic::prepare_relational_with_dynamic_schema;
+pub use dynamic::{prepare_relational_with_dynamic_inputs, prepare_relational_with_dynamic_schema};
 #[path = "local_primitive_relational_correlated.rs"]
 mod correlated;
 #[path = "local_primitive_relational_report.rs"]
@@ -91,6 +92,7 @@ pub struct ExecutedVortexRelational {
 pub struct CollectedVortexRelational {
     pub execution: ExecutedVortexRelational,
     pub result_jsonl: Budgeted<String>,
+    pub result_schema_json: Budgeted<String>,
 }
 
 pub struct ExecutedOwnedVortexRelational {
@@ -102,6 +104,7 @@ pub struct ExecutedOwnedVortexRelational {
 pub struct PreparedVortexRelational {
     session: ResidentVortexSession,
     sources: Vec<PreparedVortexSource>,
+    memory_sources: Vec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     source_paths: Vec<PathBuf>,
     root: PreparedRoot,
@@ -144,7 +147,10 @@ impl Node {
         match &self.kind {
             NodeKind::CompletedPivot { rows, .. } => Some(*rows as u64),
             NodeKind::Outer => Some(1),
-            NodeKind::Scan { source, .. } => Some(sources[*source].file().row_count()),
+            NodeKind::Scan { source, .. } => Some(match source {
+                ScanSource::File(index) => sources[*index].file().row_count(),
+                ScanSource::Memory(projection) => projection.source_rows() as u64,
+            }),
             NodeKind::Project { input, .. }
             | NodeKind::Filter { input, .. }
             | NodeKind::Sort { input, .. }
@@ -200,6 +206,11 @@ impl Node {
     }
 }
 
+enum ScanSource {
+    File(usize),
+    Memory(Box<PreparedMemoryProjection>),
+}
+
 enum NodeKind {
     CompletedPivot {
         operation: Box<BoundUnary>,
@@ -233,7 +244,7 @@ enum NodeKind {
         count: usize,
     },
     Scan {
-        source: usize,
+        source: ScanSource,
         plan: LocalVortexScanPlan,
         columns: Vec<String>,
         residual: Option<MaterializedPredicateEvaluator>,
@@ -291,6 +302,19 @@ pub struct VortexRelationalPreparation<'a> {
 }
 
 impl VortexRelationalPreparation<'_> {
+    /// Normalize a declared input into native memory owned by this preparation.
+    /// The adapter constructs arrays only; the returned URI is consumed by the
+    /// ordinary relational scan, operators, resource controls and writers.
+    /// # Errors
+    /// Rejects duplicate/non-memory URIs, foreign ownership and adapter failures.
+    pub fn register_memory_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        build: impl FnOnce(&ResidentVortexSession) -> Result<ResidentMemorySource>,
+    ) -> Result<()> {
+        self.binding.register_memory_source(uri, build)
+    }
+
     /// Resolve authoritative column names from the retained native source schema.
     /// # Errors
     /// Rejects unavailable sources, nonstruct schemas and denied metadata capacity.
@@ -349,10 +373,16 @@ fn prepare_relational_with_owner(
     }
     let plan = lower(&mut preparation)?;
     let root = preparation.binding.bind(&plan, 0)?;
-    let (sources, source_paths, metadata) = preparation.binding.finish()?;
+    let bind::BoundSources {
+        sources,
+        source_paths,
+        memory_sources,
+        metadata,
+    } = preparation.binding.finish()?;
     Ok(PreparedVortexRelational {
         session,
         sources,
+        memory_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
         policy,
@@ -385,10 +415,16 @@ pub fn prepare_relational_in_session(
     }
     let mut binding = bind::Binder::new(session)?;
     let root = binding.bind(plan, 0)?;
-    let (sources, source_paths, metadata) = binding.finish()?;
+    let bind::BoundSources {
+        sources,
+        source_paths,
+        memory_sources,
+        metadata,
+    } = binding.finish()?;
     Ok(PreparedVortexRelational {
         session: session.clone(),
         sources,
+        memory_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
         policy,
@@ -635,6 +671,7 @@ impl PreparedVortexRelational {
             rows,
             batch_rows,
             self.sources.len(),
+            self.memory_sources.len(),
             spill.as_ref(),
         )?;
         Ok(ExecutedVortexRelational {
@@ -644,7 +681,7 @@ impl PreparedVortexRelational {
             output_buffer_bytes: bytes,
             scan_rows_delivered: metrics.scan_rows.get(),
             scan_batches: metrics.scan_batches.get(),
-            prepared_sources: self.sources.len(),
+            prepared_sources: self.sources.len() + self.memory_sources.len(),
             schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
             dynamic_schema_stages: metrics.schema_discovery_stages.get(),
             output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
@@ -722,7 +759,8 @@ impl PreparedVortexRelational {
                 columns,
                 residual,
             } => scan::run(
-                &self.sources[*source],
+                source,
+                &self.sources,
                 plan,
                 columns,
                 residual.as_ref(),
@@ -873,10 +911,13 @@ impl PreparedVortexRelational {
         let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
-        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
+        let (result_jsonl, result_schema_json) =
+            sink.finish_certified(&mut execution.native_io_certificate)?;
+        execution.runtime = self.snapshot();
         Ok(CollectedVortexRelational {
             execution,
             result_jsonl,
+            result_schema_json,
         })
     }
 

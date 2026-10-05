@@ -353,13 +353,50 @@ fn public_sql_route_inspects_typed_queries_without_touching_missing_sources() {
 
 #[cfg(all(unix, feature = "vortex-local-primitives", feature = "vortex-write"))]
 #[test]
-fn public_sql_typed_cast_and_arithmetic_on_empty_source_remain_errors() {
+fn public_sql_admitted_decimal_operations_preserve_empty_result_schema() {
+    let fixture = Fixture::new();
+    for (projection, column, dtype) in [
+        (
+            "SELECT CAST(amount AS VARCHAR) AS converted",
+            "converted",
+            "Utf8",
+        ),
+        (
+            "SELECT CAST(amount AS DECIMAL(18, 6)) + 1 AS adjusted",
+            "adjusted",
+            "Decimal",
+        ),
+    ] {
+        let (success, stdout) = collect(
+            &fixture.empty_vortex,
+            &sql(&fixture.empty_vortex, projection),
+        );
+        assert!(success, "{projection}: {stdout}");
+        assert_complete_result(&stdout, &json!([]));
+        let envelope: Value = serde_json::from_str(&stdout).unwrap();
+        let schema: Value = serde_json::from_str(
+            envelope_field(&envelope, "result_schema_json").expect("empty result schema"),
+        )
+        .unwrap();
+        assert_eq!(schema["Struct"][0]["names"], json!([column]));
+        assert!(
+            schema["Struct"][0]["dtypes"][0].get(dtype).is_some(),
+            "{schema}"
+        );
+        assert_eq!(envelope_field(&envelope, "data_read"), Some("false"));
+    }
+}
+
+#[cfg(all(unix, feature = "vortex-local-primitives", feature = "vortex-write"))]
+#[test]
+fn public_sql_invalid_typed_operations_are_rejected_even_on_empty_sources() {
     let fixture = Fixture::new();
     for statement in [
         sql(
             &fixture.empty_vortex,
-            "SELECT CAST(amount AS VARCHAR) AS converted",
+            "SELECT CAST(amount AS BOOLEAN) AS converted",
         ),
+        sql(&fixture.empty_vortex, "SELECT payload + 1 AS adjusted"),
         sql(&fixture.empty_vortex, "SELECT amount + 1 AS adjusted"),
     ] {
         let (success, stdout) = collect(&fixture.empty_vortex, &statement);

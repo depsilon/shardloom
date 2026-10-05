@@ -23,6 +23,20 @@ pub fn prepare_relational_with_dynamic_schema(
     declaration_bytes: usize,
     lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan> + 'static,
 ) -> Result<PreparedVortexRelational> {
+    prepare_relational_with_dynamic_inputs(sources, policy, declaration_bytes, |_| Ok(()), lower)
+}
+
+/// Register native memory inputs before retaining a dynamic declaration. The
+/// same native schema binder and executor also admit ordinary file sources.
+/// # Errors
+/// Propagates input, resource, schema and source admission failures.
+pub fn prepare_relational_with_dynamic_inputs(
+    sources: &[DatasetUri],
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    declaration_bytes: usize,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<()>,
+    lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan> + 'static,
+) -> Result<PreparedVortexRelational> {
     if policy.max_parallelism == 0
         || policy.resource_envelope.max_parallelism != policy.max_parallelism
         || policy.resource_envelope.memory_budget_bytes == 0
@@ -41,15 +55,24 @@ pub fn prepare_relational_with_dynamic_schema(
         policy.resource_envelope.memory_budget_bytes,
         policy.max_parallelism,
     )?;
-    let mut binding = bind::Binder::new(&session)?;
-    binding.charge(declaration_bytes)?;
+    let mut preparation = VortexRelationalPreparation {
+        binding: bind::Binder::new(&session)?,
+    };
+    inputs(&mut preparation)?;
+    preparation.binding.charge(declaration_bytes)?;
     for source in sources {
-        binding.source(source)?;
+        preparation.binding.source_columns(source)?;
     }
-    let (sources, source_paths, metadata) = binding.finish()?;
+    let bind::BoundSources {
+        sources,
+        source_paths,
+        memory_sources,
+        metadata,
+    } = preparation.binding.finish()?;
     Ok(PreparedVortexRelational {
         session,
         sources,
+        memory_sources,
         source_paths,
         root: PreparedRoot::Dynamic(Box::new(lower)),
         policy,

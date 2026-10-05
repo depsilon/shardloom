@@ -393,23 +393,35 @@ def ensure_report(
     return payload, command_summary, blockers
 
 
+def _list_items(value: Any) -> list[Any]:
+    return list(value) if isinstance(value, (list, tuple)) else []
+
+
 def validate_source_prepared(payload: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
     blockers: list[str] = []
     expected = {
         "schema_version": "shardloom.v1_source_prepared_state_scope_report.v1",
         "status": "passed",
+        "evidence_class": "declarative_specification",
         "claim_gate_status": "not_claim_grade",
+        "canonical_route": (
+            "declared input or source-free expression -> native Vortex admission -> "
+            "native_vortex_unified_plan -> typed result or declared sink"
+        ),
+        "route_ids": ["native_vortex_query"],
+        "state_owner": "ResidentVortexSession",
+        "reuse_scope": "native_session_or_explicit_vortex_artifact",
+        "reuse_policy": "validate_source_generation_and_declaration_before_each_execution",
+        "query_answers_cached": False,
+        "runtime_execution_performed": False,
+        "performance_evidence_produced": False,
     }
     for key, value in expected.items():
-        if payload.get(key) != value:
+        if (payload.get(key) is not value if isinstance(value, bool) else payload.get(key) != value):
             blockers.append(f"source_prepared_state: {key}={payload.get(key, 'missing')}")
-    for key in (
-        "v1_scope_ready",
-        "all_no_fallback_no_external_engine",
-        "all_prepared_routes_expose_reuse_contract",
-        "all_internal_source_smoke_routes_are_labeled_non_persistent",
-        "all_generated_routes_expose_single_artifact_output",
-    ):
+    if payload.get("runtime_evidence_verified", False) is not False:
+        blockers.append("source_prepared_state: runtime_evidence_verified must be false when present")
+    for key in ("v1_scope_ready", "all_no_fallback_no_external_engine"):
         if payload.get(key) is not True:
             blockers.append(f"source_prepared_state: {key} must be true")
     for key in fail_closed_fields():
@@ -417,12 +429,14 @@ def validate_source_prepared(payload: Mapping[str, Any]) -> tuple[dict[str, Any]
             blockers.append(f"source_prepared_state: {key} must be false")
     return {
         "status": "passed" if not blockers else "failed",
-        "prepared_route_count": len(payload.get("prepared_route_ids", [])),
-        "unsupported_boundary_count": len(payload.get("unsupported_boundary_ids", [])),
-        "internal_source_smoke_non_persistent": payload.get(
-            "all_internal_source_smoke_routes_are_labeled_non_persistent"
-        )
-        is True,
+        "evidence_class": payload.get("evidence_class"),
+        "runtime_evidence_verified": False,
+        "route_ids": _list_items(payload.get("route_ids")),
+        "state_owner": payload.get("state_owner"),
+        "reuse_scope": payload.get("reuse_scope"),
+        "reuse_policy": payload.get("reuse_policy"),
+        "query_answers_cached": payload.get("query_answers_cached"),
+        "unsupported_boundary_count": len(_list_items(payload.get("unsupported_boundary_ids"))),
     }, blockers
 
 
@@ -431,10 +445,14 @@ def validate_local_output(payload: Mapping[str, Any]) -> tuple[dict[str, Any], l
     expected = {
         "schema_version": "shardloom.v1_local_output_sink_scope_report.v1",
         "status": "passed",
+        "evidence_class": "declarative_contract",
+        "declarative_contract_ready": True,
+        "runtime_evidence_verified": False,
+        "output_route_ids": ["native_vortex_query"],
         "claim_gate_status": "not_claim_grade",
     }
     for key, value in expected.items():
-        if payload.get(key) != value:
+        if (payload.get(key) is not value if isinstance(value, bool) else payload.get(key) != value):
             blockers.append(f"local_output_sink: {key}={payload.get(key, 'missing')}")
     for key in (
         "v1_scope_ready",
@@ -443,20 +461,46 @@ def validate_local_output(payload: Mapping[str, Any]) -> tuple[dict[str, Any], l
         "all_output_routes_no_fallback_no_external_engine",
         "all_write_methods_no_fallback_no_external_engine",
         "write_policy_contract_ready",
-        "local_output_sink_benchmark_replay_ready",
     ):
         if payload.get(key) is not True:
             blockers.append(f"local_output_sink: {key} must be true")
     for key in fail_closed_fields():
         if payload.get(key) is not False:
             blockers.append(f"local_output_sink: {key} must be false")
+    routes = payload.get("output_user_route_rows")
+    if not isinstance(routes, list) or len(routes) != 1:
+        blockers.append("local_output_sink: exactly one output route row is required")
+    else:
+        route = routes[0]
+        if not isinstance(route, Mapping) or route.get("route_id") != "native_vortex_query":
+            blockers.append("local_output_sink: route row must be native_vortex_query")
+        else:
+            if route.get("owner") != "shared_native_workflow":
+                blockers.append("local_output_sink: route owner must be shared_native_workflow")
+            if route.get("execution_mode") != "native_vortex":
+                blockers.append("local_output_sink: route execution_mode must be native_vortex")
+    expected_policy_ids = {
+        "error_if_exists_by_default",
+        "explicit_allow_overwrite",
+        "append_mode_unsupported",
+        "atomic_rename_same_directory",
+        "partial_write_cleanup_reported",
+    }
+    policy_ids = payload.get("write_policy_ids")
+    if (
+        not isinstance(policy_ids, list)
+        or {item for item in policy_ids if isinstance(item, str)} != expected_policy_ids
+        or len(policy_ids) != len(expected_policy_ids)
+    ):
+        blockers.append("local_output_sink: write policy id set mismatch")
     return {
         "status": "passed" if not blockers else "failed",
-        "output_route_count": len(payload.get("output_route_ids", [])),
-        "write_method_count": len(payload.get("user_write_methods", [])),
-        "unsupported_boundary_count": len(payload.get("unsupported_boundary_ids", [])),
+        "evidence_class": payload.get("evidence_class"),
+        "runtime_evidence_verified": False,
+        "output_route_count": len(_list_items(payload.get("output_route_ids"))),
+        "write_method_count": len(_list_items(payload.get("user_write_methods"))),
+        "unsupported_boundary_count": len(_list_items(payload.get("unsupported_boundary_ids"))),
         "write_policy_contract_ready": payload.get("write_policy_contract_ready") is True,
-        "sink_replay_ready": payload.get("local_output_sink_benchmark_replay_ready") is True,
     }, blockers
 
 

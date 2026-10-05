@@ -9,7 +9,6 @@ correctness against literal expectations; it makes no performance or RSS claim.
 from __future__ import annotations
 
 import argparse
-import csv
 import datetime as dt
 import gzip
 import hashlib
@@ -19,8 +18,8 @@ import signal
 import sys
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
-from run_clickbench_query_uat import file_sha256, strict_json
-from run_native_unary_uat import csv_cell, require_unique_report_fields
+from run_clickbench_query_uat import file_sha256
+from run_native_unary_uat import require_unique_report_fields
 from native_relational_composition_cases import cases as composition_cases
 from native_relational_resource_cases import run as resource_cases
 from native_aggregate_ordering_cases import run as aggregate_cases
@@ -29,6 +28,9 @@ from native_nested_composition_cases import run as nested_cases
 from native_dynamic_pivot_cases import run as dynamic_pivot_cases
 from native_typed_payload_cases import run as typed_payload_cases
 from native_uat_envelope_archive import archive_envelopes
+from native_memory_cases import run as memory_cases
+from native_workflow_outputs import write_outputs
+from native_workflow_materialization import MATERIALIZATIONS, dependencies
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -108,7 +110,9 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--build-commit", required=True)
-    parser.add_argument("--family", choices=("all", "unary", "nested", "pivot", "typed"), default="all")
+    parser.add_argument("--family", choices=("all", "base", "unary", "nested", "pivot", "typed", "reductions", "memory"), default="all")
+    parser.add_argument("--materializations", nargs="+", choices=MATERIALIZATIONS, default=["python"],
+                        help="memory-family conversion matrix; requested optional packages are required")
     parser.add_argument("--nested-fixture-generator", type=Path,
                         help="native_nested_uat_fixture example binary, required for all/nested")
     parser.add_argument("--typed-fixture-generator", type=Path,
@@ -124,7 +128,7 @@ def main() -> int:
         parser.error("--nested-fixture-generator is required for the nested input fixtures")
     fixture_generator = (args.nested_fixture_generator.resolve(strict=True)
                          if args.nested_fixture_generator is not None else None)
-    if args.family in ("all", "typed") and args.typed_fixture_generator is None:
+    if args.family in ("all", "typed", "reductions") and args.typed_fixture_generator is None:
         parser.error("--typed-fixture-generator is required for the typed input fixtures")
     typed_generator = (args.typed_fixture_generator.resolve(strict=True)
                        if args.typed_fixture_generator is not None else None)
@@ -140,48 +144,49 @@ def main() -> int:
     guard()
     root.mkdir(parents=True, exist_ok=True)
     code = Path(__file__).resolve()
-    query = code.parents[1] / "python/src/shardloom/query.py"
-    client_code = code.parents[1] / "python/src/shardloom/client.py"
-    composition_code = code.with_name("native_relational_composition_cases.py")
-    resource_code = code.with_name("native_relational_resource_cases.py")
-    aggregate_code = code.with_name("native_aggregate_ordering_cases.py")
-    unary_code = code.with_name("native_unary_composition_cases.py")
-    nested_code = code.with_name("native_nested_composition_cases.py")
-    pivot_code = code.with_name("native_dynamic_pivot_cases.py")
-    typed_code = code.with_name("native_typed_payload_cases.py")
-    typed_key_code = code.with_name("native_typed_key_cases.py")
-    typed_expression_code = code.with_name("native_typed_expression_cases.py")
-    typed_unary_code = code.with_name("native_typed_unary_cases.py")
-    nested_key_state_code = code.with_name("native_nested_key_state_cases.py")
-    resource_evidence_code = code.with_name("native_report_evidence.py")
-    archive_code = code.with_name("native_uat_envelope_archive.py")
-    renderer_code = query.with_name("_relational_sql.py")
+    acceptance_sources = {
+        "binary_sha256": binary, "harness_sha256": code,
+        "python_query_sha256": code.parents[1] / "python/src/shardloom/query.py",
+        "python_client_sha256": code.parents[1] / "python/src/shardloom/client.py",
+        "python_context_sha256": code.parents[1] / "python/src/shardloom/context.py",
+        "python_models_sha256": code.parents[1] / "python/src/shardloom/models.py",
+        "python_session_sha256": code.parents[1] / "python/src/shardloom/session.py",
+        "python_relational_renderer_sha256": code.parents[1] / "python/src/shardloom/_relational_sql.py",
+        "python_result_schema_sha256": code.parents[1] / "python/src/shardloom/_result_schema.py",
+        "composition_cases_sha256": code.with_name("native_relational_composition_cases.py"),
+        "resource_cases_sha256": code.with_name("native_relational_resource_cases.py"),
+        "aggregate_cases_sha256": code.with_name("native_aggregate_ordering_cases.py"),
+        "unary_cases_sha256": code.with_name("native_unary_composition_cases.py"),
+        "nested_cases_sha256": code.with_name("native_nested_composition_cases.py"),
+        "dynamic_pivot_cases_sha256": code.with_name("native_dynamic_pivot_cases.py"),
+        "typed_payload_cases_sha256": code.with_name("native_typed_payload_cases.py"),
+        "typed_key_cases_sha256": code.with_name("native_typed_key_cases.py"),
+        "typed_expression_cases_sha256": code.with_name("native_typed_expression_cases.py"),
+        "typed_unary_cases_sha256": code.with_name("native_typed_unary_cases.py"),
+        "typed_reduction_cases_sha256": code.with_name("native_typed_reduction_cases.py"),
+        "nested_key_state_cases_sha256": code.with_name("native_nested_key_state_cases.py"),
+        "native_resource_evidence_sha256": code.with_name("native_report_evidence.py"),
+        "envelope_archive_helper_sha256": code.with_name("native_uat_envelope_archive.py"),
+        "memory_cases_sha256": code.with_name("native_memory_cases.py"),
+        "workflow_outputs_sha256": code.with_name("native_workflow_outputs.py"),
+        "workflow_materialization_sha256": code.with_name("native_workflow_materialization.py"),
+        "workflow_protocol_sha256": code.with_name("native_workflow_protocol.py"),
+        "query_uat_helpers_sha256": code.with_name("run_clickbench_query_uat.py"),
+        "reference_packet_loader_sha256": code.with_name("clickbench_reference_packet.py"),
+    }
     summary = {
         "schema_version": "shardloom.native_relational_python_acceptance.v1",
         "status": "running", "build_commit": args.build_commit, "cases": [],
         "acceptance_family": args.family,
+        "materializations": args.materializations,
+        "materialization_packages": dependencies(args.materializations),
         "compressed_envelopes": args.compress_logs,
         "envelope_files": [],
         "envelope_archives": [],
-        "binary_sha256": file_sha256(binary), "harness_sha256": file_sha256(code),
-        "python_query_sha256": file_sha256(query), "fallback_attempted": False,
-        "python_client_sha256": file_sha256(client_code),
-        "composition_cases_sha256": file_sha256(composition_code),
-        "resource_cases_sha256": file_sha256(resource_code),
-        "aggregate_cases_sha256": file_sha256(aggregate_code),
-        "unary_cases_sha256": file_sha256(unary_code),
-        "nested_cases_sha256": file_sha256(nested_code),
-        "dynamic_pivot_cases_sha256": file_sha256(pivot_code),
-        "typed_payload_cases_sha256": file_sha256(typed_code),
-        "typed_key_cases_sha256": file_sha256(typed_key_code),
-        "typed_expression_cases_sha256": file_sha256(typed_expression_code),
-        "typed_unary_cases_sha256": file_sha256(typed_unary_code),
-        "nested_key_state_cases_sha256": file_sha256(nested_key_state_code),
-        "native_resource_evidence_sha256": file_sha256(resource_evidence_code),
-        "envelope_archive_helper_sha256": file_sha256(archive_code),
+        **{key: file_sha256(path) for key, path in acceptance_sources.items()},
+        "fallback_attempted": False,
         "nested_fixture_generator_sha256": (file_sha256(fixture_generator) if fixture_generator else None),
         "typed_fixture_generator_sha256": (file_sha256(typed_generator) if typed_generator else None),
-        "python_relational_renderer_sha256": file_sha256(renderer_code),
         "external_engine_invoked": False, "performance_claim": False,
         "total_rss_bound": False, "csv_contract": "complete header/row text; null is an empty field",
     }
@@ -250,7 +255,7 @@ def main() -> int:
 
         context = sl.context(binary=str(binary), cwd=output, timeout=120)
         client = context.client
-        if args.family == "all":
+        if args.family in ("all", "base"):
             raw_left, raw_right = output / "cargo.jsonl", output / "dimension.jsonl"
             typed_left, typed_right = output / "typed-left.csv", output / "typed-right.data"
             typed_left.write_text("key,amount\n001,2\n1,3\n")
@@ -289,38 +294,8 @@ def main() -> int:
                 sql_report = sql_workflow.collect(check=False)
                 accepted(name, sql_report)
                 complete(name, list(sql_report.result_rows), expected)
-                for extension in ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"]:
-                    guard()
-                    name = f"{family}-{extension}"
-                    destination = output / f"{name}.{extension}"
-                    accepted(name, getattr(workflow, f"write_{extension}")(destination, check=False))
-                    if extension == "csv":
-                        with destination.open(newline="") as stream:
-                            reader = csv.DictReader(stream)
-                            if reader.fieldnames != columns:
-                                raise ValueError(f"{name}: CSV column order differs: {reader.fieldnames!r} != {columns!r}")
-                            actual = list(reader)
-                        complete(name, actual, [{k: csv_cell(v) for k, v in row.items()} for row in expected], destination)
-                        continue
-                    if extension == "json":
-                        actual = strict_json(destination.read_text())
-                    else:
-                        decoded = destination
-                        if extension != "jsonl":
-                            native = destination
-                            if extension != "vortex":
-                                native = output / f"{name}-normalized.vortex"
-                                accepted(f"{name}-prepare", getattr(context, f"read_{extension}")(
-                                    destination).prepare(native, check=False))
-                            schema = accepted(f"{name}-schema", context.sql(
-                                f"SELECT * FROM (SELECT * FROM '{native}') AS reopened LIMIT 0"
-                            ).collect(check=False))
-                            if schema.field("output_columns") != ",".join(columns):
-                                raise ValueError(f"{name}: reopened schema column order differs")
-                            decoded = output / f"{name}-reopened.jsonl"
-                            accepted(f"{name}-reopen", context.read_vortex(native).write_jsonl(decoded, check=False))
-                        actual = [strict_json(line) for line in decoded.read_text().splitlines()]
-                    complete(name, actual, expected, destination)
+                write_outputs(context, output, workflow, expected, columns, name=family,
+                              guard=guard, accepted=accepted, complete=complete)
             # A finite input can still exceed the small collection boundary. Derived
             # stages must preserve complete streaming output beyond that boundary.
             large_raw, large = output / "large.jsonl", output / "large.vortex"
@@ -339,33 +314,8 @@ def main() -> int:
                                for item in denial.raw.get("diagnostics", []))):
                 raise ValueError("large derived collection did not enforce its existing row boundary")
             expected = [{"identifier": value} for value in range(1, count + 1)]
-            for extension in ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"]:
-                guard()
-                name = f"composition-large-{extension}"
-                destination = output / f"{name}.{extension}"
-                accepted(name, getattr(workflow, f"write_{extension}")(destination, check=False))
-                if extension == "csv":
-                    with destination.open(newline="") as stream:
-                        reader = csv.DictReader(stream)
-                        if reader.fieldnames != ["identifier"]:
-                            raise ValueError("large CSV schema differs")
-                        actual = list(reader)
-                    complete(name, actual, [{"identifier": str(row["identifier"])} for row in expected], destination)
-                    continue
-                if extension == "json":
-                    actual = strict_json(destination.read_text())
-                else:
-                    decoded = destination
-                    if extension != "jsonl":
-                        native = destination
-                        if extension != "vortex":
-                            native = output / f"{name}-normalized.vortex"
-                            accepted(f"{name}-prepare", getattr(context, f"read_{extension}")(
-                                destination).prepare(native, check=False))
-                        decoded = output / f"{name}-reopened.jsonl"
-                        accepted(f"{name}-reopen", context.read_vortex(native).write_jsonl(decoded, check=False))
-                    actual = [strict_json(line) for line in decoded.read_text().splitlines()]
-                complete(name, actual, expected, destination)
+            write_outputs(context, output, workflow, expected, ["identifier"],
+                          name="composition-large", guard=guard, accepted=accepted, complete=complete)
 
             resource_cases(context, root / "data" / f"resources_{stamp}", guard,
                            accepted, complete, sources, identity)
@@ -383,6 +333,13 @@ def main() -> int:
         if args.family in ("all", "typed"):
             typed_payload_cases(context, root / "data" / f"typed_{stamp}", guard,
                                 accepted, complete, sources, identity, typed_generator)
+        if args.family == "reductions":
+            typed_payload_cases(context, root / "data" / f"reductions_{stamp}", guard,
+                                accepted, complete, sources, identity, typed_generator,
+                                reductions_only=True)
+        if args.family in ("all", "memory"):
+            memory_cases(context, root / "data" / f"memory_{stamp}", guard,
+                         accepted, complete, sources, identity, materializations=args.materializations)
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")
@@ -397,21 +354,7 @@ def main() -> int:
             {"path": str(path), "sha256": digest, "identity": generation}
             for path, digest, generation in sources
         ]
-        for path, key in [(binary, "binary_sha256"), (code, "harness_sha256"), (query, "python_query_sha256"),
-                          (client_code, "python_client_sha256"), (composition_code, "composition_cases_sha256"),
-                          (resource_code, "resource_cases_sha256"),
-                          (aggregate_code, "aggregate_cases_sha256"),
-                          (unary_code, "unary_cases_sha256"),
-                          (nested_code, "nested_cases_sha256"),
-                          (pivot_code, "dynamic_pivot_cases_sha256"),
-                          (typed_code, "typed_payload_cases_sha256"),
-                          (typed_key_code, "typed_key_cases_sha256"),
-                          (typed_expression_code, "typed_expression_cases_sha256"),
-                          (typed_unary_code, "typed_unary_cases_sha256"),
-                          (nested_key_state_code, "nested_key_state_cases_sha256"),
-                          (resource_evidence_code, "native_resource_evidence_sha256"),
-                          (archive_code, "envelope_archive_helper_sha256"),
-                          (renderer_code, "python_relational_renderer_sha256")]:
+        for key, path in acceptance_sources.items():
             if file_sha256(path) != summary[key]:
                 raise ValueError(f"{key} changed during acceptance")
         compact_envelopes()

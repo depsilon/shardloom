@@ -2,8 +2,10 @@
 
 # Native binary, decimal and temporal payloads
 
-Status: locally accepted under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21;
-hosted acceptance remains pending. The [phase plan](phased-execution-plan.md) owns sequencing.
+Status: accepted under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21 and merged in
+[PR #1508](https://github.com/depsilon/shardloom/pull/1508) on October 4 after all
+37 hosted checks passed. The [completed ledger](phased-execution-completed-ledger.md)
+records exact identities and review limitations; the [phase plan](phased-execution-plan.md) owns sequencing.
 This extends the [universal workflow plan](universal-workflow-completion-2026-10-01.md)
 and [nested payload contract](native-nested-composition-2026-10-02.md); it does
 not close their wider operator, adapter, resource or spill obligations.
@@ -73,9 +75,12 @@ are exact signed integer units. CSV uses the existing typed cell convention.
 These text formats do not persist native logical types. Native Vortex does;
 Arrow IPC and Parquet must retain the mapped types. Avro fidelity is established
 by actual readback, including its existing integer/list translations. ORC's
-current writer admits binary but rejects decimals and temporal types. Nested
-CSV/ORC remain unsupported. Unsupported output must fail without publishing a
-destination, including for empty results.
+current writer admits binary but rejects decimals and temporal types. The
+[shared native workflow](native-typed-reductions-2026-10-04.md) extends CSV to
+nested JSON text cells, preserving values while reporting logical dtype loss.
+Nested ORC remains unsupported. Unsupported output must fail without publishing
+a destination, including for empty results. The original acceptance below
+predates this CSV extension.
 
 The expert comparator is a columnar-engine maintainer reviewing type identity,
 precision, temporal storage, hidden null payloads, compact ownership and
@@ -104,7 +109,7 @@ coverage or broader spill admission.
 
 Availability requires correctness, ownership and output evidence, not a speedup.
 Paused large format/text performance runs, native Python binding experiments,
-package publication and the inherited website advisory decision stay separate.
+package publication and hosted runtime acceptance stay separate.
 
 The frozen `8237a900` acceptance passes 4,109 complete public checks, including
 804 typed-payload checks, the separate 202-check direct-unary matrix, all 24

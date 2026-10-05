@@ -182,10 +182,10 @@ pub(super) fn decimal128_binary_metadata(
             left.scale.saturating_add(right.scale),
         ),
         BinaryOp::Divide => (38, left.scale.max(right.scale).max(6)),
-        BinaryOp::And | BinaryOp::Or => {
+        BinaryOp::Remainder | BinaryOp::And | BinaryOp::Or => {
             return Err(EvalFailure::unsupported(
                 "decimal128_arithmetic",
-                "decimal128 requires an arithmetic operator",
+                "decimal128 admits addition, subtraction, multiplication and division",
             ));
         }
     };

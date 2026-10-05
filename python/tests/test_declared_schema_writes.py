@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import shardloom as sl
 from shardloom.client import PublicWorkflowExecution, ShardLoomClient, VortexIngestSmokeReport
 from shardloom.models import OutputEnvelope
-from shardloom.query import SqlLocalSourceSmokeReport, UnsupportedWorkflowOperationReport
+from shardloom.query import VortexWorkflowExecutionReport, UnsupportedWorkflowOperationReport
 
 
 class _CapturingClient:
@@ -75,7 +75,7 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
     ) -> None:
         report = frame.write(output_path, output_format=output_format, check=False)
 
-        self.assertIsInstance(report, SqlLocalSourceSmokeReport)
+        self.assertIsInstance(report, VortexWorkflowExecutionReport)
         self.assertNotIsInstance(report, UnsupportedWorkflowOperationReport)
         self.assertEqual(client.prepare_calls, [])
         self.assertEqual(len(client.run_calls), 1)
@@ -122,7 +122,7 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
                 {"parquet": primary, "csv": secondary}, check=False
             )
 
-            self.assertIsInstance(report, SqlLocalSourceSmokeReport)
+            self.assertIsInstance(report, VortexWorkflowExecutionReport)
             self.assertNotIsInstance(report, UnsupportedWorkflowOperationReport)
             self.assertEqual(client.prepare_calls, [])
             self.assertEqual(len(client.run_calls), 1)
@@ -143,7 +143,7 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
                 check=False,
             )
 
-            self.assertIsInstance(report, SqlLocalSourceSmokeReport)
+            self.assertIsInstance(report, VortexWorkflowExecutionReport)
             self.assertNotIsInstance(report, UnsupportedWorkflowOperationReport)
             self.assertEqual(report.status, "error")
             self.assertEqual(client.prepare_calls, [])

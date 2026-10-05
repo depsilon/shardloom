@@ -89,7 +89,8 @@ GAP_FAMILIES: tuple[GapFamily, ...] = (
         validators=(
             "cargo test -p shardloom-vortex",
             "cargo test -p shardloom-cli vortex_",
-            "cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+            "PYTHONPATH=benchmarks/traditional_analytics:scripts "
+            "python3 -m unittest python.tests.test_public_native_benchmark",
         ),
         no_fallback_invariant="Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
         claim_boundary="Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
@@ -367,7 +368,8 @@ GAP_FAMILIES: tuple[GapFamily, ...] = (
         ),
         validators=(
             "cargo test -p shardloom-cli fanout",
-            "cargo test -p shardloom-contract-tests --test traditional_benchmark_harness",
+            "PYTHONPATH=benchmarks/traditional_analytics:scripts "
+            "python3 -m unittest python.tests.test_public_native_benchmark",
             "python3 scripts/check_benchmark_publish_doctor.py",
         ),
         no_fallback_invariant="Fanout and reuse must reuse ShardLoom-prepared state and local output stages, not external engines or fallback.",

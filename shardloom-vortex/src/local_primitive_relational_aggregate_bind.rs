@@ -6,7 +6,8 @@ use super::{
 };
 use crate::{
     local_primitives::{
-        SimpleAggregateFunction as Function, native_relational_aggregate as kernel,
+        SimpleAggregateFunction as Function, native_decimal_reduce,
+        native_relational_aggregate as kernel,
     },
     relational_query::VortexRelationalAggregate,
 };
@@ -63,20 +64,11 @@ impl Binder<'_> {
             if let Some(source) = source {
                 validate_key(source)?;
             }
-            let dtype = match function {
-                Function::Count | Function::CountDistinct => {
-                    DType::Primitive(PType::U64, Nullability::NonNullable)
-                }
-                Function::Sum | Function::Avg => {
-                    if !matches!(source, Some(DType::Primitive(_, _))) {
-                        return Err(failed("SUM and AVG require numeric arguments"));
-                    }
-                    DType::Primitive(PType::F64, Nullability::Nullable)
-                }
-                Function::Min | Function::Max => {
-                    source.expect("measure requires a column").as_nullable()
-                }
+            let decimal_source = match (function, source) {
+                (Function::Sum | Function::Avg, Some(DType::Decimal(decimal, _))) => Some(*decimal),
+                _ => None,
             };
+            let dtype = reduction_dtype(function, source)?;
             let distinct_fields = if function == Function::CountDistinct {
                 vec![
                     (
@@ -96,6 +88,7 @@ impl Binder<'_> {
                 function,
                 column: name,
                 dtype,
+                decimal_source,
                 distinct_fields,
                 distinct_names: vec!["group".into(), "value".into()],
             });
@@ -112,4 +105,23 @@ impl Binder<'_> {
             kind: NodeKind::Aggregate { input, spec },
         })
     }
+}
+
+fn reduction_dtype(function: Function, source: Option<&DType>) -> Result<DType> {
+    Ok(match function {
+        Function::Count | Function::CountDistinct => {
+            DType::Primitive(PType::U64, Nullability::NonNullable)
+        }
+        Function::Sum | Function::Avg => match source {
+            Some(DType::Decimal(decimal, _)) => DType::Decimal(
+                native_decimal_reduce::output_dtype(*decimal, function == Function::Avg)?,
+                Nullability::Nullable,
+            ),
+            Some(DType::Primitive(_, _)) => DType::Primitive(PType::F64, Nullability::Nullable),
+            _ => return Err(failed("SUM and AVG require numeric arguments")),
+        },
+        Function::Min | Function::Max => source
+            .ok_or_else(|| failed("aggregate measure requires an input column"))?
+            .as_nullable(),
+    })
 }

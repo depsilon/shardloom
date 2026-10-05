@@ -66,15 +66,6 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "serve",
     "agent-contract-pack",
     "python-wrapper-plan",
-    "generated-source-user-rows",
-    "generated-source-user-rows-smoke",
-    "generated-source-range",
-    "generated-source-range-smoke",
-    "generated-source-sequence",
-    "generated-source-sequence-smoke",
-    "generated-source-sql",
-    "generated-source-sql-smoke",
-    "local-source-runtime",
     "vortex-prepare",
     "sqlite-local-import-export-smoke",
     "workflow-unsupported-plan",
@@ -234,14 +225,8 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "vortex-layout-driver-approval-plan",
     "vortex-filtered-count-readiness-plan",
     "vortex-projection-readiness-plan",
-    "traditional-analytics-run",
-    "traditional-analytics-vortex-run",
-    "vortex-production-runtime-run",
-    "traditional-analytics-vortex-batch-run",
-    "traditional-analytics-prepare-batch-run",
     "vortex-count",
     "vortex-count-benchmark",
-    "operator-microkernel-benchmark",
     "vortex-count-where",
     "vortex-project",
     "vortex-filter-project",
@@ -882,21 +867,6 @@ fn command_usage_fragment(command: &str) -> String {
         "rest-api-security-governance" => format!("{command} [safe-local-default|destructive-policy-required|agent-mcp-discovery]"),
         "rest-api-data-plane" => format!("{command} [artifact-reference-default|flight-ticket-requested|adbc-endpoint-requested|standards-matrix]"),
         "serve" => "serve --mode discovery [--bind host:port]".to_string(),
-        "generated-source-user-rows" | "generated-source-user-rows-smoke" => {
-            format!("{command} <local-output-path> <schema> <rows>")
-        }
-        "generated-source-range"
-        | "generated-source-range-smoke"
-        | "generated-source-sequence"
-        | "generated-source-sequence-smoke" => {
-            format!("{command} <local-output-path> <start> <end>")
-        }
-        "generated-source-sql" | "generated-source-sql-smoke" => {
-            format!("{command} <local-output-path> <sql-statement>")
-        }
-        "local-source-runtime" => {
-            format!("{command} <sql-statement> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc]")
-        }
         "vortex-prepare" => {
             format!("{command} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex]")
         }
@@ -908,12 +878,6 @@ fn command_usage_fragment(command: &str) -> String {
         "udf-local-scalar-fixture-smoke" => format!("{command} <comma-separated-int64-or-null>"),
         "embedding-vector-local-fixture-smoke" => {
             format!("{command} <semicolon-separated-texts> [--query <text>]")
-        }
-        "traditional-analytics-prepare-batch-run" => {
-            format!("{command} <scenario_csv> <fact_input> <dim_input> --workspace <dir>")
-        }
-        "vortex-production-runtime-run" => {
-            format!("{command} <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex]")
         }
         "workflow-unsupported-plan" => {
             format!(
@@ -1115,7 +1079,6 @@ fn command_support_state(command: &str) -> &'static str {
             | "vortex-run"
             | "vortex-query-trace"
             | "vortex-prepare"
-            | "local-source-runtime"
             | "python-worker"
             | "run"
             | "prepare"
@@ -1133,9 +1096,6 @@ fn command_support_state(command: &str) -> &'static str {
 fn command_user_surface_graduation_posture(command: &str) -> &'static str {
     if command == "python-worker" {
         return "not_user_facing";
-    }
-    if command == "local-source-runtime" {
-        return "diagnostic_only";
     }
     if command == "vortex-prepare" {
         return "public_runtime";
@@ -1194,7 +1154,6 @@ fn command_side_effect_level(command: &str) -> &'static str {
                 | "vortex-bounded-local-exec"
                 | "vortex-run"
                 | "vortex-query-trace"
-                | "local-source-runtime"
                 | "run"
                 | "prepare"
                 | "vortex-encoded-read-spike"
@@ -1313,7 +1272,6 @@ fn command_output_contract(command: &str) -> &'static str {
                 | "vortex-bounded-local-exec"
                 | "vortex-run"
                 | "vortex-query-trace"
-                | "local-source-runtime"
                 | "spill-payload-roundtrip"
                 | "cleanup-synthetic-payload"
         )

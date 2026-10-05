@@ -39,15 +39,17 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
             "shardloom.v1_vortex_runtime_scope_report.v1",
         )
         self.assertEqual(report["local_vortex_primitive_route_count"], 11)
-        self.assertEqual(report["native_vortex_provider_route_count"], 8)
-        self.assertEqual(report["local_file_benchmark_route_count"], 16)
         self.assertTrue(report["local_vortex_primitive_v1_scope_ready"])
-        self.assertTrue(report["native_vortex_provider_route_v1_scope_ready"])
-        self.assertFalse(
-            report["native_vortex_provider_general_multi_input_join_claim_allowed"]
-        )
         self.assertTrue(report["user_route_v1_vortex_scope_ready"])
         self.assertTrue(report["all_no_fallback_no_external_engine"])
+        self.assertEqual(report["evidence_class"], "declarative_specification")
+        self.assertFalse(report["runtime_execution_performed"])
+        self.assertFalse(report["performance_evidence_produced"])
+        self.assertEqual(
+            set(report["user_route_ids"]),
+            {"native_vortex_query", "object_store_lakehouse_runtime"},
+        )
+        self.assertEqual(len(report["public_input_examples"]), 4)
         self.assertIn("object_store_vortex_io", report["unsupported_boundary_ids"])
         self.assertIn(
             "feature_gated_local_vortex_runtime",
@@ -56,6 +58,7 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
         self.assertFalse(report["performance_claim_allowed"])
         self.assertFalse(report["production_claim_allowed"])
         self.assertFalse(report["spark_replacement_claim_allowed"])
+        self.assertFalse(any("benchmark" in key or "scenario" in key for key in report))
 
     def test_context_reports_expose_v1_vortex_scope(self) -> None:
         source_path = str(REPO_ROOT / "python" / "src")
@@ -65,7 +68,6 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
 
         ctx = ShardLoomContext(client=None)
         primitive_report = ctx.local_vortex_primitive_route_report()
-        provider_report = ctx.native_vortex_provider_route_certificate_report()
         user_report = ctx.user_route_capability_report()
 
         self.assertEqual(
@@ -77,31 +79,116 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
             "docs/architecture/v1-vortex-runtime-scope.md",
         )
         self.assertTrue(primitive_report.v1_scope_ready)
-        self.assertTrue(provider_report.v1_scope_ready)
         self.assertTrue(user_report.v1_vortex_scope_ready)
         self.assertEqual(len(primitive_report.v1_supported_route_ids), 11)
-        self.assertEqual(len(provider_report.rows), 8)
         self.assertEqual(
-            provider_report.v1_provider_route_ids,
-            (
-                "native_vortex_user_aggregate",
-                "native_vortex_user_join",
-                "native_vortex_user_top_n",
-                "native_vortex_user_cast",
-                "native_vortex_user_contains",
-                "native_vortex_user_sink",
-            ),
+            set(user_report.route_order),
+            {"native_vortex_query", "object_store_lakehouse_runtime"},
         )
-        self.assertEqual(
-            provider_report.route("hash-join").right_input_contract,
-            "declared_native_vortex_right_input_required",
-        )
-        self.assertFalse(provider_report.general_multi_input_join_claim_allowed)
-        self.assertEqual(len(user_report.v1_vortex_supported_benchmark_scenario_ids), 16)
         self.assertIn(
-            "malformed_timestamp_cast",
-            user_report.v1_vortex_supported_benchmark_scenario_ids,
+            "source_free_sql_front_door",
+            {row.front_door_id for row in user_report.public_front_door_route_rows},
         )
+
+    def test_validator_accepts_and_rejects_hand_declared_user_route_reports(self) -> None:
+        module = load_scope_module()
+        constants = {
+            "supported_primitive_route_ids": ("vortex_count_all",),
+            "supported_starting_states": (
+                "native_local_vortex_file",
+                "prepared_local_vortex_state",
+                "prepared_compatibility_artifact",
+                "generated_local_vortex_artifact",
+            ),
+            "unsupported_boundary_ids": (
+                "object_store_vortex_io",
+                "table_catalog_vortex_io",
+                "generalized_source_sink_api",
+                "broad_vortex_sql_dataframe_parity",
+                "nested_complex_dtype_general_vortex",
+                "vector_device_gpu_vortex_runtime",
+            ),
+        }
+        native = SimpleNamespace(
+            route_id="native_vortex_query",
+            owner="shared_native_workflow",
+            input_family="declared_input_or_source_free",
+            input_examples=("data.vortex", "from_rows([...])", "SELECT 1 AS id"),
+            start_state="declared_input_or_source_free",
+            route_runtime_status="global_runtime_supported",
+            execution_mode="native_vortex",
+            vortex_normalization_point="declared input or source-free expression -> native Vortex admission -> native_vortex_unified_plan -> typed result or declared sink",
+            materialization_decode_boundary="native encoded until bounded result or sink",
+            output_route="complete typed result or committed requested output",
+            fallback_attempted=False,
+            external_engine_invoked=False,
+            claim_gate_status="not_claim_grade",
+            blocker_id=None,
+            performance_claim_allowed=False,
+            production_claim_allowed=False,
+            spark_replacement_claim_allowed=False,
+        )
+        external = SimpleNamespace(
+            route_id="object_store_lakehouse_runtime",
+            owner="external_environment_gate",
+            input_family="object_store_lakehouse_catalog",
+            input_examples=("s3://bucket/table",),
+            start_state="remote_or_table_source",
+            route_runtime_status="external_environment_gate_pending",
+            execution_mode="external_environment_gate_pending",
+            vortex_normalization_point="external environment proof required",
+            materialization_decode_boundary="remote output transfer explicit",
+            output_route="external production gate",
+            fallback_attempted=False,
+            external_engine_invoked=False,
+            claim_gate_status="not_claim_grade",
+            blocker_id="cg9.cg10.cg21.production_io_front_door_missing",
+            performance_claim_allowed=False,
+            production_claim_allowed=False,
+            spark_replacement_claim_allowed=False,
+        )
+        door_specs = (
+            ("local_source_vortex_middle_front_door", "local_compat_file", "ctx.read_csv('x.csv')"),
+            ("native_vortex_front_door", "native_vortex_file", "ctx.read_vortex('x.vortex')"),
+            ("declared_memory_front_door", "declared_memory", "ctx.from_rows([])"),
+            ("source_free_sql_front_door", "source_free", "ctx.sql('SELECT 1 AS id')"),
+        )
+        doors = tuple(
+            SimpleNamespace(
+                front_door_id=front_id,
+                owning_route_id="native_vortex_query",
+                input_family=family,
+                public_user_surface=surface,
+                vortex_normalization_point=native.vortex_normalization_point,
+                execution_mode="native_vortex",
+                output_route=native.output_route,
+                fallback_attempted=False,
+                external_engine_invoked=False,
+            )
+            for front_id, family, surface in door_specs
+        )
+        report = SimpleNamespace(
+            v1_vortex_scope_document="docs/architecture/v1-vortex-runtime-scope.md",
+            v1_vortex_supported_starting_states=constants["supported_starting_states"],
+            v1_vortex_supported_primitive_route_ids=constants["supported_primitive_route_ids"],
+            v1_vortex_unsupported_boundary_ids=constants["unsupported_boundary_ids"],
+            v1_vortex_feature_profile_decision="feature_gated_local_vortex_runtime",
+            v1_vortex_scope_ready=True,
+            all_no_fallback_no_external_engine=True,
+            route_order=(native.route_id, external.route_id),
+            rows=(native, external),
+            public_front_door_route_rows=doors,
+        )
+
+        self.assertEqual(module.validate_user_routes(report, constants), [])
+        native.owner = "missing_owner"
+        external.fallback_attempted = True
+        report.rows = (native, external, SimpleNamespace(route_id="unexpected_compatibility_route"))
+        report.route_order = (native.route_id, external.route_id, "unexpected_compatibility_route")
+        blockers = module.validate_user_routes(report, constants)
+        self.assertTrue(any("owner must be shared_native_workflow" in blocker for blocker in blockers))
+        self.assertTrue(any("external environment route: fallback_attempted" in blocker for blocker in blockers))
+        self.assertTrue(any("route ids must contain" in blocker for blocker in blockers))
 
     def test_validator_rejects_primitive_rows_missing_native_io_evidence(self) -> None:
         module = load_scope_module()
@@ -159,91 +246,6 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
             "vortex_count_all: required_evidence must include native_io_certificate",
             blockers,
         )
-
-    def test_validator_rejects_provider_rows_that_overclaim(self) -> None:
-        module = load_scope_module()
-        source_path = str(REPO_ROOT / "python" / "src")
-        if source_path not in sys.path:
-            sys.path.insert(0, source_path)
-        from shardloom import ShardLoomContext
-
-        report = ShardLoomContext(client=None).native_vortex_provider_route_certificate_report()
-        first = report.rows[0]
-        bad_row = SimpleNamespace(
-            **{
-                name: getattr(first, name)
-                for name in (
-                    "route_id",
-                    "operation_family",
-                    "provider_scenario",
-                    "benchmark_scenario_id",
-                    "python_surface",
-                    "sql_surface",
-                    "required_right_input",
-                    "right_input_contract",
-                    "resolved_internal_command",
-                    "feature_gate",
-                    "start_state",
-                    "vortex_normalization_point",
-                    "execution_policy",
-                    "typed_result_contract",
-                    "typed_sink_contract",
-                    "decode_materialization_boundary",
-                    "output_route",
-                    "evidence_route",
-                    "route_certificate_status",
-                    "route_certificate_source",
-                    "benchmark_route_equivalence",
-                    "route_runtime_status",
-                    "external_engine_invoked",
-                    "required_evidence",
-                    "claim_gate_status",
-                    "production_claim_allowed",
-                    "claim_boundary",
-                )
-            },
-            fallback_attempted=True,
-            performance_claim_allowed=True,
-        )
-        fake_report = SimpleNamespace(
-            rows=(bad_row,),
-            route_order=(bad_row.route_id,),
-            scenario_order=(bad_row.provider_scenario,),
-            schema_version=report.schema_version,
-            v1_scope_document=report.v1_scope_document,
-            v1_provider_route_ids=(bad_row.route_id,),
-            v1_provider_scenario_ids=(bad_row.provider_scenario,),
-            feature_gate=report.feature_gate,
-            v1_scope_ready=False,
-            all_runtime_supported=True,
-            all_route_certificates_current=True,
-            all_no_fallback_no_external_engine=False,
-            general_multi_input_join_claim_allowed=True,
-            performance_claim_allowed=True,
-            production_claim_allowed=False,
-        )
-
-        blockers = module.validate_provider_route_report(
-            fake_report,
-            {
-                "provider_route_ids": (bad_row.route_id,),
-                "provider_scenario_ids": (bad_row.provider_scenario,),
-            },
-        )
-
-        self.assertIn("native Vortex provider v1_scope_ready must be true", blockers)
-        self.assertIn("native Vortex provider routes must preserve no fallback", blockers)
-        self.assertIn(
-            "native Vortex provider report must not claim arbitrary joins",
-            blockers,
-        )
-        self.assertTrue(
-            any("fallback_attempted must be false" in blocker for blocker in blockers)
-        )
-        self.assertTrue(
-            any("performance_claim_allowed must be false" in blocker for blocker in blockers)
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

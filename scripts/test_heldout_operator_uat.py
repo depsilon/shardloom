@@ -11,18 +11,12 @@ import unittest
 import tempfile
 from unittest import mock
 
+from native_workflow_test_support import structured_envelope as envelope
 import run_heldout_operator_uat as heldout
 from run_heldout_operator_uat import (
     WORKERS, archive_stdout, cases, command_args, comparisons, concise_execution_fields, exact_equal, fixture_rows,
     fixture_input_writer, group_oracle, scalar_oracle, validate_diagnostic, validate_distinct_workers, validate_values,
 )
-
-
-def envelope(value):
-    payload = str(value) if type(value) is int else "native values=" + json.dumps({"rows": len(value), "values": value})
-    return {"status": "success", "human_text": "result summary: " + payload, "fallback": {"attempted": False},
-            "fields": [{"key": "public_workflow_fallback_attempted", "value": "false"},
-                       {"key": "public_workflow_external_engine_invoked", "value": "false"}]}
 
 
 class HeldoutOperatorTests(unittest.TestCase):
@@ -209,6 +203,8 @@ class HeldoutOperatorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fixture_rows(size)
         matrix = cases(rows)
+        self.assertEqual(matrix[0]["expected"], [{"count_all": len(rows)}])
+        validate_values(envelope(matrix[0]["expected"], [{"Primitive": ["u64", False]}]), matrix[0])
         self.assertEqual(len({case["name"] for case in matrix}), 19)
         self.assertEqual({case["family"] for case in matrix}, {
             "scalar", "distinct", "numeric_group", "string_group", "composite_group",

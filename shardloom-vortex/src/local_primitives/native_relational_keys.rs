@@ -283,7 +283,7 @@ impl KeyColumn {
     }
 
     /// A hash is only a candidate lookup. Callers must compare complete cells.
-    /// Equal integers hash identically across widths/signedness; floats stay typed.
+    /// Equal numeric values hash identically without rounding integer domains.
     pub(super) fn hash_into(&self, row: usize, hash: &mut rustc_hash::FxHasher) -> Result<bool> {
         if row >= self.len() {
             return Err(failed("hash row index exceeds key owner"));
@@ -314,8 +314,20 @@ impl KeyColumn {
                 hash.write_u64(value);
             }
             Cell::Float(bits) => {
-                hash.write_u8(3);
-                hash.write_u64(bits);
+                if let Some(integer) = exact_float_integer(f64::from_bits(bits)) {
+                    if integer < 0 {
+                        hash.write_u8(1);
+                        hash.write_i64(i64::try_from(integer).expect("bounded negative integer"));
+                    } else {
+                        hash.write_u8(2);
+                        hash.write_u64(
+                            u64::try_from(integer).expect("bounded nonnegative integer"),
+                        );
+                    }
+                } else {
+                    hash.write_u8(3);
+                    hash.write_u64(bits);
+                }
             }
             Cell::Boolean(value) => {
                 hash.write_u8(4);
@@ -410,6 +422,18 @@ pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
             left.cmp(&right)
         }
         (NonnegativeInteger(left), NonnegativeInteger(right)) => left.cmp(&right),
+        (NegativeInteger(left), Float(right)) => {
+            integer_float_order(i128::from(left), f64::from_bits(right))?
+        }
+        (NonnegativeInteger(left), Float(right)) => {
+            integer_float_order(i128::from(left), f64::from_bits(right))?
+        }
+        (Float(left), NegativeInteger(right)) => {
+            integer_float_order(i128::from(right), f64::from_bits(left))?.reverse()
+        }
+        (Float(left), NonnegativeInteger(right)) => {
+            integer_float_order(i128::from(right), f64::from_bits(left))?.reverse()
+        }
         (Float(left), Float(right)) => {
             let (left, right) = (f64::from_bits(left), f64::from_bits(right));
             if left == 0.0 && right == 0.0 {
@@ -431,6 +455,38 @@ pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
                 "incompatible relational key types require an explicit cast",
             ));
         }
+    })
+}
+
+const MIN_INTEGER_FLOAT: f64 = -9_223_372_036_854_775_808.0;
+const PAST_MAX_INTEGER_FLOAT: f64 = 18_446_744_073_709_551_616.0;
+
+#[allow(clippy::cast_possible_truncation)] // Integral and within the complete i64/u64 domain.
+fn exact_float_integer(value: f64) -> Option<i128> {
+    if !(MIN_INTEGER_FLOAT..PAST_MAX_INTEGER_FLOAT).contains(&value) || value.fract() != 0.0 {
+        return None;
+    }
+    Some(value as i128)
+}
+
+#[allow(clippy::cast_possible_truncation)] // Compare the bounded integer part, then the exact fractional sign.
+fn integer_float_order(integer: i128, value: f64) -> Result<Ordering> {
+    if !value.is_finite() {
+        return Err(failed("nonfinite scalar values are not admitted"));
+    }
+    if value < MIN_INTEGER_FLOAT {
+        return Ok(Ordering::Greater);
+    }
+    if value >= PAST_MAX_INTEGER_FLOAT {
+        return Ok(Ordering::Less);
+    }
+    let order = integer.cmp(&(value as i128));
+    Ok(if order != Ordering::Equal || value.fract() == 0.0 {
+        order
+    } else if value > 0.0 {
+        Ordering::Less
+    } else {
+        Ordering::Greater
     })
 }
 
@@ -689,11 +745,104 @@ mod tests {
         assert_eq!(floats.cell(0).unwrap(), floats.cell(1).unwrap());
         assert_eq!(hash(&floats, 0), hash(&floats, 1));
         assert_ne!(floats.cell(0).unwrap(), integers.cell(0).unwrap());
+        assert!(floats.equals_at(0, &integers, 0, false).unwrap());
+        assert_eq!(hash(&floats, 0), hash(&integers, 0));
         assert!(floats.cell(2).is_err());
         assert!(floats.cell(3).is_err());
         let boolean = column(BoolArray::from_iter([false, true]).into_array(), &memory);
         assert_eq!(boolean.cell(1).unwrap(), Cell::Boolean(true));
         assert_ne!(boolean.cell(0).unwrap(), integers.cell(0).unwrap());
+    }
+
+    #[test]
+    fn native_numeric_keys_compare_and_hash_exactly_at_integer_float_boundaries() {
+        let memory = LiveMemoryPool::new(16384).unwrap();
+        let signed = column(
+            PrimitiveArray::from_iter([
+                i64::MIN,
+                -9_007_199_254_740_993,
+                -1,
+                0,
+                1,
+                9_007_199_254_740_993,
+                i64::MAX,
+            ])
+            .into_array(),
+            &memory,
+        );
+        let unsigned = column(
+            PrimitiveArray::from_iter([0_u64, 1, 9_007_199_254_740_993, u64::MAX]).into_array(),
+            &memory,
+        );
+        let floats = column(
+            PrimitiveArray::from_iter([
+                MIN_INTEGER_FLOAT,
+                -9_007_199_254_740_992.0,
+                -1.25,
+                -1.0,
+                -0.5,
+                -0.0,
+                0.5,
+                1.0,
+                1.25,
+                9_007_199_254_740_992.0,
+                9_223_372_036_854_775_808.0,
+                PAST_MAX_INTEGER_FLOAT,
+                f64::MAX,
+                -f64::MAX,
+            ])
+            .into_array(),
+            &memory,
+        );
+        for (row, float, expected) in [
+            (0, 0, Ordering::Equal),
+            (0, 13, Ordering::Greater),
+            (1, 1, Ordering::Less),
+            (2, 2, Ordering::Greater),
+            (2, 3, Ordering::Equal),
+            (3, 4, Ordering::Greater),
+            (3, 5, Ordering::Equal),
+            (3, 6, Ordering::Less),
+            (4, 7, Ordering::Equal),
+            (4, 8, Ordering::Less),
+            (5, 9, Ordering::Greater),
+            (6, 10, Ordering::Less),
+            (6, 12, Ordering::Less),
+        ] {
+            assert_eq!(signed.compare_at(row, &floats, float).unwrap(), expected);
+            assert_eq!(
+                floats.compare_at(float, &signed, row).unwrap(),
+                expected.reverse()
+            );
+            if expected == Ordering::Equal {
+                assert_eq!(hash(&signed, row), hash(&floats, float));
+            }
+        }
+        for (row, float, expected) in [
+            (0, 5, Ordering::Equal),
+            (1, 7, Ordering::Equal),
+            (2, 9, Ordering::Greater),
+            (3, 10, Ordering::Greater),
+            (3, 11, Ordering::Less),
+        ] {
+            assert_eq!(unsigned.compare_at(row, &floats, float).unwrap(), expected);
+            assert_eq!(
+                floats.compare_at(float, &unsigned, row).unwrap(),
+                expected.reverse()
+            );
+            if expected == Ordering::Equal {
+                assert_eq!(hash(&unsigned, row), hash(&floats, float));
+            }
+        }
+        let single = column(
+            PrimitiveArray::from_iter([1.0_f32, -0.0]).into_array(),
+            &memory,
+        );
+        assert_eq!(hash(&single, 0), hash(&unsigned, 1));
+        assert_eq!(hash(&single, 1), hash(&signed, 3));
+        for nonfinite in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(integer_float_order(0, nonfinite).is_err());
+        }
     }
 
     #[test]
@@ -769,7 +918,7 @@ mod tests {
         );
         assert!(floats.equals_at(0, &floats, 1, false).unwrap());
         assert_eq!(floats.compare_at(1, &floats, 2).unwrap(), Ordering::Less);
-        assert!(left.compare_at(2, &floats, 1).is_err());
+        assert_eq!(left.compare_at(2, &floats, 1).unwrap(), Ordering::Equal);
         assert!(left.compare_at(4, &right, 0).is_err());
         let text = column(
             VarBinViewArray::from_iter_nullable_str([None, Some(""), Some("東京\0"), Some("é")])

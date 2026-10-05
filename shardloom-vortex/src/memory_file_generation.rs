@@ -421,6 +421,10 @@ impl MemoryFileGeneration {
             usize::try_from(max_output_bytes).map_err(generation_error)?,
         )?;
         let rows = arrays.row_count();
+        let result_schema_json = crate::local_primitives::collect::serialize_result_schema(
+            arrays.dtype(),
+            self.0.session.memory(),
+        )?;
         let mut certificate = memory_certificate(rows, filtered)?;
         certificate.certificate_id = "resident.memory_file.bounded_collect.native_io".into();
         certificate.path_id = "immutable_vortex_file_segments_to_bounded_json".into();
@@ -454,6 +458,7 @@ impl MemoryFileGeneration {
             projected_columns: names,
             source_order_limit: Some(usize::try_from(max_rows).map_err(generation_error)?),
             values_json,
+            result_schema_json,
             runtime: self.0.session.snapshot(),
             native_io_certificate: certificate,
         })

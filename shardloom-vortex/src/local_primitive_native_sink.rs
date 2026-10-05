@@ -112,15 +112,13 @@ impl NativeSinkInput {
             return match self {
                 Self::Produced {
                     session, sources, ..
-                } if !sources.is_empty() => {
-                    session.with_admitted_sources_execution(sources, context, |context| {
-                        let result = execute(None, context)?;
-                        self.validate_generation()?;
-                        Ok(result)
-                    })
-                }
+                } => session.with_admitted_sources_execution(sources, context, |context| {
+                    let result = execute(None, context)?;
+                    self.validate_generation()?;
+                    Ok(result)
+                }),
                 _ => Err(sink_error(
-                    "shared admission requires a generation-bound produced result",
+                    "shared admission requires a produced result from the same native owner",
                 )),
             };
         }
@@ -835,6 +833,31 @@ pub(crate) struct OwnedOutput {
     committed: bool,
 }
 impl OwnedOutput {
+    /// Transfer an already completed file from an operation-owned private
+    /// staging directory to this same create-if-absent publication owner.
+    pub(super) fn from_completed_staging(target: &Path, temporary: &Path) -> Result<Self> {
+        use std::os::unix::fs::MetadataExt as _;
+        let owned_identity = identity(temporary)?;
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(temporary)
+            .map_err(vortex_error)?;
+        let metadata = file.metadata().map_err(vortex_error)?;
+        if (metadata.dev(), metadata.ino()) != owned_identity {
+            return Err(sink_error(
+                "completed output identity changed during adoption",
+            ));
+        }
+        Ok(Self {
+            target: target.to_path_buf(),
+            temporary: temporary.to_path_buf(),
+            file,
+            identity: owned_identity,
+            committed: false,
+        })
+    }
+
     pub(crate) fn new(target: &Path, allow_overwrite: bool) -> Result<Self> {
         Self::new_with_after_preflight(target, allow_overwrite, || Ok(()))
     }

@@ -26,14 +26,30 @@ docs/status/admitted-semantics-matrix.json
 shardloom.admitted_semantics_fixture_matrix.v1
 ```
 
-This is the historical 144-row decoded-reference fixture matrix, not the
-current native capability inventory. Its ARRAY/STRUCT literal and constructor
-diagnostics remain scoped to those fixtures. Native static nested source keys,
-selected expressions and retained state have a separate
+The 144-row matrix runs its 117 executable fixtures and 25 diagnostic cases
+through the public `run sql` workflow, alongside two capability reports. SQL,
+source fixtures, property seeds and row ordering retain their original independent
+expectations. Complete native results must include their declared Vortex schema;
+missing, duplicate, unsafe or truncated result evidence fails validation. Writer
+cases check the full file and committed native sink evidence. No decoded runtime
+or benchmark-specific execution command is used.
+
+The expected transport follows the native schema: binary values use lowercase
+hex, Date32 uses epoch days, timestamps use UTC epoch microseconds, and decimals
+use `decimal128(precision,scale):coefficient`. Primitive SUM/AVG use the existing
+F64 reduction contract. These representation changes preserve the original
+reference values; the validator does not normalize observed rows to make them
+match. Parser denials use `SL_UNSUPPORTED_SQL`; runtime/type/sink errors retain
+`SL_INVALID_INPUT`. Failed writers must preserve preexisting files.
+
+The matrix is a bounded regression suite, not a complete capability inventory.
+Native static nested source keys, selected expressions and retained state have a
 [contract](../architecture/native-nested-keys-state-2026-10-04.md) and
 [local acceptance](../benchmarks/native-nested-keys-state-full43-2026-10-04.md).
-Those native results do not change the reference evaluator's fixture semantics
-or establish broad SQL-standard parity.
+The [current implementation contract](../architecture/native-typed-reductions-2026-10-04.md)
+also covers constructor, numeric comparison and correlated HAVING behavior.
+Full native replay is required before accepting this migration; these fixtures
+do not establish broad SQL-standard parity.
 
 Current required evidence:
 
@@ -207,120 +223,46 @@ Covered fixture rows:
 - `source_qualified_not_exists_subquery_semantics`
 - `source_qualified_quantified_subquery_semantics`
 
-The following coverage and gaps describe this decoded-reference matrix;
-consult the native contract above for current static nested source operations.
-Current remaining gaps are broad SQL-standard subquery parity beyond the admitted bounded local
-scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN,
-projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified,
-source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references,
-correlated `outer.<column>` subquery filter, subquery-backed predicate/CASE projection,
-HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants,
-and deterministic outer-reference diagnostics; external-oracle
-result artifact population; and general fuzz execution beyond the deterministic v1 property/fuzz
-lanes. Numeric division by zero now has a deterministic runtime-error diagnostic rather
-than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
-deterministic invalid-shape diagnostic because row-value left operands are required. Fixed numeric
-timestamp offsets are now normalized into UTC timestamp_micros through the scoped local-source
-runtime. Named timezone database conversion syntax, timezone conversion functions,
-`TIMESTAMPTZ`/timestamp-with-local-time-zone type spellings, `COLLATE`, and `ILIKE`
-locale/case-folding comparisons now have deterministic unsupported diagnostics. List/array
-access-or-cast, struct access-or-cast, complex subquery membership materialization, variant, and
-union dtype families, binary literal predicates against non-binary source columns,
-non-binary source ordering predicates against binary literals, outer references outside admitted
-column-to-column subquery comparisons, outer-to-outer subquery comparisons, and remaining
-non-admitted broad SQL-standard subquery shapes now have deterministic unsupported diagnostics with no
-fallback. Scoped
-scalar-expression `JOIN ON` predicates over qualified local sources are executable through the
-bounded expression-join route, including scoped logical `OR` over admitted qualified scalar leaves;
-complex `ARRAY[...]`/`STRUCT(...)` join keys still block deterministically. Scoped `ARRAY[...]`
-literal projection and `STRUCT(<source column>, ...)` projection are executable through the JSONL
-result boundary and local CSV JSON-text output cells. Scoped `SELECT DISTINCT` and `UNION DISTINCT`
-over those already-materialized ARRAY/STRUCT projection values are executable through structural
-result-row equality, and scoped `ORDER BY` over those complex projection values is executable
-through canonical structural result-boundary sort keys. Feature-gated local structured source
-decoding now admits Arrow list/large-list/fixed-size-list and struct arrays into ShardLoom
-`ScalarValue::List` / `ScalarValue::Struct` values through the JSONL result boundary and local CSV
-JSON-text output cells, with Arrow IPC CLI smoke evidence and shared materializer coverage for the
-admitted Arrow array families surfaced by local Parquet/Arrow IPC/Avro/ORC readers. Broad SQL-standard
-nested ordering, nested accessors/casts, complex subquery membership materialization, complex-key
-joins, broader non-scalar join predicates, and ORC nested output remain outside the claim
-boundary. ORC nested output now has a validator-backed output-plan blocker,
-`typed_complex_preservation_not_admitted`, before provider conversion, local write, or fallback.
-All-null typed nested sink columns without child-schema evidence fail
-closed with `typed_complex_child_schema_not_admitted` before structured writer conversion.
-Feature-gated Parquet/Arrow IPC/Avro and scoped local Vortex typed nested compatibility sinks are
-admitted when one stable Arrow nested dtype can be inferred from non-null `List` / `Struct` values
-or carried from raw source-column child-schema evidence; local Vortex uses
-`ArrayRef::from_arrow(RecordBatch)` before the existing Vortex writer/reopen proof. ORC nested
-output remains blocked before provider conversion with no artifact write.
-Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
-operands plus integer operands are executable through the same generic-expression local-source
-runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact
-fixed-scale division are executable within the scoped decimal route. Exact exponent notation that
-normalizes to the declared `decimal128(p,s)` scale is admitted through the scoped decimal cast route.
-Non-exact decimal division, broad SQL-standard decimal coercion beyond that exact exponent normalization,
-decimal/float comparison, typed decimal sink preservation outside feature-gated Parquet/Arrow
-IPC/Avro compatibility outputs and scoped local Vortex known flat scalar output, and ORC typed
-decimal sinks remain outside the claim boundary. ORC typed decimal sinks now have a
-validator-backed output-plan blocker, `typed_decimal128_preservation_not_admitted`, before provider
-conversion, local write, or fallback.
-Scoped SQL interval literals are
-executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
-`TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary SQL interval arithmetic now blocks with
-a deterministic unsupported diagnostic before fallback. Scoped SQL `X'<hex>'` binary literal
-projections are executable with exact hex evidence. Scoped `BINARY '<utf8>'` and `BLOB '<utf8>'`
-text byte literal projections are executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to
-`binary`/`blob`/`varbinary`
-projects source-backed UTF-8 column, string-transform, and string-function expression values as
-bytes. Scoped binary cast equality/inequality predicates admit `X'<hex>'`, `BINARY`/`BLOB` text
-literals, single-quoted UTF-8 byte literals, or `NULL` against those admitted source-backed UTF-8
-expressions. Scoped binary cast ordering predicates admit bytewise lexicographic comparisons
-against explicit binary literals for the same expression subset. Scoped direct binary source
-predicates and source-column ordering over
-feature-gated Arrow IPC binary byte-array source columns admit bytewise lexicographic comparisons
-against explicit binary literals with SQL NULLs filtering out of WHERE results. Non-binary source
-columns compared to binary literals fail with deterministic unsupported diagnostics. Scoped
-`UNHEX(<utf8-column-or-admitted-utf8-expression>)` and
-`FROM_BASE64(<utf8-column-or-admitted-utf8-expression>)` projections and predicates are executable
-for source-backed UTF-8 column, string-transform, and string-function argument expressions, with
-strict UTF-8 text decoding, binary output/equality evidence, null propagation, and deterministic
-invalid-input blockers. The feature-gated local columnar materialization boundary also admits Arrow
-binary byte-array source columns as `ScalarValue::Binary` for direct projection, with null
-propagation and JSONL/CSV `binary[hex=...]` result evidence; the executable CLI proof covers Arrow
-IPC, and the shared materializer covers Arrow `Binary`, `LargeBinary`, `FixedSizeBinary`, and
-`BinaryView` arrays surfaced by admitted local structured readers. Feature-gated Parquet/Arrow
-IPC/Avro/ORC flat scalar compatibility sinks preserve admitted binary byte payloads from SQL result
-batches, including all-null Arrow IPC binary source columns with source-schema dtype evidence, with
-focused SQL fanout and writer round-trip evidence. Feature-gated local Vortex flat scalar sinks now
-preserve nullable/all-null boolean, int64, uint64, float64, utf8, binary, decimal128, date32, and
-timestamp_micros result columns when dtype/family evidence is present, through the Vortex
-writer/reopen path. Unknown or unsupported NULL-bearing Vortex output batches block before writer
-conversion; binary sink preservation outside scoped Parquet/Arrow IPC/Avro/ORC and Vortex flat
-scalar outputs, broader binary execution beyond scoped source projection/predicate/order plus
-explicit casts/helpers over admitted source-backed UTF-8 expressions, and binary cast/helper
-expressions outside the admitted source-backed UTF-8 expression subset remain outside the claim
-boundary.
-Scoped
-`CAST`/`TRY_CAST` to
-`decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
-fixtures with exact fixed-scale JSONL string and CSV text output, and scoped `decimal128`
-add/subtract/multiply projections are executable for same-scale and mixed-scale decimal operands
-plus integer operands through generic expression projection evidence, mixed-scale decimal
-comparisons are admitted, exact fixed-scale decimal division emits
-`decimal128(38,max(input_scales,6))` when the quotient is exact, and exact exponent notation is
-admitted when it normalizes to the declared target scale. Non-exact decimal division, broad SQL-standard
-decimal coercion beyond exact exponent normalization, decimal/float comparison, and ORC typed
-decimal sink preservation remain outside the claim boundary with a validator-backed
-`typed_decimal128_preservation_not_admitted` output-plan blocker. Feature-gated Parquet/Arrow IPC/Avro
-compatibility sinks plus scoped local Vortex known flat scalar output preserve scoped
-`decimal128(p,s)` output columns, including nullable/all-null decimal columns with dtype evidence.
-Scoped UTF-8
-`LIKE` predicates with `%`, `_`,
-and single-character
-`ESCAPE` clauses are executable through
-ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are executable through
-`RLIKE`/`REGEXP`/`REGEXP_LIKE`; case-folding and locale-aware regex/collation semantics remain
-outside the claim boundary.
+These fixtures validate the shared native execution path against retained literal
+values and seeded reference calculations. They cover bounded scalar and row-value
+IN/NOT IN, EXISTS/NOT EXISTS, ANY/ALL, joined and grouped subqueries, correlated
+`outer.<column>` parameters, predicate/CASE projections and HAVING. They also
+exercise expression joins, logical OR, distinctness, ordering and windows. The
+case list is the exact scope; broader SQL-standard parity, external-oracle result
+artifacts and general fuzzing require separate evidence.
+
+All source adapters normalize admitted data to Vortex before the shared binder
+and operators execute. Result dtypes come from bound native schemas, including
+empty and all-NULL results. No decoded row evaluator, result-type inference from
+non-NULL rows or benchmark-scenario dispatch participates in this matrix.
+
+ARRAY and STRUCT constructors produce native nested columns. Native structural
+keys own admitted distinctness and ordering. Nested JSON/JSONL traverses those
+columns directly; CSV translates each nested value to a quoted JSON cell, with
+NULL parents distinct from empty lists. Vortex preserves the native logical
+schema. Parquet, Arrow IPC and Avro use explicit compatibility writers with their
+format-specific type/name checks. The pinned ORC writer rejects nested, decimal
+and temporal output before publishing a file. The matrix's constructor syntax
+denials do not describe the broader static nested source-key capability; that
+capability has its own linked contract and acceptance suite.
+
+Decimal casts, arithmetic and comparisons retain exact coefficients and declared
+precision/scale. Division must be exact at
+`decimal128(38,max(input_scales,6))`; inexact results fail explicitly. The same
+native columns supply typed sinks and the tagged decimal JSON/CSV representation
+described above. Binary fixtures cover literals, casts, `UNHEX`, `FROM_BASE64`,
+NULLs, bytewise comparisons and binary source columns, with lowercase hex at the
+JSON boundary. Calendar fixtures cover strict date/timestamp text casts, fixed
+numeric offsets normalized to UTC, extraction, differences and admitted interval
+helpers.
+
+The diagnostic rows deliberately exercise named timezone databases, TIMESTAMPTZ,
+locale collation/ILIKE, unimplemented accessor/cast/variant/union syntax, invalid
+subquery shapes, disallowed outer references, mixed binary/text comparisons and
+unsupported ORC types. They require the exact declared code and message fragment.
+Numeric division by zero is a runtime data error; a scalar left operand paired
+with a multi-column IN subquery is an invalid shape. Output-policy failures must
+preserve existing files. Unsupported work never invokes another engine.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
 not authorize broad SQL-standard/ANSI-style compliance, production semantic parity, broad

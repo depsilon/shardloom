@@ -314,26 +314,17 @@ It writes:
 target/user-route-capability-report.json
 ```
 
-The report is the agent-facing route selector for scoped local ShardLoom workflows. Each row names
-the input family, desired outputs, start state, Vortex normalization point, execution mode,
-execution route, output route, evidence route, materialization/decode boundary, runtime status,
-prepared-state reuse scope/manifest diagnostics, claim boundary, and no-fallback/no-external-engine
-fields. Prepared compatibility routes must expose the workspace manifest contract at
-`<workspace>/.shardloom/prepared-vortex-reuse-manifest.json`; non-prepared routes must mark reuse
-as not applicable instead of implying hidden cache behavior. It intentionally keeps:
+The report describes one shared native execution owner, `native_vortex_query`. Local files,
+existing Vortex data, caller-owned rows and source-free SQL enter the same Vortex admission and
+computation path before returning a typed result or writing the requested output. SQL, Python,
+DataFrame and CLI are declaration surfaces for that engine. Unsupported external boundaries remain
+explicit rows rather than alternate execution providers.
 
-The CLI evidence surface uses the same vocabulary: cold compatibility preparation reports
-`prepared_state_created_not_reused`, warm prepared rows report `explicit_prepared_state_input`,
-native Vortex rows report `not_applicable_native_vortex_input`, and single-process prepare/batch
-rows report `in_process_prepared_batch_vortex_artifacts` for the first prepare/batch call.
-Repeated compatible `traditional-analytics-prepare-batch-run` calls may report
-`workspace_manifest_local_vortex_artifacts` when the workspace manifest validates and compatibility
-preparation is skipped; source or artifact drift must reprepare and record the invalidation reason.
-Feature-gated `vortex-prepare`
-reports `single_vortex_artifact_no_sidecar` for public local ingest writes. Repeated public
-ingest rewrites the selected `.vortex` artifact when requested instead of creating or consulting a
-sidecar reuse manifest; source/artifact drift remains visible through the explicit
-single-artifact evidence fields.
+Source reuse belongs to `ResidentVortexSession` or an explicitly supplied Vortex artifact. The
+runtime validates the source generation and declaration before execution; it does not cache query
+answers. `vortex-prepare` creates an explicit native input artifact. The source-state and output
+scope reports are declarative contracts: passing them does not substitute for executing a workflow
+and validating its complete result and committed outputs.
 
 ```text
 all_no_fallback_no_external_engine=true
@@ -342,9 +333,6 @@ performance_equivalence_claim_allowed=false
 production_claim_allowed=false
 spark_replacement_claim_allowed=false
 claim_gate_status=not_claim_grade
-unsupported_local_benchmark_route_ids=[]
-local_file_benchmark_unsupported_scenario_ids=[]
-local_file_benchmark_all_mapped_without_generic_unsupported=true
 ```
 
 Passing this gate means agents and users can choose a scoped route without inferring from scattered
@@ -447,7 +435,7 @@ target/golden-workflow-report.json
 target/golden-workflows
 ```
 
-The validator builds the CLI with `release-user-surfaces vortex-traditional-analytics-benchmark`,
+The validator builds the CLI with `release-user-surfaces`,
 then executes local
 CSV-to-`vortex_ingest`, prepared Vortex primitive replay, JSONL/CSV fanout, generated-source local
 Vortex output/replay, and fixture-certified count/project/filter-project primitive workflows. It
@@ -530,36 +518,21 @@ admission, preparation/execution/output routes, correctness proof, hardware/buil
 cold/warm attribution, stage timings, cost/unit fields where available, no-fallback proof, and
 external-baseline boundary evidence.
 
-For `full_local`, `full_local_plus_spark`, and `extended_local` benchmark manifests, the release
-gate also requires current ShardLoom runtime lanes to be present in both `expected_lanes` and
-`available_lanes`:
+The local benchmark harness has one ShardLoom candidate, `shardloom`. Input format, raw/prepared
+input state, workload and requested output are parameters. Independent comparison adapters supply
+reference results and never execute rejected ShardLoom work. See
+`benchmarks/traditional_analytics/README.md` for the current executable contract.
 
-```text
-shardloom
-shardloom-prepared-vortex
-shardloom-prepare-batch
-shardloom-vortex
-```
+`scripts/check_benchmark_artifact_completeness.py` checks a local run's exact expected cases,
+retained native and reference results, source/executable hashes, preparation and output receipts,
+complete values and no-fallback evidence. Missing or failed cases keep that run incomplete. This
+local correctness check does not grant publication or performance claims.
 
-`shardloom-prepare-batch` is the single-process `UniversalIngress -> SourceState ->
-vortex_ingest -> VortexPreparedState -> prepared_vortex batch` route. Omitting it from benchmark
-artifacts hides a real runtime path and keeps the benchmark/release evidence incomplete.
-
-The hard release gate consumes the reports produced by
-`scripts/check_benchmark_artifact_completeness.py` and
-`scripts/check_benchmark_publication_claim_gate.py` so missing profile-required formats, scenarios,
-published row evidence, broad-format row coverage, ShardLoom engine/format cells, capillary
-activation evidence, runtime-envelope proof, independent reproducibility/correctness/timing/replay
-proof, and no-fallback/no-external-engine proof block release readiness through the same canonical
-benchmark validators that protect the website/public bundle. The front-door benchmark publication
-gate, `scripts/check_front_door_benchmark_publication.py`, composes those public artifacts with the
-SQL/Python/DataFrame parity report and requires the local claim-gated
-`front-door-performance-equivalence.json` artifact before the selected v1 channel is release-ready.
-That artifact must report 27 SQL/Python/DataFrame scenario rows, matched correctness digests, route
-timing fields, `fallback_attempted=false`, and `external_engine_invoked=false`, while keeping
-`performance_equivalence_claim_allowed=false` and public performance/production/replacement claim
-flags false. Local runs without the precomputed reports fall back to direct manifest scans. The
-validators inspect static benchmark artifacts only; they do not rerun benchmarks.
+The public site points to ClickBench. `scripts/check_benchmark_publication_claim_gate.py` and
+`scripts/check_front_door_benchmark_publication.py` check that retired dashboard mirrors remain
+absent. They report `evidence_class=public_surface_absence_check`, with runtime execution,
+publication and performance claims all false. They do not recreate the removed engine lanes or
+interpret local benchmark results as public certification.
 
 The package-channel matrix uses schema `shardloom.package_channel_readiness_matrix.v1`:
 

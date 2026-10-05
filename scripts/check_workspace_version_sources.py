@@ -448,16 +448,6 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 "scripts\\write_ci_version_env.py --format powershell into Invoke-Expression"
             )
 
-    benchmark_harness = read_text(
-        repo_root / "benchmarks/traditional_analytics/run.py",
-        missing_ok=True,
-    )
-    for marker in [
-        "from release_report_utils import upstream_vortex_provider_version",
-        "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)",
-    ]:
-        require_marker(blockers, "benchmarks/traditional_analytics/run.py", benchmark_harness, marker)
-
     freshness_gate = read_text(
         repo_root / "scripts/check_pre_5j_dependency_freshness.py",
         missing_ok=True,

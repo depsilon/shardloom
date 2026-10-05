@@ -134,6 +134,7 @@ pub enum BinaryOp {
     Subtract,
     Multiply,
     Divide,
+    Remainder,
     And,
     Or,
 }
@@ -145,6 +146,7 @@ impl BinaryOp {
             Self::Subtract => "subtract",
             Self::Multiply => "multiply",
             Self::Divide => "divide",
+            Self::Remainder => "remainder",
             Self::And => "and",
             Self::Or => "or",
         }
@@ -912,9 +914,11 @@ fn eval_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalResult<Ev
     match op {
         BinaryOp::And => eval_boolean_and(left.value, right.value),
         BinaryOp::Or => eval_boolean_or(left.value, right.value),
-        BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
-            eval_numeric_binary(left, op, right)
-        }
+        BinaryOp::Add
+        | BinaryOp::Subtract
+        | BinaryOp::Multiply
+        | BinaryOp::Divide
+        | BinaryOp::Remainder => eval_numeric_binary(left, op, right),
     }
     .map(|value| value.carry_materialization(data_materialized))
 }
@@ -2311,7 +2315,7 @@ fn decimal128_binary(
             ));
         }
         BinaryOp::Divide => eval_decimal128_divide(left, right)?,
-        BinaryOp::And | BinaryOp::Or => {
+        BinaryOp::Remainder | BinaryOp::And | BinaryOp::Or => {
             return Err(EvalFailure::unsupported(
                 "decimal128_arithmetic",
                 "decimal128 requires an arithmetic operator",
@@ -2592,6 +2596,10 @@ fn eval_i64_binary(left: i64, op: BinaryOp, right: i64) -> EvalResult<EvalValue>
             return Err(EvalFailure::invalid("divide", "division by zero"));
         }
         BinaryOp::Divide => left.checked_div(right),
+        BinaryOp::Remainder if right == 0 => {
+            return Err(EvalFailure::invalid("remainder", "remainder by zero"));
+        }
+        BinaryOp::Remainder => i64::try_from(i128::from(left) % i128::from(right)).ok(),
         BinaryOp::And | BinaryOp::Or => None,
     }
     .ok_or_else(|| EvalFailure::invalid("numeric_binary", "int64 arithmetic overflow"))?;
@@ -2624,6 +2632,10 @@ fn eval_u64_binary(left: u64, op: BinaryOp, right: u64) -> EvalResult<EvalValue>
             return Err(EvalFailure::invalid("divide", "division by zero"));
         }
         BinaryOp::Divide => left.checked_div(right),
+        BinaryOp::Remainder if right == 0 => {
+            return Err(EvalFailure::invalid("remainder", "remainder by zero"));
+        }
+        BinaryOp::Remainder => left.checked_rem(right),
         BinaryOp::And | BinaryOp::Or => None,
     }
     .ok_or_else(|| EvalFailure::invalid("numeric_binary", "uint64 arithmetic overflow"))?;
@@ -2641,7 +2653,7 @@ fn eval_f64_binary(left: f64, op: BinaryOp, right: f64) -> EvalResult<EvalValue>
             "non-finite float semantics are not admitted by this slice",
         ));
     }
-    if matches!(op, BinaryOp::Divide) && right == 0.0 {
+    if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) && right == 0.0 {
         return Err(EvalFailure::invalid("divide", "division by zero"));
     }
     let output = match op {
@@ -2649,6 +2661,7 @@ fn eval_f64_binary(left: f64, op: BinaryOp, right: f64) -> EvalResult<EvalValue>
         BinaryOp::Subtract => left - right,
         BinaryOp::Multiply => left * right,
         BinaryOp::Divide => left / right,
+        BinaryOp::Remainder => left % right,
         BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled before numeric binary"),
     };
     if !output.is_finite() {
@@ -3479,7 +3492,11 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
         },
         ExpressionKind::Binary { op, .. } => match op {
             BinaryOp::And | BinaryOp::Or => "boolean",
-            BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => "numeric",
+            BinaryOp::Add
+            | BinaryOp::Subtract
+            | BinaryOp::Multiply
+            | BinaryOp::Divide
+            | BinaryOp::Remainder => "numeric",
         },
         ExpressionKind::Compare { .. } => "comparison",
         ExpressionKind::FunctionCall { name, .. } => function_operator_family(name),

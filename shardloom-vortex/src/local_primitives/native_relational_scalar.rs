@@ -10,6 +10,9 @@ use vortex::{
     buffer::{BufferString, ByteBuffer},
 };
 
+#[path = "native_relational_text.rs"]
+pub(in crate::local_primitives) mod text_kernels;
+
 pub(in crate::local_primitives) enum Function {
     Abs,
     Floor,
@@ -33,10 +36,19 @@ pub(in crate::local_primitives) enum Function {
     FromBase64,
     DateExtract(fn(i32) -> i64),
     TimestampExtract(fn(i64) -> i64),
-    DateOffset { subtract: bool },
-    TimestampOffset { subtract: bool },
+    DateOffset {
+        subtract: bool,
+    },
+    TimestampOffset {
+        subtract: bool,
+    },
     DateDifference,
     TimestampDifference,
+    JsonExtract(text_kernels::JsonPath),
+    Strptime {
+        format: text_kernels::TimestampFormat,
+        tolerant: bool,
+    },
 }
 
 impl Function {
@@ -64,6 +76,12 @@ impl Function {
         let bytes = text(columns[0].cell(row)?)?;
         let value = utf8(&bytes)?;
         match self {
+            Self::JsonExtract(path) => path.extract(value, scratch),
+            Self::Strptime { format, tolerant } => match format.timestamp(value) {
+                Ok(value) => Ok(Value::Int(value)),
+                Err(_) if *tolerant => Ok(Value::Null),
+                Err(error) => Err(error),
+            },
             Self::Length => Ok(Value::Int(
                 i64::try_from(value.chars().count()).map_err(vortex_error)?,
             )),

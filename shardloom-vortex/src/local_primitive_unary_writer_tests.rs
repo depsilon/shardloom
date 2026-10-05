@@ -149,6 +149,76 @@ fn verify(
 }
 
 #[test]
+fn unary_fanout_preserves_filtered_expression_results_through_all_eight_formats() {
+    let fixture = Fixture::new(&[Some(1), None, Some(2), Some(3)], &[10, 99, 20, 30], 2);
+    let mut request = VortexQueryPrimitiveRequest::expression_project_rows(
+        fixture.uri(),
+        projection(&[VALUE]),
+        crate::VortexExpressionProjectionRequest::new(vec![
+            crate::VortexExpressionRewrite::NumericScalarArithmetic {
+                target_column: ColumnRef::new(VALUE).unwrap(),
+                operator: "+".into(),
+                operand: shardloom_core::ScalarValue::UInt64(1),
+            },
+        ]),
+    );
+    request.predicate = Some(shardloom_core::PredicateExpr::Compare {
+        column: ColumnRef::new(KEY).unwrap(),
+        op: shardloom_core::ComparisonOp::Gt,
+        value: shardloom_core::StatValue::UInt64(1),
+    });
+    let targets = [
+        Format::Vortex,
+        Format::Parquet,
+        Format::ArrowIpc,
+        Format::Avro,
+        Format::Orc,
+        Format::Json,
+        Format::Jsonl,
+        Format::Csv,
+    ]
+    .into_iter()
+    .map(|format| {
+        (
+            fixture.0.join(format!("fanout-{}", format.as_str())),
+            format,
+        )
+    })
+    .collect::<Vec<_>>();
+    let reports = runtime::output_fanout::write_primitive(
+        &request,
+        &targets,
+        false,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap();
+    assert_eq!(reports.len(), targets.len());
+    let expected = vec![serde_json::json!({VALUE:21}), serde_json::json!({VALUE:31})];
+    for (report, (path, format)) in reports.iter().zip(&targets) {
+        assert_eq!(report.output_path, path.display().to_string());
+        assert_eq!(report.rows_written, 2);
+        assert!(!report.has_errors());
+        let rows = match format {
+            Format::Json => {
+                serde_json::from_slice::<Vec<serde_json::Value>>(&fs::read(path).unwrap()).unwrap()
+            }
+            Format::Jsonl => fs::read_to_string(path)
+                .unwrap()
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect(),
+            Format::Csv => {
+                assert_eq!(fs::read_to_string(path).unwrap(), "amount\n21\n31\n");
+                continue;
+            }
+            _ => read_binary(path, *format, &[VALUE]),
+        };
+        assert_eq!(rows, expected, "{format:?}");
+    }
+    assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 9);
+}
+
+#[test]
 fn unary_writers_preserve_all_selector_results_through_all_eight_formats() {
     let fixture = Fixture::new(
         &[Some(1), Some(1), Some(2), Some(3), Some(3)],

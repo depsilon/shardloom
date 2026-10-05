@@ -78,6 +78,9 @@ REQUIRED_JSON_POINTERS = (
     "native_typed_unary.reference",
     "native_typed_unary.types",
     "native_typed_unary.operators",
+    "native_typed_reductions.reference",
+    "native_typed_reductions.computed_aggregates",
+    "native_typed_reductions.decimal_rolling",
     "native_nested_keys_state.reference",
     "native_nested_keys_state.types",
     "native_nested_keys_state.retained_unary",
@@ -91,8 +94,7 @@ REQUIRED_COMMANDS = (
     "route",
     "run",
     "prepare",
-    "local-source-runtime",
-    "generated-source-sql",
+    "status",
     "vortex-prepare",
 )
 
@@ -118,7 +120,8 @@ REQUIRED_PYTHON_METHODS = (
 REQUIRED_SQL_ENTRYPOINTS = (
     "ctx.sql",
     "sl.sql",
-    "shardloom local-source-runtime --format json",
+    'shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --format json',
+    'shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --format json',
 )
 
 
@@ -203,6 +206,16 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     for command in REQUIRED_COMMANDS:
         if command not in command_set:
             blockers.append(f"{COMMAND_REGISTRY_PATH}: missing registered command {command}")
+    declared_commands = [value for value in payload.get("cli", {}).values()
+                         if isinstance(value, str)]
+    for values in payload.get("cli", {}).values():
+        if isinstance(values, list):
+            declared_commands.extend(value for value in values if isinstance(value, str))
+    declared_commands.extend(payload.get("sql", {}).get("entrypoints", []))
+    command_text = "\n".join([md, *declared_commands])
+    for command in set(re.findall(r"^shardloom ([a-z][a-z-]*)\b", command_text, re.MULTILINE)):
+        if command not in command_set:
+            blockers.append(f"user-surface reference names an unregistered command: {command}")
 
     if payload["dynamic_sources"]["cli_command_registry_source"] != COMMAND_REGISTRY_PATH.as_posix():
         blockers.append(f"{JSON_PATH}: CLI registry source path drifted")
@@ -247,10 +260,12 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "fallback_attempted", "external_engine_invoked"):
         if nested.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_nested_composition.{field} must be false")
-    if set(nested.get("nested_writers", [])) != {"vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro"}:
+    if set(nested.get("nested_writers", [])) != {"vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"}:
         blockers.append(f"{JSON_PATH}: nested writers must match the representable static nested contract")
-    if set(nested.get("denied_nested_writers", [])) != {"csv", "orc"}:
-        blockers.append(f"{JSON_PATH}: nested CSV and ORC must remain explicitly denied")
+    if set(nested.get("denied_nested_writers", [])) != {"orc"}:
+        blockers.append(f"{JSON_PATH}: the pinned nested ORC writer must remain explicitly denied")
+    if "CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence" not in nested.get("writer_fidelity", ""):
+        blockers.append(f"{JSON_PATH}: nested CSV must declare its JSON text and dtype-loss boundary")
 
     typed = payload.get("native_typed_payloads", {})
     types = {"binary", "decimal128", "date32", "timestamp_micros"}
@@ -314,6 +329,42 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "external_engine_invoked"):
         if unary.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_typed_unary.{field} must be false")
+
+    reductions = payload.get("native_typed_reductions", {})
+    for field, value in (
+        ("scope", "current_source_build_computed_arguments_and_decimal_reductions"),
+        ("computed_aggregates", ["count", "count_distinct", "sum", "avg", "min", "max"]),
+        ("argument_lowering", "shared_native_projection_then_aggregate"),
+        ("distinct_aggregates", ["count"]),
+        ("decimal_precision", [1, 38]),
+        ("decimal_scale", "0_to_precision"),
+        ("decimal_sum_result", "decimal128(38,input_scale)"),
+        ("decimal_mean_result", "decimal128(38,max(input_scale,6))"),
+        ("decimal_extrema_result", "preserve_input_precision_and_scale"),
+        ("decimal_average_policy", "exact_or_error"),
+        ("decimal_overflow_policy", "checked_error"),
+        ("decimal_rolling", ["sum", "mean", "min", "max"]),
+        ("decimal_numeric_pivot", ["sum", "mean", "min", "max"]),
+        ("numeric_pivot_nulls", "error"),
+        ("pivot_margins", "merge_totals_and_counts_before_finalization"),
+        ("untyped_null_projection", "nullable_boolean_carrier"),
+        ("shared_direct_and_relational_state", True),
+    ):
+        if reductions.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_typed_reductions.{field} differs from its contract")
+    for field in ("hosted_acceptance_complete", "state_spill", "wider_analytic_frames",
+                  "total_rss_bound", "fallback_attempted", "external_engine_invoked"):
+        if reductions.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_typed_reductions.{field} must be false")
+    if type(reductions.get("local_acceptance_complete")) is not bool:
+        blockers.append(f"{JSON_PATH}: typed reduction acceptance must be explicit")
+    evidence = reductions.get("local_acceptance_report")
+    if reductions.get("local_acceptance_complete") is True:
+        if (not isinstance(evidence, str) or not evidence.startswith("docs/benchmarks/")
+                or ".." in Path(evidence).parts or not (repo_root / evidence).is_file()):
+            blockers.append(f"{JSON_PATH}: accepted typed reductions require their local report")
+    elif evidence is not None:
+        blockers.append(f"{JSON_PATH}: pending typed reductions cannot claim an acceptance report")
 
     nested_state = payload.get("native_nested_keys_state", {})
     for field, value in (

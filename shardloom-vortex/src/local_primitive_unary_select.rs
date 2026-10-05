@@ -126,7 +126,7 @@ impl State {
             return Ok(Self::Explode(super::explode::Explode::default()));
         }
         if plan.request.kind == Kind::PivotRows {
-            return super::pivot::Pivot::new(context).map(Self::Pivot);
+            return super::pivot::Pivot::new(plan, context).map(Self::Pivot);
         }
         Ok(Self::Select(Selector {
             keys: Keys::new(context.memory())?,

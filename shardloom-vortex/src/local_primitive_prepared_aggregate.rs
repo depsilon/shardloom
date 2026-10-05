@@ -35,6 +35,7 @@ pub struct ExecutedVortexAggregate {
 pub struct CollectedVortexAggregate {
     pub execution: ExecutedVortexAggregate,
     pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
+    pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
 }
 
 /// Complete typed payload and the same native execution certificate as reports.
@@ -659,11 +660,13 @@ impl PreparedVortexAggregate {
         let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
-        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
+        let (result_jsonl, result_schema_json) =
+            sink.finish_certified(&mut execution.native_io_certificate)?;
         execution.runtime = self.snapshot();
         Ok(CollectedVortexAggregate {
             execution,
             result_jsonl,
+            result_schema_json,
         })
     }
 

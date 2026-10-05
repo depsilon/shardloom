@@ -15,6 +15,7 @@ struct ExecutedCount {
     snapshot: ResidentSessionSnapshot,
     prepared_now: bool,
     native_io_certificate: shardloom_core::NativeIoCertificate,
+    rows: shardloom_vortex::local_primitives::collect::CollectedCountRows,
 }
 
 pub(super) fn execute_native_vortex_resident_count(
@@ -31,6 +32,7 @@ pub(super) fn execute_native_vortex_resident_count(
         snapshot,
         prepared_now,
         native_io_certificate,
+        rows,
     } = match result {
         Ok(result) => result,
         Err(error) => {
@@ -42,6 +44,14 @@ pub(super) fn execute_native_vortex_resident_count(
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
     fields.extend(count_fields(count, snapshot, prepared_now));
+    let (jsonl, _json_ownership) = rows.result_jsonl.into_parts();
+    let (schema, _schema_ownership) = rows.result_schema_json.into_parts();
+    super::append_native_result_schema_fields(&mut fields, schema);
+    fields.extend([
+        ("result_jsonl".into(), jsonl),
+        ("result_payload_complete".into(), "true".into()),
+        ("output_row_count".into(), "1".into()),
+    ]);
     fields.push((
         "resident_native_io_proof_basis".into(),
         native_io_certificate
@@ -196,6 +206,8 @@ fn execute(
         )
     })?;
     let count = prepared.operation.execute()?;
+    let rows =
+        shardloom_vortex::local_primitives::collect::render_count_rows(count, &prepared.session)?;
     let snapshot = prepared.session.snapshot();
     // Issue evidence only after the retained operation completed both generation
     // checks. Repeated calls still execute against the retained native footer.
@@ -205,6 +217,7 @@ fn execute(
         snapshot,
         prepared_now,
         native_io_certificate,
+        rows,
     })
 }
 

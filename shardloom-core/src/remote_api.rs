@@ -1343,7 +1343,6 @@ fn rest_execution_mode_vocabulary() -> Vec<&'static str> {
         ShardLoomExecutionMode::CompatibilityImportCertified.as_str(),
         ShardLoomExecutionMode::PreparedVortex.as_str(),
         ShardLoomExecutionMode::NativeVortex.as_str(),
-        ShardLoomExecutionMode::InternalLocalSourceSmoke.as_str(),
     ]
 }
 
@@ -4241,8 +4240,7 @@ mod tests {
                 "auto",
                 "compatibility_import_certified",
                 "prepared_vortex",
-                "native_vortex",
-                "internal_local_source_smoke"
+                "native_vortex"
             ]
         );
         assert_eq!(
@@ -5008,7 +5006,6 @@ mod tests {
             "compatibility_import_certified",
             "prepared_vortex",
             "native_vortex",
-            "internal_local_source_smoke",
         ] {
             assert!(
                 mode_block.contains(mode),

@@ -1,5 +1,9 @@
 use std::process::Command;
 
+#[allow(dead_code)]
+#[path = "support/complete_result.rs"]
+mod complete_result;
+
 #[cfg(all(
     unix,
     feature = "vortex-local-primitives",
@@ -669,49 +673,72 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
         let (ok, stdout) = run_facade(&args);
         assert!(ok, "{surface}: {stdout}");
         let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-        assert_eq!(envelope["status"], "success");
-        let summary = envelope["human_text"]
-            .as_str()
-            .unwrap()
-            .lines()
-            .find(|line| line.starts_with("result summary: "))
-            .unwrap();
-        let values: serde_json::Value =
-            serde_json::from_str(summary.split_once(" values=").unwrap().1).unwrap();
-        assert_eq!(values["values"], serde_json::json!(expected));
+        assert_eq!(complete_result::rows(&envelope), expected);
         assert!(
-            values["native_sort_spill"]["runs_written"]
-                .as_u64()
-                .unwrap()
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_runs_written"
+            )
+            .parse::<u64>()
+            .unwrap()
                 > 8
         );
-        assert!(
-            values["native_sort_spill"]["owned_cleanup_completed"]
-                .as_bool()
-                .unwrap()
+        assert_eq!(
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_owned_cleanup_completed"
+            ),
+            "true"
         );
         assert!(
-            values["native_sort_spill"]["merge_passes"]
-                .as_u64()
-                .unwrap()
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_merge_passes"
+            )
+            .parse::<u64>()
+            .unwrap()
                 > 0
         );
-        assert_eq!(values["native_sort_spill"]["run_block_rows"], 1024);
-        assert_eq!(values["native_sort_spill"]["merge_fan_in"], 8);
         assert_eq!(
-            values["native_sort_spill"]["runs_written"],
-            values["native_sort_spill"]["runs_validated"]
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_run_block_rows"
+            ),
+            "1024"
+        );
+        assert_eq!(
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_merge_fan_in"
+            ),
+            "8"
+        );
+        assert_eq!(
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_runs_written"
+            ),
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_runs_validated"
+            )
         );
         assert!(
-            values["native_sort_spill"]["peak_reserved_bytes"]
-                .as_u64()
-                .unwrap()
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_peak_reserved_bytes"
+            )
+            .parse::<u64>()
+            .unwrap()
                 <= 4_194_304
         );
         assert!(
-            values["native_sort_spill"]["peak_disk_bytes"]
-                .as_u64()
-                .unwrap()
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_sort_spill_peak_disk_bytes"
+            )
+            .parse::<u64>()
+            .unwrap()
                 <= 33_554_432
         );
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
@@ -805,31 +832,12 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
             ]);
             assert!(ok, "read back {}: {stdout}", output.display());
             let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-            let rows = envelope["fields"]
-                .as_array()
-                .and_then(|fields| fields.iter().find(|field| field["key"] == "result_jsonl"))
-                .and_then(|field| field["value"].as_str())
-                .map_or_else(
-                    || {
-                        let summary = envelope["human_text"]
-                            .as_str()
-                            .unwrap()
-                            .lines()
-                            .find(|line| line.starts_with("result summary: "))
-                            .unwrap();
-                        let values: serde_json::Value =
-                            serde_json::from_str(summary.split_once(" values=").unwrap().1)
-                                .unwrap();
-                        values["values"].as_array().unwrap().clone()
-                    },
-                    |jsonl| {
-                        jsonl
-                            .lines()
-                            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
-                            .collect::<Vec<_>>()
-                    },
-                );
-            assert_eq!(rows, expected, "read back {}", output.display());
+            assert_eq!(
+                complete_result::rows(&envelope),
+                expected,
+                "read back {}",
+                output.display()
+            );
         }
         assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
     }
@@ -927,6 +935,300 @@ fn copy_partitioned_vortex_fixture(name: &str) -> std::path::PathBuf {
     std::fs::copy(&fixture, dir.join("part-000.vortex")).expect("copy first partition");
     std::fs::copy(&fixture, dir.join("part-001.vortex")).expect("copy second partition");
     dir
+}
+
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[test]
+fn public_sql_file_collections_return_complete_typed_rows_and_shared_writers() {
+    let dir = copy_partitioned_vortex_fixture("typed-file-collection");
+    let manifest = dir.join("parts.vortex-manifest");
+    std::fs::write(
+        &manifest,
+        r#"{"paths":["part-000.vortex","part-001.vortex"]}"#,
+    )
+    .unwrap();
+    for input in [&dir, &manifest] {
+        for (query, expected) in [
+            (
+                "SELECT metric FROM data WHERE value > 2 ORDER BY metric DESC LIMIT 4",
+                serde_json::json!([{"metric":50},{"metric":50},{"metric":40},{"metric":40}]),
+            ),
+            (
+                "SELECT COUNT(*) AS n FROM data",
+                serde_json::json!([{"n":10}]),
+            ),
+            (
+                "SELECT SUM(metric) AS total FROM data",
+                serde_json::json!([{"total":300.0}]),
+            ),
+        ] {
+            let report: serde_json::Value = serde_json::from_str(&run_route(&[
+                "run",
+                "sql",
+                "--input",
+                input.to_str().unwrap(),
+                "--input-format",
+                "vortex",
+                "--sql",
+                &query.replace("data", &format!("'{}'", input.display())),
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--memory-gb",
+                "1",
+                "--max-parallelism",
+                "2",
+                "--format",
+                "json",
+            ]))
+            .unwrap();
+            assert_eq!(
+                complete_result::rows(&report),
+                *expected.as_array().unwrap()
+            );
+            assert_eq!(
+                complete_result::field_value(&report, "result_schema_format"),
+                "vortex.dtype.serde.v1"
+            );
+            assert_eq!(
+                complete_result::field_value(&report, "public_workflow_fallback_attempted"),
+                "false"
+            );
+        }
+    }
+    let output = dir.join("result.jsonl");
+    let query = format!(
+        "SELECT metric FROM (SELECT * FROM '{}') AS q WHERE value > 3 ORDER BY metric DESC",
+        manifest.display()
+    );
+    run_route(&[
+        "run",
+        "sql",
+        "--input",
+        manifest.to_str().unwrap(),
+        "--input-format",
+        "vortex",
+        "--sql",
+        &query,
+        "--request",
+        "write_jsonl",
+        "--output",
+        output.to_str().unwrap(),
+        "--bounded",
+        "true",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(
+        std::fs::read_to_string(&output).unwrap(),
+        "{\"metric\":50}\n{\"metric\":50}\n{\"metric\":40}\n{\"metric\":40}\n"
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
+#[test]
+fn public_raw_sql_prepares_vortex_for_text_aggregates_and_writes() {
+    let root = unique_vortex_binding_dir("raw-text-aggregate");
+    std::fs::create_dir(&root).unwrap();
+    let source = root.join("dirty.csv");
+    std::fs::write(
+        &source,
+        "id,raw_time,payload,nullable_metric\n\
+         1,2024-02-29T00:00:00Z,\"{\"\"score\"\":3.5}\",2.5\n\
+         2,bad,\"{\"\"score\"\":1}\",\n\
+         3,2024-03-01T12:00:00Z,\"{\"\"score\"\":2.5}\",7.5\n",
+    )
+    .unwrap();
+    let query = format!(
+        "SELECT COUNT(*) AS rows,SUM(CAST(JSON_EXTRACT(payload,'$.score') AS double)) AS total,\
+         SUM(TRY_CAST(nullable_metric AS double)) AS nonnull_total FROM '{}' \
+         WHERE TRY_STRPTIME(raw_time,'%Y-%m-%dT%H:%M:%SZ') IS NOT NULL",
+        source.display()
+    );
+    let expected = serde_json::json!([{"rows":2,"total":6.0,"nonnull_total":10.0}]);
+    let output = root.join("result.jsonl");
+    for request in ["collect", "write_jsonl"] {
+        let mut args = vec![
+            "run",
+            "sql",
+            "--input",
+            source.to_str().unwrap(),
+            "--input-format",
+            "csv",
+            "--sql",
+            &query,
+            "--request",
+            request,
+            "--bounded",
+            "true",
+            "--memory-gb",
+            "1",
+            "--max-parallelism",
+            "2",
+            "--format",
+            "json",
+        ];
+        if request == "write_jsonl" {
+            args.extend(["--output", output.to_str().unwrap()]);
+        }
+        let envelope: serde_json::Value = serde_json::from_str(&run_route(&args)).unwrap();
+        for (name, expected_value) in [
+            ("public_workflow_preparation_included", "true"),
+            ("relational_normalized_source_count", "1"),
+            ("public_workflow_fallback_attempted", "false"),
+            ("public_workflow_external_engine_invoked", "false"),
+        ] {
+            assert_eq!(
+                complete_result::field_value(&envelope, name),
+                expected_value
+            );
+        }
+        if request == "collect" {
+            assert_eq!(
+                complete_result::rows(&envelope),
+                *expected.as_array().unwrap()
+            );
+        } else {
+            assert_eq!(
+                complete_result::field_value(
+                    &envelope,
+                    "native_vortex_result_export_all_targets_committed"
+                ),
+                "true"
+            );
+            let rows = std::fs::read_to_string(&output)
+                .unwrap()
+                .lines()
+                .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(rows, *expected.as_array().unwrap());
+        }
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
+#[test]
+#[allow(clippy::too_many_lines)] // Compare both raw-format normalization paths with complete native rows.
+fn public_raw_sql_preserves_csv_null_groups_and_jsonl_nested_paths() {
+    let root = unique_vortex_binding_dir("raw-null-nested");
+    std::fs::create_dir(&root).unwrap();
+    let collect = |source: &std::path::Path, format: &str, schema: Option<&str>, sql: &str| {
+        let mut binding = serde_json::json!({"input_format":format});
+        if let Some(schema) = schema {
+            binding["source_schema"] = schema.into();
+        }
+        let bindings = serde_json::json!({source.display().to_string():binding}).to_string();
+        let envelope: serde_json::Value = serde_json::from_str(&run_route(&[
+            "run",
+            "sql",
+            "--sql",
+            sql,
+            "--source-bindings",
+            &bindings,
+            "--request",
+            "collect",
+            "--bounded",
+            "true",
+            "--memory-gb",
+            "1",
+            "--max-parallelism",
+            "2",
+            "--format",
+            "json",
+        ]))
+        .unwrap();
+        for (key, value) in [
+            ("relational_normalized_source_count", "1"),
+            ("public_workflow_preparation_included", "true"),
+            ("public_workflow_fallback_attempted", "false"),
+            ("public_workflow_external_engine_invoked", "false"),
+        ] {
+            assert_eq!(complete_result::field_value(&envelope, key), value);
+        }
+        complete_result::rows(&envelope)
+    };
+    let source = root.join("nullable.csv");
+    let mut csv = "group_key,amount\n".to_owned();
+    for _ in 0..16 {
+        csv.push_str("all_null,\n");
+    }
+    for index in 0..16 {
+        csv.push_str(match index {
+            0 => "mixed,2.5\n",
+            15 => "mixed,7.5\n",
+            _ => "mixed,\n",
+        });
+    }
+    std::fs::write(&source, csv).unwrap();
+    let sql = format!(
+        "SELECT group_key,COUNT(*) AS rows,COUNT(amount) AS present,SUM(amount) AS total,AVG(amount) AS mean FROM '{}' GROUP BY group_key ORDER BY group_key",
+        source.display()
+    );
+    assert_eq!(
+        collect(&source, "csv", Some("group_key:utf8,amount:float64"), &sql),
+        *serde_json::json!([
+            {"group_key":"all_null","rows":16,"present":0,"total":null,"mean":null},
+            {"group_key":"mixed","rows":16,"present":2,"total":10.0,"mean":5.0},
+        ])
+        .as_array()
+        .unwrap()
+    );
+    let empty = root.join("empty.csv");
+    std::fs::write(&empty, "amount\n").unwrap();
+    assert_eq!(
+        collect(
+            &empty,
+            "csv",
+            Some("amount:float64"),
+            &format!(
+                "SELECT COUNT(*) AS rows,COUNT(amount) AS present,SUM(amount) AS total FROM '{}'",
+                empty.display()
+            )
+        ),
+        *serde_json::json!([{"rows":0,"present":0,"total":null}])
+            .as_array()
+            .unwrap()
+    );
+    let nested = root.join("nested.jsonl");
+    std::fs::write(
+        &nested,
+        "{\"id\":1,\"payload\":{\"metrics\":[1,2.5]}}\n\
+         {\"id\":2,\"payload\":{\"metrics\":[]}}\n\
+         {\"id\":3,\"payload\":{}}\n",
+    )
+    .unwrap();
+    assert_eq!(
+        collect(
+            &nested,
+            "jsonl",
+            None,
+            &format!(
+                "SELECT id,CAST(JSON_EXTRACT(payload,'$.metrics[1]') AS double) AS score FROM '{}' ORDER BY id",
+                nested.display()
+            )
+        ),
+        *serde_json::json!([{"id":1,"score":2.5},{"id":2,"score":null},{"id":3,"score":null}])
+            .as_array()
+            .unwrap()
+    );
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 fn field(key: &str, value: &str) -> String {
@@ -1394,11 +1696,11 @@ fn public_route_routes_local_file_vortex_middle_without_direct_runtime() {
         )));
         assert!(stdout.contains(&field(
             "resolved_internal_command",
-            "vortex-prepare->vortex-production-runtime-run"
+            "vortex-prepare->native-vortex"
         )));
         assert!(stdout.contains(&field(
             "underlying_runtime_command",
-            "vortex-prepare->vortex-production-runtime-run"
+            "vortex-prepare->native-vortex"
         )));
         assert!(stdout.contains(&field("start_state", "compatibility_local_source")));
         assert!(stdout.contains(&field("vortex_normalization_point", "VortexPreparedState")));
@@ -1506,7 +1808,7 @@ fn public_route_blocks_unbounded_collect_before_execution() {
 }
 
 #[test]
-fn public_route_does_not_infer_scalar_path_literals_as_sources() {
+fn public_route_keeps_scalar_path_literals_out_of_source_bindings() {
     let stdout = run_route(&[
         "route",
         "sql",
@@ -1519,9 +1821,28 @@ fn public_route_does_not_infer_scalar_path_literals_as_sources() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains(&field("route_id", "blocked")));
-    assert!(stdout.contains(&field("blocker_id", "cg21.route.input_not_declared")));
+    if cfg!(all(feature = "vortex-local-primitives", unix)) {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_relational_collect")));
+        assert!(stdout.contains(&field(
+            "resolved_internal_command",
+            "native-vortex-relational"
+        )));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+        )));
+        assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
+    }
+    assert!(stdout.contains(&field("declared_inputs", "none")));
+    assert!(stdout.contains(&field("primary_input", "none")));
+    assert!(stdout.contains(&field("preparation_included", "false")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
+    assert!(stdout.contains(&field("plan_only", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
@@ -1563,7 +1884,14 @@ fn public_route_blocks_unresolved_newline_from_source_without_declared_input() {
     assert!(stdout.contains("\"command\":\"route\""));
     assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field("route_id", "blocked")));
-    assert!(stdout.contains(&field("blocker_id", "cg21.route.input_not_declared")));
+    assert!(stdout.contains(&field(
+        "blocker_id",
+        if cfg!(all(feature = "vortex-local-primitives", unix)) {
+            "cg21.route.native_relational_not_admitted"
+        } else {
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+        }
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
@@ -1945,104 +2273,6 @@ fn public_route_admits_native_vortex_sample_fraction_payloads() {
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
-#[cfg(feature = "vortex-production-runtime")]
-#[test]
-fn public_route_admits_provider_backed_native_vortex_jsonl_result_sink() {
-    let stdout = run_route(&[
-        "route",
-        "dataframe",
-        "--input",
-        "target/fact.vortex",
-        "--input-format",
-        "vortex",
-        "--plan",
-        "read_vortex(target/fact.vortex) -> with_column(amount_float,CAST(dirty_numeric AS float64)) -> filter(amount_float >= 0) -> limit(1000)",
-        "--request",
-        "write_jsonl",
-        "--execution-policy",
-        "native_vortex",
-        "--output",
-        "target/native-provider-result.jsonl",
-        "--allow-overwrite",
-        "--format",
-        "json",
-    ]);
-
-    assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("route_id", "native_vortex_user_sink")));
-    assert!(stdout.contains(&field(
-        "resolved_internal_command",
-        "vortex-production-runtime-run"
-    )));
-    assert!(stdout.contains(&field("requested_output", "write_jsonl")));
-    assert!(stdout.contains(&field("native_vortex_operation_family", "sink")));
-    assert!(stdout.contains(&field(
-        "native_vortex_provider_scenario",
-        "clean-cast-filter-write"
-    )));
-    assert!(stdout.contains(&field(
-        "typed_sink_contract",
-        "native_vortex_provider_result_json_export_with_workspace_safe_sink"
-    )));
-    assert!(stdout.contains(&field(
-        "decode_materialization_boundary",
-        "native_vortex_zero_decode_runtime_with_bounded_result_json_sink_materialization"
-    )));
-    assert!(stdout.contains(&field("fallback_attempted", "false")));
-    assert!(stdout.contains(&field("external_engine_invoked", "false")));
-}
-
-#[cfg(feature = "vortex-production-runtime")]
-#[test]
-fn public_route_admits_provider_backed_native_vortex_cast_collect_shapes() {
-    for (plan, scenario) in [
-        (
-            "read_vortex(target/fact.vortex) -> with_column(amount_float,CAST(dirty_numeric AS float64)) -> filter(amount_float >= 0) -> limit(1000)",
-            "clean-cast-filter-write",
-        ),
-        (
-            "read_vortex(target/fact.vortex) -> with_column(event_day,CAST(raw_event_time AS date32)) -> limit(1000)",
-            "malformed-timestamp-dirty-csv",
-        ),
-    ] {
-        let stdout = run_route(&[
-            "route",
-            "dataframe",
-            "--input",
-            "target/fact.vortex",
-            "--input-format",
-            "vortex",
-            "--plan",
-            plan,
-            "--request",
-            "collect",
-            "--bounded",
-            "true",
-            "--execution-policy",
-            "native_vortex",
-            "--format",
-            "json",
-        ]);
-
-        assert!(stdout.contains("\"command\":\"route\""));
-        assert!(stdout.contains("\"status\":\"success\""));
-        assert!(stdout.contains(&field("route_id", "native_vortex_user_cast")));
-        assert!(stdout.contains(&field(
-            "resolved_internal_command",
-            "vortex-production-runtime-run"
-        )));
-        assert!(stdout.contains(&field("native_vortex_operation_family", "cast")));
-        assert!(stdout.contains(&field("native_vortex_provider_scenario", scenario)));
-        assert!(stdout.contains(&field(
-            "route_support_status",
-            "production_admitted_local_workflow"
-        )));
-        assert!(stdout.contains(&field("fallback_attempted", "false")));
-        assert!(stdout.contains(&field("external_engine_invoked", "false")));
-    }
-}
-
 #[test]
 fn public_route_infers_native_vortex_distinct_without_smoke_middle() {
     let stdout = run_route(&[
@@ -2359,24 +2589,23 @@ fn public_run_routes_local_sql_vortex_middle_without_direct_runtime() {
     )) {
         assert!(success);
         assert!(stdout.contains("\"status\":\"success\""));
-        assert!(stdout.contains(&field("public_workflow_route_id", "native_vortex_project")));
+        assert!(stdout.contains(&field(
+            "public_workflow_route_id",
+            "native_vortex_relational_collect"
+        )));
         assert!(stdout.contains(&field(
             "public_workflow_resolved_internal_command",
-            "vortex-project"
+            "native-vortex-relational"
         )));
-        assert!(stdout.contains(&field(
-            "public_workflow_local_source_route_id",
-            "local_file_prepare_once_first_query"
-        )));
-        assert!(stdout.contains(&field(
-            "public_workflow_local_source_vortex_ingest_performed",
-            "true"
-        )));
-        assert!(stdout.contains(&field("project_local_execution_status", "executed")));
-        assert!(stdout.contains(&field(
-            "project_local_execution_data_decoded",
-            if cfg!(unix) { "true" } else { "false" }
-        )));
+        assert!(stdout.contains(&field("relational_normalized_source_count", "1")));
+        assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
+        assert_eq!(
+            complete_result::rows(&serde_json::from_str(&stdout).unwrap()),
+            vec![
+                serde_json::json!({"id":1,"label":"alpha"}),
+                serde_json::json!({"id":2,"label":"beta"})
+            ]
+        );
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
     } else {
@@ -2433,17 +2662,16 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
     )) {
         assert!(success);
         assert!(stdout.contains("\"status\":\"success\""));
-        assert!(stdout.contains(&field("public_workflow_route_id", "native_vortex_project")));
         assert!(stdout.contains(&field(
-            "public_workflow_local_source_vortex_ingest_performed",
-            "true"
+            "public_workflow_route_id",
+            "native_vortex_relational_collect"
         )));
-        assert!(stdout.contains(&field("project_local_execution_status", "executed")));
-        assert!(stdout.contains(&field(
-            "project_local_execution_data_decoded",
-            if cfg!(unix) { "true" } else { "false" }
-        )));
-        assert!(stdout.contains(&field("public_workflow_local_source_format", "csv")));
+        assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
+        assert_eq!(
+            complete_result::rows(&serde_json::from_str(&stdout).unwrap()),
+            vec![serde_json::json!({"id":1,"label":"alpha"})]
+        );
+        assert!(stdout.contains(&field("public_workflow_source_format", "csv")));
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
     } else {
@@ -2500,22 +2728,18 @@ fn public_run_executes_local_write_through_prepared_vortex_row_export() {
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field(
             "public_workflow_route_id",
-            "native_vortex_primitive_row_export"
+            "native_vortex_relational_write"
         )));
-        assert!(stdout.contains(&field(
-            "public_workflow_local_source_route_id",
-            "local_file_prepare_once_first_query"
-        )));
-        assert!(stdout.contains(&field(
-            "public_workflow_local_source_vortex_ingest_performed",
-            "true"
-        )));
+        assert!(stdout.contains(&field("relational_normalized_source_count", "1")));
+        assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
         assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
         assert!(stdout.contains(&field("native_vortex_result_export_format", "csv")));
         assert!(stdout.contains(&field("native_vortex_result_export_rows_written", "2")));
         assert!(stdout.contains(&field("native_vortex_result_export_target_count", "1")));
-        assert!(stdout.contains(&field("data_decoded", "true")));
-        assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+        assert!(stdout.contains(&field(
+            "native_vortex_result_export_all_targets_committed",
+            "true"
+        )));
         assert_eq!(
             std::fs::read_to_string(&output).expect("read csv output"),
             "id,label\n1,alpha\n2,beta\n"
@@ -2538,7 +2762,7 @@ fn public_run_executes_local_write_through_prepared_vortex_row_export() {
 }
 
 #[test]
-fn public_run_executes_local_fanout_through_prepared_vortex_row_export() {
+fn public_run_executes_local_fanout_through_native_relational_writer() {
     let workspace = std::path::Path::new("target/public-workflow-fanout-facade");
     let _ = std::fs::remove_dir_all(workspace);
     std::fs::create_dir_all(workspace).expect("create test workspace");
@@ -2581,7 +2805,7 @@ fn public_run_executes_local_fanout_through_prepared_vortex_row_export() {
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field(
             "public_workflow_route_id",
-            "native_vortex_primitive_row_export"
+            "native_vortex_relational_write"
         )));
         assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
         assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
@@ -2695,28 +2919,26 @@ fn public_run_executes_local_file_vortex_middle_through_prepared_vortex_primitiv
     )));
 }
 
+#[cfg(all(unix, feature = "vortex-local-primitives"))]
 #[test]
-fn public_run_executes_generated_user_rows_with_attached_route_envelope() {
-    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+fn public_run_executes_declared_memory_rows_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-memory-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let output = workspace.join("user-rows.jsonl");
     let _ = std::fs::remove_file(&output);
+    let binding = serde_json::json!({"memory://inline":{"input_format":"memory","memory_input":{"kind":"rows","schema":[["id","int64"],["label","utf8"]],"rows":[["1","alpha"]]}}}).to_string();
     let stdout = run_route(&[
         "run",
         "python",
+        "--source-bindings",
+        &binding,
+        "--sql",
+        "SELECT id,label FROM 'memory://inline'",
         "--request",
         "write_jsonl",
         "--output",
         output.to_str().expect("utf8 output path"),
-        "--bounded",
-        "true",
         "--allow-overwrite",
-        "--generated-source-kind",
-        "user_rows",
-        "--generated-schema",
-        "id:int64,label:utf8",
-        "--generated-rows",
-        "id=1,label=alpha",
         "--format",
         "json",
     ]);
@@ -2725,20 +2947,20 @@ fn public_run_executes_generated_user_rows_with_attached_route_envelope() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "generated_user_rows_direct_output"
+        "native_vortex_relational_write"
     )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "generated-source-user-rows"
-    )));
-    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "user_rows")));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
     assert!(stdout.contains(&field("public_workflow_allow_overwrite", "true")));
-    assert!(stdout.contains(&field("generated_source_kind", "user_rows")));
-    assert!(stdout.contains(&field("generated_source_row_count", "1")));
-    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("relational_normalized_source_count", "1")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("output_row_count", "1")));
+    assert_eq!(
+        std::fs::read_to_string(&output).unwrap(),
+        "{\"id\":1,\"label\":\"alpha\"}\n"
+    );
+    assert!(stdout.contains(&field("native_vortex_result_export_format", "jsonl")));
     assert!(stdout.contains(&field(
-        "output_path",
+        "native_vortex_result_export_path",
         output.to_str().expect("utf8 output path")
     )));
     assert!(stdout.contains(&field("runtime_execution", "true")));
@@ -2747,33 +2969,31 @@ fn public_run_executes_generated_user_rows_with_attached_route_envelope() {
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
+#[cfg(all(unix, feature = "vortex-local-primitives"))]
 #[test]
-fn public_run_forwards_generated_fanout_payload_with_attached_route_envelope() {
-    let workspace = std::path::Path::new("target/public-workflow-generated-fanout-facade");
+fn public_run_forwards_declared_memory_fanout_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-memory-fanout-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let primary = workspace.join("user-rows.jsonl");
     let fanout = workspace.join("user-rows.csv");
     let _ = std::fs::remove_file(&primary);
     let _ = std::fs::remove_file(&fanout);
     let fanout_arg = format!("csv={}", fanout.to_str().expect("utf8 fanout path"));
+    let binding = serde_json::json!({"memory://inline":{"input_format":"memory","memory_input":{"kind":"rows","schema":[["id","int64"],["label","utf8"]],"rows":[["1","alpha"]]}}}).to_string();
     let stdout = run_route(&[
         "run",
         "python",
+        "--source-bindings",
+        &binding,
+        "--sql",
+        "SELECT id,label FROM 'memory://inline'",
         "--request",
         "write_jsonl",
         "--output",
         primary.to_str().expect("utf8 primary path"),
         "--fanout-output",
         &fanout_arg,
-        "--bounded",
-        "true",
         "--allow-overwrite",
-        "--generated-source-kind",
-        "user_rows",
-        "--generated-schema",
-        "id:int64,label:utf8",
-        "--generated-rows",
-        "id=1,label=alpha",
         "--format",
         "json",
     ]);
@@ -2782,51 +3002,52 @@ fn public_run_forwards_generated_fanout_payload_with_attached_route_envelope() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "generated_user_rows_direct_output"
+        "native_vortex_relational_write"
     )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "generated-source-user-rows"
-    )));
-    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "user_rows")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("output_row_count", "1")));
     assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
     assert!(stdout.contains(&field("public_workflow_fanout_outputs", &fanout_arg)));
-    assert!(stdout.contains(&field("generated_source_kind", "user_rows")));
-    assert!(stdout.contains(&field("output_fanout_performed", "true")));
-    assert!(stdout.contains(&field("fanout_output_count", "1")));
-    assert!(stdout.contains(&field("fanout_output_formats", "csv")));
+    assert!(stdout.contains(&field(
+        "native_vortex_result_export_fanout_performed",
+        "true"
+    )));
+    assert!(stdout.contains(&field("native_vortex_result_export_fanout_count", "1")));
+    assert!(stdout.contains(&field(
+        "native_vortex_result_export_target_formats",
+        "jsonl,csv"
+    )));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert_eq!(
+        std::fs::read_to_string(&primary).unwrap(),
+        "{\"id\":1,\"label\":\"alpha\"}\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&fanout).unwrap(),
+        "id,label\n1,alpha\n"
+    );
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
+#[cfg(all(unix, feature = "vortex-local-primitives"))]
 #[test]
-fn public_run_executes_generated_range_with_attached_route_envelope() {
-    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+fn public_run_executes_source_free_range_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-range-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let output = workspace.join("range.csv");
     let _ = std::fs::remove_file(&output);
     let stdout = run_route(&[
         "run",
-        "python",
+        "sql",
+        "--sql",
+        "SELECT value AS id FROM range(1, 4)",
         "--request",
         "write_csv",
         "--output",
         output.to_str().expect("utf8 output path"),
-        "--bounded",
-        "true",
         "--allow-overwrite",
-        "--generated-source-kind",
-        "range",
-        "--generated-range-start",
-        "1",
-        "--generated-range-end",
-        "4",
-        "--generated-range-step",
-        "1",
-        "--generated-range-column",
-        "id",
         "--format",
         "json",
     ]);
@@ -2835,53 +3056,36 @@ fn public_run_executes_generated_range_with_attached_route_envelope() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "generated_range_direct_output"
+        "native_vortex_relational_write"
     )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "generated-source-range"
-    )));
-    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "range")));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
-    assert!(stdout.contains(&field("generated_source_kind", "range")));
-    assert!(stdout.contains(&field("generated_source_range_start", "1")));
-    assert!(stdout.contains(&field("generated_source_range_end", "4")));
-    assert!(stdout.contains(&field("generated_source_range_step", "1")));
-    assert!(stdout.contains(&field("generated_source_range_column", "id")));
-    assert!(stdout.contains(&field("generated_source_row_count", "3")));
-    assert!(stdout.contains(&field("output_format", "csv")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("output_row_count", "3")));
+    assert_eq!(std::fs::read_to_string(&output).unwrap(), "id\n1\n2\n3\n");
+    assert!(stdout.contains(&field("native_vortex_result_export_format", "csv")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
+#[cfg(all(unix, feature = "vortex-local-primitives"))]
 #[test]
-fn public_run_executes_generated_sequence_with_attached_route_envelope() {
-    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+fn public_run_executes_source_free_sequence_with_attached_route_envelope() {
+    let workspace = std::path::Path::new("target/public-workflow-sequence-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let output = workspace.join("sequence.jsonl");
     let _ = std::fs::remove_file(&output);
     let stdout = run_route(&[
         "run",
-        "python",
+        "sql",
+        "--sql",
+        "SELECT value AS seq FROM generate_series(1, 6, 2)",
         "--request",
         "write_jsonl",
         "--output",
         output.to_str().expect("utf8 output path"),
-        "--bounded",
-        "true",
         "--allow-overwrite",
-        "--generated-source-kind",
-        "sequence",
-        "--generated-range-start",
-        "1",
-        "--generated-range-end",
-        "6",
-        "--generated-range-step",
-        "2",
-        "--generated-range-column",
-        "seq",
         "--format",
         "json",
     ]);
@@ -2890,20 +3094,15 @@ fn public_run_executes_generated_sequence_with_attached_route_envelope() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "generated_sequence_direct_output"
+        "native_vortex_relational_write"
     )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "generated-source-sequence"
-    )));
-    assert!(stdout.contains(&field("public_workflow_generated_source_kind", "sequence")));
-    assert!(stdout.contains(&field("generated_source_kind", "sequence")));
-    assert!(stdout.contains(&field("generated_source_range_start", "1")));
-    assert!(stdout.contains(&field("generated_source_range_end", "6")));
-    assert!(stdout.contains(&field("generated_source_range_step", "2")));
-    assert!(stdout.contains(&field("generated_source_range_column", "seq")));
-    assert!(stdout.contains(&field("generated_source_row_count", "3")));
-    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("output_row_count", "3")));
+    assert_eq!(
+        std::fs::read_to_string(&output).unwrap(),
+        "{\"seq\":1}\n{\"seq\":3}\n{\"seq\":5}\n"
+    );
+    assert!(stdout.contains(&field("native_vortex_result_export_format", "jsonl")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
@@ -3082,12 +3281,16 @@ fn public_run_executes_native_vortex_filter_project_payload_with_attached_route_
     #[cfg(unix)]
     {
         let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-        let summary = envelope["human_text"].as_str().unwrap();
-        let values: serde_json::Value =
-            serde_json::from_str(summary.split_once(" values=").unwrap().1.trim()).unwrap();
         assert_eq!(
-            values,
-            serde_json::json!({"rows": 2, "values": [{"metric": 30}, {"metric": 40}]})
+            complete_result::rows(&envelope),
+            vec![
+                serde_json::json!({"metric": 30}),
+                serde_json::json!({"metric": 40})
+            ]
+        );
+        assert_eq!(
+            complete_result::field_value(&envelope, "output_row_count"),
+            "2"
         );
         assert!(stdout.contains(&field(
             "local_primitive_native_io_certificate_status",
@@ -3376,9 +3579,10 @@ fn public_run_executes_native_vortex_sample_fraction_payload() {
     assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
 }
 
+#[cfg(all(unix, feature = "vortex-local-primitives"))]
 #[test]
 fn public_run_executes_source_free_values_with_attached_route_envelope() {
-    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+    let workspace = std::path::Path::new("target/public-workflow-values-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let output = workspace.join("values.jsonl");
     let _ = std::fs::remove_file(&output);
@@ -3400,25 +3604,26 @@ fn public_run_executes_source_free_values_with_attached_route_envelope() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "source_free_generated_output"
-    )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "generated-source-sql"
+        "native_vortex_relational_write"
     )));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
-    assert!(stdout.contains(&field("generated_source_kind", "sql_values")));
-    assert!(stdout.contains(&field("generated_source_row_count", "1")));
-    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("output_row_count", "1")));
+    assert_eq!(
+        std::fs::read_to_string(&output).unwrap(),
+        "{\"column_1\":1,\"column_2\":\"alpha\"}\n"
+    );
+    assert!(stdout.contains(&field("native_vortex_result_export_format", "jsonl")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
+#[cfg(all(unix, feature = "vortex-local-primitives"))]
 #[test]
 fn public_run_executes_source_free_range_sql_with_attached_route_envelope() {
-    let workspace = std::path::Path::new("target/public-workflow-generated-facade");
+    let workspace = std::path::Path::new("target/public-workflow-range-sql-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let output = workspace.join("range-sql.jsonl");
     let _ = std::fs::remove_file(&output);
@@ -3440,20 +3645,17 @@ fn public_run_executes_source_free_range_sql_with_attached_route_envelope() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "source_free_generated_output"
+        "native_vortex_relational_write"
     )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "generated-source-sql"
-    )));
-    assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
-    assert!(stdout.contains(&field("generated_source_row_count", "2")));
-    assert!(stdout.contains(&field("generated_source_sql_generator_function", "range")));
-    assert!(stdout.contains(&field("sql_source_free_filter_runtime_execution", "true")));
-    assert!(stdout.contains(&field("sql_source_free_limit_runtime_execution", "true")));
-    assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(&field("native_vortex_result_export_format", "jsonl")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert_eq!(
+        std::fs::read_to_string(&output).unwrap(),
+        "{\"id\":2}\n{\"id\":3}\n"
+    );
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }

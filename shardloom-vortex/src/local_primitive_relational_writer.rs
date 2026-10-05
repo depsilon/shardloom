@@ -14,6 +14,41 @@ pub struct WrittenVortexRelational {
 }
 
 impl PreparedVortexRelational {
+    /// Write the same admitted plan to each output adapter, staging every result
+    /// before publication. Each target executes the plan with the same retained
+    /// sources and budget. See `output_fanout::write` for partial-commit recovery.
+    /// # Errors
+    /// Propagates query, adapter, destination, generation and publication errors.
+    pub fn write_many(
+        &self,
+        targets: &[(std::path::PathBuf, VortexLocalPrimitiveRowExportFormat)],
+        overwrite: bool,
+    ) -> Result<Vec<WrittenVortexRelational>> {
+        let mut written = super::super::output_fanout::write(
+            targets,
+            overwrite,
+            |path| {
+                for source in &self.sources {
+                    source.validate_generation()?;
+                    if source.aliases_file(path)? {
+                        return Err(failed("source and output must be different files"));
+                    }
+                }
+                #[cfg(feature = "universal-format-io")]
+                for source in &self.preparation_sources {
+                    source.validate_generation()?;
+                    source.validate_destination(path)?;
+                }
+                Ok(())
+            },
+            |path, format| self.write(path, format, false),
+        )?;
+        for (result, (path, _)) in written.iter_mut().zip(targets) {
+            result.output.output_path = path.display().to_string();
+        }
+        Ok(written)
+    }
+
     /// Write complete results through an admitted local output adapter.
     /// # Errors
     /// Rejects aliases of either input, unsupported output schemas, resource
@@ -41,14 +76,18 @@ impl PreparedVortexRelational {
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
                     self.with_bound_root(context, |root, metrics| {
-                        let source = self
-                            .source_paths
-                            .first()
-                            .ok_or_else(|| failed("relational source is absent"))?;
+                        let source = if let Some(path) = self.source_paths.first() {
+                            DatasetUri::new(path.display().to_string())?
+                        } else {
+                            self.memory_sources
+                                .first()
+                                .map(|(uri, _)| uri.clone())
+                                .ok_or_else(|| failed("relational source is absent"))?
+                        };
                         // This request describes only the terminal adapter's projection of the
                         // completed native columns. The relational tree has its own certificate.
                         let request = VortexQueryPrimitiveRequest::project(
-                            DatasetUri::new(source.display().to_string())?,
+                            source,
                             shardloom_plan::ProjectionRequest::columns(
                                 root.fields
                                     .iter()

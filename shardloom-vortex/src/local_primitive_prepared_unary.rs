@@ -74,6 +74,7 @@ pub struct ExecutedOwnedVortexUnary {
 pub struct CollectedVortexUnary {
     pub execution: ExecutedVortexUnary,
     pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
+    pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
 }
 
 /// Immutable source identity, request and lowering. No result or operator state is cached.
@@ -323,6 +324,22 @@ fn bind_unary(
     })
 }
 
+/// Bind the existing unary operator against a source retained by its caller.
+/// The source, operator and every output adapter share one resource owner.
+#[cfg(feature = "vortex-write")]
+pub(super) fn prepare_unary_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+) -> Result<PreparedVortexUnary> {
+    canonical(request, true)?;
+    validate_policy(policy)?;
+    let (policy, physical) = policy.with_physical_policy_for_request(request);
+    let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
+    let metadata = session.memory().reserve(memory::request_bytes(request)?)?;
+    bind_unary(request, policy, physical, source, &session, metadata)
+}
+
 impl BoundUnary {
     pub(super) fn for_relation(
         request: &VortexQueryPrimitiveRequest,
@@ -345,6 +362,18 @@ impl BoundUnary {
 
     pub(super) fn fields(&self) -> &[(String, DType)] {
         &self.fields
+    }
+
+    /// Tighten only rolling output; other unary limits can select a different
+    /// population (for example tail or sample) and cannot receive this bound.
+    pub(super) fn cap_rolling_output(&mut self, rows: usize) {
+        if rows != 0 && self.request.kind == VortexQueryPrimitiveKind::RollingWindowRows {
+            self.request.source_order_limit = Some(
+                self.request
+                    .source_order_limit
+                    .map_or(rows, |existing| existing.min(rows)),
+            );
+        }
     }
 
     /// A conservative metadata bound, never a row count obtained by replay.
@@ -614,10 +643,13 @@ impl PreparedVortexUnary {
         let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
-        let result_jsonl = sink.finish_certified(&mut execution.native_io_certificate)?;
+        let (result_jsonl, result_schema_json) =
+            sink.finish_certified(&mut execution.native_io_certificate)?;
+        execution.runtime = self.snapshot();
         Ok(CollectedVortexUnary {
             execution,
             result_jsonl,
+            result_schema_json,
         })
     }
 

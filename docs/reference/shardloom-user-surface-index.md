@@ -84,8 +84,9 @@ still the command's normal typed envelope with `fallback_attempted=false` and
 
 The Unix `vortex-local-primitives` build supports typed immutable memory intake
 through `ResidentMemorySource`, caller-owned prepared native arrays and bounded
-JSON, and public `run dataframe --generated-source-kind user_rows --request collect
---bounded true` with explicit schema/rows. Direct single-file count/projection/filter
+JSON, and source-free SQL collection through `shardloom run sql --sql "SELECT 1 AS value"
+--request collect --bounded true --format json`. Declared local files use the same
+public run command with `--input <path> --input-format <format>`. Direct single-file count/projection/filter
 collect calls can retain prepared operations in the existing public worker.
 See [Resident Native Results](resident-native-results.md) for exact types, bounds,
 ownership, source-change behavior, and examples. This is a bounded native Rust and
@@ -147,10 +148,8 @@ raw envelopes when checking route ID/status, execution mode, native Vortex activ
 feature gate, parallelism, scan/pushdown signals, source-state reuse, decode/materialization,
 sink/write status, fallback/external-engine flags, claim gate, and unsupported diagnostics.
 
-For direct `.vortex`, `.vortex-manifest`, or local `.vortex` directory inputs, use
-`ctx.native_vortex_provider_route_certificate_report()` to inspect the exact release-feature-backed
-Python/SQL provider routes for grouped aggregation, hash join, global top-N, cast/try-cast,
-substring contains, and native `write_vortex` sink shapes. Scoped primitive routes also cover
+For direct `.vortex`, `.vortex-manifest`, or local `.vortex` directory inputs, scoped primitive
+routes cover
 count/filter/project/limit, no-argument row-level distinct, bounded source-order tail, and
 deterministic row-count
 `sample(n=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)` or
@@ -158,8 +157,8 @@ fractional
 `sample(frac|fraction=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)`, and scoped
 `melt(id_vars=..., value_vars=...)` over heterogeneous scalar value columns plus scoped
 single-column and same-length multi-column `explode(...)` over declared list/fixed-size-list
-columns with scalar, nullable, list, or struct element values. These
-reports are route evidence, not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
+columns with scalar, nullable, list, or struct element values. These routes remain scoped evidence,
+not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
 
 ## Python Query Builder
 
@@ -203,7 +202,10 @@ objects. Common admitted methods include:
   payloads through admitted relational stages and ordered/repeated explode; see
   the [nested composition contract](../architecture/native-nested-composition-2026-10-02.md).
   Vortex, JSON, JSONL, Arrow IPC, Parquet and Avro accept representable nested
-  output; nested CSV/ORC output is denied. The subsequent [native nested keys
+  output. The [shared native workflow](../architecture/native-typed-reductions-2026-10-04.md)
+  additionally streams nested CSV values as quoted JSON text cells, with NULL parents
+  represented by empty cells; CSV does not persist nested dtypes. The pinned ORC
+  writer rejects nested output. The subsequent [native nested keys
   and retained state contract](../architecture/native-nested-keys-state-2026-10-04.md)
   admits static List/FixedSizeList/Struct relational keys and finite selected
   nested-value unary operations. Its `native_nested_keys_state` section records
@@ -258,8 +260,9 @@ objects. Common admitted methods include:
   queries. SQL spells the stage as `PIVOT((SELECT ...), '<options JSON>')`.
   Actual domains bind during execution; inspection and preparation stay inert.
   Empty input retains the index field and any declared margins field; an absent
-  named domain fails explicitly. Complete scalar output can use all eight local
-  writers within the existing 128-field and memory limits. Pivot-state spill and
+  named domain fails explicitly. Representable scalar output can use all eight local
+  writers within the existing 128-field and memory limits; decimal output retains
+  the explicit ORC denial. Pivot-state spill and
   cross-call answer reuse are unsupported. See the
   [dynamic pivot ownership and acceptance contract](../architecture/native-dynamic-pivot-composition-2026-10-03.md).
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
@@ -278,9 +281,22 @@ objects. Common admitted methods include:
   their declared types through duplicate selection/masks, tail/sample,
   replacement/forward-fill, lossless melt, rolling COUNT and scoped pivot
   first/first-unique/COUNT. Python bytes, Decimal, date and datetime literals
-  lower to exact native declarations. Legacy primitive predicates and numeric
-  weight/rolling/pivot restrictions still apply; see the
+  lower to exact native declarations. Legacy primitive predicates and typed
+  sampling-weight restrictions still apply; see the
   [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
+- Exact reductions: the [typed reduction contract](../architecture/native-typed-reductions-2026-10-04.md)
+  adds computed arguments to COUNT, COUNT DISTINCT, SUM, AVG, MIN and MAX through
+  the shared native projection and aggregate. Decimal SUM returns
+  `decimal128(38,input_scale)`; AVG returns `decimal128(38,max(input_scale,6))`
+  and rejects inexact division. MIN/MAX preserve the input decimal type.
+  The same policies apply to source-order rolling sum/mean/min/max and numeric
+  pivot cells/margins. Grouped reductions skip NULLs; numeric pivot NULLs still
+  fail. Centered rolling uses bounded lookahead and stops before unused
+  end-of-input frames once its limit is reached. Fully untyped NULL projections
+  use a nullable boolean carrier; explicitly typed NULLs retain their type.
+  Public workflow and performance acceptance is pending. The JSON index records
+  this unit separately as `native_typed_reductions`; older unit flags retain their
+  original scope. Wider analytic frames and general state spill remain open.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the admitted ShardLoom expression surface.
 - Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar
@@ -362,9 +378,10 @@ Entry points:
 - `ctx.sql("SELECT ... FROM hits ...", input="hits.vortex")` for a declared Vortex input when
   SQL uses a logical table name.
 - `sl.sql("SELECT ...")`
-- `ShardLoomClient.local_source_runtime(...)` for lower-level CLI-backed proof.
-- `shardloom local-source-runtime ... --format json` for lower-level CLI proof execution.
-- `shardloom generated-source-sql ... --format json` for admitted source-free SQL proof writes.
+- `shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --format json`
+  for source-free SQL collection.
+- `shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --format json`
+  for a declared local-file input.
 
 Admitted forms include local-source `SELECT` over local file references, declared Vortex
 inputs bound to logical table names, admitted projection, filter, group-by, having, order, limit,
@@ -441,13 +458,9 @@ shardloom workflow-unsupported-plan <operation> --format json
 Common executable local proof commands:
 
 ```sh
-shardloom generated-source-user-rows --format json
-shardloom generated-source-range --format json
-shardloom generated-source-sequence --format json
-shardloom generated-source-sql --format json
-shardloom local-source-runtime --format json
+shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --format json
+shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --format json
 shardloom vortex-prepare --format json
-shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json
 shardloom sqlite-local-import-export-smoke --format json
 ```
 

@@ -1,0 +1,466 @@
+{
+  "schema_version": "shardloom.native_consolidation_documentation_checks.v1",
+  "status": "passed",
+  "accepted_checker_source": "82766e8b8a8bafdeee0da9e9d70950b5b1623581",
+  "integration_head": "ef6cd4c41472d66a45e47c0e8bde524ed87778f6",
+  "runtime_source_unchanged": true,
+  "changed_source_manifest_entries": [
+    "scripts/check_public_status_docs.py"
+  ],
+  "changed_entries_are_documentation_validators_only": true,
+  "contract_tests_passed": 171,
+  "checks": [
+    {
+      "name": "build",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/bin/npm",
+          "--prefix",
+          "website-src",
+          "run",
+          "build"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10248978526,
+          "log_bytes": 20258816,
+          "free_bytes": 66122555392,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 814,
+        "storage_last_observation": {
+          "workspace_bytes": 10248982622,
+          "log_bytes": 20258816,
+          "free_bytes": 66120818688,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10248982622,
+          "log_bytes": 20258816,
+          "free_bytes": 66122539008,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 47.88950745796319,
+        "log_sha256": "15a09eff9cc6c8d44450680a8b19bd23edcd05b73eaa5dc78ecc4f6d0d0bb8ae"
+      },
+      "receipt_sha256": "8e34f3d498967a59395cfa5aa6fc0b29cb5c89604f1a0aba26c6bcd43e764aa2",
+      "raw_log": "\n> shardloom-website@0.4.0 build\n> npm run prebuild:static && npm run sync-content && astro build && node scripts/postbuild-static.mjs\n\n\n> shardloom-website@0.4.0 prebuild:static\n> node scripts/prebuild-static.mjs --reset-output\n\nprepared website output directories; reset_output=true; settle_output=false; duplicate_suffixed_removed=0; settle_passes=3; settle_delay_ms=50\n\n> shardloom-website@0.4.0 sync-content\n> node scripts/sync-content.mjs\n\nsynced 9 guide pages, 34 vocabulary redirects, and 24 repository use-case records\n09:22:01 [content] Syncing content\n09:22:01 [content] Synced content\n09:22:01 [types] Generated 204ms\n09:22:01 [build] output: \"static\"\n09:22:01 [build] mode: \"static\"\n09:22:01 [build] directory: /Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/\n09:22:01 [build] Collecting build info...\n09:22:01 [build] \u2713 Completed in 295ms.\n09:22:01 [build] Building static entrypoints...\n09:22:02 [vite] \u2713 built in 229ms\n09:22:02 [vite] \u2713 built in 24ms\n09:22:02 [build] Rearranging server assets...\n\n generating static routes \n09:22:02   \u251c\u2500 /404.htmlEntry docs \u2192 404 was not found.\n (+10ms) \n09:22:02   \u251c\u2500 /about/index.html (+2ms) \n09:22:02   \u251c\u2500 /start/index.html (+1ms) \n09:22:02   \u251c\u2500 /index.html (+1ms) \n09:22:02   \u251c\u2500 /field-guide/index.html (+4ms) \n09:22:02   \u251c\u2500 /field-guide/benchmark-methodology/index.html (+2ms) \n09:22:02   \u251c\u2500 /field-guide/compute-flow/index.html (+3ms) \n09:22:02   \u251c\u2500 /field-guide/execution-model/index.html (+2ms) \n09:22:02   \u251c\u2500 /field-guide/execution-routes/index.html (+2ms) \n09:22:02   \u251c\u2500 /field-guide/limitations/index.html (+2ms) \n09:22:02   \u251c\u2500 /field-guide/python-surface/index.html (+2ms) \n09:22:02   \u251c\u2500 /field-guide/runtime-and-io/index.html (+4ms) \n09:22:02   \u251c\u2500 /field-guide/start-local-proof/index.html (+2ms) \n09:22:02 \u2713 Completed in 53ms.\n\n09:22:02 [build] \u2713 Completed in 321ms.\n09:22:02 [starlight:pagefind] Building search index with Pagefind...\n09:22:02 [starlight:pagefind] Found 13 HTML files.\n09:22:02 [starlight:pagefind] Finished building search index in 35ms.\n09:22:02 [@astrojs/sitemap] `sitemap-index.xml` created at `../website`\n09:22:02 [build] 13 page(s) built in 657ms\n09:22:02 [build] Complete!\nwrote canonical .html compatibility pages and refreshed public assets; duplicate_suffixed_removed=0; settle_passes=90; settle_delay_ms=500\n"
+    },
+    {
+      "name": "check",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/bin/npm",
+          "--prefix",
+          "website-src",
+          "run",
+          "check"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10248986718,
+          "log_bytes": 20258816,
+          "free_bytes": 66122301440,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 982,
+        "storage_last_observation": {
+          "workspace_bytes": 10248990814,
+          "log_bytes": 20258816,
+          "free_bytes": 66126422016,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10248990814,
+          "log_bytes": 20258816,
+          "free_bytes": 66126381056,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 48.79823379206937,
+        "log_sha256": "a13a575fd7004d84c79e224d7f5c1b1e3f9ea00a3e32953e21650b98f056290f"
+      },
+      "receipt_sha256": "30fda0e93df513a91efbb07925b30082b39f601e857cf0e345a419d7beaf24a7",
+      "raw_log": "\n> shardloom-website@0.4.0 check\n> npm run clean:static && npm run sync-content && astro check && npm run settle:static\n\n\n> shardloom-website@0.4.0 clean:static\n> node scripts/prebuild-static.mjs\n\nprepared website output directories; reset_output=false; settle_output=false; duplicate_suffixed_removed=0; settle_passes=3; settle_delay_ms=50\n\n> shardloom-website@0.4.0 sync-content\n> node scripts/sync-content.mjs\n\nsynced 9 guide pages, 34 vocabulary redirects, and 24 repository use-case records\n09:22:57 [content] Syncing content\n09:22:57 [content] Synced content\n09:22:57 [types] Generated 189ms\n09:22:57 [check] Getting diagnostics for Astro files in /Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src...\nResult (18 files): \n- 0 errors\n- 0 warnings\n- 0 hints\n\n\n> shardloom-website@0.4.0 settle:static\n> node scripts/prebuild-static.mjs --settle-output\n\nprepared website output directories; reset_output=false; settle_output=true; duplicate_suffixed_removed=0; settle_passes=90; settle_delay_ms=500\n"
+    },
+    {
+      "name": "audit",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/bin/npm",
+          "--prefix",
+          "website-src",
+          "audit",
+          "--audit-level=low",
+          "--json"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10248994910,
+          "log_bytes": 20258816,
+          "free_bytes": 66126209024,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1152,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10248999006,
+          "log_bytes": 20258816,
+          "free_bytes": 66127253504,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.323172083008103,
+        "log_sha256": "a0a302f25e9df615d13151c1612167d2c1b208b64a80b7fefe0e8a9cc827b03a"
+      },
+      "receipt_sha256": "8556b86c6e48e3d6f7a856b2c31370f18e443d2d9213a904370a7368871f1074",
+      "raw_log": "{\n  \"auditReportVersion\": 2,\n  \"vulnerabilities\": {},\n  \"metadata\": {\n    \"vulnerabilities\": {\n      \"info\": 0,\n      \"low\": 0,\n      \"moderate\": 0,\n      \"high\": 0,\n      \"critical\": 0,\n      \"total\": 0\n    },\n    \"dependencies\": {\n      \"prod\": 1,\n      \"dev\": 549,\n      \"optional\": 127,\n      \"peer\": 2,\n      \"peerOptional\": 0,\n      \"total\": 549\n    }\n  }\n}\n"
+    },
+    {
+      "name": "assets",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/bin/node",
+          "scripts/validate_static_assets.cjs"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249003102,
+          "log_bytes": 20258816,
+          "free_bytes": 66128351232,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1167,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249007198,
+          "log_bytes": 20258816,
+          "free_bytes": 66128338944,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.074078582925722,
+        "log_sha256": "d943ff32ebe2c5140507f4030f665d6138a38dfaf1bc3529c3206fe3c1fcf977"
+      },
+      "receipt_sha256": "04350f17930cded9c152a8607883bf2e2efdc0ca50b72de1e3de07fbf70266cb",
+      "raw_log": "website static asset validation passed\n"
+    },
+    {
+      "name": "readiness",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "scripts/check_website_readiness.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-readiness-1.json"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249011294,
+          "log_bytes": 20258816,
+          "free_bytes": 66128314368,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1174,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249023582,
+          "log_bytes": 20258816,
+          "free_bytes": 66114985984,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.0697591659845784,
+        "log_sha256": "773b1f50b6ec71db79c9dc6f4dc2b9d98a2af1f372c56486719e3854a9d65b4d"
+      },
+      "receipt_sha256": "efec7beb44040a49cef4722e304ba4348407bf6f7706bcb254c5b6cb2195f046",
+      "raw_log": "website readiness passed: /Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-readiness-1.json\n"
+    },
+    {
+      "name": "public-status",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "scripts/check_public_status_docs.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-public-status-1.json"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249019486,
+          "log_bytes": 20258816,
+          "free_bytes": 66128244736,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1191,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249117790,
+          "log_bytes": 20258816,
+          "free_bytes": 66128113664,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.0639032499166206,
+        "log_sha256": "c724d5617d5abc03c4133c432c40b20d84c5e15bb51f16e6e94d13f5c189f8c4"
+      },
+      "receipt_sha256": "ee418d42fd009dc079013f56fa58c675c129c947145fdf7a563d1b38ad982c16",
+      "raw_log": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-public-status-1.json\n"
+    },
+    {
+      "name": "productization",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "scripts/check_v1_docs_productization.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-productization-1.json"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249027678,
+          "log_bytes": 20258816,
+          "free_bytes": 66126049280,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1198,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249035870,
+          "log_bytes": 20258816,
+          "free_bytes": 66126000128,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.0901379579445347,
+        "log_sha256": "f203f703c486521a534e46399623495eb326f7cb91d8f12030ab43df85deaa4d"
+      },
+      "receipt_sha256": "433237e92845b3df93b08897f107a30ad514f9f9e2d94fffa3f0f1b5e44369c8",
+      "raw_log": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-productization-1.json\n"
+    },
+    {
+      "name": "ci-matrix",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "scripts/check_ci_gate_matrix.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-ci-matrix-1.json"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249052254,
+          "log_bytes": 20258816,
+          "free_bytes": 66125885440,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1209,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249080926,
+          "log_bytes": 20258816,
+          "free_bytes": 66128117760,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.0753963330062106,
+        "log_sha256": "236a1dba0c4df5d3c2d3afae5725c723fe479480ab99512d7a6103a7e3e7949a"
+      },
+      "receipt_sha256": "7d2dbadaa35a1b28efb1fc044eeddb83c11787d2048a64a68e9a067ef5d342df",
+      "raw_log": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/consolidated-docs-ci-matrix-1.json\n"
+    },
+    {
+      "name": "user-surface",
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "scripts/check_user_surface_reference.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249060446,
+          "log_bytes": 20258816,
+          "free_bytes": 66128142336,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1217,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249064542,
+          "log_bytes": 20258816,
+          "free_bytes": 66128109568,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.0754625829868019,
+        "log_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e"
+      },
+      "receipt_sha256": "1bd2d694865c8001dd159b3a9ed4371838bc8df7255ecad8f0e49bfb195d25e1",
+      "raw_log": "{\n  \"blockers\": [],\n  \"checked_files\": [\n    \"docs/reference/shardloom-user-surface-index.md\",\n    \"docs/reference/shardloom-user-surface-index.json\",\n    \"shardloom-cli/src/command_registry.rs\",\n    \"README.md\",\n    \"python/README.md\",\n    \"docs/architecture/agent-contract-pack.md\",\n    \"docs/architecture/v1-front-door-runtime-scope.md\",\n    \"docs/skills/developer-agent-experience.md\"\n  ],\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"registered_command_count\": 203,\n  \"schema_version\": \"shardloom.user_surface_index_gate.v1\",\n  \"status\": \"passed\"\n}\n"
+    },
+    {
+      "name": "diff-check",
+      "receipt": {
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249068638,
+          "log_bytes": 20258816,
+          "free_bytes": 66128084992,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1231,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249068638,
+          "log_bytes": 20258816,
+          "free_bytes": 66127613952,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 1.0949487499892712,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "receipt_sha256": "5c74ec47edf3f1fe898e8224dd51d9579521be39de8f07a138198d2f1b8edf39",
+      "raw_log": ""
+    },
+    {
+      "name": "contract-tests",
+      "receipt": {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-contract-tests",
+          "--all-targets",
+          "--no-fail-fast",
+          "--",
+          "--test-threads=2"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 10249072734,
+          "log_bytes": 20258816,
+          "free_bytes": 66124664832,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 1289,
+        "storage_last_observation": {
+          "workspace_bytes": 10249080926,
+          "log_bytes": 20258816,
+          "free_bytes": 66065629184,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 10249093214,
+          "log_bytes": 20258816,
+          "free_bytes": 66064531456,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 8.941730458987877,
+        "log_sha256": "ffeee48a21f376eab1db2128e2463ed530c6e080f04cd8fea5b6b63e6ec0c4fd"
+      },
+      "receipt_sha256": "d6e76378089c71968681f7dea8e73880791c7a2bacc04df2453a46f13530754a",
+      "raw_log": "   Compiling shardloom-vortex v0.4.0 (/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/shardloom-vortex)\n   Compiling shardloom-contract-tests v0.4.0 (/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/shardloom-contract-tests)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.56s\n     Running unittests src/lib.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/shardloom_contract_tests-83616321b6a8fe22)\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/benchmark_claim_evidence.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/benchmark_claim_evidence-23a2728c782f0d6a)\n\nrunning 4 tests\ntest benchmark_claim_evidence_surfaces_publication_blockers ... ok\ntest foundation_benchmark_claim_evidence_is_report_only ... ok\ntest spark_displacement_matrix_keeps_claims_not_claim_grade ... ok\ntest traditional_claim_evidence_keeps_external_engines_comparison_only ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/benchmark_evidence_manifest.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/benchmark_evidence_manifest-a0b43dcefcb1980f)\n\nrunning 15 tests\ntest benchmark_claim_gate_requires_every_publication_input ... ok\ntest benchmark_comparison_report_is_emitted_but_claim_blocked_without_results ... ok\ntest benchmark_claim_gate_blocks_without_correctness_and_benchmark_evidence ... ok\ntest benchmark_comparison_report_requires_known_metrics_for_each_baseline ... ok\ntest benchmark_constitution_validator_accepts_complete_synthetic_row ... ok\ntest benchmark_engine_version_labels_are_comparison_only ... ok\ntest benchmark_constitution_validator_rejects_missing_claim_grade_fields ... ok\ntest benchmark_evidence_bundle_requires_reproducible_manifest ... ok\ntest benchmark_run_manifest_defaults_to_incomplete_reproducibility ... ok\ntest benchmark_run_manifest_requires_environment_dataset_versions_and_steps ... ok\ntest benchmark_scenarios_are_correctness_gated_before_claims ... ok\ntest complete_benchmark_comparison_report_still_needs_reproducibility_for_claims ... ok\ntest complete_benchmark_evidence_bundle_allows_publication_gate ... ok\ntest foundation_benchmark_plan_covers_cg6_evidence_categories ... ok\ntest traditional_analytics_plan_covers_dataframe_sql_baselines ... ok\n\ntest result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/capability_certification_snapshots.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/capability_certification_snapshots-dfb22a5c307c291b)\n\nrunning 4 tests\ntest capability_certification_schema_versions_are_stable ... ok\ntest capability_certification_matrix_names_are_stable ... ok\ntest certification_and_feature_footprint_share_no_probe_contract ... ok\ntest planned_capability_certification_defaults_are_not_supported ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/conda_packaging_recipes.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/conda_packaging_recipes-94a031e77f04ad5b)\n\nrunning 4 tests\ntest conda_metapackage_depends_only_on_cli_and_python_wrapper ... ok\ntest conda_cli_recipe_builds_platform_binary_without_fallback_dependencies ... ok\ntest conda_packaging_scaffold_declares_three_package_split ... ok\ntest conda_python_recipe_stays_noarch_and_import_only ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/correctness_differential_harness.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/correctness_differential_harness-adbd5c5c8091eaea)\n\nrunning 2 tests\ntest correctness_harness_declares_validation_modes_and_oracle_order ... ok\ntest correctness_harness_aggregates_current_cg5_evidence_without_execution ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/correctness_fixture_manifest.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/correctness_fixture_manifest-88a2a31c1e2f241f)\n\nrunning 10 tests\ntest foundation_plan_declares_checked_in_vortex_golden_fixture ... ok\ntest foundation_plan_declares_broader_local_primitive_reference_outputs ... ok\ntest foundation_plan_declares_external_oracle_result_artifact_slots_without_execution ... ok\ntest foundation_plan_declares_edge_case_reference_outputs ... ok\ntest foundation_plan_declares_local_encoded_count_reference_output ... ok\ntest foundation_plan_declares_prepared_encoded_reference_outputs ... ok\ntest foundation_plan_declares_property_fuzz_metadata_without_execution ... ok\ntest foundation_plan_reports_reference_and_gap_counts ... ok\ntest foundation_plan_tracks_required_edge_case_fixture_families ... ok\ntest reference_roles_remain_test_only_not_production_fallback ... ok\n\ntest result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/diagnostic_stability.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/diagnostic_stability-d6f7b80df950741f)\n\nrunning 1 test\ntest machine_readable_diagnostic_strings_are_stable ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/dynamic_work_shaping.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/dynamic_work_shaping-51d40db8d46d7585)\n\nrunning 2 tests\ntest dynamic_work_shaping_is_report_only ... ok\ntest dynamic_work_shaping_surfaces_blockers ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/execution_certificate_contracts.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/execution_certificate_contracts-df7a5981b84530c4)\n\nrunning 5 tests\ntest execution_certificate_blocks_diagnostic_errors ... ok\ntest execution_certificate_blocks_external_query_engine_providers ... ok\ntest execution_certificate_blocks_fallback_attempts ... ok\ntest execution_certificate_blocks_unsafe_effects ... ok\ntest execution_certificate_certifies_matching_reference_output ... ok\n\ntest result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/expression_operator_semantics.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/expression_operator_semantics-2cbd78d12f2ebcb6)\n\nrunning 15 tests\ntest expression_semantics_baseline_declares_no_fallback_evidence ... ok\ntest expression_semantics_baseline_keeps_unsupported_paths_deterministic ... ok\ntest expression_semantics_advanced_scalar_blockers_are_deterministic ... ok\ntest expression_semantics_binary_equality_is_bytewise_and_null_propagating ... ok\ntest expression_semantics_binary_ordering_is_bytewise_without_fallback ... ok\ntest expression_semantics_casts_iso_utf8_and_date32_without_fallback ... ok\ntest expression_semantics_date_extract_nulls_and_blockers_are_deterministic ... ok\ntest expression_semantics_complex_dtype_blockers_are_deterministic ... ok\ntest expression_semantics_evaluates_utf8_string_transforms_without_fallback ... ok\ntest expression_semantics_parses_formats_and_extracts_date32_without_fallback ... ok\ntest expression_semantics_parses_formats_extracts_and_casts_timestamp_micros_without_fallback ... ok\ntest expression_semantics_string_predicates_propagate_nulls_and_block_non_utf8 ... ok\ntest expression_semantics_string_transforms_propagate_nulls_and_block_non_utf8 ... ok\ntest projection_filter_and_limit_share_the_semantics_baseline ... ok\ntest expression_semantics_evaluates_utf8_string_predicates_without_fallback ... ok\n\ntest result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/external_baseline_oracles.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/external_baseline_oracles-0f8544fb5d87a60f)\n\nrunning 2 tests\ntest differential_baseline_oracle_constructor_is_never_fallback_capable ... ok\ntest foundation_plan_declares_external_oracles_as_comparison_only ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/fidelity_invariants.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/fidelity_invariants-fff399318aae9e24)\n\nrunning 4 tests\ntest output_target_default_fidelity_is_stable ... ok\ntest compatibility_output_writer_matrix_respects_claim_boundaries ... ok\ntest translation_plan_and_report_respect_native_vs_compatibility_contract ... ok\ntest vortex_fidelity_mapping_is_stable ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/license_metadata.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/license_metadata-a313fa54ae4d7984)\n\nrunning 5 tests\ntest conda_recipes_keep_apache_2_license_metadata ... ok\ntest contributor_policy_requires_future_cla_or_approved_dco_route ... ok\ntest python_package_metadata_is_pypi_ready_and_apache_2 ... ok\ntest top_level_license_notice_and_reuse_posture_are_apache_2 ... ok\ntest cargo_workspace_and_crate_manifests_use_apache_2_metadata ... ok\n\ntest result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s\n\n     Running tests/no_fallback_invariants.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/no_fallback_invariants-e4abc8aeb7c711ea)\n\nrunning 3 tests\ntest fallback_execution_remains_disabled_everywhere ... ok\ntest workspace_manifests_do_not_declare_forbidden_fallback_dependencies ... ok\ntest cargo_lock_has_no_forbidden_fallback_packages ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n     Running tests/physical_operator_kernel_contracts.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/physical_operator_kernel_contracts-2d32f7c1b8dfd7f8)\n\nrunning 18 tests\ntest cg7_foundation_plan_declares_initial_operator_kernel_blockers ... ok\ntest cg7_kernel_registry_plan_names_required_missing_kernel_slots ... ok\ntest current_runtime_kernel_selection_selects_ready_families_and_blocks_unsupported_slots ... ok\ntest current_runtime_plan_promotes_supported_operator_families_and_keeps_blockers_explicit ... ok\ntest current_runtime_profile_matrix_declares_supported_and_blocked_levels ... ok\ntest current_runtime_registry_tracks_present_slots_and_unsupported_blocker_slots ... ok\ntest native_kernel_requirements_can_reach_planning_ready_without_execution ... ok\ntest physical_kernel_admission_allows_registry_before_production_claims ... ok\ntest physical_kernel_admission_blocks_reference_fallback_and_missing_evidence ... ok\ntest physical_kernel_selection_blocks_missing_slots_and_rejected_levels ... ok\ntest physical_kernel_selection_can_reach_admission_review_without_execution ... ok\ntest physical_kernel_selection_uses_execution_level_specific_requirements ... ok\ntest physical_operator_execution_profiles_declare_native_levels_without_materialization ... ok\ntest physical_operator_planning_certificate_blocks_foundation_missing_kernels ... ok\ntest physical_operator_planning_certificate_reaches_native_planning_without_runtime ... ok\ntest physical_operator_planning_certificate_separates_production_and_fallback_blockers ... ok\ntest reference_only_kernel_requirement_cannot_satisfy_native_operator ... ok\ntest unsupported_operator_level_blocks_native_planning ... ok\n\ntest result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/plan_only_invariants.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/plan_only_invariants-119e9cf5b946b555)\n\nrunning 3 tests\ntest encoded_read_surfaces_do_not_materialize_or_arrow_convert ... ok\ntest query_readiness_surfaces_do_not_materialize_or_arrow_convert ... ok\ntest plan_only_types_do_not_imply_execution_or_side_effects ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/query_primitive_correctness.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/query_primitive_correctness-2104621f2fd3880b)\n\nrunning 13 tests\ntest count_all_missing_metadata_reports_count_all_boundary_without_fallback ... ok\ntest count_all_sums_segment_rows_when_file_row_count_is_missing ... ok\ntest count_all_uses_file_row_count_without_data_read ... ok\ntest count_where_inconclusive_metadata_defers_to_encoded_predicate_without_fallback ... ok\ntest count_where_metadata_false_returns_zero_without_scan ... ok\ntest count_where_metadata_true_sums_matching_segment_rows ... ok\ntest count_where_metadata_true_without_segment_rows_blocks_without_fallback ... ok\ntest filter_metadata_false_returns_boolean_false_without_scan ... ok\ntest local_execution_missing_summary_blocks_without_read_or_fallback ... ok\ntest projection_known_columns_requires_projection_without_materialization ... ok\ntest projection_missing_column_blocks_on_metadata_without_read ... ok\ntest unsupported_query_primitive_emits_no_fallback_error ... ok\ntest untrusted_statistics_cannot_publish_zero_count_or_false_filter ... ok\n\ntest result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/release_readiness_metadata.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/release_readiness_metadata-1c8cb387bf7ebd60)\n\nrunning 58 tests\ntest bayesian_performance_layout_advisor_remains_report_only ... ok\ntest cargo_metadata_marks_current_workspace_crates_internal ... ok\ntest admitted_semantics_matrix_validator_is_wired_into_release_readiness ... ok\ntest completed_report_lanes_are_not_left_unchecked_in_global_review ... ok\ntest contribution_governance_gate_is_wired_into_release_readiness ... ok\ntest cg5_cg6_stateful_reuse_evidence_expansion_remains_fail_closed ... ok\ntest enterprise_evidence_export_pack_remains_report_only_and_local_first ... ok\ntest external_examples_include_fixtures_expected_outputs_and_boundaries ... ok\ntest dependency_audit_scaffolding_documents_policy_and_tools ... ok\ntest foundry_dev_stack_starter_records_local_style_runtime_proof ... ok\ntest field_guide_cleanup_remains_generated_and_claim_safe ... ok\ntest foundry_integration_pack_and_proof_docs_are_present ... ok\ntest gar_0001b_a_engine_replacement_claim_inventory_blocks_displacement_language ... ok\ntest foundry_package_proof_boundary_matrix_remains_report_only ... ok\ntest gar_0009_a_spark_displacement_benchmark_matrix_remains_not_claim_grade ... ok\ntest gar_0011_a_extension_manifest_effect_matrix_remains_report_only ... ok\ntest gar_0015_a_string_property_fuzz_gap_remains_report_only ... ok\ntest gar_0019_a_credential_policy_enforcement_gate_remains_report_only ... ok\ntest gar_0019_b_sandbox_governance_readiness_gate_remains_report_only ... ok\ntest gar_0023_a_plugin_abi_udf_sandbox_blocker_remains_report_only ... ok\ntest gar_0024_a_publication_api_schema_gate_fails_closed ... ok\ntest gar_0022_a_substrait_report_only_contract_remains_claim_safe ... ok\ntest gar_0030_a_universal_harness_execution_gate_remains_report_only ... ok\ntest gar_0025_a_competitive_replacement_sufficiency_gate_fails_closed ... ok\ntest gar_0032_a_sql_parser_binder_readiness_remains_diagnostic_only ... ok\ntest gar_0032_c_udf_external_effect_blockers_remain_denied_by_default ... ok\ntest gar_0032_d_unstructured_adapter_matrix_remains_report_only ... ok\ntest gar_0032_e_best_default_certification_gate_blocks_claim_language ... ok\ntest gar_0034_a_live_hybrid_fabric_gate_remains_claim_safe ... ok\ntest gar_0033_a_etl_workflow_capability_matrix_remains_claim_safe ... ok\ntest gar_0035_a_rest_runtime_unsupported_contract_remains_claim_safe ... ok\ntest gar_0037_a_wrapper_connector_registry_remains_claim_safe ... ok\ntest gar_0040_a_comparative_rerun_managed_platform_gate_remains_fail_closed ... ok\ntest gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe ... ok\ntest gar_0041_a_per_claim_evidence_attachment_matrix_fails_closed ... ok\ntest gar_0043_a_release_architecture_tracker_gate_fails_closed ... ok\ntest gar_runtime_4s_5q_production_usability_gate_is_local_and_claim_safe ... ok\ntest gar_runtime_impl_4i_scan_pushdown_completion_remains_projected ... ok\ntest golden_workflow_validator_is_wired_into_release_readiness ... ok\ntest hard_release_readiness_gate_docs_are_present ... ok\ntest open_source_security_posture_config_is_present ... ok\ntest optimized_build_profiles_preserve_portable_release_boundary ... ok\ntest prod_ready_1c_table_protocol_source_review_is_claim_safe ... ok\ntest gar_0043_b_final_release_rehearsal_remains_no_publication ... ok\ntest python_package_metadata_is_discoverable_without_runtime_dependencies ... ok\ntest readme_links_website_and_first_user_docs ... ok\ntest release_dry_run_docs_describe_clean_venv_and_no_publication_proof ... ok\ntest release_package_docs_workflow_and_examples_are_present ... ok\ntest release_provenance_docs_and_workflow_policy_are_traceable ... ok\ntest release_security_gate_docs_and_known_unsupported_paths_are_present ... ok\ntest runtime_execution_envelope_validator_is_release_visible ... ok\ntest runtime_exploit_regression_suite_documents_report_level_security_tests ... ok\ntest security_policy_threat_model_and_supply_chain_response_are_present ... ok\ntest pulseweave_runtime_control_plan_is_traceable_before_4d ... ok\ntest universal_compatibility_scoreboard_projection_is_discoverable ... ok\ntest use_case_atlas_closeout_remains_generated_and_validated ... ok\ntest workflow_recipe_library_remains_claim_safe_and_indexed ... ok\ntest security_rfc_and_p80_completion_are_traceable ... ok\n\ntest result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s\n\n     Running tests/terminology_mappings.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/terminology_mappings-3c8b90eeffd7f83f)\n\nrunning 1 test\ntest canonical_terminology_mappings_are_stable ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n     Running tests/vortex_metadata_only_execution_spike.rs (/Users/dylan/.cache/shardloom/cargo-target/debug/deps/vortex_metadata_only_execution_spike-43b777f12d0dbe64)\n\nrunning 2 tests\ntest vortex_execution_spike_rejects_non_vortex_input_without_fallback ... ok\ntest vortex_metadata_only_execution_spike_remains_side_effect_free ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+    }
+  ],
+  "runtime_acceptance_reexecuted": false,
+  "hosted_acceptance_claimed": false,
+  "publication_attempted": false
+}

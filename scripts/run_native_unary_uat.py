@@ -196,6 +196,7 @@ def main() -> int:
         freeze(exploded)
 
         for family, workflow, expected in cases(context, source, exploded):
+            dynamic_schema = family in {"pivot", "filtered-pivot"}
             for execution in range(1, 4):
                 guard()
                 name = f"{family}-collect-{execution}"
@@ -203,9 +204,13 @@ def main() -> int:
                 envelope = accepted(name, report)
                 complete(name, list(report.result_rows), expected)
                 for field, value in {
-                    "resident_source_opens": "1", "resident_unary_handle_retained": "true",
+                    "resident_source_opens": "1", "resident_relational_handle_retained": "true",
                     "resident_completed_executions": str(execution), "result_payload_complete": "true",
-                    "resident_unary_lowering_reused": str(execution > 1).lower(),
+                    "resident_relational_declaration_reused": str(execution > 1).lower(),
+                    "resident_relational_lowering_reused": str(execution > 1 and not dynamic_schema).lower(),
+                    "relational_schema_binding": "during_execution" if dynamic_schema else "during_preparation",
+                    "relational_dynamic_schema_stages": "1" if dynamic_schema else "0",
+                    "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
                 }.items():
                     if envelope.field(field) != value:
                         raise ValueError(f"{name}: {field} is {envelope.field(field)!r}, expected {value!r}")

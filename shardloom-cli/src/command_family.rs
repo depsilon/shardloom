@@ -9,7 +9,6 @@ pub(crate) enum CommandFamily {
     StatusCapabilities,
     VortexPrimitiveExecution,
     PreparedSourceBackedExecution,
-    VortexProductionRuntime,
     VortexPlanning,
     VortexRuntimePlanning,
     VortexOutputCommit,
@@ -37,7 +36,6 @@ impl CommandFamily {
             Self::StatusCapabilities => "status_capabilities",
             Self::VortexPrimitiveExecution => "vortex_primitive_execution",
             Self::PreparedSourceBackedExecution => "prepared_source_backed_execution",
-            Self::VortexProductionRuntime => "vortex_production_runtime",
             Self::VortexPlanning => "vortex_planning",
             Self::VortexRuntimePlanning => "vortex_runtime_planning",
             Self::VortexOutputCommit => "vortex_output_commit",
@@ -70,8 +68,6 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
         CommandFamily::VortexPrimitiveExecution
     } else if is_prepared_source_backed_command(command) {
         CommandFamily::PreparedSourceBackedExecution
-    } else if is_vortex_production_runtime_command(command) {
-        CommandFamily::VortexProductionRuntime
     } else if is_vortex_output_commit_command(command) {
         CommandFamily::VortexOutputCommit
     } else if is_vortex_runtime_planning_command(command) {
@@ -147,10 +143,6 @@ fn is_vortex_primitive_command(command: &str) -> bool {
             | "vortex-local-exec"
             | "vortex-bounded-local-exec"
     )
-}
-
-fn is_vortex_production_runtime_command(command: &str) -> bool {
-    matches!(command, "vortex-production-runtime-run")
 }
 
 fn is_prepared_source_backed_command(command: &str) -> bool {
@@ -251,14 +243,7 @@ fn is_evidence_certificate_command(command: &str) -> bool {
 fn is_benchmark_command(command: &str) -> bool {
     matches!(
         command,
-        "benchmark-plan"
-            | "benchmark-constitution"
-            | "traditional-analytics-run"
-            | "traditional-analytics-vortex-run"
-            | "traditional-analytics-vortex-batch-run"
-            | "traditional-analytics-prepare-batch-run"
-            | "operator-microkernel-benchmark"
-            | "vortex-count-benchmark"
+        "benchmark-plan" | "benchmark-constitution" | "vortex-count-benchmark"
     )
 }
 
@@ -343,15 +328,6 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "schema-plan"
             | "manifest-plan"
             | "workflow-unsupported-plan"
-            | "generated-source-user-rows"
-            | "generated-source-user-rows-smoke"
-            | "generated-source-range"
-            | "generated-source-range-smoke"
-            | "generated-source-sequence"
-            | "generated-source-sequence-smoke"
-            | "generated-source-sql"
-            | "generated-source-sql-smoke"
-            | "local-source-runtime"
             | "translation-plan"
             | "plan-ir"
             | "plan-import"
@@ -521,18 +497,6 @@ mod tests {
             CommandFamily::Benchmarks
         );
         assert_eq!(
-            classify_command("traditional-analytics-vortex-batch-run"),
-            CommandFamily::Benchmarks
-        );
-        assert_eq!(
-            classify_command("vortex-production-runtime-run"),
-            CommandFamily::VortexProductionRuntime
-        );
-        assert_eq!(
-            classify_command("traditional-analytics-prepare-batch-run"),
-            CommandFamily::Benchmarks
-        );
-        assert_eq!(
             classify_command("release-plan"),
             CommandFamily::PackagingDeployment
         );
@@ -583,38 +547,6 @@ mod tests {
         );
         assert_eq!(
             classify_command("manifest-plan"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-user-rows"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-user-rows-smoke"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-range"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-range-smoke"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-sequence"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-sequence-smoke"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-sql"),
-            CommandFamily::WorkflowPlanning
-        );
-        assert_eq!(
-            classify_command("generated-source-sql-smoke"),
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(

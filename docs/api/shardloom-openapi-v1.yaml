@@ -936,7 +936,6 @@ components:
         - compatibility_import_certified
         - prepared_vortex
         - native_vortex
-        - internal_local_source_smoke
     ExecutionModeFamily:
       type: string
       enum: [auto_selection, compatibility, native_vortex]

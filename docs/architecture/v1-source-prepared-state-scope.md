@@ -1,234 +1,105 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# V1 Source Prepared-State Scope
+# V1 Source And Prepared-State Scope
 
-Status: canonical v1 SourceState and VortexPreparedState reuse scope.
+Status: declarative contract for the v1 source and prepared-state boundary. Schema marker:
+`shardloom.v1_source_prepared_state_scope.v1`.
 
-Schema marker: `shardloom.v1_source_prepared_state_scope.v1`.
+This scope has one public native route: `native_vortex_query`. It describes where source state may
+be reused and what must be revalidated; it does not certify runtime or benchmark readiness. The
+golden JSON files are a declarative specification, not runtime evidence.
 
-This document defines the local compatibility-source normalization and prepared-state reuse surface
-admitted for ShardLoom v1. It is the product local Vortex preparation contract, not an
-object-store, table/catalog, persistent-cache, remote-production, or performance-superiority claim.
+## Canonical Route And Owner
 
-Every admitted row in this scope must preserve:
+Every declared input or source-free expression enters the same route:
 
 ```text
-claim_gate_status=not_claim_grade
+declared input or source-free expression
+  -> native Vortex admission
+  -> native_vortex_unified_plan
+  -> typed result or declared sink
+```
+
+`ResidentVortexSession` owns resident source state. Reuse is limited to that native session or an
+explicit Vortex artifact. Before each execution, the runtime validates source generation and the
+input declaration; a failed validation requires re-admission or a deterministic error. Reusing
+source state never reuses a prior query answer: each request executes its native query and returns
+that execution's result. The policy is
+`validate_source_generation_and_declaration_before_each_execution` and it does not cache query
+answers.
+
+## Input And Preparation Contract
+
+- Memory and native Vortex inputs are direct inputs to the shared native query route; memory and
+  native Vortex inputs are direct.
+- Compatibility inputs (`csv`, `json`, `jsonl`, `parquet`, `arrow-ipc`, `avro`, and `orc`) normalize
+  through Vortex before entering that shared query route. Feature gates still apply to formats
+  whose adapters are gated. Compatibility inputs normalize through Vortex before shared execution.
+- Source-free expressions use the shared engine and do not require publication or durable output;
+  source-free execution does not require publication.
+- Durable `vortex-prepare` is optional. A caller may choose an explicit Vortex artifact when
+  persistence is useful; a compatibility input does not require a workspace manifest or an
+  implicit artifact cache.
+- Reuse of an explicit artifact requires validating its existence, identity, source generation,
+  and declaration before the query runs.
+
+## Reuse And Invalidation Cases
+
+The matrix covers exactly these cases:
+
+| Case | Required posture |
+| --- | --- |
+| `first_request` | Admit source state, then execute the native query. |
+| `same_source_same_declaration` | Reuse validated resident source state, then execute the native query again. |
+| `source_changed` | Invalidate source state and re-admit before query execution. |
+| `memory_declaration_changed` | Invalidate state when a memory input's declaration changes. |
+| `resource_policy_changed` | Revalidate state under the changed execution resource policy. |
+| `missing_artifact` | Do not reuse a missing explicit Vortex artifact. |
+| `artifact_changed` | Do not reuse an explicit artifact whose identity has changed. |
+
+No case permits query-answer caching. A reuse hit concerns validated source state only; every
+matrix case retains `query_execution=execute_native_query` and `query_answer_cached=false`.
+
+## Explicit Non-Goals
+
+V1 does not admit a `global_hidden_cache`, external cache service, object-store prepared-state
+reuse, table/catalog prepared-state reuse, or broad non-local preparation. Unsupported behavior
+must fail deterministically without external execution and preserve:
+
+```text
 fallback_attempted=false
 external_engine_invoked=false
 ```
 
-## Source Of Truth
+The scope makes no performance, production-readiness, Spark-replacement, or broad adapter-support
+claim. Such claims require separate runtime and benchmark evidence under their applicable gates.
 
-The machine-readable sources for this scope are:
+## Validation And Runtime Evidence
 
-- `ShardLoomContext.source_prepared_state_scope_report()`
-- `ShardLoomContext.user_route_capability_report()`
-- `ShardLoomContext.local_file_benchmark_route_report()`
-- `scripts/check_v1_source_prepared_state_scope.py`
-- `docs/architecture/fixtures/v1-source-prepared-state/source-state-golden.json`
-- `docs/architecture/fixtures/v1-source-prepared-state/vortex-prepared-state-golden.json`
-- `docs/architecture/fixtures/v1-source-prepared-state/reuse-invalidation-matrix.json`
+`ShardLoomContext.source_prepared_state_scope_report()` returns the declarative contract.
+`scripts/check_v1_source_prepared_state_scope.py` checks that context report, these
+documented boundaries, and the exact declarative fixtures. It does not read benchmark artifacts,
+infer readiness from benchmark rows, or claim that fixture contents prove runtime behavior.
 
-Public docs, benchmark pages, and release summaries may point here, but they must not translate
-this local v1 scope into a broad production adapter or cache claim.
+Runtime regression ownership stays with the existing native execution tests:
 
-## Canonical Routes
+- `shardloom-cli/tests/resident_worker.rs` checks resident worker execution and source-state reuse
+  while verifying that requests execute and preserve no-fallback evidence.
+- `python/tests/test_native_session_execution.py` checks per-request native execution, result
+  freshness, reuse reporting, and session lifecycle behavior.
 
-The canonical non-Vortex local compatibility route is:
-
-```text
-UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex
-```
-
-The internal local-source smoke compatibility route boundary is internal smoke-only:
-
-```text
-UniversalIngress -> SourceState -> internal_local_source_smoke
-```
-
-The internal local-source smoke path is not an admitted public workflow runtime route. Public local-file
-`auto` workflows must prepare into Vortex or run from native Vortex input; explicit `direct` public
-workflow requests fail closed. Internal local-source smoke rows remain only as lower-level smoke safeguards and
-must report:
-
-```text
-prepared_state_reuse_scope=not_applicable_no_prepared_state
-route_runtime_status=internal_smoke_only
-```
-
-## Supported Local Compatibility Formats
-
-The v1 local compatibility formats in this scope are:
-
-```text
-csv
-jsonl
-parquet
-arrow-ipc
-avro
-orc
-```
-
-Structured formats remain feature-gated where the current build requires it. Local format
-normalization is an input adapter lifecycle that feeds SourceState and prepared Vortex evidence for
-the shared product runtime; it does not create separate CSV/JSONL/Parquet execution engines.
-
-## Prepared Route Families
-
-The v1 route ids that require or consume `VortexPreparedState` are:
-
-| Route id | Route meaning | Required reuse scope |
-| --- | --- | --- |
-| `local_file_cold_certified_route` | Cold certified local file route, including preparation and first execution evidence. | `workspace_manifest_local_vortex_artifacts` |
-| `local_file_prepare_once_first_query` | Prepare local compatibility input once, then run the first query. | `workspace_manifest_local_vortex_artifacts` |
-| `local_file_prepare_once_batch` | Prepare local compatibility input once, then reuse it across a batch. | `workspace_manifest_local_vortex_artifacts` |
-| `prepared_vortex_warm_query` | Start from an explicit prepared local Vortex state. | `explicit_prepared_state_input` |
-
-Prepared local Vortex artifacts may contain ShardLoom-internal derived columns such as compact
-`UInt32` UTF-8 byte length and dictionary-encoded URL/Referer/URI domain values. These are part of
-the single `.vortex` artifact and are not adjacent manifests, query-answer caches, or public output
-columns. Native planning may consume them for admitted string predicates and aggregate expressions
-when present. Large product columnar source adapters use the lean source-native runtime profile by
-default, retaining URL, Referer, SearchPhrase, and EventTime helpers before broader candidate
-metadata. They must not synthesize physical columns through a slower per-row preprocessing pass;
-they should report the derived-column posture in source evidence and only embed broader helpers when
-a source-native or dictionary-aware generator is admitted.
-
-Large local compatibility-source preparation remains a single-artifact route. Source evidence must
-record the active capillary stream policy, including adaptive large-source batch sizing such as
-`product_columnar_stream_batch_size_262144_rows`, source-unit hints such as Parquet row-group count,
-and the writer/layout profile. Current local 100M UAT retains source-schema-admitted text
-compression for real source UTF-8 and dictionary-UTF8 payload columns while excluding generated
-hidden helpers and numeric columns from text-compression cost. Writer profile timing remains a
-tuning item; it is not a performance-superiority or load-speed claim.
-
-The source-free generated route id in this scope is:
-
-| Route id | Route meaning | Required reuse scope |
-| --- | --- | --- |
-| `generated_rows_local_output` | Generate local rows and write a local Vortex-preparable artifact. | `single_vortex_artifact_no_sidecar` |
-
-The internal local-source smoke route id in this scope is:
-
-| Route id | Route meaning | Required reuse scope |
-| --- | --- | --- |
-| `local_file_internal_source_smoke_route` | Run a scoped local compatibility route without persistent `VortexPreparedState`. | `not_applicable_no_prepared_state` |
-
-## Required Runtime Evidence Fields
-
-Prepared benchmark rows must expose all of these fields:
-
-```text
-source_state_id
-source_state_digest
-source_state_fingerprint
-source_schema_fingerprint
-source_parse_plan_id
-source_split_manifest_id
-prepared_state_id
-prepared_state_digest
-prepared_state_reuse_hit
-prepared_state_reuse_reason
-prepared_state_reuse_manifest_digest
-prepared_state_invalidation_reason
-fallback_attempted
-external_engine_invoked
-```
-
-The stage and timing fields may differ by route lane and timing surface. The required fields above
-are identity, reuse, invalidation, and no-fallback evidence, not a performance claim.
-
-## Reuse And Invalidation Matrix
-
-The v1 prepared-state reuse contract must cover these cases:
-
-| Case id | Expected posture |
-| --- | --- |
-| `cold_prepare_no_manifest` | Misses reuse and prepares because no workspace manifest exists. |
-| `warm_reuse_manifest_match` | Reuses when source, schema, policy, manifest, and artifacts match. |
-| `source_changed` | Invalidates when a source fingerprint changes. |
-| `artifact_changed` | Invalidates when a prepared artifact fingerprint changes. |
-| `schema_changed` | Invalidates when the source-admission packet or schema evidence changes. |
-| `policy_changed` | Invalidates when prepare policy changes. |
-| `version_changed` | Invalidates when reuse manifest schema version changes. |
-| `missing_artifact` | Invalidates when a required prepared artifact manifest/path is missing. |
-| `corrupted_manifest` | Invalidates when manifest JSON cannot be parsed. |
-
-The machine-readable matrix lives at
-`docs/architecture/fixtures/v1-source-prepared-state/reuse-invalidation-matrix.json`.
+Those tests provide runtime behavior checks; the fixtures and validator describe and guard the
+static contract only. All admitted route evidence remains `claim_gate_status=not_claim_grade`,
+`fallback_attempted=false`, and `external_engine_invoked=false`.
 
 ## Vortex-First Provider Check
 
-Vortex-first provider check:
-
-- Subject area: v1 local compatibility SourceState and VortexPreparedState reuse scope.
-- Upstream Vortex concept checked: Vortex file, arrays, local writer/reopen surfaces, Arrow
-  RecordBatch interop for admitted structured sources, source/split concepts, and sink/output
-  concepts.
-- Decision:
-  - `use_vortex_native_provider` for the existing feature-gated local `vortex_ingest` preparation
-    path and admitted Vortex array/write/reopen provider surfaces.
-  - `wrap_vortex_concept` for SourceState, VortexPreparedState, reuse manifest, invalidation, and
-    route-scope evidence reports.
-  - `blocked_until_vortex_or_shardloom_evidence` for global hidden cache, external cache service,
-    object-store prepared-state reuse, table/catalog prepared-state reuse, and broad non-local
-    preparation.
-- Vortex API/provider surface: upstream Vortex provider version derived from root `Cargo.toml`
-  `[workspace.dependencies].vortex` behind `shardloom-vortex` feature gates such as
-  `vortex-write`, `vortex-file-io`, `vortex-traditional-analytics-benchmark`, and
-  `universal-format-io` where relevant.
-- ShardLoom provider/report/certificate surface: route capability reports, local-file benchmark
-  route rows, SourceState id/digest fields, VortexPreparedState id/digest fields, workspace reuse
-  evidence where still applicable, single-artifact Vortex output evidence, execution certificates,
-  Native I/O certificates, and materialization/decode boundary fields.
-- Residual handling: supported residuals are ShardLoom-native or not required; unsupported
-  residuals are blocked with deterministic diagnostics.
-- Materialization/decode boundary: scoped local preparation, internal local-source smoke scalar runtime, or
-  bounded result/publication evidence boundary only.
-- Evidence added: `scripts/check_v1_source_prepared_state_scope.py` validates route ids, fixture
-  refs, invalidation cases, benchmark artifact required fields, docs linkage, and no-fallback
-  fields.
-- Gates still blocked: global hidden cache, external cache service, object-store prepared-state
-  reuse, table/catalog prepared-state reuse, broad non-local preparation, production adapter
-  certification, and performance claims.
-- `fallback_attempted=false`: required for every admitted row.
-- `external_engine_invoked=false`: required for every admitted row.
-
-## Unsupported V1 Boundaries
-
-These boundary ids remain outside v1 support unless a later phase-plan item closes them with real
-runtime evidence, deterministic diagnostics, and no-fallback proof:
-
-| Boundary id | Current v1 posture |
-| --- | --- |
-| `global_hidden_cache` | Unsupported. Prepared-state reuse must be explicit, scoped, and evidence-backed. |
-| `external_cache_service` | Unsupported. No Redis, database, service, or remote cache participates in v1 reuse. |
-| `object_store_prepared_state_reuse` | Unsupported. Local object-store fixtures do not authorize object-store prepared-state reuse. |
-| `table_catalog_prepared_state_reuse` | Unsupported. Table/catalog metadata rows do not authorize table execution or table-prepared reuse. |
-| `broad_non_local_preparation` | Unsupported. v1 admits scoped local routes only. |
-
-Unsupported shapes must fail before hidden reads, writes, cache probes, or external execution. They
-must report deterministic diagnostics and preserve:
-
-```text
-runtime_execution=false
-data_read=false
-write_io=false
-fallback_attempted=false
-external_engine_invoked=false
-```
-
-## Claim Boundary
-
-After this scope is closed, ShardLoom may claim scoped local SourceState normalization and
-prepared-state reuse/invalidation behavior for the route families listed above. It still may not
-claim:
-
-- broad compatibility input support;
-- object-store or table/catalog prepared-state reuse;
-- a global cache or external cache service;
-- broad non-local preparation;
-- production adapter certification;
-- package publication or production readiness; or
-- performance superiority, Spark displacement, or external engine replacement.
+- Subject: local source normalization, native input, and resident prepared-state reuse.
+- Vortex concepts checked: Vortex files and arrays, source/split, scan, and sink boundaries.
+- Decision: use Vortex-native input/provider surfaces within ShardLoom's single
+  `native_vortex_query` admission route; keep the scope as a ShardLoom report and policy wrapper.
+- Residual handling: execute through the shared ShardLoom-native Vortex plan or reject explicitly;
+  no query-engine integration is a fallback.
+- Evidence boundary: this document, the declarative fixture set, the context report, and the
+  separately owned native execution regression tests. This validator alone is not runtime proof.
+- Unsupported boundaries remain explicit above; no performance claim is admitted here.

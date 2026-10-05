@@ -221,17 +221,117 @@ fn check_six_writers(fixture: &Fixture, expected: &[Value]) {
                 "{format:?} {count}"
             );
         }
-        for format in [Format::Csv, Format::Orc] {
-            let path = fixture
-                .0
-                .join(format!("denied-{count}.{}", format.as_str()));
-            let executions = prepared.snapshot().completed_executions;
-            let error = prepared.write(&path, format, false).err().unwrap();
-            assert!(error.to_string().contains("nested"), "{error}");
-            assert!(!path.exists());
-            assert_eq!(prepared.snapshot().completed_executions, executions);
-        }
+        let path = fixture.0.join(format!("denied-{count}.orc"));
+        let executions = prepared.snapshot().completed_executions;
+        let error = prepared.write(&path, Format::Orc, false).err().unwrap();
+        assert!(error.to_string().contains("nested"), "{error}");
+        assert!(!path.exists());
+        assert_eq!(prepared.snapshot().completed_executions, executions);
     }
+}
+
+#[test]
+fn native_nested_csv_streams_json_cells_and_preserves_empty_and_null_rows() {
+    let (fixture, expected) = complex_fixture();
+    let complete = concat!(
+        "id,items,detail\n",
+        "1,\"[9,null]\",\"{\"\"tag\"\":\"\"東京\"\",\"\"coordinates\"\":[-1,2]}\"\n",
+        "2,\"[]\",\n",
+        "3,,\"{\"\"tag\"\":null,\"\"coordinates\"\":[3,4]}\"\n",
+        "4,\"[-4]\",\"{\"\"tag\"\":\"\"a'b\"\",\"\"coordinates\"\":[5,6]}\"\n",
+    );
+    for count in [4, 0] {
+        let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+            input: fixture.scan(),
+            offset: 0,
+            count,
+        }));
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        let path = fixture.0.join(format!("nested-{count}.csv"));
+        let result = prepared.write(&path, Format::Csv, false).unwrap();
+        assert_eq!(result.output.rows_written, count as u64);
+        assert!(result.execution.native_io_certificate.is_certified());
+        let evidence = result.output.evidence.native_array_sink.unwrap();
+        assert!(
+            evidence
+                .metadata_fidelity
+                .contains("nested_values_stream_as_quoted_JSON_text_cells")
+        );
+        assert_eq!(
+            evidence.adapter_payload_bytes_copied,
+            expected[..count]
+                .iter()
+                .map(utf8_payload_bytes)
+                .sum::<u64>()
+        );
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            if count == 0 {
+                "id,items,detail\n"
+            } else {
+                complete
+            }
+        );
+        let cancellation = CancellationToken::default();
+        cancellation.cancel();
+        assert!(
+            prepared
+                .write_controlled(&path, Format::Csv, true, &cancellation)
+                .is_err()
+        );
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            if count == 0 {
+                "id,items,detail\n"
+            } else {
+                complete
+            }
+        );
+    }
+    let plan = VortexRelationalPlan::Scan(VortexRelationalScan {
+        source_uri: DatasetUri::new(fixture.path().display().to_string()).unwrap(),
+        projection: shardloom_plan::ProjectionRequest::Columns(vec![column("items")]),
+        predicate: None,
+    });
+    let path = fixture.0.join("single-nested.csv");
+    prepare_relational(&plan, policy())
+        .unwrap()
+        .write(&path, Format::Csv, false)
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(path).unwrap(),
+        "items\n\"[9,null]\"\n\"[]\"\n\"\"\n\"[-4]\"\n"
+    );
+}
+
+#[test]
+fn native_nested_csv_quotes_json_escaping_without_changing_utf8_values() {
+    let nested = StructArray::new(
+        FieldNames::from(["label"]),
+        vec![VarBinArray::from(vec!["東京\",\n\\\0"]).into_array()],
+        1,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(["payload"]),
+            vec![nested],
+            1,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        1,
+    );
+    let path = fixture.0.join("escaped.csv");
+    prepare_relational(&fixture.scan(), policy())
+        .unwrap()
+        .write(&path, Format::Csv, false)
+        .unwrap();
+    assert_eq!(
+        fs::read_to_string(path).unwrap(),
+        "payload\n\"{\"\"label\"\":\"\"東京\\\"\",\\n\\\\\\u0000\"\"}\"\n"
+    );
 }
 
 fn utf8_payload_bytes(value: &Value) -> u64 {

@@ -5,7 +5,7 @@ import unittest
 
 from run_native_output_uat import expected_output, export_args, validate_array_evidence, validate_output
 from run_heldout_operator_uat import fixture_rows
-from test_heldout_operator_uat import envelope
+from native_workflow_test_support import structured_envelope as envelope
 
 
 class NativeOutputAcceptanceTests(unittest.TestCase):

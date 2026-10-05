@@ -2,10 +2,9 @@
 
 use super::{
     Aggregate, ColumnRef, ExprId, Expression, ExpressionKind, Lowered, Lowerer, NativeResult,
-    NativeWindowFunction, ParsedAggregate, ParsedProjectionOutput, ParsedSqlLocalSource,
-    ParsedWindowProjection, Plan, Window, WindowExpression, WindowFunction,
-    append_ordered_projection_expression, column, find_projection_by_alias, map_columns, order_key,
-    unsupported_sql_error,
+    NativeWindowFunction, ParsedProjectionOutput, ParsedSqlLocalSource, ParsedWindowProjection,
+    Plan, Window, WindowExpression, WindowFunction, append_ordered_projection_expression, column,
+    find_projection_by_alias, map_columns, order_key, unsupported_sql_error,
 };
 
 impl Lowerer<'_, '_> {
@@ -14,76 +13,64 @@ impl Lowerer<'_, '_> {
         mut input: Lowered,
         parsed: &ParsedSqlLocalSource,
         visible: &[String],
-        aggregate: bool,
     ) -> NativeResult<(Lowered, Vec<(String, Expression)>)> {
         let mut expressions = Vec::new();
-        if aggregate {
-            for name in parsed
-                .group_by
-                .iter()
-                .cloned()
-                .chain(parsed.aggregates.iter().map(ParsedAggregate::output_name))
-            {
-                expressions.push((name.clone(), column(&input.resolve(&name)?)?));
-            }
-        } else {
-            for output in &parsed.projection_order {
-                match output {
-                    ParsedProjectionOutput::Predicate(alias) => {
-                        let projection = find_projection_by_alias(
-                            &parsed.predicate_projections,
-                            alias,
-                            "predicate",
-                        )?;
-                        let (next, expression) = self.predicate(input, &projection.predicate)?;
-                        input = next;
-                        expressions.push((alias.clone(), expression));
-                    }
-                    ParsedProjectionOutput::Conditional(alias) => {
-                        let projection = find_projection_by_alias(
-                            &parsed.conditional_projections,
-                            alias,
-                            "conditional",
-                        )?;
-                        let (next, predicate) = self.predicate(input, &projection.predicate)?;
-                        input = next;
-                        let expression = Expression::new(
-                            ExprId::new(format!("native.case.{alias}"))?,
-                            ExpressionKind::FunctionCall {
-                                name: "case_when".into(),
-                                args: vec![
-                                    predicate,
-                                    projection.then_branch.to_expression(ExprId::new("then")?)?,
-                                    projection.else_branch.to_expression(ExprId::new("else")?)?,
-                                ],
-                            },
-                        );
-                        expressions.push((alias.clone(), expression));
-                    }
-                    ParsedProjectionOutput::Window(alias) => {
-                        expressions.push((alias.clone(), column(alias)?));
-                    }
-                    output => {
-                        let mut lowered = Vec::new();
-                        append_ordered_projection_expression(
-                            &mut lowered,
-                            parsed,
-                            output,
-                            visible,
-                            "native",
-                        )?;
-                        for expression in lowered {
-                            let name = match &expression.kind {
-                                ExpressionKind::Alias { alias, .. } => alias.clone(),
-                                ExpressionKind::Column(column) => column.as_str().to_owned(),
-                                _ => {
-                                    return Err(unsupported_sql_error(
-                                        "native projection requires a column or explicit alias",
-                                    ));
-                                }
-                            };
-                            expressions.push((name, expression));
-                        }
+        for output in &parsed.projection_order {
+            match output {
+                ParsedProjectionOutput::Predicate(alias) => {
+                    let projection = find_projection_by_alias(
+                        &parsed.predicate_projections,
+                        alias,
+                        "predicate",
+                    )?;
+                    let (next, expression) = self.predicate(input, &projection.predicate)?;
+                    input = next;
+                    expressions.push((alias.clone(), expression));
+                }
+                ParsedProjectionOutput::Conditional(alias) => {
+                    let projection = find_projection_by_alias(
+                        &parsed.conditional_projections,
+                        alias,
+                        "conditional",
+                    )?;
+                    let (next, predicate) = self.predicate(input, &projection.predicate)?;
+                    input = next;
+                    let expression = Expression::new(
+                        ExprId::new(format!("native.case.{alias}"))?,
+                        ExpressionKind::FunctionCall {
+                            name: "case_when".into(),
+                            args: vec![
+                                predicate,
+                                projection.then_branch.to_expression(ExprId::new("then")?)?,
+                                projection.else_branch.to_expression(ExprId::new("else")?)?,
+                            ],
+                        },
+                    );
+                    expressions.push((alias.clone(), expression));
+                }
+                ParsedProjectionOutput::Window(alias) => {
+                    expressions.push((alias.clone(), column(alias)?));
+                }
+                output => {
+                    let mut lowered = Vec::new();
+                    append_ordered_projection_expression(
+                        &mut lowered,
+                        parsed,
+                        output,
+                        visible,
+                        "native",
+                    )?;
+                    for expression in lowered {
+                        let name = match &expression.kind {
+                            ExpressionKind::Alias { alias, .. } => alias.clone(),
+                            ExpressionKind::Column(column) => column.as_str().to_owned(),
+                            _ => {
+                                return Err(unsupported_sql_error(
+                                    "native projection requires a column or explicit alias",
+                                ));
+                            }
+                        };
+                        expressions.push((name, expression));
                     }
                 }
             }
@@ -113,10 +100,8 @@ impl Lowerer<'_, '_> {
         input: Lowered,
         parsed: &ParsedSqlLocalSource,
         visible: &[String],
-        aggregate: bool,
     ) -> NativeResult<Lowered> {
-        let (mut input, mut expressions) =
-            self.projected_expressions(input, parsed, visible, aggregate)?;
+        let (mut input, mut expressions) = self.projected_expressions(input, parsed, visible)?;
         let visible_names = expressions
             .iter()
             .map(|(name, _)| name.clone())

@@ -30,6 +30,7 @@ from release_channel_contract import (
     SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     selected_channel_ids,
 )
+from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -517,11 +518,7 @@ def main() -> int:
                 "golden workflow support_matrix_status="
                 + str(golden_workflow.get("support_matrix_status", "missing"))
             )
-        required_workflows = {
-            "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-            "generated_source_to_local_vortex_output_replay_fidelity",
-            "prepared_native_vortex_count_filter_project_execution_certificates",
-        }
+        required_workflows = GOLDEN_WORKFLOW_IDS
         observed_workflows = set(golden_workflow.get("workflow_ids", []))
         missing_workflows = sorted(required_workflows - observed_workflows)
         if missing_workflows:
@@ -1033,7 +1030,7 @@ def main() -> int:
         "all_features",
         "no_default_features",
         "vortex_local_primitives",
-        "benchmark_extras",
+        "release_user_surfaces",
     ]:
         if required not in matrix_text:
             feature_blockers.append(f"missing feature matrix field: {required}")
@@ -1344,12 +1341,40 @@ def main() -> int:
             v1_vortex_blockers.append(
                 "v1 Vortex all_no_fallback_no_external_engine must be true"
             )
-        if len(v1_vortex_runtime_scope.get("supported_primitive_route_ids", [])) != 11:
+        primitive_ids = v1_vortex_runtime_scope.get("supported_primitive_route_ids", [])
+        if not isinstance(primitive_ids, list) or len(primitive_ids) != 11:
             v1_vortex_blockers.append("v1 Vortex primitive route coverage must contain 11 rows")
-        if len(v1_vortex_runtime_scope.get("supported_benchmark_scenario_ids", [])) != 16:
+        if v1_vortex_runtime_scope.get("evidence_class") != "declarative_specification":
             v1_vortex_blockers.append(
-                "v1 Vortex benchmark scenario coverage must contain 16 rows"
+                "v1 Vortex evidence_class must be declarative_specification"
             )
+        for field in ("runtime_execution_performed", "performance_evidence_produced"):
+            if v1_vortex_runtime_scope.get(field) is not False:
+                v1_vortex_blockers.append(
+                    f"v1 Vortex {field} must be false for declarative scope evidence"
+                )
+        expected_route_ids = {"native_vortex_query", "object_store_lakehouse_runtime"}
+        route_ids = v1_vortex_runtime_scope.get("user_route_ids", [])
+        route_rows = v1_vortex_runtime_scope.get("user_route_rows", [])
+        if not isinstance(route_ids, list) or set(route_ids) != expected_route_ids:
+            v1_vortex_blockers.append("v1 Vortex user route identities mismatch")
+        if not isinstance(route_rows, list) or {
+            row.get("route_id") for row in route_rows if isinstance(row, dict)
+        } != expected_route_ids or len(route_rows) != 2:
+            v1_vortex_blockers.append("v1 Vortex user route rows mismatch")
+        else:
+            routes_by_id = {row["route_id"]: row for row in route_rows}
+            if routes_by_id["native_vortex_query"].get("owner") != "shared_native_workflow":
+                v1_vortex_blockers.append("v1 Vortex native route owner mismatch")
+            if routes_by_id["native_vortex_query"].get("route_runtime_status") != "global_runtime_supported":
+                v1_vortex_blockers.append("v1 Vortex native route must be globally supported")
+            if routes_by_id["object_store_lakehouse_runtime"].get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
+                v1_vortex_blockers.append("v1 Vortex object-store route must remain externally gated")
+            if routes_by_id["object_store_lakehouse_runtime"].get("route_runtime_status") != "external_environment_gate_pending":
+                v1_vortex_blockers.append("v1 Vortex object-store route must remain externally gated")
+            for row in route_rows:
+                if row.get("fallback_attempted") is not False or row.get("external_engine_invoked") is not False:
+                    v1_vortex_blockers.append("v1 Vortex routes must report no fallback or external engine")
         if "object_store_vortex_io" not in set(
             v1_vortex_runtime_scope.get("unsupported_boundary_ids", [])
         ):
@@ -1407,54 +1432,45 @@ def main() -> int:
             v1_source_prepared_blockers.append(
                 "v1 SourceState/prepared-state all_no_fallback_no_external_engine must be true"
             )
-        if (
-            v1_source_prepared_state_scope.get(
-                "all_prepared_routes_expose_reuse_contract"
+        if v1_source_prepared_state_scope.get("report_id") != "prod-v1-1c.source_prepared_state_scope":
+            v1_source_prepared_blockers.append("v1 SourceState/prepared-state report_id mismatch")
+        if v1_source_prepared_state_scope.get("evidence_class") != "declarative_specification":
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state evidence_class must be declarative_specification"
             )
-            is not True
+        if v1_source_prepared_state_scope.get("canonical_route") != (
+            "declared input or source-free expression -> native Vortex admission -> "
+            "native_vortex_unified_plan -> typed result or declared sink"
         ):
-            v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state prepared routes must expose reuse contracts"
-            )
-        if (
-            v1_source_prepared_state_scope.get(
-                "all_internal_source_smoke_routes_are_labeled_non_persistent"
-            )
-            is not True
+            v1_source_prepared_blockers.append("v1 SourceState/prepared-state canonical route mismatch")
+        if v1_source_prepared_state_scope.get("route_ids") != ["native_vortex_query"]:
+            v1_source_prepared_blockers.append("v1 SourceState/prepared-state route identity mismatch")
+        if v1_source_prepared_state_scope.get("state_owner") != "ResidentVortexSession":
+            v1_source_prepared_blockers.append("v1 SourceState/prepared-state state owner mismatch")
+        if v1_source_prepared_state_scope.get("reuse_scope") != "native_session_or_explicit_vortex_artifact":
+            v1_source_prepared_blockers.append("v1 SourceState/prepared-state reuse scope mismatch")
+        if v1_source_prepared_state_scope.get("reuse_policy") != (
+            "validate_source_generation_and_declaration_before_each_execution"
         ):
+            v1_source_prepared_blockers.append("v1 SourceState/prepared-state reuse policy mismatch")
+        if v1_source_prepared_state_scope.get("query_answers_cached") is not False:
+            v1_source_prepared_blockers.append("v1 SourceState/prepared-state query_answers_cached must be false")
+        for field in ("runtime_execution_performed", "performance_evidence_produced"):
+            if v1_source_prepared_state_scope.get(field) is not False:
+                v1_source_prepared_blockers.append(
+                    f"v1 SourceState/prepared-state {field} must be false for declarative scope evidence"
+                )
+        if len(v1_source_prepared_state_scope.get("supported_input_formats", [])) != 7:
             v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state internal source smoke routes must be non-persistent"
+                "v1 SourceState/prepared-state format coverage must contain 7 formats"
             )
-        if len(v1_source_prepared_state_scope.get("supported_input_formats", [])) != 6:
+        if len(v1_source_prepared_state_scope.get("invalidation_case_ids", [])) != 7:
             v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state format coverage must contain 6 formats"
-            )
-        if len(v1_source_prepared_state_scope.get("invalidation_case_ids", [])) != 9:
-            v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state invalidation coverage must contain 9 cases"
+                "v1 SourceState/prepared-state invalidation coverage must contain 7 cases"
             )
         if len(v1_source_prepared_state_scope.get("golden_fixture_paths", [])) != 3:
             v1_source_prepared_blockers.append(
                 "v1 SourceState/prepared-state fixture coverage must contain 3 fixtures"
-            )
-        if (
-            v1_source_prepared_state_scope.get(
-                "source_prepared_benchmark_required_fields_ready"
-            )
-            is not True
-        ):
-            v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state benchmark rows must expose required fields"
-            )
-        if (
-            v1_source_prepared_state_scope.get(
-                "source_prepared_benchmark_rows_with_required_fields",
-                0,
-            )
-            <= 0
-        ):
-            v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state benchmark row evidence must be non-empty"
             )
         if "global_hidden_cache" not in set(
             v1_source_prepared_state_scope.get("unsupported_boundary_ids", [])
@@ -1535,23 +1551,21 @@ def main() -> int:
             v1_local_output_sink_blockers.append(
                 "v1 local output/sink fixture coverage must contain 3 fixtures"
             )
-        if (
-            v1_local_output_sink_scope.get(
-                "local_output_sink_benchmark_required_fields_ready"
-            )
-            is not True
-        ):
+        if v1_local_output_sink_scope.get("output_route_ids") != ["native_vortex_query"]:
             v1_local_output_sink_blockers.append(
-                "v1 local output/sink benchmark rows must expose required fields"
+                "v1 local output/sink must use the shared native owner"
             )
-        if (
-            v1_local_output_sink_scope.get(
-                "local_output_sink_benchmark_replay_ready"
-            )
-            is not True
-        ):
+        if v1_local_output_sink_scope.get("evidence_class") != "declarative_contract":
             v1_local_output_sink_blockers.append(
-                "v1 local output/sink benchmark rows must expose replay verification"
+                "v1 local output/sink evidence_class must be declarative_contract"
+            )
+        if v1_local_output_sink_scope.get("declarative_contract_ready") is not True:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink declarative contract must be ready"
+            )
+        if v1_local_output_sink_scope.get("runtime_evidence_verified") is not False:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink scope must not claim verified runtime evidence"
             )
         if "append_mode" not in set(
             v1_local_output_sink_scope.get("unsupported_boundary_ids", [])
@@ -1970,14 +1984,16 @@ def main() -> int:
                 ("front_door", "expected_error_scenario_count"): 0,
                 ("golden_workflow", "workflow_count"): 3,
                 ("golden_workflow", "stage_count"): 9,
-                ("source_prepared_state", "supported_input_format_count"): 6,
-                ("source_prepared_state", "prepared_route_count"): 4,
-                ("source_prepared_state", "invalidation_case_count"): 9,
+                ("source_prepared_state", "supported_input_format_count"): 7,
+                ("source_prepared_state", "route_count"): 1,
+                ("source_prepared_state", "invalidation_case_count"): 7,
                 ("vortex_runtime", "primitive_route_count"): 11,
-                ("vortex_runtime", "local_file_benchmark_route_count"): 16,
+                ("vortex_runtime", "evidence_class"): "declarative_specification",
+                ("vortex_runtime", "runtime_execution_performed"): False,
+                ("vortex_runtime", "performance_evidence_produced"): False,
                 ("local_output_sink", "supported_output_format_count"): 8,
                 ("local_output_sink", "write_method_count"): 10,
-                ("local_output_sink", "output_route_count"): 7,
+                ("local_output_sink", "output_route_count"): 1,
                 ("python_user_surface", "method_matrix_row_count"): 114,
                 ("python_user_surface", "method_matrix_row_list_count"): 114,
                 ("python_user_surface", "required_operation_method_count"): 13,
@@ -2268,94 +2284,78 @@ def main() -> int:
                     "blockers", ["user route capability report blocked"]
                 )
             )
+        if user_route_capability.get("report_kind") != "static_capability_discovery":
+            user_route_capability_blockers.append(
+                "user route capability report_kind must be static_capability_discovery"
+            )
+        for field in ("runtime_execution_performed", "performance_evidence_produced"):
+            if user_route_capability.get(field) is not False:
+                user_route_capability_blockers.append(
+                    f"user route capability {field} must be false for static discovery"
+                )
+        expected_route_ids = {"native_vortex_query", "object_store_lakehouse_runtime"}
+        route_ids = user_route_capability.get("route_ids", [])
+        if not isinstance(route_ids, list) or set(route_ids) != expected_route_ids:
+            user_route_capability_blockers.append("user route capability route identities mismatch")
+        route_rows = user_route_capability.get("rows", [])
+        route_rows_by_id = {
+            row.get("route_id"): row
+            for row in route_rows
+            if isinstance(row, dict)
+        } if isinstance(route_rows, list) else {}
+        if set(route_rows_by_id) != expected_route_ids or len(route_rows or []) != 2:
+            user_route_capability_blockers.append("user route capability route rows mismatch")
+        else:
+            native_route = route_rows_by_id["native_vortex_query"]
+            external_route = route_rows_by_id["object_store_lakehouse_runtime"]
+            if native_route.get("owner") != "shared_native_workflow":
+                user_route_capability_blockers.append("native_vortex_query owner must be shared_native_workflow")
+            if native_route.get("route_runtime_status") != "global_runtime_supported":
+                user_route_capability_blockers.append("native_vortex_query must be globally runtime supported")
+            if external_route.get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
+                user_route_capability_blockers.append("object-store route must remain externally gated")
+            if external_route.get("route_runtime_status") != "external_environment_gate_pending":
+                user_route_capability_blockers.append("object-store route must remain externally gated")
+            for row in route_rows:
+                if row.get("fallback_attempted") is not False or row.get("external_engine_invoked") is not False:
+                    user_route_capability_blockers.append("user routes must report no fallback or external engine")
+                for field in ("performance_claim_allowed", "production_claim_allowed", "spark_replacement_claim_allowed"):
+                    if row.get(field) is not False:
+                        user_route_capability_blockers.append(f"user route {field} must be false")
+        front_doors = user_route_capability.get("public_front_door_route_rows", [])
+        if user_route_capability.get("public_front_door_route_count") != 4 or not isinstance(front_doors, list) or len(front_doors) != 4:
+            user_route_capability_blockers.append("user route capability must contain four public input front doors")
+        else:
+            for row in front_doors:
+                if not isinstance(row, dict) or row.get("owning_route_id") != "native_vortex_query":
+                    user_route_capability_blockers.append("public input front doors must belong to native_vortex_query")
+                    continue
+                if row.get("fallback_attempted") is not False or row.get("external_engine_invoked") is not False:
+                    user_route_capability_blockers.append("public input front doors must report no fallback or external engine")
+        reuse_rows = user_route_capability.get("public_route_reuse_matrix_rows", [])
+        if user_route_capability.get("public_route_reuse_matrix_count") != 9 or not isinstance(reuse_rows, list) or len(reuse_rows) != 9:
+            user_route_capability_blockers.append("user route capability reuse matrix must contain nine operation families")
+        else:
+            for row in reuse_rows:
+                if not isinstance(row, dict):
+                    user_route_capability_blockers.append("user route reuse matrix rows must be objects")
+                    continue
+                if row.get("primary_route_id") != "native_vortex_query":
+                    user_route_capability_blockers.append("user route reuse matrix must use native_vortex_query")
+                if row.get("typed_result_or_sink_contract") != "complete_typed_rows_or_committed_declared_output":
+                    user_route_capability_blockers.append("user route reuse matrix typed result/sink contract mismatch")
+                if row.get("fallback_attempted") is not False or row.get("external_engine_invoked") is not False:
+                    user_route_capability_blockers.append("user route reuse matrix must report no fallback or external engine")
         if user_route_capability.get("all_no_fallback_no_external_engine") is not True:
             user_route_capability_blockers.append(
                 "user route capability all_no_fallback_no_external_engine must be true"
             )
-        if user_route_capability.get("unsupported_local_benchmark_route_ids"):
-            user_route_capability_blockers.append(
-                "user route capability must report zero unsupported local benchmark-range routes"
-            )
-        if user_route_capability.get("local_vortex_primitive_all_runtime_supported") is not True:
-            user_route_capability_blockers.append(
-                "user route capability local Vortex primitive routes must all be runtime-supported"
-            )
-        if (
-            user_route_capability.get(
-                "local_vortex_primitive_all_no_fallback_no_external_engine"
-            )
-            is not True
-        ):
-            user_route_capability_blockers.append(
-                "user route capability local Vortex primitive routes must preserve no fallback"
-            )
-        required_primitive_commands = {
-            "vortex-run",
-            "vortex-count-where",
-            "vortex-filter",
-            "vortex-project",
-            "vortex-filter-project",
-            "public-workflow run",
-        }
-        primitive_commands = set(
-            user_route_capability.get("local_vortex_primitive_command_coverage", [])
-        )
-        if primitive_commands != required_primitive_commands:
-            user_route_capability_blockers.append(
-                "user route capability local Vortex primitive command coverage mismatch"
-            )
-        required_local_file_benchmark_scenarios = {
-            "selective_filter",
-            "filter_projection_limit",
-            "group_by_aggregation",
-            "multi_key_group_by",
-            "join_aggregate",
-            "sort_top_k",
-            "row_number_window",
-            "top_n_per_group",
-            "clean_cast_filter_write",
-            "malformed_timestamp_cast",
-            "partition_pruning",
-            "many_small_files_scan",
-            "null_heavy_aggregate",
-            "high_cardinality_string_group_distinct",
-            "nested_json_field_scan",
-            "small_change_over_large_base",
-        }
-        local_file_scenarios = set(
-            user_route_capability.get("local_file_benchmark_scenario_ids", [])
-        )
-        if local_file_scenarios != required_local_file_benchmark_scenarios:
-            user_route_capability_blockers.append(
-                "user route capability local file benchmark scenario coverage mismatch"
-            )
-        if user_route_capability.get("local_file_benchmark_unsupported_scenario_ids"):
-            user_route_capability_blockers.append(
-                "user route capability local file benchmark scenarios must not be unsupported"
-            )
-        if (
-            user_route_capability.get(
-                "local_file_benchmark_all_no_fallback_no_external_engine"
-            )
-            is not True
-        ):
-            user_route_capability_blockers.append(
-                "user route capability local file benchmark routes must preserve no fallback"
-            )
-        if (
-            user_route_capability.get(
-                "local_file_benchmark_all_mapped_without_generic_unsupported"
-            )
-            is not True
-        ):
-            user_route_capability_blockers.append(
-                "user route capability local file benchmark routes must avoid generic unsupported"
-            )
         for field in [
-            "flexible_anything_claim_allowed",
-            "performance_equivalence_claim_allowed",
+            "performance_claim_allowed",
             "production_claim_allowed",
             "spark_replacement_claim_allowed",
+            "fallback_attempted",
+            "external_engine_invoked",
         ]:
             if user_route_capability.get(field) is not False:
                 user_route_capability_blockers.append(
@@ -2373,46 +2373,15 @@ def main() -> int:
             )
         else:
             for field in [
-                "all_routes_have_vortex_normalization",
-                "all_routes_have_output_and_evidence",
-                "all_routes_have_materialization_decode_boundary",
-                "no_generic_unsupported_local_benchmark_route",
-                "all_local_vortex_primitive_routes_supported",
-                "all_local_vortex_primitive_routes_start_at_native_boundary",
-                "all_local_vortex_primitive_commands_covered",
-                "all_required_local_file_benchmark_scenarios_mapped",
-                "no_generic_unsupported_local_file_benchmark_scenario",
-                "all_local_file_benchmark_routes_have_vortex_normalization",
-                "all_local_file_benchmark_routes_have_output_and_evidence",
-                "all_prepared_routes_expose_workspace_manifest_reuse_contract",
-                "generated_source_route_exposes_single_vortex_artifact_contract",
-                "public_front_door_routes_expose_auto_and_generated_prepared_surfaces",
-                "public_front_door_routes_expose_prepared_state_reuse_contracts",
-                "public_front_door_routes_preserve_no_fallback",
-                "all_prepared_local_file_benchmark_routes_expose_workspace_manifest_reuse_contract",
-                "all_local_file_benchmark_routes_preserve_no_fallback",
-                "all_no_fallback_no_external_engine",
+                "shared_native_route_owns_public_front_doors",
+                "public_route_reuse_matrix_complete",
+                "static_discovery_is_not_runtime_or_performance_proof",
+                "no_fallback_no_external_engine",
             ]:
                 if acceptance.get(field) is not True:
                     user_route_capability_blockers.append(
                         f"user route capability {field} must be true"
                     )
-            for field in [
-                "performance_claim_allowed",
-                "production_claim_allowed",
-                "spark_replacement_claim_allowed",
-                "fallback_attempted",
-                "external_engine_invoked",
-            ]:
-                if acceptance.get(field) is not False:
-                    user_route_capability_blockers.append(
-                        f"user route capability {field} must be false"
-                    )
-            if acceptance.get("claim_gate_status") != "not_claim_grade":
-                user_route_capability_blockers.append(
-                    "user route capability acceptance claim_gate_status="
-                    + str(acceptance.get("claim_gate_status", "missing"))
-                )
     checks.append(
         check(
             "user_route_capability_report",

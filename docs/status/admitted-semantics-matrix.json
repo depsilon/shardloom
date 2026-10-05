@@ -2112,7 +2112,7 @@
       "source_format": "csv",
       "support_state": "runtime_error_diagnostic",
       "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "numeric arithmetic projection division by zero is a runtime data error"
+      "unsupported_diagnostic_message": "division by zero"
     },
     {
       "claim_boundary": "scoped fixed numeric timestamp offset literal/source normalization only",
@@ -2152,7 +2152,7 @@
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
       "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "comparison operands are not admitted together: utf8 and binary"
+      "unsupported_diagnostic_message": "incompatible key types require an explicit lossless cast"
     },
     {
       "claim_boundary": "blocked binary ordering predicates against non-binary source columns only; scoped columnar binary source ordering predicates are covered by focused Rust CLI evidence",
@@ -2172,7 +2172,7 @@
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
       "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "comparison operands are not admitted together: utf8 and binary"
+      "unsupported_diagnostic_message": "incompatible key types require an explicit lossless cast"
     },
     {
       "claim_boundary": "blocked timezone database conversion only",
@@ -2191,7 +2191,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "timezone database semantics are not admitted"
     },
     {
@@ -2211,7 +2211,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "timezone database semantics are not admitted"
     },
     {
@@ -2231,7 +2231,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "timezone database semantics are not admitted"
     },
     {
@@ -2251,7 +2251,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted"
     },
     {
@@ -2271,7 +2271,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted"
     },
     {
@@ -2291,8 +2291,8 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "list and array accessors, function constructors, casts, and equality semantics are not admitted by the current complex dtype profile; scoped ARRAY[...] projection literals are admitted through the JSONL result boundary and CSV JSON-text output boundary"
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
+      "unsupported_diagnostic_message": "list and array accessors, function constructors, casts, and equality semantics are not admitted"
     },
     {
       "claim_boundary": "blocked struct/row constructor-function, access, cast, and equality semantics only; scoped STRUCT(<source column>, ...) projection, DISTINCT equality, UNION DISTINCT equality, and result-boundary ordering are tracked separately as executable rows",
@@ -2311,8 +2311,8 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "row constructors plus struct casts, equality, and access semantics are not admitted by the current complex dtype profile; scoped STRUCT(<source column>, ...) projection construction is admitted through the JSONL result boundary and CSV JSON-text output boundary"
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
+      "unsupported_diagnostic_message": "row constructors plus struct casts, equality, and access semantics are not admitted"
     },
     {
       "claim_boundary": "blocked complex ARRAY/STRUCT projection outputs in subquery membership materialization only; scoped complex equality is limited to SELECT DISTINCT and UNION DISTINCT result-boundary rows",
@@ -2331,8 +2331,8 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization; scoped complex equality is limited to SELECT DISTINCT and UNION DISTINCT result-boundary rows"
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
+      "unsupported_diagnostic_message": "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization"
     },
     {
       "claim_boundary": "blocked ORC typed nested sink preservation only; scoped JSONL/CSV logical nested result boundaries and Parquet/Arrow IPC/Avro/Vortex typed nested sink rows remain tracked separately",
@@ -2352,7 +2352,7 @@
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
       "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "output_plan_conversion_blocker=typed_complex_preservation_not_admitted; local orc output does not yet admit typed complex preservation"
+      "unsupported_diagnostic_message": "ORC does not admit nested output"
     },
     {
       "claim_boundary": "blocked ORC typed decimal128 sink preservation only; scoped JSONL/CSV decimal text boundaries and Parquet/Arrow IPC/Avro/Vortex typed decimal sink rows remain tracked separately",
@@ -2372,7 +2372,7 @@
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
       "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted; local orc output does not yet admit typed decimal128 preservation"
+      "unsupported_diagnostic_message": "ORC does not admit decimal or temporal output"
     },
     {
       "claim_boundary": "blocked variant access semantics only",
@@ -2391,8 +2391,8 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "variant access semantics are not admitted by the current complex dtype profile"
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
+      "unsupported_diagnostic_message": "variant access semantics are not admitted"
     },
     {
       "claim_boundary": "blocked union dtype scalar semantics only; SQL UNION composition is tracked separately as an executable row",
@@ -2411,8 +2411,8 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "union dtype casts are not admitted by the current complex dtype profile"
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
+      "unsupported_diagnostic_message": "union dtype casts are not admitted"
     },
     {
       "claim_boundary": "arbitrary ANSI interval arithmetic diagnostics only; scoped INTERVAL literals inside DATE_ADD_DAYS/DATE_SUB_DAYS and TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS are tracked separately as an executable row",
@@ -2431,8 +2431,8 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "arbitrary ANSI INTERVAL arithmetic is not admitted; use DATE_ADD_DAYS/DATE_SUB_DAYS or TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS with scoped INTERVAL literals"
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
+      "unsupported_diagnostic_message": "arbitrary ANSI INTERVAL arithmetic is not admitted"
     },
     {
       "claim_boundary": "complex join key diagnostics only",
@@ -2451,8 +2451,8 @@
       "runtime_validation": "required",
       "source_format": "csv,csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
-      "unsupported_diagnostic_message": "JOIN ON complex key expressions are not admitted by the current join profile; use scalar qualified columns or admitted scalar expression predicates"
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
+      "unsupported_diagnostic_message": "JOIN ON complex key expressions are not admitted"
     },
     {
       "claim_boundary": "deterministic invalid SQL arity diagnostic only",
@@ -2471,7 +2471,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "invalid_shape_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "multi-column IN subqueries require row-value source columns"
     },
     {
@@ -2491,7 +2491,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "qualified IN subquery selected columns references admit only the subquery source qualifier"
     },
     {
@@ -2511,7 +2511,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "qualified IN subquery predicates admit only outer.<column> references or the subquery source qualifier"
     },
     {
@@ -2531,7 +2531,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "qualified EXISTS subquery projection references admit only the subquery source qualifier"
     },
     {
@@ -2551,7 +2551,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "qualified local subquery ORDER BY references admit only the subquery source qualifier"
     },
     {
@@ -2571,7 +2571,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "correlated IN subquery predicates admit outer.<column> references only in column-to-column comparisons"
     },
     {
@@ -2591,7 +2591,7 @@
       "runtime_validation": "required",
       "source_format": "csv",
       "support_state": "unsupported_diagnostic",
-      "unsupported_diagnostic_code": "SL_INVALID_INPUT",
+      "unsupported_diagnostic_code": "SL_UNSUPPORTED_SQL",
       "unsupported_diagnostic_message": "correlated IN subquery predicates require exactly one outer.<column> reference per column comparison"
     },
     {

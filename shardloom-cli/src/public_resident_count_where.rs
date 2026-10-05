@@ -37,7 +37,8 @@ pub(super) fn run_with_source(
     execution_session: &mut PublicExecutionSession,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
 ) -> ExitCode {
-    let (executed, prepared_now) = match execute(request, binding, execution_session, source) {
+    let (executed, rows, prepared_now) = match execute(request, binding, execution_session, source)
+    {
         Ok(result) => result,
         Err(error) => {
             execution_session.clear();
@@ -52,6 +53,14 @@ pub(super) fn run_with_source(
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
     append_fields(&mut fields, request, &executed, prepared_now);
+    let (jsonl, _json_ownership) = rows.result_jsonl.into_parts();
+    let (schema, _schema_ownership) = rows.result_schema_json.into_parts();
+    super::append_native_result_schema_fields(&mut fields, schema);
+    fields.extend([
+        ("result_jsonl".into(), jsonl),
+        ("result_payload_complete".into(), "true".into()),
+        ("output_row_count".into(), "1".into()),
+    ]);
     let local = vortex_primitive_execution::VortexLocalPrimitiveCliExecutionEvidence {
         memory_gb: executed.report.resource_envelope.memory_budget_bytes / (1024 * 1024 * 1024),
         max_parallelism: executed.report.max_parallelism_requested,
@@ -93,7 +102,14 @@ fn execute(
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
-) -> Result<(ExecutedVortexCountWhere, bool), ShardLoomError> {
+) -> Result<
+    (
+        ExecutedVortexCountWhere,
+        shardloom_vortex::local_primitives::collect::CollectedCountRows,
+        bool,
+    ),
+    ShardLoomError,
+> {
     if request.vortex_columns.is_some() || request.vortex_source_order_limit.is_some() {
         return Err(ShardLoomError::InvalidOperation(
             "native filtered count does not admit projection or limit payloads; select an explicit matching primitive; no fallback execution was attempted".into()));
@@ -133,7 +149,8 @@ fn execute(
             "prepared filtered count was not admitted; no fallback execution was attempted".into(),
         )
     })?;
-    Ok((prepared.operation.execute()?, prepared_now))
+    let (execution, rows) = prepared.operation.collect_jsonl()?;
+    Ok((execution, rows, prepared_now))
 }
 
 fn append_fields(

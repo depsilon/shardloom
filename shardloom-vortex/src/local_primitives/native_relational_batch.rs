@@ -449,6 +449,13 @@ pub(super) fn take_column(
         .execute::<Columnar>(&mut execution)
         .map_err(vortex_error)?
         .into_array();
+    if dtype == &DType::Null {
+        // The provider has checked selection and cardinality. Untyped NULL
+        // intermediates have no value buffers to compact; projection gives
+        // them a typed carrier before they become result columns.
+        context.check_cancelled()?;
+        return Ok(selected);
+    }
     // Compact final selected values into allocator-owned native buffers. This
     // explicit copy prevents small string views retaining whole source domains;
     // buffer credits then survive output clones, slices and the producer.

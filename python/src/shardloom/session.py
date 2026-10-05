@@ -11,14 +11,10 @@ from typing import Any, Mapping, Sequence
 from ._compat import dataclass
 from .client import (
     FanoutOutputs,
-    GeneratedSourceWriteReport,
     ShardLoomClient,
-    SqlLocalSourceSmokeReport,
     VortexIngestSmokeReport,
 )
 from .models import RuntimeEnvelopeValidationReport
-from .native_route import NativeVortexRoute
-from .prepared_route import CompatibilityPreparedVortexRoute
 from .runtime_defaults import (
     DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
@@ -29,10 +25,8 @@ from .query import (
     SqlWorkflow,
     UnsupportedWorkflowOperationReport,
     VortexWorkflowExecutionReport,
-    _is_local_source_sql_statement,
     _normalize_fanout_outputs,
     _normalize_local_output_format,
-    _sql_source_refs,
     read as read_source,
     read_arrow_ipc,
     read_avro,
@@ -208,12 +202,10 @@ class SessionSqlResult:
     """SQL/query-builder result handle returned by a `ShardLoomSession`."""
 
     session_id: str
-    report: SqlLocalSourceSmokeReport
+    report: VortexWorkflowExecutionReport
     operation: str
     reuse_hit: bool
     reuse_reason: str
-    source_fingerprints: tuple[LocalFileFingerprint, ...]
-    output_fingerprints: tuple[LocalFileFingerprint, ...] = ()
 
     @property
     def session_state_scope(self) -> str:
@@ -258,310 +250,16 @@ class SessionSqlResult:
         return self.report.source_state_projection_pushdown_status
 
     @property
-    def user_surface_runtime_scope(self) -> str | None:
-        """Return whether SQL/Python compute used the common runtime."""
-
-        return self.report.user_surface_runtime_scope
-
-    @property
-    def format_specific_boundary_scope(self) -> str | None:
-        """Return where format-specific behavior was allowed."""
-
-        return self.report.format_specific_boundary_scope
-
-    @property
-    def format_specific_compute_path(self) -> bool:
-        """Whether the result used a format-specific compute path."""
-
-        return self.report.format_specific_compute_path
-
-    @property
-    def source_state_materialization_layout(self) -> str | None:
-        """Return the local SourceState materialization layout when available."""
-
-        return self.report.source_state_materialization_layout
-
-    @property
-    def source_state_parse_normalization(self) -> str | None:
-        """Return the local SourceState parse/normalization route when available."""
-
-        return self.report.source_state_parse_normalization
-
-    @property
-    def source_state_columnar_preserved(self) -> bool:
-        """Whether the CLI preserved a columnar SourceState boundary."""
-
-        return self.report.source_state_columnar_preserved
-
-    @property
-    def source_state_record_batch_count(self) -> int:
-        """Return the local SourceState record-batch count."""
-
-        return self.report.source_state_record_batch_count
-
-    @property
-    def source_to_columnar_millis(self) -> int:
-        """Return source-to-columnar adapter time in milliseconds."""
-
-        return self.report.source_to_columnar_millis
-
-    @property
-    def source_state_runtime_consumption_layout(self) -> str | None:
-        """Return the runtime layout that consumed the SourceState."""
-
-        return self.report.source_state_runtime_consumption_layout
-
-    @property
-    def source_state_scalar_runtime_materialization_required(self) -> bool:
-        """Whether the SQL runtime still materialized scalar rows."""
-
-        return self.report.source_state_scalar_runtime_materialization_required
-
-    @property
-    def source_state_materialized_columns(self) -> tuple[str, ...]:
-        """Return local SourceState materialized columns."""
-
-        return self.report.source_state_materialized_columns
-
-    @property
-    def source_state_reader_projection_columns(self) -> tuple[str, ...]:
-        """Return local SourceState reader projection columns."""
-
-        return self.report.source_state_reader_projection_columns
-
-    @property
     def output_plan_reuse_hit(self) -> bool:
-        """Whether this session reused output/result evidence for this result."""
+        """Whether the native writer reused its prepared query declaration."""
 
         return self.reuse_hit and self.operation in {"write", "fanout"}
 
     @property
     def result_replay_reuse_hit(self) -> bool:
-        """Whether this session reused a previously replay-verified result."""
+        """Return explicit native result-replay evidence, when supplied."""
 
-        return self.output_plan_reuse_hit
-
-    @property
-    def result_batch_state_status(self) -> str | None:
-        """Return the SQL result batch-state status."""
-
-        return self.report.result_batch_state_status
-
-    @property
-    def result_batch_state_digest(self) -> str | None:
-        """Return the SQL result batch-state digest."""
-
-        return self.report.result_batch_state_digest
-
-    @property
-    def result_batch_state_layout(self) -> str | None:
-        """Return the SQL result batch-state layout."""
-
-        return self.report.result_batch_state_layout
-
-    @property
-    def result_batch_state_row_count(self) -> int | None:
-        """Return the SQL result batch-state row count."""
-
-        return self.report.result_batch_state_row_count
-
-    @property
-    def result_batch_state_column_count(self) -> int | None:
-        """Return the SQL result batch-state column count."""
-
-        return self.report.result_batch_state_column_count
-
-    @property
-    def result_batch_state_materialization_required(self) -> str | None:
-        """Return the SQL result batch-state materialization posture."""
-
-        return self.report.result_batch_state_materialization_required
-
-    @property
-    def result_batch_state_decode_required(self) -> bool:
-        """Whether the SQL result batch-state required decode."""
-
-        return self.report.result_batch_state_decode_required
-
-    @property
-    def output_plan_materialization_required(self) -> str | None:
-        """Return the sink-driven OutputPlan materialization requirement."""
-
-        return self.report.output_plan_materialization_required
-
-    @property
-    def output_plan_required_columns(self) -> tuple[str, ...]:
-        """Return result columns required by requested local sinks."""
-
-        return self.report.output_plan_required_columns
-
-    @property
-    def output_plan_ordering_required(self) -> str | None:
-        """Return whether requested sinks require ordering."""
-
-        return self.report.output_plan_ordering_required
-
-    @property
-    def output_plan_statistics_required(self) -> str | None:
-        """Return sink statistics/replay requirements."""
-
-        return self.report.output_plan_statistics_required
-
-    @property
-    def output_plan_text_materialization_boundary(self) -> str | None:
-        """Return the terminal text-materialization boundary, when any."""
-
-        return self.report.output_plan_text_materialization_boundary
-
-    @property
-    def output_plan_conversion_blocker(self) -> str | None:
-        """Return the deterministic OutputPlan conversion blocker, if any."""
-
-        return self.report.output_plan_conversion_blocker
-
-    @property
-    def output_plan_type_nullability_support(self) -> str | None:
-        """Return sink type/nullability support posture."""
-
-        return self.report.output_plan_type_nullability_support
-
-    @property
-    def output_plan_dictionary_required(self) -> str | None:
-        """Return sink dictionary requirement posture."""
-
-        return self.report.output_plan_dictionary_required
-
-    @property
-    def output_plan_compression_encoding_posture(self) -> str | None:
-        """Return sink compression/encoding posture."""
-
-        return self.report.output_plan_compression_encoding_posture
-
-    @property
-    def output_plan_replay_depth(self) -> str | None:
-        """Return sink replay depth required by the OutputPlan."""
-
-        return self.report.output_plan_replay_depth
-
-    @property
-    def output_layout_write_advisor_status(self) -> str | None:
-        """Return output layout/write advisor status."""
-
-        return self.report.output_layout_write_advisor_status
-
-    @property
-    def output_layout_write_advisor_selected_strategy(self) -> str | None:
-        """Return the selected output layout/write advisor strategy."""
-
-        return self.report.output_layout_write_advisor_selected_strategy
-
-    @property
-    def output_layout_write_advisor_runtime_decision_applied(self) -> bool:
-        """Whether the output layout/write advisor applied a runtime writer decision."""
-
-        return self.report.output_layout_write_advisor_runtime_decision_applied
-
-    @property
-    def output_metadata_preservation_map(self) -> str | None:
-        """Return per-sink metadata preservation accounting."""
-
-        return self.report.output_metadata_preservation_map
-
-    @property
-    def output_metadata_loss(self) -> str | None:
-        """Return per-sink metadata loss accounting."""
-
-        return self.report.output_metadata_loss
-
-    @property
-    def fanout_conversion_dag_status(self) -> str | None:
-        """Return the shared fanout conversion DAG status."""
-
-        return self.report.fanout_conversion_dag_status
-
-    @property
-    def fanout_shared_stage_count(self) -> int | None:
-        """Return the number of shared conversion DAG stages."""
-
-        return self.report.fanout_shared_stage_count
-
-    @property
-    def fanout_terminal_sink_count(self) -> int | None:
-        """Return the number of terminal sinks in the conversion DAG."""
-
-        return self.report.fanout_terminal_sink_count
-
-    @property
-    def fanout_shared_conversion_millis(self) -> int | None:
-        """Return shared fanout conversion time in milliseconds."""
-
-        return self.report.fanout_shared_conversion_millis
-
-    @property
-    def fanout_terminal_conversion_millis(self) -> int | None:
-        """Return terminal sink conversion time in milliseconds."""
-
-        return self.report.fanout_terminal_conversion_millis
-
-    @property
-    def fanout_duplicate_conversion_avoided(self) -> bool:
-        """Whether the shared DAG avoided duplicate conversion work."""
-
-        return self.report.fanout_duplicate_conversion_avoided
-
-    @property
-    def output_capillary_status(self) -> str | None:
-        """Return output capillary scheduling status."""
-
-        return self.report.output_capillary_status
-
-    @property
-    def output_capillary_task_roles(self) -> str | None:
-        """Return typed output capillary task roles."""
-
-        return self.report.output_capillary_task_roles
-
-    @property
-    def output_capillary_window_count(self) -> int | None:
-        """Return the number of output capillary execution windows."""
-
-        return self.report.output_capillary_window_count
-
-    @property
-    def output_sink_pressure_status(self) -> str | None:
-        """Return output sink-pressure control status."""
-
-        return self.report.output_sink_pressure_status
-
-    @property
-    def output_memory_pressure_status(self) -> str | None:
-        """Return output memory-pressure control status."""
-
-        return self.report.output_memory_pressure_status
-
-    @property
-    def pulseweave_output_policy_applied(self) -> bool:
-        """Whether PulseWeave output policy was applied."""
-
-        return self.report.pulseweave_output_policy_applied
-
-    @property
-    def output_conversion_millis(self) -> int | None:
-        """Return aggregate SQL output conversion time in milliseconds."""
-
-        return self.report.output_conversion_millis
-
-    @property
-    def sink_artifact_conversion_millis(self) -> str | None:
-        """Return primary or labeled SQL sink conversion timing."""
-
-        return self.report.sink_artifact_conversion_millis
-
-    @property
-    def fanout_output_conversion_millis(self) -> int | None:
-        """Return aggregate SQL fanout conversion time in milliseconds."""
-
-        return self.report.fanout_output_conversion_millis
+        return self.report.envelope.field_bool("result_replay_reuse_hit", False) is True
 
     @property
     def output_plan_digest(self) -> str | None:
@@ -626,100 +324,14 @@ class SessionSqlResult:
             "source_state_contract_schema_version": self.source_state_contract_schema_version,
             "source_state_read_plan": self.source_state_read_plan,
             "source_state_projection_pushdown_status": self.source_state_projection_pushdown_status,
-            "user_surface_runtime_scope": self.user_surface_runtime_scope,
-            "format_specific_boundary_scope": self.format_specific_boundary_scope,
-            "format_specific_compute_path": self.format_specific_compute_path,
-            "source_state_materialization_layout": self.source_state_materialization_layout,
-            "source_state_parse_normalization": self.source_state_parse_normalization,
-            "source_state_columnar_preserved": self.source_state_columnar_preserved,
-            "source_state_record_batch_count": self.source_state_record_batch_count,
-            "source_to_columnar_millis": self.source_to_columnar_millis,
-            "source_state_runtime_consumption_layout": self.source_state_runtime_consumption_layout,
-            "source_state_scalar_runtime_materialization_required": (
-                self.source_state_scalar_runtime_materialization_required
-            ),
-            "source_state_materialized_columns": self.source_state_materialized_columns,
-            "source_state_reader_projection_columns": self.source_state_reader_projection_columns,
             "output_plan_reuse_hit": self.output_plan_reuse_hit,
             "result_replay_reuse_hit": self.result_replay_reuse_hit,
-            "result_batch_state_status": self.result_batch_state_status,
-            "result_batch_state_digest": self.result_batch_state_digest,
-            "result_batch_state_layout": self.result_batch_state_layout,
-            "result_batch_state_row_count": self.result_batch_state_row_count,
-            "result_batch_state_column_count": self.result_batch_state_column_count,
-            "result_batch_state_materialization_required": (
-                self.result_batch_state_materialization_required
-            ),
-            "result_batch_state_decode_required": self.result_batch_state_decode_required,
-            "output_plan_materialization_required": (
-                self.output_plan_materialization_required
-            ),
-            "output_plan_required_columns": self.output_plan_required_columns,
-            "output_plan_ordering_required": self.output_plan_ordering_required,
-            "output_plan_statistics_required": self.output_plan_statistics_required,
-            "output_plan_text_materialization_boundary": (
-                self.output_plan_text_materialization_boundary
-            ),
-            "output_plan_conversion_blocker": self.output_plan_conversion_blocker,
-            "output_plan_type_nullability_support": (
-                self.output_plan_type_nullability_support
-            ),
-            "output_plan_dictionary_required": self.output_plan_dictionary_required,
-            "output_plan_compression_encoding_posture": (
-                self.output_plan_compression_encoding_posture
-            ),
-            "output_plan_replay_depth": self.output_plan_replay_depth,
-            "output_layout_write_advisor_status": (
-                self.output_layout_write_advisor_status
-            ),
-            "output_layout_write_advisor_selected_strategy": (
-                self.output_layout_write_advisor_selected_strategy
-            ),
-            "output_layout_write_advisor_runtime_decision_applied": (
-                self.output_layout_write_advisor_runtime_decision_applied
-            ),
-            "output_metadata_preservation_map": self.output_metadata_preservation_map,
-            "output_metadata_loss": self.output_metadata_loss,
-            "fanout_conversion_dag_status": self.fanout_conversion_dag_status,
-            "fanout_shared_stage_count": self.fanout_shared_stage_count,
-            "fanout_terminal_sink_count": self.fanout_terminal_sink_count,
-            "fanout_shared_conversion_millis": self.fanout_shared_conversion_millis,
-            "fanout_terminal_conversion_millis": self.fanout_terminal_conversion_millis,
-            "fanout_duplicate_conversion_avoided": self.fanout_duplicate_conversion_avoided,
-            "output_capillary_status": self.output_capillary_status,
-            "output_capillary_task_roles": self.output_capillary_task_roles,
-            "output_capillary_window_count": self.output_capillary_window_count,
-            "output_sink_pressure_status": self.output_sink_pressure_status,
-            "output_memory_pressure_status": self.output_memory_pressure_status,
-            "pulseweave_output_policy_applied": self.pulseweave_output_policy_applied,
-            "output_conversion_millis": self.output_conversion_millis,
-            "sink_artifact_conversion_millis": self.sink_artifact_conversion_millis,
-            "fanout_output_conversion_millis": self.fanout_output_conversion_millis,
             "reuse_reason": self.reuse_reason,
             "plan_digest": self.plan_digest,
             "source_schema_digest": self.source_schema_digest,
-            "source_fingerprint_digests": tuple(
-                fingerprint.reuse_digest for fingerprint in self.source_fingerprints
-            ),
-            "source_fingerprint_kinds": _fingerprint_field_values(
-                self.source_fingerprints,
-                "fingerprint_kind",
-            ),
-            "source_fingerprint_identity_sources": _fingerprint_field_values(
-                self.source_fingerprints,
-                "identity_source",
-            ),
-            "source_fingerprint_tree_walk_performed": any(
-                fingerprint.tree_walk_performed for fingerprint in self.source_fingerprints
-            ),
-            "source_fingerprint_files_walked": sum(
-                fingerprint.files_walked for fingerprint in self.source_fingerprints
-            ),
-            "source_fingerprint_stats_performed": sum(
-                fingerprint.stats_performed for fingerprint in self.source_fingerprints
-            ),
-            "output_fingerprint_digests": tuple(
-                fingerprint.reuse_digest for fingerprint in self.output_fingerprints
+            "query_answer_cached": False,
+            "native_completed_executions": self.report.envelope.field_int(
+                "resident_completed_executions"
             ),
             "output_plan_digest": self.output_plan_digest,
             "execution_certificate_ref": self.execution_certificate_ref,
@@ -738,14 +350,6 @@ class _PreparedCacheEntry:
     report: VortexIngestSmokeReport
     source_fingerprint: LocalFileFingerprint
     target_fingerprint: LocalFileFingerprint
-
-
-@dataclass(frozen=True, slots=True)
-class _SqlCacheEntry:
-    report: SqlLocalSourceSmokeReport
-    operation: str
-    source_fingerprints: tuple[LocalFileFingerprint, ...]
-    output_fingerprints: tuple[LocalFileFingerprint, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1180,10 +784,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Collect local-source SQL rows through this session when admitted."""
 
@@ -1195,23 +796,14 @@ class SessionSqlWorkflow:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             )
-        if not _is_local_source_sql_statement(self.statement):
-            return self.workflow.collect(
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-            )
         return self.session._sql_result(
             operation="collect",
-            statement=self.statement,
             execute=lambda: self.workflow.collect(
                 check=check,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             ),
-            output_paths=(),
             reuse=reuse,
-            resource_key=(memory_gb, max_parallelism),
         )
 
     def limit(self, count: int) -> "SessionSqlWorkflow":
@@ -1233,27 +825,14 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Write SQL rows through this session when the statement is local-source."""
 
         self.session._ensure_open()
         normalized_output_format = _normalize_local_output_format(output_format)
-        if not _is_local_source_sql_statement(self.statement):
-            return self.workflow.write(
-                target_uri,
-                output_format=normalized_output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-            )
         return self.session._sql_result(
             operation="write",
-            statement=self.statement,
             execute=lambda: self.workflow.write(
                 target_uri,
                 output_format=normalized_output_format,
@@ -1262,10 +841,7 @@ class SessionSqlWorkflow:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             ),
-            output_paths=(target_uri,),
             reuse=reuse,
-            output_key=(normalized_output_format, _normalized_path(target_uri)),
-            resource_key=(memory_gb, max_parallelism),
         )
 
     def write_jsonl(
@@ -1278,10 +854,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="jsonl")`."""
 
@@ -1305,10 +878,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
@@ -1332,10 +902,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="csv")`."""
 
@@ -1359,10 +926,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="parquet")`."""
 
@@ -1386,10 +950,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="arrow-ipc")`."""
 
@@ -1413,10 +974,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="avro")`."""
 
@@ -1440,10 +998,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="orc")`."""
 
@@ -1467,10 +1022,7 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="vortex")`."""
 
@@ -1494,31 +1046,14 @@ class SessionSqlWorkflow:
         memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     ) -> (
-        SessionSqlResult
-        | GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Write SQL rows to fanout sinks through this session when admitted."""
 
         self.session._ensure_open()
         normalized_outputs = _normalize_fanout_outputs(outputs)
-        if not _is_local_source_sql_statement(self.statement):
-            return self.workflow.fanout(
-                normalized_outputs,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-            )
-        output_paths = tuple(path for _, path in normalized_outputs)
-        output_key = tuple(
-            (fmt, _normalized_path(path))
-            for fmt, path in normalized_outputs
-        )
         return self.session._sql_result(
             operation="fanout",
-            statement=self.statement,
             execute=lambda: self.workflow.fanout(
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
@@ -1526,10 +1061,7 @@ class SessionSqlWorkflow:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             ),
-            output_paths=output_paths,
             reuse=reuse,
-            output_key=output_key,
-            resource_key=(memory_gb, max_parallelism),
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -1549,9 +1081,9 @@ def _wrap_session_query_result(session: "ShardLoomSession", result: Any) -> Any:
 class ShardLoomSession:
     """Explicit local session for scoped SourceState/VortexPreparedState reuse.
 
-    The session is caller-owned and in-process only. It does not start a daemon,
-    persist a distributed cache, invoke external engines, or change execution
-    providers. Reuse is admitted only when local fingerprints still match.
+    The client owns the native worker, which admits prepared query state and
+    executes each request. Python retains no query answers. Explicit artifact
+    preparation may reuse a caller-owned file while its fingerprints match.
     """
 
     def __init__(
@@ -1573,7 +1105,6 @@ class ShardLoomSession:
             tuple[str, str, str, int | None, int | None],
             _PreparedCacheEntry,
         ] = {}
-        self._sql_cache: dict[tuple[object, ...], _SqlCacheEntry] = {}
         self._closed = False
         self._cache_hits = 0
         self._cache_misses = 0
@@ -1772,33 +1303,6 @@ class ShardLoomSession:
             ),
         )
 
-    def native_vortex_route(
-        self,
-        fact_vortex: str | os.PathLike[str],
-        dim_vortex: str | os.PathLike[str],
-        *,
-        cdc_delta_vortex: str | os.PathLike[str] | None = None,
-        workspace: str | os.PathLike[str] | None = None,
-        execution_mode: str = "native_vortex",
-        memory_gb: int | None = None,
-        max_parallelism: int | None = None,
-        check: bool = True,
-    ) -> NativeVortexRoute:
-        """Create a session-scoped native `.vortex` benchmark-range route handle."""
-
-        self._ensure_open()
-        return NativeVortexRoute.from_inputs(
-            client=self.client,
-            fact_vortex=fact_vortex,
-            dim_vortex=dim_vortex,
-            cdc_delta_vortex=cdc_delta_vortex,
-            workspace=workspace,
-            execution_mode=execution_mode,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            check=check,
-        )
-
     def sql(self, statement: object) -> SessionSqlWorkflow:
         """Create a session-bound SQL workflow."""
 
@@ -1813,82 +1317,19 @@ class ShardLoomSession:
         source_path: str | os.PathLike[str],
         target_vortex_path: str | os.PathLike[str] | None = None,
         *,
-        dim: str | os.PathLike[str] | None = None,
-        workspace: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
-        cdc_delta: str | os.PathLike[str] | None = None,
-        result_workspace: str | os.PathLike[str] | None = None,
-        evidence_level: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         reuse: bool = True,
         check: bool = True,
-    ) -> SessionPreparedState | CompatibilityPreparedVortexRoute:
-        """Prepare or reuse a local `VortexPreparedState` within this session.
-
-        With only ``source_path`` and ``target_vortex_path`` this preserves the lower-level
-        session cache over ``vortex-prepare``. With ``workspace`` plus ``dim`` or a second
-        positional dimension path, it returns the same compatibility prepared-route handle as
-        ``ShardLoomContext.prepare_vortex(...)``.
-        """
+    ) -> SessionPreparedState:
+        """Prepare or reuse one local Vortex artifact within this session."""
 
         self._ensure_open()
-        route_requested = any(
-            value is not None
-            for value in (
-                dim,
-                workspace,
-                cdc_delta,
-                result_workspace,
-                evidence_level,
-            )
-        )
-        if route_requested:
-            dim_input = dim if dim is not None else target_vortex_path
-            if dim_input is None:
-                raise ValueError(
-                    "compatibility prepared routes require a dimension input via dim=... or "
-                    "the second positional argument"
-                )
-            if workspace is None:
-                raise ValueError(
-                    "compatibility prepared routes require workspace=... so caller-owned "
-                    "VortexPreparedState artifacts and route evidence have an explicit location"
-                )
-            if allow_overwrite:
-                raise ValueError(
-                    "allow_overwrite applies only to the lower-level vortex-prepare helper; "
-                    "prepared-route result writes use write_vortex(...)/run_batch(..., "
-                    "write_result_vortex=True)"
-                )
-            if certification_level != "ingest_certified":
-                raise ValueError(
-                    "certification_level applies only to the lower-level vortex-prepare "
-                    "helper; the compatibility prepared route uses certified traditional-analytics "
-                    "preparation evidence emitted by ShardLoom"
-                )
-            return CompatibilityPreparedVortexRoute.from_inputs(
-                client=self.client,
-                fact_input=source_path,
-                dim_input=dim_input,
-                workspace=workspace,
-                input_format=input_format,
-                cdc_delta_input=cdc_delta,
-                result_workspace=result_workspace,
-                evidence_level=evidence_level,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                check=check,
-            )
-
         if target_vortex_path is None:
-            raise ValueError(
-                "prepare_vortex requires either a target_vortex_path for the session "
-                "vortex-prepare cache or workspace plus dim/second positional input for "
-                "the compatibility prepared route"
-            )
+            raise ValueError("prepare_vortex requires target_vortex_path")
         normalized_source = _normalized_path(source_path)
         normalized_target = _normalized_path(target_vortex_path)
         normalized_certification = _require_non_empty(
@@ -1975,24 +1416,14 @@ class ShardLoomSession:
         """Collect rows for an admitted local query-builder workflow with session reuse."""
 
         self._ensure_open()
-        statement = frame._sql_local_source_statement()
-        if statement is None:
-            return frame.collect(
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-            )
         return self._sql_result(
             operation="collect",
-            statement=statement,
             execute=lambda: frame.collect(
                 check=check,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             ),
-            output_paths=(),
             reuse=reuse,
-            resource_key=(memory_gb, max_parallelism),
         )
 
     def write(
@@ -2010,20 +1441,9 @@ class ShardLoomSession:
         """Write an admitted local query-builder result with session output reuse."""
 
         self._ensure_open()
-        statement = frame._sql_local_source_statement()
-        if statement is None:
-            return frame.write(
-                target_uri,
-                output_format=output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-            )
         normalized_output_format = _normalize_local_output_format(output_format)
         return self._sql_result(
             operation="write",
-            statement=statement,
             execute=lambda: frame.write(
                 target_uri,
                 output_format=normalized_output_format,
@@ -2032,10 +1452,7 @@ class ShardLoomSession:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             ),
-            output_paths=(target_uri,),
             reuse=reuse,
-            output_key=(normalized_output_format, _normalized_path(target_uri)),
-            resource_key=(memory_gb, max_parallelism),
         )
 
     def fanout(
@@ -2052,24 +1469,9 @@ class ShardLoomSession:
         """Write an admitted local query-builder result to fanout sinks with session reuse."""
 
         self._ensure_open()
-        statement = frame._sql_local_source_statement()
         normalized_outputs = _normalize_fanout_outputs(outputs)
-        if statement is None:
-            return frame.fanout(
-                normalized_outputs,
-                allow_overwrite=allow_overwrite,
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-            )
-        output_paths = tuple(path for _, path in normalized_outputs)
-        output_key = tuple(
-            (fmt, _normalized_path(path))
-            for fmt, path in normalized_outputs
-        )
         return self._sql_result(
             operation="fanout",
-            statement=statement,
             execute=lambda: frame.fanout(
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
@@ -2077,10 +1479,7 @@ class ShardLoomSession:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             ),
-            output_paths=output_paths,
             reuse=reuse,
-            output_key=output_key,
-            resource_key=(memory_gb, max_parallelism),
         )
 
     def close(self) -> dict[str, Any]:
@@ -2088,7 +1487,7 @@ class ShardLoomSession:
 
         if not self._closed:
             self._prepared_cache.clear()
-            self._sql_cache.clear()
+            self.client.close()
             self._closed = True
         return self.evidence()
 
@@ -2134,76 +1533,40 @@ class ShardLoomSession:
         self,
         *,
         operation: str,
-        statement: str,
         execute: Any,
-        output_paths: tuple[str | os.PathLike[str], ...],
         reuse: bool,
-        resource_key: tuple[int, int],
-        output_key: object = (),
-    ) -> SessionSqlResult:
-        source_fingerprints = _source_fingerprints(statement)
-        output_fingerprints = tuple(_fingerprint_file(path) for path in output_paths)
-        key = (
-            operation,
-            statement,
-            output_key,
-            resource_key,
-        )
-        entry = self._sql_cache.get(key)
-        if reuse and entry is not None:
-            reuse_reason = _sql_reuse_reason(
-                entry,
-                source_fingerprints=source_fingerprints,
-                output_fingerprints=output_fingerprints,
-            )
-            if reuse_reason == "source_and_output_fingerprints_match":
-                self._cache_hits += 1
-                self._source_state_reuse_count += 1
-                if operation in {"write", "fanout"}:
-                    self._output_plan_reuse_count += 1
-                    self._result_replay_reuse_count += 1
-                self._last_reuse_reason = reuse_reason
-                self._last_invalidation_reason = None
-                return SessionSqlResult(
-                    session_id=self.session_id,
-                    report=entry.report,
-                    operation=operation,
-                    reuse_hit=True,
-                    reuse_reason=reuse_reason,
-                    source_fingerprints=source_fingerprints,
-                    output_fingerprints=output_fingerprints,
-                )
-        else:
-            reuse_reason = "reuse_disabled" if not reuse else "no_cached_result"
-
-        self._last_reuse_reason = reuse_reason
-        self._last_invalidation_reason = (
-            None
-            if reuse_reason in {"no_cached_result", "reuse_disabled"}
-            else reuse_reason
-        )
-        self._cache_misses += 1
+    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        # The client owns the native worker and its prepared operations. Every
+        # terminal call executes there; Python never caches a completed answer.
+        if not reuse:
+            self.client.close()
         report = execute()
-        source_fingerprints = _source_fingerprints(statement)
-        output_fingerprints = tuple(_fingerprint_file(path) for path in output_paths)
-        if report.envelope.status == "success" and _cacheable_sql_state(
-            source_fingerprints,
-            output_fingerprints,
-        ):
-            self._sql_cache[key] = _SqlCacheEntry(
-                report=report,
-                operation=operation,
-                source_fingerprints=source_fingerprints,
-                output_fingerprints=output_fingerprints,
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        reused = report.envelope.status == "success" and any(
+            report.envelope.field_bool(field, False) is True
+            for field in (
+                "resident_relational_declaration_reused",
+                "resident_unary_lowering_reused",
+                "resident_aggregate_lowering_reused",
             )
+        )
+        reuse_reason = "native_preparation_reused" if reused else "native_preparation_not_reused"
+        if reused:
+            self._cache_hits += 1
+            self._source_state_reuse_count += 1
+            if operation in {"write", "fanout"}:
+                self._output_plan_reuse_count += 1
+        else:
+            self._cache_misses += 1
+        self._last_reuse_reason = reuse_reason
+        self._last_invalidation_reason = None
         return SessionSqlResult(
             session_id=self.session_id,
             report=report,
             operation=operation,
-            reuse_hit=False,
+            reuse_hit=reused,
             reuse_reason=reuse_reason,
-            source_fingerprints=source_fingerprints,
-            output_fingerprints=output_fingerprints,
         )
 
 
@@ -2347,64 +1710,6 @@ def _reuse_reason_from_metadata(
     if not _metadata_matches(entry.target_fingerprint, target_fingerprint):
         return "prepared_artifact_fingerprint_changed"
     return "source_and_prepared_artifact_fingerprints_match"
-
-
-def _source_fingerprints(
-    statement: str,
-    *,
-    content_digest: bool = False,
-) -> tuple[LocalFileFingerprint, ...]:
-    refs = _sql_source_refs(statement)
-    return tuple(_fingerprint_file(ref, content_digest=content_digest) for ref in refs)
-
-
-def _fingerprint_field_values(
-    fingerprints: Sequence[LocalFileFingerprint],
-    field_name: str,
-) -> tuple[str, ...]:
-    return tuple(
-        sorted(
-            {
-                str(getattr(fingerprint, field_name))
-                for fingerprint in fingerprints
-                if getattr(fingerprint, field_name, None) not in (None, "")
-            }
-        )
-    )
-
-
-def _cacheable_sql_state(
-    source_fingerprints: tuple[LocalFileFingerprint, ...],
-    output_fingerprints: tuple[LocalFileFingerprint, ...],
-) -> bool:
-    if not source_fingerprints:
-        return False
-    if any(not fingerprint.exists for fingerprint in source_fingerprints):
-        return False
-    if any(not fingerprint.exists for fingerprint in output_fingerprints):
-        return False
-    return True
-
-
-def _sql_reuse_reason(
-    entry: _SqlCacheEntry,
-    *,
-    source_fingerprints: tuple[LocalFileFingerprint, ...],
-    output_fingerprints: tuple[LocalFileFingerprint, ...],
-) -> str:
-    if len(entry.source_fingerprints) != len(source_fingerprints):
-        return "source_fingerprint_count_changed"
-    if len(entry.output_fingerprints) != len(output_fingerprints):
-        return "output_fingerprint_count_changed"
-    if any(not fingerprint.exists for fingerprint in source_fingerprints):
-        return "source_fingerprint_missing"
-    if any(not fingerprint.exists for fingerprint in output_fingerprints):
-        return "output_artifact_missing"
-    if entry.source_fingerprints != source_fingerprints:
-        return "source_fingerprint_changed"
-    if entry.output_fingerprints != output_fingerprints:
-        return "output_artifact_fingerprint_changed"
-    return "source_and_output_fingerprints_match"
 
 
 def _require_non_empty(label: str, value: str) -> str:

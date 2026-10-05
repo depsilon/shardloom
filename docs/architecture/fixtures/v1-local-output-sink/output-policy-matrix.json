@@ -1,5 +1,7 @@
 {
   "claim_gate_status": "not_claim_grade",
+  "evidence_class": "declarative_contract",
+  "runtime_evidence_verified": false,
   "external_engine_invoked": false,
   "fallback_attempted": false,
   "policies": [
@@ -11,8 +13,9 @@
     },
     {
       "deterministic_diagnostic_required": false,
+      "existing_target_allowed": false,
       "policy_id": "explicit_allow_overwrite",
-      "runtime_posture": "supported_explicit_local_policy",
+      "runtime_posture": "existing_targets_denied_for_shared_native_computed_writes_even_when_requested",
       "write_io_allowed": true
     },
     {

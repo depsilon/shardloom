@@ -653,23 +653,114 @@ def validate_user_route_report(payload: Mapping[str, Any]) -> tuple[dict[str, An
     expected = {
         "schema_version": "shardloom.user_route_capability_report.v1",
         "status": "passed",
+        "report_kind": "static_capability_discovery",
         "claim_gate_status": "not_claim_grade",
+        "runtime_execution_performed": False,
+        "performance_evidence_produced": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
     }
     for key, value in expected.items():
-        if payload.get(key) != value:
+        actual = payload.get(key)
+        matches = actual is value if isinstance(value, bool) else actual == value
+        if not matches:
             blockers.append(f"user_route_capability: {key}={payload.get(key, 'missing')}")
     if payload.get("all_no_fallback_no_external_engine") is not True:
         blockers.append("user_route_capability: all_no_fallback_no_external_engine must be true")
-    if payload.get("unsupported_local_benchmark_route_ids"):
-        blockers.append("user_route_capability: unsupported local benchmark routes must be empty")
-    if payload.get("local_file_benchmark_unsupported_scenario_ids"):
-        blockers.append("user_route_capability: unsupported benchmark scenarios must be empty")
+    expected_route_ids = {"native_vortex_query", "object_store_lakehouse_runtime"}
+    route_ids = payload.get("route_ids")
+    if not isinstance(route_ids, list) or set(route_ids) != expected_route_ids:
+        blockers.append("user_route_capability: route_ids must identify the native route and external boundary")
+    if payload.get("route_count") != 2:
+        blockers.append("user_route_capability: route_count must be two")
+    rows = payload.get("rows")
+    rows_by_id = {
+        row.get("route_id"): row for row in rows if isinstance(row, Mapping)
+    } if isinstance(rows, list) else {}
+    if set(rows_by_id) != expected_route_ids or not isinstance(rows, list) or len(rows) != 2:
+        blockers.append("user_route_capability: rows must declare both route identities exactly once")
+    else:
+        native = rows_by_id["native_vortex_query"]
+        external = rows_by_id["object_store_lakehouse_runtime"]
+        if native.get("owner") != "shared_native_workflow":
+            blockers.append("user_route_capability: native_vortex_query owner mismatch")
+        if native.get("route_runtime_status") != "global_runtime_supported":
+            blockers.append("user_route_capability: native_vortex_query must be globally supported")
+        if external.get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
+            blockers.append("user_route_capability: object-store route must remain externally gated")
+        if external.get("route_runtime_status") != "external_environment_gate_pending":
+            blockers.append("user_route_capability: object-store route must remain externally gated")
+        for route_id, row in rows_by_id.items():
+            for field in ("fallback_attempted", "external_engine_invoked"):
+                if row.get(field) is not False:
+                    blockers.append(f"user_route_capability: {route_id} {field} must be false")
+            for field in ("performance_claim_allowed", "production_claim_allowed", "spark_replacement_claim_allowed"):
+                if row.get(field) is not False:
+                    blockers.append(f"user_route_capability: {route_id} {field} must be false")
+
+    front_doors = payload.get("public_front_door_route_rows")
+    if payload.get("public_front_door_route_count") != 4 or not isinstance(front_doors, list) or len(front_doors) != 4:
+        blockers.append("user_route_capability: expected four public input front doors")
+    else:
+        front_door_ids = set()
+        for row in front_doors:
+            if not isinstance(row, Mapping):
+                blockers.append("user_route_capability: public front-door rows must be objects")
+                continue
+            front_door_ids.add(row.get("front_door_id"))
+            if row.get("owning_route_id") != "native_vortex_query":
+                blockers.append("user_route_capability: public front doors must use native_vortex_query")
+            for field in ("fallback_attempted", "external_engine_invoked"):
+                if row.get(field) is not False:
+                    blockers.append(f"user_route_capability: public front door {field} must be false")
+        expected_front_door_ids = {
+            "local_source_vortex_middle_front_door",
+            "native_vortex_front_door",
+            "declared_memory_front_door",
+            "source_free_sql_front_door",
+        }
+        if front_door_ids != expected_front_door_ids:
+            blockers.append("user_route_capability: public front-door IDs mismatch")
+
+    reuse_rows = payload.get("public_route_reuse_matrix_rows")
+    if payload.get("public_route_reuse_matrix_count") != 9 or not isinstance(reuse_rows, list) or len(reuse_rows) != 9:
+        blockers.append("user_route_capability: expected nine shared-route operation families")
+    else:
+        expected_operation_families = {
+            "filter_project_limit",
+            "group_aggregate",
+            "join",
+            "ordered_rows",
+            "distinct",
+            "string_expressions",
+            "casts_and_nulls",
+            "declared_sinks",
+            "memory_and_source_free",
+        }
+        operation_families = {
+            row.get("operation_family")
+            for row in reuse_rows
+            if isinstance(row, Mapping)
+        }
+        if operation_families != expected_operation_families:
+            blockers.append("user_route_capability: reuse-matrix operation families mismatch")
+        for row in reuse_rows:
+            if not isinstance(row, Mapping):
+                blockers.append("user_route_capability: reuse-matrix rows must be objects")
+                continue
+            if row.get("primary_route_id") != "native_vortex_query":
+                blockers.append("user_route_capability: reuse-matrix route must be native_vortex_query")
+            if row.get("typed_result_or_sink_contract") != "complete_typed_rows_or_committed_declared_output":
+                blockers.append("user_route_capability: reuse-matrix typed result/sink contract mismatch")
+            for field in ("fallback_attempted", "external_engine_invoked"):
+                if row.get(field) is not False:
+                    blockers.append(f"user_route_capability: reuse-matrix {field} must be false")
     acceptance = payload.get("acceptance_summary")
     required_acceptance = (
-        "all_required_local_file_benchmark_scenarios_mapped",
-        "all_admitted_benchmark_routes_have_clear_output_options",
-        "all_admitted_local_file_benchmark_routes_have_clear_output_options",
-        "public_front_door_routes_preserve_no_fallback",
+        "shared_native_route_owns_public_front_doors",
+        "public_route_reuse_matrix_complete",
+        "static_discovery_is_not_runtime_or_performance_proof",
+        "no_fallback_no_external_engine",
     )
     if not isinstance(acceptance, dict):
         blockers.append("user_route_capability: missing acceptance_summary")
@@ -680,11 +771,12 @@ def validate_user_route_report(payload: Mapping[str, Any]) -> tuple[dict[str, An
     return {
         "status": "passed" if not blockers else "failed",
         "route_count": payload.get("route_count"),
-        "local_file_benchmark_route_count": payload.get("local_file_benchmark_route_count"),
+        "route_ids": sorted(route_ids) if isinstance(route_ids, list) else [],
         "public_front_door_route_count": payload.get("public_front_door_route_count"),
-        "unsupported_local_benchmark_route_count": len(
-            payload.get("unsupported_local_benchmark_route_ids", [])
-        ),
+        "public_route_reuse_matrix_count": payload.get("public_route_reuse_matrix_count"),
+        "report_kind": payload.get("report_kind"),
+        "runtime_execution_performed": payload.get("runtime_execution_performed"),
+        "performance_evidence_produced": payload.get("performance_evidence_produced"),
     }, blockers
 
 

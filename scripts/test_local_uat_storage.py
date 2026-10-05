@@ -88,6 +88,26 @@ class StorageGuardTests(unittest.TestCase):
                 with self.subTest(override=override), self.assertRaises(StorageGuardError):
                     check_budgets(self.root, self.target, self.logs, **(kwargs | override))
 
+    def test_nested_accounting_preserves_link_boundaries_and_missing_paths(self):
+        directory = self.root / "deep" / "nested"
+        directory.mkdir(parents=True)
+        payload = directory / "payload"
+        payload.write_bytes(b"retained output")
+        os.link(self.source, directory / "source-hardlink")
+        external = self.home / "outside"
+        external.mkdir()
+        (external / "payload").write_bytes(b"outside the workspace" * 4096)
+        link = directory / "external-link"
+        link.symlink_to(external, target_is_directory=True)
+
+        def allocated(path):
+            info = path.lstat()
+            return max(info.st_size, getattr(info, "st_blocks", 0) * 512)
+
+        self.assertEqual(accounted_bytes(self.root), sum(map(allocated, (self.source, payload, link))))
+        self.assertEqual(accounted_bytes(link), allocated(link))
+        self.assertEqual(accounted_bytes(self.root / "missing"), 0)
+
     def fake_binary(self, mode):
         binary = self.home / "fake-shardloom"
         binary.write_text(

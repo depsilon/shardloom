@@ -10,11 +10,12 @@ use super::{
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{BinaryOp, ComparisonOp, Result, UnaryOp};
 use vortex::array::{
-    ArrayRef, IntoArray as _, VortexSessionExecute as _,
-    arrays::{ChunkedArray, ConstantArray, ExtensionArray},
-    dtype::DType,
+    ArrayRef, IntoArray, VortexSessionExecute as _,
+    arrays::{ChunkedArray, ConstantArray, ExtensionArray, ListArray, StructArray},
+    dtype::{DType, Nullability, PType},
     memory::MemorySessionExt as _,
     scalar::Scalar,
+    validity::Validity,
 };
 
 #[path = "native_relational_scalar.rs"]
@@ -28,6 +29,8 @@ pub(super) struct Expression {
 pub(super) enum Kind {
     Column(String),
     Literal(Scalar),
+    List(Vec<Expression>),
+    Struct(Vec<Expression>),
     Unary(UnaryOp, Box<Expression>),
     Binary(Box<Expression>, BinaryOp, Box<Expression>),
     Compare(Box<Expression>, ComparisonOp, Box<Expression>),
@@ -61,7 +64,10 @@ impl Expression {
                 yes.visit_columns(visit)?;
                 no.visit_columns(visit)
             }
-            Kind::Coalesce(children) | Kind::Function { args: children, .. } => {
+            Kind::Coalesce(children)
+            | Kind::List(children)
+            | Kind::Struct(children)
+            | Kind::Function { args: children, .. } => {
                 for child in children {
                     child.visit_columns(visit)?;
                 }
@@ -86,6 +92,9 @@ impl Expression {
                 } else {
                     constant
                 }
+            }
+            Kind::List(children) | Kind::Struct(children) => {
+                self.construct(input, context, children)?
             }
             Kind::Unary(op, expression) => {
                 let array = expression.evaluate(input, context)?;
@@ -169,6 +178,86 @@ impl Expression {
             ));
         }
         Ok(result)
+    }
+
+    fn construct(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        children: &[Expression],
+    ) -> Result<ArrayRef> {
+        let _metadata = context
+            .memory()
+            .reserve(super::native_payload::metadata_bytes(&self.dtype)?)?;
+        let mut arrays = ReservedVec::new(context.memory())?;
+        arrays.reserve(children.len())?;
+        for child in children {
+            let array = child.evaluate(input, context)?;
+            arrays
+                .values
+                .push(if let DType::List(element, _) = &self.dtype {
+                    cast(&array, element, context)?
+                } else {
+                    array
+                });
+        }
+        let (arrays, _ownership) = arrays.into_parts();
+        match &self.dtype {
+            DType::Struct(fields, _) => StructArray::try_new(
+                fields.names().clone(),
+                arrays,
+                input.len(),
+                Validity::NonNullable,
+            )
+            .map(IntoArray::into_array)
+            .map_err(vortex_error),
+            DType::List(element, _) => {
+                let count = input
+                    .len()
+                    .checked_mul(children.len())
+                    .ok_or_else(|| failed("list constructor cardinality overflow"))?;
+                let values = if count == 0 {
+                    super::native_payload::defaults(element, 0, context)?
+                } else {
+                    let values = ChunkedArray::try_new(arrays, element.as_ref().clone())
+                        .map_err(vortex_error)?
+                        .into_array();
+                    let indices = index_array(count, false, context, |index| {
+                        if index.is_multiple_of(1024) {
+                            context.check_cancelled()?;
+                        }
+                        Ok(Some(
+                            index / children.len() + (index % children.len()) * input.len(),
+                        ))
+                    })?;
+                    super::native_relational_batch::take_column(
+                        &values, &indices, element, context,
+                    )?
+                };
+                let offsets = result_batch::build_column(
+                    &DType::Primitive(PType::U64, Nullability::NonNullable),
+                    input
+                        .len()
+                        .checked_add(1)
+                        .ok_or_else(|| failed("list constructor offset overflow"))?,
+                    &context.native_session().allocator(),
+                    |row| {
+                        if row.is_multiple_of(1024) {
+                            context.check_cancelled()?;
+                        }
+                        Ok(Value::UInt(
+                            u64::try_from(row * children.len()).map_err(vortex_error)?,
+                        ))
+                    },
+                )?;
+                ListArray::try_new(values, offsets, Validity::NonNullable)
+                    .map(IntoArray::into_array)
+                    .map_err(vortex_error)
+            }
+            _ => Err(failed(
+                "constructor requires its bound list or struct schema",
+            )),
+        }
     }
 
     fn null_if(
@@ -462,7 +551,7 @@ pub(super) fn binary(
     }
     if matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F64, _)) {
         let (left, right) = (float(&left)?, float(&right)?);
-        if op == BinaryOp::Divide && right == 0.0 {
+        if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) && right == 0.0 {
             return Err(failed("division by zero"));
         }
         let result = match op {
@@ -470,6 +559,7 @@ pub(super) fn binary(
             BinaryOp::Subtract => left - right,
             BinaryOp::Multiply => left * right,
             BinaryOp::Divide => left / right,
+            BinaryOp::Remainder => left % right,
             _ => unreachable!("boolean operation handled above"),
         };
         if !result.is_finite() {
@@ -483,6 +573,7 @@ pub(super) fn binary(
         BinaryOp::Subtract => left.checked_sub(right),
         BinaryOp::Multiply => left.checked_mul(right),
         BinaryOp::Divide => left.checked_div(right),
+        BinaryOp::Remainder => left.checked_rem(right),
         _ => unreachable!("boolean operation handled above"),
     }
     .ok_or_else(|| failed("integer arithmetic overflow or division by zero"))?;
@@ -519,14 +610,14 @@ fn integer(value: &Cell) -> Result<i128> {
     }
 }
 
-fn float(value: &Cell) -> Result<f64> {
+pub(in crate::local_primitives) fn float(value: &Cell) -> Result<f64> {
     if let Cell::Float(bits) = value {
         return Ok(f64::from_bits(*bits));
     }
     let integer = integer(value)?;
     if !(-9_007_199_254_740_992..=9_007_199_254_740_992).contains(&integer) {
         return Err(failed(
-            "mixed floating arithmetic requires an exactly representable integer",
+            "mixed floating arithmetic or literal comparison requires an exactly representable integer",
         ));
     }
     #[allow(clippy::cast_precision_loss)] // Checked against the exact integer domain above.

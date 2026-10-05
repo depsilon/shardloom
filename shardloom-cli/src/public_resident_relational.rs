@@ -3,9 +3,10 @@
 use super::{
     CommandStatus, Diagnostic, DiagnosticCode, ExitCode, OutputFormat, PublicExecutionSession,
     PublicSourcePreparations, PublicWorkflowRoutePlan, PublicWorkflowRouteRequest, ShardLoomError,
-    admitted_route, blocked_route, emit, emit_error, execution_attachment_fields, is_write_request,
-    native_vortex_materializing_policy, native_vortex_row_export_format_for_output_request,
-    output_required_route, sql_local_source_runtime::native_relational, vortex_primitive_execution,
+    admitted_route, append_native_result_schema_fields, blocked_route, emit, emit_error,
+    execution_attachment_fields, is_write_request, native_vortex_materializing_policy,
+    native_vortex_row_export_format_for_output_request, output_required_route,
+    sql_local_source_runtime::native_relational, vortex_primitive_execution,
 };
 #[cfg(feature = "vortex-write")]
 use super::{
@@ -67,11 +68,6 @@ pub(super) fn route_admitted_statement(
     if request.materialization_policy == "zero_decode" {
         return Some(denied(
             "relational keys, computed columns and result delivery require explicit materialization; choose bounded materialization",
-        ));
-    }
-    if !request.fanout_outputs.is_empty() {
-        return Some(denied(
-            "relational fanout requires a shared native sink transaction",
         ));
     }
     let write = is_write_request(request);
@@ -174,14 +170,14 @@ fn execute(
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
 ) -> Result<(), ShardLoomError> {
+    let statement = request.sql_statement.as_deref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("native relational SQL is absent".into())
+    })?;
     let reused = session.relational.as_ref().is_some_and(|entry| {
         entry.request == *request && entry.preparations.same_generations(&preparations)
-    });
+    }) && !sources::has_file_collection(statement, request)?;
     if !reused {
         session.clear();
-        let statement = request.sql_statement.as_deref().ok_or_else(|| {
-            ShardLoomError::InvalidOperation("native relational SQL is absent".into())
-        })?;
         let (operation, prepared_sources) =
             sources::prepare_with_source(statement, request, source, preparations.clone())?;
         session.relational = Some(PreparedPublicRelational {
@@ -214,37 +210,7 @@ fn execute(
     ));
     if is_write_request(request) {
         #[cfg(feature = "vortex-write")]
-        {
-            let targets =
-                native_vortex_primitive_row_export_targets(request, "run").map_err(|blocked| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "{}: {:?}",
-                        blocked.blocker_reason, blocked.diagnostics
-                    ))
-                })?;
-            let target = &targets[0];
-            let written = operation.write(&target.path, target.format, request.allow_overwrite)?;
-            append_native_vortex_primitive_row_export_fields(&mut fields, &written.output);
-            append_native_vortex_primitive_row_export_target_fields(
-                &mut fields,
-                &targets,
-                std::slice::from_ref(&written.output),
-            );
-            append_execution(&mut fields, &written.execution, reused);
-            emit(
-                "run",
-                format,
-                CommandStatus::Success,
-                "native relational write".into(),
-                format!(
-                    "wrote {} rows to {}",
-                    written.output.rows_written, written.output.output_path
-                ),
-                written.output.diagnostics.clone(),
-                fields,
-            );
-            return Ok(());
-        }
+        return execute_write(request, format, operation, fields, reused);
         #[cfg(not(feature = "vortex-write"))]
         return Err(ShardLoomError::InvalidOperation(
             "native relational writers require vortex-write".into(),
@@ -253,6 +219,8 @@ fn execute(
     let collected = operation.collect_jsonl(&CancellationToken::default())?;
     append_execution(&mut fields, &collected.execution, reused);
     let (jsonl, _ownership) = collected.result_jsonl.into_parts();
+    let (schema, _schema_ownership) = collected.result_schema_json.into_parts();
+    append_native_result_schema_fields(&mut fields, schema);
     fields.extend([
         ("result_jsonl".into(), jsonl),
         ("result_payload_complete".into(), "true".into()),
@@ -269,6 +237,58 @@ fn execute(
         "native relational collection".into(),
         format!("collected {} rows", collected.execution.output_rows),
         vec![],
+        fields,
+    );
+    Ok(())
+}
+
+#[cfg(feature = "vortex-write")]
+fn execute_write(
+    request: &PublicWorkflowRouteRequest,
+    format: OutputFormat,
+    operation: &PreparedVortexRelational,
+    mut fields: Vec<(String, String)>,
+    reused: bool,
+) -> Result<(), ShardLoomError> {
+    let targets =
+        native_vortex_primitive_row_export_targets(request, "run").map_err(|blocked| {
+            ShardLoomError::InvalidOperation(format!(
+                "{}: {:?}",
+                blocked.blocker_reason, blocked.diagnostics
+            ))
+        })?;
+    let mut written = if targets.len() == 1 {
+        let target = &targets[0];
+        vec![operation.write(&target.path, target.format, request.allow_overwrite)?]
+    } else {
+        operation.write_many(
+            &targets
+                .iter()
+                .map(|target| (target.path.clone(), target.format))
+                .collect::<Vec<_>>(),
+            request.allow_overwrite,
+        )?
+    };
+    let final_write = written.pop().expect("at least one target");
+    let reports = written
+        .into_iter()
+        .map(|written| written.output)
+        .chain([final_write.output])
+        .collect::<Vec<_>>();
+    let primary = &reports[0];
+    append_native_vortex_primitive_row_export_fields(&mut fields, primary);
+    append_native_vortex_primitive_row_export_target_fields(&mut fields, &targets, &reports);
+    append_execution(&mut fields, &final_write.execution, reused);
+    emit(
+        "run",
+        format,
+        CommandStatus::Success,
+        "native relational write".into(),
+        format!(
+            "wrote {} rows to {}",
+            primary.rows_written, primary.output_path
+        ),
+        primary.diagnostics.clone(),
         fields,
     );
     Ok(())
@@ -329,6 +349,7 @@ fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelat
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn append_execution(
     fields: &mut Vec<(String, String)>,
     result: &ExecutedVortexRelational,
@@ -350,7 +371,10 @@ fn append_execution(
             "execution".into(),
             "native_vortex_relational_performed".into(),
         ),
-        ("source_io_performed".into(), "true".into()),
+        (
+            "source_io_performed".into(),
+            (result.runtime.prepared_source_opens > 0).to_string(),
+        ),
         ("fallback_attempted".into(), "false".into()),
         ("external_engine_invoked".into(), "false".into()),
         (
@@ -388,7 +412,7 @@ fn append_execution(
         ),
         (
             "public_workflow_native_vortex_plan_source_count".into(),
-            result.runtime.prepared_source_opens.to_string(),
+            result.prepared_sources.to_string(),
         ),
         (
             "resident_completed_executions".into(),
@@ -408,7 +432,7 @@ fn append_execution(
         ),
         (
             "resident_footer_open_performed_this_call".into(),
-            (!reused).to_string(),
+            (!reused && result.runtime.prepared_source_opens > 0).to_string(),
         ),
         ("resident_relational_handle_retained".into(), "true".into()),
         (

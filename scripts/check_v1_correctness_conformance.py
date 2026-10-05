@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
 from release_report_utils import fail_closed_fields, load_json, resolve_path, write_json
 
 
@@ -40,15 +41,26 @@ EXPECTED_EXAMPLE_SCENARIOS = {
 EXPECTED_ERROR_SCENARIOS: set[str] = set()
 
 EXPECTED_VORTEX_PRIMITIVE_ROUTES = 11
-EXPECTED_VORTEX_LOCAL_FILE_ROUTES = 16
-EXPECTED_SOURCE_INPUT_FORMATS = 6
-EXPECTED_SOURCE_PREPARED_ROUTE_IDS = 4
-EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS = 1
-EXPECTED_SOURCE_GENERATED_ROUTE_IDS = 1
-EXPECTED_SOURCE_INVALIDATION_CASES = 9
+EXPECTED_VORTEX_USER_ROUTE_IDS = {
+    "native_vortex_query",
+    "object_store_lakehouse_runtime",
+}
+EXPECTED_SOURCE_INPUT_FORMATS = 7
+EXPECTED_SOURCE_FORMAT_IDS = {"csv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc"}
+EXPECTED_SOURCE_ROUTE_IDS = {"native_vortex_query"}
+EXPECTED_SOURCE_INVALIDATION_CASES = 7
+EXPECTED_SOURCE_CANONICAL_ROUTE = (
+    "declared input or source-free expression -> native Vortex admission -> "
+    "native_vortex_unified_plan -> typed result or declared sink"
+)
+EXPECTED_SOURCE_STATE_OWNER = "ResidentVortexSession"
+EXPECTED_SOURCE_REUSE_SCOPE = "native_session_or_explicit_vortex_artifact"
+EXPECTED_SOURCE_REUSE_POLICY = (
+    "validate_source_generation_and_declaration_before_each_execution"
+)
 EXPECTED_OUTPUT_FORMATS = 8
 EXPECTED_OUTPUT_WRITE_METHODS = 10
-EXPECTED_OUTPUT_ROUTE_IDS = 7
+EXPECTED_OUTPUT_ROUTE_IDS = 1
 EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS = 114
 EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES = 6
 EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS = 3
@@ -56,11 +68,7 @@ EXPECTED_EXAMPLE_REPLAY_SCENARIOS = len(EXPECTED_EXAMPLE_SCENARIOS)
 EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS = len(EXPECTED_ERROR_SCENARIOS)
 EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES = 1
 
-EXPECTED_GOLDEN_WORKFLOWS = {
-    "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-    "generated_source_to_local_vortex_output_replay_fidelity",
-    "prepared_native_vortex_count_filter_project_execution_certificates",
-}
+EXPECTED_GOLDEN_WORKFLOWS = GOLDEN_WORKFLOW_IDS
 EXPECTED_GOLDEN_STAGE_COUNT_MIN = 9
 
 EXPECTED_EXECUTABLE_FIXTURES = 117
@@ -77,11 +85,11 @@ EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS = 2
 EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS = EXPECTED_DIAGNOSTIC_CASES
 ADMITTED_ARTIFACT_REF_PREFIX = "target/admitted-semantics-matrix/artifacts/"
 SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES = {
-    "decoded_reference_result_jsonl",
+    "canonical_decoded_reference_rows",
     "decoded_reference_output_artifact",
 }
 SEMANTIC_OBSERVED_OUTPUT_DIGEST_SOURCES = {
-    "envelope_result_jsonl",
+    "complete_native_result_rows",
     "sink_output_artifact",
 }
 UNSUPPORTED_STAGE_KINDS = {
@@ -171,15 +179,13 @@ REQUIRED_PROPERTY_CASE_IDS = {
     "output_jsonl_property_seed_20260626",
 }
 REQUIRED_SOURCE_INVALIDATION_CASE_IDS = {
-    "cold_prepare_no_manifest",
-    "warm_reuse_manifest_match",
+    "first_request",
+    "same_source_same_declaration",
     "source_changed",
-    "artifact_changed",
-    "schema_changed",
-    "policy_changed",
-    "version_changed",
+    "memory_declaration_changed",
+    "resource_policy_changed",
     "missing_artifact",
-    "corrupted_manifest",
+    "artifact_changed",
 }
 
 REQUIRED_OPERATION_COVERAGE_ROWS = {
@@ -422,11 +428,7 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "front_door_example_scenarios": len(EXPECTED_EXAMPLE_SCENARIOS),
         "front_door_expected_error_scenarios": len(EXPECTED_ERROR_SCENARIOS),
         "vortex_primitive_routes": EXPECTED_VORTEX_PRIMITIVE_ROUTES,
-        "vortex_local_file_routes": EXPECTED_VORTEX_LOCAL_FILE_ROUTES,
         "source_input_formats": EXPECTED_SOURCE_INPUT_FORMATS,
-        "source_prepared_routes": EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
-        "source_internal_smoke_routes": EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS,
-        "source_generated_routes": EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
         "source_invalidation_cases": EXPECTED_SOURCE_INVALIDATION_CASES,
         "output_formats": EXPECTED_OUTPUT_FORMATS,
         "output_write_methods": EXPECTED_OUTPUT_WRITE_METHODS,
@@ -646,14 +648,8 @@ def _validate_stage_contract(
             blockers.append(
                 f"admitted_semantics: {case_id} decoded_reference_digest must be sha256-prefixed"
             )
-        if not _is_hex_digest(stage.get("correctness_digest"), "fnv64:", 16):
-            blockers.append(
-                f"admitted_semantics: {case_id} correctness_digest must be fnv64-prefixed"
-            )
-        if not _is_hex_digest(stage.get("result_digest"), "fnv64:", 16):
-            blockers.append(
-                f"admitted_semantics: {case_id} result_digest must be fnv64-prefixed"
-            )
+        if stage.get("kind") != "sql_native_decoded_reference":
+            blockers.append(f"admitted_semantics: {case_id} must use public native execution")
         if not _is_hex_digest(stage.get("expected_output_digest"), "sha256:", 64):
             blockers.append(
                 f"admitted_semantics: {case_id} expected_output_digest must be sha256-prefixed"
@@ -714,8 +710,6 @@ def _validate_required_stage_evidence(
             "required_stage_output_digest_match_count": 0,
             "required_stage_expected_output_digest_source_count": 0,
             "required_stage_observed_output_digest_source_count": 0,
-            "required_stage_correctness_digest_count": 0,
-            "required_stage_result_digest_count": 0,
             "required_unsupported_stage_diagnostic_field_count": 0,
             "required_stage_no_fallback_count": 0,
             "required_stage_no_external_engine_count": 0,
@@ -745,8 +739,6 @@ def _validate_required_stage_evidence(
     output_digest_match_count = 0
     expected_output_digest_source_count = 0
     observed_output_digest_source_count = 0
-    correctness_digest_count = 0
-    result_digest_count = 0
     diagnostic_field_count = 0
     no_fallback_count = 0
     no_external_count = 0
@@ -809,10 +801,6 @@ def _validate_required_stage_evidence(
             in SEMANTIC_OBSERVED_OUTPUT_DIGEST_SOURCES
         ):
             observed_output_digest_source_count += 1
-        if _is_hex_digest(stage.get("correctness_digest"), "fnv64:", 16):
-            correctness_digest_count += 1
-        if _is_hex_digest(stage.get("result_digest"), "fnv64:", 16):
-            result_digest_count += 1
         if (
             stage.get("kind") in UNSUPPORTED_STAGE_KINDS
             and isinstance(stage.get("diagnostic_code"), str)
@@ -837,8 +825,6 @@ def _validate_required_stage_evidence(
         "required_stage_output_digest_match_count": output_digest_match_count,
         "required_stage_expected_output_digest_source_count": expected_output_digest_source_count,
         "required_stage_observed_output_digest_source_count": observed_output_digest_source_count,
-        "required_stage_correctness_digest_count": correctness_digest_count,
-        "required_stage_result_digest_count": result_digest_count,
         "required_unsupported_stage_diagnostic_field_count": diagnostic_field_count,
         "required_stage_no_fallback_count": no_fallback_count,
         "required_stage_no_external_engine_count": no_external_count,
@@ -899,19 +885,65 @@ def _validate_vortex(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
         "vortex_runtime",
         "shardloom.v1_vortex_runtime_scope_report.v1",
     )
-    for field, expected in [
-        ("local_vortex_primitive_route_count", EXPECTED_VORTEX_PRIMITIVE_ROUTES),
-        ("local_file_benchmark_route_count", EXPECTED_VORTEX_LOCAL_FILE_ROUTES),
-    ]:
-        if payload.get(field) != expected:
-            blockers.append(f"vortex_runtime: {field}={payload.get(field, 'missing')}")
+    primitive_ids = payload.get("supported_primitive_route_ids")
+    if (
+        not isinstance(primitive_ids, list)
+        or len(primitive_ids) != EXPECTED_VORTEX_PRIMITIVE_ROUTES
+        or len(set(primitive_ids)) != EXPECTED_VORTEX_PRIMITIVE_ROUTES
+    ):
+        blockers.append("vortex_runtime: supported_primitive_route_ids must contain 11 routes")
+    if payload.get("evidence_class") != "declarative_specification":
+        blockers.append("vortex_runtime: evidence_class must be declarative_specification")
+    for field in ("runtime_execution_performed", "performance_evidence_produced"):
+        if payload.get(field) is not False:
+            blockers.append(f"vortex_runtime: {field} must be false for declarative scope evidence")
+    observed_route_ids = payload.get("user_route_ids")
+    if not isinstance(observed_route_ids, list) or set(observed_route_ids) != EXPECTED_VORTEX_USER_ROUTE_IDS:
+        blockers.append("vortex_runtime: user_route_ids must identify the native route and external boundary")
+    route_rows = payload.get("user_route_rows")
+    rows_by_id = {
+        row.get("route_id"): row
+        for row in route_rows
+        if isinstance(route_rows, list) and isinstance(row, dict)
+    } if isinstance(route_rows, list) else {}
+    if set(rows_by_id) != EXPECTED_VORTEX_USER_ROUTE_IDS or len(route_rows or []) != 2:
+        blockers.append("vortex_runtime: user_route_rows must declare both route identities exactly once")
+    else:
+        native = rows_by_id["native_vortex_query"]
+        external = rows_by_id["object_store_lakehouse_runtime"]
+        if native.get("owner") != "shared_native_workflow":
+            blockers.append("vortex_runtime: native_vortex_query owner must be shared_native_workflow")
+        if native.get("route_runtime_status") != "global_runtime_supported":
+            blockers.append("vortex_runtime: native_vortex_query must be globally runtime supported")
+        if external.get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
+            blockers.append("vortex_runtime: object-store route must remain externally gated")
+        if external.get("route_runtime_status") != "external_environment_gate_pending":
+            blockers.append("vortex_runtime: object-store route must remain externally gated")
+        for route_id, row in rows_by_id.items():
+            for field in ("fallback_attempted", "external_engine_invoked"):
+                if row.get(field) is not False:
+                    blockers.append(f"vortex_runtime: {route_id} {field} must be false")
     if payload.get("local_vortex_primitive_v1_scope_ready") is not True:
         blockers.append("vortex_runtime: local_vortex_primitive_v1_scope_ready must be true")
     if payload.get("user_route_v1_vortex_scope_ready") is not True:
         blockers.append("vortex_runtime: user_route_v1_vortex_scope_ready must be true")
+    if payload.get("all_no_fallback_no_external_engine") is not True:
+        blockers.append("vortex_runtime: all_no_fallback_no_external_engine must be true")
+    if payload.get("local_vortex_primitive_all_runtime_supported") is not True:
+        blockers.append("vortex_runtime: all declared Vortex primitive routes must be supported")
+    if payload.get("local_vortex_primitive_all_no_fallback_no_external_engine") is not True:
+        blockers.append("vortex_runtime: Vortex primitives must preserve no-fallback execution")
+    if payload.get("claim_gate_status") != "not_claim_grade":
+        blockers.append("vortex_runtime: claim_gate_status must remain not_claim_grade")
+    for field in ("performance_claim_allowed", "production_claim_allowed", "spark_replacement_claim_allowed"):
+        if payload.get(field) is not False:
+            blockers.append(f"vortex_runtime: {field} must be false")
     return {
-        "primitive_route_count": payload.get("local_vortex_primitive_route_count"),
-        "local_file_benchmark_route_count": payload.get("local_file_benchmark_route_count"),
+        "evidence_class": payload.get("evidence_class"),
+        "runtime_execution_performed": payload.get("runtime_execution_performed"),
+        "performance_evidence_produced": payload.get("performance_evidence_produced"),
+        "primitive_route_count": len(primitive_ids) if isinstance(primitive_ids, list) else 0,
+        "user_route_ids": sorted(observed_route_ids) if isinstance(observed_route_ids, list) else [],
     }, blockers
 
 
@@ -923,14 +955,18 @@ def _validate_source(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
     )
     expected_counts = {
         "supported_input_formats": EXPECTED_SOURCE_INPUT_FORMATS,
-        "prepared_route_ids": EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
-        "internal_source_smoke_route_ids": EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS,
-        "generated_route_ids": EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
+        "route_ids": len(EXPECTED_SOURCE_ROUTE_IDS),
         "invalidation_case_ids": EXPECTED_SOURCE_INVALIDATION_CASES,
     }
     for field, expected in expected_counts.items():
         if len(payload.get(field, [])) != expected:
             blockers.append(f"source_prepared_state: {field} count mismatch")
+    observed_route_ids = {str(value) for value in payload.get("route_ids", [])}
+    if observed_route_ids != EXPECTED_SOURCE_ROUTE_IDS:
+        blockers.append("source_prepared_state: route_ids must contain only native_vortex_query")
+    observed_formats = {str(value) for value in payload.get("supported_input_formats", [])}
+    if observed_formats != EXPECTED_SOURCE_FORMAT_IDS:
+        blockers.append("source_prepared_state: supported_input_formats mismatch")
     observed_invalidation = {
         str(value) for value in payload.get("invalidation_case_ids", [])
     }
@@ -940,16 +976,50 @@ def _validate_source(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
             + f"missing={sorted(REQUIRED_SOURCE_INVALIDATION_CASE_IDS - observed_invalidation)} "
             + f"extra={sorted(observed_invalidation - REQUIRED_SOURCE_INVALIDATION_CASE_IDS)}"
         )
-    if payload.get("source_prepared_benchmark_required_fields_ready") is not True:
-        blockers.append("source_prepared_state: benchmark required fields must be ready")
+    if payload.get("report_id") != "prod-v1-1c.source_prepared_state_scope":
+        blockers.append("source_prepared_state: report_id mismatch")
+    if payload.get("evidence_class") != "declarative_specification":
+        blockers.append("source_prepared_state: evidence_class must be declarative_specification")
+    if payload.get("canonical_route") != EXPECTED_SOURCE_CANONICAL_ROUTE:
+        blockers.append("source_prepared_state: canonical route must use native Vortex admission and plan")
+    if payload.get("state_owner") != EXPECTED_SOURCE_STATE_OWNER:
+        blockers.append("source_prepared_state: state_owner must be ResidentVortexSession")
+    if payload.get("reuse_scope") != EXPECTED_SOURCE_REUSE_SCOPE:
+        blockers.append("source_prepared_state: reuse_scope mismatch")
+    if payload.get("reuse_policy") != EXPECTED_SOURCE_REUSE_POLICY:
+        blockers.append("source_prepared_state: reuse_policy mismatch")
+    if payload.get("query_answers_cached") is not False:
+        blockers.append("source_prepared_state: query_answers_cached must be false")
+    for field in ("runtime_execution_performed", "performance_evidence_produced"):
+        if payload.get(field) is not False:
+            blockers.append(f"source_prepared_state: {field} must be false for declarative scope evidence")
+    for field in ("performance_claim_allowed", "production_claim_allowed", "spark_replacement_claim_allowed"):
+        if payload.get(field) is not False:
+            blockers.append(f"source_prepared_state: {field} must be false")
+    if payload.get("all_no_fallback_no_external_engine") is not True:
+        blockers.append("source_prepared_state: all_no_fallback_no_external_engine must be true")
+    if payload.get("fallback_attempted") is not False or payload.get("external_engine_invoked") is not False:
+        blockers.append("source_prepared_state: fallback and external-engine flags must be false")
+    if payload.get("v1_scope_ready") is not True:
+        blockers.append("source_prepared_state: v1_scope_ready must be true")
+    if payload.get("claim_gate_status") != "not_claim_grade":
+        blockers.append("source_prepared_state: claim_gate_status must remain not_claim_grade")
+    if len(payload.get("golden_fixture_paths", [])) != 3:
+        blockers.append("source_prepared_state: golden fixture coverage must contain 3 fixtures")
+    if len(payload.get("required_runtime_fields", [])) != 4:
+        blockers.append("source_prepared_state: required runtime-field contract must contain 4 fields")
+    if "global_hidden_cache" not in set(payload.get("unsupported_boundary_ids", [])):
+        blockers.append("source_prepared_state: unsupported boundaries must include global_hidden_cache")
     return {
         "supported_input_format_count": len(payload.get("supported_input_formats", [])),
-        "prepared_route_count": len(payload.get("prepared_route_ids", [])),
+        "route_count": len(payload.get("route_ids", [])),
         "invalidation_case_count": len(payload.get("invalidation_case_ids", [])),
         "invalidation_case_ids": sorted(observed_invalidation),
-        "benchmark_rows_with_required_fields": payload.get(
-            "source_prepared_benchmark_rows_with_required_fields"
-        ),
+        "report_id": payload.get("report_id"),
+        "evidence_class": payload.get("evidence_class"),
+        "state_owner": payload.get("state_owner"),
+        "reuse_scope": payload.get("reuse_scope"),
+        "query_answers_cached": payload.get("query_answers_cached"),
     }, blockers
 
 
@@ -967,17 +1037,20 @@ def _validate_output(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
     for field, expected in expected_counts.items():
         if len(payload.get(field, [])) != expected:
             blockers.append(f"local_output_sink: {field} count mismatch")
-    if payload.get("local_output_sink_benchmark_required_fields_ready") is not True:
-        blockers.append("local_output_sink: benchmark required fields must be ready")
-    if payload.get("local_output_sink_benchmark_replay_ready") is not True:
-        blockers.append("local_output_sink: benchmark replay must be ready")
+    if payload.get("output_route_ids") != ["native_vortex_query"]:
+        blockers.append("local_output_sink: shared native owner must be native_vortex_query")
+    if payload.get("evidence_class") != "declarative_contract":
+        blockers.append("local_output_sink: evidence_class must be declarative_contract")
+    if payload.get("declarative_contract_ready") is not True:
+        blockers.append("local_output_sink: declarative contract must be ready")
+    if payload.get("runtime_evidence_verified") is not False:
+        blockers.append("local_output_sink: scope declarations must not claim verified runtime evidence")
     return {
         "supported_output_format_count": len(payload.get("supported_output_formats", [])),
         "write_method_count": len(payload.get("user_write_methods", [])),
         "output_route_count": len(payload.get("output_route_ids", [])),
-        "benchmark_rows_with_required_fields": payload.get(
-            "local_output_sink_benchmark_rows_with_required_fields"
-        ),
+        "evidence_class": payload.get("evidence_class"),
+        "runtime_evidence_verified": payload.get("runtime_evidence_verified"),
     }, blockers
 
 

@@ -27,8 +27,10 @@ mod evidence_certificates;
 mod evidence_schema_registry;
 mod extension_planning;
 mod gar_0029_evidence;
-mod generated_source_runtime;
 mod input_planning;
+mod native_memory_input;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+mod native_memory_rows;
 mod object_store_planning;
 mod object_store_runtime;
 mod operational_hardening;
@@ -1073,33 +1075,6 @@ fn run_with_session(
         Some("serve") => rest_api_planning::handle_serve_command(args, format),
         Some("agent-contract-pack") => packaging_deployment::handle_agent_contract_pack(format),
         Some("python-wrapper-plan") => packaging_deployment::handle_python_wrapper_plan(format),
-        Some("generated-source-user-rows") => {
-            generated_source_runtime::handle_generated_source_user_rows_runtime(args, format)
-        }
-        Some("generated-source-user-rows-smoke") => {
-            generated_source_runtime::handle_generated_source_user_rows_smoke_alias(args, format)
-        }
-        Some("generated-source-range") => {
-            generated_source_runtime::handle_generated_source_range_runtime(args, format)
-        }
-        Some("generated-source-range-smoke") => {
-            generated_source_runtime::handle_generated_source_range_smoke_alias(args, format)
-        }
-        Some("generated-source-sequence") => {
-            generated_source_runtime::handle_generated_source_sequence_runtime(args, format)
-        }
-        Some("generated-source-sequence-smoke") => {
-            generated_source_runtime::handle_generated_source_sequence_smoke_alias(args, format)
-        }
-        Some("generated-source-sql") => {
-            generated_source_runtime::handle_generated_source_sql_runtime(args, format)
-        }
-        Some("generated-source-sql-smoke") => {
-            generated_source_runtime::handle_generated_source_sql_smoke_alias(args, format)
-        }
-        Some("local-source-runtime") => {
-            sql_local_source_runtime::handle_local_source_runtime(args, format)
-        }
         Some("vortex-prepare") => sql_local_source_runtime::handle_vortex_prepare(args, format),
         Some("sqlite-local-import-export-smoke") => {
             sqlite_local_runtime::handle_sqlite_local_import_export_smoke(args, format)
@@ -1473,27 +1448,9 @@ fn run_with_session(
         Some("vortex-projection-readiness-plan") => {
             vortex_planning::handle_vortex_projection_readiness_plan(args, format)
         }
-        Some("traditional-analytics-run") => {
-            benchmark_runtime::handle_traditional_analytics_run(args, format)
-        }
-        Some("traditional-analytics-vortex-run") => {
-            benchmark_runtime::handle_traditional_analytics_vortex_run(args, format)
-        }
-        Some("vortex-production-runtime-run") => {
-            benchmark_runtime::handle_vortex_production_runtime_run(args, format)
-        }
-        Some("traditional-analytics-vortex-batch-run") => {
-            benchmark_runtime::handle_traditional_analytics_vortex_batch_run(args, format)
-        }
-        Some("traditional-analytics-prepare-batch-run") => {
-            benchmark_runtime::handle_traditional_analytics_prepare_batch_run(args, format)
-        }
         Some("vortex-count") => vortex_primitive_execution::handle_vortex_count(args, format),
         Some("vortex-count-benchmark") => {
             benchmark_runtime::handle_vortex_count_benchmark(args, format)
-        }
-        Some("operator-microkernel-benchmark") => {
-            benchmark_runtime::handle_operator_microkernel_benchmark(args, format)
         }
         Some("vortex-count-where") => {
             vortex_primitive_execution::handle_vortex_count_where(args, format)
@@ -1649,13 +1606,12 @@ mod tests {
     }
 
     fn fake_vortex_file_plans_should_succeed() -> bool {
-        // Either native feature enables real file I/O, so a made-up file is
-        // rejected even without the broader production runtime feature set.
+        // Any enabled native I/O feature makes a made-up file invalid, while
+        // the feature-free metadata plan remains available.
         !cfg!(any(
             feature = "vortex-encoded-read-spike",
             feature = "vortex-local-primitives",
-            feature = "vortex-write",
-            feature = "vortex-traditional-analytics-benchmark"
+            feature = "vortex-write"
         ))
     }
 
@@ -3352,7 +3308,7 @@ mod tests {
             "commit-protocol-ready,manifest-finalization-available,local-workspace".to_string(),
             "none".to_string(),
         ]);
-        if cfg!(feature = "vortex-traditional-analytics-benchmark") {
+        if cfg!(feature = "release-user-surfaces") {
             assert_ne!(code, ExitCode::SUCCESS);
         } else {
             assert_eq!(code, ExitCode::SUCCESS);

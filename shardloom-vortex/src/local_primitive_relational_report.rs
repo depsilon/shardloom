@@ -13,8 +13,11 @@ pub(super) fn certificate(
     rows: u64,
     batch_rows: usize,
     sources: usize,
+    memory_sources: usize,
     spill: Option<&crate::relational_query::VortexRelationalSpillReport>,
 ) -> Result<NativeIoCertificate> {
+    let file_sources = sources;
+    let sources = file_sources + memory_sources;
     let data_work = metrics.data_scans.get() > 0;
     let spilled = spill.is_some_and(|report| report.runs_written > 0);
     NativeIoCertificate::new(
@@ -31,10 +34,12 @@ pub(super) fn certificate(
                     metrics.schema_discovery_stages.get()
                 )
             },
-            statistics_availability: "held_native_file_metadata".into(),
+            statistics_availability: format!(
+                "held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
+            ),
             pushdown_capabilities: "bound_projection_and_native_predicates".into(),
             encoded_representation_preserved: true,
-            range_read_capability: true,
+            range_read_capability: file_sources > 0,
             streaming_capability: true,
             object_store_capability: false,
             fallback_attempted: false,

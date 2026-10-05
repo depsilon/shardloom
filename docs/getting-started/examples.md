@@ -87,13 +87,14 @@ print(prepared.vortex_ingest_status, prepared.prepared_state_created)
 <!-- stable_v1_example_warm_prepared_query -->
 
 ```python
-prepared = ctx.prepare_vortex(
-    "target/orders.csv",
-    "target/orders.vortex",
-    allow_overwrite=True,
+result = (
+    ctx.read_vortex("target/orders.vortex")
+    .filter(sl.col("amount") >= 10)
+    .select("id", "amount")
+    .collect()
 )
-result = prepared.query("selective filter").collect(check=True)
-print(result.claim_gate_status, result.fallback_attempted, result.external_engine_invoked)
+print(result.status, result.result_rows)
+print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
 <!-- stable_v1_example_bounded_collect -->
@@ -106,19 +107,20 @@ print(preview.output_row_count)
 <!-- stable_v1_example_local_output_write -->
 
 ```python
-blocked_write = (
+written = (
     ctx.read_csv("target/orders.csv")
     .filter(sl.col("amount") >= 10)
     .select("id", "amount")
-    .write_jsonl("target/orders-filtered.jsonl", allow_overwrite=True, check=False)
+    .write_jsonl("target/orders-filtered.jsonl", check=False)
 )
-print(blocked_write.blocker_id)
-print(blocked_write.fallback_attempted, blocked_write.external_engine_invoked)
+print(written.status, written.output_path)
+print(written.output_commit_status, written.native_io_certificate_status)
+print(written.fallback_attempted, written.external_engine_invoked)
 ```
 
-Compatibility exports such as JSONL/CSV require a native Vortex-derived export contract before
-they are product routes. Use source-free/generated local writes or native Vortex sinks where the
-route report says the shape is admitted.
+Memory-backed inputs and source-free SQL use the shared native workflow for both collection and
+declared output sinks. Output formats and dtype combinations remain subject to enabled sink
+adapters and admission rules; compatibility output does not change the execution engine.
 
 <!-- stable_v1_example_evidence_inspection -->
 
@@ -132,7 +134,7 @@ print(result.diagnostics)
 <!-- stable_v1_example_blocker_inspection -->
 
 ```python
-blocked = ctx.read_csv("target/orders.csv").select("id").to_pandas()
+blocked = ctx.read_csv("target/orders.csv").select("id").apply("row_udf", check=False)
 print(blocked.blocker_id)
 print(blocked.required_evidence)
 print(blocked.fallback_attempted, blocked.external_engine_invoked)
@@ -146,36 +148,36 @@ blockers.
 <!-- unsupported_example_broad_sql -->
 
 ```python
-blocked_sql = ctx.sql("SELECT * FROM remote_table JOIN other_table USING (id)").collect()
-print(blocked_sql.blocker_id)
+blocked_sql = ctx.sql("SELECT * FROM remote_table JOIN other_table USING (id)").collect(check=False)
+print(blocked_sql.status, blocked_sql.diagnostics)
 ```
 
 <!-- unsupported_example_unbounded_collect -->
 
 ```python
-blocked_collect = ctx.read_csv("target/orders.csv").select("id").to_pandas()
-print(blocked_collect.blocker_id)
+blocked_collect = ctx.range(0, 65_537).collect(check=False)
+print(blocked_collect.status, blocked_collect.diagnostics)
 ```
 
 <!-- unsupported_example_object_store -->
 
 ```python
-blocked_object_store = ctx.read_csv("s3://bucket/orders.csv").limit(10).collect()
-print(blocked_object_store.blocker_id)
+blocked_object_store = ctx.read_csv("s3://bucket/orders.csv").limit(10).collect(check=False)
+print(blocked_object_store.status, blocked_object_store.diagnostics)
 ```
 
 <!-- unsupported_example_foundry -->
 
 ```python
-blocked_foundry = ctx.read("foundry://dataset/orders").limit(10).collect()
-print(blocked_foundry.blocker_id)
+blocked_foundry = ctx.read("foundry://dataset/orders").limit(10).collect(check=False)
+print(blocked_foundry.status, blocked_foundry.diagnostics)
 ```
 
 <!-- unsupported_example_udf_effect -->
 
 ```python
-blocked_effect = ctx.sql("SELECT CALL_API('https://example.invalid/score') AS score").collect()
-print(blocked_effect.blocker_id)
+blocked_effect = ctx.sql("SELECT CALL_API('https://example.invalid/score') AS score").collect(check=False)
+print(blocked_effect.status, blocked_effect.diagnostics)
 ```
 
 Each unsupported example must preserve:
@@ -191,102 +193,104 @@ external_engine_invoked=false
 python examples\local-python-smoke\run.py --repo-root .
 ```
 
-Use this for import, CLI resolution, status, smoke, capabilities, and
-`fallback_attempted=false` proof without reading or writing datasets.
+This checks import, CLI resolution, status and capabilities, then creates a small CSV fixture,
+collects its filtered rows and writes a generated JSONL result. It validates complete values,
+output commit evidence and `fallback_attempted=false`.
 
-## Local Vortex Benchmark Smoke
+## Guarded Native Benchmark Comparison
 
 ```powershell
-python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
+python examples\local-vortex-benchmark\run.py `
+  --shardloom-binary target\debug\shardloom `
+  --workspace "$HOME\LocalData\shardloom\traditional-benchmarks" `
+  --repo-root . --rows 64 --dim-rows 8 --repeats 1 --formats csv `
+  --input-state raw --output-format collect --reference-engine pandas
 ```
 
-Use this for a small ShardLoom-only local Vortex benchmark smoke with result
-sink evidence. The default example uses CSV only so optional Parquet and
-external baseline dependencies are not required. It runs both the
-`shardloom` compatibility-import lane and the `shardloom-prepared-vortex` lane
-so users can inspect certification evidence and the current prepared/native
-runtime-development path separately.
+Supply an already-built ShardLoom executable and a local-only workspace outside synced folders.
+This thin example delegates fixture generation, resource checks, run isolation, and result handling
+to `benchmarks/traditional_analytics/run.py`. It invokes one `shardloom` candidate and compares the
+complete `selective filter` result with pandas as an independent correctness reference. The default
+CSV format and `collect` output are small; `--formats` and `--output-format` accept the harness's
+current supported values. `--input-state raw` may be changed to `prepared`. Unsupported ShardLoom
+work is reported and is never executed by a comparison engine. The run is not a performance claim
+or a complete benchmark acceptance review, and the wrapper does not build ShardLoom or install
+dependencies.
 
 ## Source-Free User Rows Local Output Smoke
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-Use this for the scoped GAR-GEN-1C path that writes caller-provided rows to a local JSONL/CSV output and
-emits generated-source and output evidence. It is not SQL/VALUES execution, broad DataFrame
-runtime, object-store output, Foundry output, production support, or a performance claim.
+`from_rows(...)` declares typed memory input. `collect()` returns complete native result rows, and
+`write(...)` sends the result through the shared native workflow to the requested sink. The available
+sink and dtype combinations depend on the release-user-surfaces build and the relevant adapter
+admission rules. Unsupported combinations fail with a diagnostic instead of changing execution
+engines.
 
-The scoped user-row source also supports a small source-free transform before writing: projection
-plus deterministic literal `with_column` values. The output still goes through the same
-generated-source local-output command and no-fallback evidence path:
+The example also applies projection and a literal `with_column` before writing. The declaration,
+transform, collection, and write request all use the shared native workflow:
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).with_column('batch_id', 1).select('id', 'batch_id').write('target/generated-reference-transformed.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status, r.fallback_attempted, r.external_engine_invoked)"
+python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).with_column('batch_id', 1).select('id', 'batch_id').write('target/generated-reference-transformed.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-This is not broad DataFrame expression execution. Unsupported generated expressions fail
-deterministically rather than falling back to another engine.
+The example demonstrates this transform shape only. Other expressions are admitted or rejected by
+the native planner, with unsupported work reported deterministically.
 
 ## Source-Free Literal Table And Calendar Local Output Smokes
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
-python -c "from shardloom import context; r=context(repo_root='.').calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-Use these for scoped source-free Python helpers that generate local JSONL/CSV output and emit the same
-generated-source/output/no-fallback evidence family as `ctx.from_rows(...).write(...)`. They are not
-SQL `VALUES` execution; use the dedicated source-free SQL smoke below for that. They are not broad
-DataFrame runtime, object-store output, Foundry output, production support, or performance claims.
+These caller-provided literals use the same native collection and declared-sink path as
+`ctx.from_rows(...)`. The examples show literal table and calendar declarations; output formats and
+dtype combinations follow the same enabled adapter and admission rules.
 
 ## Source-Free Range Local Output Smoke
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').range(0, 50, column='id').limit(5).write('target/generated-range.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').range(0, 50, column='id').limit(5).write('target/generated-range.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-Use this for the scoped GAR-GEN-1D path that executes one ShardLoom-native range generator, writes
-local JSONL/CSV output, and emits generated-source/output/no-fallback evidence. The sequence helper uses
-the same scoped integer-generator contract while reporting `generated_source_kind=sequence`:
+These Python helpers declare integer range/sequence input for the shared native workflow. They can
+be collected as complete typed results or sent to a declared sink, subject to the same feature,
+dtype, and sink-adapter rules as other memory-backed inputs. The examples use the local JSONL sink:
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 50, column='id').take(5).write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 50, column='id').take(5).write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-Equivalent CLI command:
+Equivalent SQL request through the public CLI facade:
 
 ```powershell
-shardloom generated-source-sequence target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --sql "SELECT value AS id FROM range(1, 4)" --request write_jsonl --output target\generated-sequence.jsonl --bounded true --format json
 ```
 
-`limit(...)`, `head(...)`, and `take(...)` adjust the engine-native range/sequence bounds before
-the same ShardLoom generator smoke runs; they do not materialize rows in Python. Range and sequence
-smokes are not SQL `VALUES`/literal execution, SQL `generate_series`/`range`, broad DataFrame
-runtime, other generator-node support, object-store output, Foundry output, production support, or
-a performance claim.
+The range form is also covered by public native-workflow tests. This example shows one bounded
+range request; it does not claim support for every generator or sink/type combination.
 
 ## Source-Free SQL Literal/VALUES Local Output Smoke
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
-python -c "from shardloom import context; r=context(repo_root='.').sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
-python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT 2 AS id, 'beta' AS label\").write('target/generated-sql-from-context.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT 2 AS id, 'beta' AS label\").write('target/generated-sql-from-context.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-1A path that parses ShardLoom's tiny source-free SQL smoke
-subset, writes local JSONL/CSV output through either the explicit source-free helpers or scoped
-`ctx.sql(...).write(...)`, and emits generated-source/output/no-fallback evidence. It is not broad
-SQL runtime, SQL over input datasets, functions, joins, SQL/DataFrame production support,
-object-store output, Foundry output, or a performance claim. Source-free `ctx.sql(...).collect()`
-remains a deterministic unsupported diagnostic because this evidence contract requires an explicit
-output sink.
+Source-free `VALUES` and literal `SELECT` statements use the shared native workflow. They can be
+collected as complete typed results or sent to a declared sink. This section demonstrates the shown
+SQL forms; input bindings, expression support, and sink/dtype combinations remain subject to native
+admission and feature gates.
 
 ## SQL Local CSV Projection/Filter/Limit Smoke
 
@@ -298,17 +302,14 @@ id,label,amount
 2,beta,15
 3,gamma,
 "@ | Set-Content -Encoding utf8 target\local-source-runtime.csv
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT id,label FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/local-source-runtime.csv --input-format csv --sql "SELECT id,label FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --request collect --bounded true --format json
 $env:PYTHONPATH = "python\src"
 python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT id,label FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1\").collect(); print(r.result_rows, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-1B path that parses, binds, plans, and executes one local
-CSV SQL shape through ShardLoom-owned projection/filter/limit semantics. It prints bounded inline
-JSONL and emits source-read, execution-certificate, materialization/decode, no-fallback, and
-claim-gate evidence. It is not broad SQL runtime, a production SQL/DataFrame claim, Parquet/Vortex
-SQL source support, joins, grouped aggregates, functions, subqueries, object-store/table support, or a
-performance claim.
+This example submits the shown CSV projection, filter, and limit through the shared native workflow
+and requests collection of the complete typed result. Input, expression, and sink admission is
+checked by ShardLoom; unsupported requests return deterministic diagnostics.
 
 ## Prepare Vortex Once With `vortex_ingest`
 
@@ -324,11 +325,9 @@ $env:PYTHONPATH = "python\src"
 python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-4H route that admits a local flat non-null
-int/uint/float/UTF-8/date32/timestamp source, writes a local Vortex artifact, reopens/scans it for
-row-count proof, and emits `VortexPreparedState` evidence. Default builds return a deterministic
-feature-gate blocker unless `--features vortex-write` is enabled. It is not broad Vortex writer
-support, object-store/table output, production SQL/DataFrame support, or a performance claim.
+This example prepares a local Vortex artifact from the shown CSV input. The command enables the
+`vortex-write` feature; source type and writer admission still apply. It is a local example, not a
+claim of support for every source format or sink.
 
 ## SQL Local JSONL Cast Predicate Smoke
 
@@ -339,15 +338,12 @@ New-Item -ItemType Directory -Force target | Out-Null
 {"id":2,"amount":"15","label":"mid"}
 {"id":3,"amount":"21","label":"high"}
 "@ | Set-Content -Encoding utf8 target\sql-local-source-cast.jsonl
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT id,amount,label FROM 'target/sql-local-source-cast.jsonl' WHERE CAST(amount AS int64) >= 10 LIMIT 10" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-cast.jsonl --input-format jsonl --sql "SELECT id,amount,label FROM 'target/sql-local-source-cast.jsonl' WHERE CAST(amount AS int64) >= 10 LIMIT 10" --request collect --bounded true --format json
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-4D cast-family path that parses, lowers, and executes a
-local SQL `CAST(column AS dtype)` predicate for `int64`, `float64`, `utf8`, `boolean`, or `date32`
-through ShardLoom-owned expression semantics. It emits `predicate_operator_family=cast`,
-`cast_runtime_execution=true`, `cast_source_column`, `cast_target_dtype`, materialization/decode,
-no-fallback, and claim-gate evidence. It is not broad SQL/DataFrame runtime, function support,
-object-store/lakehouse support, or a performance claim.
+This example sends the shown JSONL cast predicate to the shared native workflow and requests the
+complete typed result. Cast admission depends on the input and target dtypes; unsupported shapes
+produce deterministic diagnostics.
 
 ## SQL Local CSV Date Arithmetic Smoke
 
@@ -359,17 +355,12 @@ id,event_date
 2,2026-05-19
 3,2026-05-20
 "@ | Set-Content -Encoding utf8 target\sql-local-source-date.csv
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_ADD_DAYS(CAST(event_date AS date32), 1) >= DATE '2026-05-20' LIMIT 10" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-date.csv --input-format csv --sql "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_ADD_DAYS(CAST(event_date AS date32), 1) >= DATE '2026-05-20' LIMIT 10" --request collect --bounded true --format json
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-4D Date32 day-arithmetic slice. It parses, lowers, and
-executes `DATE_ADD_DAYS(column, days)` / `DATE_SUB_DAYS(column, days)` comparisons through
-ShardLoom-owned expression semantics, emits `predicate_operator_family=date_arithmetic`,
-`date_arithmetic_runtime_execution=true`, `date_arithmetic_operator`, `date_arithmetic_days`, and
-`date_arithmetic_source_column`, and blocks unsupported day counts or non-Date32 shapes before
-fallback. Scoped `INTERVAL '<n>' DAY` literals are also admitted inside these helper functions. It
-is not timestamp/timezone completeness, arbitrary interval arithmetic, broad SQL function support,
-object-store/lakehouse support, or a performance claim.
+This example submits a Date32 day-arithmetic predicate through the shared native workflow and
+requests the complete typed result. The query's input and expression types are checked during native
+admission; unsupported combinations produce deterministic diagnostics.
 
 ## SQL Local CSV Date Extract Smoke
 
@@ -381,16 +372,12 @@ id,event_date
 2,2026-05-19
 3,2026-05-20
 "@ | Set-Content -Encoding utf8 target\sql-local-source-date.csv
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_YEAR(CAST(event_date AS date32)) = 2026 AND DATE_MONTH(event_date) = 5 AND DATE_DAY(event_date) >= 19 LIMIT 10" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-date.csv --input-format csv --sql "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_YEAR(CAST(event_date AS date32)) = 2026 AND DATE_MONTH(event_date) = 5 AND DATE_DAY(event_date) >= 19 LIMIT 10" --request collect --bounded true --format json
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-4D Date32 extract slice. It parses, lowers, and executes
-`DATE_YEAR(column)`, `DATE_MONTH(column)`, and `DATE_DAY(column)` comparisons through
-ShardLoom-owned expression semantics, emits `predicate_operator_family=logical_predicate` when
-combined with logical predicates plus `date_extract_runtime_execution=true`,
-`date_extract_operator`, and `date_extract_source_column`, and blocks unsupported non-Date32 or
-non-integer comparison shapes before fallback. It is not timestamp/timezone completeness,
-generalized date function support, object-store/lakehouse support, or a performance claim.
+This example submits the shown Date32 extraction predicate through the shared native workflow and
+requests the complete typed result. Input and expression types are checked during native admission;
+unsupported combinations produce deterministic diagnostics.
 
 ## SQL Local CSV Scalar Aggregate Smoke
 
@@ -403,14 +390,12 @@ id,label,amount
 3,gamma,
 4,delta,21
 "@ | Set-Content -Encoding utf8 target\local-source-runtime.csv
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/local-source-runtime.csv --input-format csv --sql "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --request collect --bounded true --format json
 ```
 
-Use this for the first GAR-RUNTIME-IMPL-1E operator-family promotion. It keeps the same local CSV
-internal-source-smoke boundary and emits `aggregate_runtime_execution=true`,
-`aggregate_operator_family=scalar_aggregate`, scalar aggregate function labels, the aggregate
-execution certificate ref, and no-fallback evidence. It is not grouped aggregation, joins, broad SQL
-runtime, performance evidence, or production SQL/DataFrame support.
+This example submits the shown scalar aggregate query through the shared native workflow and
+requests the complete typed result. Aggregate argument and result types are subject to native
+admission; unsupported combinations produce deterministic diagnostics.
 
 ## SQL Local CSV Group-By Aggregate Smoke
 
@@ -424,15 +409,12 @@ id,region,amount
 4,west,
 5,north,3
 "@ | Set-Content -Encoding utf8 target\sql-local-source-group-by.csv
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT region,count(*),sum(amount) FROM 'target/sql-local-source-group-by.csv' WHERE amount >= 0 GROUP BY region LIMIT 10" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-group-by.csv --input-format csv --sql "SELECT region,count(*),sum(amount) FROM 'target/sql-local-source-group-by.csv' WHERE amount >= 0 GROUP BY region LIMIT 10" --request collect --bounded true --format json
 ```
 
-Use this for the next GAR-RUNTIME-IMPL-1E operator-family promotion. It emits
-`sql_statement_kind=local_source_group_by_aggregate_filter_limit`,
-`aggregate_operator_family=grouped_aggregate`, `group_by_runtime_execution=true`,
-`group_by_columns`, group count, the grouped aggregate execution certificate ref, and no-fallback
-evidence. It is not multi-key group-by generality, Python `group_by().agg(...)`, broad SQL,
-prepared/native aggregate promotion, performance evidence, or production SQL/DataFrame support.
+This example submits the shown grouped aggregate query through the shared native workflow and
+requests the complete typed result. Grouping keys and aggregate input/output types are checked by
+native admission; unsupported combinations produce deterministic diagnostics.
 
 ## SQL Local CSV Order-By Top-N Smoke
 
@@ -445,16 +427,12 @@ id,label,amount
 3,gamma,21
 4,delta,13
 "@ | Set-Content -Encoding utf8 target\sql-local-source-topn.csv
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT id,label FROM 'target/sql-local-source-topn.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-topn.csv --input-format csv --sql "SELECT id,label FROM 'target/sql-local-source-topn.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2" --request collect --bounded true --format json
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-4B top-N promotion. It emits
-`sql_statement_kind=local_source_order_by_topn_filter_limit`,
-`order_by_runtime_execution=true`, `top_n_runtime_execution=true`,
-`sort_operator_family=single_key_numeric_topn`, sort key/direction fields, the top-N execution
-certificate ref, and no-fallback evidence. It admits one numeric non-null sort key only. Multi-key
-sorts, expression ordering, null ordering, collation parity, window ranking, broad SQL/DataFrame
-runtime, object-store/table sources, performance evidence, and production claims remain blocked.
+This example submits the shown filtered order-and-limit query through the shared native workflow
+and requests the complete typed result. Sort keys, ordering expressions, and types are governed by
+native admission; unsupported combinations produce deterministic diagnostics.
 
 ## SQL Local CSV Inner Equi-Join Smoke
 
@@ -475,21 +453,13 @@ customer_id,region,segment
 30,west,startup
 99,east,orphan
 "@ | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv
-cargo run -q -p shardloom-cli -- local-source-runtime "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10" --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --source-bindings '{"target/sql-local-source-join-fact.csv":{"input_format":"csv"},"target/sql-local-source-join-dim.csv":{"input_format":"csv"}}' --sql "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10" --request collect --bounded true --format json
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-4C join promotion. It emits
-`sql_statement_kind=local_source_inner_equi_join_filter_limit`,
-`join_runtime_execution=true`, `join_type=inner_equi`, left/right source refs, join keys,
-`join_key_arity`, `join_multi_key_runtime_execution`, matched/candidate/unmatched/scanned/output
-row counts, a scoped memory estimate, the join execution certificate ref, and no-fallback evidence.
-It admits scoped single- or multi-key local-source inner equi-joins plus left/right/full outer,
-left semi/anti, and cross joins with explicit aliases only. The same scoped shapes can run over other
-admitted local sources such as
-flat JSONL/NDJSON. Feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC joins use the same
-deterministic adapter gates as the rest of `local-source-runtime`.
-Expression, distributed, broadcast, shuffle, object-store/table,
-performance, and production join claims remain blocked.
+This example submits the shown two-source inner equi-join through the shared native workflow and
+requests the complete typed result. The bindings declare both local files as CSV inputs. Join shapes,
+input dtypes, and output sinks are checked by native admission; unsupported combinations produce
+deterministic diagnostics.
 
 ## Python Local CSV Query-Builder Smoke
 
@@ -583,51 +553,27 @@ print(predicate_builder.result_rows)
 print(literal_column.result_rows)
 print(head.result_rows)
 print(take.result_rows)
-print(written.output_path)
-print(written.output_native_io_certificate_status)
+print(written.status, written.output_path, written.rows_written)
+print(written.output_commit_status, written.native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
-print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
-print(aggregate.first_result_row)
-print(aggregate.aggregate_operator_family)
-print(aggregate.aggregate_functions)
-print(row_count.first_result_row)
-print(row_count.aggregate_functions)
+print(aggregate.result_rows)
+print(row_count.result_rows)
 print(grouped.result_rows)
-print(grouped.aggregate_operator_family)
-print(grouped.group_by_columns)
 print(topn.result_rows)
-print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 print(joined.result_rows)
-print(joined.join_runtime_execution, joined.join_type)
-print(joined_grouped.join_aggregate_runtime_execution, joined_grouped.join_aggregate_operator_family)
+print(joined_grouped.result_rows)
 print(joined.evidence_summary.command)
 print(joined.claim_summary.public_performance_claim_allowed)
 '@ | python -
 ```
 
-Use this for the scoped GAR-RUNTIME-IMPL-1C path that exposes the same local CSV SQL smoke through a
-Python DataFrame-like query builder. `collect()` returns bounded inline JSONL; `write()` writes a
-local JSONL result and emits output Native I/O certificate fields. `head(...)` and `take(...)`
-are familiar aliases over the same bounded `preview(...)` select-star path. Scalar `aggregate(...)` lowers to
-the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; `count()` is a
-convenience wrapper over the same `COUNT(*)` smoke; one-column
-`group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
-`sort(...).limit(...)` lowers to the scoped top-N smoke; local-source
-`join(..., on="key")` or `join(..., on=("customer_id", "region"))` with qualified
-projection/filter columns lowers to the scoped join smoke; scalar/grouped aggregates
-over those scoped joined rows lower to the scoped join-aggregate smoke; and explicit-projection
-literal `with_column(...)` lowers to scoped literal projection.
-`where(...)` is a familiar alias for `filter(...)`. `sl.col(...)` is a Python predicate helper for
-admitted comparison, inclusive `between(...)`, null, string `LIKE`, bounded `IN`, cast/date,
-Date32 extract/day arithmetic, and logical predicates; it lowers into ShardLoom's existing local SQL
-runtime rather than a Python engine. It is not a pandas/Polars backend, broad DataFrame runtime,
-non-literal `with_column`, generalized grouped aggregate,
-ordering, expression/non-equi join runtime, object-store/table path, production SQL support, or
-performance claim.
-Runtime reports also expose `result_rows` / `first_result_row` plus `evidence_summary` and
-`claim_summary` helpers so users can inspect bounded rows, the output sink, no-fallback fields,
-external-engine boundary, and claim gate without parsing raw JSONL or scraping raw JSON.
+These Python examples use the shared native workflow for collection and requested writes. They show
+complete typed rows for the listed projection, filter, aggregates, ordering, and join shapes; the
+write example reports sink commit and native-I/O status. Input, expression, dtype, and output
+admission remain governed by the native planner and enabled adapters. `result_rows`,
+`evidence_summary`, and `claim_summary` expose returned rows and execution posture without requiring
+callers to parse raw JSON.
 
 ## Foundry Lightweight Transform
 

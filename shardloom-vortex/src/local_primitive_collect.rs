@@ -12,7 +12,7 @@ use crate::resident_session::{
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use std::io::Write as _;
-use vortex::array::{ArrayRef, ExecutionCtx};
+use vortex::array::{ArrayRef, ExecutionCtx, dtype::DType};
 
 const MAX_COLLECT_ROWS: u64 = 65_536;
 const MAX_JSON_BYTES: usize = 8 * 1024 * 1024;
@@ -61,8 +61,43 @@ pub struct CollectedVortexRows {
     pub projected_columns: Vec<String>,
     pub source_order_limit: Option<usize>,
     pub values_json: Budgeted<String>,
+    /// Ordered native result dtype, serialized by the pinned Vortex provider.
+    pub result_schema_json: Budgeted<String>,
     pub runtime: ResidentSessionSnapshot,
     pub native_io_certificate: shardloom_core::NativeIoCertificate,
+}
+
+/// The exact scalar count rendered at a requested collection boundary.
+pub struct CollectedCountRows {
+    pub result_jsonl: Budgeted<String>,
+    pub result_schema_json: Budgeted<String>,
+}
+
+/// Serialize an already computed count without reading or decoding input rows.
+/// The ordered native schema matches the SQL binder's unaliased COUNT(*) name.
+/// # Errors
+/// Rejects insufficient capacity for the bounded scalar and schema payloads.
+pub fn render_count_rows(
+    count: u64,
+    session: &ResidentVortexSession,
+) -> Result<CollectedCountRows> {
+    use vortex::array::dtype::{Nullability, PType};
+    let memory = session.memory();
+    let dtype = DType::struct_(
+        [(
+            "count_all",
+            DType::Primitive(PType::U64, Nullability::NonNullable),
+        )],
+        Nullability::NonNullable,
+    );
+    let result_schema_json = serialize_result_schema(&dtype, memory)?;
+    let mut output = BoundedJson::new(memory, 64)?;
+    writeln!(&mut output, "{{\"count_all\":{count}}}").map_err(collect_io_error)?;
+    let text = String::from_utf8(output.bytes).map_err(collect_io_error)?;
+    Ok(CollectedCountRows {
+        result_jsonl: Budgeted::new(text, output.lease),
+        result_schema_json,
+    })
 }
 
 /// Complete the requested local projection, retaining arrays until JSON rendering.
@@ -234,6 +269,7 @@ impl PreparedVortexCollect {
 
     fn complete_json(&self, result: OwnedVortexResultBatch) -> Result<CollectedVortexRows> {
         let values_json = result.render_admitted_json(&self.projected_columns, MAX_JSON_BYTES)?;
+        let result_schema_json = serialize_result_schema(result.dtype(), self.session.memory())?;
         self.source.validate_generation()?;
         let native_io_certificate = certificate(&self.request, result.row_count(), self.filtered)?;
         let rows = result.row_count();
@@ -243,6 +279,7 @@ impl PreparedVortexCollect {
             projected_columns: self.projected_columns.clone(),
             source_order_limit: self.request.source_order_limit,
             values_json,
+            result_schema_json,
             runtime: self.session.snapshot(),
             native_io_certificate,
         })
@@ -406,6 +443,7 @@ pub(super) struct JsonRows {
     memory: LiveMemoryPool,
     rows: u64,
     lines: bool,
+    schema: Option<(DType, MemoryLease)>,
 }
 
 impl JsonRows {
@@ -415,6 +453,18 @@ impl JsonRows {
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<()> {
         use vortex::array::VortexSessionExecute as _;
+        if let Some((dtype, _)) = &self.schema {
+            if dtype != array.dtype() {
+                return Err(collect_error(
+                    "native result schema changed between batches",
+                ));
+            }
+        } else {
+            let lease = self
+                .memory
+                .reserve(schema_scratch_bytes(array.dtype(), 0)?)?;
+            self.schema = Some((array.dtype().clone(), lease));
+        }
         let fields = array
             .dtype()
             .as_struct_fields_opt()
@@ -440,6 +490,7 @@ impl JsonRows {
             memory: memory.clone(),
             rows: 0,
             lines,
+            schema: None,
         })
     }
 
@@ -505,7 +556,7 @@ impl JsonRows {
     pub(super) fn finish_certified(
         self,
         certificate: &mut shardloom_core::NativeIoCertificate,
-    ) -> Result<Budgeted<String>> {
+    ) -> Result<(Budgeted<String>, Budgeted<String>)> {
         use shardloom_core::{
             NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
             RepresentationState,
@@ -516,6 +567,14 @@ impl JsonRows {
             ));
         }
         let rows = self.rows;
+        let dtype = &self
+            .schema
+            .as_ref()
+            .ok_or_else(|| {
+                collect_error("native collection did not deliver its typed result schema")
+            })?
+            .0;
+        let schema = serialize_result_schema(dtype, &self.memory)?;
         let output = self.finish()?;
         let from_state = certificate
             .representation_transitions
@@ -550,7 +609,7 @@ impl JsonRows {
             .source_pushdown_report
             .proof_basis
             .push_str(";complete_native_batches_to_bounded_jsonl;no_query_replay=true");
-        Ok(output)
+        Ok((output, schema))
     }
 
     pub(super) fn finish(mut self) -> Result<Budgeted<String>> {
@@ -560,6 +619,55 @@ impl JsonRows {
         let text = String::from_utf8(self.output.bytes).map_err(collect_io_error)?;
         Ok(Budgeted::new(text, self.output.lease))
     }
+}
+
+/// Serialize the existing native dtype at the explicit result boundary. The
+/// provider's ordered names and recursive types also describe typed empty rows.
+pub(crate) fn serialize_result_schema(
+    dtype: &DType,
+    memory: &LiveMemoryPool,
+) -> Result<Budgeted<String>> {
+    let _scratch = memory.reserve(schema_scratch_bytes(dtype, 0)?)?;
+    let mut output = BoundedJson::new(memory, MAX_JSON_BYTES)?;
+    serde_json::to_writer(&mut output, dtype).map_err(collect_io_error)?;
+    let text = String::from_utf8(output.bytes).map_err(collect_io_error)?;
+    Ok(Budgeted::new(text, output.lease))
+}
+
+fn schema_scratch_bytes(dtype: &DType, depth: usize) -> Result<u64> {
+    if depth > 64 {
+        return Err(collect_error("result schema exceeds 64 nested levels"));
+    }
+    let mut bytes = 1024_u64;
+    let mut add = |child: &DType| -> Result<()> {
+        bytes = bytes
+            .checked_add(schema_scratch_bytes(child, depth + 1)?)
+            .ok_or_else(|| collect_error("result schema metadata overflow"))?;
+        Ok(())
+    };
+    match dtype {
+        DType::Struct(fields, _) => {
+            for child in fields.fields() {
+                add(&child)?;
+            }
+        }
+        DType::Union(fields, _) => {
+            for child in fields.variants() {
+                add(&child)?;
+            }
+        }
+        DType::List(child, _) | DType::FixedSizeList(child, _, _) => add(child)?,
+        DType::Map(map, _) => {
+            add(&map.key_dtype())?;
+            add(&map.value_dtype())?;
+        }
+        DType::Extension(extension) => add(extension.storage_dtype())?,
+        _ => {}
+    }
+    if bytes > MAX_JSON_BYTES as u64 {
+        return Err(collect_error("result schema scratch exceeds 8 MiB"));
+    }
+    Ok(bytes)
 }
 
 pub(super) fn write_scalar_json(
@@ -722,6 +830,29 @@ mod tests {
     use super::*;
     use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
     use shardloom_plan::ProjectionRequest;
+
+    #[test]
+    fn scalar_count_collection_is_exact_typed_and_releases_output_reservations() {
+        let session = ResidentVortexSession::new(64 * 1024, 1).unwrap();
+        let memory = session.memory();
+        for count in [0, 1, u64::MAX] {
+            let output = render_count_rows(count, &session).unwrap();
+            let rows: serde_json::Value =
+                serde_json::from_str(output.result_jsonl.value()).unwrap();
+            assert_eq!(rows, serde_json::json!({"count_all": count}));
+            let schema: serde_json::Value =
+                serde_json::from_str(output.result_schema_json.value()).unwrap();
+            assert_eq!(
+                schema,
+                serde_json::json!({"Struct": [{"names": ["count_all"],
+                    "dtypes": [{"Primitive": ["u64", false]}]}, false]})
+            );
+            assert!(memory.snapshot().reserved_bytes > 0);
+            drop(output);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+        assert!(render_count_rows(1, &ResidentVortexSession::new(1, 1).unwrap()).is_err());
+    }
 
     #[cfg(unix)]
     #[test]
@@ -980,13 +1111,106 @@ mod tests {
         drop(session);
         assert_eq!(
             memory.snapshot().reserved_bytes,
-            result.values_json.reserved_bytes()
+            result.values_json.reserved_bytes() + result.result_schema_json.reserved_bytes()
         );
         assert_eq!(
             result.values_json.value(),
             "[{\"metric\":30},{\"metric\":40}]"
         );
         drop(result);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_result_schema_preserves_order_nullability_and_empty_output_ownership() {
+        use crate::resident_memory_source::{
+            MemoryColumn, MemoryColumnValues, MemorySourceBounds, ResidentMemorySource,
+        };
+        for count in [0, 1] {
+            let session = ResidentVortexSession::new(2 * 1024 * 1024, 1).unwrap();
+            let memory = session.memory().clone();
+            let source = ResidentMemorySource::from_columns(
+                &session,
+                &[
+                    MemoryColumn {
+                        name: "n",
+                        values: MemoryColumnValues::Int64(&[None][..count]),
+                    },
+                    MemoryColumn {
+                        name: "text,λ",
+                        values: MemoryColumnValues::Utf8(&[None][..count]),
+                    },
+                ],
+                MemorySourceBounds::default(),
+            )
+            .unwrap();
+            let prepared = source
+                .prepare_projection(&["text,λ", "n"], None, None)
+                .unwrap();
+            let result = prepared.execute().unwrap();
+            assert_eq!(result.rows, count as u64);
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(result.result_schema_json.value())
+                    .unwrap(),
+                serde_json::json!({"Struct":[{"names":["text,λ","n"],
+                    "dtypes":[{"Utf8":true},{"Primitive":["i64",true]}]},false]})
+            );
+            drop(prepared);
+            drop(source);
+            drop(session);
+            assert_eq!(
+                memory.snapshot().reserved_bytes,
+                result.values_json.reserved_bytes() + result.result_schema_json.reserved_bytes()
+            );
+            drop(result);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_result_sink_rejects_schema_drift_and_keeps_empty_batch_metadata() {
+        use vortex::array::{
+            IntoArray as _,
+            arrays::{PrimitiveArray, StructArray},
+            dtype::FieldNames,
+            validity::Validity,
+        };
+        let array = |name: &str| {
+            StructArray::try_new(
+                FieldNames::from([name]),
+                vec![PrimitiveArray::from_option_iter([None::<i64>; 0]).into_array()],
+                0,
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array()
+        };
+        let session = ResidentVortexSession::new(2 * 1024 * 1024, 1).unwrap();
+        let memory = session.memory().clone();
+        let mut sink = JsonRows::new(&memory, 4096, true).unwrap();
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                sink.append_native(&array("n,λ"), context)?;
+                let error = sink.append_native(&array("changed"), context).unwrap_err();
+                assert!(error.to_string().contains("schema changed between batches"));
+                Ok(())
+            })
+            .unwrap();
+        let mut certificate = memory_certificate(0, false).unwrap();
+        let (values, schema) = sink.finish_certified(&mut certificate).unwrap();
+        assert_eq!(values.value(), "");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(schema.value()).unwrap(),
+            serde_json::json!({"Struct":[{"names":["n,λ"],"dtypes":[{"Primitive":["i64",true]}]},false]})
+        );
+        drop(session);
+        assert_eq!(
+            memory.snapshot().reserved_bytes,
+            values.reserved_bytes() + schema.reserved_bytes()
+        );
+        drop((values, schema));
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 

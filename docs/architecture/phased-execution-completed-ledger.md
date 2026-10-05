@@ -17,6 +17,260 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+Hosted provenance below records the saved GitHub PR metadata and status-check rollups. Passing hosted checks do not establish review approval. PR #1515's body states that the Codex review bot exhausted its quota; no fresh bot review approval is claimed for this batch.
+
+- [x] `NATIVE-NESTED-COMPOSITION` — carry static nested payloads and compose
+  explode through shared native operators and sinks under PERF-02/03/07/10/11/12
+  and CG-3/5/19/20/21. Follow the
+  [nested ownership and composition contract](native-nested-composition-2026-10-02.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: extend shared late payload gathering, native list
+    coordinates, reservations, synchronous delivery and prepared source reuse.
+    Keep metadata/pruning and one PulseWeave allocation; no separate frontend engine.
+  - Execution checklist:
+    - [x] Implement recursive selected-buffer ownership and typed empties for
+      lists, fixed-size lists and structs with admitted scalar leaves; prove
+      validity, cancellation, narrow grants and retained-buffer lifetime.
+    - [x] Separate payload and key admission, then carry nested values through
+      existing relational operators and connect the shared explode state.
+    - [x] Lower SQL/DataFrame explode stages with ordered source declarations,
+      resources and inert inspection through the common native plan.
+    - [x] Extend shared nested JSON and representable columnar output boundaries;
+      prove complete writer readback and explicit format denials without artifacts.
+    - [x] Record the completed local acceptance and merged PR check provenance
+      in the completed ledger; no review approval is inferred.
+  - Local acceptance after review repairs: frozen `3b94ba2e` passes 2,459 public
+    checks, including 496 nested checks and 6,636,187 complete row comparisons,
+    all 258 paired Full43 results and the six-result Q21 reversed-order repeat.
+    Aggregate timing is effectively unchanged; the initial Q21 RSS increase
+    does not reproduce. All 24 local gates pass. The
+    [fresh report](../benchmarks/native-nested-review-full43-2026-10-03.md)
+    preserves both observations and the original acceptance. The October 4
+    dependency update restores a clean website audit without an exception.
+    The additional null-parent nested-intake correction passes all eight selected
+    source checks with its own immutable review packet;
+    Hosted merge and check provenance is recorded below.
+  - Hosted merge: [PR #1506](https://github.com/depsilon/shardloom/pull/1506) merged 2026-10-04 13:42:30 UTC. Hosted check head `237e4c1c5b28327c7b802a694abc6565f7918ff2`; merge commit `be65f9f8af073cc7d54b7d7f6f86883c9c402897`; reported GitHub checks: 40 successful, 0 failing, 0 pending.
+  - Acceptance: complete static nested workflows without prefix collection,
+    serialized intermediates, replay or external fallback; existing flat kernels
+    and small collection bounds are preserved. Dynamic pivot, typed payload/key/expression/unary semantics and nested
+    key/state have completed ledger entries below; wider state spill
+    retains its existing owner.
+
+- [x] `NATIVE-DYNAMIC-PIVOT-COMPOSITION` — complete data-dependent pivot schemas
+  through the shared native relational binder, operator states and local sinks
+  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [dynamic pivot contract](native-dynamic-pivot-composition-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: retain metadata-only preparation and existing
+    pushdown; discover domains once through the shared pivot kernel, with one
+    PulseWeave grant, capillary delivery and complete work/timing evidence.
+  - Execution checklist:
+    - [x] Share sparse pivot completion between direct and relational consumers;
+      add execution-time binding with reserved state and single-use ownership.
+    - [x] Lower ordered SQL/DataFrame pivot stages, including dependent aliases,
+      wildcards and existing relational/unary consumers, through the common plan.
+    - [x] Prove empty and changing schemas, parameter scopes, all representable
+      writers, generation checks, cancellation, pressure and retained lifetimes.
+    - [x] Record the completed local acceptance, merged PR checks and support
+      updates in the completed ledger; no review approval is inferred.
+  - Frozen local runtime `50cc1e22` passes 3,305 complete public checks, including
+    846 dynamic-pivot checks and 7,687,525 row comparisons. The separate direct
+    unary matrix passes 202 checks. Lifecycle tests cover fresh and per-parameter
+    schemas, one-use references, cancellation, source changes, denied state and
+    owned-result lifetime. All 24 selected local gates and 258 paired Full43
+    retained-result comparisons pass. No predeclared timing or memory threshold
+    is crossed; the [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
+    preserves the complete observation. No performance improvement is claimed.
+  - Acceptance follow-up: the [report-integrity repair](../benchmarks/native-report-integrity-full43-2026-10-03.md)
+    gives footer-count/cache and execution no-fallback fields one owner, with
+    regression checks rejecting duplicate names. Fresh acceptance passes
+    3,305 workflow checks, 202 direct-unary checks and all 258 paired Full43
+    comparisons, without crossing the predeclared timing or memory thresholds.
+    Eleven selected local gates and raw-response uniqueness checks pass.
+    The earlier packet stays immutable, with its 37 aggregate run responses
+    explicitly corrected from the packet's mistaken "preparation" description.
+  - Hosted merge: [PR #1507](https://github.com/depsilon/shardloom/pull/1507) merged 2026-10-04 13:52:39 UTC. Hosted check head `de4bca7d5813c6a33c8b5bf7c3fc3b36ecab305f`; merge commit `aeeae18115b150e50b8c6cbf77ae646c260bcbca`; reported GitHub checks: 37 successful, 0 failing, 0 pending.
+  - Acceptance: complete admitted dynamic-schema workflows without a second
+    scan for discovery, prefix collection, intermediate files or fallback. Keep
+    inspection inert and all existing direct pivot semantics and bounds explicit.
+  - Dependency: uses NATIVE-NESTED-COMPOSITION, merged in PR #1506; its
+    hosted check provenance is recorded above.
+
+- [x] `NATIVE-TYPED-PAYLOADS` — carry existing binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp types through shared native composition
+  and local delivery under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed payload contract](native-typed-payloads-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: extend selected native buffer ownership, recursive
+    type admission, one operation allocation and bounded shared writers; preserve
+    existing metadata/pruning and key/expression admission.
+  - Execution checklist:
+    - [x] Extend exact payload and compatible intake types, compact result buffers,
+      nested leaves and typed empty/null output through existing components.
+    - [x] Preserve terminal text conventions and representable native/columnar
+      output, with explicit unsupported-format and operated-type diagnostics.
+    - [x] Prove complete public workflows, selected ownership, resource/failure
+      behavior, required local gates and Full43 regression; record immutable evidence.
+    - [x] Record the merged PR and successful hosted check rollup in the
+      completed ledger; no review approval is inferred.
+  - Local evidence: frozen `8237a900` passes 4,109 complete public checks,
+    including 804 typed checks, the separate 202-check direct-unary matrix, all
+    24 selected local gate categories and all 258 paired Full43 comparisons.
+    The [acceptance report](../benchmarks/native-typed-payloads-full43-2026-10-03.md)
+    retains complete values, schemas, unique report fields and source/binary hashes.
+    No predeclared timing or memory threshold is crossed; no speedup is claimed.
+  - Hosted merge: [PR #1508](https://github.com/depsilon/shardloom/pull/1508) merged 2026-10-04 13:53:54 UTC. Hosted check head `39077e5e0668a5d716ca16d9644bae71a287866b`; merge commit `d7bd0930594bc49beb4169bacf98c4c804232f05`; reported GitHub checks: 37 successful, 0 failing, 0 pending.
+  - Acceptance: exact type/value/null/order preservation across the complete
+    admitted workflow, without scalar-row execution, intermediate files, replay
+    or fallback. Nested-key/state and typed-expression scope are recorded in
+    their completed entries below; broader adapters and resource/spill remain open.
+  - Dependency: uses the completed nested/pivot/report-integrity stack recorded
+    above; broader adapters and resource/spill retain their separate owners.
+
+- [x] `NATIVE-TYPED-KEYS` — complete exact binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp comparisons and keys in the shared native
+  relational runtime under PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed key contract](native-typed-keys-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native dictionary domains, selected
+    payload ownership, one operation admission, bounded capillary delivery and
+    existing native sort runs; metadata-first pruning and timing/evidence surfaces
+    retain their shared owners.
+  - Execution checklist:
+    - [x] Extend shared key hashing/equality/order and precise binder admission;
+      reuse existing joins, sets, groups, windows, subqueries and scalar selection.
+    - [x] Extend exact COUNT/DISTINCT/MIN/MAX and prove binary extrema ownership,
+      typed ordering spill/merge, cancellation, constrained grants and cleanup.
+    - [x] Prove complete public writer/readback workflows, required local gates
+      and paired Full43 regression; update exact public support and immutable evidence.
+    - [x] Record the merged PR and successful hosted check rollup in the
+      completed ledger; no review approval is inferred.
+  - Local evidence: frozen runtime `2f402226` passes 5,733 public checks with
+    12,282,897 complete row comparisons, including 2,428 typed checks and
+    4,595,372 typed row comparisons; the separate direct matrix passes 202 checks
+    and 131,734 rows. All 24 local gate categories pass. Full43 passes 258/258,
+    with six reversed-order Q21 repeats. The initial Q21 timing gain of 10.65%
+    (0.131 s) becomes 2.49% (0.020 s) under reversed role order; no aggregate or
+    RSS flags remain and no speedup is claimed. The [acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
+    and immutable [evidence packet](../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz)
+    retain complete values, schemas, source/binary identity and local gate evidence.
+  - Hosted merge: [PR #1509](https://github.com/depsilon/shardloom/pull/1509) merged 2026-10-04 13:57:58 UTC. Hosted check head `a77cc9f11fc9ed91a61c45c654e0026e8f568b02`; merge commit `f4771c69dfcf0033c8ba99c74d33c88927315491`; reported GitHub checks: 37 successful, 0 failing, 0 pending.
+  - Acceptance: exact logical type identity, full-value comparison after hash
+    lookup, existing NULL rules and no implicit decimal rescaling or temporal
+    coercion, including empty plans. Typed expressions, retained unary state and
+    nested key/state have completed entries in this ledger; broader adapters and
+    state spill remain with their existing owners.
+  - Dependency: typed payloads and the nested/pivot stack are recorded above;
+    broader adapters and spill retain their existing owners.
+
+- [x] `NATIVE-TYPED-EXPRESSIONS` — complete typed literals, explicit casts and
+  checked decimal/binary/calendar expressions through the shared native binder
+  and scalar kernels under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed expression contract](native-typed-expressions-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: use native column/constant owners, lazy selected
+    branches, one PulseWeave grant and reserved result construction; preserve
+    metadata/pruning, capillary delivery and existing timing/evidence owners.
+  - Execution checklist:
+    - [x] Share checked core helpers, fixed output-type derivation and native
+      typed literal/cast/arithmetic/function kernels; prove boundary semantics.
+    - [x] Converge public SQL/DataFrame declarations on those expressions and
+      preserve complete typed result/writer behavior and resource ownership.
+    - [x] Freeze independent public correctness, required local gates and paired
+      Full43 regression; update exact support records and immutable evidence.
+    - [x] Record the merged PR and successful hosted check rollup in the
+      completed ledger; no review approval is inferred.
+  - Local evidence: frozen review source `895a45c9` passes 6,600 public checks/14,120,333
+    complete row comparisons, including 868 expression checks/1,837,436 rows.
+    All 202 direct-unary checks, 24 local gate categories and 258 paired Full43
+    comparisons pass. No timing, RSS or aggregate threshold is crossed; no
+    repeat is prescribed and no speedup is claimed. Decimal branch promotion
+    adds 90 checks while preserving the original 6,510 cases and complete oracles. The
+    [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
+    and [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz)
+    preserve independent complete-value expectations, ownership/failure evidence,
+    source/binary hashes, failed observations and final check provenance. The
+    original acceptance and Q26 repeat remain separately recorded.
+  - Hosted merge: [PR #1510](https://github.com/depsilon/shardloom/pull/1510) merged 2026-10-04 13:59:33 UTC. Hosted check head `6292241c213120ee1392cc2b602bd33e00d6f7c2`; merge commit `ae6a9155c74eb088282aae041845610bd36406ea`; reported GitHub checks: 37 successful, 0 failing, 0 pending.
+  - Acceptance: exact decimal and temporal behavior, explicit conversion failures,
+    lazy NULL/branch semantics and deterministic unsupported empty plans; no
+    frontend-specific executor or external-engine fallback.
+  - Dependency: typed keys are recorded above. Typed unary and nested key/state
+    are recorded below; broader adapters and state-spill obligations keep their
+    existing owners.
+
+- [x] `NATIVE-TYPED-UNARY` — complete exact binary, Decimal128, Date32 and
+  timezone-free microsecond timestamp state in the existing unary operators
+  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed unary contract](native-typed-unary-2026-10-03.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native source/result owners, compact
+    selected state, one operation grant, exact key identity and existing
+    source-order/sampling policies; reuse typed literal and checked scalar rules.
+  - Execution checklist:
+    - [x] Extend shared retained values, keys and binding across selectors,
+      tail, sampling, rewrites, melt, rolling COUNT and scoped pivot policies.
+    - [x] Align typed CLI/Python/Rust declarations and prove complete typed
+      ownership, output, cancellation, constrained grants and failure cleanup.
+    - [x] Freeze independent public/direct-unary correctness, required local
+      gates and paired Full43 regression; update precise support and evidence.
+    - [x] Record the merged PR and successful hosted check rollup in the
+      completed ledger; no review approval is inferred.
+  - Hosted merge: [PR #1515](https://github.com/depsilon/shardloom/pull/1515) merged 2026-10-04 14:06:38 UTC. Hosted check head `4a527a904702de2cdebf872afa8b2621e358033a`; merge commit `5982b93ddd4c8eb56c438c8eb1ea7235bd8c6a93`; reported GitHub checks: 37 successful, 0 failing, 0 pending.
+  - Acceptance: direct and composed calls share exact logical type preservation
+    and deterministic empty-plan admission. Existing primitive floating-key,
+    seed/tie, ordering and margin behavior remains compatible. No decoded
+    evaluator or external-engine fallback enters native execution.
+  - Local evidence: frozen `948551d4` passes 9,300 public checks/14,125,745 complete
+    row comparisons, including 2,700 new unary checks/5,412 rows from 135 frozen
+    declarations. All 6,600 prior cases remain. The separate direct matrix passes
+    202 checks/131,734 rows, and all 25 local gate categories pass. All 258 Full43
+    results and 18 reversed-order calls match; aggregate thresholds are not
+    crossed. Q15 timing and Q34 RSS flags do not reproduce; Q9 timing/RSS remains
+    inconclusive with both cohorts retained. See the
+    [report](../benchmarks/native-typed-unary-full43-2026-10-03.md) and
+    [immutable packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz).
+    PR #1515's body records that the Codex review bot exhausted its quota. No
+    completed bot review approval is claimed. No general performance improvement
+    is claimed.
+  - Dependency: typed expressions and 0.4.0 source preparation precede this unit.
+    Nested key/state is recorded under NATIVE-NESTED-KEYS-STATE below; broader
+    aggregate/window semantics, adapters and general state spill retain their owners.
+
+- [x] `NATIVE-NESTED-KEYS-STATE` — extend shared logical keys and compact retained
+  native state to static lists, fixed-size lists and structs under
+  PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [nested key/state contract](native-nested-keys-state-2026-10-04.md).
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: preserve native dictionary domains, compact
+    selected buffers, one operation grant, bounded capillary delivery and existing
+    sort runs; reuse shared operators and output rather than a nested row engine.
+  - Execution checklist:
+    - [x] Extend exact recursive keys, binder admission and native selected
+      expression/aggregate output across the existing relational families.
+    - [x] Extend retained unary rows/keys, native delivery and scoped rewrites;
+      prove NULL semantics, selected ownership, grants, cancellation and cleanup.
+    - [x] Freeze complete public/writer correctness, required local checks and
+      paired Full43 regression with exact support and immutable evidence.
+    - [x] Record the merged PR and successful hosted check rollup in the
+      completed ledger; no review approval is inferred.
+  - Local evidence: frozen `d65907f6` passes 17,458 public checks/14,143,015 complete
+    row comparisons, including 8,162 new checks/17,270 rows from 406 independent
+    declarations. All 9,296 unaffected prior cases remain; four nested-key
+    denials become positive checks. The separate direct matrix passes 202
+    checks/131,734 rows, and all 25 local gate categories pass. All 258 paired
+    Full43 results and six prescribed Q28 repeats match. Aggregate and RSS
+    thresholds are not crossed; Q28's initial timing gain does not reproduce.
+    The [report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md) and
+    [immutable packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz)
+    retain complete values, resource evidence and all four interrupted public
+    attempts. Independent packet inspection passes; no speedup is claimed.
+  - Hosted merge: [PR #1516](https://github.com/depsilon/shardloom/pull/1516) merged 2026-10-04 14:09:48 UTC. Hosted check head `5140489fe069ae7709d303b44599913d39c5aaa1`; merge commit `42eb2a033b9bc07859a58e1f8edb9c3f1a242302`; reported GitHub checks: 37 successful, 0 failing, 0 pending.
+  - Dependency: uses the completed typed unary state above. Broader pivot
+    aggregation, aggregate/window semantics, adapters and general state spill
+    keep their existing owners and remain subsequent work in the universal queue.
+
 - [x] `RUST-VORTEX-RELEASE-REVIEW-20261003` refresh development tools and provider intake.
   - Date: 2026-10-03 UTC. The [review and source receipt](../dependencies/rust-vortex-refresh-2026-10-03.md)
     record Rust stable 1.98.0 to 1.99.0, the repaired local login-shell precedence

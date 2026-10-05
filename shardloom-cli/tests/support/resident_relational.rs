@@ -249,19 +249,13 @@ fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation
                 completed(&result, &expected, 1, execution);
                 assert_eq!(
                     field(&result, "public_workflow_preparation_included"),
-                    "false"
+                    (execution == 1).to_string()
                 );
+                assert_eq!(field(&result, "relational_normalized_source_count"), "1");
                 assert_eq!(
-                    field(&result, "public_workflow_local_source_preparation_included"),
-                    "true"
+                    field(&result, "resident_source_generation_validation"),
+                    "all_sources_before_and_after_native_execution_and_final_consumer"
                 );
-                assert_eq!(
-                    field(&result, "public_workflow_local_source_format"),
-                    "arrow-ipc"
-                );
-                let prepared = field(&result, "public_workflow_local_source_prepared_vortex_path");
-                assert_ne!(prepared, source.to_str().unwrap());
-                assert!(std::path::Path::new(prepared).is_file());
             }
             let output = root.0.join(format!("{surface}-{index}.jsonl"));
             let written = worker.request(&[
@@ -297,7 +291,7 @@ fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
-    let (_root, source, bindings) = declared_nested_arrow_source();
+    let (root, source, bindings) = declared_nested_arrow_source();
     let statement = format!(
         "SELECT items, COUNT(*) AS n FROM '{}' GROUP BY items LIMIT 10",
         source.display()
@@ -312,10 +306,18 @@ fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
         1,
         2,
     );
-    let prepared = PathBuf::from(field(
-        &first,
-        "public_workflow_local_source_prepared_vortex_path",
-    ));
+    // Inspect only this test's owned preparation directory. Relational reports
+    // describe all source leaves rather than publishing one privileged path.
+    let artifacts = std::fs::read_dir(root.0.join(".shardloom/prepared"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "vortex")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(artifacts.len(), 1);
+    let prepared = &artifacts[0];
     // Direct native use and use through an original compatibility source have
     // distinct preparation obligations even when their lowered SQL is identical.
     drop(worker);
@@ -817,13 +819,10 @@ fn worker_relational_writes_complete_nullable_results_through_all_eight_writers(
         };
         let result = worker.collect(&reopened, "left_value,right_value", "2");
         assert_eq!(result["status"], "success", "{format}: {result}");
-        let (_, payload) = result["human_text"]
-            .as_str()
-            .unwrap()
-            .split_once("values=")
-            .unwrap();
-        let rows = serde_json::from_str::<Value>(payload);
-        // The ordinary owned collect exposes the complete native values payload.
-        assert_eq!(rows.unwrap()["values"], expected, "{format}");
+        assert_eq!(
+            super::complete_result::rows(&result),
+            *expected.as_array().unwrap(),
+            "{format}"
+        );
     }
 }

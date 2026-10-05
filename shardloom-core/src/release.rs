@@ -2088,10 +2088,10 @@ pub enum WorkspaceFeatureBuildMatrixFeatureSet {
     VortexLocalPrimitives,
     VortexEncodedReadSpike,
     PackagingDeployment,
-    BenchmarkExtras,
+    ReleaseUserSurfaces,
     FutureFoundryOptional,
 }
-as_str_enum!(WorkspaceFeatureBuildMatrixFeatureSet{DefaultFeatures=>"default_features",AllFeatures=>"all_features",NoDefaultFeatures=>"no_default_features",UpstreamVortex=>"upstream_vortex",VortexFileIo=>"vortex_file_io",VortexLocalPrimitives=>"vortex_local_primitives",VortexEncodedReadSpike=>"vortex_encoded_read_spike",PackagingDeployment=>"packaging_deployment",BenchmarkExtras=>"benchmark_extras",FutureFoundryOptional=>"future_foundry_optional"});
+as_str_enum!(WorkspaceFeatureBuildMatrixFeatureSet{DefaultFeatures=>"default_features",AllFeatures=>"all_features",NoDefaultFeatures=>"no_default_features",UpstreamVortex=>"upstream_vortex",VortexFileIo=>"vortex_file_io",VortexLocalPrimitives=>"vortex_local_primitives",VortexEncodedReadSpike=>"vortex_encoded_read_spike",PackagingDeployment=>"packaging_deployment",ReleaseUserSurfaces=>"release_user_surfaces",FutureFoundryOptional=>"future_foundry_optional"});
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkspaceFeatureBuildMatrixRowStatus {
@@ -2207,7 +2207,7 @@ impl WorkspaceFeatureBuildMatrixReport {
             && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::VortexLocalPrimitives)
             && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::VortexEncodedReadSpike)
             && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::PackagingDeployment)
-            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::BenchmarkExtras)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::ReleaseUserSurfaces)
             && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::FutureFoundryOptional)
     }
 
@@ -2297,8 +2297,8 @@ fn workspace_feature_build_matrix_rows() -> Vec<WorkspaceFeatureBuildMatrixRow> 
         ),
         WorkspaceFeatureBuildMatrixRow::required(
             "shardloom-vortex",
-            WorkspaceFeatureBuildMatrixFeatureSet::BenchmarkExtras,
-            "cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark",
+            WorkspaceFeatureBuildMatrixFeatureSet::ReleaseUserSurfaces,
+            "cargo check -p shardloom-vortex --features release-user-surfaces",
             true,
         ),
         WorkspaceFeatureBuildMatrixRow::not_applicable_yet(

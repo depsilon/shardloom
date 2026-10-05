@@ -45,7 +45,7 @@ def fixture_rows() -> list[dict]:
 def cases(rows: list[dict]) -> list[dict]:
     columns = ["nullable_label", "exact_identifier", "cohort_key"]
     return [
-        {"name": "metadata_count", "primitive": "count", "expected": len(rows)},
+        {"name": "metadata_count", "primitive": "count", "expected": [{"count_all": len(rows)}]},
         {"name": "renamed_nullable_projection", "primitive": "project", "columns": columns,
          "expected": rows},
         {"name": "filtered_large_integer_rows", "primitive": "filter_project", "columns": columns,
@@ -53,9 +53,9 @@ def cases(rows: list[dict]) -> list[dict]:
         {"name": "empty_filtered_rows", "primitive": "filter_project", "columns": columns,
          "predicate": "gte:cohort_key:99", "expected": []},
         {"name": "filtered_count", "primitive": "count_where",
-         "predicate": "gte:cohort_key:24", "expected": sum(row["cohort_key"] >= 24 for row in rows)},
+         "predicate": "gte:cohort_key:24", "expected": [{"count_all": sum(row["cohort_key"] >= 24 for row in rows)}]},
         {"name": "empty_filtered_count", "primitive": "count_where",
-         "predicate": "gte:cohort_key:99", "expected": 0},
+         "predicate": "gte:cohort_key:99", "expected": [{"count_all": 0}]},
         {"name": "scalar_integer_aggregate", "primitive": "aggregate", "public_surface": "sql",
          "sql": "SELECT COUNT(*) AS rows_alias, COUNT(DISTINCT exact_identifier) AS unique_alias, SUM(cohort_key) AS total_alias FROM measurements",
          "expected": [{"rows_alias": len(rows), "unique_alias": len({row["exact_identifier"] for row in rows}),
@@ -389,7 +389,7 @@ def execute(args) -> Path:
                                 if name == "candidate":
                                     validate_candidate_reuse(fields, surface, sample)
                                     if case["primitive"] == "count_where":
-                                        validate_candidate_count_where(fields, case["expected"])
+                                        validate_candidate_count_where(fields, case["expected"][0]["count_all"])
                                     elif case["primitive"] == "aggregate":
                                         validate_candidate_aggregate(fields, surface, sample)
                             finally:

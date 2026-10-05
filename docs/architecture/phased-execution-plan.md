@@ -249,254 +249,110 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-NESTED-COMPOSITION` — carry static nested payloads and compose
-  explode through shared native operators and sinks under PERF-02/03/07/10/11/12
-  and CG-3/5/19/20/21. Follow the
-  [nested ownership and composition contract](native-nested-composition-2026-10-02.md).
+- [ ] `NATIVE-TYPED-REDUCTIONS` — complete computed aggregate arguments and exact
+  Decimal128 reductions through existing aggregate, rolling and scalar pivot
+  state under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed reduction contract](native-typed-reductions-2026-10-04.md).
   - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: extend shared late payload gathering, native list
-    coordinates, reservations, synchronous delivery and prepared source reuse.
-    Keep metadata/pruning and one PulseWeave allocation; no separate frontend engine.
+  - October 4 maintainer scope clarification: file inputs in any admitted format,
+    typed memory and source-free declarations enter one Vortex-native computation
+    path before the requested result or output. SQL, Python, DataFrame and CLI
+    remain wrappers. Delete retired execution routes and benchmark-specific
+    providers; no compatibility runtime is retained for previous publications.
+    Parameterize the public UAT harness by input state, workload and output.
+  - ShardLoom technique review: preserve metadata/pruning and optimized primitive
+    routes; share native expression projection, exact state, one PulseWeave
+    admission, reserved capacity, capillary delivery and existing timing/evidence
+    owners across public declarations. Availability is not a speedup claim.
   - Execution checklist:
-    - [x] Implement recursive selected-buffer ownership and typed empties for
-      lists, fixed-size lists and structs with admitted scalar leaves; prove
-      validity, cancellation, narrow grants and retained-buffer lifetime.
-    - [x] Separate payload and key admission, then carry nested values through
-      existing relational operators and connect the shared explode state.
-    - [x] Lower SQL/DataFrame explode stages with ordered source declarations,
-      resources and inert inspection through the common native plan.
-    - [x] Extend shared nested JSON and representable columnar output boundaries;
-      prove complete writer readback and explicit format denials without artifacts.
-    - [ ] Freeze complete public, workspace/native/Python/feature/doc/site and
-      Full43 acceptance, finish hosted review/checks and move the finite record
+    - [x] Lower aggregate expressions and implement exact wide decimal totals,
+      fixed result types, NULL handling and checked finalization in shared owners.
+    - [x] Extend existing rolling/pivot state and margins; prove empty admission,
+      bounded ownership, constrained grants, cancellation and failed publication.
+    - [x] Freeze independent complete public/direct correctness, required local
+      checks and complete typed Full43 regression; update exact support and
+      immutable evidence. Use this consolidated engine as the control for later
+      paired optimization measurements; earlier result protocols do not authorize
+      an alternate runtime or a speedup claim.
+      The [October 5 acceptance](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
+      records 20,445 public checks, 202 direct checks, all 129 Full43 executions,
+      22 source gates and independent inspection of the immutable packet.
+    - [ ] Complete hosted runtime review and checks, then move this finite item
       to the completed ledger.
-  - Local acceptance after review repairs: frozen `3b94ba2e` passes 2,459 public
-    checks, including 496 nested checks and 6,636,187 complete row comparisons,
-    all 258 paired Full43 results and the six-result Q21 reversed-order repeat.
-    Aggregate timing is effectively unchanged; the initial Q21 RSS increase
-    does not reproduce. All 24 local gates pass. The
-    [fresh report](../benchmarks/native-nested-review-full43-2026-10-03.md)
-    preserves both observations and the original acceptance. The October 4
-    dependency update restores a clean website audit without an exception.
-    The additional null-parent nested-intake correction passes all eight selected
-    source checks with its own immutable review packet;
-    hosted acceptance and ledger movement remain pending.
-  - Acceptance: complete static nested workflows without prefix collection,
-    serialized intermediates, replay or external fallback; existing flat kernels
-    and small collection bounds are preserved. Dynamic pivot, richer type/key
-    semantics and wider state spill retain their existing concrete owners.
+  - Acceptance: complete native expression/reduction workflows with exact decimal
+    values, schemas and writer readback. Existing primitive calculation order,
+    bare-column paths and pivot/rolling policies remain compatible. No frontend
+    evaluator, source replay or external-engine fallback.
+  - Dependency: merged nested keys/state. Wider analytic frames,
+    scalar-value subqueries, nested pivot state, adapters and general state spill
+    remain subsequent work under the universal queue; this is not their closure.
 
-- [ ] `NATIVE-DYNAMIC-PIVOT-COMPOSITION` — complete data-dependent pivot schemas
-  through the shared native relational binder, operator states and local sinks
-  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
-  [dynamic pivot contract](native-dynamic-pivot-composition-2026-10-03.md).
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: retain metadata-only preparation and existing
-    pushdown; discover domains once through the shared pivot kernel, with one
-    PulseWeave grant, capillary delivery and complete work/timing evidence.
+- [ ] `REVISED-ENGINE-RELEASE-TRAIN` — the October 4 maintainer requests another
+  version bump train after core work and UAT of the complete revised engine.
+  - Source: this maintainer instruction, RFC 0024, the
+    [publication handoff](../release/maintainer-publication-handoff.md) and
+    [selected channel contract](../release/package-channel-readiness-matrix.md).
+  - V1 scope classification: `required_for_v1` release preparation.
+  - Dependency: finish the active core operator/type/adapter/resource work and
+    the revised parameterized public UAT, including full ClickBench regression.
+    Freeze the accepted source, build, complete results and no-fallback evidence
+    before selecting the release candidate. This does not interrupt core work.
   - Execution checklist:
-    - [x] Share sparse pivot completion between direct and relational consumers;
-      add execution-time binding with reserved state and single-use ownership.
-    - [x] Lower ordered SQL/DataFrame pivot stages, including dependent aliases,
-      wildcards and existing relational/unary consumers, through the common plan.
-    - [x] Prove empty and changing schemas, parameter scopes, all representable
-      writers, generation checks, cancellation, pressure and retained lifetimes.
-    - [ ] Freeze complete public and regression acceptance, required local/hosted
-      gates and review; update support records and the completed ledger.
-  - Frozen local runtime `50cc1e22` passes 3,305 complete public checks, including
-    846 dynamic-pivot checks and 7,687,525 row comparisons. The separate direct
-    unary matrix passes 202 checks. Lifecycle tests cover fresh and per-parameter
-    schemas, one-use references, cancellation, source changes, denied state and
-    owned-result lifetime. All 24 selected local gates and 258 paired Full43
-    retained-result comparisons pass. No predeclared timing or memory threshold
-    is crossed; the [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
-    preserves the complete observation. Hosted review and the inherited website
-    advisory decision remain pending; no performance improvement is claimed.
-  - Acceptance follow-up: the [report-integrity repair](../benchmarks/native-report-integrity-full43-2026-10-03.md)
-    gives footer-count/cache and execution no-fallback fields one owner, with
-    regression checks rejecting duplicate names. Fresh acceptance passes
-    3,305 workflow checks, 202 direct-unary checks and all 258 paired Full43
-    comparisons, without crossing the predeclared timing or memory thresholds.
-    Eleven selected local gates and raw-response uniqueness checks pass.
-    The earlier packet stays immutable, with its 37 aggregate run responses
-    explicitly corrected from the packet's mistaken "preparation" description.
-  - Acceptance: complete admitted dynamic-schema workflows without a second
-    scan for discovery, prefix collection, intermediate files or fallback. Keep
-    inspection inert and all existing direct pivot semantics and bounds explicit.
-  - Dependency: uses the locally accepted nested-composition tree; its hosted
-    website advisory decision remains separate and cannot be bypassed by this work.
+    - [ ] Reconcile the then-current workspace version and published channel
+      identities; choose the next unpublished version appropriate to the change.
+    - [ ] Synchronize CLI/Python/package versions, release notes, support matrices,
+      current docs/website and the accepted UAT evidence as one coherent train.
+    - [ ] Build and verify selected artifacts, checksums, dependency/license
+      inventory, SBOM/provenance and clean-install/uninstall/smoke transcripts.
+    - [ ] Complete hosted checks and the selected GitHub, TestPyPI, PyPI and
+      Homebrew sequence under the release contract's publication authorization
+      and rollback requirements; record each exact source and artifact identity.
+  - Acceptance: every selected channel refers to the validated revised engine
+    and its own complete proofs; old release evidence cannot certify new artifacts.
+  - Technique/claim boundary: reuse existing release and evidence tooling. No
+    new runtime path, package channel, fallback engine or unmeasured performance
+    claim. Move completion and channel proofs to the completed ledger.
 
-- [ ] `NATIVE-TYPED-PAYLOADS` — carry existing binary, Decimal128, Date32 and
-  timezone-free microsecond timestamp types through shared native composition
-  and local delivery under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
-  [typed payload contract](native-typed-payloads-2026-10-03.md).
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: extend selected native buffer ownership, recursive
-    type admission, one operation allocation and bounded shared writers; preserve
-    existing metadata/pruning and key/expression admission.
+- [ ] `HARDWARE-INFORMED-EXECUTION` — after core universal workflow completion,
+  evaluate the October 4 maintainer's hardware-design transfer proposals under
+  existing PERF-02/03/06/07/10/11/12 owners and CG-5/6/19. This is accepted future
+  experiment intake, not a measured performance result or a new execution layer.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
+  - Dependency: finish the active core operator/type/adapter/resource work first;
+    preserve all paused workstreams. Reconcile the proposal's `61d318db` baseline
+    against then-current main, development branches and prior experiment evidence.
+  - ShardLoom technique review: reuse the native memory pool, packed key directory,
+    PulseWeave grant, capillary work units, shared executor and timing/evidence
+    owners. Prefer upstream Vortex capabilities where equivalent; no per-frontend
+    kernels, second planner, second executor or permanent thread per partition.
   - Execution checklist:
-    - [x] Extend exact payload and compatible intake types, compact result buffers,
-      nested leaves and typed empty/null output through existing components.
-    - [x] Preserve terminal text conventions and representable native/columnar
-      output, with explicit unsupported-format and operated-type diagnostics.
-    - [x] Prove complete public workflows, selected ownership, resource/failure
-      behavior, required local gates and Full43 regression; record immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory decision,
-      then move this finite item to the completed ledger.
-  - Local evidence: frozen `8237a900` passes 4,109 complete public checks,
-    including 804 typed checks, the separate 202-check direct-unary matrix, all
-    24 selected local gate categories and all 258 paired Full43 comparisons.
-    The [acceptance report](../benchmarks/native-typed-payloads-full43-2026-10-03.md)
-    retains complete values, schemas, unique report fields and source/binary hashes.
-    No predeclared timing or memory threshold is crossed; no speedup is claimed.
-  - Acceptance: exact type/value/null/order preservation across the complete
-    admitted workflow, without scalar-row execution, intermediate files, replay
-    or fallback. Nested keys continue under NATIVE-NESTED-KEYS-STATE; adapters
-    and resource/spill remain open;
-    typed expressions continue in the separately accepted unit below.
-  - Dependency: uses the locally accepted nested/pivot/report-integrity tree;
-    hosted completion remains subject to its existing website advisory decision.
-
-- [ ] `NATIVE-TYPED-KEYS` — complete exact binary, Decimal128, Date32 and
-  timezone-free microsecond timestamp comparisons and keys in the shared native
-  relational runtime under PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21. Follow the
-  [typed key contract](native-typed-keys-2026-10-03.md).
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: preserve native dictionary domains, selected
-    payload ownership, one operation admission, bounded capillary delivery and
-    existing native sort runs; metadata-first pruning and timing/evidence surfaces
-    retain their shared owners.
-  - Execution checklist:
-    - [x] Extend shared key hashing/equality/order and precise binder admission;
-      reuse existing joins, sets, groups, windows, subqueries and scalar selection.
-    - [x] Extend exact COUNT/DISTINCT/MIN/MAX and prove binary extrema ownership,
-      typed ordering spill/merge, cancellation, constrained grants and cleanup.
-    - [x] Prove complete public writer/readback workflows, required local gates
-      and paired Full43 regression; update exact public support and immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory decision,
-      then move this finite item to the completed ledger.
-  - Local evidence: frozen runtime `2f402226` passes 5,733 public checks with
-    12,282,897 complete row comparisons, including 2,428 typed checks and
-    4,595,372 typed row comparisons; the separate direct matrix passes 202 checks
-    and 131,734 rows. All 24 local gate categories pass. Full43 passes 258/258,
-    with six reversed-order Q21 repeats. The initial Q21 timing gain of 10.65%
-    (0.131 s) becomes 2.49% (0.020 s) under reversed role order; no aggregate or
-    RSS flags remain and no speedup is claimed. The [acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
-    and immutable [evidence packet](../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz)
-    retain complete values, schemas, source/binary identity and local gate evidence.
-  - Acceptance: exact logical type identity, full-value comparison after hash
-    lookup, existing NULL rules and no implicit decimal rescaling or temporal
-    coercion, including empty plans. Typed expressions continue in the separately
-    accepted unit below. Nested keys, retained unary state, broader adapters and
-    state spill remain with their existing phase owners.
-  - Dependency: locally accepted typed payload composition; hosted merge remains
-    subject to the existing nested/pivot/typed stack and website advisory decision.
-
-- [ ] `NATIVE-TYPED-EXPRESSIONS` — complete typed literals, explicit casts and
-  checked decimal/binary/calendar expressions through the shared native binder
-  and scalar kernels under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
-  [typed expression contract](native-typed-expressions-2026-10-03.md).
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: use native column/constant owners, lazy selected
-    branches, one PulseWeave grant and reserved result construction; preserve
-    metadata/pruning, capillary delivery and existing timing/evidence owners.
-  - Execution checklist:
-    - [x] Share checked core helpers, fixed output-type derivation and native
-      typed literal/cast/arithmetic/function kernels; prove boundary semantics.
-    - [x] Converge public SQL/DataFrame declarations on those expressions and
-      preserve complete typed result/writer behavior and resource ownership.
-    - [x] Freeze independent public correctness, required local gates and paired
-      Full43 regression; update exact support records and immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory decision,
-      then move this finite item to the completed ledger.
-  - Local evidence: frozen review source `895a45c9` passes 6,600 public checks/14,120,333
-    complete row comparisons, including 868 expression checks/1,837,436 rows.
-    All 202 direct-unary checks, 24 local gate categories and 258 paired Full43
-    comparisons pass. No timing, RSS or aggregate threshold is crossed; no
-    repeat is prescribed and no speedup is claimed. Decimal branch promotion
-    adds 90 checks while preserving the original 6,510 cases and complete oracles. The
-    [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
-    and [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz)
-    preserve independent complete-value expectations, ownership/failure evidence,
-    source/binary hashes, failed observations and final check provenance. The
-    original acceptance and Q26 repeat remain separately recorded.
-  - Acceptance: exact decimal and temporal behavior, explicit conversion failures,
-    lazy NULL/branch semantics and deterministic unsupported empty plans; no
-    frontend-specific executor or external-engine fallback.
-  - Dependency: locally accepted typed keys. Retained unary state and nested
-    keys continue under their subsequent named units; broader adapters and
-    state-spill obligations keep their existing owners.
-
-- [ ] `NATIVE-TYPED-UNARY` — complete exact binary, Decimal128, Date32 and
-  timezone-free microsecond timestamp state in the existing unary operators
-  under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
-  [typed unary contract](native-typed-unary-2026-10-03.md).
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: preserve native source/result owners, compact
-    selected state, one operation grant, exact key identity and existing
-    source-order/sampling policies; reuse typed literal and checked scalar rules.
-  - Execution checklist:
-    - [x] Extend shared retained values, keys and binding across selectors,
-      tail, sampling, rewrites, melt, rolling COUNT and scoped pivot policies.
-    - [x] Align typed CLI/Python/Rust declarations and prove complete typed
-      ownership, output, cancellation, constrained grants and failure cleanup.
-    - [x] Freeze independent public/direct-unary correctness, required local
-      gates and paired Full43 regression; update precise support and evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory
-      decision, then move this finite item to the completed ledger.
-  - Acceptance: direct and composed calls share exact logical type preservation
-    and deterministic empty-plan admission. Existing primitive floating-key,
-    seed/tie, ordering and margin behavior remains compatible. No decoded
-    evaluator or external-engine fallback enters native execution.
-  - Local evidence: frozen `948551d4` passes 9,300 public checks/14,125,745 complete
-    row comparisons, including 2,700 new unary checks/5,412 rows from 135 frozen
-    declarations. All 6,600 prior cases remain. The separate direct matrix passes
-    202 checks/131,734 rows, and all 25 local gate categories pass. All 258 Full43
-    results and 18 reversed-order calls match; aggregate thresholds are not
-    crossed. Q15 timing and Q34 RSS flags do not reproduce; Q9 timing/RSS remains
-    inconclusive with both cohorts retained. See the
-    [report](../benchmarks/native-typed-unary-full43-2026-10-03.md) and
-    [immutable packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz).
-    Hosted completion still requires the website advisory decision; the review
-    bot has exhausted its quota. No general performance improvement is claimed.
-  - Dependency: locally accepted typed expressions and 0.4.0 source preparation.
-    Nested keys continue under NATIVE-NESTED-KEYS-STATE; broader aggregate/window
-    semantics, adapters and general state spill keep their existing owners;
-    hosted completion retains the stack's
-    website advisory decision.
-
-- [ ] `NATIVE-NESTED-KEYS-STATE` — extend shared logical keys and compact retained
-  native state to static lists, fixed-size lists and structs under
-  PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
-  [nested key/state contract](native-nested-keys-state-2026-10-04.md).
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: preserve native dictionary domains, compact
-    selected buffers, one operation grant, bounded capillary delivery and existing
-    sort runs; reuse shared operators and output rather than a nested row engine.
-  - Execution checklist:
-    - [x] Extend exact recursive keys, binder admission and native selected
-      expression/aggregate output across the existing relational families.
-    - [x] Extend retained unary rows/keys, native delivery and scoped rewrites;
-      prove NULL semantics, selected ownership, grants, cancellation and cleanup.
-    - [x] Freeze complete public/writer correctness, required local checks and
-      paired Full43 regression with exact support and immutable evidence.
-    - [ ] Complete hosted review/gates after the inherited website advisory
-      decision, then move this finite item to the completed ledger.
-  - Local evidence: frozen `d65907f6` passes 17,458 public checks/14,143,015 complete
-    row comparisons, including 8,162 new checks/17,270 rows from 406 independent
-    declarations. All 9,296 unaffected prior cases remain; four nested-key
-    denials become positive checks. The separate direct matrix passes 202
-    checks/131,734 rows, and all 25 local gate categories pass. All 258 paired
-    Full43 results and six prescribed Q28 repeats match. Aggregate and RSS
-    thresholds are not crossed; Q28's initial timing gain does not reproduce.
-    The [report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md) and
-    [immutable packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz)
-    retain complete values, resource evidence and all four interrupted public
-    attempts. Independent packet inspection passes. Hosted review/gates retain
-    the inherited website advisory decision; no speedup is claimed.
-  - Dependency: locally accepted typed unary state. Broader pivot aggregation,
-    aggregate/window semantics, adapters and general state spill keep their
-    existing owners and remain subsequent work in the universal queue.
+    - [ ] Inventory existing providers, prior owner-versus-dynamic prototype results,
+      reservation transitions and the current 16-bit-tag/48-bit-ordinal directory;
+      classify each candidate as already addressed, admitted, merged or dropped.
+    - [ ] Measure zero-work reservations/releases, equal-size resizing and ownership
+      transfer before testing elimination of redundant shared updates; preserve
+      synchronization, reservation-before-allocation, replacement peaks and leases.
+    - [ ] Compare grouped metadata rejection with the current packed directory on
+      the actual CPU target, including growth, misses, duplicates, near-unique keys
+      and forced collisions; preserve full hash and exact-key verification.
+    - [ ] Test locality-aware state scheduling through the existing executor over
+      complete operations, accounting for routing, skew, queues and retained bytes.
+    - [ ] Trace service, readiness, queue, credit and ordered-emission waits in the
+      existing ingest pipeline; test useful bytes per completion interval under the
+      unchanged CPU/storage grants and complete artifact-identity checks.
+    - [ ] Merge the circuit-style expression-graph prototype into the existing
+      proof-guided kernel/specialization owner only after proving Vortex leaves
+      repeated pure predicates or avoidable intermediates; preserve nullable truth
+      tables, lazy errors, cancellation and ownership, with no unproved arithmetic
+      reordering or software simulation of hardware gates.
+    - [ ] Freeze hardware/tool provenance and held-out materiality/timing/RSS gates,
+      separate instrumentation from final paired timing, and publish complete
+      ship/drop evidence with failed and discarded observations retained.
+  - Acceptance: complete-operation gains determine retention; component counters
+    alone do not. Each candidate preserves exact outputs, native Vortex fidelity,
+    resource policy, serial local guards and explicit no-fallback evidence.
+  - Non-goals: FPGA/ASIC/PIM deployment or purchase, analog exact-query execution,
+    unsupported hardware-counter claims, or reopening paused format/text sweeps.
 
 The preceding resource, allocation, aggregate and flat unary units merged in
 [PR #1502](https://github.com/depsilon/shardloom/pull/1502) and
@@ -2928,10 +2784,12 @@ Current autonomous execution order:
 
 The October 2 maintainer's finite `ADAPTIVE-INGEST-BUDGET` priority is complete in
 PR #1503: P4/P6/P8 ingestion shares the provided CPU budget, with failure, memory
-and complete query acceptance recorded in the completed ledger. Resume the
-preserved native operator work through accepted aggregate and flat unary
-composition, then `NATIVE-NESTED-COMPOSITION` and the dependent universal workflow
-queue below. The other large format/text experiments
+and complete query acceptance recorded in the completed ledger. The hosted merges
+record `NATIVE-NESTED-COMPOSITION`, `NATIVE-DYNAMIC-PIVOT-COMPOSITION`,
+`NATIVE-TYPED-PAYLOADS`, `NATIVE-TYPED-KEYS`, `NATIVE-TYPED-EXPRESSIONS`,
+`NATIVE-TYPED-UNARY`, and `NATIVE-NESTED-KEYS-STATE` as completed finite units.
+`NATIVE-TYPED-REDUCTIONS` is the next autonomous implementation item in the
+dependent universal workflow queue below. The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 
 The October 1 product clarification makes
@@ -2944,6 +2802,10 @@ This does not authorize unbounded rewrites or resume the paused large text-forma
 and format-pulse performance tests. The experimental procedure below applies when
 a separate performance candidate is admitted; it does not displace workflow
 completion with another automatic optimization sweep.
+
+The October 4 hardware-informed campaign is queued after that core completion.
+Its intake above must be refreshed against the current Vortex-native owners and
+prior ship/drop results before any experiment starts.
 
 The September 29 resumption supersedes the earlier release/format stop for the
 finite September 26 intake. All 29 decisions and the final profiling refresh

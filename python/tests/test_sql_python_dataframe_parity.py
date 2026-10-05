@@ -284,7 +284,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
                 sql_surface="sql",
                 python_surface="python",
                 dataframe_surface="dataframe",
-                shared_runtime_path="local-source-runtime",
+                shared_runtime_path="shared_native_workflow",
                 parity_status="equivalent_admitted_scope",
                 performance_equivalence_status="same_runtime_path_no_benchmark_claim",
                 runtime_execution=True,

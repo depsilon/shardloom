@@ -27,6 +27,8 @@ use shardloom_vortex::{
     },
 };
 
+#[path = "sql_native_cte.rs"]
+mod cte;
 #[path = "sql_native_relational_dynamic.rs"]
 mod dynamic;
 #[path = "sql_native_relational_predicate.rs"]
@@ -43,10 +45,25 @@ mod unary;
 
 type NativeResult<T> = Result<T, ShardLoomError>;
 
+#[cfg(test)]
 pub(crate) fn prepare(
     raw: &str,
     policy: VortexLocalPrimitiveExecutionPolicy,
     mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
+) -> NativeResult<PreparedVortexRelational> {
+    prepare_with_inputs(
+        raw,
+        policy,
+        |_| Ok(()),
+        |leaf| resolve_source(leaf).map(|uri| vec![uri]),
+    )
+}
+
+pub(crate) fn prepare_with_inputs(
+    raw: &str,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
 ) -> NativeResult<PreparedVortexRelational> {
     let (parsed, offset) = parsed_native_query(raw)?;
     if dynamic::required(&parsed) {
@@ -55,9 +72,11 @@ pub(crate) fn prepare(
                 "dynamic native SQL does not admit a trailing OFFSET",
             ));
         }
-        return dynamic::prepare(parsed, policy, &mut resolve_source);
+        return dynamic::prepare(parsed, policy, inputs, &mut resolve_source);
     }
     prepare_relational_with_schema(policy, |schemas| {
+        register_sql_memory_inputs(&parsed, schemas)?;
+        inputs(schemas)?;
         let mut lowerer = Lowerer {
             schemas,
             serial: 0,
@@ -80,7 +99,8 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
     Ok(matches!(
         parsed.source,
         ParsedRelationSource::Derived(_) | ParsedRelationSource::Unary(_)
-    ) || parsed.replace_or_add_projection
+    ) || matches!(&parsed.source, ParsedRelationSource::Local(leaf) if leaf.memory_input.is_some())
+        || parsed.replace_or_add_projection
         || parsed.join.is_some()
         || !parsed.window_projections.is_empty()
         || parsed
@@ -101,7 +121,8 @@ pub(crate) fn prepare_from_source(
     policy: VortexLocalPrimitiveExecutionPolicy,
     uri: DatasetUri,
     source: shardloom_vortex::resident_session::PreparedVortexSource,
-    mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
 ) -> NativeResult<PreparedVortexRelational> {
     let (parsed, offset) = parsed_native_query(raw)?;
     if dynamic::required(&parsed) {
@@ -114,6 +135,8 @@ pub(crate) fn prepare_from_source(
         source,
         policy,
         |schemas| {
+            register_sql_memory_inputs(&parsed, schemas)?;
+            inputs(schemas)?;
             let mut lowerer = Lowerer {
                 schemas,
                 serial: 0,
@@ -178,6 +201,23 @@ fn declared_sources(parsed: &ParsedSqlLocalSource, paths: &mut BTreeSet<ParsedRe
     }
 }
 
+fn register_sql_memory_inputs(
+    parsed: &ParsedRelationQuery,
+    schemas: &mut VortexRelationalPreparation<'_>,
+) -> NativeResult<()> {
+    let mut leaves = BTreeSet::new();
+    declared_query_sources(parsed, &mut leaves);
+    for leaf in leaves {
+        if let Some(input) = leaf.memory_input {
+            schemas.register_memory_source(
+                DatasetUri::new(leaf.path.to_string_lossy())?,
+                |session| input.build(session),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn admitted_statement(raw: &str) -> NativeResult<String> {
     if raw.len() > 256 * 1024 {
         return Err(unsupported_sql_error("native SQL exceeds 256 KiB"));
@@ -199,7 +239,7 @@ fn admitted_statement(raw: &str) -> NativeResult<String> {
             _ => {}
         }
     }
-    let mut statement = normalize_sql_statement(raw)?;
+    let mut statement = cte::expand(normalize_sql_statement(raw)?)?;
     if top_level_keyword_indexes(&statement, "limit")?.is_empty() {
         write!(&mut statement, " LIMIT {}", usize::MAX).expect("String writes cannot fail");
     }
@@ -318,7 +358,7 @@ impl Lowered {
 struct Lowerer<'a, 'session> {
     schemas: &'a mut VortexRelationalPreparation<'session>,
     serial: usize,
-    resolve_source: &'a mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
+    resolve_source: &'a mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
     declaration: Option<dynamic::Declaration>,
     outer: Option<Vec<String>>,
 }
@@ -358,14 +398,31 @@ impl Lowerer<'_, '_> {
     }
 
     fn scan(&mut self, leaf: &ParsedRelationLeaf) -> NativeResult<Lowered> {
-        let source_uri = (self.resolve_source)(leaf)?;
-        let columns = self.schemas.source_columns(&source_uri)?;
+        let sources = if leaf.memory_input.is_some() {
+            vec![DatasetUri::new(leaf.path.to_string_lossy())?]
+        } else {
+            (self.resolve_source)(leaf)?
+        };
+        let source_uri = sources
+            .first()
+            .ok_or_else(|| unsupported_sql_error("native source has no files"))?;
+        let columns = if matches!(
+            &leaf.memory_input,
+            Some(crate::native_memory_input::MemoryInput::Unit)
+        ) {
+            Vec::new()
+        } else {
+            self.schemas.source_columns(source_uri)?
+        };
+        for uri in sources.iter().skip(1) {
+            if self.schemas.source_columns(uri)? != columns {
+                return Err(unsupported_sql_error(
+                    "native source parts have different ordered columns",
+                ));
+            }
+        }
         Ok(Lowered {
-            plan: Plan::Scan(Scan {
-                source_uri,
-                projection: ProjectionRequest::All,
-                predicate: None,
-            }),
+            plan: native_source_plan(&sources)?,
             columns,
             qualifiers: BTreeMap::new(),
         })
@@ -547,12 +604,14 @@ impl Lowerer<'_, '_> {
     ) -> NativeResult<Lowered> {
         let input = self.source(parsed)?;
         let visible = input.columns.clone();
-        let outer = outer.or_else(|| {
-            self.outer
-                .as_deref()
-                .filter(|_| predicate::select_direct_outer(parsed))
-        });
-        let input = Self::with_outer(input, outer)?;
+        let outer = outer
+            .or_else(|| {
+                self.outer
+                    .as_deref()
+                    .filter(|_| predicate::select_direct_outer(parsed))
+            })
+            .map(<[String]>::to_vec);
+        let input = Self::with_outer(input, outer.as_deref())?;
         let mut input = self.filter(input, &parsed.predicate)?;
         let aggregate = !parsed.aggregates.is_empty()
             || !parsed.group_by.is_empty()
@@ -562,16 +621,48 @@ impl Lowerer<'_, '_> {
                 "REPLACE OR ADD must follow aggregation in a derived relation",
             ));
         }
+        let mut grouped_projection = None;
         if aggregate {
-            input = Self::aggregate(input, parsed)?;
+            let (aggregated, aliases) = self.aggregate(input, parsed)?;
+            input = aggregated;
+            // An outer row is a constant parameter for this execution. Grouping
+            // discards non-key input fields, so expose that same parameter again
+            // before HAVING, including the one row of an empty scalar aggregate.
+            if let Some(outer) = &outer {
+                let missing = outer
+                    .iter()
+                    .filter(|name| {
+                        !input
+                            .columns
+                            .iter()
+                            .any(|column| column == &format!("outer.{name}"))
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !missing.is_empty() {
+                    input = Self::with_outer(input, Some(&missing))?;
+                }
+            }
             input = self.filter(input, &parsed.having)?;
+            if !aliases.is_empty() {
+                let mut rewritten = parsed.clone();
+                for output in &mut rewritten.projection_order {
+                    if let Some(alias) = output.computed_alias()
+                        && aliases.iter().any(|name| name == alias)
+                    {
+                        *output = ParsedProjectionOutput::Raw(alias.to_owned());
+                    }
+                }
+                grouped_projection = Some(rewritten);
+            }
         } else if !parsed.having.is_all() {
             return Err(unsupported_sql_error(
                 "HAVING requires grouped or scalar aggregation",
             ));
         }
+        let parsed = grouped_projection.as_ref().unwrap_or(parsed);
         input = Self::windows(input, &parsed.window_projections)?;
-        input = self.projection(input, parsed, &visible, aggregate)?;
+        input = self.projection(input, parsed, &visible)?;
         if apply_limit {
             input = input.limit(parsed.limit);
         }
@@ -590,12 +681,95 @@ impl Lowerer<'_, '_> {
         Ok(input)
     }
 
-    fn aggregate(mut input: Lowered, parsed: &ParsedSqlLocalSource) -> NativeResult<Lowered> {
+    fn group_aliases(
+        mut input: Lowered,
+        parsed: &ParsedSqlLocalSource,
+    ) -> NativeResult<(Lowered, Vec<String>)> {
+        let mut aliases = Vec::new();
+        let mut keys = Vec::new();
+        for name in &parsed.group_by {
+            if input.qualifiers.contains_key(name)
+                || input.columns.iter().any(|column| {
+                    column == name
+                        || (!name.contains('.')
+                            && column
+                                .rsplit_once('.')
+                                .is_some_and(|(_, suffix)| suffix == name))
+                })
+            {
+                input.resolve(name)?;
+                continue;
+            }
+            let output = parsed
+                .projection_order
+                .iter()
+                .find(|output| output.computed_alias() == Some(name))
+                .ok_or_else(|| {
+                    unsupported_sql_error(
+                        "GROUP BY key is neither an input column nor a SELECT alias",
+                    )
+                })?;
+            if matches!(
+                output,
+                ParsedProjectionOutput::Aggregate(_) | ParsedProjectionOutput::Window(_)
+            ) {
+                return Err(unsupported_sql_error(
+                    "GROUP BY cannot reference an aggregate or window alias",
+                ));
+            }
+            let mut expressions = Vec::new();
+            append_ordered_projection_expression(
+                &mut expressions,
+                parsed,
+                output,
+                &input.columns,
+                "native.group",
+            )?;
+            let mut expression = expressions
+                .pop()
+                .ok_or_else(|| unsupported_sql_error("GROUP BY alias expression is absent"))?;
+            map_columns(&mut expression, &mut |column| input.resolve(column))?;
+            aliases.push(name.clone());
+            keys.push((name.clone(), expression));
+        }
+        if !keys.is_empty() {
+            let mut expressions = input
+                .columns
+                .iter()
+                .map(|name| Ok((name.clone(), column(name)?)))
+                .collect::<NativeResult<Vec<_>>>()?;
+            expressions.extend(keys);
+            input.columns.extend(aliases.iter().cloned());
+            input.plan = Plan::Project(Box::new(Project {
+                input: input.plan,
+                expressions,
+            }));
+        }
+        Ok((input, aliases))
+    }
+
+    fn aggregate(
+        &mut self,
+        input: Lowered,
+        parsed: &ParsedSqlLocalSource,
+    ) -> NativeResult<(Lowered, Vec<String>)> {
+        let (mut input, aliases) = Self::group_aliases(input, parsed)?;
         let group_by = parsed
             .group_by
             .iter()
             .map(|name| ColumnRef::new(input.resolve(name)?))
             .collect::<NativeResult<Vec<_>>>()?;
+        let mut retained = group_by
+            .iter()
+            .map(|column| column.as_str().to_owned())
+            .collect::<BTreeSet<_>>();
+        for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
+            if let ParsedAggregateArgument::Column(name) = &aggregate.argument {
+                retained.insert(input.resolve(name)?);
+            }
+        }
+        let mut projection = Vec::new();
+        let mut names = input.columns.clone();
         let measures = parsed
             .aggregates
             .iter()
@@ -606,21 +780,47 @@ impl Lowerer<'_, '_> {
                         "only COUNT DISTINCT has an admitted native distinct aggregate",
                     ));
                 }
+                let argument = match &aggregate.argument {
+                    ParsedAggregateArgument::All => None,
+                    ParsedAggregateArgument::Column(name) => {
+                        Some(ColumnRef::new(input.resolve(name)?)?)
+                    }
+                    ParsedAggregateArgument::Computed { expression, .. } => {
+                        if projection.is_empty() {
+                            projection = input
+                                .columns
+                                .iter()
+                                .filter(|name| retained.contains(*name))
+                                .map(|name| Ok((name.clone(), column(name)?)))
+                                .collect::<NativeResult<Vec<_>>>()?;
+                        }
+                        let mut expression = (**expression).clone();
+                        map_columns(&mut expression, &mut |name| input.resolve(name))?;
+                        let name = self.fresh(&names);
+                        names.push(name.clone());
+                        projection.push((name.clone(), expression));
+                        Some(ColumnRef::new(name)?)
+                    }
+                };
                 Ok(VortexSimpleAggregateMeasure::new(
                     if aggregate.distinct {
                         "count_distinct"
                     } else {
                         aggregate.function.as_str()
                     },
-                    aggregate
-                        .column
-                        .as_deref()
-                        .map(|name| ColumnRef::new(input.resolve(name)?))
-                        .transpose()?,
+                    argument,
                     aggregate.output_name(),
                 ))
             })
             .collect::<NativeResult<Vec<_>>>()?;
+        if !projection.is_empty() {
+            // These private arguments do not change the SQL qualification of
+            // group keys. Retain only columns the reduction itself consumes.
+            input.plan = Plan::Project(Box::new(Project {
+                input: input.plan,
+                expressions: projection,
+            }));
+        }
         input.columns = group_by
             .iter()
             .map(|column| column.as_str().to_owned())
@@ -631,7 +831,7 @@ impl Lowerer<'_, '_> {
             group_by,
             measures,
         }));
-        Ok(input)
+        Ok((input, aliases))
     }
 
     fn fresh(&mut self, columns: &[String]) -> String {
@@ -641,6 +841,27 @@ impl Lowerer<'_, '_> {
             if !columns.contains(&name) {
                 return name;
             }
+        }
+    }
+}
+
+/// A file collection is one relation. Shared set/scan nodes keep all downstream
+/// filtering, ordering, aggregation and writers independent of source shape.
+fn native_source_plan(sources: &[DatasetUri]) -> NativeResult<Plan> {
+    match sources {
+        [] => Err(unsupported_sql_error("native source has no files")),
+        [source_uri] => Ok(Plan::Scan(Scan {
+            source_uri: source_uri.clone(),
+            projection: ProjectionRequest::All,
+            predicate: None,
+        })),
+        _ => {
+            let (left, right) = sources.split_at(sources.len() / 2);
+            Ok(Plan::Set(Box::new(Set {
+                left: native_source_plan(left)?,
+                right: native_source_plan(right)?,
+                kind: SetKind::UnionAll,
+            })))
         }
     }
 }

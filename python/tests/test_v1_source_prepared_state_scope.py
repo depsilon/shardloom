@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_SRC = REPO_ROOT / "python" / "src"
@@ -11,14 +15,6 @@ if str(PYTHON_SRC) not in sys.path:
     sys.path.insert(0, str(PYTHON_SRC))
 
 from shardloom import ShardLoomContext
-from shardloom.client import ShardLoomClient
-from shardloom.prepared_route import (
-    CompatibilityPreparedVortexRoute,
-    _local_path_fingerprint,
-    _manifest_path,
-    _REUSE_MANIFEST_SCHEMA_VERSION,
-    _stable_json_digest,
-)
 
 
 def _load_scope_validator():
@@ -34,215 +30,121 @@ def _load_scope_validator():
     return module
 
 
-def _write_manifest(path: Path, manifest: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
-
-
 class V1SourcePreparedStateScopeTests(unittest.TestCase):
-    def test_context_report_exposes_v1_scope_contract(self) -> None:
-        report = ShardLoomContext(client=None).source_prepared_state_scope_report()
+    def test_context_discovery_is_side_effect_free_and_exposes_one_native_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            before = set(Path(tempdir).iterdir())
+            with (
+                mock.patch.object(Path, "mkdir", side_effect=AssertionError("mkdir called")),
+                mock.patch.object(Path, "write_text", side_effect=AssertionError("write called")),
+            ):
+                report = ShardLoomContext(client=None).source_prepared_state_scope_report()
+            self.assertEqual(set(Path(tempdir).iterdir()), before)
 
+        self.assertEqual(report.prepared_route_ids, ("native_vortex_query",))
+        self.assertEqual(report.state_owner, "ResidentVortexSession")
+        self.assertEqual(report.reuse_scope, "native_session_or_explicit_vortex_artifact")
         self.assertEqual(
-            report.schema_version,
-            "shardloom.v1_source_prepared_state_scope.v1",
+            report.reuse_policy,
+            "validate_source_generation_and_declaration_before_each_execution",
         )
-        self.assertEqual(
-            report.canonical_route,
-            "UniversalIngress -> SourceState -> vortex_ingest -> "
-            "VortexPreparedState -> prepared_vortex",
-        )
-        self.assertTrue(report.v1_scope_ready)
+        self.assertFalse(report.query_answers_cached)
         self.assertTrue(report.all_no_fallback_no_external_engine)
-        self.assertTrue(report.all_prepared_routes_expose_reuse_contract)
-        self.assertTrue(report.all_internal_source_smoke_routes_are_labeled_non_persistent)
-        self.assertEqual(len(report.invalidation_case_ids), 9)
-        self.assertIn("global_hidden_cache", report.unsupported_boundary_ids)
+        self.assertEqual(len(report.invalidation_case_ids), 7)
+        self.assertEqual(len(report.golden_fixture_paths), 3)
+        self.assertEqual(report.claim_gate_status, "not_claim_grade")
         self.assertFalse(report.performance_claim_allowed)
         self.assertFalse(report.production_claim_allowed)
         self.assertFalse(report.spark_replacement_claim_allowed)
 
-    def test_scope_validator_passes_current_repo_contract(self) -> None:
-        module = _load_scope_validator()
+    def test_validator_accepts_the_current_declarative_contract_only(self) -> None:
+        validator = _load_scope_validator()
 
-        report = module.build_report(REPO_ROOT)
+        report = validator.build_report(REPO_ROOT)
 
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertTrue(report["v1_scope_ready"])
+        self.assertEqual(report["route_ids"], ["native_vortex_query"])
+        self.assertEqual(report["state_owner"], "ResidentVortexSession")
+        self.assertFalse(report["query_answers_cached"])
+        self.assertEqual(len(report["invalidation_case_ids"]), 7)
+        self.assertEqual(len(report["fixture_specs"]), 3)
         self.assertTrue(report["all_no_fallback_no_external_engine"])
-        self.assertTrue(report["source_prepared_benchmark_required_fields_ready"])
-        self.assertGreater(
-            report["source_prepared_benchmark_rows_with_required_fields"],
-            0,
-        )
-        self.assertEqual(len(report["invalidation_case_ids"]), 9)
-        self.assertEqual(len(report["golden_fixture_paths"]), 3)
+        self.assertEqual(report["claim_gate_status"], "not_claim_grade")
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+        self.assertFalse(report["performance_claim_allowed"])
+        self.assertFalse(report["production_claim_allowed"])
+        self.assertFalse(report["spark_replacement_claim_allowed"])
 
+    def _copy_fixtures(self, destination: Path) -> None:
+        source = REPO_ROOT / "docs" / "architecture" / "fixtures" / "v1-source-prepared-state"
+        shutil.copytree(source, destination / "docs/architecture/fixtures/v1-source-prepared-state")
 
-class PreparedStateReuseInvalidationMatrixTests(unittest.TestCase):
-    def _route_workspace(
-        self,
-        root: Path,
-    ) -> tuple[CompatibilityPreparedVortexRoute, Path, Path, Path, Path]:
-        fact = root / "fact.csv"
-        dim = root / "dim.csv"
-        workspace = root / "prepared"
-        fact_vortex = workspace / "fact.vortex"
-        dim_vortex = workspace / "dim.vortex"
-        root.mkdir(parents=True, exist_ok=True)
-        fact.write_text("id,dim_key,value\n1,10,5\n", encoding="utf-8")
-        dim.write_text("dim_key,label\n10,alpha\n", encoding="utf-8")
-        workspace.mkdir(parents=True, exist_ok=True)
-        fact_vortex.write_text("fact artifact v1", encoding="utf-8")
-        dim_vortex.write_text("dim artifact v1", encoding="utf-8")
-        route = CompatibilityPreparedVortexRoute(
-            client=ShardLoomClient(binary=("unused",)),
-            fact_input=fact,
-            dim_input=dim,
-            workspace=workspace,
-            input_format="csv",
-        )
-        return route, fact, dim, fact_vortex, dim_vortex
-
-    def _manifest(
-        self,
-        route: CompatibilityPreparedVortexRoute,
-        fact_vortex: Path,
-        dim_vortex: Path,
-    ) -> dict:
-        manifest = {
-            **route._reuse_request_payload(),
-            "schema_version": _REUSE_MANIFEST_SCHEMA_VERSION,
-            "prepared_artifacts": {
-                "fact": {
-                    "path": str(fact_vortex.resolve(strict=False)),
-                    "fingerprint": _local_path_fingerprint(fact_vortex),
-                    "digest": "sha256:fact",
-                },
-                "dim": {
-                    "path": str(dim_vortex.resolve(strict=False)),
-                    "fingerprint": _local_path_fingerprint(dim_vortex),
-                    "digest": "sha256:dim",
-                },
-            },
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-        }
-        manifest["manifest_digest"] = _stable_json_digest(manifest)
-        return manifest
-
-    def _write_valid_manifest(
-        self,
-        route: CompatibilityPreparedVortexRoute,
-        fact_vortex: Path,
-        dim_vortex: Path,
-    ) -> dict:
-        manifest = self._manifest(route, fact_vortex, dim_vortex)
-        _write_manifest(_manifest_path(route.workspace), manifest)
-        return manifest
-
-    def _rewrite_manifest(self, route: CompatibilityPreparedVortexRoute, manifest: dict) -> None:
-        payload = {str(key): value for key, value in manifest.items() if key != "manifest_digest"}
-        manifest["manifest_digest"] = _stable_json_digest(payload)
-        _write_manifest(_manifest_path(route.workspace), manifest)
-
-    def test_reuse_invalidation_matrix_cases(self) -> None:
-        cases = {
-            "cold_prepare_no_manifest": (False, "no_reuse_manifest", "no_reuse_manifest"),
-            "warm_reuse_manifest_match": (True, "manifest_fingerprints_match", "none"),
-            "source_changed": (
-                False,
-                "fact_input_fingerprint_changed",
-                "fact_input_fingerprint_changed",
-            ),
-            "artifact_changed": (
-                False,
-                "fact_prepared_artifact_fingerprint_changed",
-                "fact_prepared_artifact_fingerprint_changed",
-            ),
-            "schema_changed": (
-                False,
-                "source_admission_packet_changed",
-                "source_admission_packet_changed",
-            ),
-            "policy_changed": (False, "prepare_policy_changed", "prepare_policy_changed"),
-            "version_changed": (
-                False,
-                "reuse_manifest_schema_mismatch",
-                "reuse_manifest_schema_mismatch",
-            ),
-            "missing_artifact": (
-                False,
-                "fact_prepared_artifact_manifest_missing",
-                "fact_prepared_artifact_manifest_missing",
-            ),
-            "corrupted_manifest": (
-                False,
-                "reuse_manifest_unreadable",
-                "reuse_manifest_unreadable:JSONDecodeError",
-            ),
-        }
-        for case_id, expected in cases.items():
-            with self.subTest(case_id=case_id), tempfile.TemporaryDirectory() as tempdir:
-                root = Path(tempdir)
-                route, fact, _dim, fact_vortex, dim_vortex = self._route_workspace(root)
-                if case_id != "cold_prepare_no_manifest":
-                    manifest = self._write_valid_manifest(route, fact_vortex, dim_vortex)
-                else:
-                    manifest = {}
-
-                if case_id == "source_changed":
-                    fact.write_text("id,dim_key,value\n1,20,9\n", encoding="utf-8")
-                elif case_id == "artifact_changed":
-                    fact_vortex.write_text("fact artifact v2", encoding="utf-8")
-                elif case_id == "schema_changed":
-                    manifest["source_admission_packet_digest"] = "sha256:changed-schema"
-                    manifest["route_request_digest"] = "sha256:old-route-request"
-                    self._rewrite_manifest(route, manifest)
-                elif case_id == "policy_changed":
-                    manifest["prepare_policy"] = {
-                        **manifest["prepare_policy"],
-                        "allow_overwrite": True,
-                    }
-                    manifest["route_request_digest"] = "sha256:old-route-request"
-                    self._rewrite_manifest(route, manifest)
-                elif case_id == "version_changed":
-                    manifest["schema_version"] = "shardloom.python.prepared_vortex_reuse_manifest.v0"
-                    self._rewrite_manifest(route, manifest)
-                elif case_id == "missing_artifact":
-                    del manifest["prepared_artifacts"]["fact"]
-                    self._rewrite_manifest(route, manifest)
-                elif case_id == "corrupted_manifest":
-                    _manifest_path(route.workspace).write_text("{", encoding="utf-8")
-
-                decision = route._prepared_state_reuse_decision()
-                expected_hit, expected_reason, expected_invalidation = expected
-                self.assertEqual(decision.hit, expected_hit)
-                self.assertEqual(decision.reason, expected_reason)
-                self.assertEqual(
-                    decision.invalidation_reason,
-                    expected_invalidation,
-                )
-
-    def test_reuse_is_workspace_scoped_not_hidden_global_cache(self) -> None:
+    def test_validator_rejects_missing_fixture_and_matrix_case_drift(self) -> None:
+        validator = _load_scope_validator()
+        report = validator.load_context_report(REPO_ROOT)
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
-            route, fact, dim, fact_vortex, dim_vortex = self._route_workspace(root / "one")
-            self._write_valid_manifest(route, fact_vortex, dim_vortex)
-            second_workspace = root / "two" / "prepared"
-            second_route = CompatibilityPreparedVortexRoute(
-                client=ShardLoomClient(binary=("unused",)),
-                fact_input=fact,
-                dim_input=dim,
-                workspace=second_workspace,
-                input_format="csv",
-            )
+            self._copy_fixtures(root)
+            missing = root / validator.FIXTURE_PATHS[1]
+            missing.unlink()
+            blockers, _ = validator.validate_fixtures(root, report)
+            self.assertTrue(any("fixture unreadable or missing" in item for item in blockers))
 
-            decision = second_route._prepared_state_reuse_decision()
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            self._copy_fixtures(root)
+            matrix = root / validator.FIXTURE_PATHS[2]
+            payload = json.loads(matrix.read_text(encoding="utf-8"))
+            payload["cases"].pop()
+            matrix.write_text(json.dumps(payload), encoding="utf-8")
+            blockers, _ = validator.validate_fixtures(root, report)
+            self.assertTrue(any("cases does not match" in item for item in blockers))
 
-            self.assertFalse(decision.hit)
-            self.assertEqual(decision.reason, "no_reuse_manifest")
-            self.assertEqual(decision.invalidation_reason, "no_reuse_manifest")
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            self._copy_fixtures(root)
+            source_state = root / validator.FIXTURE_PATHS[0]
+            payload = json.loads(source_state.read_text(encoding="utf-8"))
+            payload["source_inputs"]["compatibility_formats"].remove("orc")
+            source_state.write_text(json.dumps(payload), encoding="utf-8")
+            blockers, _ = validator.validate_fixtures(root, report)
+            self.assertTrue(any("source_inputs does not match" in item for item in blockers))
+
+    def test_validator_rejects_unsafe_fixture_metadata(self) -> None:
+        validator = _load_scope_validator()
+        report = validator.load_context_report(REPO_ROOT)
+        unsafe_fields = {
+            "route_id": "retired_prepared_route",
+            "state_owner": "PythonManifestCache",
+            "reuse_policy": "reuse_without_generation_validation",
+            "query_answers_cached": True,
+            "fallback_attempted": True,
+        }
+        for field, value in unsafe_fields.items():
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as tempdir:
+                root = Path(tempdir)
+                self._copy_fixtures(root)
+                fixture = root / validator.FIXTURE_PATHS[0]
+                payload = json.loads(fixture.read_text(encoding="utf-8"))
+                payload[field] = value
+                fixture.write_text(json.dumps(payload), encoding="utf-8")
+                blockers, _ = validator.validate_fixtures(root, report)
+                self.assertTrue(
+                    any(field in blocker for blocker in blockers),
+                    blockers,
+                )
+
+    def test_validator_has_no_benchmark_artifact_input_or_legacy_route_fields(self) -> None:
+        validator = _load_scope_validator()
+        report = validator.build_report(REPO_ROOT)
+        self.assertNotIn("benchmark_artifact_summary", report)
+        self.assertNotIn("prepared_user_route_rows", report)
+        self.assertNotIn("internal_source_smoke_route_ids", report)
+        self.assertNotIn("generated_route_ids", report)
+        self.assertNotIn("source_prepared_benchmark_required_fields_ready", report)
+        self.assertNotIn("--benchmark-artifact", validator.parse_args.__code__.co_consts)
 
 
 if __name__ == "__main__":

@@ -37,7 +37,6 @@ from shardloom import (
     ComputeCapabilityMatrix,
     CompatibilitySourceSmokeReport,
     CapabilityPosture,
-    CompatibilityPreparedVortexRoute,
     ContextCapabilities,
     CapabilityView,
     DataFrameFutureContractClassificationMatrix,
@@ -56,10 +55,7 @@ from shardloom import (
     GeneratedPartitionedObjectStoreOutputReport,
     GeneratedSourceCertificateContract,
     GeneratedSourceEvidenceAlignmentReport,
-    GeneratedSourceWriteReport,
     LocalVortexPrimitiveSmokeReport,
-    NativeVortexQuery,
-    NativeVortexRoute,
     OpenLineageFacetMappingReport,
     OpenTelemetryTraceExportContractReport,
     ShardLoomBinaryNotFoundError,
@@ -68,16 +64,14 @@ from shardloom import (
     ShardLoomContext,
     ShardLoomSession,
     ShardLoomProtocolError,
-    SqlLocalSourceSmokeReport,
+    VortexWorkflowExecutionReport,
+    from_rows,
     SessionPreparedState,
     SessionLazyFrame,
     SessionSqlResult,
     SessionSqlWorkflow,
     OutputEnvelope,
     RuntimeActivationSummary,
-    PreparedVortexArtifacts,
-    PreparedVortexBatchResult,
-    PreparedVortexQuery,
     PreparedVortexScanPushdownRow,
     PredicateDtypeCoverageRow,
     ProductionUnsupportedDiagnosticRow,
@@ -126,188 +120,6 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         )
 
     _shardloom_json.dumps = _shardloom_json_dumps
-
-    def _shardloom_public_request_output_format(requested_output):
-        return {
-            "collect": "inline-jsonl",
-            "write_json": "json",
-            "write_jsonl": "jsonl",
-            "write_csv": "csv",
-            "write_parquet": "parquet",
-            "write_arrow_ipc": "arrow-ipc",
-            "write_avro": "avro",
-            "write_orc": "orc",
-            "write_vortex": "vortex",
-        }[requested_output]
-
-    def _shardloom_take_flag(args, flag):
-        if flag not in args:
-            return None
-        index = args.index(flag)
-        if index + 1 >= len(args):
-            return None
-        return args[index + 1]
-
-    def _shardloom_has_flag(args, flag):
-        return flag in args
-
-    def _shardloom_values_after_flag(args, flag):
-        values = []
-        index = 0
-        while index < len(args):
-            if args[index] == flag and index + 1 < len(args):
-                values.append(args[index + 1])
-                index += 2
-            else:
-                index += 1
-        return values
-
-    def _shardloom_emit_vortex_prepare_if_needed():
-        args = _shardloom_sys.argv[1:]
-        if not args or args[0] != "vortex-prepare":
-            return
-        source = args[1] if len(args) > 1 else "missing-source"
-        target = args[2] if len(args) > 2 else "target/shardloom-prepared.vortex"
-        if ".shardloom/prepared/" not in target:
-            return
-        input_format = _shardloom_take_flag(args, "--input-format") or "not_declared"
-        print(_shardloom_json.dumps({
-            "schema_version": "shardloom.output.v2",
-            "command": "vortex-prepare",
-            "status": "success",
-            "summary": "fake Vortex ingest smoke",
-            "human_text": "fake Vortex ingest smoke",
-            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-            "diagnostics": [],
-            "fields": [
-                {"key": "source_path", "value": source},
-                {"key": "source_format", "value": input_format},
-                {"key": "target_vortex_path", "value": target},
-                {"key": "vortex_ingest_performed", "value": "true"},
-                {"key": "vortex_ingest_status", "value": "prepared_state_written"},
-                {"key": "prepared_state_created", "value": "true"},
-                {"key": "prepared_state_reused", "value": "false"},
-                {"key": "source_state_id", "value": "fake-source-state"},
-                {"key": "source_state_digest", "value": "fake-source-digest"},
-                {"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"},
-                {"key": "source_state_read_plan", "value": "full_columnar_source_state_default"},
-                {"key": "source_state_projection_pushdown_status", "value": "not_requested_full_read"},
-                {"key": "fallback_attempted", "value": "false"},
-                {"key": "external_engine_invoked", "value": "false"},
-                {"key": "claim_gate_status", "value": "fixture_smoke_only"}
-            ],
-        }))
-        raise SystemExit(0)
-
-    def _shardloom_strip_product_local_workflow_flag():
-        args = _shardloom_sys.argv[1:]
-        if not args or args[0] != "local-source-runtime":
-            return
-        if "--product-local-workflow" not in args:
-            return
-        globals()["_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN"] = True
-        rewritten = [arg for arg in args if arg != "--product-local-workflow"]
-        _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten]
-
-    def _shardloom_append_fanout_outputs(rewritten, args):
-        for fanout_output in _shardloom_values_after_flag(args, "--fanout-output"):
-            rewritten.extend(["--fanout-output", fanout_output])
-
-    def _shardloom_without_format(args):
-        if "--format" not in args:
-            return args, []
-        index = args.index("--format")
-        return args[:index] + args[index + 2 :], args[index : index + 2]
-
-    def _shardloom_rewrite_public_run_argv():
-        args = _shardloom_sys.argv[1:]
-        if len(args) < 2 or args[0] != "run":
-            return
-        args, format_tail = _shardloom_without_format(args)
-        surface = args[1]
-        requested_output = _shardloom_take_flag(args, "--request") or "collect"
-        output_format = _shardloom_public_request_output_format(requested_output)
-        output_ref = _shardloom_take_flag(args, "--output")
-        sql = _shardloom_take_flag(args, "--sql")
-        generated_kind = _shardloom_take_flag(args, "--generated-source-kind")
-        allow_overwrite = _shardloom_has_flag(args, "--allow-overwrite")
-
-        if generated_kind is not None:
-            if generated_kind in {
-                "user_rows",
-                "literal_table",
-                "calendar",
-                "dataframe_source_free_projection",
-                "dataframe_generated_with_column",
-            }:
-                rewritten = [
-                    "generated-source-user-rows",
-                    output_ref,
-                    _shardloom_take_flag(args, "--generated-schema"),
-                    _shardloom_take_flag(args, "--generated-rows"),
-                    "--source-kind",
-                    generated_kind,
-                    "--output-format",
-                    output_format,
-                ]
-            else:
-                command = (
-                    "generated-source-sequence"
-                    if generated_kind == "sequence"
-                    else "generated-source-range"
-                )
-                rewritten = [
-                    command,
-                    output_ref,
-                    _shardloom_take_flag(args, "--generated-range-start"),
-                    _shardloom_take_flag(args, "--generated-range-end"),
-                    "--step",
-                    _shardloom_take_flag(args, "--generated-range-step") or "1",
-                    "--column",
-                    _shardloom_take_flag(args, "--generated-range-column") or "value",
-                    "--output-format",
-                    output_format,
-                ]
-            _shardloom_append_fanout_outputs(rewritten, args)
-            if allow_overwrite:
-                rewritten.append("--allow-overwrite")
-            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
-            return
-
-        if sql is not None and surface == "sql" and output_ref is not None and " FROM '" not in sql:
-            rewritten = [
-                "generated-source-sql",
-                output_ref,
-                sql,
-                "--output-format",
-                output_format,
-            ]
-            _shardloom_append_fanout_outputs(rewritten, args)
-            if allow_overwrite:
-                rewritten.append("--allow-overwrite")
-            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
-            return
-
-        if sql is not None:
-            rewritten = [
-                "local-source-runtime",
-                sql,
-                "--output-format",
-                output_format,
-            ]
-            if output_ref is not None:
-                rewritten.extend(["--output", output_ref])
-            _shardloom_append_fanout_outputs(rewritten, args)
-            if allow_overwrite:
-                rewritten.append("--allow-overwrite")
-            _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
-
-    _shardloom_emit_vortex_prepare_if_needed()
-    _shardloom_strip_product_local_workflow_flag()
-
-    if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
-        _shardloom_rewrite_public_run_argv()
-        _shardloom_strip_product_local_workflow_flag()
     """
 )
 
@@ -375,39 +187,18 @@ def _complete_pulseweave_runtime_fields() -> dict[str, object]:
 
 
 
-# These legacy unit fixtures asserted that public Python/DataFrame/SQL facades
-# rewrote local-source workflows directly into local-source-runtime.
-# The public facade now requires Vortex preparation/native execution or a
-# deterministic no-fallback blocker, so these stale direct-smoke fixtures are
-# retired while lower-level internal smoke command tests remain active.
-_RETIRED_PUBLIC_LOCAL_SQL_SMOKE_TESTS = frozenset(
-    """
-test_context_session_reuses_local_fanout_outputs_when_fingerprints_match
-test_context_session_reuses_local_query_output_when_fingerprints_match
-test_lazy_frame_local_jsonl_write_prepares_vortex_before_product_local_sink
-test_session_sql_workflow_write_reuses_output_when_fingerprints_match
-    """.split()
-)
 
 class ShardLoomClientTests(unittest.TestCase):
-    def setUp(self) -> None:
-        if self._testMethodName in _RETIRED_PUBLIC_LOCAL_SQL_SMOKE_TESTS:
-            self.skipTest(
-                "retired public direct local-source-runtime fixture; "
-                "current public local-source routes require Vortex middle or deterministic blockers"
-            )
 
     def fake_cli(
         self,
         body: str,
         *,
-        rewrite_public_run: bool = True,
         supports_worker: bool = False,
     ) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
-        prefix = "" if rewrite_public_run else "_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE = True\n"
         worker_guard = (
             ""
             if supports_worker
@@ -415,7 +206,7 @@ class ShardLoomClientTests(unittest.TestCase):
             "    raise SystemExit(64)\n"
         )
         path.write_text(
-            prefix + _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + worker_guard + "\n" + body,
+            _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + worker_guard + "\n" + body,
             encoding="utf-8",
         )
         return [sys.executable, str(path)]
@@ -1355,7 +1146,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(summary.fallback_attempted)
         self.assertFalse(summary.external_engine_invoked)
 
-    def test_runtime_activation_summary_labels_native_provider_feature_gate(self) -> None:
+    def test_runtime_activation_summary_labels_native_primitive_feature_gate(self) -> None:
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
@@ -1374,10 +1165,10 @@ class ShardLoomClientTests(unittest.TestCase):
                         "code": "not_implemented",
                         "severity": "error",
                         "category": "unsupported_feature",
-                        "message": "native Vortex provider-backed user routes are feature-gated",
-                        "feature": "public_workflow_route.native_vortex_provider_scenario",
-                        "reason": "compiled_without=vortex-production-runtime",
-                        "suggested_next_step": "build with the provider feature",
+                        "message": "native Vortex materializing primitives are feature-gated",
+                        "feature": "public_workflow_route.native_vortex_materializing_primitive",
+                        "reason": "compiled_without=vortex-local-primitives",
+                        "suggested_next_step": "build with vortex-local-primitives",
                         "fallback": {
                             "attempted": False,
                             "allowed": False,
@@ -1398,15 +1189,15 @@ class ShardLoomClientTests(unittest.TestCase):
                     {"key": "public_workflow_route_id", "value": "unsupported"},
                     {
                         "key": "public_workflow_blocker_id",
-                        "value": "py-vortex-route-unify-1.native_vortex_provider_feature_gated",
+                        "value": "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated",
                     },
                     {
                         "key": "public_workflow_blocker_reason",
-                        "value": "native Vortex provider route requires the feature",
+                        "value": "native Vortex materialization requires the feature",
                     },
                     {
                         "key": "public_workflow_native_vortex_required_feature_gate",
-                        "value": "vortex-production-runtime",
+                        "value": "vortex-local-primitives",
                     },
                     {"key": "source_format", "value": "vortex"},
                     {"key": "runtime_execution", "value": "false"},
@@ -1423,16 +1214,16 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(summary.native_vortex_enabled)
         self.assertEqual(
             summary.native_vortex_required_feature_gate,
-            "vortex-production-runtime",
+            "vortex-local-primitives",
         )
         self.assertEqual(
             summary.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_provider_feature_gated",
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated",
         )
         self.assertEqual(len(summary.unsupported_diagnostics), 1)
         self.assertEqual(
             summary.unsupported_diagnostics[0]["reason"],
-            "compiled_without=vortex-production-runtime",
+            "compiled_without=vortex-local-primitives",
         )
 
     def test_execution_result_view_preserves_artifact_rich_slots(self) -> None:
@@ -2606,12 +2397,12 @@ class ShardLoomClientTests(unittest.TestCase):
             "pulseweave_correctness_output_digest", validation.missing_fields
         )
 
-    def test_sql_local_source_report_result_rows_validate_jsonl_objects(self) -> None:
-        def report_for(result_jsonl: str) -> SqlLocalSourceSmokeReport:
+    def test_native_workflow_report_result_rows_validate_jsonl_objects(self) -> None:
+        def report_for(result_jsonl: str) -> VortexWorkflowExecutionReport:
             envelope = OutputEnvelope.from_json(
                 {
                     "schema_version": "shardloom.output.v2",
-                    "command": "local-source-runtime",
+                    "command": "run",
                     "status": "success",
                     "summary": "sql local source",
                     "human_text": "sql local source",
@@ -2633,7 +2424,11 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [{"key": "result_jsonl", "value": result_jsonl}],
                 }
             )
-            return SqlLocalSourceSmokeReport(envelope)
+            return VortexWorkflowExecutionReport(
+                workflow=from_rows([{"id": 1}]),
+                operation="collect",
+                envelope=envelope,
+            )
 
         valid = report_for('{"id":1,"label":"alpha"}\n\n{"id":2,"label":"beta"}\n')
         self.assertEqual(
@@ -2641,235 +2436,13 @@ class ShardLoomClientTests(unittest.TestCase):
             ({"id": 1, "label": "alpha"}, {"id": 2, "label": "beta"}),
         )
         self.assertEqual(valid.first_result_row, {"id": 1, "label": "alpha"})
+        self.assertEqual(valid.command, "run")
 
         with self.assertRaisesRegex(ShardLoomProtocolError, "invalid JSONL at line 1"):
             _ = report_for("not-json\n").result_rows
 
         with self.assertRaisesRegex(ShardLoomProtocolError, "line 1 is not a JSON object"):
             _ = report_for("1\n").result_rows
-
-    def test_sql_local_source_report_preserves_csv_escaped_like_escape_character(
-        self,
-    ) -> None:
-        envelope = OutputEnvelope.from_json(
-            {
-                "schema_version": "shardloom.output.v2",
-                "command": "local-source-runtime",
-                "status": "success",
-                "summary": "sql local source",
-                "human_text": "sql local source",
-                "fallback": {
-                    "attempted": False,
-                    "allowed": False,
-                    "engine": None,
-                    "reason": "disabled",
-                },
-                "diagnostics": [],
-                "result": {"fields": []},
-                "result_refs": [],
-                "artifacts": [],
-                "artifact_refs": [],
-                "certificates": [],
-                "policy": {"fields": []},
-                "lifecycle": {"fields": []},
-                "capability_snapshot": {"fields": []},
-                "fields": [
-                    {
-                        "key": "string_predicate_like_escape_character",
-                        "value": "\",\"",
-                    },
-                ],
-            }
-        )
-        report = SqlLocalSourceSmokeReport(envelope)
-
-        self.assertEqual(report.string_predicate_like_escape_character, (",",))
-
-    def test_sql_local_source_report_hides_absent_like_escape_character(
-        self,
-    ) -> None:
-        envelope = OutputEnvelope.from_json(
-            {
-                "schema_version": "shardloom.output.v2",
-                "command": "local-source-runtime",
-                "status": "success",
-                "summary": "sql local source",
-                "human_text": "sql local source",
-                "fallback": {
-                    "attempted": False,
-                    "allowed": False,
-                    "engine": None,
-                    "reason": "disabled",
-                },
-                "diagnostics": [],
-                "result": {"fields": []},
-                "result_refs": [],
-                "artifacts": [],
-                "artifact_refs": [],
-                "certificates": [],
-                "policy": {"fields": []},
-                "lifecycle": {"fields": []},
-                "capability_snapshot": {"fields": []},
-                "fields": [
-                    {
-                        "key": "string_predicate_like_escape_character",
-                        "value": "not_applicable",
-                    },
-                ],
-            }
-        )
-        report = SqlLocalSourceSmokeReport(envelope)
-
-        self.assertEqual(report.string_predicate_like_escape_character, ())
-
-    def test_sql_local_source_report_hides_absent_sink_artifact_refs(self) -> None:
-        envelope = OutputEnvelope.from_json(
-            {
-                "schema_version": "shardloom.output.v2",
-                "command": "local-source-runtime",
-                "status": "success",
-                "summary": "sql local source",
-                "human_text": "sql local source",
-                "fallback": {
-                    "attempted": False,
-                    "allowed": False,
-                    "engine": None,
-                    "reason": "disabled",
-                },
-                "diagnostics": [],
-                "result": {"fields": []},
-                "result_refs": [],
-                "artifacts": [],
-                "artifact_refs": [],
-                "certificates": [],
-                "policy": {"fields": []},
-                "lifecycle": {"fields": []},
-                "capability_snapshot": {"fields": []},
-                "fields": [
-                    {"key": "sink_artifact_ref", "value": "not_applicable"},
-                    {"key": "sink_artifact_refs", "value": "not_applicable,not_requested,none"},
-                    {"key": "sink_artifact_digest", "value": "not_requested"},
-                    {"key": "sink_artifact_digests", "value": "not_applicable,not_requested"},
-                    {
-                        "key": "output_plan_required_columns",
-                        "value": "not_applicable_inline_result,not_applicable_id",
-                    },
-                ],
-            }
-        )
-        report = SqlLocalSourceSmokeReport(envelope)
-
-        self.assertIsNone(report.sink_artifact_ref)
-        self.assertEqual(report.sink_artifact_refs, ())
-        self.assertIsNone(report.sink_artifact_digest)
-        self.assertEqual(report.sink_artifact_digests, ())
-        self.assertEqual(report.output_plan_required_columns, ("not_applicable_id",))
-
-    def test_sql_local_source_report_preserves_sentinel_like_sink_artifact_refs(self) -> None:
-        envelope = OutputEnvelope.from_json(
-            {
-                "schema_version": "shardloom.output.v2",
-                "command": "local-source-runtime",
-                "status": "success",
-                "summary": "sql local source",
-                "human_text": "sql local source",
-                "fallback": {
-                    "attempted": False,
-                    "allowed": False,
-                    "engine": None,
-                    "reason": "disabled",
-                },
-                "diagnostics": [],
-                "result": {"fields": []},
-                "result_refs": [],
-                "artifacts": [],
-                "artifact_refs": [],
-                "certificates": [],
-                "policy": {"fields": []},
-                "lifecycle": {"fields": []},
-                "capability_snapshot": {"fields": []},
-                "fields": [
-                    {
-                        "key": "sink_artifact_refs",
-                        "value": (
-                            "jsonl:not_applicable_output.jsonl,"
-                            "csv:target/not_applicable_output.csv,"
-                            "not_applicable_inline_result,not_requested"
-                        ),
-                    },
-                    {
-                        "key": "sink_artifact_digests",
-                        "value": (
-                            "jsonl:not_applicable_digest,"
-                            "csv:not_applicable_digest_csv,"
-                            "not_applicable_inline_result,none"
-                        ),
-                    },
-                ],
-            }
-        )
-        report = SqlLocalSourceSmokeReport(envelope)
-
-        self.assertEqual(
-            report.sink_artifact_refs,
-            (
-                "jsonl:not_applicable_output.jsonl",
-                "csv:target/not_applicable_output.csv",
-            ),
-        )
-        self.assertEqual(
-            report.sink_artifact_digests,
-            ("jsonl:not_applicable_digest", "csv:not_applicable_digest_csv"),
-        )
-
-    def test_sql_local_source_report_window_evidence_accessors(self) -> None:
-        envelope = OutputEnvelope.from_json(
-            {
-                "schema_version": "shardloom.output.v2",
-                "command": "local-source-runtime",
-                "status": "success",
-                "summary": "sql local source",
-                "human_text": "sql local source",
-                "fallback": {
-                    "attempted": False,
-                    "allowed": False,
-                    "engine": None,
-                    "reason": "disabled",
-                },
-                "diagnostics": [],
-                "result": {"fields": []},
-                "result_refs": [],
-                "artifacts": [],
-                "artifact_refs": [],
-                "certificates": [],
-                "policy": {"fields": []},
-                "lifecycle": {"fields": []},
-                "capability_snapshot": {"fields": []},
-                "fields": [
-                    {"key": "result_jsonl", "value": "{}\n"},
-                    {"key": "window_partition_columns", "value": "none,category"},
-                    {"key": "window_value_columns", "value": "label,label"},
-                    {"key": "window_offset_rows", "value": "1,not_applicable,2"},
-                    {"key": "window_bucket_counts", "value": "4,none,not_applicable"},
-                    {"key": "window_lag_runtime_execution", "value": "true"},
-                    {"key": "window_lead_runtime_execution", "value": "true"},
-                    {"key": "window_ntile_runtime_execution", "value": "true"},
-                    {"key": "window_percent_rank_runtime_execution", "value": "true"},
-                    {"key": "window_cume_dist_runtime_execution", "value": "true"},
-                ],
-            }
-        )
-        report = SqlLocalSourceSmokeReport(envelope)
-
-        self.assertEqual(report.window_value_columns, ("label", "label"))
-        self.assertEqual(report.window_partition_columns, ("none", "category"))
-        self.assertEqual(report.window_offset_rows, (1, 2))
-        self.assertEqual(report.window_bucket_counts, (4,))
-        self.assertTrue(report.window_lag_runtime_execution)
-        self.assertTrue(report.window_lead_runtime_execution)
-        self.assertTrue(report.window_ntile_runtime_execution)
-        self.assertTrue(report.window_percent_rank_runtime_execution)
-        self.assertTrue(report.window_cume_dist_runtime_execution)
 
     def test_vortex_prepare_helper_dispatches_prepare_once_route(self) -> None:
         binary = self.fake_cli(
@@ -3331,76 +2904,47 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
 
-    def test_renamed_runtime_aliases_forward_to_current_helpers(self) -> None:
+    def test_vortex_ingest_smoke_alias_forwards_to_vortex_prepare(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
 
-                args = sys.argv[1:]
-                if args[:1] == ["local-source-runtime"]:
-                    assert args == [
-                        "local-source-runtime",
-                        "SELECT id FROM 'target/source.csv' LIMIT 1",
-                        "--output-format",
-                        "inline-jsonl",
-                        "--format",
-                        "json",
-                    ], sys.argv
-                    command = "local-source-runtime"
-                    fields = [
-                        {"key": "result_jsonl", "value": "{\\"id\\":1}\\n"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"},
-                    ]
-                elif args[:1] == ["vortex-prepare"]:
-                    assert args == [
-                        "vortex-prepare",
-                        "target/source.csv",
-                        "target/source.vortex",
-                        "--input-format",
-                        "csv",
-                        "--format",
-                        "json",
-                    ], sys.argv
-                    command = "vortex-prepare"
-                    fields = [
-                        {"key": "source_path", "value": "target/source.csv"},
-                        {"key": "target_vortex_path", "value": "target/source.vortex"},
-                        {"key": "vortex_ingest_status", "value": "prepared_state_created"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"},
-                    ]
-                else:
-                    raise AssertionError(sys.argv)
-
+                assert sys.argv[1:] == [
+                    "vortex-prepare",
+                    "target/source.csv",
+                    "target/source.vortex",
+                    "--input-format",
+                    "csv",
+                    "--format",
+                    "json",
+                ], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": command,
+                    "command": "vortex-prepare",
                     "status": "success",
                     "summary": "ok",
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
-                    "fields": fields,
+                    "fields": [
+                        {"key": "source_path", "value": "target/source.csv"},
+                        {"key": "target_vortex_path", "value": "target/source.vortex"},
+                        {"key": "vortex_ingest_status", "value": "prepared_state_created"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ],
                 }))
                 """
             )
         )
-        client = ShardLoomClient(binary=binary)
-
-        local = client.sql_local_source_smoke(
-            "SELECT id FROM 'target/source.csv' LIMIT 1"
-        )
-        prepared = client.vortex_ingest_smoke(
+        prepared = ShardLoomClient(binary=binary).vortex_prepare(
             "target/source.csv",
             "target/source.vortex",
             input_format="csv",
         )
 
-        self.assertEqual(local.envelope.command, "local-source-runtime")
         self.assertEqual(prepared.envelope.command, "vortex-prepare")
-        self.assertFalse(local.fallback_attempted)
         self.assertFalse(prepared.external_engine_invoked)
 
     def test_vortex_prepare_helper_dispatches_delta_overlay_route(self) -> None:
@@ -3597,37 +3141,6 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.reopen_verification_status, "not_performed_ingest_minimal")
         self.assertEqual(result.certification_level, "ingest_minimal")
         self.assertEqual(result.claim_gate_status, "not_claim_grade")
-
-    def test_context_prepare_vortex_returns_compatibility_prepared_route(self) -> None:
-        route = ShardLoomContext(client=ShardLoomClient(binary=("unused",))).prepare_vortex(
-            "fact.arrow",
-            "dim.arrow",
-            workspace="target/prepared",
-            evidence_level="certified",
-        )
-
-        self.assertIsInstance(route, CompatibilityPreparedVortexRoute)
-        self.assertEqual(route.input_format, "arrow-ipc")
-        self.assertEqual(route.route_id, "local_file_prepare_once_first_query")
-        self.assertEqual(route.batch_route_id, "local_file_prepare_once_batch")
-        self.assertEqual(route.source_route, "compatibility_import_certified")
-        self.assertEqual(route.execution_mode, "prepared_vortex")
-        self.assertEqual(route.batch_execution_mode, "shardloom-prepare-batch")
-        self.assertIn("VortexPreparedState", route.vortex_normalization_point)
-        self.assertFalse(route.fallback_attempted)
-        self.assertFalse(route.external_engine_invoked)
-        fields = route.route_fields()
-        self.assertTrue(fields["preparation_included_in_route"])
-        self.assertTrue(fields["query_timing_starts_after_preparation"])
-        self.assertEqual(fields["input_format"], "arrow-ipc")
-
-    def test_context_prepare_vortex_rejects_mixed_inferred_input_formats(self) -> None:
-        with self.assertRaisesRegex(ValueError, "infer the same input_format"):
-            ShardLoomContext(client=ShardLoomClient(binary=("unused",))).prepare_vortex(
-                "fact.parquet",
-                "dim.csv",
-                workspace="target/prepared",
-            )
 
     def test_lazy_frame_prepare_vortex_auto_uses_single_artifact_rewrite(
         self,
@@ -3917,149 +3430,86 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(result.fallback_attempted)
             self.assertFalse(result.external_engine_invoked)
 
-    def test_lazy_frame_prepare_vortex_route_is_queryable_when_dim_is_supplied(
+    def _single_declared_csv_run_fake_cli(
         self,
-    ) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-prepare-batch-run",
-                    "selective filter",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "csv",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-prepare-batch-run",
-                    "status": "success",
-                    "summary": "prepare/batch",
-                    "human_text": "prepare/batch",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
-                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_scan_complete_output_not_requested"},
-                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_not_requested"},
-                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
-                        {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
-                        {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
-                        {"key": "prepare_batch_fact_vortex_digest", "value": "sha256:f"},
-                        {"key": "prepare_batch_dim_vortex_digest", "value": "sha256:d"},
-                        {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
-                        {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
-                        {"key": "scenario_order", "value": "selective filter"},
-                        {"key": "source_state_reused", "value": "true"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            )
+        *,
+        surface: str,
+        source: Path,
+        sql_statement: str,
+        result_columns: tuple[str, ...],
+        result_rows: list[dict[str, int]],
+    ) -> tuple[list[str], Path]:
+        calls_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(calls_dir.cleanup)
+        calls_path = Path(calls_dir.name) / "run-count.txt"
+        result_count = len(result_rows)
+        schema_json = json.dumps({
+            "Struct": [{
+                "names": list(result_columns),
+                "dtypes": [{"Primitive": ["i64", False]} for _ in result_columns],
+            }, False],
+        })
+        values_json = json.dumps(result_rows)
+        bindings_json = json.dumps({str(source): {"input_format": "csv"}})
+        body = textwrap.dedent(
+            f"""
+            import json, sys
+            from pathlib import Path
+
+            args = sys.argv[1:]
+            assert args[:2] == ["run", {surface!r}], args
+            def value(flag):
+                return args[args.index(flag) + 1]
+            if {surface!r} == "dataframe":
+                assert value("--input") == {str(source)!r}, args
+                assert value("--input-format") == "csv", args
+                assert json.loads(value("--source-bindings")) == json.loads({bindings_json!r}), args
+            else:
+                assert "--input" not in args and "--source-bindings" not in args, args
+            assert value("--sql") == {sql_statement!r}, args
+            assert value("--request") == "collect", args
+            assert value("--memory-gb") == "2", args
+            assert value("--max-parallelism") == "1", args
+            assert not any(arg.startswith("--vortex-") for arg in args), args
+            calls_path = Path({str(calls_path)!r})
+            calls_path.write_text(str(int(calls_path.read_text()) + 1) if calls_path.exists() else "1")
+            result_fields = [
+                {{"key": "result_schema_json", "value": {schema_json!r}}},
+                {{"key": "result_schema_format", "value": "vortex.dtype.serde.v1"}},
+                {{"key": "result_values_json", "value": {values_json!r}}},
+            ]
+            print(json.dumps({{
+                "schema_version": "shardloom.output.v2",
+                "command": "run",
+                "status": "success",
+                "summary": "declared CSV query",
+                "human_text": "declared CSV query",
+                "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                "diagnostics": [],
+                "result": {{"fields": result_fields}},
+                "fields": result_fields + [
+                    {{"key": "output_row_count", "value": str({result_count})}},
+                    {{"key": "runtime_execution", "value": "true"}},
+                    {{"key": "data_read", "value": "true"}},
+                    {{"key": "fallback_attempted", "value": "false"}},
+                    {{"key": "external_engine_invoked", "value": "false"}},
+                ],
+            }}))
+            """
         )
-        frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_csv("fact.csv")
+        return self.fake_cli(body), calls_path
 
-        route = frame.prepare_vortex(dim="dim.csv", workspace="work")
-        query = route.query("selective filter")
-        result = query.collect()
-
-        self.assertIsInstance(route, CompatibilityPreparedVortexRoute)
-        self.assertIsInstance(query, PreparedVortexQuery)
-        self.assertIsInstance(result, PreparedVortexBatchResult)
-        self.assertEqual(query.execution_mode, "prepared_vortex")
-        self.assertEqual(result.scenario_order, ("selective filter",))
-        self.assertFalse(result.fallback_attempted)
-        self.assertFalse(result.external_engine_invoked)
-
-    def test_lazy_frame_universal_read_collect_auto_prepares_vortex_and_runs_native_primitive(
-        self,
-    ) -> None:
+    def test_lazy_frame_local_csv_collect_runs_one_declared_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source = root / "source.csv"
-            calls = root / "calls.json"
+            source = Path(tempdir) / "source.csv"
             source.write_text("value,metric\n1,10\n3,30\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-                    calls_path = Path({str(calls)!r})
-                    calls = json.loads(calls_path.read_text(encoding="utf-8")) if calls_path.exists() else []
-                    command = sys.argv[1]
-                    if command == "local-source-runtime":
-                        raise AssertionError("public LazyFrame collect must not execute local-source-runtime")
-                    if command == "vortex-prepare":
-                        source = Path(sys.argv[2])
-                        target = Path(sys.argv[3])
-                        assert source.name == "source.csv", sys.argv
-                        assert ".shardloom" in target.parts and "prepared" in target.parts, sys.argv
-                        assert sys.argv[sys.argv.index("--input-format") + 1] == "csv", sys.argv
-                        calls.append(["prepare", str(target)])
-                        calls_path.write_text(json.dumps(calls), encoding="utf-8")
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "vortex-prepare",
-                            "status": "success",
-                            "summary": "prepared",
-                            "human_text": "prepared",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [
-                                {{"key": "source_path", "value": str(source)}},
-                                {{"key": "target_vortex_path", "value": str(target)}},
-                                {{"key": "vortex_ingest_performed", "value": "true"}},
-                                {{"key": "prepared_state_created", "value": "true"}},
-                                {{"key": "prepared_state_reused", "value": "false"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}},
-                                {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
-                            ],
-                        }}))
-                    elif command == "run":
-                        args = sys.argv[1:]
-                        assert "--sql" not in args, args
-                        assert args[args.index("--input-format") + 1] == "vortex", args
-                        prepared_input = args[args.index("--input") + 1]
-                        assert prepared_input.endswith(".vortex"), args
-                        assert args[args.index("--vortex-primitive") + 1] == "filter_project", args
-                        assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
-                        assert args[args.index("--vortex-columns") + 1] == "metric,value", args
-                        assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
-                        calls.append(["run", prepared_input])
-                        calls_path.write_text(json.dumps(calls), encoding="utf-8")
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "run",
-                            "status": "success",
-                            "summary": "native",
-                            "human_text": "native",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [
-                                {{"key": "public_workflow_resolved_internal_command", "value": "vortex-filter-project"}},
-                                {{"key": "public_workflow_vortex_primitive", "value": "filter_project"}},
-                                {{"key": "filter_project_local_execution_result_known", "value": "true"}},
-                                {{"key": "filter_project_local_execution_rows_projected", "value": "1"}},
-                                {{"key": "data_read", "value": "true"}},
-                                {{"key": "data_decoded", "value": "false"}},
-                                {{"key": "data_materialized", "value": "false"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}},
-                                {{"key": "claim_gate_status", "value": "not_claim_grade"}}
-                            ],
-                        }}))
-                    else:
-                        raise AssertionError(sys.argv)
-                    """
-                )
+            statement = f"SELECT metric,value FROM '{source}' WHERE value >= 3 LIMIT 5"
+            binary, calls_path = self._single_declared_csv_run_fake_cli(
+                surface="dataframe",
+                source=source,
+                sql_statement=statement,
+                result_columns=("metric", "value"),
+                result_rows=[{"metric": 30, "value": 3}],
             )
 
             result = (
@@ -4071,179 +3521,46 @@ class ShardLoomClientTests(unittest.TestCase):
                 .collect(memory_gb=2, max_parallelism=1)
             )
 
-            self.assertEqual(result.command, "vortex-filter-project")
-            self.assertTrue(result.vortex_ingest_performed)
-            self.assertIsNotNone(result.prepared_vortex_path)
+            self.assertEqual(result.command, "run")
+            self.assertEqual(result.result_columns, ("metric", "value"))
+            self.assertEqual(result.result_rows, ({"metric": 30, "value": 3},))
+            self.assertEqual(
+                [(name, dtype.name) for name, dtype in result.result_schema],
+                [("metric", "int64"), ("value", "int64")],
+            )
+            self.assertTrue(result.runtime_execution)
             self.assertFalse(result.fallback_attempted)
             self.assertFalse(result.external_engine_invoked)
-            self.assertEqual(
-                [call[0] for call in json.loads(calls.read_text(encoding="utf-8"))],
-                ["run"],
-            )
+            self.assertEqual(calls_path.read_text(), "1")
 
-    def test_lazy_frame_local_jsonl_write_prepares_vortex_before_product_local_sink(
-        self,
-    ) -> None:
+    def test_sql_local_collect_runs_one_declared_csv_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source = root / "source.csv"
-            output = root / "out.jsonl"
+            source = Path(tempdir) / "source.csv"
             source.write_text("value,metric\n1,10\n3,30\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-                    if sys.argv[1] == "local-source-runtime":
-                        assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
-                        assert "--output" in sys.argv, sys.argv
-                        output_path = Path(sys.argv[sys.argv.index("--output") + 1])
-                        output_path.write_text(json.dumps({{"metric": 30, "value": 3}}) + "\\n", encoding="utf-8")
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "local-source-runtime",
-                            "status": "success",
-                            "summary": "ok",
-                            "human_text": "ok",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [
-                                {{"key": "output_format", "value": "jsonl"}},
-                                {{"key": "output_path", "value": str(output_path)}},
-                                {{"key": "output_io_performed", "value": "true"}},
-                                {{"key": "output_row_count", "value": "1"}},
-                                {{"key": "selected_row_count", "value": "1"}},
-                                {{"key": "source_state_id", "value": "sql-source-state-1"}},
-                                {{"key": "source_state_digest", "value": "fnv64:sql-source-1"}},
-                                {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
-                                {{"key": "source_state_read_plan", "value": "projected_source_state"}},
-                                {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
-                                {{"key": "result_replay_verified", "value": "true"}},
-                                {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
-                                {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}}
-                            ],
-                        }}))
-                        raise SystemExit(0)
-                    raise AssertionError(sys.argv)
-                    """
-                )
-            )
-
-            report = (
-                ShardLoomContext(client=ShardLoomClient(binary=binary))
-                .read_csv(source)
-                .filter("value >= 3")
-                .select("metric", "value")
-                .limit(5)
-                .write_jsonl(output, allow_overwrite=True, check=False)
-            )
-
-            self.assertEqual(report.output_format, "jsonl")
-            self.assertEqual(report.output_path, str(output))
-            self.assertTrue(report.vortex_ingest_performed)
-            self.assertTrue(report.output_io_performed)
-            self.assertTrue(report.result_replay_verified)
-            self.assertFalse(report.fallback_attempted)
-            self.assertFalse(report.external_engine_invoked)
-            self.assertTrue(output.exists())
-
-    def test_sql_local_collect_auto_prepares_vortex_and_runs_native_route(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source = root / "source.csv"
-            calls = root / "sql-calls.json"
-            source.write_text("value,metric\n1,10\n3,30\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-                    calls_path = Path({str(calls)!r})
-                    calls = json.loads(calls_path.read_text(encoding="utf-8")) if calls_path.exists() else []
-                    command = sys.argv[1]
-                    if command == "local-source-runtime":
-                        raise AssertionError("public SQL collect must not execute local-source-runtime")
-                    if command == "vortex-prepare":
-                        source = Path(sys.argv[2])
-                        target = Path(sys.argv[3])
-                        assert source.name == "source.csv", sys.argv
-                        assert ".shardloom" in target.parts and "prepared" in target.parts, sys.argv
-                        assert sys.argv[sys.argv.index("--input-format") + 1] == "csv", sys.argv
-                        calls.append(["prepare", str(target)])
-                        calls_path.write_text(json.dumps(calls), encoding="utf-8")
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "vortex-prepare",
-                            "status": "success",
-                            "summary": "prepared",
-                            "human_text": "prepared",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [
-                                {{"key": "target_vortex_path", "value": str(target)}},
-                                {{"key": "vortex_ingest_performed", "value": "true"}},
-                                {{"key": "prepared_state_created", "value": "true"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}}
-                            ],
-                        }}))
-                    elif command == "run":
-                        args = sys.argv[1:]
-                        assert args[1] == "sql", args
-                        assert args[args.index("--input-format") + 1] == "vortex", args
-                        prepared_input = args[args.index("--input") + 1]
-                        assert prepared_input.endswith(".vortex"), args
-                        sql_statement = args[args.index("--sql") + 1]
-                        assert ".vortex" in sql_statement and "source.csv" not in sql_statement, args
-                        assert args[args.index("--vortex-primitive") + 1] == "filter_project", args
-                        assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
-                        assert args[args.index("--vortex-columns") + 1] == "value,metric", args
-                        assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
-                        calls.append(["run", prepared_input])
-                        calls_path.write_text(json.dumps(calls), encoding="utf-8")
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "run",
-                            "status": "success",
-                            "summary": "native sql",
-                            "human_text": "native sql",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [
-                                {{"key": "public_workflow_resolved_internal_command", "value": "vortex-filter-project"}},
-                                {{"key": "public_workflow_vortex_primitive", "value": "filter_project"}},
-                                {{"key": "filter_project_local_execution_result_known", "value": "true"}},
-                                {{"key": "filter_project_local_execution_rows_projected", "value": "1"}},
-                                {{"key": "data_read", "value": "true"}},
-                                {{"key": "data_decoded", "value": "false"}},
-                                {{"key": "data_materialized", "value": "false"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}}
-                            ],
-                        }}))
-                    else:
-                        raise AssertionError(sys.argv)
-                    """
-                ),
-                rewrite_public_run=False,
+            statement = f"SELECT value, metric FROM '{source}' WHERE value >= 3 LIMIT 5"
+            binary, calls_path = self._single_declared_csv_run_fake_cli(
+                surface="sql",
+                source=source,
+                sql_statement=statement,
+                result_columns=("value", "metric"),
+                result_rows=[{"value": 3, "metric": 30}],
             )
 
             result = ShardLoomContext(client=ShardLoomClient(binary=binary)).sql(
-                f"SELECT value, metric FROM '{source}' WHERE value >= 3 LIMIT 5"
+                statement
             ).collect(memory_gb=2, max_parallelism=1)
 
-            self.assertEqual(result.command, "vortex-filter-project")
-            self.assertTrue(result.vortex_ingest_performed)
+            self.assertEqual(result.command, "run")
+            self.assertEqual(result.result_columns, ("value", "metric"))
+            self.assertEqual(result.result_rows, ({"value": 3, "metric": 30},))
+            self.assertEqual(
+                [(name, dtype.name) for name, dtype in result.result_schema],
+                [("value", "int64"), ("metric", "int64")],
+            )
+            self.assertTrue(result.runtime_execution)
             self.assertFalse(result.fallback_attempted)
             self.assertFalse(result.external_engine_invoked)
-            self.assertEqual(
-                [call[0] for call in json.loads(calls.read_text(encoding="utf-8"))],
-                ["run"],
-            )
+            self.assertEqual(calls_path.read_text(), "1")
 
     def test_lazy_frame_prepare_vortex_rejects_ambiguous_or_non_raw_inputs(
         self,
@@ -4271,7 +3588,7 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "live/hybrid preparation remains gated"):
             live_ctx.read_csv("source.csv").prepare_vortex(workspace="target/prepared")
 
-        with self.assertRaisesRegex(ValueError, "query routes require dim"):
+        with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'cdc_delta'"):
             ctx.read_csv("source.csv").prepare_vortex(
                 workspace="target/prepared",
                 input_format="csv",
@@ -4283,52 +3600,58 @@ class ShardLoomClientTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             workspace = Path(tempdir) / "prepared"
+            frame = ShardLoomContext(
+                client=ShardLoomClient(binary=("unused",))
+            ).from_rows([{"id": 1, "label": "alpha"}])
+            target = workspace / (frame.source.uri.rsplit("/", 1)[-1] + ".vortex")
+            statement = f"SELECT * FROM '{frame.source.uri}'"
+            bindings = json.dumps({frame.source.uri: {
+                "input_format": "memory",
+                "memory_input": {
+                    "kind": "rows",
+                    "schema": [["id", "int64"], ["label", "utf8"]],
+                    "rows": [["1", "alpha"]],
+                },
+            }})
+            result_schema = json.dumps({"Struct": [{
+                "names": ["id", "label"],
+                "dtypes": [{"Primitive": ["i64", False]}, {"Utf8": False}],
+            }, False]})
+            result_values = json.dumps([{"id": 1, "label": "alpha"}])
             binary = self.fake_cli(
                 textwrap.dedent(
                     f"""
                     import json, sys
                     args = sys.argv[1:]
-                    assert args[0] == "generated-source-user-rows", sys.argv
-                    assert args[1].startswith({str(workspace)!r}), sys.argv
-                    assert args[1].endswith(".vortex"), sys.argv
-                    assert args[2:] == [
-                        "id:int64,label:utf8", "id=1,label=alpha",
-                        "--source-kind", "user_rows", "--output-format", "vortex",
-                        "--format", "json"
-                    ], sys.argv
+                    assert args[:2] == ["run", "dataframe"], args
+                    def value(flag): return args[args.index(flag) + 1]
+                    assert value("--sql") == {statement!r}, args
+                    assert json.loads(value("--source-bindings")) == json.loads({bindings!r}), args
+                    assert value("--request") == "write_vortex", args
+                    assert value("--output") == {str(target)!r}, args
+                    assert value("--memory-gb") == "4", args
+                    assert value("--max-parallelism") == "2", args
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
-                        "command": "generated-source-user-rows",
+                        "command": "run",
                         "status": "success",
-                        "summary": "ok",
-                        "human_text": "ok",
+                        "summary": "native rows written",
+                        "human_text": "native rows written",
                         "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
                         "diagnostics": [],
                         "fields": [
-                            {{"key": "generated_source_kind", "value": "user_rows"}},
-                            {{"key": "generated_source_row_count", "value": "1"}},
-                            {{"key": "generated_source_certificate_status", "value": "present"}},
-                            {{"key": "output_native_io_certificate_status", "value": "certified_local_vortex_sink"}},
-                            {{"key": "output_path", "value": args[1]}},
-                            {{"key": "output_format", "value": "vortex"}},
-                            {{"key": "vortex_output_runtime_execution", "value": "true"}},
-                            {{"key": "vortex_output_reopen_verified", "value": "true"}},
-                            {{"key": "vortex_output_row_count", "value": "1"}},
-                            {{"key": "vortex_artifact_digest", "value": "fnv64:vortex-generated"}},
-                            {{"key": "prepared_state_created", "value": "true"}},
-                            {{"key": "prepared_state_reused", "value": "false"}},
-                            {{"key": "prepared_state_reuse_hit", "value": "false"}},
-                            {{"key": "prepared_state_reuse_scope", "value": "single_vortex_artifact_no_sidecar"}},
-                            {{"key": "prepared_state_reuse_manifest_path", "value": "not_applicable_single_vortex_artifact"}},
-                            {{"key": "prepared_state_reuse_policy", "value": "single_vortex_artifact_no_sidecar.v1"}},
-                            {{"key": "prepared_state_reuse_reason", "value": "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar"}},
-                            {{"key": "prepared_state_reuse_manifest_digest", "value": "not_applicable_single_vortex_artifact"}},
-                            {{"key": "prepared_state_invalidation_reason", "value": "not_applicable_single_vortex_artifact"}},
-                            {{"key": "upstream_vortex_write_called", "value": "true"}},
-                            {{"key": "upstream_vortex_scan_called", "value": "true"}},
+                            {{"key": "result_schema_json", "value": {result_schema!r}}},
+                            {{"key": "result_schema_format", "value": "vortex.dtype.serde.v1"}},
+                            {{"key": "result_values_json", "value": {result_values!r}}},
+                            {{"key": "native_vortex_result_export_path", "value": {str(target)!r}}},
+                            {{"key": "native_vortex_result_export_format", "value": "vortex"}},
+                            {{"key": "native_vortex_result_export_rows_written", "value": "1"}},
+                            {{"key": "native_vortex_result_export_all_targets_committed", "value": "true"}},
+                            {{"key": "runtime_execution", "value": "true"}},
+                            {{"key": "output_io_performed", "value": "true"}},
                             {{"key": "fallback_attempted", "value": "false"}},
                             {{"key": "external_engine_invoked", "value": "false"}},
-                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                            {{"key": "claim_gate_status", "value": "not_claim_grade"}}
                         ],
                     }}))
                     """
@@ -4336,98 +3659,16 @@ class ShardLoomClientTests(unittest.TestCase):
             )
             ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
 
-            report = ctx.from_rows([{"id": 1, "label": "alpha"}]).prepare_vortex(
-                workspace=workspace
-            )
+            report = ctx.from_rows([{"id": 1, "label": "alpha"}]).prepare_vortex(workspace=workspace)
 
-            self.assertIsInstance(report, GeneratedSourceWriteReport)
-            self.assertTrue(report.output_path.startswith(str(workspace)))
-            self.assertTrue(report.output_path.endswith(".vortex"))
+            self.assertIsInstance(report, VortexWorkflowExecutionReport)
+            self.assertEqual(report.output_path, str(target))
             self.assertEqual(report.output_format, "vortex")
-            self.assertTrue(report.vortex_output_runtime_execution)
-            self.assertTrue(report.vortex_output_reopen_verified)
-            self.assertTrue(report.prepared_state_created)
-            self.assertFalse(report.prepared_state_reused)
-            self.assertFalse(report.prepared_state_reuse_hit)
-            self.assertEqual(
-                report.prepared_state_reuse_scope,
-                "single_vortex_artifact_no_sidecar",
-            )
-            self.assertEqual(
-                report.prepared_state_reuse_reason,
-                "generated_source_vortex_output_writes_single_vortex_artifact_without_sidecar",
-            )
-            self.assertEqual(
-                report.prepared_state_reuse_manifest_digest,
-                "not_applicable_single_vortex_artifact",
-            )
+            self.assertEqual(report.rows_written, 1)
+            self.assertEqual(report.output_commit_status, "committed")
+            self.assertTrue(report.runtime_execution)
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
-
-    def test_generated_source_smoke_aliases_call_runtime_helpers(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-
-                command = sys.argv[1]
-                expected_commands = {
-                    "generated-source-user-rows": "user_rows",
-                    "generated-source-range": "engine_native_range",
-                    "generated-source-sequence": "engine_native_sequence",
-                    "generated-source-sql": "engine_native_sql",
-                }
-                assert command in expected_commands, sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": command,
-                    "status": "success",
-                    "summary": "generated source alias",
-                    "human_text": "generated source alias",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "output_path", "value": sys.argv[2]},
-                        {"key": "output_format", "value": "jsonl"},
-                        {"key": "generated_source_kind", "value": expected_commands[command]},
-                        {"key": "generated_source_row_count", "value": "1"},
-                        {"key": "generated_source_certificate_status", "value": "present"},
-                        {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"},
-                    ],
-                }))
-                """
-            )
-        )
-        client = ShardLoomClient(binary=binary)
-
-        rows = client.generated_source_user_rows_smoke(
-            "target/generated-rows.jsonl",
-            "id:int64",
-            "id=1",
-        )
-        range_report = client.generated_source_range_smoke(
-            "target/generated-range.jsonl",
-            0,
-            1,
-        )
-        sequence = client.generated_source_sequence_smoke(
-            "target/generated-sequence.jsonl",
-            0,
-            1,
-        )
-        sql = client.generated_source_sql_smoke(
-            "target/generated-sql.jsonl",
-            "select 1 as id",
-        )
-
-        self.assertEqual(rows.envelope.command, "generated-source-user-rows")
-        self.assertEqual(range_report.envelope.command, "generated-source-range")
-        self.assertEqual(sequence.envelope.command, "generated-source-sequence")
-        self.assertEqual(sql.envelope.command, "generated-source-sql")
-        self.assertFalse(rows.fallback_attempted)
-        self.assertFalse(sql.external_engine_invoked)
 
     def test_generated_source_prepare_vortex_rejects_ambiguous_target_ownership(
         self,
@@ -4447,67 +3688,63 @@ class ShardLoomClientTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             workspace = Path(tempdir) / "prepared"
-            range_target = workspace / "generated-range-0-2-1-value.vortex"
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)))
+            range_frame = ctx.range(0, 2)
+            range_target = workspace / (range_frame.source.uri.rsplit("/", 1)[-1] + ".vortex")
             sql_target = Path(tempdir) / "values.vortex"
+            sql_statement = "VALUES (1)"
+            range_statement = f"SELECT * FROM '{range_frame.source.uri}'"
+            bindings = json.dumps({range_frame.source.uri: {
+                "input_format": "memory",
+                "memory_input": {
+                    "kind": "range", "start": 0, "end": 2, "step": 1,
+                    "column": "value", "inclusive": False,
+                },
+            }})
             binary = self.fake_cli(
                 textwrap.dedent(
                     f"""
                     import json, sys
                     args = sys.argv[1:]
-                    if args[0] == "generated-source-range":
-                        assert args == [
-                            "generated-source-range",
-                            {str(range_target)!r},
-                            "0",
-                            "2",
-                            "--step",
-                            "1",
-                            "--column",
-                            "value",
-                            "--output-format",
-                            "vortex",
-                            "--format",
-                            "json",
-                        ], sys.argv
-                        kind = "range"
+                    assert args[:1] == ["run"], args
+                    assert args[1] in {"dataframe", "sql"}, args
+                    def value(flag): return args[args.index(flag) + 1]
+                    statement = value("--sql")
+                    if statement == {range_statement!r}:
+                        assert json.loads(value("--source-bindings")) == json.loads({bindings!r}), args
                         output_path = {str(range_target)!r}
-                    elif args[0] == "generated-source-sql":
-                        assert args == [
-                            "generated-source-sql",
-                            {str(sql_target)!r},
-                            "VALUES (1)",
-                            "--output-format",
-                            "vortex",
-                            "--format",
-                            "json",
-                        ], sys.argv
-                        kind = "sql_values"
+                        schema = {{"Struct": [{{"names": ["value"], "dtypes": [{{"Primitive": ["i64", False]}}]}}, False]}}
+                        rows = [{{"value": 0}}, {{"value": 1}}]
+                    elif statement == {sql_statement!r}:
+                        assert "--source-bindings" not in args, args
                         output_path = {str(sql_target)!r}
+                        schema = {{"Struct": [{{"names": ["column_1"], "dtypes": [{{"Primitive": ["i64", False]}}]}}, False]}}
+                        rows = [{{"column_1": 1}}]
                     else:
-                        raise AssertionError(sys.argv)
+                        raise AssertionError(args)
+                    assert value("--request") == "write_vortex", args
+                    assert value("--output") == output_path, args
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
-                        "command": args[0],
+                        "command": "run",
                         "status": "success",
-                        "summary": "ok",
-                        "human_text": "ok",
+                        "summary": "native Vortex write",
+                        "human_text": "native Vortex write",
                         "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
                         "diagnostics": [],
                         "fields": [
-                            {{"key": "generated_source_kind", "value": kind}},
-                            {{"key": "generated_source_row_count", "value": "1"}},
-                            {{"key": "generated_source_certificate_status", "value": "present"}},
-                            {{"key": "output_native_io_certificate_status", "value": "certified_local_vortex_sink"}},
-                            {{"key": "output_path", "value": output_path}},
-                            {{"key": "output_format", "value": "vortex"}},
-                            {{"key": "prepared_state_created", "value": "true"}},
-                            {{"key": "prepared_state_reuse_hit", "value": "false"}},
-                            {{"key": "vortex_output_runtime_execution", "value": "true"}},
-                            {{"key": "upstream_vortex_write_called", "value": "true"}},
-                            {{"key": "upstream_vortex_scan_called", "value": "true"}},
+                            {{"key": "result_schema_json", "value": json.dumps(schema)}},
+                            {{"key": "result_schema_format", "value": "vortex.dtype.serde.v1"}},
+                            {{"key": "result_values_json", "value": json.dumps(rows)}},
+                            {{"key": "native_vortex_result_export_path", "value": output_path}},
+                            {{"key": "native_vortex_result_export_format", "value": "vortex"}},
+                            {{"key": "native_vortex_result_export_rows_written", "value": str(len(rows))}},
+                            {{"key": "native_vortex_result_export_all_targets_committed", "value": "true"}},
+                            {{"key": "runtime_execution", "value": "true"}},
+                            {{"key": "output_io_performed", "value": "true"}},
                             {{"key": "fallback_attempted", "value": "false"}},
                             {{"key": "external_engine_invoked", "value": "false"}},
-                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                            {{"key": "claim_gate_status", "value": "not_claim_grade"}}
                         ],
                     }}))
                     """
@@ -4516,456 +3753,18 @@ class ShardLoomClientTests(unittest.TestCase):
             ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
 
             range_report = ctx.range(0, 2).prepare_vortex(workspace=workspace)
-            sql_report = ctx.sql_values("VALUES (1)").prepare_vortex(sql_target)
+            sql_report = ctx.sql_values(sql_statement).write_vortex(sql_target)
 
+            self.assertIsInstance(range_report, VortexWorkflowExecutionReport)
+            self.assertIsInstance(sql_report, VortexWorkflowExecutionReport)
             self.assertEqual(range_report.output_path, str(range_target))
             self.assertEqual(sql_report.output_path, str(sql_target))
             self.assertEqual(range_report.output_format, "vortex")
             self.assertEqual(sql_report.output_format, "vortex")
-            self.assertTrue(range_report.prepared_state_created)
-            self.assertTrue(sql_report.prepared_state_created)
-            self.assertFalse(range_report.prepared_state_reuse_hit)
-            self.assertFalse(sql_report.prepared_state_reuse_hit)
-
-    def test_session_prepare_vortex_returns_compatibility_prepared_route(self) -> None:
-        session = ShardLoomSession(client=ShardLoomClient(binary=("unused",)))
-
-        route = session.prepare_vortex(
-            "fact.jsonl",
-            dim="dim.jsonl",
-            workspace="target/prepared",
-        )
-
-        self.assertIsInstance(route, CompatibilityPreparedVortexRoute)
-        self.assertEqual(route.input_format, "jsonl")
-        self.assertEqual(route.route_id, "local_file_prepare_once_first_query")
-        self.assertEqual(route.batch_route_id, "local_file_prepare_once_batch")
-        self.assertFalse(route.fallback_attempted)
-        self.assertFalse(route.external_engine_invoked)
-
-    def test_context_prepared_route_query_collect_dispatches_prepare_batch(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-prepare-batch-run",
-                    "selective filter",
-                    "fact.parquet",
-                    "dim.parquet",
-                    "--workspace",
-                    "prepare-work",
-                    "--input-format",
-                    "parquet",
-                    "--cdc-delta",
-                    "cdc.parquet",
-                    "--result-workspace",
-                    "result-work",
-                    "--write-result-vortex",
-                    "--evidence-level",
-                    "certified",
-                    "--memory-gb",
-                    "2",
-                    "--max-parallelism",
-                    "4",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-prepare-batch-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
-                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_complete_with_output_replay"},
-                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_written_and_replay_verified"},
-                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
-                        {"key": "prepare_batch_preparation_input_format", "value": "parquet"},
-                        {"key": "prepare_batch_preparation_included_in_batch_timing", "value": "false"},
-                        {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
-                        {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
-                        {"key": "prepare_batch_cdc_delta_vortex_path", "value": "cdc.vortex"},
-                        {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
-                        {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
-                        {"key": "scenario_order", "value": "selective filter"},
-                        {"key": "source_state_digest", "value": "sha256:source"},
-                        {"key": "source_state_reuse_status", "value": "per_batch_selective_filter_state_reused"},
-                        {"key": "source_state_reused", "value": "true"},
-                        {"key": "selected_evidence_level", "value": "certified"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            )
-        )
-        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
-
-        query = ctx.prepare_vortex(
-            "fact.parquet",
-            dim="dim.parquet",
-            workspace="prepare-work",
-            cdc_delta="cdc.parquet",
-            evidence_level="certified",
-            memory_gb=2,
-            max_parallelism=4,
-        ).query("selective filter", result_workspace="result-work")
-
-        self.assertIsInstance(query, PreparedVortexQuery)
-        self.assertEqual(query.execution_mode, "prepared_vortex")
-        result = query.write_vortex()
-
-        self.assertIsInstance(result, PreparedVortexBatchResult)
-        self.assertEqual(result.batch.command, "traditional-analytics-prepare-batch-run")
-        self.assertEqual(result.artifacts.fact_vortex_path, "fact.vortex")
-        self.assertEqual(result.artifacts.cdc_delta_vortex_path, "cdc.vortex")
-        self.assertEqual(result.scenario_order, ("selective filter",))
-        self.assertTrue(result.source_state_reused)
-        self.assertTrue(result.lifecycle_complete_with_output_replay)
-        self.assertFalse(result.fallback_attempted)
-        self.assertFalse(result.external_engine_invoked)
-
-    def test_context_prepared_route_reuses_workspace_manifest_without_reprepare(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            fact = root / "fact.csv"
-            dim = root / "dim.csv"
-            workspace = root / "prepared"
-            count_path = root / "counts.json"
-            fact.write_text(
-                "id,group_key,dim_key,value,metric,flag,category\n"
-                "1,1,10,7,3.5,1,A\n",
-                encoding="utf-8",
-            )
-            dim.write_text("dim_key,dim_label,weight\n10,alpha,1.0\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-
-                    count_path = Path({str(count_path)!r})
-                    counts = json.loads(count_path.read_text(encoding="utf-8")) if count_path.exists() else {{"prepare": 0, "batch": 0, "repair": 0}}
-
-                    def emit(command, fields):
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": command,
-                            "status": "success",
-                            "summary": "ok",
-                            "human_text": "ok",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [{{"key": key, "value": str(value)}} for key, value in fields.items()],
-                        }}))
-
-                    command = sys.argv[1]
-                    if command == "traditional-analytics-prepare-batch-run":
-                        counts["prepare"] += 1
-                        count_path.write_text(json.dumps(counts), encoding="utf-8")
-                        workspace = Path(sys.argv[sys.argv.index("--workspace") + 1])
-                        workspace.mkdir(parents=True, exist_ok=True)
-                        fact_vortex = workspace / "fact.vortex"
-                        dim_vortex = workspace / "dim.vortex"
-                        fact_vortex.write_text(f"fact artifact {{counts['prepare']}}", encoding="utf-8")
-                        dim_vortex.write_text(f"dim artifact {{counts['prepare']}}", encoding="utf-8")
-                        emit(command, {{
-                            "prepare_batch_schema_version": "shardloom.traditional_analytics.prepare_and_batch.v1",
-                            "prepare_batch_lifecycle_status": "prepared_vortex_lifecycle_scan_complete_output_not_requested",
-                            "prepare_batch_lifecycle_output_status": "vortex_result_sink_not_requested",
-                            "prepare_batch_lifecycle_no_standalone_lane": "true",
-                            "prepare_batch_preparation_input_format": "csv",
-                            "prepare_batch_preparation_included_in_batch_timing": "false",
-                            "prepare_batch_query_timing_starts_after_preparation": "true",
-                            "prepare_batch_fact_vortex_path": str(fact_vortex),
-                            "prepare_batch_dim_vortex_path": str(dim_vortex),
-                            "prepare_batch_fact_vortex_digest": f"sha256:fact-{{counts['prepare']}}",
-                            "prepare_batch_dim_vortex_digest": f"sha256:dim-{{counts['prepare']}}",
-                            "prepare_batch_prepared_state_id": f"prepared-state://{{counts['prepare']}}",
-                            "prepare_batch_prepared_state_digest": f"sha256:prepared-{{counts['prepare']}}",
-                            "prepare_batch_source_state_id": f"source-state://{{counts['prepare']}}",
-                            "prepare_batch_source_state_digest": f"sha256:source-{{counts['prepare']}}",
-                            "prepare_batch_prepared_artifact_cleanup_policy": "caller_owned_workspace_cleanup",
-                            "prepare_batch_prepared_artifact_reuse_eligible": "true",
-                            "scenario_order": "selective filter",
-                            "source_state_digest": "sha256:batch-source",
-                            "source_state_reuse_status": "not_prepared_single_consumer_uses_scenario_scan",
-                            "source_state_reused": "false",
-                            "selected_evidence_level": "certified",
-                            "fallback_attempted": "false",
-                            "external_engine_invoked": "false",
-                        }})
-                    elif command == "traditional-analytics-vortex-batch-run":
-                        counts["batch"] += 1
-                        count_path.write_text(json.dumps(counts), encoding="utf-8")
-                        assert sys.argv[3] == str(Path({str(workspace / "fact.vortex")!r}).resolve(strict=False)), sys.argv
-                        assert sys.argv[4] == str(Path({str(workspace / "dim.vortex")!r}).resolve(strict=False)), sys.argv
-                        emit(command, {{
-                            "schema_version": "shardloom.traditional_analytics.vortex_batch.v1",
-                            "runner_kind": "single_process_prepared_native_batch",
-                            "support_status": "runtime_supported",
-                            "claim_gate_status": "fixture_smoke_only",
-                            "requested_execution_mode": "prepared_vortex",
-                            "selected_execution_modes": "prepared_vortex",
-                            "scenario_order": "selective filter",
-                            "source_state_digest": "sha256:batch-source",
-                            "source_state_reuse_status": "not_prepared_single_consumer_uses_scenario_scan",
-                            "source_state_reused": "false",
-                            "selected_evidence_level": "certified",
-                            "all_native_io_certificates_certified": "true",
-                            "result_sink_requested": "false",
-                            "all_result_sink_replays_verified": "false",
-                            "fallback_attempted": "false",
-                            "external_engine_invoked": "false",
-                        }})
-                    elif command == "vortex-prepare":
-                        counts["repair"] += 1
-                        count_path.write_text(json.dumps(counts), encoding="utf-8")
-                        assert sys.argv[2] == {str(fact)!r}, sys.argv
-                        assert sys.argv[3] == str(Path({str(workspace / "fact.vortex")!r}).resolve(strict=False)), sys.argv
-                        assert sys.argv[4:] == [
-                            "--input-format",
-                            "csv",
-                            "--allow-overwrite",
-                            "--format",
-                            "json",
-                        ], sys.argv
-                        Path(sys.argv[3]).write_text(f"fact artifact repaired {{counts['repair']}}", encoding="utf-8")
-                        emit(command, {{
-                            "source_path": sys.argv[2],
-                            "target_vortex_path": sys.argv[3],
-                            "source_format": "csv",
-                            "source_state_id": f"source-state://repair-{{counts['repair']}}",
-                            "source_state_digest": f"sha256:repair-source-{{counts['repair']}}",
-                            "vortex_ingest_status": "prepared_state_created",
-                            "prepared_state_id": f"prepared-state://repair-{{counts['repair']}}",
-                            "prepared_state_digest": f"sha256:repair-prepared-{{counts['repair']}}",
-                            "vortex_artifact_digest": f"sha256:repair-artifact-{{counts['repair']}}",
-                            "source_to_columnar_millis": "2",
-                            "vortex_array_build_millis": "3",
-                            "vortex_write_millis": "4",
-                            "vortex_reopen_verify_millis": "5",
-                            "input_row_count": "1",
-                            "writer_row_count": "1",
-                            "reopen_row_count": "1",
-                            "reopen_verification_status": "reopen_metadata_row_count_verified",
-                            "certification_level": "ingest_certified",
-                            "certification_status": "fixture_smoke_certified",
-                            "source_io_performed": "true",
-                            "prepared_state_created": "true",
-                            "claim_gate_status": "fixture_smoke_only",
-                            "fallback_attempted": "false",
-                            "external_engine_invoked": "false",
-                        }})
-                    else:
-                        raise AssertionError(sys.argv)
-                    """
-                )
-            )
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
-            route = ctx.prepare_vortex(
-                fact,
-                dim=dim,
-                workspace=workspace,
-                input_format="csv",
-                evidence_level="certified",
-            )
-
-            first = route.run_batch("selective filter")
-            second = route.run_batch("selective filter")
-
-            self.assertIsInstance(first, PreparedVortexBatchResult)
-            self.assertIsInstance(second, PreparedVortexBatchResult)
-            self.assertEqual(first.batch.command, "traditional-analytics-prepare-batch-run")
-            self.assertFalse(first.prepared_state_reuse_hit)
-            self.assertEqual(first.prepared_state_reuse_reason, "no_reuse_manifest")
-            self.assertEqual(
-                second.batch.command,
-                "traditional-analytics-prepared-state-reuse-batch-run",
-            )
-            self.assertEqual(
-                second.batch.field("prepare_batch_preparation_timing_scope"),
-                "workspace_manifest_reuse_skips_compatibility_prepare",
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_source_admission_digest_policy_schema_version"
-                ),
-                "shardloom.traditional_analytics.source_admission_digest_policy.v1",
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_source_admission_digest_policy_status"
-                ),
-                "metadata_fingerprint_reuse_hit",
-            )
-            self.assertEqual(
-                second.batch.field("prepare_batch_prepared_state_index_schema_version"),
-                "shardloom.traditional_analytics.prepared_state_index.v1",
-            )
-            self.assertEqual(
-                second.batch.field("prepare_batch_prepared_state_index_lookup_status"),
-                "workspace_index_manifest_hit",
-            )
-            self.assertTrue(
-                str(second.batch.field("prepare_batch_prepared_state_index_digest")).startswith(
-                    "sha256:"
-                )
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_prepared_state_read_through_cache_schema_version"
-                ),
-                "shardloom.traditional_analytics.prepared_state_read_through_cache.v1",
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_prepared_state_read_through_cache_status"
-                ),
-                "python_route_manifest_payload_reuse_index_not_read_through",
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_prepared_state_read_through_cache_fallback_attempted"
-                ),
-                "false",
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked"
-                ),
-                "false",
-            )
-            self.assertEqual(
-                second.batch.field("prepare_batch_prepared_state_dependency_status"),
-                "manifest_dependencies_matched",
-            )
-            self.assertEqual(
-                second.batch.field("prepare_batch_prepared_state_partial_repair_status"),
-                "not_needed_manifest_hit",
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_prepared_state_partial_repair_regeneration_performed"
-                ),
-                "false",
-            )
-            self.assertEqual(
-                second.batch.field(
-                    "prepare_batch_source_admission_full_content_digest_requested"
-                ),
-                "false",
-            )
-            self.assertEqual(second.batch.field("prepare_batch_preparation_micros"), "0")
-            self.assertEqual(second.batch.field("prepare_batch_prepared_state_created"), "false")
-            self.assertEqual(second.batch.field("prepare_batch_prepared_state_reused"), "true")
-            self.assertEqual(second.batch.field("prepared_state_reuse_hit"), "true")
-            self.assertTrue(second.prepared_state_reuse_hit)
-            self.assertEqual(
-                second.prepared_state_reuse_reason,
-                "manifest_fingerprints_match",
-            )
-            self.assertEqual(
-                second.batch.field("prepared_state_reuse_reason"),
-                "manifest_fingerprints_match",
-            )
-            self.assertTrue(
-                str(second.batch.field("prepared_state_reuse_manifest_digest")).startswith(
-                    "sha256:"
-                )
-            )
-            self.assertEqual(
-                second.artifacts.fact_vortex_path,
-                str((workspace / "fact.vortex").resolve(strict=False)),
-            )
-            self.assertFalse(second.fallback_attempted)
-            self.assertFalse(second.external_engine_invoked)
-            self.assertEqual(
-                json.loads(count_path.read_text(encoding="utf-8")),
-                {"prepare": 1, "batch": 1, "repair": 0},
-            )
-            self.assertTrue((workspace / ".shardloom" / "prepared-state-index.json").exists())
-
-            original_stat = fact.stat()
-            fact.write_text(
-                "id,group_key,dim_key,value,metric,flag,category\n"
-                "1,1,10,9,4.5,1,A\n",
-                encoding="utf-8",
-            )
-            os.utime(
-                fact,
-                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns + 1_000_000),
-            )
-            third = route.run_batch("selective filter")
-            self.assertFalse(third.prepared_state_reuse_hit)
-            self.assertEqual(
-                third.prepared_state_reuse_reason,
-                "role_scoped_repair_completed",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_prepared_state_dependency_status"),
-                "manifest_dependencies_repaired",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_prepared_state_dependency_changed_roles"),
-                "fact_input",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_prepared_state_partial_repair_status"),
-                "admitted_role_repair_completed",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_prepared_state_partial_repair_reused_roles"),
-                "dim_input",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_prepared_state_partial_repair_repaired_roles"),
-                "fact_input",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_source_to_columnar_micros"),
-                "2000",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_vortex_array_build_micros"),
-                "3000",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_vortex_write_micros"),
-                "4000",
-            )
-            self.assertEqual(
-                third.batch.field("prepare_batch_vortex_reopen_verify_micros"),
-                "5000",
-            )
-            self.assertEqual(
-                third.batch.field(
-                    "prepare_batch_prepared_state_partial_repair_vortex_write_micros"
-                ),
-                "4000",
-            )
-            self.assertEqual(
-                third.batch.field(
-                    "prepare_batch_prepared_state_partial_repair_regeneration_performed"
-                ),
-                "true",
-            )
-            self.assertEqual(
-                third.batch.field(
-                    "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed"
-                ),
-                "false",
-            )
-            self.assertEqual(
-                json.loads(count_path.read_text(encoding="utf-8")),
-                {"prepare": 1, "batch": 2, "repair": 1},
-            )
+            self.assertEqual(range_report.rows_written, 2)
+            self.assertEqual(sql_report.rows_written, 1)
+            self.assertEqual(range_report.output_commit_status, "committed")
+            self.assertEqual(sql_report.output_commit_status, "committed")
 
     def test_context_session_reuses_prepared_vortex_state_when_fingerprints_match(
         self,
@@ -5083,37 +3882,6 @@ class ShardLoomClientTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "ShardLoomSession is closed"):
                 session.prepare_vortex(source_path, target_path)
 
-    def test_session_fingerprints_are_metadata_first_by_default(self) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source_path = root / "source.csv"
-            output_path = root / "out.jsonl"
-            source_path.write_text("id,label\n1,alpha\n", encoding="utf-8")
-            output_path.write_text('{"id":1}\n', encoding="utf-8")
-            statement = f"SELECT id FROM '{source_path}'"
-
-            with mock.patch.object(
-                shardloom_session_module,
-                "_file_content_digest",
-                side_effect=AssertionError(
-                    "default session fingerprints must be metadata-first"
-                ),
-            ) as digest_mock:
-                source_fingerprints = shardloom_session_module._source_fingerprints(statement)
-                output_fingerprint = shardloom_session_module._fingerprint_file(output_path)
-
-            self.assertEqual(digest_mock.call_count, 0)
-            self.assertEqual(len(source_fingerprints), 1)
-            self.assertTrue(source_fingerprints[0].exists)
-            self.assertEqual(
-                source_fingerprints[0].fingerprint_kind,
-                "local_file_size_mtime",
-            )
-            self.assertIsNone(source_fingerprints[0].content_digest)
-            self.assertTrue(output_fingerprint.exists)
-            self.assertEqual(output_fingerprint.fingerprint_kind, "local_file_size_mtime")
-            self.assertIsNone(output_fingerprint.content_digest)
-
     def test_session_directory_fingerprints_are_metadata_first_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
@@ -5144,31 +3912,6 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(fingerprint.files_walked, 0)
             self.assertEqual(fingerprint.stats_performed, 1)
             self.assertIsNone(fingerprint.content_digest)
-
-    def test_session_fingerprints_only_hash_when_explicitly_requested(self) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source_path = root / "source.csv"
-            source_path.write_text("id,label\n1,alpha\n", encoding="utf-8")
-            statement = f"SELECT id FROM '{source_path}'"
-
-            with mock.patch.object(
-                shardloom_session_module,
-                "_file_content_digest",
-                wraps=shardloom_session_module._file_content_digest,
-            ) as digest_mock:
-                fingerprints = shardloom_session_module._source_fingerprints(
-                    statement,
-                    content_digest=True,
-                )
-
-            self.assertEqual(digest_mock.call_count, 1)
-            self.assertEqual(len(fingerprints), 1)
-            self.assertEqual(
-                fingerprints[0].fingerprint_kind,
-                "local_file_sha256_size_mtime",
-            )
-            self.assertIsNotNone(fingerprints[0].content_digest)
 
     def test_session_directory_fingerprints_only_walk_for_explicit_proof(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -5230,559 +3973,85 @@ class ShardLoomClientTests(unittest.TestCase):
             source_path = root / "source.csv"
             count_path = root / "session-read-count.txt"
             source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-                    count_path = Path({str(count_path)!r})
-                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
-                    prep_count = count + 1
-                    command = sys.argv[1]
-                    if command == "vortex-prepare":
-                        target_path = Path(sys.argv[3])
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
-                        target_path.write_text("vortex-prepared\\n", encoding="utf-8")
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "vortex-prepare",
-                            "status": "success",
-                            "summary": "ok",
-                            "human_text": "ok",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [
-                                {{"key": "vortex_ingest_performed", "value": "true"}},
-                                {{"key": "target_vortex_path", "value": str(target_path)}},
-                                {{"key": "prepared_state_created", "value": "true"}},
-                                {{"key": "source_state_id", "value": f"vortex-source-state-{{prep_count}}"}},
-                                {{"key": "source_state_digest", "value": f"fnv64:vortex-source-{{prep_count}}"}},
-                                {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
-                                {{"key": "source_state_read_plan", "value": "vortex_prepared_source_state"}},
-                                {{"key": "source_state_projection_pushdown_status", "value": "native_vortex_projection_payload"}},
-                                {{"key": "claim_gate_status", "value": "not_claim_grade"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}}
-                            ],
-                        }}))
-                        raise SystemExit(0)
-                    assert command == "run", sys.argv
-                    count += 1
-                    count_path.write_text(str(count), encoding="utf-8")
-                    assert "--input-format" in sys.argv, sys.argv
-                    assert sys.argv[sys.argv.index("--input-format") + 1] == "vortex", sys.argv
-                    assert "--vortex-primitive" in sys.argv, sys.argv
-                    print(json.dumps({{
-                        "schema_version": "shardloom.output.v2",
-                        "command": "run",
-                        "status": "success",
-                        "summary": "ok",
-                        "human_text": "ok",
-                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                        "diagnostics": [],
-                        "fields": [
-                            {{"key": "public_workflow_route_id", "value": "native_vortex_project"}},
-                            {{"key": "public_workflow_resolved_internal_command", "value": "vortex-project"}},
-                            {{"key": "public_workflow_runtime_execution", "value": "true"}},
-                            {{"key": "mode", "value": "vortex_project"}},
-                            {{"key": "primitive", "value": "project_columns"}},
-                            {{"key": "data_read", "value": "true"}},
-                            {{"key": "project_local_execution_result_known", "value": "true"}},
-                            {{"key": "project_local_execution_rows_projected", "value": "2"}},
-                            {{"key": "project_local_execution_projected_columns", "value": "id"}},
-                            {{"key": "project_local_execution_data_read", "value": "true"}},
-                            {{"key": "project_local_execution_fallback_attempted", "value": "false"}},
-                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
-                            {{"key": "fallback_attempted", "value": "false"}},
-                            {{"key": "external_engine_invoked", "value": "false"}}
-                        ],
-                    }}))
-                    """
-                )
-            )
+            statement = f"SELECT id FROM '{source_path}' LIMIT 2"
+            bindings = json.dumps({str(source_path): {"input_format": "csv"}})
+            schema_json = json.dumps({"Struct": [{
+                "names": ["id"], "dtypes": [{"Primitive": ["i64", False]}],
+            }, False]})
+            binary = self.fake_cli(textwrap.dedent(f"""
+                import json, sys
+                from pathlib import Path
+                args = sys.argv[1:]
+                assert args[:2] == ["run", "dataframe"], args
+                def value(flag): return args[args.index(flag) + 1]
+                assert value("--input") == {str(source_path)!r}, args
+                assert value("--input-format") == "csv", args
+                assert json.loads(value("--source-bindings")) == json.loads({bindings!r}), args
+                assert value("--sql") == {statement!r}, args
+                assert value("--request") == "collect", args
+                assert value("--memory-gb") == "4", args
+                assert value("--max-parallelism") == "2", args
+                assert not any(arg.startswith("--vortex-") for arg in args), args
+                counter = Path({str(count_path)!r})
+                count = int(counter.read_text()) + 1 if counter.exists() else 1
+                counter.write_text(str(count))
+                rows = [{{"id": count}}]
+                fields = [
+                    {{"key": "result_schema_json", "value": {schema_json!r}}},
+                    {{"key": "result_schema_format", "value": "vortex.dtype.serde.v1"}},
+                    {{"key": "result_values_json", "value": json.dumps(rows)}},
+                    {{"key": "output_row_count", "value": "1"}},
+                    {{"key": "runtime_execution", "value": "true"}},
+                    {{"key": "data_read", "value": "true"}},
+                    {{"key": "resident_completed_executions", "value": str(count)}},
+                    {{"key": "resident_relational_declaration_reused", "value": str(count == 2).lower()}},
+                    {{"key": "fallback_attempted", "value": "false"}},
+                    {{"key": "external_engine_invoked", "value": "false"}},
+                ]
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2", "command": "run",
+                    "status": "success", "summary": "native CSV query", "human_text": "native CSV query",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [], "result": {{"fields": fields[:3]}}, "fields": fields,
+                }}))
+            """))
             ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
             sess = ctx.session(session_id="ordinary-workflow-session")
             frame = sess.read_csv(source_path).select("id").limit(2)
 
-            with mock.patch.object(
-                shardloom_session_module,
-                "_file_content_digest",
-                side_effect=AssertionError(
-                    "normal session collect reuse must stay metadata-first"
-                ),
-            ) as digest_mock:
-                first = frame.collect()
-                second = frame.collect()
-
-                self.assertEqual(digest_mock.call_count, 0)
-
-            self.assertIsInstance(frame, SessionLazyFrame)
+            first = frame.collect()
+            second = frame.collect()
             self.assertIsInstance(first, SessionSqlResult)
+            self.assertIsInstance(second, SessionSqlResult)
             self.assertFalse(first.reuse_hit)
-            self.assertEqual(first.reuse_reason, "no_cached_result")
-            self.assertTrue(first.report.vortex_ingest_performed)
-            self.assertTrue(first.report.runtime_execution)
-            self.assertEqual(first.report.rows_projected, 2)
             self.assertTrue(second.reuse_hit)
-            self.assertEqual(
-                second.reuse_reason,
-                "source_and_output_fingerprints_match",
-            )
-            self.assertTrue(second.source_state_reuse_hit)
-            self.assertFalse(second.output_plan_reuse_hit)
-            self.assertEqual(second.source_state_id, "fake-source-state")
-            self.assertEqual(second.report.rows_projected, 2)
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
+            self.assertEqual(first.reuse_reason, "native_preparation_not_reused")
+            self.assertEqual(second.reuse_reason, "native_preparation_reused")
+            self.assertEqual(first.report.result_rows, ({"id": 1},))
+            self.assertEqual(second.report.result_rows, ({"id": 2},))
+            self.assertEqual(first.evidence()["native_completed_executions"], 1)
+            self.assertEqual(second.evidence()["native_completed_executions"], 2)
+            self.assertFalse(second.evidence()["query_answer_cached"])
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
 
             source_path.write_text("id,label\n1,alpha\n3,gamma\n", encoding="utf-8")
-            with mock.patch.object(
-                shardloom_session_module,
-                "_file_content_digest",
-                side_effect=AssertionError(
-                    "normal session collect invalidation must stay metadata-first"
-                ),
-            ) as digest_mock:
-                third = frame.collect()
-                self.assertEqual(digest_mock.call_count, 0)
+            third = frame.collect()
             self.assertFalse(third.reuse_hit)
-            self.assertEqual(third.reuse_reason, "source_fingerprint_changed")
-            self.assertEqual(third.source_state_id, "fake-source-state")
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+            self.assertEqual(third.reuse_reason, "native_preparation_not_reused")
+            self.assertEqual(third.report.result_rows, ({"id": 3},))
+            self.assertEqual(third.evidence()["native_completed_executions"], 3)
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "3")
 
             evidence = sess.evidence()
             self.assertEqual(evidence["session_id"], "ordinary-workflow-session")
             self.assertEqual(evidence["cache_hit_count"], 1)
             self.assertEqual(evidence["cache_miss_count"], 2)
-            self.assertEqual(evidence["source_state_reuse_count"], 1)
-            self.assertEqual(evidence["output_plan_reuse_count"], 0)
             self.assertFalse(evidence["fallback_attempted"])
             self.assertFalse(evidence["external_engine_invoked"])
 
             sess.close()
             with self.assertRaisesRegex(RuntimeError, "ShardLoomSession is closed"):
                 frame.collect()
-
-    def test_session_sql_workflow_write_reuses_output_when_fingerprints_match(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source_path = root / "source.csv"
-            output_path = root / "sql-session-out.jsonl"
-            count_path = root / "session-sql-write-count.txt"
-            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-                    count_path = Path({str(count_path)!r})
-                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
-                    if sys.argv[1] == "local-source-runtime":
-                        assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
-                        assert "--output" in sys.argv, sys.argv
-                        count += 1
-                        count_path.write_text(str(count), encoding="utf-8")
-                        output_path = Path(sys.argv[sys.argv.index("--output") + 1])
-                        output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "local-source-runtime",
-                            "status": "success",
-                            "summary": "ok",
-                            "human_text": "ok",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [],
-                            "fields": [
-                                {{"key": "output_format", "value": "jsonl"}},
-                                {{"key": "output_path", "value": str(output_path)}},
-                                {{"key": "output_io_performed", "value": "true"}},
-                                {{"key": "output_row_count", "value": "1"}},
-                                {{"key": "selected_row_count", "value": "1"}},
-                                {{"key": "output_plan_digest", "value": f"sha256:output-plan-{{count}}"}},
-                                {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
-                                {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
-                                {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
-                                {{"key": "source_state_read_plan", "value": "projected_source_state"}},
-                                {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
-                                {{"key": "result_replay_verified", "value": "true"}},
-                                {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
-                                {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}}
-                            ],
-                        }}))
-                        raise SystemExit(0)
-                    raise AssertionError(sys.argv)
-                    """
-                )
-            )
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
-            sess = ctx.session(session_id="ordinary-sql-session")
-            workflow = sess.sql(f"SELECT id FROM '{source_path}' LIMIT 2")
-
-            with mock.patch.object(
-                shardloom_session_module,
-                "_file_content_digest",
-                side_effect=AssertionError(
-                    "normal session write reuse must stay metadata-first"
-                ),
-            ) as digest_mock:
-                first = workflow.write_jsonl(output_path, allow_overwrite=True, check=False)
-                second = workflow.write_jsonl(output_path, check=False)
-
-                self.assertEqual(digest_mock.call_count, 0)
-
-            self.assertIsInstance(workflow, SessionSqlWorkflow)
-            self.assertIsInstance(first, SessionSqlResult)
-            self.assertFalse(first.reuse_hit)
-            self.assertEqual(first.reuse_reason, "no_cached_result")
-            self.assertEqual(first.report.output_format, "jsonl")
-            self.assertEqual(first.report.output_path, str(output_path))
-            self.assertTrue(first.report.vortex_ingest_performed)
-            self.assertTrue(first.report.output_io_performed)
-            self.assertTrue(first.report.result_replay_verified)
-            self.assertFalse(first.report.fallback_attempted)
-            self.assertFalse(first.report.external_engine_invoked)
-            self.assertTrue(output_path.exists())
-            self.assertTrue(second.reuse_hit)
-            self.assertEqual(
-                second.reuse_reason,
-                "source_and_output_fingerprints_match",
-            )
-            self.assertTrue(second.output_plan_reuse_hit)
-            self.assertTrue(second.result_replay_reuse_hit)
-            self.assertEqual(second.report.output_path, str(output_path))
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
-
-            evidence = sess.evidence()
-            self.assertEqual(evidence["session_id"], "ordinary-sql-session")
-            self.assertEqual(evidence["cache_hit_count"], 1)
-            self.assertEqual(evidence["cache_miss_count"], 1)
-            self.assertEqual(evidence["source_state_reuse_count"], 1)
-            self.assertEqual(evidence["output_plan_reuse_count"], 1)
-            self.assertEqual(evidence["result_replay_reuse_count"], 1)
-            self.assertFalse(evidence["fallback_attempted"])
-            self.assertFalse(evidence["external_engine_invoked"])
-
-    def test_context_session_reuses_local_query_output_when_fingerprints_match(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source_path = root / "source.csv"
-            output_path = root / "out.jsonl"
-            count_path = root / "sql-count.txt"
-            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-                    count_path = Path({str(count_path)!r})
-                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
-                    count += 1
-                    count_path.write_text(str(count), encoding="utf-8")
-                    if sys.argv[1] == "workflow-unsupported-plan":
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "workflow-unsupported-plan",
-                            "status": "unsupported",
-                            "summary": "unsupported",
-                            "human_text": "native Vortex JSONL sink contract missing",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [{{"code": "SL_UNSUPPORTED_WORKFLOW_OPERATION", "severity": "error", "category": "unsupported_feature", "message": "native Vortex JSONL sink contract missing", "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}}}}],
-                            "fields": [
-                                {{"key": "blocker_id", "value": "cg21.workflow.write-jsonl.native_vortex_export_contract_missing"}},
-                                {{"key": "required_evidence", "value": "native_vortex_jsonl_export_contract,typed_sink_contract,output_replay_certificate,no_fallback_evidence"}},
-                                {{"key": "runtime_execution", "value": "false"}},
-                                {{"key": "data_read", "value": "false"}},
-                                {{"key": "write_io", "value": "false"}},
-                                {{"key": "claim_gate_status", "value": "not_claim_grade"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}}
-                            ],
-                        }}))
-                        raise SystemExit(0)
-                    assert sys.argv[1] == "local-source-runtime", sys.argv
-                    assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
-                    assert "--output" in sys.argv, sys.argv
-                    output_path = Path(sys.argv[sys.argv.index("--output") + 1])
-                    output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
-                    print(json.dumps({{
-                        "schema_version": "shardloom.output.v2",
-                        "command": "local-source-runtime",
-                        "status": "success",
-                        "summary": "ok",
-                        "human_text": "ok",
-                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                        "diagnostics": [],
-                        "fields": [
-                            {{"key": "output_format", "value": "jsonl"}},
-                            {{"key": "output_path", "value": str(output_path)}},
-                            {{"key": "output_io_performed", "value": "true"}},
-                            {{"key": "output_plan_digest", "value": f"sha256:output-plan-{{count}}"}},
-                            {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
-                            {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
-                            {{"key": "source_schema_digest", "value": f"fnv64:sql-schema-{{count}}"}},
-                            {{"key": "plan_digest", "value": f"fnv64:sql-plan-{{count}}"}},
-                            {{"key": "execution_certificate_ref", "value": "sql-local-source.csv.projection-limit.execution.v1"}},
-                            {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
-                            {{"key": "source_state_read_plan", "value": "projected_source_state"}},
-                            {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
-                            {{"key": "user_surface_runtime_scope", "value": "format_neutral_sql_python_runtime"}},
-                            {{"key": "format_specific_boundary_scope", "value": "read_ingest_and_write_only"}},
-                            {{"key": "format_specific_compute_path", "value": "false"}},
-                            {{"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state_then_scalar_row_map"}},
-                            {{"key": "source_state_parse_normalization", "value": "structured_reader_to_arrow_record_batches_then_scalar_rows"}},
-                            {{"key": "source_state_columnar_preserved", "value": "true"}},
-                            {{"key": "source_state_record_batch_count", "value": "1"}},
-                            {{"key": "source_to_columnar_millis", "value": "3"}},
-                            {{"key": "source_state_runtime_consumption_layout", "value": "scalar_row_map_expression_runtime"}},
-                            {{"key": "source_state_scalar_runtime_materialization_required", "value": "true"}},
-                            {{"key": "source_state_materialized_columns", "value": "id"}},
-                            {{"key": "source_state_reader_projection_columns", "value": "id"}},
-                            {{"key": "result_replay_verified", "value": "true"}},
-                            {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
-                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
-                            {{"key": "fallback_attempted", "value": "false"}},
-                            {{"key": "external_engine_invoked", "value": "false"}}
-                        ],
-                    }}))
-                    """
-                )
-            )
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
-            frame = ctx.read_csv(source_path).select("id").limit(2)
-            sess = ctx.session(session_id="sql-session")
-
-            first = sess.write(frame, output_path, allow_overwrite=True, check=False)
-            second = sess.write(frame, output_path, check=False)
-
-            self.assertIsInstance(first, SessionSqlResult)
-            self.assertFalse(first.reuse_hit)
-            self.assertEqual(first.reuse_reason, "no_cached_result")
-            self.assertEqual(first.report.output_format, "jsonl")
-            self.assertEqual(first.report.output_path, str(output_path))
-            self.assertTrue(first.report.vortex_ingest_performed)
-            self.assertTrue(first.report.output_io_performed)
-            self.assertTrue(first.report.result_replay_verified)
-            self.assertFalse(first.report.fallback_attempted)
-            self.assertFalse(first.report.external_engine_invoked)
-            self.assertTrue(output_path.exists())
-            self.assertTrue(second.reuse_hit)
-            self.assertEqual(
-                second.reuse_reason,
-                "source_and_output_fingerprints_match",
-            )
-            self.assertTrue(second.output_plan_reuse_hit)
-            self.assertTrue(second.result_replay_reuse_hit)
-            self.assertEqual(second.report.output_path, str(output_path))
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
-
-            evidence = sess.evidence()
-            self.assertEqual(evidence["cache_hit_count"], 1)
-            self.assertEqual(evidence["cache_miss_count"], 1)
-            self.assertEqual(evidence["source_state_reuse_count"], 1)
-            self.assertEqual(evidence["output_plan_reuse_count"], 1)
-            self.assertEqual(evidence["result_replay_reuse_count"], 1)
-            self.assertFalse(evidence["fallback_attempted"])
-            self.assertFalse(evidence["external_engine_invoked"])
-
-    def test_context_session_reuses_local_fanout_outputs_when_fingerprints_match(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            source_path = root / "source.csv"
-            jsonl_output_path = root / "out.jsonl"
-            csv_output_path = root / "out.csv"
-            count_path = root / "fanout-count.txt"
-            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
-            binary = self.fake_cli(
-                textwrap.dedent(
-                    f"""
-                    import json, sys
-                    from pathlib import Path
-                    count_path = Path({str(count_path)!r})
-                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
-                    count += 1
-                    count_path.write_text(str(count), encoding="utf-8")
-                    if sys.argv[1] == "workflow-unsupported-plan":
-                        print(json.dumps({{
-                            "schema_version": "shardloom.output.v2",
-                            "command": "workflow-unsupported-plan",
-                            "status": "unsupported",
-                            "summary": "unsupported",
-                            "human_text": "native Vortex fanout sink contract missing",
-                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                            "diagnostics": [{{"code": "SL_UNSUPPORTED_WORKFLOW_OPERATION", "severity": "error", "category": "unsupported_feature", "message": "native Vortex fanout sink contract missing", "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}}}}],
-                            "fields": [
-                                {{"key": "blocker_id", "value": "cg21.workflow.fanout.native_vortex_export_contract_missing"}},
-                                {{"key": "required_evidence", "value": "native_vortex_fanout_export_contract,output_reuse_contract,output_replay_certificate,no_fallback_evidence"}},
-                                {{"key": "runtime_execution", "value": "false"}},
-                                {{"key": "data_read", "value": "false"}},
-                                {{"key": "write_io", "value": "false"}},
-                                {{"key": "claim_gate_status", "value": "not_claim_grade"}},
-                                {{"key": "fallback_attempted", "value": "false"}},
-                                {{"key": "external_engine_invoked", "value": "false"}}
-                            ],
-                        }}))
-                        raise SystemExit(0)
-                    outputs = {{}}
-                    if sys.argv[1] == "run":
-                        output_index = sys.argv.index("--output")
-                        outputs["jsonl"] = Path(sys.argv[output_index + 1])
-                        fanout_index = sys.argv.index("--fanout-output")
-                        fmt, path = sys.argv[fanout_index + 1].split("=", 1)
-                        outputs[fmt] = Path(path)
-                    else:
-                        assert sys.argv[1] == "local-source-runtime", sys.argv
-                        assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
-                        fanout_args = [arg for arg in sys.argv if arg.startswith(("jsonl=", "csv="))]
-                        if "--output" in sys.argv:
-                            output_index = sys.argv.index("--output")
-                            outputs["jsonl"] = Path(sys.argv[output_index + 1])
-                            assert len(fanout_args) == 1, sys.argv
-                        else:
-                            assert len(fanout_args) == 2, sys.argv
-                        for item in fanout_args:
-                            fmt, path = item.split("=", 1)
-                            outputs[fmt] = Path(path)
-                    outputs["jsonl"].write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
-                    outputs["csv"].write_text("id,count\\n1," + str(count) + "\\n", encoding="utf-8")
-                    print(json.dumps({{
-                        "schema_version": "shardloom.output.v2",
-                        "command": "local-source-runtime",
-                        "status": "success",
-                        "summary": "ok",
-                        "human_text": "ok",
-                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                        "diagnostics": [],
-                        "fields": [
-                            {{"key": "output_route", "value": "local_fanout"}},
-                            {{"key": "output_fanout_performed", "value": "true"}},
-                            {{"key": "fanout_output_count", "value": "2"}},
-                            {{"key": "fanout_output_formats", "value": "jsonl,csv"}},
-                            {{"key": "fanout_output_paths", "value": str(outputs["jsonl"]) + "," + str(outputs["csv"])}},
-                            {{"key": "fanout_output_digests", "value": f"jsonl:sha256:jsonl-{{count}},csv:sha256:csv-{{count}}"}},
-                            {{"key": "fanout_output_workspace_path_safety_statuses", "value": "jsonl:true,csv:true"}},
-                            {{"key": "fanout_output_commit_modes", "value": "jsonl:atomic_rename_same_directory,csv:atomic_rename_same_directory"}},
-                            {{"key": "fanout_output_native_io_certificate_statuses", "value": "jsonl:certified_local_file_sink,csv:certified_local_file_sink"}},
-                            {{"key": "fanout_output_replay_statuses", "value": "jsonl:verified_local_file_digest,csv:verified_local_file_digest"}},
-                            {{"key": "fanout_output_fidelity_statuses", "value": "jsonl:logical_rows_replay_verified,csv:logical_rows_replay_verified_type_metadata_not_preserved"}},
-                            {{"key": "fanout_output_fidelity_loss", "value": "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity,csv:csv_text_roundtrip_loses_static_type_metadata"}},
-                            {{"key": "output_plan_digest", "value": f"sha256:fanout-output-plan-{{count}}"}},
-                            {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
-                            {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
-                            {{"key": "source_schema_digest", "value": f"fnv64:sql-schema-{{count}}"}},
-                            {{"key": "plan_digest", "value": f"fnv64:sql-plan-{{count}}"}},
-                            {{"key": "execution_certificate_ref", "value": "sql-local-source.csv.fanout.execution.v1"}},
-                            {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
-                            {{"key": "source_state_read_plan", "value": "projected_source_state"}},
-                            {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
-                            {{"key": "user_surface_runtime_scope", "value": "format_neutral_sql_python_runtime"}},
-                            {{"key": "format_specific_boundary_scope", "value": "read_ingest_and_write_only"}},
-                            {{"key": "format_specific_compute_path", "value": "false"}},
-                            {{"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state_then_scalar_row_map"}},
-                            {{"key": "source_state_parse_normalization", "value": "structured_reader_to_arrow_record_batches_then_scalar_rows"}},
-                            {{"key": "source_state_columnar_preserved", "value": "true"}},
-                            {{"key": "source_state_record_batch_count", "value": "1"}},
-                            {{"key": "source_to_columnar_millis", "value": "3"}},
-                            {{"key": "source_state_runtime_consumption_layout", "value": "scalar_row_map_expression_runtime"}},
-                            {{"key": "source_state_scalar_runtime_materialization_required", "value": "true"}},
-                            {{"key": "source_state_materialized_columns", "value": "id"}},
-                            {{"key": "source_state_reader_projection_columns", "value": "id"}},
-                            {{"key": "result_batch_state_status", "value": "shared_flat_scalar_columnar_boundary_available"}},
-                            {{"key": "result_batch_state_digest", "value": f"fnv64:result-batch-{{count}}"}},
-                            {{"key": "result_batch_state_layout", "value": "flat_scalar_column_vectors_v1"}},
-                            {{"key": "result_batch_state_row_count", "value": "1"}},
-                            {{"key": "result_batch_state_column_count", "value": "2"}},
-                            {{"key": "result_batch_state_materialization_required", "value": "terminal_text_materialization_required"}},
-                            {{"key": "result_batch_state_decode_required", "value": "false"}},
-                            {{"key": "result_batch_state_build_millis", "value": "1"}},
-                            {{"key": "output_plan_materialization_required", "value": "jsonl:terminal_text_materialization_required,csv:terminal_text_materialization_required"}},
-                            {{"key": "output_plan_required_columns", "value": "id,count"}},
-                            {{"key": "output_plan_ordering_required", "value": "jsonl:false,csv:false"}},
-                            {{"key": "output_plan_statistics_required", "value": "jsonl:not_required_for_text_sink,csv:not_required_for_text_sink"}},
-                            {{"key": "output_plan_text_materialization_boundary", "value": "jsonl:jsonl_terminal_encoder,csv:csv_terminal_encoder"}},
-                            {{"key": "output_plan_conversion_blocker", "value": "jsonl:none,csv:none"}},
-                            {{"key": "output_plan_type_nullability_support", "value": "jsonl:logical_values_including_nested_json_boundary,csv:flat_scalar_text_values_null_as_empty_boundary"}},
-                            {{"key": "output_plan_dictionary_required", "value": "jsonl:not_applicable_text_sink,csv:not_applicable_text_sink"}},
-                            {{"key": "output_plan_compression_encoding_posture", "value": "jsonl:jsonl_uncompressed_text_terminal_encoder,csv:csv_uncompressed_text_terminal_encoder"}},
-                            {{"key": "output_plan_replay_depth", "value": "jsonl:write_digest_replay,csv:write_digest_replay"}},
-                            {{"key": "output_layout_write_advisor_status", "value": "advisory_only_compatibility_targets"}},
-                            {{"key": "output_layout_write_advisor_selected_strategy", "value": "jsonl:advisory_only_no_runtime_write_knob_applied,csv:advisory_only_no_runtime_write_knob_applied"}},
-                            {{"key": "output_layout_write_advisor_runtime_decision_applied", "value": "false"}},
-                            {{"key": "output_metadata_preservation_map", "value": "jsonl:field_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=logical_json_boundary,csv:column_names=preserved,row_order=preserved,row_count=digest_replay_verified,static_types=dropped"}},
-                            {{"key": "output_metadata_loss", "value": "jsonl:static_types_and_vortex_layout_metadata_not_fully_preserved,csv:static_types_nullability_and_vortex_layout_metadata_lost"}},
-                            {{"key": "fanout_conversion_dag_status", "value": "shared_fanout_conversion_dag_applied"}},
-                            {{"key": "fanout_shared_stage_count", "value": "3"}},
-                            {{"key": "fanout_terminal_sink_count", "value": "2"}},
-                            {{"key": "fanout_shared_conversion_millis", "value": "1"}},
-                            {{"key": "fanout_terminal_conversion_millis", "value": "4"}},
-                            {{"key": "fanout_duplicate_conversion_avoided", "value": "true"}},
-                            {{"key": "output_capillary_status", "value": "applied_output_pulseweave_control"}},
-                            {{"key": "output_capillary_task_roles", "value": "schema_map,columnar_export,terminal_encode,compression,local_write,digest,replay,evidence_render"}},
-                            {{"key": "output_capillary_window_count", "value": "13"}},
-                            {{"key": "output_sink_pressure_status", "value": "bounded_by_output_sink_pressure"}},
-                            {{"key": "output_memory_pressure_status", "value": "within_declared_output_memory_budget"}},
-                            {{"key": "pulseweave_output_policy_applied", "value": "true"}},
-                            {{"key": "output_conversion_millis", "value": "5"}},
-                            {{"key": "sink_artifact_conversion_millis", "value": "jsonl:2,csv:2"}},
-                            {{"key": "fanout_output_conversion_millis", "value": "4"}},
-                            {{"key": "result_reuse_for_fanout", "value": "true"}},
-                            {{"key": "fanout_result_reuse_hit", "value": "true"}},
-                            {{"key": "result_replay_verified", "value": "true"}},
-                            {{"key": "output_replay_status", "value": "verified_local_sink_artifacts"}},
-                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
-                            {{"key": "fallback_attempted", "value": "false"}},
-                            {{"key": "external_engine_invoked", "value": "false"}}
-                        ],
-                    }}))
-                    """
-                )
-            )
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
-            frame = ctx.read_csv(source_path).select("id").limit(2)
-            sess = ctx.session(session_id="fanout-session")
-            outputs = {
-                "jsonl": str(jsonl_output_path),
-                "csv": str(csv_output_path),
-            }
-
-            first = sess.fanout(frame, outputs, allow_overwrite=True, check=False)
-            second = sess.fanout(frame, outputs, check=False)
-
-            self.assertIsInstance(first, SessionSqlResult)
-            self.assertFalse(first.reuse_hit)
-            self.assertEqual(first.reuse_reason, "no_cached_result")
-            self.assertTrue(first.report.vortex_ingest_performed)
-            self.assertTrue(first.report.output_fanout_performed)
-            self.assertEqual(first.report.fanout_output_count, 2)
-            self.assertTrue(first.report.result_replay_verified)
-            self.assertFalse(first.report.fallback_attempted)
-            self.assertFalse(first.report.external_engine_invoked)
-            self.assertTrue(jsonl_output_path.exists())
-            self.assertTrue(csv_output_path.exists())
-            self.assertTrue(second.reuse_hit)
-            self.assertEqual(
-                second.reuse_reason,
-                "source_and_output_fingerprints_match",
-            )
-            self.assertTrue(second.output_plan_reuse_hit)
-            self.assertTrue(second.result_replay_reuse_hit)
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
-
-            evidence = sess.evidence()
-            self.assertEqual(evidence["session_id"], "fanout-session")
-            self.assertEqual(evidence["cache_hit_count"], 1)
-            self.assertEqual(evidence["cache_miss_count"], 1)
-            self.assertEqual(evidence["source_state_reuse_count"], 1)
-            self.assertEqual(evidence["output_plan_reuse_count"], 1)
-            self.assertEqual(evidence["result_replay_reuse_count"], 1)
-            self.assertFalse(evidence["fallback_attempted"])
-            self.assertFalse(evidence["external_engine_invoked"])
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(
@@ -7964,10 +6233,10 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("write_vortex").required_evidence,
             (
                 "vortex_prepared_state_or_native_vortex_input",
-                "native_vortex_provider_route",
+                "native_vortex_unified_plan",
                 "native_vortex_result_sink",
                 "output_native_io_certificate",
-                "result_replay_verified",
+                "native_vortex_result_export_all_targets_committed",
                 "no_fallback_evidence",
             ),
         )
@@ -9515,38 +7784,44 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                if args == [
-                    "generated-source-user-rows",
-                    "target/staging/generated.jsonl",
-                    "id:int64,label:utf8",
-                    "id=1,label=alpha",
-                    "--source-kind",
-                    "user_rows",
-                    "--output-format",
-                    "jsonl",
-                    "--allow-overwrite",
-                    "--format",
-                    "json",
-                ]:
+                if args[:2] == ["run", "dataframe"]:
+                    def value(flag): return args[args.index(flag) + 1]
+                    assert value("--request") == "write_jsonl", args
+                    assert value("--output") == 'target/staging/generated.jsonl', args
+                    assert "--allow-overwrite" in args, args
+                    bindings = json.loads(value("--source-bindings"))
+                    assert len(bindings) == 1, args
+                    source_uri, declaration = next(iter(bindings.items()))
+                    assert value("--sql") == f"SELECT * FROM '{source_uri}'", args
+                    assert declaration == {
+                        "input_format": "memory",
+                        "memory_input": {
+                            "kind": "rows",
+                            "schema": [["id", "int64"], ["label", "utf8"]],
+                            "rows": [["1", "alpha"]],
+                        },
+                    }, args
+                    schema = {"Struct": [{"names": ["id", "label"], "dtypes": [
+                        {"Primitive": ["i64", False]}, {"Utf8": False}
+                    ]}, False]}
+                    fields = [
+                        {"key": "result_schema_json", "value": json.dumps(schema)},
+                        {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                        {"key": "result_values_json", "value": json.dumps([{"id": 1, "label": "alpha"}])},
+                        {"key": "native_vortex_result_export_path", "value": 'target/staging/generated.jsonl'},
+                        {"key": "native_vortex_result_export_format", "value": "jsonl"},
+                        {"key": "native_vortex_result_export_rows_written", "value": "1"},
+                        {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                     print(json.dumps({
-                        "schema_version": "shardloom.output.v2",
-                        "command": "generated-source-user-rows",
-                        "status": "success",
-                        "summary": "generated rows staged",
-                        "human_text": "generated rows staged",
+                        "schema_version": "shardloom.output.v2", "command": "run",
+                        "status": "success", "summary": "generated rows staged", "human_text": "generated rows staged",
                         "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                        "diagnostics": [],
-                        "fields": [
-                            {"key": "output_path", "value": "target/staging/generated.jsonl"},
-                            {"key": "output_format", "value": "jsonl"},
-                            {"key": "generated_source_kind", "value": "user_rows"},
-                            {"key": "generated_source_row_count", "value": "1"},
-                            {"key": "generated_source_certificate_status", "value": "present"},
-                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
-                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
-                            {"key": "fallback_attempted", "value": "false"},
-                            {"key": "external_engine_invoked", "value": "false"}
-                        ],
+                        "diagnostics": [], "result": {"fields": fields[:3]}, "fields": fields,
                     }))
                 elif args == [
                     "object-store-write-smoke",
@@ -9628,38 +7903,44 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                if args == [
-                    "generated-source-user-rows",
-                    "target/staging/partitioned.jsonl",
-                    "id:int64,label:utf8",
-                    "id=1,label=alpha",
-                    "--source-kind",
-                    "user_rows",
-                    "--output-format",
-                    "jsonl",
-                    "--allow-overwrite",
-                    "--format",
-                    "json",
-                ]:
+                if args[:2] == ["run", "dataframe"]:
+                    def value(flag): return args[args.index(flag) + 1]
+                    assert value("--request") == "write_jsonl", args
+                    assert value("--output") == 'target/staging/partitioned.jsonl', args
+                    assert "--allow-overwrite" in args, args
+                    bindings = json.loads(value("--source-bindings"))
+                    assert len(bindings) == 1, args
+                    source_uri, declaration = next(iter(bindings.items()))
+                    assert value("--sql") == f"SELECT * FROM '{source_uri}'", args
+                    assert declaration == {
+                        "input_format": "memory",
+                        "memory_input": {
+                            "kind": "rows",
+                            "schema": [["id", "int64"], ["label", "utf8"]],
+                            "rows": [["1", "alpha"]],
+                        },
+                    }, args
+                    schema = {"Struct": [{"names": ["id", "label"], "dtypes": [
+                        {"Primitive": ["i64", False]}, {"Utf8": False}
+                    ]}, False]}
+                    fields = [
+                        {"key": "result_schema_json", "value": json.dumps(schema)},
+                        {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                        {"key": "result_values_json", "value": json.dumps([{"id": 1, "label": "alpha"}])},
+                        {"key": "native_vortex_result_export_path", "value": 'target/staging/partitioned.jsonl'},
+                        {"key": "native_vortex_result_export_format", "value": "jsonl"},
+                        {"key": "native_vortex_result_export_rows_written", "value": "1"},
+                        {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                     print(json.dumps({
-                        "schema_version": "shardloom.output.v2",
-                        "command": "generated-source-user-rows",
-                        "status": "success",
-                        "summary": "generated rows staged",
-                        "human_text": "generated rows staged",
+                        "schema_version": "shardloom.output.v2", "command": "run",
+                        "status": "success", "summary": "generated rows staged", "human_text": "generated rows staged",
                         "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                        "diagnostics": [],
-                        "fields": [
-                            {"key": "output_path", "value": "target/staging/partitioned.jsonl"},
-                            {"key": "output_format", "value": "jsonl"},
-                            {"key": "generated_source_kind", "value": "user_rows"},
-                            {"key": "generated_source_row_count", "value": "1"},
-                            {"key": "generated_source_certificate_status", "value": "present"},
-                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
-                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
-                            {"key": "fallback_attempted", "value": "false"},
-                            {"key": "external_engine_invoked", "value": "false"}
-                        ],
+                        "diagnostics": [], "result": {"fields": fields[:3]}, "fields": fields,
                     }))
                 elif args == [
                     "object-store-write-smoke",
@@ -9806,47 +8087,7 @@ class ShardLoomClientTests(unittest.TestCase):
             result_dataset = Path(tempdir) / "result-dataset"
             evidence_dataset = Path(tempdir) / "evidence-dataset"
             result_part = result_dataset / "part-00000.jsonl"
-            script = textwrap.dedent(
-                """
-                import json, sys
-
-                assert sys.argv[1:] == [
-                    "generated-source-user-rows",
-                    __RESULT_PART__,
-                    "id:int64,label:utf8",
-                    "id=1,label=alpha",
-                    "--source-kind",
-                    "user_rows",
-                    "--output-format",
-                    "jsonl",
-                    "--allow-overwrite",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "generated-source-user-rows",
-                    "status": "success",
-                    "summary": "local Foundry-style generated output",
-                    "human_text": "local Foundry-style generated output",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "output_path", "value": __RESULT_PART__},
-                        {"key": "output_format", "value": "jsonl"},
-                        {"key": "generated_source_kind", "value": "user_rows"},
-                        {"key": "generated_source_row_count", "value": "1"},
-                        {"key": "generated_source_certificate_status", "value": "present"},
-                        {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
-                        {"key": "sink_artifact_digest", "value": "sha256:generated"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            ).replace("__RESULT_PART__", json.dumps(str(result_part)))
-            binary = self.fake_cli(script)
+            binary = self._foundry_generated_output_fake_cli(result_part)
 
             report = ShardLoomContext(
                 ShardLoomClient(binary=binary)
@@ -9858,8 +8099,16 @@ class ShardLoomClientTests(unittest.TestCase):
             )
 
             self.assertIsInstance(report, FoundryGeneratedOutputReport)
-            self.assertEqual(report.command, "generated-source-user-rows")
+            self.assertEqual(report.command, "run")
             self.assertEqual(report.status, "success")
+            self.assertEqual(report.envelope.field("result_schema_format"), "vortex.dtype.serde.v1")
+            self.assertEqual(
+                report.envelope.field("native_vortex_result_export_format"), "jsonl"
+            )
+            self.assertEqual(
+                json.loads(report.envelope.field("result_values_json")),
+                [{"id": 1, "label": "alpha"}],
+            )
             self.assertEqual(report.result_dataset_path, str(result_dataset))
             self.assertEqual(report.evidence_dataset_path, str(evidence_dataset))
             self.assertTrue(report.runtime_execution)
@@ -9936,31 +8185,54 @@ class ShardLoomClientTests(unittest.TestCase):
         script = textwrap.dedent(
             """
             import json, sys
+            from pathlib import Path
 
-            assert sys.argv[1:] == [
-                "generated-source-user-rows",
-                __RESULT_PART__,
-                "id:int64,label:utf8",
-                "id=1,label=alpha",
-                "--source-kind",
-                "user_rows",
-                "--output-format",
-                "jsonl",
-                "--allow-overwrite",
-                "--format",
-                "json",
-            ], sys.argv
+            args = sys.argv[1:]
+            assert args[:2] == ["run", "dataframe"], args
+            assert args[args.index("--request") + 1] == "write_jsonl", args
+            assert args[args.index("--output") + 1] == __RESULT_PART__, args
+            sql = args[args.index("--sql") + 1]
+            assert sql.startswith("SELECT * FROM 'memory://input/"), args
+            bindings = json.loads(args[args.index("--source-bindings") + 1])
+            source = sql.removeprefix("SELECT * FROM '").removesuffix("'")
+            assert bindings[source] == {
+                "input_format": "memory",
+                "memory_input": {
+                    "kind": "rows",
+                    "schema": [["id", "int64"], ["label", "utf8"]],
+                    "rows": [["1", "alpha"]],
+                },
+            }, args
+            schema = {"Struct": [{"names": ["id", "label"], "dtypes": [
+                {"Primitive": ["i64", False]}, {"Utf8": False}
+            ]}, False]}
+            output = Path(__RESULT_PART__)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(json.dumps({"id": 1, "label": "alpha"}) + chr(10), encoding="utf-8")
             print(json.dumps({
                 "schema_version": "shardloom.output.v2",
-                "command": "generated-source-user-rows",
+                "command": "run",
                 "status": "success",
                 "summary": "local Foundry-style generated output",
                 "human_text": "local Foundry-style generated output",
                 "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                 "diagnostics": [],
+                "result": {"fields": [
+                    {"key": "result_schema_json", "value": json.dumps(schema)},
+                    {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                    {"key": "result_values_json", "value": json.dumps([{"id": 1, "label": "alpha"}])},
+                ]},
                 "fields": [
+                    {"key": "result_schema_json", "value": json.dumps(schema)},
+                    {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                    {"key": "result_values_json", "value": json.dumps([{"id": 1, "label": "alpha"}])},
                     {"key": "output_path", "value": __RESULT_PART__},
                     {"key": "output_format", "value": "jsonl"},
+                    {"key": "output_io_performed", "value": "true"},
+                    {"key": "native_vortex_result_export_path", "value": __RESULT_PART__},
+                    {"key": "native_vortex_result_export_format", "value": "jsonl"},
+                    {"key": "native_vortex_result_export_rows_written", "value": "1"},
+                    {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
                     {"key": "generated_source_kind", "value": "user_rows"},
                     {"key": "generated_source_row_count", "value": "1"},
                     {"key": "generated_source_certificate_status", "value": "present"},
@@ -12213,1152 +10485,6 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertTrue(command[0].endswith(("shardloom", "shardloom.exe")))
         self.assertIn(str(target), command[0])
-
-    def test_traditional_analytics_vortex_run_passes_explicit_inputs(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-run",
-                    "selective filter",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": "rows_scanned", "value": "42"}],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_run(
-            "selective filter", "fact.vortex", "dim.vortex"
-        )
-
-        self.assertEqual(result.field_int("rows_scanned"), 42)
-
-    def test_vortex_production_runtime_run_passes_explicit_inputs(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "vortex-production-runtime-run",
-                    "group-by-aggregation",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--execution-mode",
-                    "native_vortex",
-                    "--max-parallelism",
-                    "1",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "vortex-production-runtime-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "execution", "value": "native_vortex_user_operator_provider_performed"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).vortex_production_runtime_run(
-            "group-by-aggregation",
-            "fact.vortex",
-            "dim.vortex",
-            execution_mode="native_vortex",
-            max_parallelism=1,
-        )
-
-        self.assertEqual(result.command, "vortex-production-runtime-run")
-        self.assertFalse(result.fallback.attempted)
-        self.assertFalse(result.field_bool("external_engine_invoked", True))
-
-    def test_traditional_analytics_vortex_run_can_request_result_sink(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-run",
-                    "selective filter",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--workspace",
-                    "sink-work",
-                    "--write-result-vortex",
-                    "--execution-mode",
-                    "prepared_vortex",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "computed_result_sink_requested", "value": "true"},
-                        {"key": "computed_result_sink_replay_verified", "value": "true"},
-                        {"key": "computed_result_sink_native_io_certificate_status", "value": "certified"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_run(
-            "selective filter",
-            "fact.vortex",
-            "dim.vortex",
-            workspace="sink-work",
-            write_result_vortex=True,
-            execution_mode="prepared_vortex",
-        )
-
-        self.assertEqual(result.field("computed_result_sink_requested"), "true")
-        self.assertEqual(
-            result.field("computed_result_sink_native_io_certificate_status"),
-            "certified",
-        )
-
-    def test_context_native_vortex_route_dispatches_engine_and_resource_policy(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-run",
-                    "selective filter",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--workspace",
-                    "sink-work",
-                    "--write-result-vortex",
-                    "--execution-mode",
-                    "native_vortex",
-                    "--memory-gb",
-                    "3",
-                    "--max-parallelism",
-                    "2",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "selected_execution_mode", "value": "native_vortex"},
-                        {"key": "resource_policy_memory_budget_gb", "value": "3"},
-                        {"key": "resource_policy_max_parallelism", "value": "2"},
-                        {"key": "computed_result_sink_requested", "value": "true"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            )
-        )
-        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
-        route = ctx.native_vortex_route(
-            "fact.vortex",
-            "dim.vortex",
-            workspace="sink-work",
-            execution_mode="native_vortex",
-            memory_gb=3,
-            max_parallelism=2,
-        )
-
-        self.assertIsInstance(route, NativeVortexRoute)
-        self.assertEqual(route.route_fields()["vortex_normalization_point"], "native_vortex_boundary")
-        self.assertFalse(route.route_fields()["preparation_included_in_route"])
-        query = route.query("selective filter")
-        self.assertIsInstance(query, NativeVortexQuery)
-        result = query.write_vortex()
-
-        self.assertEqual(result.command, "traditional-analytics-vortex-run")
-        self.assertEqual(result.field("selected_execution_mode"), "native_vortex")
-        self.assertEqual(result.field("resource_policy_memory_budget_gb"), "3")
-        self.assertEqual(result.field("resource_policy_max_parallelism"), "2")
-        self.assertFalse(result.fallback.attempted)
-
-    def test_session_native_vortex_route_returns_route_handle(self) -> None:
-        session = ShardLoomSession(client=ShardLoomClient(binary=("unused",)))
-
-        route = session.native_vortex_route(
-            "fact.vortex",
-            "dim.vortex",
-            execution_mode="prepared_vortex",
-            memory_gb=4,
-            max_parallelism=1,
-        )
-
-        self.assertIsInstance(route, NativeVortexRoute)
-        self.assertEqual(route.execution_mode, "prepared_vortex")
-        self.assertEqual(route.memory_gb, 4)
-        self.assertEqual(route.max_parallelism, 1)
-        self.assertFalse(route.fallback_attempted)
-        self.assertFalse(route.external_engine_invoked)
-
-    def test_traditional_analytics_vortex_run_can_pass_cdc_delta_vortex(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-run",
-                    "small change over large base",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--cdc-delta-vortex",
-                    "cdc_delta.vortex",
-                    "--execution-mode",
-                    "prepared_vortex",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "cdc_delta_vortex_path", "value": "cdc_delta.vortex"},
-                        {"key": "streaming_projected_columns", "value": "base.id,base.metric,cdc_delta.id,cdc_delta.op,cdc_delta.value,cdc_delta.metric,cdc_delta.effective_ts"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_run(
-            "small change over large base",
-            "fact.vortex",
-            "dim.vortex",
-            cdc_delta_vortex="cdc_delta.vortex",
-            execution_mode="prepared_vortex",
-        )
-
-        self.assertEqual(result.field("cdc_delta_vortex_path"), "cdc_delta.vortex")
-
-    def test_traditional_analytics_methods_can_request_auto_mode(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                args = sys.argv[1:]
-                if args == [
-                    "traditional-analytics-run",
-                    "selective filter",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "csv",
-                    "--execution-mode",
-                    "auto",
-                    "--format",
-                    "json",
-                ]:
-                    command = "traditional-analytics-run"
-                elif args == [
-                    "traditional-analytics-vortex-run",
-                    "selective filter",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--execution-mode",
-                    "auto",
-                    "--format",
-                    "json",
-                ]:
-                    command = "traditional-analytics-vortex-run"
-                else:
-                    raise AssertionError(args)
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": command,
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "requested_execution_mode", "value": "auto"},
-                        {"key": "selected_execution_mode", "value": "native_vortex"},
-                        {"key": "mode_selection_reason", "value": "auto selected explicit test path"}
-                    ],
-                }))
-                """
-            )
-        )
-        client = ShardLoomClient(binary=binary)
-
-        compatibility = client.traditional_analytics_run(
-            "selective filter",
-            "fact.csv",
-            "dim.csv",
-            workspace="work",
-            input_format="csv",
-            execution_mode="auto",
-        )
-        native = client.traditional_analytics_vortex_run(
-            "selective filter",
-            "fact.vortex",
-            "dim.vortex",
-            execution_mode="auto",
-        )
-
-        self.assertEqual(
-            ExecutionResultEnvelopeView(compatibility).requested_execution_mode,
-            "auto",
-        )
-        self.assertEqual(
-            ExecutionResultEnvelopeView(native).requested_execution_mode,
-            "auto",
-        )
-
-    def test_prepare_traditional_analytics_vortex_artifacts_reports_lifecycle(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-run",
-                    "csv/file ingest",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "csv",
-                    "--execution-mode",
-                    "compatibility_import_certified",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "prepared_artifact_ref", "value": "fact=fact.vortex,dim=dim.vortex"},
-                        {"key": "prepared_artifact_fact_ref", "value": "fact.vortex"},
-                        {"key": "prepared_artifact_dim_ref", "value": "dim.vortex"},
-                        {"key": "prepared_artifact_digest", "value": "fact=sha256:f,dim=sha256:d"},
-                        {"key": "prepared_state_id", "value": "prepared-state://abc"},
-                        {"key": "prepared_state_digest", "value": "fnv1a64:abc"},
-                        {"key": "source_state_id", "value": "source-state://abc"},
-                        {"key": "source_state_digest", "value": "fnv1a64:source"},
-                        {"key": "source_state_columnar_preserved", "value": "false"},
-                        {"key": "source_state_record_batch_count", "value": "2"},
-                        {"key": "vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
-                        {"key": "vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
-                        {"key": "vortex_array_build_strategy", "value": "vortex_from_text_adapter_record_batch_without_persistent_traditional_rows"},
-                        {"key": "vortex_array_build_input_layout", "value": "traditional_text_adapter_record_batch"},
-                        {"key": "vortex_array_build_record_batch_count", "value": "2"},
-                        {"key": "vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
-                        {"key": "vortex_preparation_spine_status", "value": "admitted_local_preparation_spine"},
-                        {"key": "vortex_preparation_spine_vortex_first_decision", "value": "use_vortex_native_provider"},
-                        {"key": "vortex_preparation_spine_provider_kind", "value": "vortex_array_kernel"},
-                        {"key": "vortex_preparation_spine_provider_api_surface", "value": "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream);VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"},
-                        {"key": "vortex_preparation_spine_source_split_count", "value": "2"},
-                        {"key": "vortex_preparation_spine_source_split_refs", "value": "source-state://abc:split=1:bytes=0..128:rows=0..2;source-state://abc:split=2:bytes=0..128:rows=2..4"},
-                        {"key": "vortex_preparation_spine_native_io_certificate_status", "value": "certified_local_vortex_preparation_spine"},
-                        {"key": "prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
-                        {"key": "prepared_artifact_reuse_eligible", "value": "true"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        artifacts = ShardLoomClient(binary=binary).prepare_traditional_analytics_vortex_artifacts(
-            "fact.csv",
-            "dim.csv",
-            workspace="work",
-            input_format="csv",
-        )
-
-        self.assertIsInstance(artifacts, PreparedVortexArtifacts)
-        self.assertEqual(artifacts.fact_vortex_path, "fact.vortex")
-        self.assertEqual(artifacts.dim_vortex_path, "dim.vortex")
-        self.assertEqual(artifacts.artifact_digest, "fact=sha256:f,dim=sha256:d")
-        self.assertEqual(artifacts.prepared_state_id, "prepared-state://abc")
-        self.assertEqual(artifacts.source_state_digest, "fnv1a64:source")
-        self.assertFalse(artifacts.source_state_columnar_preserved)
-        self.assertEqual(artifacts.source_state_record_batch_count, 2)
-        self.assertEqual(artifacts.vortex_array_build_provider_kind, "vortex_array_kernel")
-        self.assertEqual(
-            artifacts.vortex_array_build_provider_surface,
-            "ArrayRef::from_arrow(RecordBatch)",
-        )
-        self.assertEqual(
-            artifacts.vortex_array_build_strategy,
-            "vortex_from_text_adapter_record_batch_without_persistent_traditional_rows",
-        )
-        self.assertEqual(
-            artifacts.vortex_array_build_input_layout,
-            "traditional_text_adapter_record_batch",
-        )
-        self.assertEqual(artifacts.vortex_array_build_record_batch_count, 2)
-        self.assertTrue(artifacts.vortex_array_build_manual_scalar_copy_avoided)
-        self.assertEqual(
-            artifacts.vortex_preparation_spine_status,
-            "admitted_local_preparation_spine",
-        )
-        self.assertEqual(
-            artifacts.vortex_preparation_spine_vortex_first_decision,
-            "use_vortex_native_provider",
-        )
-        self.assertEqual(
-            artifacts.vortex_preparation_spine_provider_kind,
-            "vortex_array_kernel",
-        )
-        self.assertEqual(artifacts.vortex_preparation_spine_source_split_count, 2)
-        self.assertEqual(
-            artifacts.vortex_preparation_spine_source_split_refs,
-            (
-                "source-state://abc:split=1:bytes=0..128:rows=0..2",
-                "source-state://abc:split=2:bytes=0..128:rows=2..4",
-            ),
-        )
-        self.assertEqual(
-            artifacts.vortex_preparation_spine_native_io_certificate_status,
-            "certified_local_vortex_preparation_spine",
-        )
-        self.assertEqual(artifacts.cleanup_policy, "caller_owned_workspace_cleanup")
-        self.assertTrue(artifacts.reuse_eligible)
-
-    def test_traditional_analytics_vortex_batch_run_preserves_cli_default_mode(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-batch-run",
-                    "hash join,join + aggregate",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--cdc-delta-vortex",
-                    "cdc.vortex",
-                    "--workspace",
-                    "out",
-                    "--write-result-vortex",
-                    "--evidence-level",
-                    "full_replay",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-batch-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "schema_version", "value": "shardloom.traditional_analytics.vortex_batch.v1"},
-                        {"key": "scenario_order", "value": "hash join,join + aggregate"},
-                        {"key": "source_state_digest", "value": "fnv1a64:batch"},
-                        {"key": "source_state_reuse_status", "value": "per_batch_dimension_label_state_reused"},
-                        {"key": "source_state_reused", "value": "true"},
-                        {"key": "source_state_recompute_avoided_count", "value": "1"},
-                        {"key": "selected_evidence_level", "value": "full_replay"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_batch_run(
-            ["hash join", "join + aggregate"],
-            "fact.vortex",
-            "dim.vortex",
-            cdc_delta_vortex="cdc.vortex",
-            workspace="out",
-            write_result_vortex=True,
-            evidence_level="full_replay",
-        )
-
-        self.assertEqual(result.command, "traditional-analytics-vortex-batch-run")
-        self.assertEqual(result.field("source_state_digest"), "fnv1a64:batch")
-
-    def test_traditional_analytics_vortex_batch_run_accepts_explicit_mode(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-batch-run",
-                    "hash join",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--execution-mode",
-                    "prepared_vortex",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-batch-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "selected_execution_mode", "value": "prepared_vortex"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_batch_run(
-            "hash join",
-            "fact.vortex",
-            "dim.vortex",
-            execution_mode="prepared_vortex",
-        )
-
-        self.assertEqual(result.field("selected_execution_mode"), "prepared_vortex")
-
-    def test_traditional_analytics_prepare_batch_run_dispatches_combined_route(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-prepare-batch-run",
-                    "selective filter,filter + projection + limit",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "prepare-work",
-                    "--input-format",
-                    "csv",
-                    "--cdc-delta",
-                    "cdc.csv",
-                    "--result-workspace",
-                    "batch-work",
-                    "--write-result-vortex",
-                    "--evidence-level",
-                    "full_replay",
-                    "--memory-gb",
-                    "2",
-                    "--max-parallelism",
-                    "4",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-prepare-batch-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "schema_version", "value": "shardloom.traditional_analytics.vortex_batch.v1"},
-                        {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
-                        {"key": "prepare_batch_lifecycle_schema_version", "value": "shardloom.traditional_analytics.prepared_native_vortex_lifecycle.v1"},
-                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_complete_with_output_replay"},
-                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_written_and_replay_verified"},
-                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
-                        {"key": "prepare_batch_scale_schema_version", "value": "shardloom.traditional_analytics.prepared_vortex_local_scale.v1"},
-                        {"key": "prepare_batch_scale_route", "value": "compatibility_import_certified_to_prepared_vortex_batch"},
-                        {"key": "prepare_batch_scale_runtime_status", "value": "prepared_vortex_in_between_processing_evidence"},
-                        {"key": "prepare_batch_scale_no_standalone_lane", "value": "true"},
-                        {"key": "prepare_batch_scale_real_bytes", "value": "true"},
-                        {"key": "prepare_batch_scale_memory_budget_bytes", "value": "2147483648"},
-                        {"key": "prepare_batch_scale_split_runtime_status", "value": "scheduled_reader_chunk_execution_completed"},
-                        {"key": "prepare_batch_scale_split_execution_certificate_status", "value": "certified"},
-                        {"key": "prepare_batch_scale_split_operator_runtime_status", "value": "local_split_operator_runtime_partially_certified"},
-                        {"key": "prepare_batch_scale_split_operator_certified_count", "value": "1"},
-                        {"key": "prepare_batch_scale_claim_gate_status", "value": "not_scale_grade"},
-                        {"key": "prepare_batch_preparation_included_in_batch_timing", "value": "false"},
-                        {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
-                        {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
-                        {"key": "prepare_batch_cdc_delta_vortex_path", "value": "cdc.vortex"},
-                        {"key": "prepare_batch_fact_vortex_digest", "value": "sha256:f"},
-                        {"key": "prepare_batch_dim_vortex_digest", "value": "sha256:d"},
-                        {"key": "prepare_batch_cdc_delta_vortex_digest", "value": "sha256:c"},
-                        {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
-                        {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
-                        {"key": "prepare_batch_source_state_columnar_preserved", "value": "false"},
-                        {"key": "prepare_batch_source_state_record_batch_count", "value": "2"},
-                        {"key": "prepare_batch_vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
-                        {"key": "prepare_batch_vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
-                        {"key": "prepare_batch_vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch_mixed_traditional_text_and_direct_columnar"},
-                        {"key": "prepare_batch_vortex_array_build_input_layout", "value": "mixed_traditional_arrow_record_batch_text_adapter_and_vortex_provider_record_batch"},
-                        {"key": "prepare_batch_vortex_array_build_record_batch_count", "value": "3"},
-                        {"key": "prepare_batch_vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
-                        {"key": "scenario_order", "value": "selective-filter,filter---projection---limit"},
-                        {"key": "session_route_used", "value": "true"},
-                        {"key": "process_spawn_count", "value": "1"},
-                        {"key": "source_state_digest", "value": "fnv1a64:batch"},
-                        {"key": "source_state_reuse_status", "value": "per_batch_selective_filter_state_reused"},
-                        {"key": "source_state_reused", "value": "true"},
-                        {"key": "selected_evidence_level", "value": "full_replay"},
-                        {"key": "scenario_selective-filter_prepared_vortex_scale_no_standalone_lane", "value": "true"},
-                        {"key": "scenario_selective-filter_prepared_vortex_scale_real_bytes", "value": "true"},
-                        {"key": "scenario_selective-filter_prepared_vortex_scale_split_runtime_status", "value": "scheduled_reader_chunk_execution_completed"},
-                        {"key": "scenario_selective-filter_prepared_vortex_scale_split_execution_certificate_status", "value": "certified"},
-                        {"key": "scenario_selective-filter_prepared_vortex_scale_split_operator_runtime_status", "value": "local_split_operator_runtime_certified"},
-                        {"key": "scenario_selective-filter_prepared_vortex_scale_split_operator_execution_certificate_status", "value": "certified"},
-                        {"key": "scenario_selective-filter_prepared_vortex_scale_idempotency_key", "value": "prepared-vortex:fnv1a64-feedface"},
-                        {"key": "scenario_selective-filter_prepared_native_vortex_lifecycle_status", "value": "prepared_native_vortex_lifecycle_complete_with_output_replay"},
-                        {"key": "scenario_selective-filter_prepared_native_vortex_lifecycle_output_status", "value": "vortex_result_sink_written_and_replay_verified"},
-                        {"key": "scenario_selective-filter_prepared_native_vortex_lifecycle_no_standalone_lane", "value": "true"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).traditional_analytics_prepare_batch_run(
-            ["selective filter", "filter + projection + limit"],
-            "fact.csv",
-            "dim.csv",
-            workspace="prepare-work",
-            input_format="csv",
-            cdc_delta_input="cdc.csv",
-            result_workspace="batch-work",
-            write_result_vortex=True,
-            evidence_level="full_replay",
-            memory_gb=2,
-            max_parallelism=4,
-        )
-
-        self.assertEqual(result.command, "traditional-analytics-prepare-batch-run")
-        self.assertEqual(
-            result.field("prepare_batch_schema_version"),
-            "shardloom.traditional_analytics.prepare_and_batch.v1",
-        )
-        self.assertEqual(
-            result.field("source_state_reuse_status"),
-            "per_batch_selective_filter_state_reused",
-        )
-        self.assertEqual(result.field("session_route_used"), "true")
-        self.assertEqual(result.field("process_spawn_count"), "1")
-        self.assertEqual(result.field("prepare_batch_scale_no_standalone_lane"), "true")
-        self.assertEqual(result.field("prepare_batch_scale_real_bytes"), "true")
-        self.assertEqual(
-            result.field("prepare_batch_scale_split_runtime_status"),
-            "scheduled_reader_chunk_execution_completed",
-        )
-        self.assertEqual(
-            result.field("prepare_batch_scale_split_execution_certificate_status"),
-            "certified",
-        )
-        self.assertEqual(
-            result.field("prepare_batch_scale_split_operator_runtime_status"),
-            "local_split_operator_runtime_partially_certified",
-        )
-        self.assertEqual(result.field("prepare_batch_scale_claim_gate_status"), "not_scale_grade")
-        self.assertEqual(
-            result.field(
-                "scenario_selective-filter_prepared_vortex_scale_split_operator_execution_certificate_status"
-            ),
-            "certified",
-        )
-        self.assertEqual(
-            result.field("scenario_selective-filter_prepared_vortex_scale_idempotency_key"),
-            "prepared-vortex:fnv1a64-feedface",
-        )
-        self.assertEqual(
-            result.field("prepare_batch_lifecycle_status"),
-            "prepared_vortex_lifecycle_complete_with_output_replay",
-        )
-        self.assertEqual(
-            result.field("scenario_selective-filter_prepared_native_vortex_lifecycle_status"),
-            "prepared_native_vortex_lifecycle_complete_with_output_replay",
-        )
-        self.assertFalse(result.fallback.attempted)
-
-    def test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-prepare-batch-run",
-                    "hash join,join + aggregate",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "csv",
-                    "--cdc-delta",
-                    "cdc.csv",
-                    "--result-workspace",
-                    "batch-work",
-                    "--evidence-level",
-                    "certified",
-                    "--memory-gb",
-                    "2",
-                    "--max-parallelism",
-                    "4",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-prepare-batch-run",
-                    "status": "success",
-                    "summary": "prepare/batch",
-                    "human_text": "prepare/batch",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
-                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_scan_complete_output_not_requested"},
-                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_not_requested"},
-                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
-                        {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
-                        {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
-                        {"key": "prepare_batch_cdc_delta_vortex_path", "value": "cdc.vortex"},
-                        {"key": "prepare_batch_fact_vortex_digest", "value": "sha256:f"},
-                        {"key": "prepare_batch_dim_vortex_digest", "value": "sha256:d"},
-                        {"key": "prepare_batch_cdc_delta_vortex_digest", "value": "sha256:c"},
-                        {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
-                        {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
-                        {"key": "scenario_order", "value": "hash join,join + aggregate"},
-                        {"key": "session_route_used", "value": "true"},
-                        {"key": "process_spawn_count", "value": "1"},
-                        {"key": "source_state_digest", "value": "fnv1a64:batch"},
-                        {"key": "source_state_reuse_status", "value": "per_batch_dimension_label_state_reused"},
-                        {"key": "source_state_reused", "value": "true"},
-                        {"key": "source_state_recompute_avoided_count", "value": "1"},
-                        {"key": "selected_evidence_level", "value": "certified"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(
-            binary=binary
-        ).prepare_and_run_traditional_analytics_vortex_batch(
-            ["hash join", "join + aggregate"],
-            "fact.csv",
-            "dim.csv",
-            workspace="work",
-            input_format="csv",
-            cdc_delta_input="cdc.csv",
-            result_workspace="batch-work",
-            evidence_level="certified",
-            memory_gb=2,
-            max_parallelism=4,
-        )
-
-        self.assertIsInstance(result, PreparedVortexBatchResult)
-        self.assertEqual(result.artifacts.cdc_delta_vortex_path, "cdc.vortex")
-        self.assertEqual(result.scenario_order, ("hash join", "join + aggregate"))
-        self.assertEqual(result.source_state_digest, "fnv1a64:batch")
-        self.assertTrue(result.source_state_reused)
-        self.assertEqual(result.source_state_recompute_avoided_count, 1)
-        self.assertTrue(result.session_route_used)
-        self.assertEqual(result.process_spawn_count, 1)
-        self.assertTrue(result.prepared_artifacts_reuse_eligible)
-        self.assertEqual(result.selected_evidence_level, "certified")
-        self.assertEqual(
-            result.lifecycle_status,
-            "prepared_vortex_lifecycle_scan_complete_output_not_requested",
-        )
-        self.assertEqual(result.lifecycle_output_status, "vortex_result_sink_not_requested")
-        self.assertFalse(result.lifecycle_complete_with_output_replay)
-        self.assertTrue(result.lifecycle_no_standalone_lane)
-        self.assertFalse(result.fallback_attempted)
-        self.assertFalse(result.external_engine_invoked)
-
-    def test_live_etl_smoke_dispatches_csv_and_vortex_modes(self) -> None:
-        csv_binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-run",
-                    "csv/file ingest",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "csv",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": "input_format", "value": "csv"}],
-                }))
-                """
-            )
-        )
-        csv_result = ShardLoomClient(binary=csv_binary).live_etl_smoke(
-            "csv/file ingest",
-            "fact.csv",
-            "dim.csv",
-            input_format="csv",
-            workspace="work",
-        )
-        self.assertEqual(csv_result.command, "traditional-analytics-run")
-
-        vortex_binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-run",
-                    "wide projection",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--execution-mode",
-                    "native_vortex",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": "input_format", "value": "vortex"}],
-                }))
-                """
-            )
-        )
-        vortex_result = ShardLoomClient(binary=vortex_binary).live_etl_smoke(
-            "wide projection",
-            "fact.vortex",
-            "dim.vortex",
-            input_format="vortex",
-        )
-        self.assertEqual(vortex_result.command, "traditional-analytics-vortex-run")
-
-    def test_live_etl_smoke_accepts_common_compatibility_formats(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-run",
-                    "hash join",
-                    "fact.parquet",
-                    "dim.parquet",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "parquet",
-                    "--compat-output-format",
-                    "orc",
-                    "--verify-native-replay",
-                    "--write-result-vortex",
-                    "--memory-gb",
-                    "8",
-                    "--max-parallelism",
-                    "4",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": "source_format", "value": "parquet"}],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).live_etl_smoke(
-            "hash join",
-            "fact.parquet",
-            "dim.parquet",
-            input_format="parquet",
-            workspace="work",
-            compatibility_output_format="orc",
-            verify_native_replay=True,
-            write_result_vortex=True,
-            memory_gb=8,
-            max_parallelism=4,
-        )
-
-        self.assertEqual(result.field("source_format"), "parquet")
-
-    def test_live_etl_smoke_rejects_unknown_format(self) -> None:
-        with self.assertRaises(ValueError):
-            ShardLoomClient(binary=["shardloom"]).live_etl_smoke(
-                "csv/file ingest", "fact.unknown", "dim.unknown", input_format="unknown"
-            )
-
-    def test_live_etl_smoke_rejects_native_replay_for_existing_vortex_inputs(self) -> None:
-        with self.assertRaises(ValueError):
-            ShardLoomClient(binary=["shardloom"]).live_etl_smoke(
-                "wide projection",
-                "fact.vortex",
-                "dim.vortex",
-                input_format="vortex",
-                verify_native_replay=True,
-            )
-
-    def test_live_etl_smoke_rejects_result_sink_for_existing_vortex_inputs(self) -> None:
-        with self.assertRaises(ValueError):
-            ShardLoomClient(binary=["shardloom"]).live_etl_smoke(
-                "wide projection",
-                "fact.vortex",
-                "dim.vortex",
-                input_format="vortex",
-                write_result_vortex=True,
-            )
-
-    def test_live_etl_smoke_dispatches_native_result_sink_with_workspace(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-vortex-run",
-                    "wide projection",
-                    "fact.vortex",
-                    "dim.vortex",
-                    "--workspace",
-                    "sink-work",
-                    "--write-result-vortex",
-                    "--execution-mode",
-                    "native_vortex",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-vortex-run",
-                    "status": "success",
-                    "summary": "ok",
-                    "human_text": "ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "computed_result_sink_requested", "value": "true"},
-                        {"key": "computed_result_sink_replay_verified", "value": "true"}
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).live_etl_smoke(
-            "wide projection",
-            "fact.vortex",
-            "dim.vortex",
-            input_format="vortex",
-            workspace="sink-work",
-            write_result_vortex=True,
-        )
-
-        self.assertEqual(result.command, "traditional-analytics-vortex-run")
-        self.assertEqual(result.field("computed_result_sink_requested"), "true")
-
-    def test_live_etl_csv_to_vortex_replay_runs_import_then_native_replay(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                args = sys.argv[1:]
-                if args == [
-                    "traditional-analytics-run",
-                    "selective filter",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "csv",
-                    "--format",
-                    "json",
-                ]:
-                    print(json.dumps({
-                        "schema_version": "shardloom.output.v2",
-                        "command": "traditional-analytics-run",
-                        "status": "success",
-                        "summary": "csv ok",
-                        "human_text": "csv ok",
-                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                        "diagnostics": [],
-                        "fields": [
-                            {"key": "fact_vortex_path", "value": "work/fact.vortex"},
-                            {"key": "dim_vortex_path", "value": "work/dim.vortex"},
-                        ],
-                    }))
-                elif args == [
-                    "traditional-analytics-vortex-run",
-                    "selective filter",
-                    "work/fact.vortex",
-                    "work/dim.vortex",
-                    "--execution-mode",
-                    "native_vortex",
-                    "--format",
-                    "json",
-                ]:
-                    print(json.dumps({
-                        "schema_version": "shardloom.output.v2",
-                        "command": "traditional-analytics-vortex-run",
-                        "status": "success",
-                        "summary": "native ok",
-                        "human_text": "native ok",
-                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                        "diagnostics": [],
-                        "fields": [{"key": "source_format", "value": "vortex"}],
-                    }))
-                else:
-                    raise AssertionError(args)
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).live_etl_csv_to_vortex_replay(
-            "selective filter",
-            "fact.csv",
-            "dim.csv",
-            workspace="work",
-        )
-
-        self.assertEqual(result.csv_import.command, "traditional-analytics-run")
-        self.assertEqual(
-            result.native_vortex.command if result.native_vortex else None,
-            "traditional-analytics-vortex-run",
-        )
-        self.assertEqual(result.fact_vortex_path, "work/fact.vortex")
-        self.assertEqual(result.dim_vortex_path, "work/dim.vortex")
-        self.assertTrue(result.native_replay_ran)
-        self.assertFalse(result.fallback_attempted)
-
-    def test_live_etl_csv_to_vortex_replay_can_skip_native_replay(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-                assert sys.argv[1:] == [
-                    "traditional-analytics-run",
-                    "selective filter",
-                    "fact.csv",
-                    "dim.csv",
-                    "--workspace",
-                    "work",
-                    "--input-format",
-                    "csv",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-run",
-                    "status": "success",
-                    "summary": "csv ok",
-                    "human_text": "csv ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "fact_vortex_path", "value": "work/fact.vortex"},
-                        {"key": "dim_vortex_path", "value": "work/dim.vortex"},
-                    ],
-                }))
-                """
-            )
-        )
-
-        result = ShardLoomClient(binary=binary).live_etl_csv_to_vortex_replay(
-            "selective filter",
-            "fact.csv",
-            "dim.csv",
-            workspace="work",
-            replay_native=False,
-        )
-
-        self.assertIsNone(result.native_vortex)
-        self.assertFalse(result.native_replay_ran)
-
-    def test_live_etl_csv_to_vortex_replay_requires_emitted_vortex_paths(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "traditional-analytics-run",
-                    "status": "success",
-                    "summary": "csv ok",
-                    "human_text": "csv ok",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [],
-                }))
-                """
-            )
-        )
-
-        with self.assertRaises(ShardLoomProtocolError):
-            ShardLoomClient(binary=binary).live_etl_csv_to_vortex_replay(
-                "selective filter",
-                "fact.csv",
-                "dim.csv",
-                workspace="work",
-            )
 
     def test_dynamic_work_shaping_and_sizing_feedback_commands(self) -> None:
         binary = self.fake_cli(

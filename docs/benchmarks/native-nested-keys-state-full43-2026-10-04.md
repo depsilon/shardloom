@@ -208,3 +208,12 @@ version is 0.4.0; this work does not publish a package, tag or release. Broader
 pivot/aggregate/window semantics, adapters, shared scratch accounting and general
 state spill/recovery remain open. No fallback execution or competitive
 superiority is claimed.
+
+## October 4 website dependency follow-up
+
+The [dependency update](../dependencies/website-build-dependency-review.md#2026-10-04-registry-update)
+selects `http-cache-semantics` 4.3.0 and passes the standard dependency audit.
+The unused exception proposal is removed. Earlier website-blocker statements
+in this report describe its original frozen revision; they no longer identify
+the current dependency posture. Hosted runtime review and checks remain separate.
+The recorded benchmark results, source identities and immutable packets are unchanged.

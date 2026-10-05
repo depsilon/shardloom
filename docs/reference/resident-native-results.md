@@ -127,16 +127,16 @@ melt and rolling COUNT. Forward fill replaces a NULL parent with the prior
 complete value; child NULLs do not trigger filling. Exact recursive key schemas
 must match except for nullability. The
 [local acceptance report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
-records complete results, resource/failure proof and regression checks;
-hosted acceptance remains pending.
-General Variant/extension operations, structured literals, nested
+records complete results, resource/failure proof and regression checks. The unit
+merged in PR #1516 after all 37 hosted checks passed.
+General Variant/extension operations, nested
 arithmetic/string operations and broader state-spill families remain explicit
 gaps. Current source builds admit typed literals, explicit CAST/TRY_CAST, exact
 decimal arithmetic/rounding and scoped binary/calendar functions through the
 shared native expression binder. Decimal arithmetic
 output metadata binds before execution; explicit decimal downscaling requires
 zero discarded digits. Key compatibility still requires matching decimal
-precision/scale and preserves distinct temporal types. Richer aggregate/window
+precision/scale and preserves distinct temporal types. Wider analytic-window
 semantics, broader adapters and state spill remain separate. See the [typed
 expression contract](../architecture/native-typed-expressions-2026-10-03.md).
 Retained unary state also admits those four flat scalar domains for DISTINCT,
@@ -146,8 +146,19 @@ nested contract adds the finite selected-value operations listed above; nested
 values retain their exact logical shape for same-shape melt, and forward fill
 replaces a NULL parent with the prior complete valid value. Direct
 file requests and composed unary stages share binding and native ownership.
-Typed sampling weights, decimal rolling aggregates and decimal pivot SUM/MEAN
-are not implied. Legacy primitive predicates retain their narrower domain; use
+Typed sampling weights remain unsupported. The
+[typed reduction continuation](../architecture/native-typed-reductions-2026-10-04.md)
+adds computed aggregate arguments and exact Decimal128 SUM/AVG, rolling
+sum/mean/min/max and numeric pivot cells/margins through the existing owners.
+SUM binds precision 38 at the input scale; AVG binds precision 38 at scale
+`max(input_scale,6)` and fails on inexact division. Extrema preserve the input
+decimal type, and numeric pivot NULL values remain errors. Wide intermediate
+totals allow cancellation and representable averages without floating conversion.
+Complete local acceptance passes 20,445 public checks and all 129 shared-engine
+Full43 executions; the [report and independently inspected packet](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
+retain exact runtime and source identities. No speedup is claimed. Native
+ARRAY/STRUCT constructors also preserve admitted child types through shared
+expression and output owners. Primitive predicates retain their narrower domain; use
 the shared typed expression binder for typed filtering around a unary stage.
 The [typed unary contract](../architecture/native-typed-unary-2026-10-03.md)
 defines exact literal JSON and the 0.4 Rust request migration from `StatValue` to

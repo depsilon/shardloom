@@ -10,19 +10,12 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
+from native_workflow_test_support import structured_envelope as envelope
 import run_resident_call_path_uat as resident
 from run_resident_call_path_uat import (
     Worker, cases, command_args, fixture_rows, paired_order, percentiles,
     request_options, validate, validate_candidate_aggregate, validate_candidate_count_where, validate_candidate_reuse, validate_preparation,
 )
-
-
-def envelope(value):
-    return {"status": "success", "human_text": "result summary: native_collect values=" +
-            json.dumps({"rows": len(value), "values": value}), "fields": [
-                {"key": "public_workflow_fallback_attempted", "value": "false"},
-                {"key": "public_workflow_external_engine_invoked", "value": "false"},
-            ]}
 
 
 class ResidentCallPathTests(unittest.TestCase):
@@ -139,9 +132,12 @@ class ResidentCallPathTests(unittest.TestCase):
         self.assertEqual(cases(rows)[2]["expected"], rows[24:])
         self.assertEqual(cases(rows)[3]["expected"], [])
         counts = {case["name"]: case for case in cases(rows) if case["primitive"] == "count_where"}
-        self.assertEqual(counts["filtered_count"]["expected"], 8)
-        self.assertEqual(counts["empty_filtered_count"]["expected"], 0)
+        self.assertEqual(counts["filtered_count"]["expected"], [{"count_all": 8}])
+        self.assertEqual(counts["empty_filtered_count"]["expected"], [{"count_all": 0}])
         self.assertTrue(all("columns" not in case for case in counts.values()))
+        self.assertEqual(cases(rows)[0]["expected"], [{"count_all": 32}])
+        for case in [cases(rows)[0], *counts.values()]:
+            validate(envelope(case["expected"], [{"Primitive": ["u64", False]}]), case["expected"])
 
     def test_public_command_and_python_options_describe_same_native_operation(self):
         source = Path("/tmp/renamed.vortex")

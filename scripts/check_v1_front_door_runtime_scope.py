@@ -62,6 +62,13 @@ EXPECTED_EXAMPLE_SCENARIOS = {
 
 EXPECTED_ERROR_SCENARIOS: set[str] = set()
 
+EXPECTED_PUBLIC_FRONT_DOOR_IDS = {
+    "local_source_vortex_middle_front_door",
+    "native_vortex_front_door",
+    "declared_memory_front_door",
+    "source_free_sql_front_door",
+}
+
 DOC_MARKERS = (
     "shardloom.v1_front_door_runtime_scope.v1",
     "ShardLoomContext.front_door_parity_matrix()",
@@ -307,7 +314,12 @@ def validate_route_report(report: Any) -> tuple[list[dict[str, Any]], list[str]]
     public_rows = [
         {
             "front_door_id": row.front_door_id,
-            "route_runtime_status": row.route_runtime_status,
+            "owning_route_id": row.owning_route_id,
+            "input_family": row.input_family,
+            "execution_mode": row.execution_mode,
+            "vortex_normalization_point": row.vortex_normalization_point,
+            "output_route": row.output_route,
+            "required_evidence": list(row.required_evidence),
             "fallback_attempted": row.fallback_attempted,
             "external_engine_invoked": row.external_engine_invoked,
             "public_user_surface": row.public_user_surface,
@@ -317,24 +329,30 @@ def validate_route_report(report: Any) -> tuple[list[dict[str, Any]], list[str]]
     ]
     if report.all_no_fallback_no_external_engine is not True:
         blockers.append("user route report must preserve no fallback and no external engine")
-    if report.unsupported_local_benchmark_route_ids:
+    front_door_ids = [str(row["front_door_id"]) for row in public_rows]
+    if set(front_door_ids) != EXPECTED_PUBLIC_FRONT_DOOR_IDS:
         blockers.append(
-            "user route report must not contain unsupported local benchmark routes: "
-            + ",".join(report.unsupported_local_benchmark_route_ids)
+            "public front-door declarations mismatch: "
+            + json.dumps(
+                {
+                    "expected": sorted(EXPECTED_PUBLIC_FRONT_DOOR_IDS),
+                    "actual": front_door_ids,
+                },
+                sort_keys=True,
+            )
         )
-    if len(public_rows) < 2:
-        blockers.append("public front-door route report must expose prepared route rows")
+    if len(front_door_ids) != len(set(front_door_ids)):
+        blockers.append("public front-door declaration IDs must be unique")
     for row in public_rows:
         front_door_id = str(row["front_door_id"])
-        if row.get("route_runtime_status") != "global_runtime_supported":
-            blockers.append(f"{front_door_id}: public front door must be runtime supported")
+        if row.get("owning_route_id") != "native_vortex_query":
+            blockers.append(f"{front_door_id}: public front door must use the shared native route")
+        if row.get("execution_mode") != "native_vortex":
+            blockers.append(f"{front_door_id}: execution_mode must be native_vortex")
         if row.get("fallback_attempted") is not False:
             blockers.append(f"{front_door_id}: fallback_attempted must be false")
         if row.get("external_engine_invoked") is not False:
             blockers.append(f"{front_door_id}: external_engine_invoked must be false")
-        surface = str(row.get("public_user_surface", ""))
-        if "prepare_vortex" not in surface:
-            blockers.append(f"{front_door_id}: public surface must name prepare_vortex")
     return public_rows, blockers
 
 
@@ -344,22 +362,9 @@ def validate_scenario_contract(module: Any, repo_root: Path) -> tuple[list[str],
     if expected_errors != EXPECTED_ERROR_SCENARIOS:
         blockers.append("expected-error scenario set mismatch")
 
-    class DummyContext:
-        def read_csv(self, path: str, schema: dict[str, str]) -> str:
-            return f"csv:{path}:{','.join(schema)}"
-
-        def read_json(self, path: str, schema: dict[str, str]) -> str:
-            return f"json:{path}:{','.join(schema)}"
-
-    class DummySl:
-        @staticmethod
-        def col(name: str) -> str:
-            return f"col:{name}"
-
-    # Scenario names are collected without running the actions. This keeps the validator
-    # side-effect-free while the dedicated example tests exercise execution through a fake CLI.
-    actions = module.scenario_actions(DummyContext(), DummySl())
-    names = [name for name, _ in actions]
+    # Read the declared scenario IDs without constructing or executing workflows.
+    routes = getattr(module, "SCENARIO_ROUTES", ())
+    names = [route[0] for route in routes if isinstance(route, tuple) and route]
     name_set = set(names)
     if name_set != EXPECTED_EXAMPLE_SCENARIOS:
         blockers.append(

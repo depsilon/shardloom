@@ -1,6 +1,6 @@
 # Execution Mode Protocol Parity
 
-Status: Completed P7.5.8 protocol parity reference; GAR-FLOW-3A REST/OpenAPI parity artifact
+Status: P7.5.8/GAR-FLOW-3A protocol reference, updated for the shared native workflow
 Applies to: CLI JSON, Python client, benchmark rows, report-only REST/OpenAPI surfaces
 
 ## Purpose
@@ -15,18 +15,17 @@ fallback, package publication, or new execution modes.
 ## Execution Mode Vocabulary
 
 ```text
+auto
 compatibility_import_certified
 prepared_vortex
 native_vortex
-internal_local_source_smoke
 ```
 
-`internal_local_source_smoke` is internal smoke-only for scoped local adapter safeguards. It is
-not an admitted public workflow route: public local-file requests normalize to `vortex_middle`,
-then route through Vortex preparation/native input or fail closed. Explicit public `direct`
-requests are blocked. Internal smoke must
-not satisfy Vortex-native claim gates, broad SQL/DataFrame claims, object-store/table claims, or
-performance claims.
+These labels describe source admission, preparation and evidence boundaries around
+the shared Vortex-native engine. They do not select independent query evaluators.
+The retired direct local-source smoke mode and its admission switch are removed;
+their old spellings are invalid requests. The retained
+`direct_transient_execution` evidence field is false for every available mode.
 
 ## Shared Selection Report Fields
 
@@ -105,14 +104,20 @@ not be silently promoted to success.
 
 ## Python Contract
 
-The Python client may request supported local modes through:
+Python declares a source or source-free expression, its transformations and its
+requested terminal operation through the public workflow:
 
-```text
-ShardLoomClient.traditional_analytics_run(..., execution_mode="compatibility_import_certified")
-ShardLoomClient.traditional_analytics_vortex_run(..., execution_mode="prepared_vortex|native_vortex")
+```python
+result = ctx.read("orders.csv").filter("amount >= 10").select("id", "amount").collect()
+written = ctx.sql("SELECT 1 AS id").write_vortex("one.vortex")
+print(result.result_rows, result.fallback_attempted, result.external_engine_invoked)
+print(written.rows_written, written.output_commit_status)
 ```
 
-The Python result view exposes read-side parity through `ExecutionResultEnvelopeView`:
+`VortexWorkflowExecutionReport` exposes complete bounded results with the native
+schema, declared sink evidence and its `OutputEnvelope`. The generic
+`ExecutionResultEnvelopeView` can inspect the following fields when present in
+other report surfaces; it does not execute work or select a provider:
 
 ```text
 execution_mode_selection_fields
@@ -160,7 +165,7 @@ workload_constitution_id
 
 REST responses should embed `execution_mode_selection` with the same selection report and
 compute-flow evidence field names used by CLI JSON and Python. REST must not introduce a different
-enum, rename claim gates, omit the selected mode, or hide legacy policy normalization reasons.
+enum, rename claim gates, omit the selected mode, or hide admission decisions.
 
 Unsupported REST mode requests must return deterministic diagnostics with:
 

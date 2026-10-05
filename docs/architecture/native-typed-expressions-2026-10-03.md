@@ -2,9 +2,10 @@
 
 # Native typed expressions
 
-Status: implementation and complete local acceptance under PERF-02/03/07/10/11/12
-and CG-3/5/19/20/21; hosted review and the inherited website advisory decision
-remain pending. The [phase plan](phased-execution-plan.md) owns sequencing. This continues the
+Status: implemented and accepted under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21;
+merged in [PR #1510](https://github.com/depsilon/shardloom/pull/1510) on October 4
+after all 37 hosted checks passed. The [completed ledger](phased-execution-completed-ledger.md)
+records exact identities and review limitations. The [phase plan](phased-execution-plan.md) owns sequencing. This continues the
 locally accepted [typed keys](native-typed-keys-2026-10-03.md) and
 [universal workflow plan](universal-workflow-completion-2026-10-01.md). The
 [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
@@ -141,7 +142,7 @@ requires correct complete workflows and resource proof, not a speedup.
 
 Retained unary-state semantics, nested keys, richer aggregate/window semantics,
 broader adapters and state spill remain with their existing phase owners. Hosted
-acceptance depends on the existing PR stack and website advisory decision.
+acceptance depends on review and checks for the existing PR stack.
 `fallback_attempted=false` and `external_engine_invoked=false` remain explicit.
 This contract does not resume paused large format/text performance runs, native
 Python binding experiments, package publication or broader competitive claims.

@@ -5,6 +5,4 @@
 from __future__ import annotations
 
 
-RELEASE_USER_SURFACE_EXAMPLE_FEATURES = (
-    "release-user-surfaces vortex-traditional-analytics-benchmark"
-)
+RELEASE_USER_SURFACE_EXAMPLE_FEATURES = "release-user-surfaces"

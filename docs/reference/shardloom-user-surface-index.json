@@ -12,7 +12,6 @@
     "v1_front_door_runtime_scope": "docs/architecture/v1-front-door-runtime-scope.md",
     "front_door_parity_matrix": "ctx.front_door_parity_matrix()",
     "front_door_semantic_surface_matrix": "ctx.front_door_semantic_surface_matrix()",
-    "native_vortex_provider_route_certificate_report": "ctx.native_vortex_provider_route_certificate_report()",
     "python_package_readme": "python/README.md"
   },
   "semantic_claim_surface": {
@@ -31,7 +30,7 @@
     "external_engine_invoked": false
   },
   "cli": {
-    "registered_command_count": 218,
+    "registered_command_count": 203,
     "exhaustive_inventory_command": "shardloom command-metadata --format json",
     "single_command_metadata_command": "shardloom command-metadata <command> --format json",
     "single_command_help_command": "shardloom help <command> --format json",
@@ -54,13 +53,9 @@
       "shardloom workflow-unsupported-plan <operation> --format json"
     ],
     "common_executable_local_proof_commands": [
-      "shardloom generated-source-user-rows --format json",
-      "shardloom generated-source-range --format json",
-      "shardloom generated-source-sequence --format json",
-      "shardloom generated-source-sql --format json",
-      "shardloom local-source-runtime --format json",
+      "shardloom run sql --sql \"SELECT 1 AS value\" --request collect --bounded true --format json",
+      "shardloom run sql --input events.csv --input-format csv --sql \"SELECT * FROM events\" --request collect --bounded true --format json",
       "shardloom vortex-prepare --format json",
-      "shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json",
       "shardloom sqlite-local-import-export-smoke --format json"
     ]
   },
@@ -158,9 +153,9 @@
     "typed_public_input_evidence": ["arrow_ipc", "prepared_vortex"],
     "nested_text_schema_hints": false,
     "ordered_repeated_explode": true,
-    "nested_writers": ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro"],
-    "denied_nested_writers": ["csv", "orc"],
-    "writer_fidelity": "format_representability_and_declared_translation_required",
+    "nested_writers": ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"],
+    "denied_nested_writers": ["orc"],
+    "writer_fidelity": "format_representability_and_declared_translation_required;CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence",
     "nested_keys": false,
     "general_nested_unary_state": false,
     "dynamic_pivot_composition": false,
@@ -227,6 +222,34 @@
     "legacy_predicate_domain": "primitive_boolean_utf8",
     "nested_state": false,
     "state_spill": false,
+    "total_rss_bound": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
+  "native_typed_reductions": {
+    "reference": "docs/architecture/native-typed-reductions-2026-10-04.md",
+    "scope": "current_source_build_computed_arguments_and_decimal_reductions",
+    "computed_aggregates": ["count", "count_distinct", "sum", "avg", "min", "max"],
+    "argument_lowering": "shared_native_projection_then_aggregate",
+    "distinct_aggregates": ["count"],
+    "decimal_precision": [1, 38],
+    "decimal_scale": "0_to_precision",
+    "decimal_sum_result": "decimal128(38,input_scale)",
+    "decimal_mean_result": "decimal128(38,max(input_scale,6))",
+    "decimal_extrema_result": "preserve_input_precision_and_scale",
+    "decimal_average_policy": "exact_or_error",
+    "decimal_overflow_policy": "checked_error",
+    "decimal_rolling": ["sum", "mean", "min", "max"],
+    "decimal_numeric_pivot": ["sum", "mean", "min", "max"],
+    "numeric_pivot_nulls": "error",
+    "pivot_margins": "merge_totals_and_counts_before_finalization",
+    "untyped_null_projection": "nullable_boolean_carrier",
+    "shared_direct_and_relational_state": true,
+    "local_acceptance_complete": false,
+    "local_acceptance_report": null,
+    "hosted_acceptance_complete": false,
+    "state_spill": false,
+    "wider_analytic_frames": false,
     "total_rss_bound": false,
     "fallback_attempted": false,
     "external_engine_invoked": false
@@ -536,9 +559,8 @@
       "ctx.sql",
       "ctx.sql(..., input=...)",
       "sl.sql",
-      "ShardLoomClient.local_source_runtime",
-      "shardloom local-source-runtime --format json",
-      "shardloom generated-source-sql --format json"
+      "shardloom run sql --sql \"SELECT 1 AS value\" --request collect --bounded true --format json",
+      "shardloom run sql --input events.csv --input-format csv --sql \"SELECT * FROM events\" --request collect --bounded true --format json"
     ],
     "admitted_shapes": [
       "local-source SELECT over local file references",

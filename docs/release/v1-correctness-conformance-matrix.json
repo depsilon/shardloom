@@ -73,15 +73,12 @@
     "front_door_example_scenarios": 9,
     "front_door_expected_error_scenarios": 0,
     "vortex_primitive_routes": 11,
-    "vortex_local_file_routes": 16,
-    "source_input_formats": 6,
-    "source_prepared_routes": 4,
-    "source_internal_smoke_routes": 1,
-    "source_generated_routes": 1,
-    "source_invalidation_cases": 9,
+    "source_input_formats": 7,
+    "source_prepared_routes": 1,
+    "source_invalidation_cases": 7,
     "output_formats": 8,
     "output_write_methods": 10,
-    "output_routes": 7,
+    "output_routes": 1,
     "python_user_surface_method_rows": 114,
     "example_replay_doc_sources": 6,
     "example_replay_runtime_commands": 3,
@@ -116,9 +113,9 @@
   ],
   "front_door_expected_error_scenario_ids": [],
   "golden_workflow_ids": [
-    "generated_source_to_local_vortex_output_replay_fidelity",
     "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-    "prepared_native_vortex_count_filter_project_execution_certificates"
+    "prepared_native_vortex_count_filter_project_execution_certificates",
+    "source_free_sql_values_to_local_vortex_output_replay_fidelity"
   ],
   "required_semantic_case_ids": [
     "aggregate_having_output_rows",

@@ -310,6 +310,22 @@ def validate_python_matrix(
     if not matrix.all_no_fallback_no_external_engine:
         blockers.append("all matrix rows must preserve no fallback and no external engine")
 
+    shared = [row for row in rows if row["row_id"] == "shared_native_workflow"]
+    if len(shared) != 1:
+        blockers.append("matrix must contain exactly one shared_native_workflow row")
+    elif (
+        shared[0]["runtime_route"] != "native_vortex_query"
+        or shared[0]["graduation_posture"] != "high_level_context"
+        or shared[0]["support_state"] != "global_runtime_supported"
+    ):
+        blockers.append("shared_native_workflow must use the supported native_vortex_query route")
+    elif "run" not in shared[0]["cli_commands"] or "public_workflow_run" not in shared[0]["client_methods"]:
+        blockers.append("shared_native_workflow must own the public run entry points")
+    for field, name in (("cli_commands", "run"), ("client_methods", "public_workflow_run")):
+        owners = [row["row_id"] for row in rows if name in row[field]]
+        if owners != ["shared_native_workflow"]:
+            blockers.append(f"{name} must be owned only by shared_native_workflow")
+
     allowed = set(POSTURE_VOCABULARY)
     seen_rows: set[str] = set()
     for row in rows:
@@ -451,6 +467,9 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "gate_id": GATE_ID,
+        "report_kind": "static_surface_classification",
+        "runtime_execution_performed": False,
+        "performance_evidence_produced": False,
         "status": "passed" if not blockers else "blocked",
         "blockers": blockers,
         "posture_vocabulary": list(POSTURE_VOCABULARY),
@@ -488,6 +507,10 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             "all_no_fallback_no_external_engine": not any(
                 "fallback_attempted" in blocker or "external_engine_invoked" in blocker
                 for blocker in blockers
+            ),
+            "static_discovery_is_not_runtime_or_performance_proof": True,
+            "shared_native_workflow_uses_native_query_route": not any(
+                "shared_native_workflow" in blocker for blocker in blockers
             ),
         },
         "rows": matrix_rows,

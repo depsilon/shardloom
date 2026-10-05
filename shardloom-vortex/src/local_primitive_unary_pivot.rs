@@ -12,13 +12,21 @@ use super::{
 };
 use shardloom_core::ScalarValue;
 use shardloom_exec::live_memory::LiveMemoryPool;
-use vortex::array::{ArrayRef, dtype::PType};
+use vortex::array::{
+    ArrayRef,
+    dtype::{DecimalDType, PType},
+};
+
+#[path = "local_primitive_unary_pivot_cells.rs"]
+mod cells;
+use cells::{Cells, Margin};
 
 pub(super) struct Plan {
     pub(super) index_field: (String, DType),
     cell_dtype: DType,
     indices: [usize; 3],
     aggregate: String,
+    decimal_source: Option<DecimalDType>,
     fill: Option<OwnedScalar>,
 }
 
@@ -92,15 +100,27 @@ impl Plan {
             dtypes.push(dtype);
         }
         if matches!(aggregate.as_str(), "sum" | "mean" | "min" | "max")
-            && !matches!(dtypes[2], DType::Primitive(_, _))
+            && !matches!(dtypes[2], DType::Primitive(_, _) | DType::Decimal(..))
         {
             return Err(failed(
                 "pivot numeric aggregate requires a numeric value column",
             ));
         }
+        let decimal_source = match (&dtypes[2], aggregate.as_str()) {
+            (DType::Decimal(source, _), "sum" | "mean" | "min" | "max") => Some(*source),
+            _ => None,
+        };
         let mut cell_dtype = match aggregate.as_str() {
             "first" | "first_unique" => dtypes[2].as_nullable(),
             "count" => DType::Primitive(PType::U64, Nullability::Nullable),
+            "sum" | "mean" if decimal_source.is_some() => DType::Decimal(
+                super::super::native_decimal_reduce::output_dtype(
+                    decimal_source.unwrap(),
+                    aggregate == "mean",
+                )?,
+                Nullability::Nullable,
+            ),
+            "min" | "max" if decimal_source.is_some() => dtypes[2].as_nullable(),
             _ => DType::Primitive(PType::F64, Nullability::Nullable),
         };
         if let Some(fill) = &projection.fill_value {
@@ -142,13 +162,14 @@ impl Plan {
             cell_dtype,
             indices,
             aggregate,
+            decimal_source,
             fill,
         })
     }
 }
 
 pub(super) struct Pivot {
-    state: PivotRowExportState<ScalarValue>,
+    state: PivotRowExportState<ScalarValue, Cells>,
     retained: MemoryLease,
     scratch: MemoryLease,
 }
@@ -170,9 +191,16 @@ fn bytes(base: u64, payload: usize) -> Result<u64> {
 }
 
 impl Pivot {
-    pub(super) fn new(context: &NativeExecutionContext<'_>) -> Result<Self> {
+    pub(super) fn new(plan: &BoundUnary, context: &NativeExecutionContext<'_>) -> Result<Self> {
+        let compiled = plan
+            .pivot
+            .as_ref()
+            .ok_or_else(|| failed("pivot is not bound"))?;
         Ok(Self {
-            state: PivotRowExportState::default(),
+            state: PivotRowExportState {
+                aggregate_cells: Cells::new(compiled.decimal_source),
+                ..PivotRowExportState::default()
+            },
             retained: context.memory().reserve(0)?,
             scratch: context.memory().reserve(65_536)?,
         })
@@ -271,17 +299,6 @@ impl Pivot {
         } else {
             !self.state.aggregate_cells.contains_key(&cell_key)
         };
-        if let Some(cell) = self.state.aggregate_cells.get(&cell_key) {
-            if cell.count == u64::MAX {
-                return Err(failed("pivot cell count overflow"));
-            }
-            if matches!(compiled.aggregate.as_str(), "sum" | "mean") {
-                let value = value.pivot_numeric()?;
-                if !(cell.sum + value).is_finite() {
-                    return Err(failed("pivot numeric accumulation is not finite"));
-                }
-            }
-        }
         let mut growth = 0_u64;
         for (new, base) in [(new_index, 4096), (new_pivot, 2048), (new_cell, 4096)] {
             if new {
@@ -296,12 +313,13 @@ impl Pivot {
                 .checked_add(growth)
                 .ok_or_else(|| failed("pivot state size overflow"))?,
         )?;
-        self.state.update(
+        self.state.update_with(
             projection,
             &compiled.aggregate,
             std::slice::from_ref(index),
             std::slice::from_ref(pivot),
             std::slice::from_ref(value),
+            |cells, key, value| cells.update(key, value, &compiled.aggregate),
         )
     }
 }
@@ -321,8 +339,8 @@ pub(in crate::local_primitives) struct CompletedPivot {
     state: Pivot,
     indices: Vec<String>,
     domains: Vec<String>,
-    column_margins: ReservedVec<Option<StatValue>>,
-    grand_margin: Option<StatValue>,
+    column_margins: ReservedVec<Option<Value<'static>>>,
+    grand_margin: Option<Value<'static>>,
     _metadata: MemoryLease,
 }
 
@@ -368,7 +386,7 @@ impl BoundUnary {
         context: &NativeExecutionContext<'_>,
         produce: impl FnOnce(&mut dyn FnMut(ArrayRef) -> Result<()>) -> Result<()>,
     ) -> Result<CompletedPivot> {
-        let mut state = Pivot::new(context)?;
+        let mut state = Pivot::new(self, context)?;
         produce(&mut |array| {
             context.check_cancelled()?;
             let mut batch = NativeBatch::new(&array, &self.columns, context)?;
@@ -453,31 +471,33 @@ impl Pivot {
             .map(|(name, _)| name.clone())
             .collect::<Vec<_>>();
         let mut column_margins = ReservedVec::new(context.memory())?;
-        let mut grand = Margin::default();
+        let mut grand = Margin::new(&state.state.aggregate_cells);
         if has_margin {
             for pivot in &domains {
-                let mut margin = Margin::default();
-                for index in &indices {
-                    if let Some(cell) = state
-                        .state
-                        .aggregate_cells
-                        .get(&(index.clone(), pivot.clone()))
-                    {
-                        margin.push(*cell, &compiled.aggregate)?;
+                let mut margin = Margin::new(&state.state.aggregate_cells);
+                for (ordinal, index) in indices.iter().enumerate() {
+                    if ordinal % 256 == 0 {
+                        context.check_cancelled()?;
                     }
+                    margin.push(
+                        &state.state.aggregate_cells,
+                        &(index.clone(), pivot.clone()),
+                        &compiled.aggregate,
+                    )?;
                 }
                 column_margins.push(margin.value(&compiled.aggregate)?)?;
             }
             // Preserve the provider's row-major floating accumulation order.
-            for index in &indices {
+            for (ordinal, index) in indices.iter().enumerate() {
+                if ordinal % 256 == 0 {
+                    context.check_cancelled()?;
+                }
                 for pivot in &domains {
-                    if let Some(cell) = state
-                        .state
-                        .aggregate_cells
-                        .get(&(index.clone(), pivot.clone()))
-                    {
-                        grand.push(*cell, &compiled.aggregate)?;
-                    }
+                    grand.push(
+                        &state.state.aggregate_cells,
+                        &(index.clone(), pivot.clone()),
+                        &compiled.aggregate,
+                    )?;
                 }
             }
         }
@@ -502,39 +522,6 @@ impl Pivot {
             grand_margin: grand.value(&compiled.aggregate)?,
             _metadata: metadata,
         })
-    }
-}
-
-#[derive(Default)]
-struct Margin {
-    cell: PivotAggregateCell,
-    present: bool,
-}
-impl Margin {
-    fn push(&mut self, cell: PivotAggregateCell, aggregate: &str) -> Result<()> {
-        self.present = true;
-        self.cell.count = self
-            .cell
-            .count
-            .checked_add(cell.count)
-            .ok_or_else(|| failed("pivot margin count overflow"))?;
-        self.cell.sum += cell.sum;
-        if matches!(aggregate, "sum" | "mean") && !self.cell.sum.is_finite() {
-            return Err(failed("pivot margin accumulation is not finite"));
-        }
-        if let Some(value) = cell.min {
-            self.cell.min = Some(self.cell.min.map_or(value, |current| current.min(value)));
-        }
-        if let Some(value) = cell.max {
-            self.cell.max = Some(self.cell.max.map_or(value, |current| current.max(value)));
-        }
-        Ok(())
-    }
-    fn value(&self, aggregate: &str) -> Result<Option<StatValue>> {
-        if !self.present {
-            return Ok(None);
-        }
-        super::super::pivot_margin_from_cells(aggregate, std::slice::from_ref(&self.cell))
     }
 }
 
@@ -601,11 +588,9 @@ impl CompletedPivot {
                 )));
             }
             return fill(if column <= self.domains.len() {
-                self.column_margins.values[column - 1]
-                    .as_ref()
-                    .map(Value::from)
+                self.column_margins.values[column - 1].clone()
             } else {
-                self.grand_margin.as_ref().map(Value::from)
+                self.grand_margin.clone()
             });
         }
         let index = &self.indices[row];
@@ -613,18 +598,15 @@ impl CompletedPivot {
             return borrowed(&self.state.state.index_values[index]);
         }
         if column > self.domains.len() {
-            let mut margin = Margin::default();
+            let mut margin = Margin::new(&self.state.state.aggregate_cells);
             for pivot in &self.domains {
-                if let Some(cell) = self
-                    .state
-                    .state
-                    .aggregate_cells
-                    .get(&(index.clone(), pivot.clone()))
-                {
-                    margin.push(*cell, &compiled.aggregate)?;
-                }
+                margin.push(
+                    &self.state.state.aggregate_cells,
+                    &(index.clone(), pivot.clone()),
+                    &compiled.aggregate,
+                )?;
             }
-            return fill(margin.value(&compiled.aggregate)?.map(Value::from));
+            return fill(margin.value(&compiled.aggregate)?);
         }
         let key = (index.clone(), self.domains[column - 1].clone());
         let value = match compiled.aggregate.as_str() {
@@ -635,18 +617,11 @@ impl CompletedPivot {
                 .get(&key)
                 .map(borrowed)
                 .transpose()?,
-            _ => self.state.state.aggregate_cells.get(&key).and_then(|cell| {
-                match compiled.aggregate.as_str() {
-                    "count" => Some(Value::UInt(cell.count)),
-                    "sum" => Some(Value::Float(cell.sum)),
-                    "mean" => {
-                        super::super::pivot_mean_value(cell.sum, cell.count).map(Value::Float)
-                    }
-                    "min" => cell.min.map(Value::Float),
-                    "max" => cell.max.map(Value::Float),
-                    _ => None,
-                }
-            }),
+            _ => self
+                .state
+                .state
+                .aggregate_cells
+                .value(&key, &compiled.aggregate)?,
         };
         fill(value)
     }

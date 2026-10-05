@@ -1150,13 +1150,12 @@ def runtime_activation_summary(envelope: OutputEnvelope) -> RuntimeActivationSum
         envelope, "public_workflow_blocker_reason", "blocker_reason"
     )
     native_vortex_required_feature_gate = _native_vortex_required_feature_gate(
-        envelope, route_id, blocker_id
+        envelope, route_id
     )
     native_vortex_status = _native_vortex_activation_status(
         route_id=route_id,
         vortex_middle_status=vortex_middle_status,
         blocker_id=blocker_id,
-        required_feature_gate=native_vortex_required_feature_gate,
     )
     return RuntimeActivationSummary(
         schema_version=RUNTIME_ACTIVATION_SUMMARY_SCHEMA_VERSION,
@@ -1349,7 +1348,6 @@ def _usable_field_value(value: str | None) -> bool:
 def _native_vortex_required_feature_gate(
     envelope: OutputEnvelope,
     route_id: str | None,
-    blocker_id: str | None,
 ) -> str | None:
     explicit = _first_runtime_field(
         envelope,
@@ -1364,10 +1362,6 @@ def _native_vortex_required_feature_gate(
         reason = diagnostic.reason or diagnostic.message
         if reason and "compiled_without=" in reason:
             return reason.split("compiled_without=", 1)[1].split()[0].strip(".,;")
-    if blocker_id == "py-vortex-route-unify-1.native_vortex_provider_feature_gated":
-        return "vortex-production-runtime"
-    if route_id and route_id.startswith("native_vortex_user_"):
-        return "vortex-production-runtime"
     if route_id and route_id.startswith("native_vortex_"):
         return "default"
     return None
@@ -1378,22 +1372,18 @@ def _native_vortex_activation_status(
     route_id: str | None,
     vortex_middle_status: str | None,
     blocker_id: str | None,
-    required_feature_gate: str | None,
 ) -> str:
-    if blocker_id == "py-vortex-route-unify-1.native_vortex_provider_feature_gated":
+    if blocker_id and blocker_id.endswith("_feature_gated"):
         return "feature_gated"
     if blocker_id and blocker_id.startswith("py-vortex-route-unify-1.native_vortex"):
         return "blocked"
     if vortex_middle_status in {
         "native_vortex_boundary",
         "native_vortex_primitive",
-        "native_vortex_user_operator_provider",
     }:
         return "active"
     if vortex_middle_status == "pending_native_vortex_middle_unification":
         return "pending_middle_unification"
-    if route_id and route_id.startswith("native_vortex_user_") and required_feature_gate:
-        return "active"
     if route_id and route_id.startswith("native_vortex_"):
         return "active"
     return "not_applicable"
