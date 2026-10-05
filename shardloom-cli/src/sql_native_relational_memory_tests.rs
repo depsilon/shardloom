@@ -1,6 +1,6 @@
 use super::*;
 
-fn verify_memory(statement: &str, expected: &Value) {
+pub(super) fn verify_memory(statement: &str, expected: &Value) {
     let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
     policy.resource_envelope.memory_budget_bytes = 32 << 20;
     let prepared = prepare(statement, policy, |_| {

@@ -1,0 +1,997 @@
+{
+  "schema_version": "shardloom.native_analytic_frames_independent_inspection.v1",
+  "status": "passed",
+  "recorded_at": "2026-10-05T16:22:51.973105+00:00",
+  "packet": "native-analytic-frames-2026-10-05.json.xz",
+  "inspection": {
+    "status": "passed",
+    "packet_sha256": "16b59c7b4ceb59d8e1d479ebddd7e8e5aeb97eea93df83724ecf8d5d6840f463",
+    "independent_parser": "jq-1.7.1-apple",
+    "query_sha256": "673c1ce950197928fa60028a75a42b584de220c38f9d3cbe4ea9508f26b77b6f",
+    "inspector_sha256": "fea12cdaf7cc7a1e8e93629bb75ef98119acd3c6d31a096574412b270ed8b1c0",
+    "counters": {
+      "schema_version": "shardloom.native_analytic_frames_acceptance.v1",
+      "status": "passed_core_local",
+      "runtime_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+      "source_status": "passed_core_source",
+      "source_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+      "source_gate_count": 22,
+      "source_freeze_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+      "invalid_summary_status": 0,
+      "public_cases": 22658,
+      "public_rows": 15349350,
+      "focused_cases": 2213,
+      "focused_rows": 1067280,
+      "direct_cases": 202,
+      "direct_rows": 131734,
+      "full43_records": 129,
+      "full43_failed_records": 0,
+      "full43_complete": true,
+      "full43_result_validation": true,
+      "full43_shared_native_plan_reports": 129,
+      "full43_shared_native_plan_runs": 129,
+      "public_raw_envelopes": 46884,
+      "focused_raw_envelopes": 4162,
+      "direct_raw_envelopes": 367,
+      "full43_native_logs": 129,
+      "focused_complete_value_proofs": 2159,
+      "focused_complete_value_rows": 1067280,
+      "public_complete_value_proofs": 2159,
+      "public_complete_value_rows": 1067280,
+      "focused_resource_proofs": 2159,
+      "public_resource_proofs": 2159,
+      "focused_resource_budget_entries": 2159,
+      "public_resource_budget_entries": 2159,
+      "focused_resource_peak_entries": 2159,
+      "public_resource_peak_entries": 2159,
+      "invalid_resource_peaks": 0,
+      "invalid_resource_budgets": 0,
+      "invalid_resource_peak_fields": 0,
+      "focused_denial_proofs": 54,
+      "public_denial_proofs": 54,
+      "envelope_fallback_true": 0,
+      "envelope_field_fallback_true": 0,
+      "invalid_envelope_status": 0,
+      "private_path_strings": 0,
+      "source_assets": 893,
+      "unexpected_amendment_fields": 0,
+      "unexpected_modular_fields": 0,
+      "claim_fallback_true": 0,
+      "claim_external_engine_true": 0,
+      "performance_claim_true": 0
+    },
+    "runtime_executed": false,
+    "performance_claim": false
+  },
+  "failure_cause": "The original jq suffix predicate rebound the current input and matched ordinary native fields as fallback fields. A synthetic ordinary native_rows field reproduced the false positive.",
+  "correction": "Capture each suffix before testing the field name. Keep strict false-value checks and independently verify 96 policy-field cases plus four ordinary fields.",
+  "contract_tests": {
+    "status": "passed",
+    "cases": [
+      {
+        "family": "public",
+        "field": "fallback_attempted",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "fallback_attempted",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "fallback_attempted",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "fallback_attempted",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "fallback_attempted",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "fallback_attempted",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "external_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "external_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_query_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "external_query_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "external_query_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_query_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_query_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "external_query_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "fallback_execution_allowed",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "fallback_execution_allowed",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "public",
+        "field": "fallback_execution_allowed",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "fallback_execution_allowed",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "fallback_execution_allowed",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "public",
+        "field": "fallback_execution_allowed",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_attempted",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_attempted",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_attempted",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_attempted",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_attempted",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_attempted",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_query_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_query_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_query_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_query_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_query_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "external_query_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_execution_allowed",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_execution_allowed",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_execution_allowed",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_execution_allowed",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_execution_allowed",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "focused_frames",
+        "field": "fallback_execution_allowed",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_attempted",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_attempted",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_attempted",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_attempted",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_attempted",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_attempted",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_query_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_query_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_query_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_query_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_query_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "external_query_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_execution_allowed",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_execution_allowed",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_execution_allowed",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_execution_allowed",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_execution_allowed",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "direct_unary",
+        "field": "fallback_execution_allowed",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_attempted",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "fallback_attempted",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "fallback_attempted",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_attempted",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_attempted",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_attempted",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "external_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "external_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_query_engine_invoked",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "external_query_engine_invoked",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "external_query_engine_invoked",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_query_engine_invoked",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_query_engine_invoked",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "external_query_engine_invoked",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_execution_allowed",
+        "value": false,
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "fallback_execution_allowed",
+        "value": "false",
+        "expected": 0,
+        "observed": 0
+      },
+      {
+        "family": "full43",
+        "field": "fallback_execution_allowed",
+        "value": true,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_execution_allowed",
+        "value": "true",
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_execution_allowed",
+        "value": 0,
+        "expected": 1,
+        "observed": 1
+      },
+      {
+        "family": "full43",
+        "field": "fallback_execution_allowed",
+        "value": null,
+        "expected": 1,
+        "observed": 1
+      }
+    ],
+    "case_count": 96,
+    "normal_field_cases": 4,
+    "old_query_reproduced_false_positive": true,
+    "old_query_sha256": "585105d372ff06063711003a9285c80bc09638f16b5f53a6f2665970222c22fc",
+    "query_sha256": "673c1ce950197928fa60028a75a42b584de220c38f9d3cbe4ea9508f26b77b6f",
+    "runtime_executed": false
+  },
+  "history": {
+    "1": {
+      "guard": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<uat>/inspect_analytic_packet.py",
+          "--attempt",
+          "2",
+          "--inspection",
+          "1"
+        ],
+        "cwd": "<repo>",
+        "timeout": 1800.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "failed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 12203118686,
+          "log_bytes": 20258816,
+          "free_bytes": 65166307328,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 9988,
+        "storage_last_observation": {
+          "workspace_bytes": 12203241566,
+          "log_bytes": 20258816,
+          "free_bytes": 65190133760,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 1,
+        "storage_final_observation": {
+          "workspace_bytes": 12203249758,
+          "log_bytes": 20258816,
+          "free_bytes": 65191034880,
+          "reserved_candidate_bytes": 134217728
+        },
+        "error": "RuntimeError: acceptance returned 1; inspect <uat>/analytic-native-packet-inspection-1.log",
+        "supervised_seconds": 922.7068938750308,
+        "log_sha256": "74e1dd1a60dcff494e1aaf2c8afedef54b2268a3152cbd327ae7c58be2a6679e"
+      },
+      "guard_sha256": "68a4727192ff03ecb951976b50c37bb5bb9b2aa3db7e2514fbefc6b92359e748",
+      "log": "Traceback (most recent call last):\n  File \"<uat>/inspect_analytic_packet.py\", line 99, in <module>\n    assert all(counters[key] == value for key, value in expected.items()), counters\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'schema_version': 'shardloom.native_analytic_frames_acceptance.v1', 'status': 'passed_core_local', 'runtime_commit': '22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b', 'source_status': 'passed_core_source', 'source_commit': '22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b', 'source_gate_count': 22, 'source_freeze_commit': '22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b', 'invalid_summary_status': 0, 'public_cases': 22658, 'public_rows': 15349350, 'focused_cases': 2213, 'focused_rows': 1067280, 'direct_cases': 202, 'direct_rows': 131734, 'full43_records': 129, 'full43_failed_records': 0, 'full43_complete': True, 'full43_result_validation': True, 'full43_shared_native_plan_reports': 129, 'full43_shared_native_plan_runs': 129, 'public_raw_envelopes': 46884, 'focused_raw_envelopes': 4162, 'direct_raw_envelopes': 367, 'full43_native_logs': 129, 'focused_complete_value_proofs': 2159, 'focused_complete_value_rows': 1067280, 'public_complete_value_proofs': 2159, 'public_complete_value_rows': 1067280, 'focused_resource_proofs': 2159, 'public_resource_proofs': 2159, 'focused_resource_budget_entries': 2159, 'public_resource_budget_entries': 2159, 'focused_resource_peak_entries': 2159, 'public_resource_peak_entries': 2159, 'invalid_resource_peaks': 0, 'invalid_resource_budgets': 0, 'invalid_resource_peak_fields': 0, 'focused_denial_proofs': 54, 'public_denial_proofs': 54, 'envelope_fallback_true': 0, 'envelope_field_fallback_true': 24018396, 'invalid_envelope_status': 0, 'private_path_strings': 0, 'source_assets': 893, 'unexpected_amendment_fields': 0, 'unexpected_modular_fields': 0, 'claim_fallback_true': 0, 'claim_external_engine_true': 0, 'performance_claim_true': 0}\n",
+      "counters": {
+        "schema_version": "shardloom.native_analytic_frames_acceptance.v1",
+        "status": "passed_core_local",
+        "runtime_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+        "source_status": "passed_core_source",
+        "source_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+        "source_gate_count": 22,
+        "source_freeze_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+        "invalid_summary_status": 0,
+        "public_cases": 22658,
+        "public_rows": 15349350,
+        "focused_cases": 2213,
+        "focused_rows": 1067280,
+        "direct_cases": 202,
+        "direct_rows": 131734,
+        "full43_records": 129,
+        "full43_failed_records": 0,
+        "full43_complete": true,
+        "full43_result_validation": true,
+        "full43_shared_native_plan_reports": 129,
+        "full43_shared_native_plan_runs": 129,
+        "public_raw_envelopes": 46884,
+        "focused_raw_envelopes": 4162,
+        "direct_raw_envelopes": 367,
+        "full43_native_logs": 129,
+        "focused_complete_value_proofs": 2159,
+        "focused_complete_value_rows": 1067280,
+        "public_complete_value_proofs": 2159,
+        "public_complete_value_rows": 1067280,
+        "focused_resource_proofs": 2159,
+        "public_resource_proofs": 2159,
+        "focused_resource_budget_entries": 2159,
+        "public_resource_budget_entries": 2159,
+        "focused_resource_peak_entries": 2159,
+        "public_resource_peak_entries": 2159,
+        "invalid_resource_peaks": 0,
+        "invalid_resource_budgets": 0,
+        "invalid_resource_peak_fields": 0,
+        "focused_denial_proofs": 54,
+        "public_denial_proofs": 54,
+        "envelope_fallback_true": 0,
+        "envelope_field_fallback_true": 24018396,
+        "invalid_envelope_status": 0,
+        "private_path_strings": 0,
+        "source_assets": 893,
+        "unexpected_amendment_fields": 0,
+        "unexpected_modular_fields": 0,
+        "claim_fallback_true": 0,
+        "claim_external_engine_true": 0,
+        "performance_claim_true": 0
+      },
+      "counters_sha256": "2a4e2c351822eb50d380213041373ed7bf9b6cd0f23a4b033fe7001e9310d1f2"
+    },
+    "2": {
+      "guard": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<uat>/inspect_analytic_packet.py",
+          "--attempt",
+          "2",
+          "--inspection",
+          "2"
+        ],
+        "cwd": "<repo>",
+        "timeout": 1800.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 12205858910,
+          "log_bytes": 20258816,
+          "free_bytes": 65191165952,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 11813,
+        "storage_last_observation": {
+          "workspace_bytes": 12206375006,
+          "log_bytes": 20258816,
+          "free_bytes": 65205194752,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 12206387294,
+          "log_bytes": 20258816,
+          "free_bytes": 65205080064,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 896.8218955420889,
+        "log_sha256": "797557571bede60b69f7ce1e7973ee5a8e0500e1557f4aad6a37390b37d2cddc"
+      },
+      "guard_sha256": "016849a0e80ba7d72e01df4ccc48e4e7e4b988a613e723151e028c9554b13d42",
+      "log": "{\n  \"status\": \"passed\",\n  \"packet_sha256\": \"16b59c7b4ceb59d8e1d479ebddd7e8e5aeb97eea93df83724ecf8d5d6840f463\",\n  \"independent_parser\": \"jq-1.7.1-apple\",\n  \"query_sha256\": \"673c1ce950197928fa60028a75a42b584de220c38f9d3cbe4ea9508f26b77b6f\",\n  \"inspector_sha256\": \"fea12cdaf7cc7a1e8e93629bb75ef98119acd3c6d31a096574412b270ed8b1c0\",\n  \"counters\": {\n    \"schema_version\": \"shardloom.native_analytic_frames_acceptance.v1\",\n    \"status\": \"passed_core_local\",\n    \"runtime_commit\": \"22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b\",\n    \"source_status\": \"passed_core_source\",\n    \"source_commit\": \"22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b\",\n    \"source_gate_count\": 22,\n    \"source_freeze_commit\": \"22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b\",\n    \"invalid_summary_status\": 0,\n    \"public_cases\": 22658,\n    \"public_rows\": 15349350,\n    \"focused_cases\": 2213,\n    \"focused_rows\": 1067280,\n    \"direct_cases\": 202,\n    \"direct_rows\": 131734,\n    \"full43_records\": 129,\n    \"full43_failed_records\": 0,\n    \"full43_complete\": true,\n    \"full43_result_validation\": true,\n    \"full43_shared_native_plan_reports\": 129,\n    \"full43_shared_native_plan_runs\": 129,\n    \"public_raw_envelopes\": 46884,\n    \"focused_raw_envelopes\": 4162,\n    \"direct_raw_envelopes\": 367,\n    \"full43_native_logs\": 129,\n    \"focused_complete_value_proofs\": 2159,\n    \"focused_complete_value_rows\": 1067280,\n    \"public_complete_value_proofs\": 2159,\n    \"public_complete_value_rows\": 1067280,\n    \"focused_resource_proofs\": 2159,\n    \"public_resource_proofs\": 2159,\n    \"focused_resource_budget_entries\": 2159,\n    \"public_resource_budget_entries\": 2159,\n    \"focused_resource_peak_entries\": 2159,\n    \"public_resource_peak_entries\": 2159,\n    \"invalid_resource_peaks\": 0,\n    \"invalid_resource_budgets\": 0,\n    \"invalid_resource_peak_fields\": 0,\n    \"focused_denial_proofs\": 54,\n    \"public_denial_proofs\": 54,\n    \"envelope_fallback_true\": 0,\n    \"envelope_field_fallback_true\": 0,\n    \"invalid_envelope_status\": 0,\n    \"private_path_strings\": 0,\n    \"source_assets\": 893,\n    \"unexpected_amendment_fields\": 0,\n    \"unexpected_modular_fields\": 0,\n    \"claim_fallback_true\": 0,\n    \"claim_external_engine_true\": 0,\n    \"performance_claim_true\": 0\n  },\n  \"runtime_executed\": false,\n  \"performance_claim\": false\n}\n",
+      "counters": {
+        "schema_version": "shardloom.native_analytic_frames_acceptance.v1",
+        "status": "passed_core_local",
+        "runtime_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+        "source_status": "passed_core_source",
+        "source_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+        "source_gate_count": 22,
+        "source_freeze_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+        "invalid_summary_status": 0,
+        "public_cases": 22658,
+        "public_rows": 15349350,
+        "focused_cases": 2213,
+        "focused_rows": 1067280,
+        "direct_cases": 202,
+        "direct_rows": 131734,
+        "full43_records": 129,
+        "full43_failed_records": 0,
+        "full43_complete": true,
+        "full43_result_validation": true,
+        "full43_shared_native_plan_reports": 129,
+        "full43_shared_native_plan_runs": 129,
+        "public_raw_envelopes": 46884,
+        "focused_raw_envelopes": 4162,
+        "direct_raw_envelopes": 367,
+        "full43_native_logs": 129,
+        "focused_complete_value_proofs": 2159,
+        "focused_complete_value_rows": 1067280,
+        "public_complete_value_proofs": 2159,
+        "public_complete_value_rows": 1067280,
+        "focused_resource_proofs": 2159,
+        "public_resource_proofs": 2159,
+        "focused_resource_budget_entries": 2159,
+        "public_resource_budget_entries": 2159,
+        "focused_resource_peak_entries": 2159,
+        "public_resource_peak_entries": 2159,
+        "invalid_resource_peaks": 0,
+        "invalid_resource_budgets": 0,
+        "invalid_resource_peak_fields": 0,
+        "focused_denial_proofs": 54,
+        "public_denial_proofs": 54,
+        "envelope_fallback_true": 0,
+        "envelope_field_fallback_true": 0,
+        "invalid_envelope_status": 0,
+        "private_path_strings": 0,
+        "source_assets": 893,
+        "unexpected_amendment_fields": 0,
+        "unexpected_modular_fields": 0,
+        "claim_fallback_true": 0,
+        "claim_external_engine_true": 0,
+        "performance_claim_true": 0
+      },
+      "counters_sha256": "5787d07f6adf1fe0a6688febefd631de9e4e5236b7f2e9701de6bc6eebe37a9d"
+    }
+  },
+  "helpers": {
+    "inspect_analytic_packet.py": {
+      "sha256": "fea12cdaf7cc7a1e8e93629bb75ef98119acd3c6d31a096574412b270ed8b1c0",
+      "source": "\"\"\"Independently stream the completed analytic-frame packet through jq.\"\"\"\nimport argparse\nimport hashlib\nimport json\nimport lzma\nfrom pathlib import Path\nimport subprocess\n\nOUT = Path(__file__).resolve().parent\nparser = argparse.ArgumentParser()\nparser.add_argument('--attempt', required=True)\nparser.add_argument('--inspection', required=True)\nargs = parser.parse_args()\nassert args.attempt.isascii() and args.attempt.isdecimal()\nassert args.inspection.isascii() and args.inspection.isdecimal()\nreceipt_path = OUT / f'analytic-final-core-acceptance-{args.attempt}.json'\nreceipt = json.loads(receipt_path.read_text())\nassert receipt['status'] == 'passed_core_local'\nassert receipt['performance_claim_allowed'] is False\nassert (receipt['public_checks'], receipt['public_rows']) == (22658, 15349350)\nassert (receipt['frame_checks'], receipt['frame_rows']) == (2213, 1067280)\nassert (receipt['direct_checks'], receipt['direct_rows']) == (202, 131734)\nassert receipt['full43_runs'] == 129\nassert (receipt['frame_resource_proofs'], receipt['frame_denial_proofs']) == (2159, 54)\nassert receipt['new_complete_value_proofs'] == 2159 and receipt['core_local_gates'] == 22\nassert receipt['public_raw_envelopes'] > 4162\nassert Path(receipt['packet']) == OUT / f'native-analytic-frames-2026-10-05-attempt-{args.attempt}.json.xz'\npacket = Path(receipt['packet'])\nwith packet.open('rb') as stream:\n    assert hashlib.file_digest(stream, 'sha256').hexdigest() == receipt['packet_sha256']\nprefix = OUT / f'analytic-packet-inspection-{args.inspection}'\nquery = OUT / 'inspect_analytic_packet.jq'\ncommand = ['/usr/bin/jq', '--stream', '-n', '-f', str(query)]\nwith prefix.with_suffix('.counters.json').open('x') as output, \\\n        prefix.with_suffix('.stderr.txt').open('x') as error:\n    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=output, stderr=error)\n    try:\n        with lzma.open(packet, 'rb') as source:\n            for chunk in iter(lambda: source.read(1024 * 1024), b''):\n                process.stdin.write(chunk)\n        process.stdin.close()\n        assert process.wait(timeout=30) == 0\n    finally:\n        if process.poll() is None:\n            process.kill()\n            process.wait()\ncounters = json.loads(prefix.with_suffix('.counters.json').read_text())\nexpected = {\n    'schema_version': 'shardloom.native_analytic_frames_acceptance.v1',\n    'status': 'passed_core_local',\n    'runtime_commit': receipt['runtime_commit'],\n    'source_status': 'passed_core_source',\n    'source_commit': receipt['runtime_commit'],\n    'source_freeze_commit': receipt['runtime_commit'],\n    'source_gate_count': 22,\n    'invalid_summary_status': 0,\n    'public_cases': 22658,\n    'public_rows': 15349350,\n    'focused_cases': 2213,\n    'focused_rows': 1067280,\n    'direct_cases': 202,\n    'direct_rows': 131734,\n    'full43_records': 129,\n    'full43_failed_records': 0,\n    'full43_complete': True,\n    'full43_result_validation': True,\n    'full43_shared_native_plan_reports': 129,\n    'full43_shared_native_plan_runs': 129,\n    'public_raw_envelopes': receipt['public_raw_envelopes'],\n    'focused_raw_envelopes': 4162,\n    'direct_raw_envelopes': counters['direct_raw_envelopes'],\n    'full43_native_logs': 129,\n    'focused_complete_value_proofs': 2159,\n    'focused_complete_value_rows': 1067280,\n    'public_complete_value_proofs': 2159,\n    'public_complete_value_rows': 1067280,\n    'focused_resource_proofs': 2159,\n    'public_resource_proofs': 2159,\n    'focused_resource_budget_entries': 2159,\n    'public_resource_budget_entries': 2159,\n    'focused_resource_peak_entries': 2159,\n    'public_resource_peak_entries': 2159,\n    'invalid_resource_peaks': 0,\n    'invalid_resource_budgets': 0,\n    'invalid_resource_peak_fields': 0,\n    'focused_denial_proofs': 54,\n    'public_denial_proofs': 54,\n    'envelope_fallback_true': 0,\n    'envelope_field_fallback_true': 0,\n    'invalid_envelope_status': 0,\n    'private_path_strings': 0,\n    'source_assets': 893,\n    'unexpected_amendment_fields': 0,\n    'unexpected_modular_fields': 0,\n    'claim_fallback_true': 0,\n    'claim_external_engine_true': 0,\n    'performance_claim_true': 0,\n}\nassert all(counters[key] == value for key, value in expected.items()), counters\nassert counters['direct_raw_envelopes'] > 202\nassert counters['public_raw_envelopes'] > counters['focused_raw_envelopes']\nresult = {\n    'status': 'passed',\n    'packet_sha256': receipt['packet_sha256'],\n    'independent_parser': subprocess.check_output(\n        ['/usr/bin/jq', '--version'], text=True).strip(),\n    'query_sha256': hashlib.sha256(query.read_bytes()).hexdigest(),\n    'inspector_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),\n    'counters': counters,\n    'runtime_executed': False,\n    'performance_claim': False,\n}\nwith prefix.with_suffix('.json').open('x') as stream:\n    json.dump(result, stream, indent=2)\n    stream.write('\\n')\nprint(json.dumps(result, indent=2), flush=True)\n"
+    },
+    "inspect_analytic_packet.jq": {
+      "sha256": "673c1ce950197928fa60028a75a42b584de220c38f9d3cbe4ea9508f26b77b6f",
+      "source": "reduce inputs as $event (\n  {schema_version:null,status:null,runtime_commit:null,\n   source_status:null,source_commit:null,source_gate_count:null,source_freeze_commit:null,\n   invalid_summary_status:0,\n   public_cases:0,public_rows:0,focused_cases:0,focused_rows:0,direct_cases:0,direct_rows:0,\n   full43_records:0,full43_failed_records:0,full43_complete:false,full43_result_validation:false,\n   full43_shared_native_plan_reports:0,full43_shared_native_plan_runs:null,\n   public_raw_envelopes:0,focused_raw_envelopes:0,direct_raw_envelopes:0,full43_native_logs:0,\n   focused_complete_value_proofs:0,focused_complete_value_rows:0,\n   public_complete_value_proofs:0,public_complete_value_rows:0,\n   focused_resource_proofs:0,public_resource_proofs:0,\n   focused_resource_budget_entries:0,public_resource_budget_entries:0,\n   focused_resource_peak_entries:0,public_resource_peak_entries:0,invalid_resource_peaks:0,\n   invalid_resource_budgets:0,invalid_resource_peak_fields:0,\n   focused_denial_proofs:0,public_denial_proofs:0,\n   envelope_fallback_true:0,envelope_field_fallback_true:0,last_envelope_field_key:null,\n   invalid_envelope_status:0,private_path_strings:0,\n   source_assets:0,unexpected_amendment_fields:0,unexpected_modular_fields:0,\n   claim_fallback_true:0,claim_external_engine_true:0,performance_claim_true:0};\n  if ($event | length) != 2 then . else\n    $event[0] as $p | $event[1] as $v |\n    if $p == [\"schema_version\"] then .schema_version = $v\n    elif $p == [\"status\"] then .status = $v\n    elif $p == [\"runtime_commit\"] then .runtime_commit = $v\n    elif $p == [\"source_acceptance\",\"status\"] then .source_status = $v\n    elif $p == [\"source_acceptance\",\"source_commit\"] then .source_commit = $v\n    elif $p == [\"source_acceptance\",\"gate_count\"] then .source_gate_count = $v\n    elif $p == [\"source_acceptance\",\"source_freeze\",\"source_commit\"] then .source_freeze_commit = $v\n    elif $p == [\"public\",\"summary\",\"status\"] or $p == [\"focused_frames\",\"summary\",\"status\"] or $p == [\"direct_unary\",\"summary\",\"status\"] then\n      if $v != \"passed\" then .invalid_summary_status += 1 else . end\n    elif ($p|length) == 5 and $p[1:3] == [\"summary\",\"cases\"] and $p[4] == \"name\" then\n      if $p[0] == \"public\" then .public_cases += 1\n      elif $p[0] == \"focused_frames\" then .focused_cases += 1\n      elif $p[0] == \"direct_unary\" then .direct_cases += 1 else . end\n    elif ($p|length) == 5 and $p[1:3] == [\"summary\",\"cases\"] and $p[4] == \"complete_rows_verified\" then\n      if $p[0] == \"public\" then .public_rows += $v\n      elif $p[0] == \"focused_frames\" then .focused_rows += $v\n      elif $p[0] == \"direct_unary\" then .direct_rows += $v else . end\n    elif $p == [\"full43\",\"summary\",\"complete\"] then .full43_complete = $v\n    elif $p == [\"full43\",\"summary\",\"full_result_validation\"] then .full43_result_validation = $v\n    elif ($p|length) == 5 and $p[0:3] == [\"full43\",\"summary\",\"records\"] and $p[4] == \"passed\" then\n      .full43_records += 1 | if $v != true then .full43_failed_records += 1 else . end\n    elif $p == [\"full43\",\"shared_native_plan_family_verified_runs\"] then .full43_shared_native_plan_runs = $v\n    elif ($p|length) == 7 and $p[0:2] == [\"full43\",\"raw_logs\"] and $p[3:5] == [\"envelope\",\"fields\"] and $p[6] == \"value\" and $v == \"native_vortex_unified_plan\" then\n      .full43_shared_native_plan_reports += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"public\",\"complete_value_proofs\"] and $p[3] == \"kind\" then\n      .public_complete_value_proofs += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"public\",\"complete_value_proofs\"] and $p[3] == \"complete_rows\" then\n      .public_complete_value_rows += $v\n    elif ($p|length) == 4 and $p[0:2] == [\"focused_frames\",\"complete_value_proofs\"] and $p[3] == \"kind\" then\n      .focused_complete_value_proofs += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"focused_frames\",\"complete_value_proofs\"] and $p[3] == \"complete_rows\" then\n      .focused_complete_value_rows += $v\n    elif ($p|length) == 4 and ($p[0:2] == [\"public\",\"resource_proofs\"] or $p[0:2] == [\"focused_frames\",\"resource_proofs\"]) and $p[3] == \"peak_reserved_bytes\" then\n      (if $p[0] == \"public\" then .public_resource_peak_entries += 1 | .public_resource_proofs += 1 else .focused_resource_peak_entries += 1 | .focused_resource_proofs += 1 end) |\n      (if ($v|type) != \"number\" or $v < 0 or $v > (if ($p[2]|contains(\"-convert-\")) then 4 else 1 end) * 1073741824 then .invalid_resource_peaks += 1 else . end)\n    elif ($p|length) == 4 and ($p[0:2] == [\"public\",\"resource_proofs\"] or $p[0:2] == [\"focused_frames\",\"resource_proofs\"]) and $p[3] == \"budget_gb\" then\n      (if $p[0] == \"public\" then .public_resource_budget_entries += 1 else .focused_resource_budget_entries += 1 end) |\n      if ($v|type) != \"number\" or $v != (if ($p[2]|contains(\"-convert-\")) then 4 else 1 end) then .invalid_resource_budgets += 1 else . end\n    elif ($p|length) == 4 and ($p[0:2] == [\"public\",\"resource_proofs\"] or $p[0:2] == [\"focused_frames\",\"resource_proofs\"]) and $p[3] == \"peak_field\" then\n      if ([\"native_vortex_array_sink_peak_reserved_bytes\",\"resident_peak_reserved_buffer_bytes\"] | index($v)) == null then .invalid_resource_peak_fields += 1 else . end\n    elif ($p|length) == 4 and $p[0:2] == [\"public\",\"denial_proofs\"] and $p[3] == \"sha256\" then .public_denial_proofs += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"focused_frames\",\"denial_proofs\"] and $p[3] == \"sha256\" then .focused_denial_proofs += 1\n    elif ($p|length) == 5 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3:5] == [\"envelope\",\"status\"] then\n      (if $p[0] == \"public\" then .public_raw_envelopes += 1\n       elif $p[0] == \"focused_frames\" then .focused_raw_envelopes += 1\n       elif $p[0] == \"direct_unary\" then .direct_raw_envelopes += 1\n       elif $p[0] == \"full43\" then .full43_native_logs += 1 else . end) |\n      if ([\"success\",\"error\",\"unsupported\"] | index($v)) == null then .invalid_envelope_status += 1 else . end\n    elif ($p|length) >= 7 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3] == \"envelope\" and ($p|index(\"fields\")) != null and $p[-1] == \"key\" then\n      .last_envelope_field_key = $v\n    elif ($p|length) >= 7 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3] == \"envelope\" and ($p|index(\"fields\")) != null and $p[-1] == \"value\" then\n      .last_envelope_field_key as $field |\n      if (($field | type) == \"string\"\n          and ([\"fallback_attempted\",\"external_engine_invoked\",\"external_query_engine_invoked\",\"fallback_execution_allowed\"] | any(. as $suffix | $field | endswith($suffix)))\n          and $v != false and $v != \"false\") then .envelope_field_fallback_true += 1 else . end\n    elif ($p|length) == 6 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3:6] == [\"envelope\",\"fallback\",\"attempted\"] then\n      if $v != false then .envelope_fallback_true += 1 else . end\n    elif ($p|length) == 3 and $p[0] == \"frozen_source_assets\" and $p[2] == \"original_sha256\" then .source_assets += 1\n    elif ($p|length) > 0 and $p[0] == \"acceptance_harness_amendment\" then .unexpected_amendment_fields += 1\n    elif ($p|length) > 0 and $p[0] == \"parameterized_public_harness\" then .unexpected_modular_fields += 1\n    elif $p == [\"claim_boundaries\",\"fallback_attempted\"] then\n      if $v != false then .claim_fallback_true += 1 else . end\n    elif $p == [\"claim_boundaries\",\"native_external_engine_invoked\"] then\n      if $v != false then .claim_external_engine_true += 1 else . end\n    elif $p == [\"claim_boundaries\",\"performance_improvement_claim\"] then\n      if $v != false then .performance_claim_true += 1 else . end\n    else . end |\n    if ((($v|type) == \"string\" and ($v|contains(\"/Users/\"))) or (($p|join(\"/\"))|contains(\"/Users/\"))) then .private_path_strings += 1 else . end\n  end\n) | del(.last_envelope_field_key)\n"
+    },
+    "inspect_analytic_packet-failed-1.jq": {
+      "sha256": "585105d372ff06063711003a9285c80bc09638f16b5f53a6f2665970222c22fc",
+      "source": "reduce inputs as $event (\n  {schema_version:null,status:null,runtime_commit:null,\n   source_status:null,source_commit:null,source_gate_count:null,source_freeze_commit:null,\n   invalid_summary_status:0,\n   public_cases:0,public_rows:0,focused_cases:0,focused_rows:0,direct_cases:0,direct_rows:0,\n   full43_records:0,full43_failed_records:0,full43_complete:false,full43_result_validation:false,\n   full43_shared_native_plan_reports:0,full43_shared_native_plan_runs:null,\n   public_raw_envelopes:0,focused_raw_envelopes:0,direct_raw_envelopes:0,full43_native_logs:0,\n   focused_complete_value_proofs:0,focused_complete_value_rows:0,\n   public_complete_value_proofs:0,public_complete_value_rows:0,\n   focused_resource_proofs:0,public_resource_proofs:0,\n   focused_resource_budget_entries:0,public_resource_budget_entries:0,\n   focused_resource_peak_entries:0,public_resource_peak_entries:0,invalid_resource_peaks:0,\n   invalid_resource_budgets:0,invalid_resource_peak_fields:0,\n   focused_denial_proofs:0,public_denial_proofs:0,\n   envelope_fallback_true:0,envelope_field_fallback_true:0,last_envelope_field_key:null,\n   invalid_envelope_status:0,private_path_strings:0,\n   source_assets:0,unexpected_amendment_fields:0,unexpected_modular_fields:0,\n   claim_fallback_true:0,claim_external_engine_true:0,performance_claim_true:0};\n  if ($event | length) != 2 then . else\n    $event[0] as $p | $event[1] as $v |\n    if $p == [\"schema_version\"] then .schema_version = $v\n    elif $p == [\"status\"] then .status = $v\n    elif $p == [\"runtime_commit\"] then .runtime_commit = $v\n    elif $p == [\"source_acceptance\",\"status\"] then .source_status = $v\n    elif $p == [\"source_acceptance\",\"source_commit\"] then .source_commit = $v\n    elif $p == [\"source_acceptance\",\"gate_count\"] then .source_gate_count = $v\n    elif $p == [\"source_acceptance\",\"source_freeze\",\"source_commit\"] then .source_freeze_commit = $v\n    elif $p == [\"public\",\"summary\",\"status\"] or $p == [\"focused_frames\",\"summary\",\"status\"] or $p == [\"direct_unary\",\"summary\",\"status\"] then\n      if $v != \"passed\" then .invalid_summary_status += 1 else . end\n    elif ($p|length) == 5 and $p[1:3] == [\"summary\",\"cases\"] and $p[4] == \"name\" then\n      if $p[0] == \"public\" then .public_cases += 1\n      elif $p[0] == \"focused_frames\" then .focused_cases += 1\n      elif $p[0] == \"direct_unary\" then .direct_cases += 1 else . end\n    elif ($p|length) == 5 and $p[1:3] == [\"summary\",\"cases\"] and $p[4] == \"complete_rows_verified\" then\n      if $p[0] == \"public\" then .public_rows += $v\n      elif $p[0] == \"focused_frames\" then .focused_rows += $v\n      elif $p[0] == \"direct_unary\" then .direct_rows += $v else . end\n    elif $p == [\"full43\",\"summary\",\"complete\"] then .full43_complete = $v\n    elif $p == [\"full43\",\"summary\",\"full_result_validation\"] then .full43_result_validation = $v\n    elif ($p|length) == 5 and $p[0:3] == [\"full43\",\"summary\",\"records\"] and $p[4] == \"passed\" then\n      .full43_records += 1 | if $v != true then .full43_failed_records += 1 else . end\n    elif $p == [\"full43\",\"shared_native_plan_family_verified_runs\"] then .full43_shared_native_plan_runs = $v\n    elif ($p|length) == 7 and $p[0:2] == [\"full43\",\"raw_logs\"] and $p[3:5] == [\"envelope\",\"fields\"] and $p[6] == \"value\" and $v == \"native_vortex_unified_plan\" then\n      .full43_shared_native_plan_reports += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"public\",\"complete_value_proofs\"] and $p[3] == \"kind\" then\n      .public_complete_value_proofs += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"public\",\"complete_value_proofs\"] and $p[3] == \"complete_rows\" then\n      .public_complete_value_rows += $v\n    elif ($p|length) == 4 and $p[0:2] == [\"focused_frames\",\"complete_value_proofs\"] and $p[3] == \"kind\" then\n      .focused_complete_value_proofs += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"focused_frames\",\"complete_value_proofs\"] and $p[3] == \"complete_rows\" then\n      .focused_complete_value_rows += $v\n    elif ($p|length) == 4 and ($p[0:2] == [\"public\",\"resource_proofs\"] or $p[0:2] == [\"focused_frames\",\"resource_proofs\"]) and $p[3] == \"peak_reserved_bytes\" then\n      (if $p[0] == \"public\" then .public_resource_peak_entries += 1 | .public_resource_proofs += 1 else .focused_resource_peak_entries += 1 | .focused_resource_proofs += 1 end) |\n      (if ($v|type) != \"number\" or $v < 0 or $v > (if ($p[2]|contains(\"-convert-\")) then 4 else 1 end) * 1073741824 then .invalid_resource_peaks += 1 else . end)\n    elif ($p|length) == 4 and ($p[0:2] == [\"public\",\"resource_proofs\"] or $p[0:2] == [\"focused_frames\",\"resource_proofs\"]) and $p[3] == \"budget_gb\" then\n      (if $p[0] == \"public\" then .public_resource_budget_entries += 1 else .focused_resource_budget_entries += 1 end) |\n      if ($v|type) != \"number\" or $v != (if ($p[2]|contains(\"-convert-\")) then 4 else 1 end) then .invalid_resource_budgets += 1 else . end\n    elif ($p|length) == 4 and ($p[0:2] == [\"public\",\"resource_proofs\"] or $p[0:2] == [\"focused_frames\",\"resource_proofs\"]) and $p[3] == \"peak_field\" then\n      if ([\"native_vortex_array_sink_peak_reserved_bytes\",\"resident_peak_reserved_buffer_bytes\"] | index($v)) == null then .invalid_resource_peak_fields += 1 else . end\n    elif ($p|length) == 4 and $p[0:2] == [\"public\",\"denial_proofs\"] and $p[3] == \"sha256\" then .public_denial_proofs += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"focused_frames\",\"denial_proofs\"] and $p[3] == \"sha256\" then .focused_denial_proofs += 1\n    elif ($p|length) == 5 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3:5] == [\"envelope\",\"status\"] then\n      (if $p[0] == \"public\" then .public_raw_envelopes += 1\n       elif $p[0] == \"focused_frames\" then .focused_raw_envelopes += 1\n       elif $p[0] == \"direct_unary\" then .direct_raw_envelopes += 1\n       elif $p[0] == \"full43\" then .full43_native_logs += 1 else . end) |\n      if ([\"success\",\"error\",\"unsupported\"] | index($v)) == null then .invalid_envelope_status += 1 else . end\n    elif ($p|length) >= 7 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3] == \"envelope\" and ($p|index(\"fields\")) != null and $p[-1] == \"key\" then\n      .last_envelope_field_key = $v\n    elif ($p|length) >= 7 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3] == \"envelope\" and ($p|index(\"fields\")) != null and $p[-1] == \"value\" then\n      .last_envelope_field_key as $field |\n      if (($field | type) == \"string\"\n          and ([\"fallback_attempted\",\"external_engine_invoked\",\"external_query_engine_invoked\",\"fallback_execution_allowed\"] | any($field | endswith(.)))\n          and $v != false and $v != \"false\") then .envelope_field_fallback_true += 1 else . end\n    elif ($p|length) == 6 and ($p[1] == \"raw_envelopes\" or $p[1] == \"raw_logs\") and $p[3:6] == [\"envelope\",\"fallback\",\"attempted\"] then\n      if $v != false then .envelope_fallback_true += 1 else . end\n    elif ($p|length) == 3 and $p[0] == \"frozen_source_assets\" and $p[2] == \"original_sha256\" then .source_assets += 1\n    elif ($p|length) > 0 and $p[0] == \"acceptance_harness_amendment\" then .unexpected_amendment_fields += 1\n    elif ($p|length) > 0 and $p[0] == \"parameterized_public_harness\" then .unexpected_modular_fields += 1\n    elif $p == [\"claim_boundaries\",\"fallback_attempted\"] then\n      if $v != false then .claim_fallback_true += 1 else . end\n    elif $p == [\"claim_boundaries\",\"native_external_engine_invoked\"] then\n      if $v != false then .claim_external_engine_true += 1 else . end\n    elif $p == [\"claim_boundaries\",\"performance_improvement_claim\"] then\n      if $v != false then .performance_claim_true += 1 else . end\n    else . end |\n    if ((($v|type) == \"string\" and ($v|contains(\"/Users/\"))) or (($p|join(\"/\"))|contains(\"/Users/\"))) then .private_path_strings += 1 else . end\n  end\n) | del(.last_envelope_field_key)\n"
+    },
+    "test_analytic_packet_inspector.py": {
+      "sha256": "7d88fd12f9e72f40e0d35c7b60c587fc6d61b98289a497f5289559e543e66dac",
+      "source": "\"\"\"Check the independent parser's execution-policy field selection.\"\"\"\nimport hashlib\nimport json\nfrom pathlib import Path\nimport subprocess\n\nOUT = Path(__file__).resolve().parent\nQUERY = OUT/'inspect_analytic_packet.jq'\nOLD = OUT/'inspect_analytic_packet-failed-1.jq'\n\ndef scan(query, family, fields):\n    raw = 'raw_logs' if family == 'full43' else 'raw_envelopes'\n    payload = {family: {raw: [{'envelope': {'fields': fields}}]}}\n    return json.loads(subprocess.check_output(\n        ['/usr/bin/jq', '--stream', '-n', '-f', str(query)],\n        input=json.dumps(payload), text=True))['envelope_field_fallback_true']\n\nnormal = [{'key': 'native_rows', 'value': '12'}]\nassert scan(OLD, 'public', normal) == 1\ncases = []\nfor family in ('public', 'focused_frames', 'direct_unary', 'full43'):\n    for suffix in ('fallback_attempted', 'external_engine_invoked',\n                   'external_query_engine_invoked', 'fallback_execution_allowed'):\n        for value, expected in ((False, 0), ('false', 0), (True, 1), ('true', 1),\n                                (0, 1), (None, 1)):\n            fields = [*normal, {'key': f'public_workflow_{suffix}', 'value': value},\n                      {'key': 'native_plan_family', 'value': 'native_vortex_unified_plan'}]\n            observed = scan(QUERY, family, fields)\n            assert observed == expected, (family, suffix, value, observed, expected)\n            cases.append({'family': family, 'field': suffix, 'value': value,\n                          'expected': expected, 'observed': observed})\n    assert scan(QUERY, family, normal) == 0\nreport = {'status': 'passed', 'cases': cases, 'case_count': len(cases),\n          'normal_field_cases': 4, 'old_query_reproduced_false_positive': True,\n          'old_query_sha256': hashlib.sha256(OLD.read_bytes()).hexdigest(),\n          'query_sha256': hashlib.sha256(QUERY.read_bytes()).hexdigest(),\n          'runtime_executed': False}\nwith (OUT/'analytic-inspector-contract-tests-1.json').open('x') as stream:\n    json.dump(report, stream, indent=2)\n    stream.write('\\n')\nprint(json.dumps({key: value for key, value in report.items() if key != 'cases'}))\n"
+    }
+  },
+  "acceptance": {
+    "status": "passed_core_local",
+    "runtime_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+    "binary_sha256": "fd46e887249c6b6eeba7fb7ed26f6beb10149f785461d277e49b3338a296f5f0",
+    "public_checks": 22658,
+    "public_rows": 15349350,
+    "frame_checks": 2213,
+    "frame_rows": 1067280,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "frame_resource_proofs": 2159,
+    "frame_denial_proofs": 54,
+    "new_complete_value_proofs": 2159,
+    "public_raw_envelopes": 46884,
+    "core_local_gates": 22,
+    "admitted_semantics_stages": 145,
+    "golden_workflow_stages": 9,
+    "performance_claim_allowed": false,
+    "source_checks_sha256": "c13b62ecdc317d1ea12184f5a505e72653b8a24f7d17354c3be2acec9f0add9f",
+    "packet": "<uat>/native-analytic-frames-2026-10-05-attempt-2.json.xz",
+    "packet_sha256": "16b59c7b4ceb59d8e1d479ebddd7e8e5aeb97eea93df83724ecf8d5d6840f463",
+    "packet_compressed_bytes": 40779540,
+    "packet_uncompressed_bytes": 3187609675,
+    "packet_uncompressed_sha256": "590ad7168242ebaf9d774b217a8c85031d02a07cc1322b4e71fe911b7f929bf9"
+  },
+  "runtime_executed_by_inspector": false,
+  "packet_changed_by_inspection": false,
+  "performance_claim_allowed": false
+}

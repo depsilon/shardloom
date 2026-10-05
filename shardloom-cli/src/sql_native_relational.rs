@@ -661,7 +661,7 @@ impl Lowerer<'_, '_> {
             ));
         }
         let parsed = grouped_projection.as_ref().unwrap_or(parsed);
-        input = Self::windows(input, &parsed.window_projections)?;
+        input = self.windows(input, &parsed.window_projections)?;
         input = self.projection(input, parsed, &visible)?;
         if apply_limit {
             input = input.limit(parsed.limit);

@@ -43,6 +43,8 @@ mod subquery_tests;
 mod typed_tests;
 #[path = "local_primitive_relational_unary_tests.rs"]
 mod unary_tests;
+#[path = "local_primitive_relational_window_frame_tests.rs"]
+mod window_frame_tests;
 #[path = "local_primitive_relational_window_tests.rs"]
 mod window_tests;
 #[cfg(feature = "universal-format-io")]

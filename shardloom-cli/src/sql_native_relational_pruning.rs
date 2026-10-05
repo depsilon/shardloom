@@ -150,6 +150,11 @@ impl Lowerer<'_, '_> {
             {
                 needed.insert(column.as_str().to_owned());
             }
+            if let NativeWindowFunction::Framed(function) = &expression.function
+                && let Some(column) = function.column()
+            {
+                needed.insert(column.as_str().to_owned());
+            }
         }
         self.prune_at(&mut window.input, Some(needed), outer, depth + 1)
     }

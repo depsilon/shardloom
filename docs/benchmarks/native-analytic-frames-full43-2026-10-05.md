@@ -1,0 +1,94 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Native analytic frames: local core acceptance
+
+The frozen local acceptance records 22,658 complete public workflow checks covering 15,349,350 row comparisons. The analytic-frame family contributes 2,213 checks and 1,067,280 row comparisons: 2,159 complete value/resource proofs and 54 explicit denials. A separate retained-workflow matrix records 202 checks and 131,734 rows. Full43 completes all 129 runs (43 queries × 3 runs) through the native family. These are correctness and availability observations; no comparative performance claim is allowed.
+
+The accepted implementation extends the existing shared Vortex-native window path with framed COUNT, COUNT DISTINCT, SUM, AVG, MIN, MAX, FIRST_VALUE, LAST_VALUE and NTH_VALUE. It does not introduce an alternate execution mode or external-engine fallback. The implementation contract is [Native analytic frames](../architecture/native-analytic-frames-2026-10-05.md); the preceding engine acceptance remains in [native typed reductions](native-typed-reductions-full43-2026-10-05.md).
+
+## Frozen identities
+
+| Artifact | Identity |
+| --- | --- |
+| Runtime source commit | `22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b` |
+| Runtime source tree | `cef9f83b68a8a81579bb513bed82d606deb5e981` |
+| Native executable SHA-256 | `fd46e887249c6b6eeba7fb7ed26f6beb10149f785461d277e49b3338a296f5f0` |
+| Source-check manifest SHA-256 | `c13b62ecdc317d1ea12184f5a505e72653b8a24f7d17354c3be2acec9f0add9f` |
+| Acceptance packet | [native analytic-frame packet](evidence/native-analytic-frames-2026-10-05.json.xz) |
+| Packet compressed size / SHA-256 | 40,779,540 bytes / `16b59c7b4ceb59d8e1d479ebddd7e8e5aeb97eea93df83724ecf8d5d6840f463` |
+| Packet uncompressed size / SHA-256 | 3,187,609,675 bytes / `590ad7168242ebaf9d774b217a8c85031d02a07cc1322b4e71fe911b7f929bf9` |
+
+The source-check manifest records 22 passing gates: `fmt`, `default-clippy`, `default-tests`, `native-clippy`, `native-vortex-tests`, `native-cli-tests`, `python-tests`, `native-without-write`, `lean-workspace`, `msrv-lean`, `msrv-native`, `uat-harness-tests`, `storage-guard-tests`, `uat-consumer-tests`, `suite-harness-tests`, `contribution-governance`, `ci-gate-matrix`, `api-schema`, `user-surface-reference`, `public-status-docs`, `docs-productization`, and `front-door-scope`. The packet retains exact gate commands, receipts and hashed logs. Test totals across configurations overlap and are not a unique-test count.
+
+The frozen input summaries are:
+
+| Family | Summary SHA-256 |
+| --- | --- |
+| Focused frames | `e142ae8f3224af9bc2d0e38750838de76b93406992f691cdeb3b7e2104852ab5` |
+| Complete public workflows | `46f69ea23627aa7822d82d96e5dcf0ccd8e1e0797e05542f230768700d6f6db6` |
+| Direct retained workflows | `5ad597819dd7840296cddf9ca831359863ba68f66a083f75d0a021f8645391c9` |
+| Full43 | `d6ab8b4da92d683e37c9475e3d2fefa9d112485b58fb3498553515db66c92ed0` |
+
+The final core receipt reports 46,884 public raw envelopes, 145 admitted-semantics stages and nine golden workflow stages. The packet retains 893 frozen source assets, independent frame oracles, original envelopes and complete outputs. A separate streaming parser independently verifies its identities, case counts, resource evidence, native-family reports and no-fallback fields; the [inspection receipt](evidence/native-analytic-frames-inspection-2026-10-05.json) records that pass.
+
+## Public workflows and regression
+
+The public complete-workflow total is 22,658 checks / 15,349,350 rows. It covers the accepted public SQL, Python/DataFrame and CLI surfaces and includes complete results, explicit denials and representable output boundaries. The frame subset contributes 2,213 / 1,067,280, including 2,159 complete value/resource proofs and 54 denials. The direct retained-workflow matrix is a separate 202 / 131,734 cross-check, including dynamic-schema binding and repeated declaration reuse.
+
+Full43 runs each of 43 queries three times through the public SQL path; all 129 complete results match the retained native regression reference. That reference is not an independent correctness oracle. The run is regression evidence only, not a speedup, engine-superiority or Spark-replacement claim. The modular workload UAT records were produced with a prior binary and are not recertified by this acceptance.
+
+The native process totals grouped by repeat are 83.239708, 79.577361 and
+79.284032 seconds. The sum of each query's minimum over its three runs is
+76.303357 seconds; all 129 native calls total 242.101102 seconds. These calls
+include process creation, complete public output and exit. Ingest, harness
+validation and monitoring are excluded. Each call uses a fresh process, with
+uncontrolled OS page cache and no answer cache. The 99,997,497-row input is the
+retained September 30 Vortex artifact; these observations are not a fresh
+ingest-to-query measurement or a comparison with another engine.
+
+## Release-checker integration
+
+Integration commit `04748e80` incorporates the preceding engine PR's release
+report, golden-workflow and repeatable quickstart repairs. All compiled runtime
+and Python package sources match the accepted frame build; the sole changed Rust
+file is a metadata test that checks the shared golden-workflow identities.
+The accepted executable and original acceptance packet remain unchanged.
+
+The [integration receipt](evidence/native-analytic-frames-integration-2026-10-05.json)
+retains 591 Python tests (six skipped), all 171 contract tests, formatter and
+metadata gates, the website build/check and generated-asset checks, and fresh
+golden workflows, observability and CLI/Python example replay. The isolated
+checkout initially lacked its locked website dependencies. The receipt preserves
+that failed build, installation from the unchanged lockfile and the passing
+rebuild. These additional checks establish local integration; hosted acceptance
+remains a separate gate.
+
+The final hosted conformance job subsequently rejected stale aggregate counts:
+the admitted frame fixture had passed, increasing the inventory to 118 executable
+fixtures, 143 runtime cases and 145 total stages. The
+[conformance repair receipt](evidence/native-analytic-frames-conformance-repair-2026-10-05.json)
+preserves that failed job and replays its eight original reports successfully
+without changing their values. The checker now shares exact expected counts and
+tests them against the actual fixture inventory. Missing/stale matrix fields,
+incomplete native digests and stale runtime counts remain rejected. Formatter,
+strict workspace Clippy, workspace tests and 594 Python tests (six optional
+dependency skips) pass. This is a report-contract repair; the accepted runtime
+executable, original results and production/publication boundaries are unchanged.
+
+## Frame contract and limits
+
+The admitted units are ROWS, GROUPS and RANGE, with explicit bounds, empty intervals and CURRENT ROW/GROUP/TIES/NO OTHERS exclusions. The omitted frame defaults to RANGE UNBOUNDED PRECEDING through CURRENT ROW. GROUPS requires ORDER BY. A bounded RANGE frame requires exactly one ordering key. ROWS and GROUPS offsets are nonnegative integer literals counting rows or peer groups and must fit an addressable row count. RANGE offsets must match the order domain: integer offsets for integer keys, finite nonnegative numeric offsets for floating keys, nonnegative scaled decimal offsets for decimal keys, whole-day durations for Date32, or fixed microseconds for TimestampMicros. Bind-time checks reject reversed bounds, invalid unbounded endpoints, unsupported offset forms and incompatible range domains. NTH_VALUE positions must be positive and no larger than the admitted input-row limit.
+
+ROWS offsets count ordered rows; GROUPS offsets count peer groups; RANGE current-row bounds include peers. With no ordering all rows in a partition are peers. Original row ordinals provide stable positional selection and results return in input order. FIRST/LAST/NTH_VALUE respect NULLs; empty frames and out-of-range NTH_VALUE return typed NULL. COUNT(*) counts frame rows, COUNT(argument) ignores parent NULLs, COUNT DISTINCT uses the existing exact native key domain, and empty SUM/AVG/MIN/MAX return typed NULL.
+
+Named windows, variable offsets, calendar-month intervals and IGNORE NULLS remain outside this contract and require separately declared semantics. Ranking and LAG/LEAD navigation retain their prior behavior; a frame does not change them. General window-state spill remains unimplemented in this unit and must fail explicitly when the current resource grant is insufficient. Bounded output batches do not establish bounded operator state, zero decode, or an RSS guarantee. The wider universal-workflow, adapter and general spill queues remain open.
+
+## Resource and evidence boundaries
+
+Native builds, tests and acceptance run sequentially under the existing process and storage guards. Public frame calls use the frozen 1-GiB resource policy, with 4 GiB for explicit format conversion, a 3,000-second family deadline, 12-GiB free-space headroom and unchanged workspace/log ceilings. Full43 retains its 24-GiB policy and 12-worker maximum. The independent inspection checks all 2,159 frame resource proofs against their declared budgets; these reservations are not a total-process RSS guarantee.
+
+The packet preserves failed and interrupted development and public observations, original frozen references, exact-source retention decisions and verified log compaction. Completed logs were archived with per-member identity and byte verification; failed observations and storage limits remain unchanged. Incomplete cohorts are not combined to claim a complete acceptance.
+
+The first independent inspection failed because its suffix predicate incorrectly classified ordinary native fields as fallback fields. A minimal fixture reproduced the checker error. The repaired predicate passes 96 policy-field cases and four ordinary-field cases, then passes a fresh inspection of the identical packet. Both inspection attempts, the original and repaired queries, and the focused tests remain in the inspection receipt.
+
+Core-local evidence is recorded as `passed_core_local`. Hosted checks and review remain pending. No release publication, competitive gate completion, production certification or performance claim follows from this report. CG-1 through CG-23 retain their independent obligations, and real Vortex payload proof remains distinct from placeholder artifact status.

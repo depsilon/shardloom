@@ -312,6 +312,7 @@ fn native_nested_projection_order_window_limit_and_union_all_compose() {
                 descending: false,
                 nulls: None,
             }],
+            frame: None,
         }],
     }));
     let range = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {

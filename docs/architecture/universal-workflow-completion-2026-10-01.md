@@ -147,15 +147,21 @@ semantic stages and nine golden workflow stages. The parameterized workload
 harness adds 1,408 complete records plus a separate 32-record probe. The
 [October 5 report](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
 links the independently inspected packet and records exact runtime, checker
-and source-tree identity. Hosted integration and current documentation/website
-checks remain pending for this unit. Wider analytic frames, scalar-value
-subqueries, nested pivot state, adapters and remaining resource/spill transitions
-retain the obligations below.
+and source-tree identity. Hosted integration remains pending for this unit.
+The [analytic-frame continuation](native-analytic-frames-2026-10-05.md) has
+complete local acceptance on `22f1e6ba`: 22,658 public checks and 15,349,350 row
+comparisons, including 2,213 frame checks and 1,067,280 independently specified
+rows. All 129 Full43 executions, 202 direct checks, 22 source gates, 145 admitted
+semantic stages and nine golden stages pass. Its
+[report](../benchmarks/native-analytic-frames-full43-2026-10-05.md) records the
+successful independent packet inspection; hosted integration remains pending.
+Scalar-value subqueries, nested pivot state, adapters and remaining resource/spill
+transitions retain the obligations below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs; binary, exact Decimal128, Date32 and microsecond timestamp payloads, including admitted nested leaves. | Broader typed/nested semantics, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
-| Operator composition | Native relational stages and shared unary families compose with ordered public declarations; static nested payload/explode, scalar pivot schemas and typed/nested state are merged. Computed aggregate arguments and exact decimal aggregate/rolling/pivot state have complete local acceptance through the consolidated engine. | Analytic frames, scalar-value subqueries, nested pivot state and broader prepared/public parity. Complete hosted integration of the accepted reduction/consolidation unit; use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
+| Operator composition | Native relational stages and shared unary families compose with ordered public declarations; static nested payload/explode, scalar pivot schemas and typed/nested state are merged. Computed aggregate arguments, exact decimal aggregate/rolling/pivot state and analytic frames have complete local acceptance through the consolidated engine. | Scalar-value subqueries, nested pivot state and broader prepared/public parity. Complete hosted integration of the accepted reduction/consolidation and analytic-frame units; use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
 | Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output preserves types in six representable formats, including the four new typed leaf families, and supports CSV as explicit JSON-text translation. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
@@ -179,8 +185,9 @@ coverage. Retained unary execution and admitted flat-scalar relational/unary
 composition now have their own acceptance records. The static nested, scalar
 dynamic-pivot, typed-payload, typed-key, typed-expression, typed-unary and
 nested-key/state continuations are merged. Complete hosted integration of the
-locally accepted [typed reduction/consolidation unit](native-typed-reductions-2026-10-04.md),
-then continue analytic frames, scalar-value subqueries and nested pivot state.
+locally accepted [typed reduction/consolidation unit](native-typed-reductions-2026-10-04.md)
+and [analytic-frame unit](native-analytic-frames-2026-10-05.md), then continue
+scalar-value subqueries and nested pivot state.
 Broader adapter and resource families continue under their ownership contracts.
 Freeze exact expressions, sinks and
 pressure cases against current source at intake. Unsupported

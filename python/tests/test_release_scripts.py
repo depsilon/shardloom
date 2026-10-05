@@ -3601,6 +3601,7 @@ class ReleaseScriptTests(unittest.TestCase):
                     ),
                     "vortex_primitive_routes": module.EXPECTED_VORTEX_PRIMITIVE_ROUTES,
                     "source_input_formats": module.EXPECTED_SOURCE_INPUT_FORMATS,
+                    "source_prepared_routes": len(module.EXPECTED_SOURCE_ROUTE_IDS),
                     "source_invalidation_cases": (
                         module.EXPECTED_SOURCE_INVALIDATION_CASES
                     ),

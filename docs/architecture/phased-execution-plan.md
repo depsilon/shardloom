@@ -287,6 +287,32 @@ the ledger.
     scalar-value subqueries, nested pivot state, adapters and general state spill
     remain subsequent work under the universal queue; this is not their closure.
 
+- [ ] `NATIVE-ANALYTIC-FRAMES` — extend the shared relational window family with
+  framed aggregate and value functions under PERF-02/03/07/10/11/12 and
+  CG-3/5/19/20/21. Follow the
+  [analytic frame contract](native-analytic-frames-2026-10-05.md).
+  - V1 scope classification: `required_for_v1`.
+  - Dependency: the consolidated typed-reduction engine has complete local
+    acceptance and hosted integration is pending in PR #1518. Keep native builds,
+    tests and UAT sequential under the existing resource and storage guards.
+  - ShardLoom technique review: reuse partition/order groups, exact keys, native
+    retained arrays, one PulseWeave grant, reserved state and bounded delivery.
+    Add frame state within the existing window owner; no frontend executor.
+  - Execution checklist:
+    - [x] Bind ROWS/GROUPS/RANGE bounds, exclusions and computed arguments;
+      preserve ranking/navigation and deterministic empty-plan admission.
+    - [x] Implement moving aggregate/value state with exact decimal and reversible
+      floating totals, typed NULLs, selected payload ownership and failure cleanup.
+    - [x] Freeze independent complete workflow/writer results, resource proof,
+      required local checks and Full43 regression; align capabilities and docs.
+      The [October 5 frame acceptance](../benchmarks/native-analytic-frames-full43-2026-10-05.md)
+      records 22,658 public checks, 202 direct checks, all 129 Full43 executions,
+      22 source gates and successful independent packet inspection.
+    - [ ] Complete hosted review/checks and record finite completion in the ledger.
+  - Acceptance: one shared native window family with complete-value proof.
+    Retained state remains grant-bounded; window spill is a separate resource
+    obligation. No performance or broad competitive-gate closure follows.
+
 - [ ] `REVISED-ENGINE-RELEASE-TRAIN` — the October 4 maintainer requests another
   version bump train after core work and UAT of the complete revised engine.
   - Source: this maintainer instruction, RFC 0024, the

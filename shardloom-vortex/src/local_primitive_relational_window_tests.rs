@@ -25,6 +25,7 @@ fn expression(
             descending,
             nulls,
         }],
+        frame: None,
     }
 }
 
@@ -161,6 +162,7 @@ pub(super) fn unpartitioned(fixture: &Fixture, function: Function) -> VortexRela
                 descending: false,
                 nulls: None,
             }],
+            frame: None,
         }],
     }))
 }

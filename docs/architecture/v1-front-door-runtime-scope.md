@@ -212,7 +212,11 @@ with runtime and release evidence:
 - Broad pandas, Polars, Spark, DataFusion, DuckDB, PySpark, or dataframe-library API parity.
 - Hidden execution in pandas, Polars, DuckDB, Spark, DataFusion, Velox, or another engine.
 - Unbounded materialization as a convenience path.
-- Unsupported joins, subqueries, non-admitted window frames beyond scoped source-order rolling sum/mean/count/min/max, UDFs, plugins, LLM/API calls, embeddings, vector search,
+- Unsupported joins/subqueries and window features beyond native ranking/navigation,
+  source-order rolling and literal ROWS/GROUPS/RANGE aggregate/value frames.
+  Named windows, variable offsets, calendar-month intervals, IGNORE NULLS and
+  general window spill require separate semantics and resource evidence. UDFs,
+  plugins, LLM/API calls, embeddings, vector search,
   external writes, or effectful operations outside their explicit supported fixture paths.
 - Object-store, lakehouse/table, catalog, remote API, Foundry, live/hybrid, distributed, and
   production platform workflows unless the matching v1 candidate item is completed with evidence.

@@ -101,6 +101,9 @@ mod native_decimal_reduce;
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_float_total.rs"]
+mod native_float_total;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_json.rs"]
 mod native_json;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -151,6 +154,9 @@ mod native_relational_subquery;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_window.rs"]
 mod native_relational_window;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_window_frame.rs"]
+mod native_relational_window_frame;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_sort_block.rs"]
 mod native_sort_block;

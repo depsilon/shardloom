@@ -107,7 +107,7 @@ impl Binder<'_> {
     }
 }
 
-fn reduction_dtype(function: Function, source: Option<&DType>) -> Result<DType> {
+pub(super) fn reduction_dtype(function: Function, source: Option<&DType>) -> Result<DType> {
     Ok(match function {
         Function::Count | Function::CountDistinct => {
             DType::Primitive(PType::U64, Nullability::NonNullable)

@@ -6,6 +6,10 @@ use shardloom_core::{
     BinaryOp, ColumnRef, ComparisonOp, ExprId, Expression, ExpressionKind, UnaryOp,
     evaluate_expression, parse_iso_date32, parse_iso_timestamp_micros,
 };
+use shardloom_vortex::relational_query::VortexRelationalWindowFrame;
+
+#[path = "sql_window_frames.rs"]
+mod window_frames;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "sql_projection_lowering.rs"]
@@ -376,15 +380,16 @@ struct ParsedTimestampExtractProjection {
     op: TimestampExtractOp,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedWindowProjection {
     alias: String,
     function: WindowFunction,
     partition_by: Vec<String>,
     order_by: ParsedOrderBy,
+    frame: Option<VortexRelationalWindowFrame>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 enum WindowFunction {
     RowNumber,
     Rank,
@@ -394,6 +399,10 @@ enum WindowFunction {
     Ntile { bucket_count: usize },
     PercentRank,
     CumeDist,
+    Aggregate(ParsedAggregate),
+    FirstValue(Expression),
+    LastValue(Expression),
+    NthValue { expression: Expression, index: u64 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2966,6 +2975,9 @@ fn scoped_temporal_helper_argument_ranges(
         "date_sub_days",
         "timestamp_add_seconds",
         "timestamp_sub_seconds",
+        // INTERVAL is admitted here only as a typed frame bound by the window
+        // parser; arbitrary arithmetic inside this clause still fails parsing.
+        "over",
     ] {
         let mut search_start = 0;
         while search_start < statement.len() {
@@ -3391,14 +3403,14 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         if projection == "*" {
             projection_order.push(ParsedProjectionOutput::Raw("*".to_string()));
             projections.push("*".to_string());
-        } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
-            projection_order.push(ParsedProjectionOutput::Aggregate(aggregate.output_name()));
-            aggregates.push(aggregate);
         } else if let Some(window_projection) = parse_window_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::Window(
                 window_projection.alias.clone(),
             ));
             window_projections.push(window_projection);
+        } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Aggregate(aggregate.output_name()));
+            aggregates.push(aggregate);
         } else if let Some(complex_projection) = parse_complex_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::Complex(
                 complex_projection.alias.clone(),
@@ -3713,7 +3725,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
         if find_keyword_outside_quotes_and_parentheses(raw, "over")?.is_some() {
             return Err(unsupported_sql_error(
-                "window projections must be written as ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), LEAD(<column>[, <offset>]), NTILE(<bucket-count>), PERCENT_RANK(), or CUME_DIST() OVER (...) AS <column>",
+                "window projections require <function> OVER (...) AS <column>",
             ));
         }
         return Ok(None);
@@ -3728,7 +3740,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     let spec_raw = expression_raw[over_index + "over".len()..].trim();
     let Some(function) = parse_window_function(function_raw)? else {
         return Err(unsupported_sql_error(
-            "window projection smoke admits ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), LEAD(<column>[, <offset>]), NTILE(<bucket-count>), PERCENT_RANK(), or CUME_DIST() OVER (...) AS <column> only",
+            "window function has no admitted native declaration",
         ));
     };
     if alias.is_empty() {
@@ -3737,12 +3749,26 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
         ));
     }
     validate_sql_identifier(alias)?;
-    let (partition_by, order_by) = parse_window_spec(spec_raw)?;
+    let (partition_by, order_by, frame) = window_frames::parse_spec(spec_raw)?;
+    if order_by.keys.is_empty()
+        && !matches!(
+            function,
+            WindowFunction::Aggregate(_)
+                | WindowFunction::FirstValue(_)
+                | WindowFunction::LastValue(_)
+                | WindowFunction::NthValue { .. }
+        )
+    {
+        return Err(unsupported_sql_error(
+            "window projections require ORDER BY for deterministic ranking or offset semantics",
+        ));
+    }
     Ok(Some(ParsedWindowProjection {
         alias: alias.to_string(),
         function,
         partition_by,
         order_by,
+        frame,
     }))
 }
 
@@ -3770,8 +3796,10 @@ fn parse_window_function(raw: &str) -> Result<Option<WindowFunction>, ShardLoomE
     if let Some(args) = parse_window_function_args(raw, "ntile")? {
         return parse_ntile_window_function(args).map(Some);
     }
-
-    Ok(None)
+    if let Some(aggregate) = parse_aggregate_projection(raw)? {
+        return Ok(Some(WindowFunction::Aggregate(aggregate)));
+    }
+    window_frames::parse_value_function(raw)
 }
 
 fn parse_window_function_args<'a>(
@@ -3884,45 +3912,6 @@ fn parse_positive_window_integer(
     Ok(offset)
 }
 
-fn parse_window_spec(raw: &str) -> Result<(Vec<String>, ParsedOrderBy), ShardLoomError> {
-    let spec = raw.trim();
-    if !spec.starts_with('(') {
-        return Err(unsupported_sql_error(
-            "window specifications must be written as OVER (<window-spec>)",
-        ));
-    }
-    let close_index = matching_closing_parenthesis(spec, 0)?.ok_or_else(|| {
-        unsupported_sql_error("window specification parentheses must be balanced")
-    })?;
-    if !spec[close_index + 1..].trim().is_empty() {
-        return Err(unsupported_sql_error(
-            "window specifications must be a single parenthesized clause",
-        ));
-    }
-    let inner = spec[1..close_index].trim();
-    let order_by_index = find_keyword_outside_quotes_and_parentheses(inner, "order by")?
-        .ok_or_else(|| {
-            unsupported_sql_error(
-                "window projections require ORDER BY for deterministic ranking or offset semantics",
-            )
-        })?;
-    let partition_raw = inner[..order_by_index].trim();
-    let order_by_raw = inner[order_by_index + "order by".len()..].trim();
-    if order_by_raw.is_empty() {
-        return Err(unsupported_sql_error(
-            "window projections require at least one ORDER BY key",
-        ));
-    }
-    if find_keyword_outside_quotes_and_parentheses(order_by_raw, "partition by")?.is_some() {
-        return Err(unsupported_sql_error(
-            "window PARTITION BY must appear before ORDER BY",
-        ));
-    }
-    let partition_by = parse_window_partition_by(partition_raw)?;
-    let order_by = parse_order_by(Some(order_by_raw))?.expect("ORDER BY raw was provided");
-    Ok((partition_by, order_by))
-}
-
 fn parse_window_partition_by(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     if raw.trim().is_empty() {
         return Ok(Vec::new());
@@ -3930,7 +3919,7 @@ fn parse_window_partition_by(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     let partition_index = find_keyword_outside_quotes_and_parentheses(raw, "partition by")?
         .ok_or_else(|| {
             unsupported_sql_error(
-                "window specifications admit optional PARTITION BY followed by required ORDER BY",
+                "window specifications admit PARTITION BY followed by optional ORDER BY and frame bounds",
             )
         })?;
     if partition_index != 0 {
@@ -3950,7 +3939,7 @@ fn parse_window_partition_by(raw: &str) -> Result<Vec<String>, ShardLoomError> {
         validate_sql_column_ref(&column)?;
         if parsed.iter().any(|existing| existing == &column) {
             return Err(unsupported_sql_error(
-                "window PARTITION BY duplicate columns are not admitted in this scoped smoke",
+                "window PARTITION BY columns must be unique",
             ));
         }
         parsed.push(column);

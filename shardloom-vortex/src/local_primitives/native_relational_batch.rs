@@ -1,8 +1,11 @@
 //! Native row owners and bounded late payload gathering shared by operators.
 
 use super::{
-    logical_field_from_native_array, native_capacity::ReservedVec, native_payload,
-    native_relational_keys::KeyColumn, result_batch, vortex_error,
+    logical_field_from_native_array,
+    native_capacity::ReservedVec,
+    native_payload,
+    native_relational_keys::{Cell, KeyColumn},
+    result_batch, vortex_error,
 };
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{Result, ShardLoomError};
@@ -319,6 +322,29 @@ impl Table {
             .get(key)
             .ok_or_else(|| failed("bound order key is absent"))?
             .is_null(row)
+    }
+
+    /// Borrow one retained native key owner without reconstructing row payload.
+    fn key(&self, row: usize, key: usize) -> Result<(&KeyColumn, usize)> {
+        let (segment, row) = self.locate(row)?;
+        let column = self.segments.values[segment]
+            .batch
+            .keys
+            .values
+            .get(key)
+            .ok_or_else(|| failed("bound scalar key is absent"))?;
+        Ok((column, row))
+    }
+
+    pub(super) fn raw_cell(&self, row: usize, key: usize) -> Result<Cell> {
+        let (column, row) = self.key(row, key)?;
+        column.raw_cell(row)
+    }
+
+    pub(super) fn hash_key(&self, row: usize, key: usize) -> Result<Option<u64>> {
+        let (column, row) = self.key(row, key)?;
+        let mut hash = rustc_hash::FxHasher::default();
+        Ok(column.hash_into(row, &mut hash)?.then(|| hash.finish()))
     }
 
     pub(super) fn gather<'a>(

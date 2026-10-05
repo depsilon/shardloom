@@ -1,11 +1,13 @@
 //! Projection/window lowering preserves output order and keeps sort helpers private.
 
 use super::{
-    Aggregate, ColumnRef, ExprId, Expression, ExpressionKind, Lowered, Lowerer, NativeResult,
-    NativeWindowFunction, ParsedProjectionOutput, ParsedSqlLocalSource, ParsedWindowProjection,
-    Plan, Window, WindowExpression, WindowFunction, append_ordered_projection_expression, column,
+    Aggregate, AggregateFunction, ColumnRef, ExprId, Expression, ExpressionKind, Lowered, Lowerer,
+    NativeResult, NativeWindowFunction, ParsedAggregate, ParsedAggregateArgument,
+    ParsedProjectionOutput, ParsedSqlLocalSource, ParsedWindowProjection, Plan, Project, Window,
+    WindowExpression, WindowFunction, append_ordered_projection_expression, column,
     find_projection_by_alias, map_columns, order_key, unsupported_sql_error,
 };
+use shardloom_vortex::relational_query::VortexRelationalFrameFunction as FrameFunction;
 
 impl Lowerer<'_, '_> {
     fn projected_expressions(
@@ -152,12 +154,20 @@ impl Lowerer<'_, '_> {
     }
 
     pub(super) fn windows(
+        &mut self,
         mut input: Lowered,
         windows: &[ParsedWindowProjection],
     ) -> NativeResult<Lowered> {
         if windows.is_empty() {
             return Ok(input);
         }
+        let mut projection = input
+            .columns
+            .iter()
+            .map(|name| Ok((name.clone(), column(name)?)))
+            .collect::<NativeResult<Vec<_>>>()?;
+        let mut names = input.columns.clone();
+        names.extend(windows.iter().map(|window| window.alias.clone()));
         let expressions = windows
             .iter()
             .map(|window| {
@@ -178,6 +188,30 @@ impl Lowerer<'_, '_> {
                     },
                     WindowFunction::PercentRank => NativeWindowFunction::PercentRank,
                     WindowFunction::CumeDist => NativeWindowFunction::CumeDist,
+                    WindowFunction::Aggregate(aggregate) => NativeWindowFunction::Framed(
+                        self.window_aggregate(aggregate, &input, &mut projection, &mut names)?,
+                    ),
+                    WindowFunction::FirstValue(expression) => {
+                        NativeWindowFunction::Framed(FrameFunction::FirstValue(
+                            self.window_argument(expression, &input, &mut projection, &mut names)?,
+                        ))
+                    }
+                    WindowFunction::LastValue(expression) => {
+                        NativeWindowFunction::Framed(FrameFunction::LastValue(
+                            self.window_argument(expression, &input, &mut projection, &mut names)?,
+                        ))
+                    }
+                    WindowFunction::NthValue { expression, index } => {
+                        NativeWindowFunction::Framed(FrameFunction::NthValue {
+                            column: self.window_argument(
+                                expression,
+                                &input,
+                                &mut projection,
+                                &mut names,
+                            )?,
+                            index: *index,
+                        })
+                    }
                 };
                 Ok(WindowExpression {
                     output_column: window.alias.clone(),
@@ -193,9 +227,16 @@ impl Lowerer<'_, '_> {
                         .iter()
                         .map(|key| order_key(key, &input))
                         .collect::<NativeResult<_>>()?,
+                    frame: window.frame.clone(),
                 })
             })
             .collect::<NativeResult<_>>()?;
+        if projection.len() > input.columns.len() {
+            input.plan = Plan::Project(Box::new(Project {
+                input: input.plan,
+                expressions: projection,
+            }));
+        }
         let columns = input
             .columns
             .iter()
@@ -210,5 +251,53 @@ impl Lowerer<'_, '_> {
             .columns
             .extend(windows.iter().map(|window| window.alias.clone()));
         Ok(input)
+    }
+
+    fn window_aggregate(
+        &mut self,
+        aggregate: &ParsedAggregate,
+        input: &Lowered,
+        projection: &mut Vec<(String, Expression)>,
+        names: &mut Vec<String>,
+    ) -> NativeResult<FrameFunction> {
+        let argument = match &aggregate.argument {
+            ParsedAggregateArgument::All => None,
+            ParsedAggregateArgument::Column(name) => Some(ColumnRef::new(input.resolve(name)?)?),
+            ParsedAggregateArgument::Computed { expression, .. } => {
+                Some(self.window_argument(expression, input, projection, names)?)
+            }
+        };
+        Ok(match (aggregate.function, aggregate.distinct, argument) {
+            (AggregateFunction::Count, false, None) => FrameFunction::CountAll,
+            (AggregateFunction::Count, false, Some(column)) => FrameFunction::Count(column),
+            (AggregateFunction::Count, true, Some(column)) => FrameFunction::CountDistinct(column),
+            (AggregateFunction::Sum, false, Some(column)) => FrameFunction::Sum(column),
+            (AggregateFunction::Avg, false, Some(column)) => FrameFunction::Avg(column),
+            (AggregateFunction::Min, false, Some(column)) => FrameFunction::Min(column),
+            (AggregateFunction::Max, false, Some(column)) => FrameFunction::Max(column),
+            _ => {
+                return Err(unsupported_sql_error(
+                    "framed aggregate has incompatible arguments",
+                ));
+            }
+        })
+    }
+
+    fn window_argument(
+        &mut self,
+        expression: &Expression,
+        input: &Lowered,
+        projection: &mut Vec<(String, Expression)>,
+        names: &mut Vec<String>,
+    ) -> NativeResult<ColumnRef> {
+        if let ExpressionKind::Column(column) = &expression.kind {
+            return ColumnRef::new(input.resolve(column.as_str())?);
+        }
+        let mut expression = expression.clone();
+        map_columns(&mut expression, &mut |name| input.resolve(name))?;
+        let name = self.fresh(names);
+        names.push(name.clone());
+        projection.push((name.clone(), expression));
+        ColumnRef::new(name)
     }
 }

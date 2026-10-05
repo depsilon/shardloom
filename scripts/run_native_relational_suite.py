@@ -26,7 +26,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "benchmarks/traditional_analytics"))
 from resources import BenchmarkGuard
 
-FAMILIES = ("base", "unary", "nested", "pivot", "typed", "memory")
+FAMILIES = ("base", "unary", "nested", "pivot", "typed", "memory", "frames")
 SCHEMA = "shardloom.native_relational_suite.v1"
 VARIABLE_FIELDS = {
     "schema_version", "acceptance_family", "cases", "envelope_files",

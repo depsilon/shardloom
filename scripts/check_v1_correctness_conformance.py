@@ -71,18 +71,51 @@ EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES = 1
 EXPECTED_GOLDEN_WORKFLOWS = GOLDEN_WORKFLOW_IDS
 EXPECTED_GOLDEN_STAGE_COUNT_MIN = 9
 
-EXPECTED_EXECUTABLE_FIXTURES = 117
+EXPECTED_EXECUTABLE_FIXTURES = 118
 EXPECTED_DIAGNOSTIC_CASES = 25
 EXPECTED_UNSUPPORTED_DIAGNOSTICS = 23
 EXPECTED_RUNTIME_ERROR_DIAGNOSTICS = 1
 EXPECTED_INVALID_SHAPE_DIAGNOSTICS = 1
 EXPECTED_PROPERTY_LANE_COUNT = 10
 EXPECTED_DETERMINISTIC_FUZZ_CASES = 5
-EXPECTED_ADMITTED_STAGE_COUNT_MIN = 144
+EXPECTED_ADMITTED_STAGE_COUNT_MIN = 145
 EXPECTED_ADMITTED_VALIDATOR_CASES = EXPECTED_EXECUTABLE_FIXTURES + EXPECTED_DIAGNOSTIC_CASES
 EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS = EXPECTED_ADMITTED_VALIDATOR_CASES
 EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS = 2
 EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS = EXPECTED_DIAGNOSTIC_CASES
+MATRIX_EXPECTED_COUNTS = {
+    "front_door_supported_rows": EXPECTED_FRONT_DOOR_SUPPORTED_ROWS,
+    "front_door_pending_rows": EXPECTED_FRONT_DOOR_PENDING_ROWS,
+    "front_door_example_scenarios": len(EXPECTED_EXAMPLE_SCENARIOS),
+    "front_door_expected_error_scenarios": len(EXPECTED_ERROR_SCENARIOS),
+    "vortex_primitive_routes": EXPECTED_VORTEX_PRIMITIVE_ROUTES,
+    "source_input_formats": EXPECTED_SOURCE_INPUT_FORMATS,
+    "source_prepared_routes": len(EXPECTED_SOURCE_ROUTE_IDS),
+    "source_invalidation_cases": EXPECTED_SOURCE_INVALIDATION_CASES,
+    "output_formats": EXPECTED_OUTPUT_FORMATS,
+    "output_write_methods": EXPECTED_OUTPUT_WRITE_METHODS,
+    "output_routes": EXPECTED_OUTPUT_ROUTE_IDS,
+    "python_user_surface_method_rows": EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
+    "example_replay_doc_sources": EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
+    "example_replay_runtime_commands": EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS,
+    "example_replay_scenarios": EXPECTED_EXAMPLE_REPLAY_SCENARIOS,
+    "example_replay_expected_error_scenarios": EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS,
+    "example_replay_unsupported_failure_fixtures": EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES,
+    "golden_workflows": len(EXPECTED_GOLDEN_WORKFLOWS),
+    "golden_stage_count_min": EXPECTED_GOLDEN_STAGE_COUNT_MIN,
+    "executable_fixtures": EXPECTED_EXECUTABLE_FIXTURES,
+    "diagnostic_cases": EXPECTED_DIAGNOSTIC_CASES,
+    "unsupported_diagnostics": EXPECTED_UNSUPPORTED_DIAGNOSTICS,
+    "runtime_error_diagnostics": EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,
+    "invalid_shape_diagnostics": EXPECTED_INVALID_SHAPE_DIAGNOSTICS,
+    "property_lanes": EXPECTED_PROPERTY_LANE_COUNT,
+    "deterministic_fuzz_cases": EXPECTED_DETERMINISTIC_FUZZ_CASES,
+    "admitted_stage_count_min": EXPECTED_ADMITTED_STAGE_COUNT_MIN,
+    "admitted_validator_cases": EXPECTED_ADMITTED_VALIDATOR_CASES,
+    "admitted_required_runtime_rows": EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
+    "admitted_support_report_rows": EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS,
+    "admitted_deterministic_unsupported_rows": EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,
+}
 ADMITTED_ARTIFACT_REF_PREFIX = "target/admitted-semantics-matrix/artifacts/"
 SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES = {
     "canonical_decoded_reference_rows",
@@ -422,40 +455,13 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
     if not isinstance(expected_counts, dict):
         blockers.append("matrix expected_counts must be an object")
         expected_counts = {}
-    for field, expected in {
-        "front_door_supported_rows": EXPECTED_FRONT_DOOR_SUPPORTED_ROWS,
-        "front_door_pending_rows": EXPECTED_FRONT_DOOR_PENDING_ROWS,
-        "front_door_example_scenarios": len(EXPECTED_EXAMPLE_SCENARIOS),
-        "front_door_expected_error_scenarios": len(EXPECTED_ERROR_SCENARIOS),
-        "vortex_primitive_routes": EXPECTED_VORTEX_PRIMITIVE_ROUTES,
-        "source_input_formats": EXPECTED_SOURCE_INPUT_FORMATS,
-        "source_invalidation_cases": EXPECTED_SOURCE_INVALIDATION_CASES,
-        "output_formats": EXPECTED_OUTPUT_FORMATS,
-        "output_write_methods": EXPECTED_OUTPUT_WRITE_METHODS,
-        "output_routes": EXPECTED_OUTPUT_ROUTE_IDS,
-        "python_user_surface_method_rows": EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
-        "example_replay_doc_sources": EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
-        "example_replay_runtime_commands": EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS,
-        "example_replay_scenarios": EXPECTED_EXAMPLE_REPLAY_SCENARIOS,
-        "example_replay_expected_error_scenarios": EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS,
-        "example_replay_unsupported_failure_fixtures": (
-            EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES
-        ),
-        "golden_workflows": len(EXPECTED_GOLDEN_WORKFLOWS),
-        "golden_stage_count_min": EXPECTED_GOLDEN_STAGE_COUNT_MIN,
-        "executable_fixtures": EXPECTED_EXECUTABLE_FIXTURES,
-        "diagnostic_cases": EXPECTED_DIAGNOSTIC_CASES,
-        "unsupported_diagnostics": EXPECTED_UNSUPPORTED_DIAGNOSTICS,
-        "runtime_error_diagnostics": EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,
-        "invalid_shape_diagnostics": EXPECTED_INVALID_SHAPE_DIAGNOSTICS,
-        "property_lanes": EXPECTED_PROPERTY_LANE_COUNT,
-        "deterministic_fuzz_cases": EXPECTED_DETERMINISTIC_FUZZ_CASES,
-        "admitted_stage_count_min": EXPECTED_ADMITTED_STAGE_COUNT_MIN,
-        "admitted_validator_cases": EXPECTED_ADMITTED_VALIDATOR_CASES,
-        "admitted_required_runtime_rows": EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
-        "admitted_support_report_rows": EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS,
-        "admitted_deterministic_unsupported_rows": EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,
-    }.items():
+    if expected_counts.keys() != MATRIX_EXPECTED_COUNTS.keys():
+        blockers.append(
+            "matrix expected_counts fields mismatch: "
+            f"missing={sorted(MATRIX_EXPECTED_COUNTS.keys() - expected_counts.keys())} "
+            f"extra={sorted(expected_counts.keys() - MATRIX_EXPECTED_COUNTS.keys())}"
+        )
+    for field, expected in MATRIX_EXPECTED_COUNTS.items():
         if expected_counts.get(field) != expected:
             blockers.append(f"matrix expected_counts.{field}={expected_counts.get(field)}")
 

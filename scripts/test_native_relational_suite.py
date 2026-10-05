@@ -46,10 +46,10 @@ class NativeRelationalSuiteTests(unittest.TestCase):
 
     def test_complete_union_retains_each_child_and_source(self):
         report = combine_summaries(self.cohorts, dict.fromkeys(FAMILIES, 2))
-        self.assertEqual(report["case_count"], 6)
-        self.assertEqual(report["complete_rows_verified"], 12)
-        self.assertEqual(len(report["envelope_files"]), 6)
-        self.assertEqual(len(report["source_files"]), 6)
+        self.assertEqual(report["case_count"], len(FAMILIES))
+        self.assertEqual(report["complete_rows_verified"], 2 * len(FAMILIES))
+        self.assertEqual(len(report["envelope_files"]), len(FAMILIES))
+        self.assertEqual(len(report["source_files"]), len(FAMILIES))
         self.assertEqual(report["cohort_summaries"], self.cohorts)
 
     def test_missing_duplicate_failed_or_extra_coverage_is_not_success(self):

@@ -565,7 +565,7 @@ fn owned_extreme(value: Cell, context: &NativeExecutionContext<'_>) -> Result<Ce
 }
 
 #[allow(clippy::cast_precision_loss)] // Same explicit ordered floating SUM/AVG policy as the existing aggregate runner.
-fn number(value: &Cell) -> Result<f64> {
+pub(super) fn number(value: &Cell) -> Result<f64> {
     match value {
         Cell::NegativeInteger(value) => Ok(*value as f64),
         Cell::NonnegativeInteger(value) => Ok(*value as f64),
