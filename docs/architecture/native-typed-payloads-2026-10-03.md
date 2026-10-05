@@ -73,9 +73,12 @@ are exact signed integer units. CSV uses the existing typed cell convention.
 These text formats do not persist native logical types. Native Vortex does;
 Arrow IPC and Parquet must retain the mapped types. Avro fidelity is established
 by actual readback, including its existing integer/list translations. ORC's
-current writer admits binary but rejects decimals and temporal types. Nested
-CSV/ORC remain unsupported. Unsupported output must fail without publishing a
-destination, including for empty results.
+current writer admits binary but rejects decimals and temporal types. The
+[shared native workflow](native-typed-reductions-2026-10-04.md) extends CSV to
+nested JSON text cells, preserving values while reporting logical dtype loss.
+Nested ORC remains unsupported. Unsupported output must fail without publishing
+a destination, including for empty results. The original acceptance below
+predates this CSV extension.
 
 The expert comparator is a columnar-engine maintainer reviewing type identity,
 precision, temporal storage, hidden null payloads, compact ownership and

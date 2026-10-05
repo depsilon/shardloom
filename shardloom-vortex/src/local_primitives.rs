@@ -297,6 +297,9 @@ mod numeric_count_partial;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/numeric_count_partitions.rs"]
 mod numeric_count_partitions;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitive_output_fanout.rs"]
+pub mod output_fanout;
 #[cfg(feature = "vortex-local-primitives")]
 use native_numeric_accessor::{AggregateAccessorBatch, NativeNumericAccessorWork};
 #[cfg(feature = "vortex-local-primitives")]
@@ -314,10 +317,7 @@ mod string_count_partitions;
 #[cfg(feature = "vortex-local-primitives")]
 use std::time::Instant;
 
-#[cfg(all(
-    feature = "vortex-local-primitives",
-    any(test, feature = "vortex-traditional-analytics-benchmark")
-))]
+#[cfg(all(feature = "vortex-local-primitives", test))]
 use crate::{VortexEncodedValuePredicateBatch, VortexReaderGeneratedEncodedKernelInput};
 #[cfg(feature = "vortex-local-primitives")]
 use regex::Regex;
@@ -332,10 +332,7 @@ use shardloom_core::{
     NativeIoSourcePushdownReport, PredicateExpr, RepresentationState, Result, ShardLoomError,
     StatValue,
 };
-#[cfg(all(
-    feature = "vortex-local-primitives",
-    any(test, feature = "vortex-traditional-analytics-benchmark")
-))]
+#[cfg(all(feature = "vortex-local-primitives", test))]
 use shardloom_core::{
     EncodedSegment, EncodedValueBatch, EncodedValueRun, EncodingKind, LayoutKind,
     Nullability as ShardLoomNullability, SegmentId, SegmentLayout, SegmentStats,
@@ -14740,9 +14737,8 @@ fn local_vortex_path(
     target_uri: &DatasetUri,
     primitive_kind: VortexQueryPrimitiveKind,
 ) -> Result<Option<std::path::PathBuf>> {
-    if !target_uri.looks_like_vortex() {
-        return Ok(None);
-    }
+    // Native callers already declare the input format. File names are not a
+    // format boundary; the Vortex reader validates the actual file metadata.
     let path = match target_uri.scheme() {
         UriScheme::LocalPath => std::path::PathBuf::from(target_uri.as_str()),
         UriScheme::File => std::path::PathBuf::from(
@@ -15241,7 +15237,7 @@ fn read_local_vortex_partitioned_scan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 pub(crate) fn reader_generated_encoded_kernel_inputs_from_vortex_chunk(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15262,7 +15258,7 @@ pub(crate) fn reader_generated_encoded_kernel_inputs_from_vortex_chunk(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn encoded_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15311,7 +15307,7 @@ fn encoded_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn constant_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15350,7 +15346,7 @@ fn constant_kernel_input_from_vortex_array(
 
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_lines)]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn dictionary_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15468,7 +15464,7 @@ fn dictionary_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn stat_value_to_optional_encoded_value(value: StatValue) -> Option<StatValue> {
     match value {
         StatValue::Null => None,
@@ -15477,7 +15473,7 @@ fn stat_value_to_optional_encoded_value(value: StatValue) -> Option<StatValue> {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn bitpacked_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15550,7 +15546,7 @@ fn bitpacked_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn collect_bitpacked_unsigned_values<T>(
     bitpacked_array: &vortex::array::ArrayView<'_, vortex::encodings::fastlanes::BitPacked>,
 ) -> Result<Vec<u64>>
@@ -15580,7 +15576,7 @@ where
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn sequence_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15630,7 +15626,7 @@ fn sequence_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn sparse_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -15708,7 +15704,7 @@ fn sparse_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn push_sparse_run(runs: &mut Vec<EncodedValueRun>, value: StatValue, len: u64) {
     if len == 0 {
         return;
@@ -15723,7 +15719,7 @@ fn push_sparse_run(runs: &mut Vec<EncodedValueRun>, value: StatValue, len: u64) 
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn run_end_kernel_input_from_vortex_array(
     source_uri: &DatasetUri,
     split_ref: &str,
@@ -16247,7 +16243,7 @@ fn primitive_u32_codes_from_primitive_values(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn direct_non_nullable_u64_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Option<Vec<u64>> {
@@ -16256,7 +16252,7 @@ fn direct_non_nullable_u64_values_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn primitive_u64_values_from_primitive_array(
     primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
 ) -> Option<Vec<u64>> {
@@ -16385,7 +16381,7 @@ fn vortex_pvalue_to_stat_value(value: vortex::array::scalar::PValue) -> Option<S
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[cfg(any(test, feature = "vortex-traditional-analytics-benchmark"))]
+#[cfg(test)]
 fn shardloom_nullability_from_vortex_dtype(
     dtype: &vortex::array::dtype::DType,
 ) -> ShardLoomNullability {

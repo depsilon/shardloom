@@ -73,7 +73,6 @@ pub enum ShardLoomExecutionMode {
     Auto,
     CompatibilityImportCertified,
     PreparedVortex,
-    InternalLocalSourceSmoke,
     NativeVortex,
 }
 
@@ -84,7 +83,6 @@ impl ShardLoomExecutionMode {
             Self::Auto => "auto",
             Self::CompatibilityImportCertified => "compatibility_import_certified",
             Self::PreparedVortex => "prepared_vortex",
-            Self::InternalLocalSourceSmoke => "internal_local_source_smoke",
             Self::NativeVortex => "native_vortex",
         }
     }
@@ -93,9 +91,7 @@ impl ShardLoomExecutionMode {
     pub const fn family(self) -> ShardLoomExecutionModeFamily {
         match self {
             Self::Auto => ShardLoomExecutionModeFamily::AutoSelection,
-            Self::CompatibilityImportCertified | Self::InternalLocalSourceSmoke => {
-                ShardLoomExecutionModeFamily::Compatibility
-            }
+            Self::CompatibilityImportCertified => ShardLoomExecutionModeFamily::Compatibility,
             Self::PreparedVortex | Self::NativeVortex => ShardLoomExecutionModeFamily::NativeVortex,
         }
     }
@@ -112,9 +108,6 @@ impl ShardLoomExecutionMode {
                 Ok(Self::CompatibilityImportCertified)
             }
             "prepared_vortex" | "prepared-vortex" => Ok(Self::PreparedVortex),
-            "internal_local_source_smoke" | "internal-local-source-smoke" => {
-                Ok(Self::InternalLocalSourceSmoke)
-            }
             "native_vortex" | "native-vortex" => Ok(Self::NativeVortex),
             _ => Err(ShardLoomError::InvalidOperation(format!(
                 "unsupported ShardLoom execution mode: {value}; fallback execution was not attempted"
@@ -159,7 +152,6 @@ pub struct ShardLoomExecutionModeSelectionRequest {
     pub prepared_artifact_available: bool,
     pub prepared_artifact_reuse_requested: bool,
     pub native_vortex_provider_available: bool,
-    pub direct_transient_supported: bool,
 }
 
 impl ShardLoomExecutionModeSelectionRequest {
@@ -176,7 +168,6 @@ impl ShardLoomExecutionModeSelectionRequest {
             prepared_artifact_available: false,
             prepared_artifact_reuse_requested: false,
             native_vortex_provider_available: false,
-            direct_transient_supported: false,
         }
     }
 
@@ -231,12 +222,6 @@ impl ShardLoomExecutionModeSelectionRequest {
     #[must_use]
     pub const fn with_native_vortex_provider_available(mut self, value: bool) -> Self {
         self.native_vortex_provider_available = value;
-        self
-    }
-
-    #[must_use]
-    pub const fn with_direct_transient_supported(mut self, value: bool) -> Self {
-        self.direct_transient_supported = value;
         self
     }
 }
@@ -312,22 +297,6 @@ impl ShardLoomExecutionModeSelectionReport {
                     )
                 }
             }
-            ShardLoomExecutionMode::InternalLocalSourceSmoke => {
-                if request.direct_transient_supported {
-                    Self::internal_local_source_smoke(
-                        request,
-                        "internal_local_source_smoke_requested_and_supported",
-                    )
-                } else {
-                    Self::unsupported(
-                        request,
-                        ShardLoomExecutionMode::InternalLocalSourceSmoke,
-                        "internal_local_source_smoke_not_implemented",
-                        "P7.5.4",
-                        "internal local-source smoke executor and evidence",
-                    )
-                }
-            }
             ShardLoomExecutionMode::NativeVortex => {
                 if request.source_already_vortex || request.native_vortex_provider_available {
                     Self::native_vortex(request, "input_already_vortex")
@@ -396,26 +365,6 @@ impl ShardLoomExecutionModeSelectionReport {
                 vortex_native_claim_allowed: true,
                 claim_gate_status: "fixture_smoke_only",
                 claim_gate_reason: "prepared_vortex_requires_operator_and_certificate_evidence_for_claim_grade",
-            },
-        )
-    }
-
-    fn internal_local_source_smoke(
-        request: ShardLoomExecutionModeSelectionRequest,
-        reason: &str,
-    ) -> Self {
-        Self::supported(
-            request,
-            ShardLoomExecutionMode::InternalLocalSourceSmoke,
-            reason,
-            SupportedExecutionModeFacts {
-                compatibility_import_included: false,
-                vortex_prepare_included: false,
-                vortex_write_reopen_included: false,
-                direct_transient_execution: true,
-                vortex_native_claim_allowed: false,
-                claim_gate_status: "not_claim_grade",
-                claim_gate_reason: "not_vortex_native",
             },
         )
     }
@@ -1091,10 +1040,8 @@ impl PythonWrapperFoundationReport {
                 "api-compat-plan",
                 "python-wrapper-plan",
                 "vortex-run",
-                "traditional-analytics-run",
-                "traditional-analytics-vortex-run",
-                "traditional-analytics-vortex-batch-run",
-                "traditional-analytics-prepare-batch-run",
+                "run",
+                "vortex-prepare",
                 "dynamic-work-shaping-plan",
                 "sizing-feedback-plan",
                 "benchmark-plan",
@@ -1420,13 +1367,9 @@ mod tests {
             ShardLoomExecutionMode::PreparedVortex.family().as_str(),
             "native_vortex"
         );
-        assert_eq!(
-            ShardLoomExecutionMode::InternalLocalSourceSmoke
-                .family()
-                .as_str(),
-            "compatibility"
-        );
         assert!(ShardLoomExecutionMode::parse("spark_fallback").is_err());
+        assert!(ShardLoomExecutionMode::parse("internal_local_source_smoke").is_err());
+        assert!(ShardLoomExecutionMode::parse("internal-local-source-smoke").is_err());
     }
     #[test]
     fn execution_mode_selection_auto_is_transparent_for_certified_ingest() {
@@ -1479,32 +1422,6 @@ mod tests {
         assert!(report.vortex_native_claim_allowed);
         assert_eq!(report.support_status, "supported");
         assert_eq!(report.claim_gate_status, "fixture_smoke_only");
-    }
-    #[test]
-    fn execution_mode_selection_blocks_direct_transient_until_implemented() {
-        let report = ShardLoomExecutionModeSelectionReport::from_request(
-            ShardLoomExecutionModeSelectionRequest::new(
-                ShardLoomExecutionMode::InternalLocalSourceSmoke,
-            )
-            .with_source_format("csv")
-            .with_workload_constitution("local_vortex_analytics_v1")
-            .with_compatibility_input(true),
-        );
-
-        assert!(!report.mode_supported);
-        assert_eq!(report.support_status, "unsupported");
-        assert_eq!(
-            report.selected_execution_mode,
-            ShardLoomExecutionMode::InternalLocalSourceSmoke
-        );
-        assert_eq!(
-            report.unsupported_diagnostic_code,
-            "internal_local_source_smoke_not_implemented"
-        );
-        assert_eq!(report.claim_gate_status, "not_claim_grade");
-        assert!(!report.vortex_native_claim_allowed);
-        assert!(!report.fallback_attempted);
-        assert!(!report.external_engine_invoked);
     }
     #[test]
     fn command_status_error_is_error() {

@@ -1,5 +1,7 @@
 {
   "claim_gate_status": "not_claim_grade",
+  "evidence_class": "declarative_contract",
+  "runtime_evidence_verified": false,
   "default_output_formats": [
     "jsonl",
     "csv",
@@ -16,6 +18,9 @@
   ],
   "schema_version": "shardloom.v1_local_output_sink_scope_golden.v1",
   "scope_document": "docs/architecture/v1-local-output-sink-scope.md",
+  "output_route_ids": [
+    "native_vortex_query"
+  ],
   "supported_output_formats": [
     "json",
     "jsonl",

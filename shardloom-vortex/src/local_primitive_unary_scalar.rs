@@ -19,6 +19,7 @@ pub(super) fn operator(value: &str) -> Result<BinaryOp> {
         "-" => Ok(BinaryOp::Subtract),
         "*" => Ok(BinaryOp::Multiply),
         "/" => Ok(BinaryOp::Divide),
+        "%" => Ok(BinaryOp::Remainder),
         _ => Err(failed("arithmetic rewrite requires +, -, * or /")),
     }
 }

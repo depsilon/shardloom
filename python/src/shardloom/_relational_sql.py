@@ -49,7 +49,7 @@ def frame_stages(frame: LazyFrame) -> RenderedStages | None:
     # Deferred import keeps the public dataclasses in query.py as the sole owners.
     from . import query as q
 
-    if not (q._is_declared_local_source(frame.source) or frame.source.source_format == "vortex"):
+    if not (q._is_declared_local_source(frame.source) or frame.source.source_format in {"vortex", "memory"}):
         return None
     return _render_stages(
         f"SELECT * FROM {q._quote_sql_local_source_path(frame.source.uri)}",

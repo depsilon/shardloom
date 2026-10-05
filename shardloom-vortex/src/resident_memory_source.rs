@@ -83,6 +83,64 @@ struct MemorySourceOwner {
 pub struct ResidentMemorySource(Arc<MemorySourceOwner>);
 
 impl ResidentMemorySource {
+    /// Construct a bounded signed sequence directly in admitted native buffers.
+    /// This is an input adapter; subsequent expressions use the relational engine.
+    /// # Errors
+    /// Rejects invalid names, zero steps, overflow, more than one million rows,
+    /// and shared-memory admission failures before publishing the source.
+    pub fn from_int64_range(
+        session: &ResidentVortexSession,
+        name: &str,
+        start: i64,
+        step: i64,
+        rows: usize,
+    ) -> Result<Self> {
+        if name.is_empty() || name.len() > 256 || step == 0 || rows > 1_000_000 {
+            return Err(memory_error(
+                "range requires a valid field, nonzero step and at most one million rows",
+            ));
+        }
+        if rows > 0 {
+            i64::try_from(i128::from(start) + i128::from(step) * (rows - 1) as i128)
+                .map_err(|_| memory_error("signed range endpoint overflow"))?;
+        }
+        let bytes = fixed_bytes(&session.native_allocator(), rows, |index| {
+            // Monotonic endpoints were validated before allocating any buffer.
+            let value = i128::from(start) + i128::from(step) * index as i128;
+            i64::try_from(value)
+                .map(i64::to_ne_bytes)
+                .map_err(|_| memory_error("signed range value overflow"))
+        })?;
+        let values = PrimitiveArray::new(
+            Buffer::<i64>::from_byte_buffer(bytes),
+            Validity::NonNullable,
+        )
+        .into_array();
+        let array = StructArray::try_new(
+            FieldNames::from(vec![name]),
+            vec![values],
+            rows,
+            Validity::NonNullable,
+        )
+        .map_err(native_error)?
+        .into_array();
+        Ok(Self(Arc::new(MemorySourceOwner {
+            array,
+            session: session.clone(),
+            bounds: MemorySourceBounds {
+                max_input_rows: 1_000_000,
+                max_output_rows: 1_000_000,
+                ..MemorySourceBounds::default()
+            },
+            input_logical_bytes: rows * 8 + name.len(),
+            intake_payload_bytes_copied: 0,
+        })))
+    }
+
+    pub(crate) fn belongs_to_session(&self, session: &ResidentVortexSession) -> bool {
+        self.0.session.same_owner(session)
+    }
+
     /// Transfer private, capacity-admitted native columns into one immutable
     /// source. Payload buffers remain shared with their original allocation
     /// credits; this never accepts arbitrary externally allocated `ArrayRef` values.
@@ -316,6 +374,23 @@ pub struct PreparedMemoryProjection {
 }
 
 impl PreparedMemoryProjection {
+    pub(crate) fn source_rows(&self) -> usize {
+        self.source.row_count()
+    }
+
+    /// Borrow the caller's existing admission; never reenter session execution.
+    pub(crate) fn execute_range(
+        &self,
+        range: std::ops::Range<usize>,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        self.source.0.session.validate_execution_context(context)?;
+        let array = self.source.0.array.slice(range).map_err(native_error)?;
+        let result = self.execute_array(array, context.native_session())?;
+        context.check_cancelled()?;
+        Ok(result)
+    }
+
     #[must_use]
     pub fn projected_columns(&self) -> &[String] {
         &self.columns
@@ -330,54 +405,60 @@ impl PreparedMemoryProjection {
         source.session.execute_owned_array(
             source.bounds.max_output_rows as u64,
             source.bounds.max_output_bytes as u64,
-            |session| {
-                let mut context = session.create_execution_ctx();
-                let mut array = source.array.clone();
-                if let Some(filter) = &self.filter {
-                    let predicate = array
-                        .clone()
-                        .apply_bound(filter)
-                        .map_err(native_error)?
-                        .execute::<BoolArray>(&mut context)
-                        .map_err(native_error)?;
-                    let allocator = source.session.native_allocator();
-                    // The final mask has a session-owned buffer. Null predicate
-                    // values are false, matching WHERE semantics. Evaluation is
-                    // still the provider's bound expression, not a row evaluator.
-                    let mut bits = allocator
-                        .allocate(array.len().div_ceil(8), Alignment::none())
-                        .map_err(native_error)?;
-                    bits.as_mut_slice().fill(0);
-                    for row in 0..array.len() {
-                        if predicate
-                            .execute_scalar(row, &mut context)
-                            .map_err(native_error)?
-                            .as_bool()
-                            .value()
-                            .unwrap_or(false)
-                        {
-                            bits.as_mut_slice()[row / 8] |= 1 << (row % 8);
-                        }
-                    }
-                    array = array
-                        .filter(Mask::from_buffer(BitBuffer::new(
-                            bits.freeze(),
-                            array.len(),
-                        )))
-                        .map_err(native_error)?;
-                }
-                if let Some(limit) = self.limit {
-                    array = array
-                        .slice(0..limit.min(array.len()))
-                        .map_err(native_error)?;
-                }
-                array
-                    .apply_bound(&self.projection)
-                    .and_then(|array| array.execute::<StructArray>(&mut context))
-                    .map(vortex::array::IntoArray::into_array)
-                    .map_err(native_error)
-            },
+            |session| self.execute_array(source.array.clone(), session),
         )
+    }
+
+    fn execute_array(
+        &self,
+        mut array: ArrayRef,
+        session: &vortex::session::VortexSession,
+    ) -> Result<ArrayRef> {
+        let source = &self.source.0;
+        let mut context = session.create_execution_ctx();
+        if let Some(filter) = &self.filter {
+            let predicate = array
+                .clone()
+                .apply_bound(filter)
+                .map_err(native_error)?
+                .execute::<BoolArray>(&mut context)
+                .map_err(native_error)?;
+            let allocator = source.session.native_allocator();
+            // The final mask has a session-owned buffer. Null predicate
+            // values are false, matching WHERE semantics. Evaluation is
+            // still the provider's bound expression, not a row evaluator.
+            let mut bits = allocator
+                .allocate(array.len().div_ceil(8), Alignment::none())
+                .map_err(native_error)?;
+            bits.as_mut_slice().fill(0);
+            for row in 0..array.len() {
+                if predicate
+                    .execute_scalar(row, &mut context)
+                    .map_err(native_error)?
+                    .as_bool()
+                    .value()
+                    .unwrap_or(false)
+                {
+                    bits.as_mut_slice()[row / 8] |= 1 << (row % 8);
+                }
+            }
+            array = array
+                .filter(Mask::from_buffer(BitBuffer::new(
+                    bits.freeze(),
+                    array.len(),
+                )))
+                .map_err(native_error)?;
+        }
+        if let Some(limit) = self.limit {
+            array = array
+                .slice(0..limit.min(array.len()))
+                .map_err(native_error)?;
+        }
+        array
+            .apply_bound(&self.projection)
+            .and_then(|array| array.execute::<StructArray>(&mut context))
+            .map(vortex::array::IntoArray::into_array)
+            .map_err(native_error)
     }
 
     /// Complete the bounded native operation and its explicitly requested JSON
@@ -396,6 +477,10 @@ impl PreparedMemoryProjection {
             source.bounds.max_output_bytes,
         )?;
         let rows = result.row_count();
+        let result_schema_json = crate::local_primitives::collect::serialize_result_schema(
+            result.dtype(),
+            source.session.memory(),
+        )?;
         let native_io_certificate = memory_certificate(rows, self.filter.is_some())?;
         drop(result);
         Ok(CollectedVortexRows {
@@ -403,6 +488,7 @@ impl PreparedMemoryProjection {
             projected_columns: self.columns.clone(),
             source_order_limit: self.limit,
             values_json,
+            result_schema_json,
             runtime: source.session.snapshot(),
             native_io_certificate,
         })
@@ -523,7 +609,7 @@ fn packed_bits(
 fn fixed_bytes(
     allocator: &HostAllocatorRef,
     len: usize,
-    value: impl Fn(usize) -> [u8; 8],
+    value: impl Fn(usize) -> Result<[u8; 8]>,
 ) -> Result<ByteBuffer> {
     let bytes = len
         .checked_mul(8)
@@ -532,7 +618,7 @@ fn fixed_bytes(
         .allocate(bytes, Alignment::new(8))
         .map_err(native_error)?;
     for row in 0..len {
-        bytes.as_mut_slice()[row * 8..row * 8 + 8].copy_from_slice(&value(row));
+        bytes.as_mut_slice()[row * 8..row * 8 + 8].copy_from_slice(&value(row)?);
     }
     Ok(bytes.freeze())
 }
@@ -584,21 +670,21 @@ fn build_column(
     match values {
         MemoryColumnValues::Int64NonNullable(values) => Ok(PrimitiveArray::new(
             Buffer::<i64>::from_byte_buffer(fixed_bytes(allocator, rows, |row| {
-                values[row].to_ne_bytes()
+                Ok(values[row].to_ne_bytes())
             })?),
             validity,
         )
         .into_array()),
         MemoryColumnValues::Int64(values) => Ok(PrimitiveArray::new(
             Buffer::<i64>::from_byte_buffer(fixed_bytes(allocator, rows, |row| {
-                values[row].unwrap_or_default().to_ne_bytes()
+                Ok(values[row].unwrap_or_default().to_ne_bytes())
             })?),
             validity,
         )
         .into_array()),
         MemoryColumnValues::Float64(values) => Ok(PrimitiveArray::new(
             Buffer::<f64>::from_byte_buffer(fixed_bytes(allocator, rows, |row| {
-                values[row].unwrap_or_default().to_ne_bytes()
+                Ok(values[row].unwrap_or_default().to_ne_bytes())
             })?),
             validity,
         )

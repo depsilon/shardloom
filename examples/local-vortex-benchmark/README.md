@@ -1,33 +1,26 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Local Vortex Benchmark Smoke
+# Local Vortex Benchmark Example
 
-Run a small ShardLoom-only local taxonomy benchmark:
+This example is a thin command-line wrapper around
+[`benchmarks/traditional_analytics/run.py`](../../benchmarks/traditional_analytics/run.py).
+It runs the `selective filter` workload with one ShardLoom candidate and pandas as an
+independent correctness reference. It does not build ShardLoom or install dependencies.
 
 ```powershell
-python examples\local-vortex-benchmark\run.py --repo-root .
+python examples\local-vortex-benchmark\run.py `
+  --shardloom-binary target\debug\shardloom `
+  --workspace "$HOME\LocalData\shardloom\traditional-benchmarks"
 ```
 
-The script writes into an isolated per-run directory under
-`target/local-vortex-benchmark/<run-id>/`. Use `--run-id local-smoke` when you
-want a stable local path such as
-`target/local-vortex-benchmark/local-smoke/smoke.json`.
-It does not install external baseline engines and does not publish results.
-By default it runs the internal `shardloom` plus `shardloom-prepared-vortex`
-engine IDs, presented publicly as ShardLoom Cold Certified Route and ShardLoom
-Warm Prepared Query so their start states are visible separately. The rows are
-local technical-preview evidence, not a performance, Spark-replacement, or
-production claim.
+The workspace must be a local-only location outside synced folders. The wrapper defaults to 64
+rows, 8 dimension rows, one repeat, CSV input, raw input state, and collected output. Use
+`--help` for the supported options. Fixture generation, resource checks, isolation, execution,
+and result handling belong to the shared harness.
 
-The wrapper always passes a run-scoped `--data-dir` to the inner benchmark
-harness and holds a per-run lock while the tiny dataset is regenerated. That
-keeps overlapping local smoke or release dry-run attempts from deleting or
-rewriting the same generated data path.
+This invocation is local comparison evidence. It is not a performance claim, public benchmark
+publication, complete benchmark acceptance review, or production-support claim.
+Unsupported ShardLoom work is reported and is never executed by pandas.
 
-Files in this example:
-
-- `environment.yml`: minimal local benchmark smoke environment shape.
-- `fixtures/benchmark-request.json`: input fixture for the smoke parameters.
-- `expected-output.json`: expected artifact fields.
-- `expected-certificate-fields.json`: expected certificate/evidence fields.
-- `known-limitations.md`: current boundaries and non-goals.
+The JSON files beside this README describe the example request and the result/claim posture. They
+are declarative metadata, not captured runtime output or certificates.

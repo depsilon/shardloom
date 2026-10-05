@@ -9,6 +9,7 @@ create tags, probe networks, invoke external engines, or authorize production/pe
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import subprocess
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
+from native_workflow_protocol import extract_result, read_json_output
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,12 +30,10 @@ VORTEX_ARTIFACT_DIGEST_PREFIX = "sha256:"
 
 
 REQUIRED_SUPPORT_ROWS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "cli_local_source_runtime": ("executable", ("local-source-runtime",)),
+    "cli_public_native_workflow": ("feature_gated", ("run",)),
     "cli_vortex_prepare": ("feature_gated", ("vortex-prepare",)),
-    "cli_generated_source_runtime": (
-        "executable",
-        ("generated-source-user-rows",),
-    ),
+    "python_local_query_builder": ("feature_gated", ("sql",)),
+    "python_generated_source_helpers": ("feature_gated", ("sql_values",)),
     "output_inline_jsonl_csv": ("executable", ("inline_jsonl", "csv")),
     "output_vortex_local": ("feature_gated", ("vortex",)),
     "execution_prepared_vortex": ("executable", ("prepared_vortex",)),
@@ -312,6 +312,7 @@ def run_cli_stage(
     prefix_fields: dict[str, str] | None = None,
     artifact_paths: tuple[Path, ...] = (),
     selected_field_keys: tuple[str, ...] = (),
+    expected_rows: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     command = [str(binary), *args, "--format", "json"]
     completed = run_subprocess(repo_root=repo_root, command=command)
@@ -343,6 +344,15 @@ def run_cli_stage(
         blockers.extend(expect_fields(payload, stage_id, expected_fields))
         blockers.extend(expect_prefix_fields(payload, stage_id, prefix_fields or {}))
         blockers.extend(no_fallback_blockers(payload, stage_id))
+        if expected_rows is not None:
+            try:
+                observed_rows = extract_result(payload)
+                if observed_rows != expected_rows:
+                    blockers.append(
+                        f"{stage_id}: result rows differ from the declared fixture expectation"
+                    )
+            except (TypeError, ValueError) as exc:
+                blockers.append(f"{stage_id}: invalid complete native result: {exc}")
     for artifact_path in artifact_paths:
         blockers.extend(expect_existing_file(artifact_path, stage_id))
 
@@ -758,7 +768,7 @@ def workflow_local_csv_to_prepared_and_fanout(
             repo_root=repo_root,
             binary=binary,
             stage_dir=stage_dir,
-            stage_id="local_prepared_vortex_row_export_jsonl_csv_fanout",
+            stage_id="local_prepared_vortex_sql_jsonl_csv_fanout",
             args=[
                 "run",
                 "dataframe",
@@ -768,9 +778,6 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex",
                 "--sql",
                 statement.replace(str(local_source), str(target_vortex)),
-                "--plan",
-                "read_vortex(local-csv-orders.vortex) -> filter(amount >= 10) -> "
-                "select(id,label,amount) -> limit(2) -> write_jsonl(local-query-output.jsonl)",
                 "--request",
                 "write_jsonl",
                 "--output",
@@ -780,72 +787,41 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "--execution-policy",
                 "native_vortex",
                 "--materialization-policy",
-                "zero_decode",
-                "--evidence-level",
-                "runtime_smoke",
+                "bounded",
                 "--bounded",
                 "true",
                 "--allow-overwrite",
-                "--native-vortex-operation-family",
-                "sink",
-                "--vortex-primitive",
-                "filter_project",
-                "--vortex-predicate",
-                "gte:amount:10",
-                "--vortex-columns",
-                "id,label,amount",
-                "--vortex-source-order-limit",
-                "2",
+                "--memory-gb",
+                "1",
                 "--max-parallelism",
                 "1",
             ],
             expected_fields={
-                "public_workflow_route_id": "native_vortex_primitive_row_export",
                 "public_workflow_route_status": "admitted",
-                "public_workflow_resolved_internal_command": "vortex-local-primitive-row-export",
-                "public_workflow_vortex_middle_status": "native_vortex_primitive",
                 "public_workflow_execution_mode": "native_vortex",
                 "public_workflow_requested_output": "write_jsonl",
-                "public_workflow_fanout_output_count": "1",
-                "public_workflow_native_vortex_capability_status": (
-                    "supported_with_explicit_decode_sink_boundary"
-                ),
-                "public_workflow_native_vortex_required_feature_gate": (
-                    "vortex-local-primitives"
-                ),
-                "execution": "native_vortex_primitive_row_export_performed",
-                "native_vortex_result_export_kind": "primitive_row_stream",
-                "native_vortex_result_export_format": "jsonl",
-                "native_vortex_result_export_rows_written": "2",
-                "native_vortex_result_export_projected_columns": "id,label,amount",
                 "native_vortex_result_export_target_count": "2",
                 "native_vortex_result_export_fanout_count": "1",
                 "native_vortex_result_export_fanout_performed": "true",
                 "native_vortex_result_export_target_formats": "jsonl,csv",
                 "native_vortex_result_export_target_rows_written": "2,2",
-                "typed_sink_contract": (
-                    "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"
+                "native_vortex_result_export_target_paths": (
+                    f"{jsonl_output},{csv_output}"
                 ),
-                "decode_materialization_boundary": (
-                    "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink"
-                ),
+                "native_vortex_result_export_all_targets_committed": "true",
                 "runtime_execution": "true",
                 "data_read": "true",
                 "data_decoded": "true",
                 "data_materialized": "true",
-                "upstream_vortex_scan_called": "true",
                 "output_io_performed": "true",
                 "write_io": "true",
                 "fallback_attempted": "false",
                 "external_engine_invoked": "false",
-                "claim_gate_status": "not_claim_grade",
             },
             artifact_paths=(jsonl_output, csv_output),
             selected_field_keys=(
-                "public_workflow_typed_sink_contract",
-                "public_workflow_decode_materialization_boundary",
-                "native_vortex_result_export_target_roles",
                 "native_vortex_result_export_target_paths",
+                "native_vortex_result_export_all_targets_committed",
             ),
         ),
         run_python_wrapper_stage(
@@ -856,14 +832,46 @@ def workflow_local_csv_to_prepared_and_fanout(
             target_path=wrapper_target_vortex,
         ),
     ]
+    fanout_stage = next(
+        stage for stage in stages
+        if stage["stage_id"] == "local_prepared_vortex_sql_jsonl_csv_fanout"
+    )
+    expected_rows = [
+        {"id": 2, "label": "beta", "amount": 15},
+        {"id": 3, "label": "gamma", "amount": 21},
+    ]
+    for path, output_format in ((jsonl_output, "jsonl"), (csv_output, "csv")):
+        try:
+            if output_format == "jsonl":
+                observed_rows = read_json_output(path, "jsonl")
+            else:
+                with path.open(encoding="utf-8", newline="") as stream:
+                    observed_rows = list(csv.DictReader(stream))
+            expected_output_rows = (
+                expected_rows
+                if output_format == "jsonl"
+                else [
+                    {"id": "2", "label": "beta", "amount": "15"},
+                    {"id": "3", "label": "gamma", "amount": "21"},
+                ]
+            )
+            if observed_rows != expected_output_rows:
+                fanout_stage["blockers"].append(
+                    f"{fanout_stage['stage_id']}: {output_format} rows differ from the declared fixture expectation"
+                )
+        except (OSError, ValueError, csv.Error) as exc:
+            fanout_stage["blockers"].append(
+                f"{fanout_stage['stage_id']}: invalid {output_format} output: {exc}"
+            )
+    fanout_stage["status"] = "failed" if fanout_stage["blockers"] else "passed"
     blockers = [blocker for stage in stages for blocker in stage["blockers"]]
     return {
         "workflow_id": "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
         "status": "passed" if not blockers else "failed",
         "source_route": "local_csv_input_adapter",
         "preparation_route": "vortex_ingest",
-        "execution_route": "prepared_vortex_filter_project_and_native_vortex_row_export",
-        "output_route": "native_vortex_row_export_jsonl_csv",
+        "execution_route": "public_sql_on_prepared_vortex",
+        "output_route": "public_native_vortex_query_jsonl_csv_fanout",
         "row_counts": {
             "source_rows": 3,
             "prepared_vortex_rows": 3,
@@ -877,119 +885,122 @@ def workflow_local_csv_to_prepared_and_fanout(
             rel(repo_root, csv_output),
         ],
         "claim_boundary": (
-            "local runtime workflow proof; local CSV normalizes to Vortex, then scoped primitive "
-            "execution and JSONL/CSV compatibility sinks run through native Vortex row export with "
-            "explicit decode/materialization evidence"
+            "local runtime workflow proof; local CSV normalizes to Vortex, then a complete public "
+            "SQL declaration executes with bounded materialization and writes JSONL/CSV outputs"
         ),
         "stages": stages,
         "blockers": blockers,
     }
 
 
-def workflow_generated_source_to_vortex(
+def workflow_source_free_sql_to_vortex(
     *,
     repo_root: Path,
     binary: Path,
     run_dir: Path,
     stage_dir: Path,
 ) -> dict[str, Any]:
-    target_vortex = run_dir / "generated-source-output.vortex"
+    target_vortex = run_dir / "source-free-sql-output.vortex"
     stages = [
         run_cli_stage(
             repo_root=repo_root,
             binary=binary,
             stage_dir=stage_dir,
-            stage_id="generated_source_vortex_output",
+            stage_id="source_free_sql_vortex_output",
             args=[
-                "generated-source-user-rows",
+                "run",
+                "sql",
+                "--sql",
+                "SELECT column_1 AS id,column_2 AS label,column_3 AS score FROM "
+                "(VALUES (1,'alpha',1.5),(2,'beta',2.25),(3,'gamma',4.5)) AS source_rows",
+                "--request",
+                "write_vortex",
+                "--output",
                 str(target_vortex),
-                "id:int64,label:utf8,score:float64",
-                "id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25;id=3,label=gamma,score=4.5",
-                "--output-format",
-                "vortex",
+                "--materialization-policy",
+                "bounded",
+                "--bounded",
+                "true",
+                "--memory-gb",
+                "1",
+                "--max-parallelism",
+                "1",
                 "--allow-overwrite",
             ],
             expected_fields={
-                "schema_version": "shardloom.generated_source_user_rows_runtime.v1",
-                "execution_mode": "source_free_generated_output",
-                "runtime_execution": "true",
-                "generated_source_created": "true",
-                "generated_source_kind": "user_rows",
-                "generated_source_row_count": "3",
-                "generated_source_certificate_status": "present",
-                "output_format": "vortex",
+                "public_workflow_route_status": "admitted",
+                "public_workflow_requested_output": "write_vortex",
+                "public_workflow_output_ref": str(target_vortex),
                 "output_io_performed": "true",
                 "write_io": "true",
-                "output_native_io_certificate_status": "certified_local_vortex_sink",
-                "vortex_output_runtime_execution": "true",
-                "vortex_output_reopen_verified": "true",
-                "vortex_output_row_count": "3",
-                "vortex_output_column_count": "3",
-                "output_commit_status": "committed",
-                "claim_gate_status": "not_claim_grade",
-            },
-            prefix_fields={
-                "generated_source_schema_digest": ROUTE_DIGEST_PREFIX,
-                "generated_source_plan_digest": ROUTE_DIGEST_PREFIX,
-                "output_digest": VORTEX_ARTIFACT_DIGEST_PREFIX,
-                "vortex_artifact_digest": VORTEX_ARTIFACT_DIGEST_PREFIX,
-                "correctness_digest": VORTEX_ARTIFACT_DIGEST_PREFIX,
+                "native_vortex_result_export_target_commit_statuses": (
+                    "primary:vortex:committed"
+                ),
+                "native_vortex_result_export_all_targets_committed": "true",
+                "fallback_attempted": "false",
+                "external_engine_invoked": "false",
             },
             artifact_paths=(target_vortex,),
             selected_field_keys=(
-                "output_certificate_ref",
-                "output_fidelity_report_status",
-                "output_replay_status",
-                "upstream_vortex_write_called",
-                "upstream_vortex_scan_called",
+                "native_vortex_result_export_target_rows_written",
+                "native_vortex_result_export_target_paths",
+                "native_vortex_result_export_all_targets_committed",
             ),
         ),
         run_cli_stage(
             repo_root=repo_root,
             binary=binary,
             stage_dir=stage_dir,
-            stage_id="generated_vortex_replay_filter_project",
+            stage_id="source_free_vortex_complete_readback",
             args=[
-                "vortex-filter-project",
+                "run",
+                "sql",
+                "--input",
                 str(target_vortex),
-                "gte:id:2",
-                "label",
-                "--execute-local-primitive",
+                "--input-format",
+                "vortex",
+                "--sql",
+                f"SELECT id,label,score FROM '{target_vortex}'",
+                "--request",
+                "collect",
+                "--materialization-policy",
+                "bounded",
+                "--bounded",
+                "true",
+                "--memory-gb",
                 "1",
-                "2",
+                "--max-parallelism",
+                "1",
             ],
             expected_fields={
-                "mode": "vortex_filter_project",
-                "filter_project_local_execution_status": "executed",
-                "filter_project_local_execution_rows_selected": "2",
-                "filter_project_local_execution_rows_projected": "2",
-                "filter_project_local_execution_native_io_certified": "true",
-                "scan_pushdown_status": "scan_pushdown_supported",
-                "local_primitive_native_io_certificate_status": "certified",
+                "public_workflow_route_status": "admitted",
+                "public_workflow_requested_output": "collect",
+                "fallback_attempted": "false",
+                "external_engine_invoked": "false",
             },
-            selected_field_keys=(
-                "filter_project_local_execution_projected_columns",
-                "local_primitive_execution_certificate_status",
-                "local_primitive_native_io_certificate_id",
-            ),
+            expected_rows=[
+                {"id": 1, "label": "alpha", "score": 1.5},
+                {"id": 2, "label": "beta", "score": 2.25},
+                {"id": 3, "label": "gamma", "score": 4.5},
+            ],
         ),
     ]
     blockers = [blocker for stage in stages for blocker in stage["blockers"]]
     return {
-        "workflow_id": "generated_source_to_local_vortex_output_replay_fidelity",
+        "workflow_id": "source_free_sql_values_to_local_vortex_output_replay_fidelity",
         "status": "passed" if not blockers else "failed",
-        "source_route": "source_free_generated_user_rows",
-        "preparation_route": "generated_rows_to_vortex_sink",
-        "execution_route": "vortex_reopen_and_local_filter_project_replay",
+        "source_route": "source_free_sql_values",
+        "preparation_route": "public_sql_vortex_output",
+        "execution_route": "public_sql_vortex_complete_readback",
         "output_route": "local_vortex_output",
         "row_counts": {
-            "generated_rows": 3,
+            "source_free_sql_rows": 3,
             "vortex_reopen_rows": 3,
-            "replay_rows_selected": 2,
+            "replay_rows_selected": 3,
         },
         "artifact_refs": [rel(repo_root, target_vortex)],
         "claim_boundary": (
-            "source-free local Vortex output and replay proof only; not broad generated SQL, "
+            "source-free SQL VALUES Vortex output and replay proof only; not broad generated SQL, "
             "object-store, table, or production sink support"
         ),
         "stages": stages,
@@ -1161,7 +1172,7 @@ def main() -> int:
                 local_source=sources["local_source"],
                 wrapper_source=sources["wrapper_source"],
             ),
-            workflow_generated_source_to_vortex(
+            workflow_source_free_sql_to_vortex(
                 repo_root=repo_root,
                 binary=binary,
                 run_dir=run_dir,

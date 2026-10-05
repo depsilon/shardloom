@@ -18,6 +18,45 @@ in scalar/grouped aggregation, source-order rolling and the existing scalar
 pivot shape. It does not introduce another evaluator or a frontend-specific
 aggregate algorithm.
 
+The universal-route audit also removes fixture-specific public provider dispatch.
+Array-backed inputs register immutable `ResidentMemorySource` values in the
+existing relational preparation. File and memory providers deliver bounded native
+arrays to the same scan consumer, operators, resource owner and writers. Memory
+input does not serialize a temporary Vortex file merely to enter the engine.
+Upstream Vortex 0.85 `ArrayRef`, bound expressions, slicing and native buffers
+remain the providers. Its file scan needs a file layout, while its unsigned
+piecewise-sequence representation does not cover the signed range contract;
+the range input adapter therefore fills one admitted Int64 native buffer, with
+checked endpoints, before ordinary relational execution. Generic typed input
+keeps its existing bounds; generated ranges retain their one-million-row bound.
+Input ownership, empty/null values, repeated execution, mixed-source composition
+and writer parity require proof before accepting this convergence.
+
+Bounded collection carries its actual ordered native result schema alongside
+the JSON value payload, including on empty output. This is a
+`use_vortex_native_provider` decision: Vortex 0.85.0's public DType Serde
+serializer supplies `result_schema_json` with `result_schema_format` set to
+`vortex.dtype.serde.v1`. Its existing Apache-2.0 Serde feature is enabled only
+with native primitives; no provider version or package is added. The shared
+collection sink reserves schema serialization and retains the result's credits.
+Python conversion reads this schema instead of guessing types or field order
+from values. JSON's explicit binary/decimal/temporal representations remain
+documented; typed conversions restore those values only at the requested output
+boundary. This does not preserve physical encodings or authorize more input or
+operator types. Schema metadata never executes a query, opens another source,
+or invokes an external engine.
+
+Memory row declarations carry an ordered typed schema and nullable scalar cells
+inside the existing bounded JSON request. The old percent-delimited generated
+row grammar is removed. Schema fields and each row are bounded during parsing;
+the existing 64-column, 65,536-row and 8-MiB input limits remain. Python row,
+pandas and Arrow intake share this declaration. They accept an explicit schema
+for empty input; inference examines non-null values across each column, with a
+nullable boolean carrier for an entirely untyped NULL column. Signed integers
+remain exact, and integer-to-float conversion outside the contiguous exact
+range is rejected. This is input normalization only; filtering, expressions,
+ordering, aggregation, composition and output remain with the native engine.
+
 COUNT, COUNT DISTINCT, SUM, AVG, MIN and MAX may consume an expression already
 admitted by the shared scalar parser, binder and native kernels. Compile each
 computed argument to a native projection before the existing aggregate node.
@@ -40,6 +79,17 @@ schema, never the observed values:
 | AVG / rolling mean / pivot mean | decimal(38,max(s,6)); division must be exact at that scale. |
 | MIN / MAX / rolling min/max / pivot min/max | Preserve decimal(p,s) and exact coefficient ordering. |
 | COUNT / COUNT DISTINCT | Preserve their existing UInt64 result and NULL policies. |
+
+The shared native CSV sink also preserves the existing constructor-output
+contract: admitted nested values become quoted JSON text cells. It streams the
+same native structural traversal used by JSON/JSONL through CSV quote escaping;
+it does not build a second row table or buffer a complete nested cell. A NULL
+parent emits an empty cell, while an empty list emits `"[]"`. A single NULL
+column emits a quoted empty cell so CSV readers retain that row. JSON field
+order follows the bound native schema. This is explicit text translation and
+does not persist nested logical dtypes or add nested CSV input inference. The
+pinned ORC writer still rejects nested output before publication. Existing
+batch, resource, cancellation and atomic-commit boundaries remain in force.
 
 Maintain a wide, checked integer total and count. A valid 38-digit coefficient
 summed over at most UInt64::MAX observations and scaled by at most 10^6 fits
@@ -74,6 +124,42 @@ is admitted only when its complete output layout matches the SELECT declaration;
 other layouts keep the full SQL declaration for shared native projection.
 Mixed raw and computed grouping keys reuse the existing native identity
 expression to preserve their declaration order inside one key vector.
+
+Public SQL and DataFrame operations no longer select traditional-analytics
+benchmark scenarios from schema names or matching statement fragments. Those
+shortcuts could apply fixture predicates and return summaries instead of the
+requested rows. Complete declarations use the existing shared native binder,
+primitive strategies and writers; explicit benchmark-scenario arguments are
+rejected at the public boundary before source admission or sink publication.
+Benchmark harnesses must declare workloads through that same engine. Prior
+publication does not justify retaining an obsolete execution path.
+
+Numeric keys compare integer and finite F32/F64 values exactly without converting
+integer columns or literals to floating point. Compare the bounded integer part
+and fractional sign; floats outside the complete i64/u64 domain order outside
+that domain. Integral floats in that domain use the same equality hash as their
+integer counterpart. Scalar predicates, NULLIF, joins and IN/ANY/ALL therefore
+share exact equality and ordering, including above 2^53 and at the signed and
+unsigned endpoints. NULLIF retains its first operand's dtype. This does not admit
+a lossy common output type for mixed set branches or change arithmetic's checked
+integer-to-float conversion policy. Primitive SUM/AVG retain their existing F64
+accumulation and output contract in both general and specialized native owners.
+
+Calendar helpers and comparisons against a declared date/timestamp convert UTF8
+through the existing strict ISO cast kernel, preserving NULLs and rejecting
+malformed values. Decimal comparisons bind a lossless common precision and scale
+before comparing coefficients. No input-type inference depends on row values.
+
+ARRAY and STRUCT constructors bind all children before execution, including on
+empty input. Lists require a lossless common child type; all-NULL/empty lists use
+the same nullable boolean carrier as other untyped NULL outputs. Struct names
+are distinct and preserve their declared order. Constructors are limited to 128
+children within the existing 24-level/4096-node expression budget. The provider
+decision is `use_vortex_native_provider`: pinned Vortex 0.85 StructArray,
+ListArray, ChunkedArray and take kernels construct native columns with bounded
+scratch and allocator-owned payloads. No decoded row tree or Arrow execution is
+introduced. Correlated HAVING reuses the same native outer-row parameter after
+grouping, before filtering and limiting the inner relation.
 
 Columnar inputs retain field names admitted by the existing shared schema
 reader. A qualified output field such as `q.id` must reopen through Parquet,
@@ -112,6 +198,38 @@ replace a weighted mean. Typed fills use the existing lossless common-type and
 checked rescale rules; typed margins retain the existing UTF8-index requirement.
 
 ## Reuse and provider decision
+
+The public workload acceptance also closes scalar and syntax gaps formerly hidden
+by the removed benchmark runtime. Nonrecursive outer `WITH` declarations expand
+to the same derived relations, joins and set plans, with 64 declarations, 256 KiB
+expanded SQL and 24 nesting levels as admission ceilings. Self/forward references,
+recursive CTEs, nested `WITH`, column lists and materialization hints fail explicitly.
+Quoted data and exact file paths are never substituted. Group-key aliases compute
+through the existing projection before aggregation; input column names take
+precedence and ambiguous inputs remain errors.
+
+Numeric remainder extends the shared expression IR and checked native column
+kernel. Integers retain exact signed/unsigned domains, the remainder has the
+dividend's sign, NULL propagates, and a zero divisor errors. Decimal remainder is
+an explicit unsupported boundary. JSON extraction accepts literal `$` paths with
+field and nonnegative index steps over UTF8 JSON. It preserves selected JSON text,
+including integers beyond the floating-point domain; missing/type-mismatched paths
+return SQL NULL, while JSON null remains JSON text. Parsing reserves bounded scratch
+before container indexing and rejects inputs over 1 MiB. `STRPTIME`/`TRY_STRPTIME`
+use the shared ISO calendar routines for literal UTC ISO-second, date-time-second
+and date-only formats; malformed values become NULL only for TRY_STRPTIME. Other
+format directives and timezone-database semantics remain explicit blockers.
+
+For these additions the Vortex-first classification is `implement_shardloom_kernel`.
+Pinned Vortex 0.85.0 `scalar_fn/fns/operators.rs` and primitive numeric operators
+expose add/subtract/multiply/divide, without an elementwise remainder provider.
+`scalar_fn/fns/variant_get` requires `DType::Variant`; it is not a UTF8 JSON parser.
+The pinned array and datetime-parts runtime has no formatted timestamp parser.
+The implementation therefore extends existing ShardLoom kernels over Vortex
+columns, retaining native output, reservations, cancellation and certificates.
+SQL, Python, DataFrame and benchmark callers share these kernels. Focused tests
+cover nulls, malformed inputs, alias precedence, exact integers and CTE composition;
+broader public workload acceptance remains required before completion.
 
 | Existing component and callers | Required extension |
 | --- | --- |
@@ -178,9 +296,14 @@ existing universal-workflow owners and are subsequent implementation work.
   readbacks and unaffected prior public/direct-unary cases.
 - [ ] Run required workspace/native/Python, lean/MSRV and affected documentation
   gates, then freeze source, binaries, oracles and portable evidence.
-- [ ] Run paired Full43 under the existing serial storage/process guards and
-  predeclared timing/RSS/aggregate screens, retaining prescribed repeats and
-  every failed or inconclusive observation.
+- [ ] Run complete Full43 through the shared public workflow and strict typed
+  result protocol under the existing serial storage/process guards. Freeze all
+  expected values, query text, input identity, executable and harness sources
+  before execution; retain every failed or inconclusive observation.
+- [ ] Establish the consolidated engine as the control for subsequent paired
+  optimization measurements. Earlier binaries without the complete typed result
+  protocol are retained regression evidence, not a second live execution route
+  or a source of speedup claims for this consolidation.
 - [ ] Complete hosted review/gates
   and record the finite completion in the ledger.
 

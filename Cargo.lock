@@ -3121,6 +3121,7 @@ dependencies = [
  "regex",
  "regex-syntax",
  "rustc-hash",
+ "serde",
  "simdutf8",
  "smallvec",
  "static_assertions",
@@ -3209,6 +3210,7 @@ dependencies = [
  "bitvec",
  "bytes",
  "itertools 0.14.0",
+ "serde",
  "simdutf8",
  "vortex-error",
 ]
@@ -3495,6 +3497,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18635014f25681b620da782751fb05ff60ebf706ea99486d77e4818e278be565"
 dependencies = [
  "itertools 0.14.0",
+ "serde",
  "vortex-buffer",
  "vortex-error",
 ]

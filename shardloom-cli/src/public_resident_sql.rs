@@ -17,15 +17,23 @@ use shardloom_vortex::local_primitives::prepared_dispatch;
 
 pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkflowRoutePlan> {
     let statement = request.sql_statement.as_deref()?;
-    if request.input_format.as_deref() != Some("vortex")
-        || request.requested_output == "prepare"
-        || !request.fanout_outputs.is_empty()
-        || !sql_local_source_runtime::native_relational::is_plain_select(statement).ok()?
-    {
+    if request.requested_output == "prepare" {
+        return None;
+    }
+    if request.input_format.as_deref() != Some("vortex") {
+        if request.execution_policy == "native_vortex" {
+            return None;
+        }
+        return resident_relational::route_admitted_statement(request);
+    }
+    if !sql_local_source_runtime::native_relational::is_plain_select(statement).ok()? {
         return None;
     }
     let effective = effective_public_workflow_request(request);
     let request = &effective;
+    if !request.fanout_outputs.is_empty() {
+        return resident_relational::route_admitted_statement(request);
+    }
     let optimized = matches!(
         normalized_vortex_primitive(request),
         Some(
@@ -77,7 +85,14 @@ pub(super) fn write_if_needed(
     let result = (|| {
         let binding = native_vortex_input_binding_for_request(request)?;
         if binding.mode != "single_file" {
-            return Ok(None);
+            return Ok(Some(run_file_collection(
+                request,
+                format,
+                extra_fields,
+                &mut PublicExecutionSession::default(),
+                preparations,
+                &binding,
+            )?));
         }
         let targets = native_vortex_primitive_row_export_targets(request, "run").map_err(|_| {
             ShardLoomError::InvalidOperation("native SQL writer target is not admitted".into())
@@ -135,6 +150,7 @@ pub(super) fn write_if_needed(
     }
 }
 
+#[allow(clippy::too_many_lines)] // Keep source admission, reuse and ownership transfer in one dispatch.
 pub(super) fn run_if_needed(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -143,22 +159,49 @@ pub(super) fn run_if_needed(
     session: &mut PublicExecutionSession,
     preparations: PublicSourcePreparations,
 ) -> Option<ExitCode> {
-    if request.sql_statement.is_none()
-        || request.requested_output != "collect"
-        || request.materialization_policy == "zero_decode"
-    {
+    if request.sql_statement.is_none() || request.requested_output != "collect" {
         return None;
     }
     let primitive = normalized_vortex_primitive(request)?;
     if !matches!(
         primitive,
-        PublicVortexPrimitive::CountWhere
+        PublicVortexPrimitive::Count
+            | PublicVortexPrimitive::CountWhere
             | PublicVortexPrimitive::Project
             | PublicVortexPrimitive::Filter
             | PublicVortexPrimitive::FilterProject
             | PublicVortexPrimitive::Aggregate
             | PublicVortexPrimitive::SortRows
     ) {
+        return None;
+    }
+    let binding = match native_vortex_input_binding_for_request(request) {
+        Ok(binding) => binding,
+        Err(error) => {
+            session.clear();
+            return Some(native_vortex_materializing_error(format, primitive, &error));
+        }
+    };
+    if binding.mode != "single_file" {
+        return Some(
+            match run_file_collection(
+                request,
+                format,
+                extra_fields,
+                session,
+                preparations,
+                &binding,
+            ) {
+                Ok(exit) => exit,
+                Err(error) => {
+                    session.clear();
+                    native_vortex_materializing_error(format, primitive, &error)
+                }
+            },
+        );
+    }
+    if primitive == PublicVortexPrimitive::Count || request.materialization_policy == "zero_decode"
+    {
         return None;
     }
     let relational_plan = || resident_relational::route_admitted_statement(request);
@@ -193,10 +236,6 @@ pub(super) fn run_if_needed(
         return None;
     }
     let result = (|| {
-        let binding = native_vortex_input_binding_for_request(request)?;
-        if binding.mode != "single_file" {
-            return Ok(None);
-        }
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, primitive, &binding)?;
         let policy = native_vortex_materializing_policy(request)?;
@@ -234,6 +273,33 @@ pub(super) fn run_if_needed(
             Some(native_vortex_materializing_error(format, primitive, &error))
         }
     }
+}
+
+fn run_file_collection(
+    request: &PublicWorkflowRouteRequest,
+    format: OutputFormat,
+    extra_fields: &mut Vec<(String, String)>,
+    session: &mut PublicExecutionSession,
+    preparations: PublicSourcePreparations,
+    binding: &NativeVortexInputBinding,
+) -> Result<ExitCode, ShardLoomError> {
+    let selected = resident_relational::route_admitted_statement(request).ok_or_else(|| {
+        ShardLoomError::InvalidOperation("native file collection SQL is not admitted".into())
+    })?;
+    session.clear();
+    if selected.status != CommandStatus::Success {
+        return Ok(emit_blocked_facade("run", format, request, &selected));
+    }
+    extra_fields.extend(binding.evidence_fields());
+    Ok(resident_relational::run_with_source(
+        request,
+        &selected,
+        format,
+        session,
+        std::mem::take(extra_fields),
+        None,
+        preparations,
+    ))
 }
 
 fn run_optimized_source(

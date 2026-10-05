@@ -25,7 +25,9 @@ import sys
 import tarfile
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
-from run_clickbench_query_uat import equivalent, extract_result, file_sha256, read_json_log, run_profiled_command, score
+from native_workflow_protocol import public_workflow_command
+from clickbench_reference_packet import load_reference_packet, query_statements
+from run_clickbench_query_uat import correctness_boundary, equivalent, extract_reference_result, extract_result, file_sha256, read_json_log, run_profiled_command, score
 
 
 def role_order(query, run, reverse=False):
@@ -153,8 +155,11 @@ def main():
     for role in ("control", "candidate"):
         parser.add_argument(f"--{role}-binary", type=Path, required=True)
         parser.add_argument(f"--{role}-commit", required=True)
-    for name in ("input", "uat-root", "reference-dir"):
+    for name in ("input", "uat-root"):
         parser.add_argument(f"--{name}", type=Path, required=True)
+    reference_group = parser.add_mutually_exclusive_group(required=True)
+    reference_group.add_argument("--reference-dir", type=Path)
+    reference_group.add_argument("--reference-packet", type=Path)
     parser.add_argument("--candidate-input", type=Path,
                         help="candidate Vortex input (defaults to --input)")
     parser.add_argument("--queries", type=Path, default=Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
@@ -200,36 +205,63 @@ def main():
 
     try:
         logs.mkdir(parents=True)
-        queries = [q.strip() for q in "\n".join(line for line in args.queries.read_text().splitlines()
-                   if not line.lstrip().startswith("--")).split(";") if q.strip()]
-        if len(queries) != 43:
-            raise ValueError("expected the pinned 43-statement query file")
-        reference_paths = {q: args.reference_dir / f"q{q:02d}_run1.stdout.json" for q in selected}
-        references = {q: extract_result(read_json_log(path)) for q, path in reference_paths.items()}
+        packet_receipt = None
+        if args.reference_packet is not None:
+            loaded_packet = load_reference_packet(args.reference_packet, args.queries)
+            queries = loaded_packet["queries"]
+            queries_sha256 = loaded_packet["packet"]["queries_sha256"]
+            references = {q: loaded_packet["values"][q] for q in selected}
+            packet_receipt = loaded_packet["packet"]
+        else:
+            query_bytes, queries = query_statements(args.queries)
+            queries_sha256 = hashlib.sha256(query_bytes).hexdigest()
+            reference_paths = {q: args.reference_dir / f"q{q:02d}_run1.stdout.json" for q in selected}
+            references = {q: extract_reference_result(read_json_log(path)) for q, path in reference_paths.items()}
         binaries = {role: getattr(args, role + "_binary").resolve() for role in ("control", "candidate")}
         identities = {role: {"path": str(path), "sha256": file_sha256(path), "commit": getattr(args, role + "_commit")}
                       for role, path in binaries.items()}
-        harness = {str(Path(__file__).with_name(name).resolve()): file_sha256(Path(__file__).with_name(name))
-                   for name in (Path(__file__).name, "run_clickbench_query_uat.py", "timed_native_command.py", "local_uat_storage.py")}
+        script = Path(__file__).resolve()
+        harness_paths = [
+            script,
+            *(script.with_name(name) for name in (
+                "run_clickbench_query_uat.py",
+                "clickbench_reference_packet.py",
+                "native_workflow_protocol.py",
+                "timed_native_command.py",
+                "local_uat_storage.py",
+            )),
+            *sorted((script.parents[1] / "python" / "src" / "shardloom").rglob("*.py")),
+        ]
+        harness = {str(path.resolve()): file_sha256(path) for path in harness_paths}
         original_generations = source_generations(sources)
         frozen_sources = source_receipt(sources, original_generations)
+        reference_kind = (
+            packet_receipt["reference_kind"]
+            if packet_receipt is not None else "retained_native_regression"
+        )
         records = []
         summary = {"schema_version": "shardloom.clickbench.counterbalanced_pairs.v1", "binaries": identities,
                    "harness_sha256": harness,
                    "source": str(source), "source_generation": original_generations["control"],
-                   "sources": frozen_sources, "queries_sha256": file_sha256(args.queries),
+                   "sources": frozen_sources, "queries_sha256": queries_sha256,
+                   "reference_dir": str(args.reference_dir) if args.reference_dir is not None else None,
+                   "reference_packet": packet_receipt,
+                   "reference_kind": reference_kind,
                    "memory_gb": args.memory_gb, "max_parallelism": args.max_parallelism,
                    "max_workspace_gib": args.max_workspace_gib,
                    "platform": platform.platform(), "cpu_count": os.cpu_count(), "selected_query_ids": selected,
                    "queries": {str(q): queries[q-1] for q in selected},
-                   "command_template": ["{binary}", "run", "sql", "--input", "{role_source}", "--input-format", "vortex", "--sql", "{sql}",
-                                        "--request", "collect", "--bounded", "true", "--memory-gb", str(args.memory_gb), "--max-parallelism", str(args.max_parallelism), "--format", "json"],
+                   "command_template": public_workflow_command(
+                       "{binary}", "{sql}", input_path="{role_source}",
+                       input_format="vortex", memory_gb=args.memory_gb,
+                       max_parallelism=args.max_parallelism,
+                   ),
                    "reference_values_sha256": {str(q): hashlib.sha256(json.dumps(v, sort_keys=True, allow_nan=False).encode()).hexdigest() for q, v in references.items()},
                    "timing_boundary": "native process creation through complete public CLI output and exit; host snapshots and archival excluded",
                    "cache_policy": "fresh process per operation; OS cache shared and uncontrolled; no answer cache or forced purge",
                    "order_policy": "alternate role order at each pair and query", "reverse_order": args.reverse_order,
                    "host_counter_scope": "host-wide VM observations, not unique query traffic or exclusive attribution",
-                   "correctness_boundary": "complete returned values against retained native outputs; finite floats use 1e-12 tolerance; not an independent oracle",
+                   "correctness_boundary": correctness_boundary(reference_kind),
                    "records": records, "archives": [], "scores": paired_scores(records, selected)}
         save()
         for query in selected:
@@ -238,9 +270,11 @@ def main():
                 for position, role in enumerate(role_order(query, run, args.reverse_order), 1):
                     prefix = logs / f"q{query:02d}_run{run}_{role}"
                     verify_source_generations(sources, original_generations)
-                    command = [str(binaries[role]), "run", "sql", "--input", str(sources[role]), "--input-format", "vortex",
-                               "--sql", queries[query-1], "--request", "collect", "--bounded", "true",
-                               "--memory-gb", str(args.memory_gb), "--max-parallelism", str(args.max_parallelism), "--format", "json"]
+                    command = public_workflow_command(
+                        binaries[role], queries[query-1], input_path=sources[role],
+                        input_format="vortex", memory_gb=args.memory_gb,
+                        max_parallelism=args.max_parallelism,
+                    )
                     before = host_snapshot()
                     try:
                         record = run_profiled_command(command, prefix, args.timeout, guard)
@@ -267,10 +301,16 @@ def main():
                         return 1
             summary["archives"].append(archive_completed_logs(closed, logs / f"q{query:02d}_completed.tar.xz", guard))
             save()
+        packet_unchanged = (
+            packet_receipt is None
+            or file_sha256(Path(packet_receipt["path"])) == packet_receipt["sha256"]
+        )
+        summary["reference_packet_identity_verified"] = packet_unchanged
         if (any(file_sha256(path) != identities[role]["sha256"] for role, path in binaries.items())
                 or file_sha256(args.queries) != summary["queries_sha256"]
+                or not packet_unchanged
                 or any(file_sha256(Path(path)) != digest for path, digest in harness.items())):
-            raise ValueError("binary, query file or harness changed")
+            raise ValueError("binary, query file, reference packet or harness changed")
         verify_source_generations(sources, original_generations)
         summary["complete_result_validation"] = all(r.get("validation") == "complete_values" and r["passed"] for r in records)
         summary["completed_identity_check"] = True

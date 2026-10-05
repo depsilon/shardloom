@@ -42,7 +42,7 @@ REQUIRED_PROFILE_REFS = (
 )
 
 REQUIRED_EDGE_FAMILIES = (
-    "malformed_rows",
+    "malformed_timestamp_values",
     "null_coercion",
     "nested_json_payload",
     "columnar_projection",

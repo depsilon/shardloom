@@ -2,11 +2,12 @@
 
 # First 10 Minutes
 
-This proof uses a source checkout and local commands only. It does not require
+This proof uses a source checkout and local commands only. The local release dry run does not require
 Spark, DataFusion, DuckDB, Polars, pandas, Foundry, object stores, or network
-services. The fastest complete path is the local release dry run below: it
+services. The optional native benchmark comparison uses pandas only as an independent correctness
+reference. The fastest complete path is the local release dry run below: it
 builds source artifacts, installs the exact local wheel in a clean virtual
-environment, runs smoke checks, writes scoped generated-source local outputs,
+environment, runs smoke checks, writes scoped memory-backed local outputs,
 records that benchmark smoke is not required for package-channel proof, and
 records the evidence transcript. Pass `--include-benchmark-smoke` when you
 intentionally want the optional benchmark-only feature lane in the same local
@@ -56,14 +57,13 @@ python examples\local-python-smoke\run.py --repo-root .
 ```
 
 The script imports the Python wrapper, runs status, smoke, and capability
-checks, creates `target/local-python-smoke/orders.csv`, proves the normal
-`ctx.read(...).filter(...).select(...).write_jsonl(...)` path blocks before
-execution until a Vortex-middle route is available, runs a scoped
-generated-source write, and prints evidence markers such as
+checks, creates `target/local-python-smoke/orders.csv`, runs a bounded CSV
+workflow and a caller-declared memory-row write through the shared native
+route, checks an unsupported UDF request, and prints evidence markers such as
 `quickstart_local_file_blocker_id`, `quickstart_generated_output_row_count`,
 `quickstart_generated_claim_gate_status`, and `quickstart_unsupported_blocker_id`.
 It exits nonzero if fallback or external-engine execution is attempted, if the
-generated workflow emits no row, or if diagnostic-only paths lack stable
+memory-backed workflow emits no row, or if diagnostic-only paths lack stable
 blockers.
 
 ## 4. Inspect The Current Certified Slice
@@ -73,47 +73,47 @@ It is a local Vortex analytics workflow, not a broad SQL/DataFrame/live/hybrid
 or Foundry production claim. See
 `docs/getting-started/certified-local-workload.md` for the details.
 
-## 5. Try Generated-Source Local Output
+## 5. Try Memory-Backed Native Output
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.generated_source_certificate_status, r.output_native_io_certificate_status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
-This is source-free generated-output execution, not no-dataset smoke. The current runtime support
-is scoped to local JSONL/CSV output from Python `ctx.from_rows(...).write(...)`,
-`ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
-`ctx.range(...).write(...)`/`ctx.sequence(...).write(...)` smokes plus source-free SQL `VALUES` and
-literal `SELECT` local JSONL/CSV smokes through `ctx.sql_values(...).write(...)`,
-`ctx.sql_literal_select(...).write(...)`, and the scoped `ctx.sql(...).write(...)` bridge. Broad
-SQL/DataFrame runtime, object-store/lakehouse output, and Foundry generated-output runtime remain
-unclaimed.
+Source-free and typed-memory declarations use the shared native workflow. `collect()` can return
+complete typed results, and callers can request the same declared sinks used by other workflows.
+Release builds with `release-user-surfaces` enable complete execution and admitted sinks; available
+format and dtype combinations remain subject to adapter and planner checks. This example shows one
+memory-row write only; it does not imply unrestricted SQL or DataFrame execution.
+Unsupported requests fail with deterministic diagnostics instead of switching engines.
 
-## 6. Try A Local Compatibility/Prepared-Vortex Benchmark Smoke
+## 6. Try The Guarded Native Benchmark Comparison
 
 ```powershell
-python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1
+python examples\local-vortex-benchmark\run.py `
+  --shardloom-binary target\debug\shardloom `
+  --workspace "$HOME\LocalData\shardloom\traditional-benchmarks" `
+  --repo-root . --rows 64 --dim-rows 8 --repeats 1 --formats csv `
+  --input-state raw --output-format collect --reference-engine pandas
 ```
 
-This wraps the local taxonomy benchmark harness with a small ShardLoom-only
-smoke configuration. By default it runs the internal `shardloom` and
-`shardloom-prepared-vortex` engine IDs, presented publicly as ShardLoom Cold
-Certified Route and ShardLoom Warm Prepared Query so their start states are
-visible separately. Use `--engines shardloom-prepare-batch` with the underlying
-`benchmarks\traditional_analytics\run.py` harness when you specifically want the
-single-process compatibility prepare plus prepared/native batch route and its
-`prepare_batch_*` adapter-timing evidence. Add `--include-benchmark-smoke` only when the local
-benchmark smoke should run as optional benchmark evidence in the same transcript.
+Supply an already-built ShardLoom executable and a local-only workspace outside synced folders. The
+example delegates fixture creation, resource checks, run isolation, and output handling to the
+guarded harness. It runs one `shardloom` candidate against pandas as an independent correctness
+reference for the small `selective filter` workload. Raw or prepared input and `collect` or an
+admitted writer can be selected; unsupported work is never delegated to pandas. This is correctness
+comparison evidence only, not a performance or full acceptance claim. The example does not build
+ShardLoom or install dependencies.
 
-Additional example metadata, expected outputs, certificate fields, and known
-limitations are listed in `docs/getting-started/examples.md`.
+Additional example request/result metadata and known limitations are listed in
+`docs/getting-started/examples.md`.
 
 ## Release Dry-Run Proof
 
 For a single local proof that builds source artifacts, installs the local wheel
 in a clean virtual environment, resolves the built CLI, runs the smoke checks,
-writes generated-source local JSONL/CSV outputs, executes the prepared/native
-benchmark smoke, and runs provenance dry-run evidence, use:
+writes memory-backed local outputs through the shared workflow, runs the optional
+benchmark comparison, and runs provenance dry-run evidence, use:
 
 ```powershell
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1

@@ -1,7 +1,10 @@
 //! Every parsed source leaf normalizes once; strings in SQL values are untouched.
 
 use super::super::PublicSourcePreparations;
-use super::super::{declared_sql_source_identifier_matches, infer_input_format_from_ref};
+use super::super::{
+    declared_sql_source_identifier_matches, infer_input_format_from_ref,
+    native_vortex_input_binding_for_uri,
+};
 use super::{
     PreparedVortexRelational, PublicWorkflowRouteRequest, ShardLoomError, native_relational,
     native_vortex_materializing_policy,
@@ -36,11 +39,21 @@ pub(super) fn prepare_with_source(
                 .clone()
                 .ok_or_else(|| failed("source URI is absent"))?,
         )?;
-        native_relational::prepare_from_source(statement, policy, uri, source, |path| {
-            sources.resolve(path, request)
-        })?
+        native_relational::prepare_from_source(
+            statement,
+            policy,
+            uri,
+            source,
+            |schemas| register_memory_inputs(schemas, request),
+            |path| sources.resolve(path, request),
+        )?
     } else {
-        native_relational::prepare(statement, policy, |path| sources.resolve(path, request))?
+        native_relational::prepare_with_inputs(
+            statement,
+            policy,
+            |schemas| register_memory_inputs(schemas, request),
+            |path| sources.resolve(path, request),
+        )?
     };
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     sources.preparations.extend(preparations.sources);
@@ -52,7 +65,28 @@ pub(super) fn prepare_with_source(
     } else {
         operation
     };
-    Ok((operation, sources.normalized))
+    Ok((
+        operation,
+        sources.normalized
+            + request
+                .source_bindings
+                .values()
+                .filter(|binding| binding.memory_input.is_some())
+                .count(),
+    ))
+}
+
+fn register_memory_inputs(
+    schemas: &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+    request: &PublicWorkflowRouteRequest,
+) -> Result<(), ShardLoomError> {
+    for (uri, binding) in &request.source_bindings {
+        if let Some(input) = &binding.memory_input {
+            schemas
+                .register_memory_source(DatasetUri::new(uri)?, |session| input.build(session))?;
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn validate_bindings(
@@ -96,13 +130,16 @@ pub(super) fn normalization_required(
 ) -> Result<bool, ShardLoomError> {
     let mut required = false;
     for leaf in native_relational::source_leaves(statement)? {
+        if leaf.memory_input.is_some() {
+            continue;
+        }
         let path = declared_path(&leaf, request)?;
         let raw = path
             .to_str()
             .ok_or_else(|| failed("source paths must be UTF8"))?;
         let format = declared_format(raw, request)
             .ok_or_else(|| failed("source format is not declared or recognized"))?;
-        required |= format != "vortex";
+        required |= format != "vortex" && format != "memory";
     }
     Ok(required)
 }
@@ -150,9 +187,32 @@ fn declared_format<'a>(source: &str, request: &'a PublicWorkflowRouteRequest) ->
         .or_else(|| infer_input_format_from_ref(source))
 }
 
+/// File collections are rebound on each execution so adding, removing or
+/// reordering a manifest entry cannot silently reuse an earlier declaration.
+pub(super) fn has_file_collection(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+) -> Result<bool, ShardLoomError> {
+    for leaf in native_relational::source_leaves(statement)? {
+        if leaf.memory_input.is_some() {
+            continue;
+        }
+        let path = declared_path(&leaf, request)?;
+        let raw = path
+            .to_str()
+            .ok_or_else(|| failed("source paths must be UTF8"))?;
+        if declared_format(raw, request) == Some("vortex")
+            && native_vortex_input_binding_for_uri(raw)?.mode != "single_file"
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 #[derive(Default)]
 struct Sources {
-    bound: BTreeMap<PathBuf, DatasetUri>,
+    bound: BTreeMap<PathBuf, Vec<DatasetUri>>,
     normalized: usize,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     preparations:
@@ -164,7 +224,7 @@ impl Sources {
         &mut self,
         leaf: &native_relational::ParsedRelationLeaf,
         request: &PublicWorkflowRouteRequest,
-    ) -> Result<DatasetUri, ShardLoomError> {
+    ) -> Result<Vec<DatasetUri>, ShardLoomError> {
         let path = declared_path(leaf, request)?;
         if let Some(uri) = self.bound.get(&path) {
             return Ok(uri.clone());
@@ -177,13 +237,22 @@ impl Sources {
             .ok_or_else(|| failed("source paths must be UTF8"))?;
         let format = declared_format(raw, request)
             .ok_or_else(|| failed("source format is not declared or recognized"))?;
-        let uri = if format == "vortex" {
-            DatasetUri::new(raw)?
+        let uris = if format == "vortex" {
+            native_vortex_input_binding_for_uri(raw)?
+                .sources
+                .into_iter()
+                .map(DatasetUri::new)
+                .collect::<Result<Vec<_>, _>>()?
+        } else if format == "memory" {
+            vec![DatasetUri::new(raw)?]
         } else {
-            self.prepare_compatibility(raw, format, request)?
+            vec![self.prepare_compatibility(raw, format, request)?]
         };
-        self.bound.insert(path, uri.clone());
-        Ok(uri)
+        if self.bound.values().map(Vec::len).sum::<usize>() + uris.len() > 128 {
+            return Err(failed("SQL exceeds 128 source files"));
+        }
+        self.bound.insert(path, uris.clone());
+        Ok(uris)
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -255,6 +324,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_memory_input_declarations_use_complete_shared_sql() {
+        for declaration in [
+            serde_json::json!({"kind":"rows","schema":[["n","int64"]],"rows":[["1"],["3"],["2"]]}),
+            serde_json::json!({"kind":"range","start":1,"end":4,"step":1,"column":"n"}),
+        ] {
+            let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.input_uri = Some("memory://rows".into());
+            request.input_format = Some("memory".into());
+            request.bounded = true;
+            request.source_bindings = super::super::super::parse_public_source_bindings(
+                &serde_json::json!({"memory://rows":{"input_format":"memory","memory_input":declaration}}).to_string(),
+            ).unwrap();
+            let sql = "SELECT n * 2 AS doubled FROM 'memory://rows' WHERE n > 1 ORDER BY doubled DESC LIMIT 2";
+            request.sql_statement = Some(sql.into());
+            validate_bindings(sql, &request).unwrap();
+            assert!(!normalization_required(sql, &request).unwrap());
+            let (operation, normalized) =
+                prepare_with_source(sql, &request, None, PublicSourcePreparations::default())
+                    .unwrap();
+            assert_eq!(normalized, 1);
+            for _ in 0..2 {
+                let result = operation
+                    .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())
+                    .unwrap();
+                assert_eq!(
+                    result.result_jsonl.value(),
+                    "{\"doubled\":6}\n{\"doubled\":4}\n"
+                );
+                assert_eq!(result.execution.runtime.prepared_source_opens, 0);
+            }
+        }
+    }
+
+    #[test]
     fn native_relational_declared_identifiers_resolve_inertly_across_nested_sources() {
         let mut request = PublicWorkflowRouteRequest::new("sql".into());
         request.input_uri = Some("missing/cargo.vortex".into());
@@ -264,6 +367,7 @@ mod tests {
             PublicSourceBinding {
                 input_format: "vortex".into(),
                 source_schema: None,
+                memory_input: None,
             },
         );
         let sql = "SELECT cargo_id FROM (SELECT cargo_id FROM cargo LIMIT 2) AS q WHERE cargo_id IN (SELECT cargo_id FROM cargo)";
@@ -295,6 +399,7 @@ mod tests {
             PublicSourceBinding {
                 input_format: "csv".into(),
                 source_schema: Some("cargo_id:utf8".into()),
+                memory_input: None,
             },
         );
         assert!(

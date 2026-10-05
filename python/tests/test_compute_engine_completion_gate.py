@@ -1,439 +1,92 @@
+"""Completion eligibility requires real current evidence and declared scope coverage."""
 from __future__ import annotations
 
-import importlib.util
 import json
+from pathlib import Path
 import sys
 import tempfile
 import unittest
-from pathlib import Path
+from unittest import mock
 
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
-
-def load_completion_gate_module():
-    module_path = REPO_ROOT / "scripts" / "check_compute_engine_completion_gate.py"
-    spec = importlib.util.spec_from_file_location(
-        "check_compute_engine_completion_gate_for_test",
-        module_path,
-    )
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    script_dir = str(module_path.parent)
-    original_path = list(sys.path)
-    sys.path[:] = [entry for entry in sys.path if entry != script_dir]
-    sys.modules[spec.name] = module
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        sys.path[:] = original_path
-        sys.modules.pop(spec.name, None)
-    return module
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
+import check_compute_engine_completion_gate as gate
+from python.tests import test_native_benchmark_evidence as packets
 
 
 class ComputeEngineCompletionGateTests(unittest.TestCase):
-    def test_completion_gate_passes_clean_evidence(self) -> None:
-        module = load_completion_gate_module()
+    def report(self, root, benchmark=None, *, phase="- [x] completed\n", review="- [x] reviewed\n", **kwargs):
+        phase_path, review_path = root / "phase.md", root / "review.md"
+        phase_path.write_text(phase)
+        review_path.write_text(review)
+        return gate.build_report(benchmark_results=benchmark, phase_plan=phase_path,
+                                 global_review=review_path, **kwargs)
 
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            benchmark = root / "benchmark-results.json"
-            phase_plan = root / "phased-execution-plan.md"
-            global_review = root / "global-architecture-review.md"
-            benchmark.write_text(
-                json.dumps(
-                    {
-                        "published_benchmark_rows": [
-                            {
-                                "engine": "shardloom",
-                                "storage_format": "csv",
-                                "scenario_id": "selective_filter",
-                                "status": "success",
-                                "claim_gate_status": "claim_grade",
-                                "runtime_execution_validation_status": "passed",
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                                "runtime_fallback_attempted": False,
-                                "runtime_external_query_engine_invoked": False,
-                                "optimizer_rule_unsupported_count": 0,
-                                "source_state_status": "source_state_reuse_supported",
-                                "prepared_state_status": "prepared_state_reuse_supported",
-                            },
-                            {
-                                "engine": "datafusion",
-                                "storage_format": "jsonl",
-                                "scenario_id": "nested_json_field_scan",
-                                "status": "unsupported",
-                                "claim_gate_status": "unsupported",
-                                "external_baseline_only": True,
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                                "claim_grade_missing_evidence": [
-                                    "DataFusion Python SQL has no JSON extraction function in this profile"
-                                ],
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-            phase_plan.write_text("- [x] completed item\n", encoding="utf-8")
-            global_review.write_text("- [x] completed review item\n", encoding="utf-8")
+    def test_missing_empty_and_retired_evidence_never_pass_vacuously(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "report.json"
+            for payload in [None, {}, {"published_benchmark_rows": [{"status": "success"}]},
+                            {"schema_version": "shardloom.public_native_benchmark.v1", "records": []}]:
+                with self.subTest(payload=payload):
+                    if payload is not None:
+                        path.write_text(json.dumps(payload))
+                    report = self.report(root, path if payload is not None else None)
+                    self.assertEqual(report["status"], "blocked")
+                    self.assertFalse(report["completion_claim_allowed"])
+                    self.assertFalse(report["publication_allowed"])
 
-            report = module.build_report(
-                benchmark_results=benchmark,
-                phase_plan=phase_plan,
-                global_review=global_review,
-            )
+    def test_verified_probe_does_not_establish_full_scope_completion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, *_ = packets.NativeBenchmarkEvidenceTests().make_packet(root)
+            self.assertEqual(gate.validate_manifest(path)[0], [])
+            report = self.report(root, path)
+            evidence = report["benchmark_evidence"]
+            self.assertEqual(evidence["recorded_case_count"], 2)
+            self.assertEqual(evidence["native_case_count"], 1)
+            self.assertEqual(set(evidence["missing_formats"]), set(gate.FORMAT_ORDER) - {"csv"})
+            self.assertEqual(len(evidence["missing_workloads"]), len(gate.WORKLOADS) - 1)
+            self.assertFalse(report["completion_claim_allowed"])
 
-        self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertTrue(report["completion_claim_allowed"])
-        self.assertEqual(report["benchmark_gap_report"]["residual_blocker_count"], 0)
-        external_report = report["benchmark_gap_report"]["external_baseline_unsupported_report"]
-        self.assertEqual(external_report["unsupported_row_count"], 1)
-        self.assertEqual(external_report["classification_blocker_count"], 0)
+    def test_tampered_process_evidence_is_reverified(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path, _, native_log, *_ = packets.NativeBenchmarkEvidenceTests().make_packet(root)
+            native_log.write_text("{}")
+            report = self.report(root, path)
+            self.assertTrue(any("content changed" in item for item in report["blockers"]))
+            self.assertFalse(report["completion_claim_allowed"])
 
-    def test_completion_gate_allows_hot_runtime_non_claim_grade_rows(self) -> None:
-        module = load_completion_gate_module()
+    def test_verified_full_scope_still_requires_completed_plan_and_review(self):
+        # The validator's retained-byte checks are exercised above and in the
+        # packet tests. Here the stub isolates the scope/plan conjunction.
+        payload = {"configuration": {"formats": list(gate.FORMAT_ORDER),
+                                      "scenarios": list(gate.WORKLOADS)},
+                   "records": [{"engine": "shardloom"}]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "verified-report.json"
+            with mock.patch.object(gate, "validate_manifest", return_value=([], payload)) as validate:
+                accepted = self.report(root, path)
+                validate.assert_called_once_with(path)
+                self.assertTrue(accepted["completion_claim_allowed"])
+                self.assertFalse(accepted["performance_claim_allowed"])
+                self.assertFalse(accepted["publication_allowed"])
+                blocked = self.report(root, path, phase="- [ ] unfinished runtime\n", review="- [ ] unclassified issue\n")
+                self.assertFalse(blocked["completion_claim_allowed"])
+                self.assertEqual(blocked["phase_plan_unchecked_count"], 1)
+                self.assertTrue(blocked["global_review_unchecked_rows_block_completion"])
 
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            benchmark = root / "benchmark-results.json"
-            phase_plan = root / "phased-execution-plan.md"
-            global_review = root / "global-architecture-review.md"
-            benchmark.write_text(
-                json.dumps(
-                    {
-                        "published_benchmark_rows": [
-                            {
-                                "engine": "shardloom-vortex",
-                                "storage_format": "csv",
-                                "scenario_id": "selective_filter",
-                                "timing_surface": "hot_runtime",
-                                "actual_evidence_tier": "metadata_sink",
-                                "status": "success",
-                                "claim_gate_status": "not_claim_grade",
-                                "runtime_execution_validation_status": "passed",
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                                "certificate_link_status": "not_required_not_claim_grade",
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-            phase_plan.write_text("- [x] completed item\n", encoding="utf-8")
-            global_review.write_text("- [x] completed review item\n", encoding="utf-8")
-
-            report = module.build_report(
-                benchmark_results=benchmark,
-                phase_plan=phase_plan,
-                global_review=global_review,
-            )
-
-        self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertEqual(report["benchmark_gap_report"]["top_level_blocker_count"], 0)
-        self.assertEqual(report["benchmark_gap_report"]["residual_blocker_count"], 0)
-
-    def test_completion_gate_reports_missing_benchmark_artifact_without_traceback(self) -> None:
-        module = load_completion_gate_module()
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            benchmark = root / "missing-benchmark-results.json"
-            phase_plan = root / "phased-execution-plan.md"
-            global_review = root / "global-architecture-review.md"
-            phase_plan.write_text("- [x] completed item\n", encoding="utf-8")
-            global_review.write_text("- [x] completed review item\n", encoding="utf-8")
-
-            report = module.build_report(
-                benchmark_results=benchmark,
-                phase_plan=phase_plan,
-                global_review=global_review,
-            )
-
-        self.assertEqual(report["status"], "blocked")
-        self.assertFalse(report["completion_claim_allowed"])
-        benchmark_report = report["benchmark_gap_report"]
-        self.assertFalse(benchmark_report["benchmark_artifact_present"])
-        self.assertEqual(benchmark_report["published_row_count"], 0)
-        self.assertEqual(benchmark_report["shardloom_row_count"], 0)
-        self.assertEqual(benchmark_report["top_level_blocker_count"], 1)
-        self.assertEqual(
-            benchmark_report["top_level_blocker_examples"][0]["field"],
-            "benchmark_results",
-        )
-        self.assertIn(
-            "benchmark publication artifact is absent",
-            benchmark_report["benchmark_artifact_missing_reason"],
-        )
-
-    def test_completion_gate_still_requires_publication_proof_claim_grade(self) -> None:
-        module = load_completion_gate_module()
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            benchmark = root / "benchmark-results.json"
-            phase_plan = root / "phased-execution-plan.md"
-            global_review = root / "global-architecture-review.md"
-            benchmark.write_text(
-                json.dumps(
-                    {
-                        "published_benchmark_rows": [
-                            {
-                                "engine": "shardloom-vortex",
-                                "storage_format": "csv",
-                                "scenario_id": "selective_filter",
-                                "timing_surface": "publication_proof",
-                                "actual_evidence_tier": "publication_full",
-                                "status": "success",
-                                "claim_gate_status": "not_claim_grade",
-                                "runtime_execution_validation_status": "passed",
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-            phase_plan.write_text("- [x] completed item\n", encoding="utf-8")
-            global_review.write_text("- [x] completed review item\n", encoding="utf-8")
-
-            report = module.build_report(
-                benchmark_results=benchmark,
-                phase_plan=phase_plan,
-                global_review=global_review,
-            )
-
-        self.assertEqual(report["status"], "blocked")
-        self.assertEqual(report["benchmark_gap_report"]["top_level_blocker_count"], 1)
-        self.assertEqual(
-            report["benchmark_gap_report"]["top_level_blocker_examples"][0]["field"],
-            "claim_gate_status",
-        )
-
-    def test_completion_gate_classifies_optimization_statuses_separately(self) -> None:
-        module = load_completion_gate_module()
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            benchmark = root / "benchmark-results.json"
-            phase_plan = root / "phased-execution-plan.md"
-            global_review = root / "global-architecture-review.md"
-            benchmark.write_text(
-                json.dumps(
-                    {
-                        "published_benchmark_rows": [
-                            {
-                                "engine": "shardloom-vortex",
-                                "storage_format": "csv",
-                                "scenario_id": "selective_filter",
-                                "timing_surface": "publication_proof",
-                                "actual_evidence_tier": "publication_full",
-                                "status": "success",
-                                "claim_gate_status": "claim_grade",
-                                "runtime_execution_validation_status": "passed",
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                                "operator_hot_path_candidate_status": (
-                                    "admitted_selection_vector_metric_aggregation_residual_native"
-                                ),
-                                "pulseweave_result_assembly_coalescing_status": (
-                                    "blocked_per_scenario_result_semantics"
-                                ),
-                                "source_columnar_provider_status": (
-                                    "blocked_columnar_provider_not_admitted"
-                                ),
-                                "source_read_scout_reuse_status": (
-                                    "blocked_until_scout_timing_split"
-                                ),
-                                "source_read_scout_timing_split_status": (
-                                    "blocked_missing_source_read_scout_split"
-                                ),
-                                "source_state_query_dim_row_count_reuse_status": (
-                                    "blocked_query_requires_dim_vortex_scan"
-                                ),
-                                "vortex_reopen_verify_split_status": (
-                                    "blocked_missing_reopen_verify_split"
-                                ),
-                                "compressed_kernel_registry_claim_gate_status": (
-                                    "not_claim_grade"
-                                ),
-                                "fused_pipeline_claim_gate_status": "not_claim_grade",
-                                "fused_pipeline_correctness_digest_status": (
-                                    "blocked_reference_only_digest"
-                                ),
-                                "fused_pipeline_selection_vector_status": (
-                                    "blocked_fusion_not_executed"
-                                ),
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-            phase_plan.write_text("- [x] completed item\n", encoding="utf-8")
-            global_review.write_text("- [x] completed review item\n", encoding="utf-8")
-
-            report = module.build_report(
-                benchmark_results=benchmark,
-                phase_plan=phase_plan,
-                global_review=global_review,
-            )
-
-        self.assertEqual(report["status"], "passed", report["blockers"])
-        benchmark_report = report["benchmark_gap_report"]
-        self.assertEqual(benchmark_report["residual_blocker_count"], 0)
-        self.assertEqual(benchmark_report["optimization_claim_blocker_count"], 10)
-        self.assertEqual(
-            benchmark_report["optimization_claim_blocker_field_counts"],
-            {
-                "compressed_kernel_registry_claim_gate_status": 1,
-                "fused_pipeline_claim_gate_status": 1,
-                "fused_pipeline_correctness_digest_status": 1,
-                "fused_pipeline_selection_vector_status": 1,
-                "pulseweave_result_assembly_coalescing_status": 1,
-                "source_columnar_provider_status": 1,
-                "source_read_scout_reuse_status": 1,
-                "source_read_scout_timing_split_status": 1,
-                "source_state_query_dim_row_count_reuse_status": 1,
-                "vortex_reopen_verify_split_status": 1,
-            },
-        )
-
-    def test_completion_gate_accepts_mapped_global_review_claim_boundaries(self) -> None:
-        module = load_completion_gate_module()
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            benchmark = root / "benchmark-results.json"
-            phase_plan = root / "phased-execution-plan.md"
-            global_review = root / "global-architecture-review.md"
-            benchmark.write_text(
-                json.dumps(
-                    {
-                        "published_benchmark_rows": [
-                            {
-                                "engine": "shardloom-vortex",
-                                "storage_format": "csv",
-                                "scenario_id": "selective_filter",
-                                "timing_surface": "publication_proof",
-                                "actual_evidence_tier": "publication_full",
-                                "status": "success",
-                                "claim_gate_status": "claim_grade",
-                                "runtime_execution_validation_status": "passed",
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-            phase_plan.write_text("- [x] completed item\n", encoding="utf-8")
-            global_review.write_text("- [ ] broad claim boundary row\n", encoding="utf-8")
-
-            report = module.build_report(
-                benchmark_results=benchmark,
-                phase_plan=phase_plan,
-                global_review=global_review,
-                runtime_gap_family_burn_down_report={
-                    "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
-                    "status": "passed",
-                    "blockers": [],
-                    "global_review_unchecked_count": 1,
-                    "mapped_gap_count": 1,
-                    "acceptance_summary": {
-                        "all_unchecked_global_review_rows_mapped": True,
-                        "all_families_have_phase_items": True,
-                        "all_families_have_active_phase_owner": True,
-                        "all_families_have_evidence_and_validators": True,
-                        "all_no_fallback_invariants_named": True,
-                        "all_claim_boundaries_named": True,
-                    },
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                    "runtime_support_claim_allowed": False,
-                    "performance_claim_allowed": False,
-                    "production_claim_allowed": False,
-                    "claim_gate_status": "not_claim_grade",
-                },
-            )
-
-        self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertEqual(
-            report["global_review_mapping_status"],
-            "mapped_to_runtime_gap_family_claim_boundaries",
-        )
-        self.assertFalse(report["global_review_unchecked_rows_block_completion"])
-
-    def test_completion_gate_blocks_unchecked_items_and_residual_engine_status(self) -> None:
-        module = load_completion_gate_module()
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            benchmark = root / "benchmark-results.json"
-            phase_plan = root / "phased-execution-plan.md"
-            global_review = root / "global-architecture-review.md"
-            benchmark.write_text(
-                json.dumps(
-                    {
-                        "published_benchmark_rows": [
-                            {
-                                "engine": "shardloom-prepared-vortex",
-                                "storage_format": "parquet",
-                                "scenario_id": "group_by_aggregation",
-                                "status": "success",
-                                "claim_gate_status": "claim_grade",
-                                "runtime_execution_validation_status": "passed",
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                                "optimizer_rule_unsupported_count": 2,
-                                "source_state_status": "report_only",
-                                "vortex_copy_budget_buffer_reuse_status": (
-                                    "blocked_until_correctness_parity"
-                                ),
-                            },
-                            {
-                                "engine": "datafusion",
-                                "storage_format": "jsonl",
-                                "scenario_id": "nested_json_field_scan",
-                                "status": "unsupported",
-                                "external_baseline_only": False,
-                                "fallback_attempted": False,
-                                "external_engine_invoked": True,
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-            phase_plan.write_text("- [ ] runtime item\n", encoding="utf-8")
-            global_review.write_text("- [ ] broad engine item\n", encoding="utf-8")
-
-            report = module.build_report(
-                benchmark_results=benchmark,
-                phase_plan=phase_plan,
-                global_review=global_review,
-            )
-
-        self.assertEqual(report["status"], "blocked")
-        self.assertFalse(report["completion_claim_allowed"])
-        self.assertEqual(report["phase_plan_unchecked_count"], 1)
-        self.assertEqual(report["global_review_unchecked_count"], 1)
-        field_counts = report["benchmark_gap_report"]["residual_blocker_field_counts"]
-        self.assertEqual(field_counts["optimizer_rule_unsupported_count"], 1)
-        self.assertEqual(field_counts["source_state_status"], 1)
-        self.assertEqual(field_counts["vortex_copy_budget_buffer_reuse_status"], 1)
-        external_report = report["benchmark_gap_report"]["external_baseline_unsupported_report"]
-        self.assertEqual(external_report["unsupported_row_count"], 1)
-        external_fields = external_report["classification_blocker_field_counts"]
-        self.assertEqual(external_fields["external_baseline_only"], 1)
-        self.assertEqual(external_fields["external_engine_invoked"], 1)
-        self.assertEqual(external_fields["unsupported_reason"], 1)
+    def test_declared_coverage_cannot_override_failed_evidence_verification(self):
+        payload = {"configuration": {"formats": list(gate.FORMAT_ORDER),
+                                      "scenarios": list(gate.WORKLOADS)}, "records": []}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with mock.patch.object(gate, "validate_manifest", return_value=(["native payload mismatch"], payload)):
+                report = self.report(root, root / "bad.json")
+            self.assertEqual(report["blockers"], ["native payload mismatch"])
+            self.assertFalse(report["completion_claim_allowed"])
 
 
 if __name__ == "__main__":

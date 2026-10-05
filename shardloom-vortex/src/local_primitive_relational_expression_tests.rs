@@ -65,6 +65,193 @@ fn collected(plan: &VortexRelationalPlan) -> Vec<serde_json::Value> {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep exact comparisons and NULLIF on the same nullable fixture.
+fn native_relational_float_comparisons_preserve_exact_integer_literals_and_columns() {
+    let fixture = Fixture::new(
+        StructArray::try_new(
+            FieldNames::from(["single", "double", "integer"]),
+            vec![
+                PrimitiveArray::from_option_iter([Some(-1.0_f32), Some(0.0), Some(1.5), None])
+                    .into_array(),
+                PrimitiveArray::from_option_iter([
+                    Some(-9_007_199_254_740_992.0_f64),
+                    Some(0.0),
+                    Some(9_007_199_254_740_992.0),
+                    None,
+                ])
+                .into_array(),
+                PrimitiveArray::from_option_iter([Some(-1_i64), Some(0), Some(1), None])
+                    .into_array(),
+            ],
+            4,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array(),
+        1,
+    );
+    let plan = project(
+        fixture.scan(),
+        vec![
+            (
+                "lt",
+                compare(col("single"), ComparisonOp::Lt, lit(ScalarValue::Int64(1))),
+            ),
+            (
+                "gt",
+                compare(lit(ScalarValue::Int64(0)), ComparisonOp::Lt, col("double")),
+            ),
+            (
+                "eq",
+                compare(col("double"), ComparisonOp::Eq, lit(ScalarValue::UInt64(0))),
+            ),
+            (
+                "boundary",
+                compare(
+                    col("double"),
+                    ComparisonOp::Eq,
+                    lit(ScalarValue::UInt64(9_007_199_254_740_992)),
+                ),
+            ),
+            (
+                "missing",
+                function("nullif", vec![col("double"), lit(ScalarValue::Int64(0))]),
+            ),
+        ],
+    );
+    assert_eq!(
+        serde_json::json!(collected(&plan)),
+        serde_json::json!([
+            {"lt":true,"gt":false,"eq":false,"boundary":false,"missing":-9_007_199_254_740_992.0_f64},
+            {"lt":true,"gt":false,"eq":true,"boundary":false,"missing":null},
+            {"lt":false,"gt":true,"eq":false,"boundary":true,"missing":9_007_199_254_740_992.0_f64},
+            {"lt":null,"gt":null,"eq":null,"boundary":null,"missing":null}
+        ])
+    );
+    for value in [
+        ScalarValue::Int64(9_007_199_254_740_993),
+        ScalarValue::UInt64(u64::MAX),
+    ] {
+        let plan = project(
+            fixture.scan(),
+            vec![(
+                "equal",
+                compare(col("double"), ComparisonOp::Eq, lit(value)),
+            )],
+        );
+        assert_eq!(
+            serde_json::json!(collected(&plan)),
+            serde_json::json!([
+                {"equal":false}, {"equal":false}, {"equal":false}, {"equal":null}
+            ])
+        );
+    }
+    let plan = project(
+        fixture.scan(),
+        vec![(
+            "equal",
+            compare(col("double"), ComparisonOp::Eq, col("integer")),
+        )],
+    );
+    assert_eq!(
+        serde_json::json!(collected(&plan)),
+        serde_json::json!([
+            {"equal":false}, {"equal":true}, {"equal":false}, {"equal":null}
+        ])
+    );
+    let plan = project(
+        fixture.scan(),
+        vec![(
+            "value",
+            function("nullif", vec![lit(ScalarValue::Int64(0)), col("double")]),
+        )],
+    );
+    assert_eq!(
+        serde_json::json!(collected(&plan)),
+        serde_json::json!([
+            {"value":0}, {"value":null}, {"value":0}, {"value":0}
+        ])
+    );
+}
+
+#[test]
+fn native_relational_constructors_preserve_children_order_nulls_and_empty_schema() {
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(["id", "label"]),
+            vec![
+                PrimitiveArray::from_iter([1_i64, 2]).into_array(),
+                VarBinViewArray::from_iter_nullable_str([Some("東京"), None]).into_array(),
+            ],
+            2,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        1,
+    );
+    let list = |values| expression(ExpressionKind::List { values });
+    let structure = |fields| expression(ExpressionKind::Struct { fields });
+    let expressions = vec![
+        (
+            "values",
+            list(vec![
+                col("id"),
+                lit(ScalarValue::Int64(7)),
+                lit(ScalarValue::Null),
+            ]),
+        ),
+        (
+            "payload",
+            structure(vec![("text".into(), col("label")), ("n".into(), col("id"))]),
+        ),
+        ("empty", list(vec![])),
+        ("nulls", list(vec![lit(ScalarValue::Null)])),
+        (
+            "nested",
+            structure(vec![("values".into(), list(vec![col("id")]))]),
+        ),
+    ];
+    let plan = project(fixture.scan(), expressions.clone());
+    assert_eq!(
+        serde_json::json!(collected(&plan)),
+        serde_json::json!([
+            {"values":[1,7,null],"payload":{"text":"東京","n":1},"empty":[],"nulls":[null],"nested":{"values":[1]}},
+            {"values":[2,7,null],"payload":{"text":null,"n":2},"empty":[],"nulls":[null],"nested":{"values":[2]}}
+        ])
+    );
+    let empty = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+        input: fixture.scan(),
+        offset: 0,
+        count: 0,
+    }));
+    let empty_plan = project(empty.clone(), expressions);
+    assert_eq!(collected(&empty_plan), [] as [serde_json::Value; 0]);
+    assert_eq!(
+        prepare_relational(&plan, policy()).unwrap().output_dtype(),
+        prepare_relational(&empty_plan, policy())
+            .unwrap()
+            .output_dtype()
+    );
+    for invalid in [
+        list(vec![col("id"), col("label")]),
+        list(vec![col("absent")]),
+        structure(vec![
+            ("same".into(), col("id")),
+            ("same".into(), col("label")),
+        ]),
+        list(vec![lit(ScalarValue::Int64(1)); 129]),
+    ] {
+        assert!(
+            prepare_relational(
+                &project(empty.clone(), vec![("invalid", invalid)]),
+                policy()
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
 fn native_relational_expression_three_valued_booleans_and_filter_preserve_unknown() {
     let a = [
         Some(true),

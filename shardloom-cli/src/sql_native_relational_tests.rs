@@ -6,8 +6,12 @@ use shardloom_exec::compute_pool::CancellationToken;
 mod aggregate_expression_tests;
 #[path = "sql_native_relational_dynamic_tests.rs"]
 mod dynamic_tests;
+#[path = "sql_native_relational_memory_tests.rs"]
+mod memory_tests;
 #[path = "sql_native_relational_unary_tests.rs"]
 mod unary_tests;
+#[path = "sql_native_workload_tests.rs"]
+mod workload_tests;
 
 fn fixture() -> String {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -60,6 +64,84 @@ fn verify(statement: &str, expected: &Value) {
         assert_eq!(result.execution.runtime.prepared_source_opens, 1);
         assert_eq!(result.execution.runtime.completed_executions, execution);
     }
+}
+
+#[test]
+fn native_relational_sql_correlated_having_retains_outer_parameters_after_grouping() {
+    let source = fixture();
+    for predicate in [
+        format!(
+            "value IN (SELECT value FROM '{source}' GROUP BY value HAVING count(*)=1 AND value=outer.value AND min(metric)<=outer.metric ORDER BY value DESC LIMIT 1)"
+        ),
+        format!(
+            "(value,metric) IN (SELECT value,metric FROM '{source}' GROUP BY value,metric HAVING count(*)=1 AND value=outer.value AND min(metric)<=outer.metric ORDER BY value DESC LIMIT 1)"
+        ),
+        format!(
+            "EXISTS (SELECT value FROM '{source}' GROUP BY value HAVING count(*)=1 AND value=outer.value AND min(metric)<=outer.metric ORDER BY value DESC LIMIT 1)"
+        ),
+        format!(
+            "value >= ALL (SELECT value FROM '{source}' GROUP BY value HAVING value=outer.value ORDER BY value DESC LIMIT 1)"
+        ),
+    ] {
+        verify(
+            &format!("SELECT value FROM '{source}' WHERE {predicate} ORDER BY value ASC LIMIT 2"),
+            &json!([{"value":1},{"value":2}]),
+        );
+    }
+    verify(
+        &format!(
+            "SELECT zero FROM (SELECT 0 AS zero FROM '{source}' LIMIT 1) AS input WHERE EXISTS (SELECT count(*) AS n FROM '{source}' WHERE value>999 HAVING count(*)=outer.zero LIMIT 1) LIMIT 1"
+        ),
+        &json!([{"zero":0}]),
+    );
+}
+
+#[test]
+fn native_relational_sql_division_checks_only_evaluated_rows() {
+    let source = fixture();
+    for statement in [
+        format!("SELECT value / 0 AS broken FROM '{source}' LIMIT 2"),
+        format!("SELECT value FROM '{source}' WHERE value / 0 > 1 LIMIT 2"),
+    ] {
+        let prepared = prepare(
+            &statement,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
+        )
+        .unwrap();
+        assert!(
+            prepared
+                .collect_jsonl(&CancellationToken::default())
+                .err()
+                .expect("nonempty division by zero must fail")
+                .to_string()
+                .contains("division by zero")
+        );
+    }
+    verify(
+        &format!("SELECT value / 0 AS safe FROM '{source}' LIMIT 0"),
+        &json!([]),
+    );
+    verify(
+        &format!(
+            "SELECT CASE WHEN value>0 THEN value ELSE value/0 END AS safe FROM '{source}' LIMIT 2"
+        ),
+        &json!([{"safe":1},{"safe":2}]),
+    );
+}
+
+#[test]
+fn native_relational_sql_nested_constructors_share_complete_projection() {
+    let source = fixture();
+    verify(
+        &format!(
+            "SELECT value,ARRAY[1,2,NULL] AS items,STRUCT(value,metric) AS payload FROM '{source}' ORDER BY value LIMIT 2"
+        ),
+        &json!([
+            {"value":1,"items":[1,2,null],"payload":{"value":1,"metric":10}},
+            {"value":2,"items":[1,2,null],"payload":{"value":2,"metric":20}}
+        ]),
+    );
 }
 
 #[test]
@@ -556,7 +638,7 @@ fn native_relational_sql_scalar_aggregate_subquery_needs_no_grouping_or_having()
 }
 
 #[test]
-fn native_relational_sql_limit_admission_does_not_expand_reference_materialization() {
+fn native_relational_sql_limit_admission_keeps_complete_subquery_values() {
     let source = fixture();
     let statement = format!(
         "SELECT value FROM '{source}' WHERE value IN (SELECT value FROM '{source}' LIMIT 64) LIMIT 10"
@@ -564,21 +646,6 @@ fn native_relational_sql_limit_admission_does_not_expand_reference_materializati
     verify(
         &statement,
         &json!([{"value":1},{"value":2},{"value":3},{"value":4},{"value":5}]),
-    );
-    let parsed = parse_sql_local_source_statement(&statement).unwrap();
-    let ParsedPredicate::InSubquery { mut subquery, .. } = parsed.predicate else {
-        panic!("expected IN");
-    };
-    let rejected = materialize_in_subquery(
-        &mut subquery,
-        None,
-        SqlLocalSourceRuntimeProfile::Smoke.read_limits(),
-    )
-    .unwrap_err();
-    assert!(
-        rejected
-            .to_string()
-            .contains("decoded reference subquery LIMIT")
     );
 }
 

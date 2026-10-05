@@ -982,7 +982,7 @@ const DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROW_SUFFIXES: [&str; 14] = [
     "claim_boundary",
 ];
 
-const SQL_FIELD_KEYS: [&str; 57] = [
+const SQL_FIELD_KEYS: [&str; 37] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1020,26 +1020,6 @@ const SQL_FIELD_KEYS: [&str; 57] = [
     "planner_readiness_external_engine_invoked",
     "planner_readiness_fallback_attempted",
     "planner_readiness_deterministic_diagnostics_present",
-    "local_source_runtime_schema_version",
-    "local_source_runtime_command",
-    "local_source_runtime_support_status",
-    "local_source_runtime_statement_shape",
-    "local_source_runtime_execution_mode",
-    "local_source_runtime_engine_mode",
-    "local_source_runtime_source_format",
-    "local_source_runtime_result_format",
-    "local_source_runtime_runtime_execution",
-    "local_source_runtime_parser_executed",
-    "local_source_runtime_binder_executed",
-    "local_source_runtime_planner_executed",
-    "local_source_runtime_source_io_performed",
-    "local_source_runtime_output_io_performed",
-    "local_source_runtime_object_store_io",
-    "local_source_runtime_external_engine_invoked",
-    "local_source_runtime_fallback_attempted",
-    "local_source_runtime_claim_gate_status",
-    "local_source_runtime_claim_boundary",
-    "local_source_runtime_blocked_shapes",
 ];
 
 const SQL_FRONTEND_RUNTIME_LADDER_FIELD_KEYS: [&str; 24] = [
@@ -1069,14 +1049,7 @@ const SQL_FRONTEND_RUNTIME_LADDER_FIELD_KEYS: [&str; 24] = [
     "sql_frontend_runtime_ladder_claim_boundary",
 ];
 
-const SQL_FRONTEND_RUNTIME_LADDER_ROW_IDS: [&str; 13] = [
-    "local_source_projection_filter_limit",
-    "local_source_predicate_expression_ladder",
-    "local_source_aggregate_group_having",
-    "local_source_order_topn",
-    "local_source_join_ladder",
-    "local_source_window_ladder",
-    "local_source_output_fanout",
+const SQL_FRONTEND_RUNTIME_LADDER_ROW_IDS: [&str; 6] = [
     "source_free_sql_generated_output",
     "broad_sql_parse_bind_plan_execute",
     "catalog_cte_setop_recursive_sql",
@@ -2202,6 +2175,11 @@ fn capability_discovery_json_field_keys_are_stable() {
         with_sql_generated_source_alignment_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
         "scope=sql"
     );
+    assert!(
+        !keys
+            .iter()
+            .any(|key| key.starts_with("local_source_runtime_"))
+    );
 
     for scope in WORLD_CLASS_SURFACE_SCOPES {
         let output = run_capabilities_scope(scope);
@@ -3055,16 +3033,16 @@ fn assert_runs_today_summary_fields(output: &str) {
             "runs_today_family_order",
             "cli_command,python_api,input_format,output_format,execution_mode,claim_state",
         ),
-        ("runs_today_row_count", "38"),
-        ("runs_today_executable_row_count", "24"),
-        ("runs_today_feature_gated_row_count", "5"),
+        ("runs_today_row_count", "35"),
+        ("runs_today_executable_row_count", "19"),
+        ("runs_today_feature_gated_row_count", "7"),
         ("runs_today_internal_smoke_only_row_count", "0"),
         ("runs_today_diagnostic_only_row_count", "3"),
         ("runs_today_report_only_row_count", "1"),
         ("runs_today_blocked_row_count", "4"),
         ("runs_today_future_row_count", "1"),
-        ("runs_today_cli_command_row_count", "11"),
-        ("runs_today_python_api_row_count", "6"),
+        ("runs_today_cli_command_row_count", "9"),
+        ("runs_today_python_api_row_count", "5"),
         ("runs_today_input_format_row_count", "6"),
         ("runs_today_output_format_row_count", "3"),
         ("runs_today_execution_mode_row_count", "7"),
@@ -3107,7 +3085,7 @@ fn assert_runs_today_effect_fields(output: &str) {
 
 fn assert_runs_today_row_states(output: &str) {
     for (row, support_state) in [
-        ("cli_local_source_runtime", "executable"),
+        ("cli_public_native_workflow", "feature_gated"),
         ("cli_vortex_prepare", "feature_gated"),
         ("cli_sqlite_local_import_export_smoke", "executable"),
         ("cli_udf_local_scalar_fixture_smoke", "executable"),
@@ -3117,6 +3095,7 @@ fn assert_runs_today_row_states(output: &str) {
         ("python_status_capabilities", "diagnostic_only"),
         ("python_local_query_builder", "feature_gated"),
         ("python_native_vortex_query_builder", "executable"),
+        ("python_generated_source_helpers", "feature_gated"),
         ("python_effectful_fixture_helpers", "executable"),
         ("input_sqlite_local_database_file", "executable"),
         ("input_object_store_cloud", "blocked"),
@@ -3138,20 +3117,17 @@ fn assert_runs_today_row_states(output: &str) {
             false
         )));
     }
+    assert!(!output.contains("runs_today_row_cli_local_source_runtime_"));
 }
 
 fn assert_runs_today_evidence_refs(output: &str) {
     assert!(output.contains(&string_field_pair(
-        "runs_today_row_cli_local_source_runtime_evidence_refs",
-        "local_source_runtime,sql_frontend_runtime_ladder_fields,sql_parser_tests,python_query_builder_tests"
-    )));
-    assert!(output.contains(&string_field_pair(
         "runs_today_row_cli_vortex_prepare_evidence_refs",
-        "local_source_runtime,vortex_ingest_evidence_fields,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields"
+        "vortex_ingest_evidence_fields,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields"
     )));
     assert!(output.contains(&string_field_pair(
         "runs_today_row_input_parquet_arrow_avro_orc_evidence_refs",
-        "feature_gated_sql_local_source_tests,vortex_prepare_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_internal_source_smoke_structured_tests,universal_ingress_route_taxonomy"
+        "vortex_prepare_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,universal_ingress_route_taxonomy"
     )));
     assert!(output.contains(&string_field_pair(
         "runs_today_row_cli_pre_oom_memory_guard_smoke_evidence_refs",
@@ -3488,10 +3464,10 @@ fn sql_and_dataframe_capabilities_expose_planner_readiness_matrix() {
         assert_planner_readiness_fields(&output, scope);
         if scope == "sql" {
             assert_sql_frontend_runtime_ladder_fields(&output);
-            assert_local_source_runtime_fields(&output);
+            assert!(!output.contains("\"key\":\"local_source_runtime_"));
         } else {
             assert!(!output.contains("sql_frontend_runtime_ladder_schema_version"));
-            assert!(!output.contains("local_source_runtime_schema_version"));
+            assert!(!output.contains("\"key\":\"local_source_runtime_"));
         }
     }
 }
@@ -3568,15 +3544,11 @@ fn assert_sql_frontend_runtime_ladder_fields(output: &str) {
         ),
         (
             "sql_frontend_runtime_ladder_runtime_family_order",
-            "local_source_projection_filter_limit,local_source_predicate_expression_ladder,local_source_aggregate_group_having,local_source_order_topn,local_source_join_ladder,local_source_window_ladder,local_source_output_fanout,source_free_sql_generated_output",
+            "source_free_sql_generated_output",
         ),
         (
             "sql_frontend_runtime_ladder_blocked_family_order",
             "broad_sql_parse_bind_plan_execute,catalog_cte_setop_recursive_sql,correlated_and_broad_subquery_sql,object_store_table_sql,fallback_engine_sql",
-        ),
-        (
-            "sql_frontend_runtime_ladder_row_local_source_join_ladder_support_status",
-            "runtime-supported",
         ),
         (
             "sql_frontend_runtime_ladder_row_broad_sql_parse_bind_plan_execute_blocker_id",
@@ -3585,6 +3557,7 @@ fn assert_sql_frontend_runtime_ladder_fields(output: &str) {
     ] {
         assert!(output.contains(&string_field_pair(key, value)));
     }
+    assert!(!output.contains("\"key\":\"sql_frontend_runtime_ladder_row_local_source_"));
     assert_sql_frontend_runtime_ladder_boolean_fields(output);
 }
 
@@ -3597,7 +3570,7 @@ fn assert_sql_frontend_runtime_ladder_boolean_fields(output: &str) {
         ("sql_frontend_runtime_ladder_external_engine_invoked", false),
         ("sql_frontend_runtime_ladder_broad_sql_claim_allowed", false),
         (
-            "sql_frontend_runtime_ladder_row_local_source_window_ladder_runtime_execution",
+            "sql_frontend_runtime_ladder_row_source_free_sql_generated_output_runtime_execution",
             true,
         ),
         (
@@ -3607,39 +3580,6 @@ fn assert_sql_frontend_runtime_ladder_boolean_fields(output: &str) {
     ] {
         assert!(output.contains(&field_pair(key, value)));
     }
-}
-
-fn assert_local_source_runtime_fields(output: &str) {
-    for (key, value) in [
-        (
-            "local_source_runtime_schema_version",
-            "shardloom.local_source_runtime.v1",
-        ),
-        ("local_source_runtime_command", "local-source-runtime"),
-        (
-            "local_source_runtime_support_status",
-            "production_admitted_local_workflow",
-        ),
-        (
-            "local_source_runtime_execution_mode",
-            "prepared_vortex_then_native_runtime",
-        ),
-        (
-            "local_source_runtime_claim_gate_status",
-            "local_workflow_runtime_supported",
-        ),
-    ] {
-        assert!(output.contains(&string_field_pair(key, value)));
-    }
-    assert!(output.contains(&field_pair("local_source_runtime_runtime_execution", true)));
-    assert!(output.contains(&field_pair(
-        "local_source_runtime_external_engine_invoked",
-        false
-    )));
-    assert!(output.contains(&field_pair(
-        "local_source_runtime_fallback_attempted",
-        false
-    )));
 }
 
 #[test]

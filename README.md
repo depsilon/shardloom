@@ -267,20 +267,28 @@ python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .
 The selected local/source/package v1 release track is proof-backed for package access only. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for the current technical-preview channel; that
 does not authorize production, broad compatibility, or performance-superiority claims.
 
-Prepared local workflow examples use the same Vortex-prepared middle as the route evidence:
+Persisted preparation and subsequent queries use the same native engine:
 
 ```python
-prepared = ctx.prepare_vortex(
+import shardloom as sl
+
+ctx = sl.context()
+ctx.prepare_vortex(
     "target/orders.csv",
     "target/orders.vortex",
     allow_overwrite=True,
 )
-prepared.query("selective filter").collect()
-prepared.query("clean/cast/filter/write").collect()
+orders = ctx.read_vortex("target/orders.vortex")
+result = orders.filter("amount >= 10").select("id", "amount").limit(100).collect()
+written = orders.filter("amount >= 10").select("id", "amount").write_jsonl(
+    "target/selected-orders.jsonl", allow_overwrite=True,
+)
+print(result.result_rows, result.fallback_attempted, result.external_engine_invoked)
+print(written.rows_written, written.output_commit_status)
 ```
 
-Representative evidence fields include `scenario_selective-filter_fallback_attempted` and
-`materialization_report.blocker_id`.
+Collection carries complete bounded values and their native result schema. A write carries
+the declared destination, row count, commit status and native I/O certificate.
 
 ## Benchmarks
 

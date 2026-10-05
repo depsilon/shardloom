@@ -137,6 +137,47 @@ pub fn execute_sort(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: &PreparedVortexSource,
 ) -> Result<super::VortexLocalPrimitiveExecutionReport> {
+    execute_sort_with_sink(request, policy, source, None)
+}
+
+/// Complete sort output through the shared bounded JSON sink. The same native
+/// sort producer owns selection, spill, ordering and cleanup; no rows are read
+/// from a diagnostic report and the source is not replayed.
+pub struct CollectedVortexSort {
+    pub report: super::VortexLocalPrimitiveExecutionReport,
+    pub native_io_certificate: shardloom_core::NativeIoCertificate,
+    pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
+    pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
+}
+
+/// # Errors
+/// Rejects invalid sources, resource pressure, changed generations, cancellation
+/// and complete results exceeding 65,536 rows or the 8-MiB JSON bound.
+pub fn collect_sort(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+) -> Result<CollectedVortexSort> {
+    let session = source_session(source, request, Some(policy))?;
+    let mut sink = super::collect::JsonRows::new(session.memory(), 8 * 1024 * 1024, true)?;
+    let report = execute_sort_with_sink(request, policy, source, Some(&mut sink))?;
+    let mut native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
+    let (result_jsonl, result_schema_json) = sink.finish_certified(&mut native_io_certificate)?;
+    source.validate_generation()?;
+    Ok(CollectedVortexSort {
+        report,
+        native_io_certificate,
+        result_jsonl,
+        result_schema_json,
+    })
+}
+
+fn execute_sort_with_sink(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    mut sink: Option<&mut super::collect::JsonRows>,
+) -> Result<super::VortexLocalPrimitiveExecutionReport> {
     if request.kind != super::VortexQueryPrimitiveKind::SortRows {
         return Err(failed("requires a sort request"));
     }
@@ -159,6 +200,34 @@ pub fn execute_sort(
     );
     session.with_native_execution_context(&cancellation, |context| {
         source.with_admitted_native_execution(context, |file, context| {
+            let collect = sink.is_some();
+            let columns =
+                super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
+            let fields = columns
+                .iter()
+                .map(|name| {
+                    Ok((
+                        name.clone(),
+                        super::completed_result::source_field(source.dtype(), name)?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let mut consume = |array| {
+                sink.as_mut()
+                    .ok_or_else(|| failed("sort sink is absent"))?
+                    .append_native(&array, context)
+            };
+            let mut output = if collect {
+                Some(super::completed_result::CompletedRows::streaming(
+                    fields,
+                    context.memory(),
+                    2048,
+                    context.cancellation().clone(),
+                    &mut consume,
+                )?)
+            } else {
+                None
+            };
             let generation = sort
                 .spill
                 .as_ref()
@@ -170,7 +239,7 @@ pub fn execute_sort(
                 uri,
                 request,
                 policy,
-                None,
+                output.as_mut(),
                 file,
                 context.native_session(),
                 context.runtime(),
@@ -226,9 +295,22 @@ pub fn try_write_source(
             super::completed_result::write_plan(plan, request, output, format, overwrite, policy)?
         }
         _ => {
-            return Err(failed(
-                "optimized source writer is not admitted for this operation",
-            ));
+            if super::prepared_unary::supports(request.kind)
+                && request.structured_projection.is_none()
+            {
+                super::prepared_unary::prepare_unary_from_source(request, policy, source)?
+                    .write(output, format, overwrite)?
+            } else if let Some(plan) =
+                super::native_sink::prepare_from_source(request, source.clone(), policy)?
+            {
+                super::completed_result::write_plan(
+                    plan, request, output, format, overwrite, policy,
+                )?
+            } else {
+                return Err(failed(
+                    "optimized source writer is not admitted for this operation",
+                ));
+            }
         }
     };
     Ok(Some(report.with_physical_policy(physical)))

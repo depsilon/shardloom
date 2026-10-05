@@ -46,11 +46,6 @@ pub(super) fn write(
         for dtype in fields.fields() {
             if super::native_payload::is_nested(&dtype) {
                 super::native_payload::metadata_bytes(&dtype)?;
-                if format == Format::Csv {
-                    return Err(failed(
-                        "CSV cannot represent nested payloads; project scalar fields or use JSON/Vortex output",
-                    ));
-                }
             }
         }
     }
@@ -116,20 +111,23 @@ pub(super) fn write(
                         .iter()
                         .map(|name| logical_field_from_native_array(&array, name))
                         .collect::<Result<Vec<_>>>()?;
-                    let json = if format == Format::Csv {
-                        Vec::new()
-                    } else {
-                        columns
-                            .iter()
-                            .map(|column| {
+                    let json = columns
+                        .iter()
+                        .map(|column| {
+                            if format != Format::Csv
+                                || super::native_payload::is_nested(column.dtype())
+                            {
                                 super::native_json::Column::new(
                                     column,
                                     &mut scalar_context,
                                     context.memory(),
                                 )
-                            })
-                            .collect::<Result<Vec<_>>>()?
-                    };
+                                .map(Some)
+                            } else {
+                                Ok(None)
+                            }
+                        })
+                        .collect::<Result<Vec<_>>>()?;
                     batches += 1;
                     maximum_rows = maximum_rows.max(array.len());
                     logical_bytes = logical_bytes
@@ -148,15 +146,36 @@ pub(super) fn write(
                             if index > 0 {
                                 writer.write_all(b",").map_err(vortex_error)?;
                             }
-                            if format != Format::Csv {
-                                serde_json::to_writer(&mut writer, name).map_err(vortex_error)?;
-                                writer.write_all(b":").map_err(vortex_error)?;
-                                let counts = json[index].write(
-                                    row,
-                                    &mut writer,
-                                    &mut scalar_context,
-                                    cancellation,
-                                )?;
+                            if let Some(json) = &json[index] {
+                                let counts = if format == Format::Csv {
+                                    if column
+                                        .is_valid(row, &mut scalar_context)
+                                        .map_err(vortex_error)?
+                                    {
+                                        writer.write_all(b"\"").map_err(vortex_error)?;
+                                        let counts = json.write(
+                                            row,
+                                            &mut CsvQuotedWriter(&mut writer),
+                                            &mut scalar_context,
+                                            cancellation,
+                                        )?;
+                                        writer.write_all(b"\"").map_err(vortex_error)?;
+                                        counts
+                                    } else {
+                                        if plan.columns.len() == 1 {
+                                            csv_text(&mut writer, "")?;
+                                        }
+                                        super::native_json::WriteCounts {
+                                            scalars: 1,
+                                            utf8_bytes: 0,
+                                        }
+                                    }
+                                } else {
+                                    serde_json::to_writer(&mut writer, name)
+                                        .map_err(vortex_error)?;
+                                    writer.write_all(b":").map_err(vortex_error)?;
+                                    json.write(row, &mut writer, &mut scalar_context, cancellation)?
+                                };
                                 scalars_materialized = scalars_materialized
                                     .checked_add(counts.scalars)
                                     .ok_or_else(|| failed("scalar counter overflow"))?;
@@ -253,7 +272,7 @@ pub(super) fn write(
         output_sha256: checksum,
         compatibility: None,
         metadata_fidelity: if format == Format::Csv {
-            "terminal_CSV_encoding;header_and_row_order_preserved;nulls_emit_empty_cells;binary_hex_and_decimal128_tagged_JSON_scalars_escaped_as_CSV_cells;Date32_days_and_TimestampMicros_integers;dtype_validity_encodings_layout_statistics_not_persisted;native_input_schema_checked;no_persisted_dtype_claim"
+            "terminal_CSV_encoding;header_and_row_order_preserved;nulls_emit_empty_cells;nested_values_stream_as_quoted_JSON_text_cells;binary_hex_and_decimal128_tagged_JSON_scalars_escaped_as_CSV_cells;Date32_days_and_TimestampMicros_integers;dtype_validity_encodings_layout_statistics_not_persisted;native_input_schema_checked;no_persisted_dtype_claim"
         } else {
             "terminal_JSON_encoding;field_names_nulls_values_and_row_order_preserved;binary_hex_and_decimal128_tagged_strings;Date32_days_and_TimestampMicros_integers;logical_dtypes_native_encodings_layout_statistics_not_persisted;native_input_schema_checked;no_persisted_dtype_claim"
         },
@@ -349,4 +368,27 @@ fn csv_text(writer: &mut impl Write, text: &str) -> Result<()> {
         writer.write_all(part.as_bytes()).map_err(vortex_error)?;
     }
     writer.write_all(b"\"").map_err(vortex_error)
+}
+
+/// Stream JSON directly inside a quoted CSV cell. Doubling quote bytes does not
+/// allocate a cell-sized string or change the JSON traversal's ownership.
+struct CsvQuotedWriter<'a, W>(&'a mut W);
+
+impl<W: Write> Write for CsvQuotedWriter<'_, W> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        let mut start = 0;
+        for (index, byte) in bytes.iter().enumerate() {
+            if *byte == b'"' {
+                self.0.write_all(&bytes[start..=index])?;
+                self.0.write_all(b"\"")?;
+                start = index + 1;
+            }
+        }
+        self.0.write_all(&bytes[start..])?;
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
 }

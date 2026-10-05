@@ -49,36 +49,6 @@ fn qualified_column_inputs() -> Vec<(&'static str, Vec<u8>)> {
 }
 
 #[test]
-fn public_io_qualified_column_names_reopen_through_columnar_reader() {
-    let fixture = Fixture::new();
-    for (format, bytes) in qualified_column_inputs() {
-        let source = fixture.0.join(format!("input.{format}"));
-        fs::write(&source, bytes).unwrap();
-        let input = read_local_source_with_plan_and_format(
-            &source,
-            &LocalSourceReadPlan::full("qualified_column_round_trip"),
-            Some(LocalSourceFormat::parse(format).unwrap()),
-            SqlLocalSourceRuntimeProfile::Smoke.read_limits(),
-        )
-        .unwrap_or_else(|error| panic!("{format}: {error}"));
-        assert_eq!(input.header, ["q.id", "total"]);
-        assert_eq!(
-            input.rows,
-            [
-                BTreeMap::from([
-                    ("q.id".into(), ScalarValue::Int64(3)),
-                    ("total".into(), ScalarValue::Int64(600))
-                ]),
-                BTreeMap::from([
-                    ("q.id".into(), ScalarValue::Int64(4)),
-                    ("total".into(), ScalarValue::Null)
-                ]),
-            ]
-        );
-    }
-}
-
-#[test]
 #[cfg(feature = "vortex-local-primitives")]
 fn public_io_qualified_column_names_prepare_preserves_native_schema_and_values() {
     let fixture = Fixture::new();
@@ -504,35 +474,6 @@ fn public_io_preparation_rejects_unbound_files_and_changed_partition_membership(
         .is_err()
     );
     assert_eq!(fs::read(&target).unwrap(), original);
-}
-
-#[test]
-fn public_io_json_array_preserves_exact_integer_null_and_escaped_text() {
-    let columns = vec!["id".to_string(), "text".to_string()];
-    let rows = vec![
-        vec![
-            ("id".into(), ScalarValue::UInt64(u64::MAX)),
-            ("text".into(), ScalarValue::Utf8("a,\nb\"".into())),
-        ],
-        vec![
-            ("id".into(), ScalarValue::Null),
-            ("text".into(), ScalarValue::Null),
-        ],
-    ];
-    let output = SqlLocalSourceOutputFormat::Json
-        .render_normalized_rows(&columns, &[None, None], &[None, None], &rows)
-        .unwrap();
-    let result: serde_json::Value = serde_json::from_slice(&output).unwrap();
-    assert_eq!(
-        result,
-        serde_json::json!([{"id":u64::MAX,"text":"a,\nb\""},{"id":null,"text":null}])
-    );
-    assert_eq!(
-        SqlLocalSourceOutputFormat::Json
-            .render_normalized_rows(&columns, &[None, None], &[None, None], &[])
-            .unwrap(),
-        b"[]\n"
-    );
 }
 
 #[test]

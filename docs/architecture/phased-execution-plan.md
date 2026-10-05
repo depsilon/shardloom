@@ -502,6 +502,12 @@ the ledger.
   state under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
   [typed reduction contract](native-typed-reductions-2026-10-04.md).
   - V1 scope classification: `required_for_v1`.
+  - October 4 maintainer scope clarification: file inputs in any admitted format,
+    typed memory and source-free declarations enter one Vortex-native computation
+    path before the requested result or output. SQL, Python, DataFrame and CLI
+    remain wrappers. Delete retired execution routes and benchmark-specific
+    providers; no compatibility runtime is retained for previous publications.
+    Parameterize the public UAT harness by input state, workload and output.
   - ShardLoom technique review: preserve metadata/pruning and optimized primitive
     routes; share native expression projection, exact state, one PulseWeave
     admission, reserved capacity, capillary delivery and existing timing/evidence
@@ -512,7 +518,10 @@ the ledger.
     - [ ] Extend existing rolling/pivot state and margins; prove empty admission,
       bounded ownership, constrained grants, cancellation and failed publication.
     - [ ] Freeze independent complete public/direct correctness, required local
-      checks and paired Full43; update exact support and immutable evidence.
+      checks and complete typed Full43 regression; update exact support and
+      immutable evidence. Use this consolidated engine as the control for later
+      paired optimization measurements; earlier result protocols do not authorize
+      an alternate runtime or a speedup claim.
     - [ ] Complete hosted runtime review and checks, then move this finite item
       to the completed ledger.
   - Acceptance: complete native expression/reduction workflows with exact decimal

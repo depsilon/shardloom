@@ -5,5 +5,4 @@ channels:
 dependencies:
   - python >=3.10
   - pip
-  # The default example uses CSV-only ShardLoom rows and does not require optional baseline engines.
-  # Install benchmark extras separately only for comparison-baseline runs.
+  - pandas

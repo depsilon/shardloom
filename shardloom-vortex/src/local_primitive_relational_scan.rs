@@ -2,8 +2,8 @@
 
 use super::{
     ArrayRef, DType, LocalVortexScanPlan, MaterializedPredicateEvaluator, Metrics,
-    NativeExecutionContext, PreparedVortexSource, ReservedVec, Result, add, failed, select_batch,
-    vortex_error,
+    NativeExecutionContext, PreparedVortexSource, ReservedVec, Result, ScanSource, add, failed,
+    select_batch, vortex_error,
 };
 use vortex::io::runtime::BlockingRuntime as _;
 
@@ -11,7 +11,8 @@ const SCAN_ROWS: usize = 8192;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
-    source: &PreparedVortexSource,
+    source: &ScanSource,
+    files: &[PreparedVortexSource],
     plan: &LocalVortexScanPlan,
     columns: &[String],
     residual: Option<&MaterializedPredicateEvaluator>,
@@ -19,6 +20,62 @@ pub(super) fn run(
     context: &NativeExecutionContext<'_>,
     metrics: &Metrics,
     batch_rows: usize,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    let mut accept = |array: ArrayRef| {
+        if array.len() > SCAN_ROWS {
+            return Err(failed("scan exceeded its admitted batch size"));
+        }
+        add(&metrics.scan_rows, array.len() as u64)?;
+        add(&metrics.scan_batches, 1)?;
+        let mut selection = ReservedVec::new(context.memory())?;
+        selection.reserve(array.len())?;
+        let mut values = residual
+            .map(|_| {
+                add(&metrics.residual_batches, 1)?;
+                super::super::prepared_unary::values::NativeBatch::new(&array, columns, context)
+            })
+            .transpose()?;
+        for row in 0..array.len() {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            if let (Some(predicate), Some(values)) = (residual, values.as_mut())
+                && !predicate.matches_with(&mut |column| values.stat(column, row))?
+            {
+                continue;
+            }
+            selection.values.push(row);
+        }
+        for rows in selection.values.chunks(batch_rows) {
+            consume(select_batch(&array, fields, rows, context)?)?;
+        }
+        Ok(())
+    };
+    match source {
+        ScanSource::File(index) => run_file(&files[*index], plan, context, metrics, &mut accept),
+        ScanSource::Memory(projection) => {
+            add(&metrics.scans_started, 1)?;
+            if projection.source_rows() == 0 {
+                return Ok(());
+            }
+            add(&metrics.data_scans, 1)?;
+            for start in (0..projection.source_rows()).step_by(SCAN_ROWS) {
+                let end = start
+                    .saturating_add(SCAN_ROWS)
+                    .min(projection.source_rows());
+                accept(projection.execute_range(start..end, context)?)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn run_file(
+    source: &PreparedVortexSource,
+    plan: &LocalVortexScanPlan,
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
     source.with_admitted_native_execution(context, |file, context| {
@@ -74,33 +131,7 @@ pub(super) fn run(
             let Some(array) = context.runtime().block_on(task).map_err(vortex_error)? else {
                 continue;
             };
-            if array.len() > SCAN_ROWS {
-                return Err(failed("scan exceeded its admitted batch size"));
-            }
-            add(&metrics.scan_rows, array.len() as u64)?;
-            add(&metrics.scan_batches, 1)?;
-            let mut selection = ReservedVec::new(context.memory())?;
-            selection.reserve(array.len())?;
-            let mut values = residual
-                .map(|_| {
-                    add(&metrics.residual_batches, 1)?;
-                    super::super::prepared_unary::values::NativeBatch::new(&array, columns, context)
-                })
-                .transpose()?;
-            for row in 0..array.len() {
-                if row.is_multiple_of(1024) {
-                    context.check_cancelled()?;
-                }
-                if let (Some(predicate), Some(values)) = (residual, values.as_mut())
-                    && !predicate.matches_with(&mut |column| values.stat(column, row))?
-                {
-                    continue;
-                }
-                selection.values.push(row);
-            }
-            for rows in selection.values.chunks(batch_rows) {
-                consume(select_batch(&array, fields, rows, context)?)?;
-            }
+            consume(array)?;
         }
         Ok(())
     })

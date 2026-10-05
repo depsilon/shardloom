@@ -1,4 +1,4 @@
-use super::{field, run_facade, run_route, unique_vortex_binding_dir};
+use super::{complete_result, field, run_facade, run_route, unique_vortex_binding_dir};
 use arrow_array::{Int64Array, RecordBatch, UInt64Array};
 use arrow_schema::{DataType, Field, Schema};
 use std::{
@@ -138,46 +138,49 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
         assert!(ok, "{surface}: {stdout}");
         let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
         assert_eq!(envelope["status"], "success");
-        let summary = envelope["human_text"]
-            .as_str()
-            .unwrap()
-            .lines()
-            .find(|line| line.starts_with("result summary: "))
-            .unwrap();
-        let result: serde_json::Value =
-            serde_json::from_str(summary.split_once(" values=").unwrap().1).unwrap();
-        let rows = envelope["fields"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|field| field["key"] == "result_jsonl")
-            .unwrap()["value"]
-            .as_str()
-            .unwrap()
-            .lines()
-            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
-            .collect::<Vec<_>>();
-        assert_eq!(rows, expected);
+        assert_eq!(complete_result::rows(&envelope), expected);
         assert!(stdout.contains(&field("result_payload_complete", "true")));
         assert!(stdout.contains(&field(
             "result_materialization_boundary",
             "bounded_native_batches_to_jsonl"
         )));
-        assert!(result["aggregate_spill_runs_written"].as_u64().unwrap() >= 4);
+        let runs_written = complete_result::field_value(
+            &envelope,
+            "local_primitive_native_aggregate_spill_runs_written",
+        )
+        .parse::<u64>()
+        .unwrap();
+        assert!(runs_written >= 4);
         assert_eq!(
-            result["aggregate_spill_runs_written"],
-            result["aggregate_spill_runs_validated"]
+            runs_written,
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_aggregate_spill_runs_validated"
+            )
+            .parse::<u64>()
+            .unwrap()
         );
-        assert_eq!(result["aggregate_spill_complete_pairs"], 65_536);
-        assert!(
-            result["aggregate_spill_owned_cleanup_completed"]
-                .as_bool()
-                .unwrap()
+        assert_eq!(
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_aggregate_spill_complete_pairs"
+            ),
+            "65536"
+        );
+        assert_eq!(
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_aggregate_spill_owned_cleanup_completed"
+            ),
+            "true"
         );
         assert!(
-            result["aggregate_spill_peak_reserved_bytes"]
-                .as_u64()
-                .unwrap()
+            complete_result::field_value(
+                &envelope,
+                "local_primitive_native_aggregate_spill_peak_reserved_bytes"
+            )
+            .parse::<u64>()
+            .unwrap()
                 <= 4_194_304
         );
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
@@ -271,31 +274,12 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
             ]);
             assert!(ok, "read back {}: {stdout}", output.display());
             let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-            let rows = envelope["fields"]
-                .as_array()
-                .and_then(|fields| fields.iter().find(|field| field["key"] == "result_jsonl"))
-                .and_then(|field| field["value"].as_str())
-                .map_or_else(
-                    || {
-                        let summary = envelope["human_text"]
-                            .as_str()
-                            .unwrap()
-                            .lines()
-                            .find(|line| line.starts_with("result summary: "))
-                            .unwrap();
-                        let values: serde_json::Value =
-                            serde_json::from_str(summary.split_once(" values=").unwrap().1)
-                                .unwrap();
-                        values["values"].as_array().unwrap().clone()
-                    },
-                    |jsonl| {
-                        jsonl
-                            .lines()
-                            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
-                            .collect::<Vec<_>>()
-                    },
-                );
-            assert_eq!(rows, expected, "read back {}", output.display());
+            assert_eq!(
+                complete_result::rows(&envelope),
+                expected,
+                "read back {}",
+                output.display()
+            );
         }
         assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
     }

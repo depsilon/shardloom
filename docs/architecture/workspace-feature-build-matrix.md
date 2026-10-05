@@ -28,7 +28,7 @@ plan_workspace_feature_build_matrix()
 | `vortex_local_primitives` | `cargo check -p shardloom-vortex --features vortex-local-primitives` | Validate local primitive feature-gated surfaces compile. |
 | `vortex_encoded_read_spike` | `cargo check -p shardloom-vortex --features vortex-encoded-read-spike` | Validate encoded-read spike feature-gated surfaces compile. |
 | `packaging_deployment` | `cargo test -p shardloom-contract-tests --test conda_packaging_recipes` | Validate current packaging/deployment recipe contracts. |
-| `benchmark_extras` | `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` | Validate optional benchmark-extra feature surfaces compile. |
+| `release_user_surfaces` | `cargo check -p shardloom-vortex --features release-user-surfaces` | Validate the shared native engine with local adapters and requested outputs. |
 | `future_foundry_optional` | future optional package; no crate exists yet | Keep the future Foundry package lane explicit without inventing a crate. |
 
 ## Release Gate

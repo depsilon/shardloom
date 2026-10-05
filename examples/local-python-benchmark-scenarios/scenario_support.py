@@ -4,42 +4,16 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 import json
 import os
-import shutil
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 
-FACT_SCHEMA = {
-    "id": "int64",
-    "group_key": "int64",
-    "dim_key": "int64",
-    "value": "int64",
-    "metric": "float64",
-    "flag": "int64",
-    "category": "utf8",
-    "event_date": "utf8",
-    "nullable_metric_00": "float64",
-    "nested_payload": "utf8",
-    "nested_group": "utf8",
-    "nested_score": "float64",
-    "raw_event_time": "utf8",
-    "dirty_numeric": "utf8",
-    "dirty_flag": "utf8",
-}
-DIM_SCHEMA = {
-    "dim_key": "int64",
-    "dim_label": "utf8",
-    "weight": "float64",
-}
-EVENTS_SCHEMA = {
-    "id": "int64",
-    "nested_payload": "utf8",
-}
 SCENARIO_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("selective_filter", "selective filter", "selective-filter"),
     ("filter_projection_limit", "filter + projection + limit", "filter---projection---limit"),
@@ -105,13 +79,16 @@ def build_run_paths(
 
 
 def write_fixture_data(run_dir: Path) -> None:
-    if run_dir.exists():
-        shutil.rmtree(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=False)
     data_dir = run_dir / "data"
     target_dir = run_dir / "target"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    target_dir.mkdir(parents=True, exist_ok=True)
-    fact_columns = tuple(FACT_SCHEMA)
+    data_dir.mkdir()
+    target_dir.mkdir()
+    fact_columns = (
+        "id", "group_key", "dim_key", "value", "metric", "flag", "category",
+        "event_date", "nullable_metric_00", "nested_payload", "nested_group",
+        "nested_score", "raw_event_time", "dirty_numeric", "dirty_flag",
+    )
     with (data_dir / "fact.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(fact_columns)
@@ -154,7 +131,7 @@ def write_fixture_data(run_dir: Path) -> None:
             )
     with (data_dir / "dim.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(tuple(DIM_SCHEMA))
+        writer.writerow(("dim_key", "dim_label", "weight"))
         writer.writerows(
             [
                 [100, "alpha", 1.0],
@@ -170,19 +147,33 @@ def write_fixture_data(run_dir: Path) -> None:
     )
 
 
-def load_local_shardloom(repo_root: Path) -> tuple[Any, Callable[..., Any]]:
+def load_local_shardloom(repo_root: Path) -> Any:
     source_path = str(repo_root / "python" / "src")
     if source_path not in sys.path:
         sys.path.insert(0, source_path)
-    import shardloom as sl
-    from shardloom import context
+    from shardloom import ShardLoomContext
 
-    return sl, context
+    return ShardLoomContext
 
 
-def scenario_actions(ctx: Any, sl: Any) -> list[tuple[str, Callable[[], Any]]]:
-    del ctx, sl
-    return [(scenario_id, lambda: None) for scenario_id, _, _ in SCENARIO_ROUTES]
+def load_workload_declarations(repo_root: Path) -> Mapping[str, Any]:
+    path = repo_root / "benchmarks" / "traditional_analytics" / "workloads.py"
+    spec = importlib.util.spec_from_file_location("shardloom_scenario_workloads", path)
+    if spec is None or spec.loader is None:
+        raise FileNotFoundError(path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+    return module.WORKLOADS
+
+
+def quote_sql_path(path: Path) -> str:
+    """Render an absolute local path as a SQL string literal."""
+
+    return "'" + path.resolve().as_posix().replace("'", "''") + "'"
 
 
 def run_scenarios(
@@ -193,53 +184,76 @@ def run_scenarios(
     profile_order: Sequence[str] = ("release", "debug"),
 ) -> dict[str, Any]:
     write_fixture_data(run_dir)
-    _, context = load_local_shardloom(repo_root)
+    context = load_local_shardloom(repo_root)
+    workloads = load_workload_declarations(repo_root)
     resolved_binary = binary
     if isinstance(binary, (str, os.PathLike)):
         resolved_binary = str(resolve_under_repo(repo_root, Path(binary)))
-    previous_cwd = Path.cwd()
-    os.chdir(run_dir)
-    try:
-        ctx = context(
-            repo_root=str(repo_root),
-            binary=resolved_binary,
-            profile_order=tuple(profile_order),
-        )
-        route = ctx.prepare_vortex(
-            "data/fact.csv",
-            dim="data/dim.csv",
-            workspace="target/prepared-vortex",
-            input_format="csv",
-            result_workspace="target/prepared-vortex-results",
-            evidence_level="certified",
-            max_parallelism=1,
-        )
+    ctx = context.from_repo(
+        repo_root=repo_root,
+        binary=resolved_binary,
+        profile_order=tuple(profile_order),
+    )
+    sources = {
+        "fact": quote_sql_path(run_dir / "data" / "fact.csv"),
+        "dim": quote_sql_path(run_dir / "data" / "dim.csv"),
+    }
+    scenario_results = []
+    for scenario_id, workload_name, slug in SCENARIO_ROUTES:
         started = time.perf_counter()
+        write_result = None
         try:
-            report = route.run_batch(
-                [scenario for _, scenario, _ in SCENARIO_ROUTES],
-                result_workspace="target/prepared-vortex-batch",
-                evidence_level="certified",
-                max_parallelism=1,
-                check=False,
+            workload = workloads[workload_name]
+            statements, write_statement = workload.bind(sources)
+            if write_statement is not None:
+                write_path = run_dir / "target" / f"{slug}.csv"
+                write_report = ctx.sql(write_statement).write_csv(write_path, check=False)
+                write_elapsed = (time.perf_counter() - started) * 1000.0
+                write_result = summarize_report(
+                    f"{scenario_id}_write",
+                    write_report,
+                    python_wall_millis=round(write_elapsed, 4),
+                )
+                if not write_result["ok"] or write_result["status"] != "success":
+                    write_result["ok"] = False
+                    write_result["name"] = scenario_id
+                    write_result["write_result"] = dict(write_result, name=f"{scenario_id}_write")
+                    scenario_results.append(write_result)
+                    continue
+
+            query_results = []
+            for statement in statements:
+                report = ctx.sql(statement).collect(check=False)
+                elapsed = (time.perf_counter() - started) * 1000.0
+                query_results.append(
+                    summarize_report(
+                        scenario_id,
+                        report,
+                        python_wall_millis=round(elapsed, 4),
+                    )
+                )
+            result = query_results[0]
+            result["python_wall_millis"] = round((time.perf_counter() - started) * 1000.0, 4)
+            result["timing_components"] = timing_components(
+                result.get("fields", {}), result["python_wall_millis"]
             )
-            elapsed = (time.perf_counter() - started) * 1000.0
-            scenario_results = summarize_prepared_batch(
-                report,
-                python_wall_millis=round(elapsed, 4),
-            )
+            result["ok"] = all(item["ok"] for item in query_results)
+            if len(query_results) > 1:
+                result["query_results"] = query_results
+            if write_result is not None:
+                result["write_result"] = write_result
+                result["ok"] = result["ok"] and write_result["ok"]
+            scenario_results.append(result)
         except Exception as exc:  # noqa: BLE001 - surfaced in JSON for local diagnosis.
             elapsed = (time.perf_counter() - started) * 1000.0
-            scenario_results = [
-                summarize_exception(
-                    scenario_id,
-                    exc,
-                    python_wall_millis=round(elapsed, 4),
-                )
-                for scenario_id, _, _ in SCENARIO_ROUTES
-            ]
-    finally:
-        os.chdir(previous_cwd)
+            result = summarize_exception(
+                scenario_id,
+                exc,
+                python_wall_millis=round(elapsed, 4),
+            )
+            if write_result is not None:
+                result["write_result"] = write_result
+            scenario_results.append(result)
     return {
         "schema_version": "shardloom.local_python_benchmark_scenarios.v1",
         "run_dir": str(run_dir),
@@ -248,108 +262,6 @@ def run_scenarios(
         "scenario_count": len(scenario_results),
         "passed": all(result["ok"] for result in scenario_results),
         "results": scenario_results,
-    }
-
-
-def summarize_prepared_batch(
-    report: Any,
-    *,
-    python_wall_millis: float,
-) -> list[dict[str, Any]]:
-    envelope = getattr(report, "batch", getattr(report, "envelope", report))
-    fields = envelope_fields(envelope)
-    return [
-        summarize_prepared_scenario(
-            scenario_id,
-            slug,
-            report,
-            envelope,
-            fields,
-            python_wall_millis=python_wall_millis,
-        )
-        for scenario_id, _, slug in SCENARIO_ROUTES
-    ]
-
-
-def summarize_prepared_scenario(
-    name: str,
-    slug: str,
-    report: Any,
-    envelope: Any,
-    fields: Mapping[str, str],
-    *,
-    python_wall_millis: float,
-) -> dict[str, Any]:
-    scenario_fields = scenario_field_subset(fields, slug)
-    status = safe_attr(envelope, "status", "unknown")
-    support_status = scenario_fields.get(f"scenario_{slug}_support_status")
-    lifecycle_status = scenario_fields.get(
-        f"scenario_{slug}_prepared_native_vortex_lifecycle_status"
-    )
-    expected_error = name in EXPECTED_ERROR_SCENARIOS
-    fallback_attempted = bool_field(
-        scenario_fields,
-        f"scenario_{slug}_fallback_attempted",
-        "fallback_attempted",
-        default=False,
-    )
-    external_engine_invoked = bool_field(
-        scenario_fields,
-        f"scenario_{slug}_external_engine_invoked",
-        "external_engine_invoked",
-        default=False,
-    )
-    is_error = bool(safe_attr(envelope, "is_error", status != "success"))
-    scenario_supported = support_status in {None, "supported"}
-    ok = (
-        not fallback_attempted
-        and not external_engine_invoked
-        and scenario_supported
-        and ((is_error and expected_error) or (not is_error and not expected_error))
-    )
-    output_row_count = prepared_output_row_count(slug, scenario_fields)
-    diagnostics = [
-        {
-            "code": diagnostic.code,
-            "severity": diagnostic.severity,
-            "reason": diagnostic.reason,
-            "message": diagnostic.message,
-        }
-        for diagnostic in getattr(envelope, "diagnostics", ())
-    ]
-    return {
-        "name": name,
-        "ok": ok,
-        "expected_error": expected_error,
-        "report_type": type(report).__name__,
-        "command": getattr(envelope, "command", None),
-        "status": support_status or status,
-        "is_error": is_error,
-        "python_wall_millis": python_wall_millis,
-        "output_row_count": output_row_count,
-        "fallback_attempted": fallback_attempted,
-        "external_engine_invoked": external_engine_invoked,
-        "claim_gate_status": scenario_fields.get(
-            f"scenario_{slug}_claim_gate_status",
-            fields.get("claim_gate_status"),
-        ),
-        "timing_scope": scenario_fields.get(f"scenario_{slug}_timing_scope")
-        or fields.get("timing_scope")
-        or "prepared_vortex_batch",
-        "source_format": fields.get("source_format") or "csv",
-        "output_format": scenario_fields.get(f"scenario_{slug}_output_format")
-        or fields.get("output_format"),
-        "output_path": scenario_fields.get(f"scenario_{slug}_output_path")
-        or fields.get("output_path"),
-        "vortex_output_row_count": scenario_fields.get(
-            f"scenario_{slug}_vortex_output_row_count"
-        ),
-        "lifecycle_status": lifecycle_status,
-        "execution_mode": scenario_fields.get(f"scenario_{slug}_execution_mode"),
-        "diagnostics": diagnostics,
-        "result_sample": prepared_result_sample(slug, scenario_fields),
-        "fields": scenario_fields,
-        "timing_components": timing_components(scenario_fields, python_wall_millis),
     }
 
 
@@ -466,109 +378,6 @@ def timing_components(fields: Mapping[str, str], python_wall_millis: float) -> d
         if any(token in key for token in TIMING_FIELD_TOKENS):
             components[key] = value
     return components
-
-
-def scenario_field_subset(fields: Mapping[str, str], slug: str) -> dict[str, str]:
-    prefix = f"scenario_{slug}_"
-    shared_keys = {
-        "runner_kind",
-        "scenario_order",
-        "prepare_batch_schema_version",
-        "prepare_batch_preparation_command",
-        "prepare_batch_preparation_included_in_batch_timing",
-        "prepare_batch_preparation_input_format",
-        "prepare_batch_preparation_micros",
-        "prepare_batch_preparation_scenario",
-        "prepare_batch_preparation_timing_scope",
-        "prepare_batch_preparation_timing_source",
-        "prepare_batch_prepare_route_total_micros",
-        "prepare_batch_prepared_state_lookup_or_create_micros",
-        "prepare_batch_prepared_state_lookup_status",
-        "prepare_batch_prepared_state_manifest_lookup_micros",
-        "prepare_batch_prepared_state_cache_hit_micros",
-        "prepare_batch_prepared_state_cache_miss_create_micros",
-        "prepare_batch_prepared_state_artifact_write_micros",
-        "prepare_batch_prepared_state_artifact_register_micros",
-        "prepare_batch_prepared_state_replay_verification_micros",
-        "prepare_batch_query_timing_starts_after_preparation",
-        "prepare_batch_source_to_columnar_micros",
-        "prepare_batch_vortex_array_build_micros",
-        "prepare_batch_vortex_write_micros",
-        "prepare_batch_vortex_reopen_verify_micros",
-        "prepare_batch_lifecycle_schema_version",
-        "prepare_batch_lifecycle_status",
-        "prepare_batch_lifecycle_no_standalone_lane",
-        "prepare_batch_scale_runtime_status",
-        "prepare_batch_scale_route",
-        "source_format",
-        "fallback_attempted",
-        "external_engine_invoked",
-    }
-    return {
-        key: value
-        for key, value in fields.items()
-        if key.startswith(prefix) or key in shared_keys
-    }
-
-
-def bool_field(
-    fields: Mapping[str, str],
-    *keys: str,
-    default: bool,
-) -> bool:
-    for key in keys:
-        value = fields.get(key)
-        if value is None:
-            continue
-        lowered = str(value).strip().lower()
-        if lowered == "true":
-            return True
-        if lowered == "false":
-            return False
-    return default
-
-
-def prepared_output_row_count(slug: str, fields: Mapping[str, str]) -> int | None:
-    result_json = fields.get(f"scenario_{slug}_result_json")
-    if result_json:
-        try:
-            decoded = json.loads(result_json)
-        except json.JSONDecodeError:
-            decoded = None
-        if isinstance(decoded, list):
-            return len(decoded)
-        if isinstance(decoded, dict):
-            for key in ("row_count", "rows", "count"):
-                value = decoded.get(key)
-                if isinstance(value, int):
-                    return value
-    for key in (
-        f"scenario_{slug}_streaming_result_row_count",
-        f"scenario_{slug}_computed_result_sink_rows",
-        "output_row_count",
-    ):
-        value = fields.get(key)
-        if value not in {None, "", "none"}:
-            try:
-                return int(str(value))
-            except ValueError:
-                continue
-    return None
-
-
-def prepared_result_sample(slug: str, fields: Mapping[str, str]) -> list[Any]:
-    result_json = fields.get(f"scenario_{slug}_result_json")
-    if not result_json:
-        return []
-    try:
-        decoded = json.loads(result_json)
-    except json.JSONDecodeError:
-        return []
-    if isinstance(decoded, list):
-        return decoded[:3]
-    if isinstance(decoded, dict):
-        return [decoded]
-    return []
 
 
 def write_json(path: Path, payload: Mapping[str, Any]) -> None:

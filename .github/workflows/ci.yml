@@ -112,13 +112,11 @@ jobs:
           - lane: native_vortex_tests
             command: cargo test -p shardloom-vortex --lib --features release-user-surfaces
           - lane: native_public_surface_tests
-            command: cargo test -p shardloom-cli --bin shardloom --test sql_local_source_runtime_smoke --test public_workflow_route --test resident_worker --features release-user-surfaces
+            command: cargo test -p shardloom-cli --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
           - lane: native_release_clippy
             command: cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
           - lane: packaging_deployment
             command: cargo test -p shardloom-contract-tests --test conda_packaging_recipes
-          - lane: benchmark_extras
-            command: cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
@@ -449,9 +447,9 @@ jobs:
           test -f target/golden-workflow-report.json
           test -d target/golden-workflows
       - name: Build debug user-surface example binary
-        run: cargo build -q -p shardloom-cli --features "release-user-surfaces vortex-traditional-analytics-benchmark"
+        run: cargo build -q -p shardloom-cli --features release-user-surfaces
       - name: Build portable release user-surface example binary
-        run: cargo build --release -q -p shardloom-cli --features "release-user-surfaces vortex-traditional-analytics-benchmark"
+        run: cargo build --release -q -p shardloom-cli --features release-user-surfaces
       - name: Python user-surface completion gate
         run: python scripts/check_python_user_surface_completion.py
       - name: SQL/Python/DataFrame parity gate

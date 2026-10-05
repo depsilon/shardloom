@@ -97,8 +97,10 @@ traversals as well as between outer rows.
 
 Preserve bounded result batches and collection limits. Native output retains
 logical schema and validity. The six existing nested destinations retain their
-exact support and fidelity contracts; CSV and the pinned ORC nested writer
-remain explicit denials before publication. Existing native ordering spill may
+exact support and fidelity contracts. The subsequent
+[shared native workflow](native-typed-reductions-2026-10-04.md) extends CSV to
+nested JSON text cells without persisting logical dtypes; the pinned ORC nested
+writer remains an explicit denial before publication. Existing native ordering spill may
 carry nested keys after round-trip and merge proof. Other state families retain
 their explicit grant-denial behavior until their own spill implementation is
 verified. Reservation counters do not claim coverage of all provider scratch,

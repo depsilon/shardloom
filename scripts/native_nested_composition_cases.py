@@ -64,7 +64,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             if denials and extension in denials:
                 denied(name, report, destination, denials[extension])
                 continue
-            if nested and extension in ("csv", "orc"):
+            if nested and extension == "orc":
                 denied(name, report, destination, "nested")
                 continue
             verified(name, report)
@@ -74,7 +74,15 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                     if reader.fieldnames != columns:
                         raise ValueError(f"{name}: CSV field order differs")
                     actual = list(reader)
-                equal(name, actual, [{key: csv_cell(value) for key, value in row.items()} for row in expected], destination)
+                expected_csv = [
+                    {key: value if isinstance(value, (list, dict)) else csv_cell(value)
+                     for key, value in row.items()} for row in expected
+                ]
+                for actual_row, expected_row in zip(actual, expected_csv):
+                    for key, value in expected_row.items():
+                        if isinstance(value, (list, dict)):
+                            actual_row[key] = strict_json(actual_row[key])
+                equal(name, actual, expected_csv, destination)
                 continue
             if extension == "json":
                 actual = strict_json(destination.read_text())

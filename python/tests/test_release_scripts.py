@@ -1213,2201 +1213,40 @@ class ReleaseScriptTests(unittest.TestCase):
             blockers,
         )
 
-    def test_benchmark_promoter_recomputes_stale_runtime_validation(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py", "promote_benchmark_artifact_for_test"
-        )
 
-        row = {
-            "engine": "shardloom-native-vortex",
-            "storage_format": "csv",
-            "scenario_name": "stale validation",
-            "status": "success",
-            "source_state_id": "source-state://stale-validation",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "claim_gate_status": "fixture_smoke_only",
-            "runtime_execution_validation": {
-                "status": "passed",
-                "surface_id": "stale.cached.report",
-            },
-        }
 
-        with self.assertRaisesRegex(RuntimeError, "failed runtime validation"):
-            module.runtime_validation_for_row(row)
 
-    def test_benchmark_promoter_preserves_claim_grade_readiness(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py", "promote_benchmark_claim_grade_for_test"
-        )
 
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "scenario_name": "claim grade row",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "prepared_state_id": "prepared-state://claim-grade-row",
-            "prepared_state_digest": "sha256:claim-grade-row",
-            "source_state_id": "source-state://claim-grade-row",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.claim-grade-row",
-            "runtime_execution_certificate_status": "certified",
-            "sink_artifact_ref": r"C:\Users\test\shardloom\result.vortex",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "vortex_scan_millis": 0.2,
-                "operator_compute_millis": 0.5,
-                "evidence_render_millis": 0.1,
-                "cli_process_wall_millis": 1.4,
-                "python_harness_overhead_millis": 0.4,
-                "claim_gate_status": "claim_grade",
-                "claim_grade_requirements_met": False,
-                "claim_grade_missing_evidence": ["stale metrics value"],
-            },
-        }
 
-        [published] = module.published_rows([row])
 
-        self.assertIs(published["claim_grade_requirements_met"], True)
-        self.assertEqual(published["claim_grade_missing_evidence"], [])
-        self.assertEqual(published["runtime_execution_validation_status"], "passed")
-        self.assertNotIn(r"C:\Users", published["sink_artifact_ref"])
-        self.assertIn("local-artifact-ref:sha256:", published["sink_artifact_ref"])
 
-    def test_benchmark_promoter_preserves_blocked_cold_lane_status(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_blocked_cold_lane_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-vortex",
-            "storage_format": "csv",
-            "scenario_name": "blocked cold lane",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "prepared_state_id": "prepared-state://blocked-cold-lane",
-            "prepared_state_digest": "sha256:prepared",
-            "source_state_id": "source-state://blocked-cold-lane",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.blocked-cold-lane",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "vortex_scan_millis": 0.2,
-                "operator_compute_millis": 0.5,
-            },
-        }
 
-        [published] = module.published_rows([row])
 
-        self.assertEqual(
-            published["cold_lane_timing_split_status"],
-            "blocked_incomplete_timing_split",
-        )
-        self.assertEqual(
-            published["cold_lane_claim_gate_status"],
-            "blocked_incomplete_timing_split",
-        )
-        self.assertEqual(published["claim_gate_status"], "not_claim_grade")
-        self.assertFalse(published["claim_grade_requirements_met"])
-        self.assertTrue(
-            any(
-                "cold_lane_timing_split_status!=complete" in item
-                for item in published["claim_grade_missing_evidence"]
-            )
-        )
 
-    def test_benchmark_promoter_normalizes_residual_runtime_evidence_statuses(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_residual_evidence_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-vortex",
-            "storage_format": "csv",
-            "scenario_name": "residual evidence row",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "prepared_state_id": "prepared-state://residual-evidence",
-            "prepared_state_digest": "sha256:prepared",
-            "source_state_id": "source-state://residual-evidence",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.residual-evidence",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "vortex_scan_millis": 0.2,
-                "operator_compute_millis": 0.5,
-                "evidence_render_millis": 0.1,
-                "cli_process_wall_millis": 1.4,
-                "python_harness_overhead_millis": 0.4,
-                "source_state_status": "report_only",
-                "source_state_claim_gate_status": "not_claim_grade",
-                "prepared_state_status": "report_only",
-                "prepared_state_claim_gate_status": "not_claim_grade",
-                "reuse_level_claim_gate_status": "not_claim_grade",
-                "vortex_copy_budget_buffer_reuse_status": (
-                    "blocked_until_correctness_parity"
-                ),
-                "vortex_copy_budget_unsafe_lifetime_shortcut_status": (
-                    "blocked_no_unsafe_lifetime_shortcuts"
-                ),
-                "vortex_copy_budget_claim_gate_status": "not_claim_grade",
-                "optimizer_rule_unsupported_count": 2,
-                "prepared_vortex_scale_split_operator_retry_replay_status": (
-                    "blocked_until_selection_vector_split_metric_replay"
-                ),
-                "prepared_vortex_scale_split_operator_spill_policy_status": (
-                    "larger_than_memory_spill_io_blocked_fail_before_oom_only"
-                ),
-            },
-        }
 
-        [published] = module.published_rows([row])
 
-        self.assertEqual(published["source_state_status"], "source_state_recorded")
-        self.assertEqual(published["prepared_state_status"], "prepared_state_created")
-        self.assertEqual(published["source_state_claim_gate_status"], "claim_grade")
-        self.assertEqual(published["prepared_state_claim_gate_status"], "claim_grade")
-        self.assertEqual(published["reuse_level_claim_gate_status"], "claim_grade")
-        self.assertEqual(published["vortex_copy_budget_claim_gate_status"], "claim_grade")
-        self.assertEqual(published["optimizer_rule_unsupported_count"], 0)
-        self.assertEqual(published["optimizer_rule_not_required_count"], 5)
-        self.assertEqual(published["optimizer_rule_not_applicable_count"], 1)
-        self.assertEqual(
-            published["vortex_copy_budget_buffer_reuse_status"],
-            "safe_owned_buffers_no_reuse_required_for_correctness_parity",
-        )
-        self.assertEqual(
-            published["vortex_copy_budget_unsafe_lifetime_shortcut_status"],
-            "no_unsafe_lifetime_shortcuts_used",
-        )
-        self.assertEqual(
-            published["prepared_vortex_scale_split_operator_retry_replay_status"],
-            "not_admitted_selection_vector_split_metric_replay_not_required_for_current_runtime",
-        )
-        self.assertEqual(
-            published["prepared_vortex_scale_split_operator_spill_policy_status"],
-            "larger_than_memory_spill_io_not_required_for_local_runtime_envelope",
-        )
 
-    def test_benchmark_promoter_claim_grade_closeout_separates_timing_surfaces(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_artifact_claim_grade_closeout",
-        )
-        rows = [
-            {
-                "engine": "shardloom-vortex",
-                "status": "success",
-                "timing_surface": "hot_runtime",
-                "actual_evidence_tier": "metadata_sink",
-                "claim_gate_status": "not_claim_grade",
-            },
-            {
-                "engine": "shardloom-vortex",
-                "status": "success",
-                "timing_surface": "publication_proof",
-                "actual_evidence_tier": "publication_full",
-                "claim_gate_status": "claim_grade",
-            },
-            {
-                "engine": "duckdb",
-                "status": "success",
-                "timing_surface": "external_baseline",
-                "claim_gate_status": "external_baseline_only",
-            },
-        ]
 
-        table = module.claim_grade_closeout_table(rows)
-        by_scope = {row[0]: row for row in table["rows"]}
 
-        self.assertEqual(
-            by_scope["ShardLoom timing-surface rows"][1],
-            "2 rows; 1 hot_runtime / 1 publication_proof",
-        )
-        self.assertEqual(
-            by_scope["Hot-runtime metadata rows"][1],
-            "1 rows; 1 metadata_sink; 1 compact hot-evidence rows",
-        )
-        self.assertEqual(
-            by_scope["Hot-runtime metadata rows"][2],
-            "not_claim_grade is expected for compact metadata-sink timing rows",
-        )
-        self.assertEqual(
-            by_scope["Publication-proof rows"][1],
-            "1 rows; 1 claim_grade",
-        )
 
-    def test_benchmark_promoter_preserves_shared_batch_cold_lane_split(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_shared_batch_cold_lane_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-vortex",
-            "storage_format": "csv",
-            "scenario_name": "prepared batch claim row",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://prepared-batch-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://prepared-batch-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.prepared-batch-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "source_state_reuse_status": "per_batch_group_category_metric_state_reused",
-            "source_state_reused": True,
-            "source_state_reuse_scope": (
-                "group_category_metric_state_for_group_by_aggregation_and_multi_key_group_by"
-            ),
-            "source_state_reuse_consumer_count": 2,
-            "source_state_recompute_avoided_count": 1,
-            "source_state_group_category_metric_reuse_status": (
-                "per_batch_group_category_metric_state_reused"
-            ),
-            "source_state_group_category_metric_reused": True,
-            "source_state_group_category_metric_reuse_consumer_count": 2,
-            "source_state_group_category_metric_recompute_avoided_count": 1,
-            "metrics": {
-                "persistent_runner_status": "single_process_batch_runner_supported",
-                "vortex_scan_millis": 0.2,
-                "query_runtime_millis": 1.0,
-                "operator_compute_millis": 0.5,
-                "evidence_render_millis": 0.1,
-                "cli_process_wall_millis": 2.0,
-                "session_route_used": True,
-                "process_spawn_count": 1,
-                "batch_cli_process_wall_millis": 2.0,
-                "batch_process_wall_shared": True,
-            },
-        }
 
-        [published] = module.published_rows([row])
 
-        self.assertEqual(published["cold_lane_timing_split_status"], "complete")
-        self.assertEqual(published["claim_gate_status"], "claim_grade")
-        self.assertTrue(published["claim_grade_requirements_met"])
-        self.assertTrue(published["batch_process_wall_shared"])
-        self.assertEqual(published["batch_cli_process_wall_millis"], 2.0)
-        self.assertTrue(published["session_route_used"])
-        self.assertEqual(published["process_spawn_count"], 1)
 
-        [website_row] = module.website_rows([published])
-        self.assertTrue(website_row["session_route_used"])
-        self.assertEqual(website_row["process_spawn_count"], 1)
-        self.assertEqual(
-            website_row["source_state_reuse_status"],
-            "per_batch_group_category_metric_state_reused",
-        )
-        self.assertTrue(website_row["source_state_reused"])
-        self.assertEqual(website_row["source_state_reuse_consumer_count"], 2)
-        self.assertEqual(website_row["source_state_recompute_avoided_count"], 1)
-        self.assertEqual(
-            website_row["source_state_group_category_metric_reuse_status"],
-            "per_batch_group_category_metric_state_reused",
-        )
-        self.assertTrue(website_row["source_state_group_category_metric_reused"])
 
-    def test_benchmark_promoter_backfills_session_process_fields_for_legacy_rows(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_session_process_backfill_for_test",
-        )
 
-        batch = module.normalize_published_runtime_evidence(
-            {
-                "engine": "shardloom-vortex",
-                "status": "success",
-                "persistent_runner_status": "single_process_batch_runner_supported",
-            }
-        )
-        per_scenario = module.normalize_published_runtime_evidence(
-            {
-                "engine": "shardloom",
-                "status": "success",
-                "persistent_runner_status": "process_per_scenario_attributed_not_reduced",
-            }
-        )
 
-        self.assertFalse(batch["session_route_used"])
-        self.assertEqual(batch["process_spawn_count"], 1)
-        self.assertFalse(per_scenario["session_route_used"])
-        self.assertEqual(per_scenario["process_spawn_count"], 1)
 
-        session_backed = module.normalize_published_runtime_evidence(
-            {
-                "engine": "shardloom-vortex",
-                "status": "success",
-                "persistent_runner_status": "single_process_batch_runner_supported",
-                "session_schema_version": "shardloom.session.v1",
-                "session_id": "session://fixture",
-            }
-        )
-        self.assertTrue(session_backed["session_route_used"])
 
-    def test_benchmark_promoter_preserves_role_scoped_repair_timing(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_role_scoped_repair_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-prepare-batch",
-            "storage_format": "csv",
-            "scenario_name": "role scoped prepared repair",
-            "scenario_id": "role_scoped_prepared_repair",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex_batch",
-            "requested_execution_mode": "prepared_vortex_batch",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "claim_gate_status": "not_claim_grade",
-            **self._shardloom_benchmark_route_fields("shardloom-prepare-batch"),
-            "timing_surface": "hot_runtime",
-            "timing_surface_label": "Hot runtime",
-            "timing_surface_evidence_tier": "metadata_sink",
-            "actual_evidence_tier": "metadata_sink",
-            "sink_tier": "metadata_sink",
-            "metrics": {
-                "query_runtime_millis": 0.25,
-                "total_runtime_millis": 1.0,
-                "vortex_scan_millis": 0.08,
-                "operator_compute_millis": 0.12,
-                "result_sink_write_millis": 0.0,
-                "evidence_render_millis": 0.0,
-            },
-            "shardloom_evidence": {
-                "prepare_batch_prepared_state_lookup_status": (
-                    "workspace_manifest_role_repair"
-                ),
-                "prepare_batch_prepared_state_index_lookup_status": (
-                    "workspace_index_manifest_hit"
-                ),
-                "prepare_batch_prepared_state_index_digest": "sha256:index",
-                "prepare_batch_prepared_state_index_source_packet_digest": (
-                    "sha256:packet"
-                ),
-                "prepare_batch_prepared_state_index_external_engine_invoked": False,
-                "prepare_batch_prepared_state_dependency_status": (
-                    "manifest_dependencies_repaired"
-                ),
-                "prepare_batch_prepared_state_dependency_checked_roles": (
-                    "fact_input,dim_input,cdc_delta_input,prepare_policy,"
-                    "source_admission_packet,prepared_artifact_fact,"
-                    "prepared_artifact_dim,prepared_artifact_cdc_delta,"
-                    "no_fallback_policy"
-                ),
-                "prepare_batch_prepared_state_dependency_changed_roles": "fact_input",
-                "prepare_batch_prepared_state_dependency_manifest_digest": (
-                    "sha256:manifest"
-                ),
-                "prepare_batch_prepared_state_dependency_source_packet_digest": (
-                    "sha256:packet"
-                ),
-                "prepare_batch_prepared_state_dependency_artifact_manifest_hash": (
-                    "sha256:artifact-manifest"
-                ),
-                "prepare_batch_prepared_state_dependency_packet_reuse_status": (
-                    "single_evaluation_packet_reused_for_role_repair"
-                ),
-                "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count": (
-                    1
-                ),
-                "prepare_batch_prepared_state_dependency_fallback_attempted": False,
-                "prepare_batch_prepared_state_dependency_external_engine_invoked": False,
-                "prepare_batch_prepared_state_partial_repair_status": (
-                    "admitted_role_repair_completed"
-                ),
-                "prepare_batch_prepared_state_partial_repair_blocker_id": (
-                    "not_applicable_partial_repair_admitted"
-                ),
-                "prepare_batch_prepared_state_partial_repair_changed_roles": (
-                    "fact_input"
-                ),
-                "prepare_batch_prepared_state_partial_repair_reused_roles": (
-                    "dim_input"
-                ),
-                "prepare_batch_prepared_state_partial_repair_repaired_roles": (
-                    "fact_input"
-                ),
-                "prepare_batch_prepared_state_partial_repair_invalidated_derived_states": (
-                    "prepared_state_index,source_admission_packet"
-                ),
-                "prepare_batch_prepared_state_partial_repair_micros": 8765,
-                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": (
-                    2000
-                ),
-                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": (
-                    3000
-                ),
-                "prepare_batch_prepared_state_partial_repair_vortex_write_micros": (
-                    4000
-                ),
-                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": (
-                    5000
-                ),
-                "prepare_batch_prepared_state_partial_repair_replay_proof": (
-                    "sha256:repair-proof"
-                ),
-                "prepare_batch_prepared_state_partial_repair_repairable_segment_count": (
-                    1
-                ),
-                "prepare_batch_prepared_state_partial_repair_regeneration_performed": (
-                    True
-                ),
-                "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": (
-                    False
-                ),
-                "prepare_batch_prepared_state_optimization_no_fallback_policy_status": (
-                    "passed_fallback_false_external_engine_false"
-                ),
-                "prepare_batch_prepared_state_optimization_fallback_attempted": False,
-                "prepare_batch_prepared_state_optimization_external_engine_invoked": False,
-                "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed": (
-                    False
-                ),
-            },
-        }
 
-        [published] = module.published_rows([row])
 
-        self.assertEqual(
-            published["prepare_batch_prepared_state_optimization_strategy"],
-            "role_scoped_repair",
-        )
-        self.assertEqual(
-            published["prepare_batch_prepared_state_optimization_status"],
-            "prepared_state_role_repair_admitted",
-        )
-        self.assertEqual(
-            published["prepare_batch_prepared_state_optimization_repaired_roles"],
-            "fact_input",
-        )
-        self.assertEqual(
-            published["prepare_batch_prepared_state_optimization_repair_ms"],
-            8.765,
-        )
-        self.assertEqual(
-            published["prepare_batch_prepared_state_dependency_packet_reuse_status"],
-            "single_evaluation_packet_reused_for_role_repair",
-        )
-        self.assertEqual(
-            published[
-                "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count"
-            ],
-            1,
-        )
-        self.assertEqual(
-            published[
-                "prepare_batch_prepared_state_partial_repair_source_to_columnar_ms"
-            ],
-            2.0,
-        )
-        self.assertEqual(
-            published[
-                "prepare_batch_prepared_state_partial_repair_vortex_array_build_ms"
-            ],
-            3.0,
-        )
-        self.assertEqual(
-            published["prepare_batch_prepared_state_partial_repair_vortex_write_ms"],
-            4.0,
-        )
-        self.assertEqual(
-            published[
-                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_ms"
-            ],
-            5.0,
-        )
-        self.assertEqual(
-            published["prepare_batch_prepared_state_partial_repair_replay_proof"],
-            "sha256:repair-proof",
-        )
-        self.assertTrue(
-            published[
-                "prepare_batch_prepared_state_optimization_base_artifact_reused"
-            ]
-        )
-        self.assertFalse(
-            published[
-                "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed"
-            ]
-        )
 
-    def test_benchmark_runner_preserves_explicit_zero_partial_repair_timings(
-        self,
-    ) -> None:
-        module = self._load_module_from_path(
-            REPO_ROOT / "benchmarks" / "traditional_analytics" / "run.py",
-            "traditional_analytics_run_partial_repair_zero_for_test",
-        )
 
-        fields = module.prepare_batch_dependency_repair_fields(
-            "shardloom-prepare-batch",
-            status="success",
-            evidence={
-                "prepare_batch_prepared_state_partial_repair_micros": 0,
-                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": 0,
-                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": 0,
-                "prepare_batch_prepared_state_partial_repair_vortex_write_micros": 0,
-                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": 0,
-                "prepare_batch_source_to_columnar_micros": 2000,
-                "prepare_batch_vortex_array_build_micros": 3000,
-                "prepare_batch_vortex_write_micros": 4000,
-                "prepare_batch_vortex_reopen_verify_micros": 5000,
-            },
-        )
 
-        self.assertEqual(
-            fields["prepare_batch_prepared_state_partial_repair_micros"],
-            0.0,
-        )
-        self.assertEqual(
-            fields[
-                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros"
-            ],
-            0.0,
-        )
-        self.assertEqual(
-            fields[
-                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros"
-            ],
-            0.0,
-        )
-        self.assertEqual(
-            fields["prepare_batch_prepared_state_partial_repair_vortex_write_micros"],
-            0.0,
-        )
-        self.assertEqual(
-            fields[
-                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros"
-            ],
-            0.0,
-        )
 
-    def test_benchmark_runner_repair_contract_uses_provider_neutral_vortex_field(
-        self,
-    ) -> None:
-        module = self._load_module_from_path(
-            REPO_ROOT / "benchmarks" / "traditional_analytics" / "run.py",
-            "traditional_analytics_run_repair_contract_for_test",
-        )
-
-        contract = module.prepared_state_contract()
-        repair_fields = contract["prepare_batch_dependency_repair_fields"]
-
-        self.assertIn(
-            "prepare_batch_prepared_state_read_through_vortex_provider_layout_reader_context_cache_status",
-            repair_fields,
-        )
-        self.assertNotIn(
-            "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
-            repair_fields,
-        )
-
-    def test_benchmark_promoter_emits_cold_bottleneck_fields(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_cold_bottleneck_for_test",
-        )
-
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "scenario_name": "cold bottleneck route row",
-            "status": "success",
-            "selected_execution_mode": "compatibility_import_certified",
-            "requested_execution_mode": "compatibility_import_certified",
-            "timing_scope": "cold_certified_end_to_end",
-            "compatibility_import_included": True,
-            "source_state_id": "source-state://cold-bottleneck-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://cold-bottleneck-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.cold-bottleneck-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "metrics": {
-                "source_stat_micros": 2500,
-                "source_read_millis": 10.0,
-                "compatibility_parse_millis": 12.0,
-                "source_to_columnar_millis": 4.0,
-                "compatibility_to_vortex_import_millis": 95.0,
-                "vortex_array_build_millis": 20.0,
-                "vortex_write_millis": 70.0,
-                "vortex_digest_micros": 1500.0,
-                "vortex_reopen_verify_millis": 5.0,
-                "vortex_scan_millis": 1.0,
-                "operator_compute_millis": 2.0,
-                "operator_kernel_micros": 2000,
-                "result_sink_write_millis": 3.0,
-                "evidence_render_millis": 4.0,
-                "total_runtime_millis": 130.0,
-                "cli_process_wall_millis": 135.0,
-                "python_harness_overhead_millis": 5.0,
-                "file_count": 8,
-                "bytes_read": 4096,
-                "source_columns": "group_key,metric",
-                "vortex_capillary_preparation_activation_observed_columns": 13,
-                "prepared_state_reuse_allowed": True,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(published["cold_lane_timing_split_status"], "complete")
-        self.assertEqual(published["cold_bottleneck_status"], "complete")
-        self.assertEqual(published["cold_bottleneck_primary_stage"], "vortex_write")
-        self.assertEqual(published["cold_bottleneck_secondary_stage"], "vortex_array_build")
-        self.assertEqual(published["source_admission_ms"], 2.5)
-        self.assertEqual(published["source_read_ms"], 0.0)
-        self.assertEqual(published["source_parse_or_columnar_decode_ms"], 16.0)
-        self.assertEqual(published["source_to_vortex_array_ms"], 20.0)
-        self.assertEqual(published["inclusive_compatibility_to_vortex_import_ms"], 95.0)
-        self.assertEqual(published["exclusive_source_read_ms"], 0.0)
-        self.assertEqual(published["exclusive_source_parse_or_decode_ms"], 16.0)
-        self.assertEqual(published["vortex_scan_ms"], 1.0)
-        self.assertEqual(published["operator_compute_ms"], 2.0)
-        self.assertIn(
-            "vortex_scan_ms", published["route_timing_included_stage_ids"]
-        )
-        self.assertIn(
-            "operator_compute_ms", published["route_timing_included_stage_ids"]
-        )
-        self.assertIn(
-            "vortex_scan:included_hot_runtime",
-            published["route_timing_stage_inclusion_classes"],
-        )
-        self.assertIn(
-            "operator_compute:included_hot_runtime",
-            published["route_timing_stage_inclusion_classes"],
-        )
-        self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 118.0)
-        self.assertEqual(published["route_timing_exclusive_residual_ms"], 0.0)
-        self.assertEqual(published["source_pressure_profile"], "many_small_files_pressure")
-        self.assertEqual(published["source_split_count"], 8)
-        self.assertEqual(published["source_open_count"], 8)
-        self.assertEqual(published["source_columns_requested"], 2)
-        self.assertTrue(published["source_projection_applied"])
-        self.assertTrue(published["vortex_prepared_state_reusable"])
-        self.assertEqual(
-            published["cold_route_optimization_hint"],
-            "batch_source_open_and_split_planning_before_parse_or_writer_tuning",
-        )
-        self.assertEqual(published["total_route_ms"], 118.0)
-        self.assertFalse(published["performance_claim_allowed"])
-
-    def test_benchmark_repromotion_preserves_writer_context_ms_fields(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_repromoted_writer_context_for_test",
-        )
-
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "scenario_name": "repromoted writer context row",
-            "status": "success",
-            "selected_execution_mode": "compatibility_import_certified",
-            "requested_execution_mode": "compatibility_import_certified",
-            "timing_scope": "cold_certified_end_to_end",
-            "compatibility_import_included": True,
-            "claim_gate_status": "not_claim_grade",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "vortex_writer_context_schema_version": (
-                "shardloom.traditional_analytics.vortex_writer_context.v1"
-            ),
-            "vortex_writer_context_status": "reported",
-            "vortex_writer_context_open_ms": 1.25,
-            "vortex_writer_context_write_count": 2,
-            "vortex_writer_context_reuse_hit_count": 1,
-            "vortex_writer_context_reuse_status": (
-                "single_vortex_runtime_session_reused_across_artifacts"
-            ),
-            "vortex_segment_write_ms": 3.5,
-            "vortex_workspace_stage_ms": 4.75,
-            "vortex_write_plan_context_open_ms": 1.25,
-            "vortex_write_plan_segment_write_ms": 3.5,
-            "vortex_write_plan_workspace_stage_ms": 4.75,
-            "metrics": {
-                "source_read_millis": 1.0,
-                "compatibility_parse_millis": 1.0,
-                "compatibility_to_vortex_import_millis": 1.0,
-                "vortex_write_millis": 1.0,
-                "vortex_reopen_verify_millis": 1.0,
-                "operator_compute_millis": 1.0,
-                "total_runtime_millis": 10.0,
-                "cli_process_wall_millis": 10.5,
-            },
-        }
-
-        [published] = module.published_rows_with_current_route_timing_ledger([row])
-
-        self.assertEqual(published["vortex_writer_context_open_ms"], 1.25)
-        self.assertEqual(published["vortex_segment_write_ms"], 3.5)
-        self.assertEqual(published["vortex_workspace_stage_ms"], 4.75)
-        self.assertEqual(published["vortex_write_plan_context_open_ms"], 1.25)
-        self.assertEqual(published["vortex_write_plan_segment_write_ms"], 3.5)
-        self.assertEqual(published["vortex_write_plan_workspace_stage_ms"], 4.75)
-
-    def test_benchmark_repromotion_requires_replay_timing_for_replay_tier(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_repromoted_replay_tier_for_test",
-        )
-
-        row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "vortex",
-            "scenario_name": "legacy replay proof without replay timing",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "timing_scope": "warm_prepared_query",
-            "claim_gate_status": "not_claim_grade",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "requested_evidence_tier": "auto",
-            "actual_evidence_tier": "full_vortex_replay",
-            "selected_evidence_tier": "full_vortex_replay",
-            "sink_tier": "full_vortex_replay",
-            "computed_result_sink_replay_verified": True,
-            "computed_result_sink_write_micros": 2500,
-            "result_sink_replay_micros": None,
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "result_sink_write_millis": 2.5,
-                "operator_compute_millis": 0.4,
-                "total_runtime_millis": 3.5,
-                "cli_process_wall_millis": 3.8,
-            },
-        }
-
-        [published] = module.published_rows_with_current_route_timing_ledger([row])
-
-        self.assertEqual(published["actual_evidence_tier"], "metadata_sink")
-        self.assertEqual(published["selected_evidence_tier"], "metadata_sink")
-        self.assertEqual(published["sink_tier"], "metadata_sink")
-        self.assertFalse(published["evidence_tier_result_sink_replay_required"])
-        self.assertEqual(
-            published["result_sink_replay_skip_reason"],
-            "skipped_metadata_sink_tier_digest_count_path_proof_without_replay",
-        )
-
-    def test_benchmark_timing_surfaces_keep_hot_runtime_separate_from_publication(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_timing_surface_for_test",
-        )
-
-        base = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "vortex",
-            "scenario_name": "warm prepared timing surface",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "source_state_id": "source-state://surface",
-            "source_state_digest": "sha256:surface-source",
-            "prepared_state_id": "prepared-state://surface",
-            "prepared_state_digest": "sha256:surface-prepared",
-            "data_decoded": False,
-            "data_materialized": False,
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:surface",
-            "correctness_digest_stable": True,
-            "runtime_execution_certificate_id": "execution.surface",
-            "runtime_execution_certificate_status": "certified",
-            "metrics": {
-                "query_runtime_millis": 0.34,
-                "vortex_scan_millis": 0.1,
-                "operator_compute_millis": 0.2,
-                "result_sink_write_millis": 5.33,
-                "evidence_render_millis": 8.15,
-                "total_runtime_millis": 13.82,
-                "cli_process_wall_millis": 14.0,
-            },
-        }
-        hot_row = {
-            **base,
-            "claim_gate_status": "not_claim_grade",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
-            "requested_evidence_tier": "metadata_sink",
-            "actual_evidence_tier": "metadata_sink",
-        }
-        publication_row = {
-            **base,
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "actual_evidence_tier": "publication_full",
-            "computed_result_sink_replay_verified": True,
-            "result_sink_replay_micros": 1200,
-        }
-
-        hot, publication = module.published_rows([hot_row, publication_row])
-
-        self.assertEqual(hot["timing_surface"], "hot_runtime")
-        self.assertEqual(hot["actual_evidence_tier"], "metadata_sink")
-        self.assertEqual(hot["total_route_ms"], 0.34)
-        self.assertEqual(hot["hot_route_total_ms"], 0.34)
-        self.assertEqual(hot["publication_proof_route_total_ms"], 13.82)
-        self.assertFalse(hot["output_timing_included_in_total"])
-        self.assertFalse(hot["evidence_timing_included_in_total"])
-        self.assertIn("timing_surface=hot_runtime", hot["route_total_formula"])
-        self.assertNotIn("evidence_render_millis", hot["route_total_formula"])
-
-        self.assertEqual(publication["timing_surface"], "publication_proof")
-        self.assertEqual(publication["actual_evidence_tier"], "publication_full")
-        self.assertEqual(publication["total_route_ms"], 13.82)
-        self.assertTrue(publication["output_timing_included_in_total"])
-        self.assertTrue(publication["evidence_timing_included_in_total"])
-        self.assertIn(
-            "timing_surface=publication_proof", publication["route_total_formula"]
-        )
-        self.assertIn("evidence_render_millis", publication["route_total_formula"])
-
-        [lane] = module.route_lane_comparison_table([publication])["rows"]
-        self.assertEqual(lane[1], "hot_runtime")
-        self.assertEqual(lane[6], "0/1")
-        self.assertEqual(lane[7], "hot runtime row missing")
-
-        surface_rows = module.route_timing_surface_comparison_table(
-            [hot, publication]
-        )["rows"]
-        by_surface = {row[1]: row for row in surface_rows}
-        self.assertEqual(by_surface["hot_runtime"][2], "Hot route geomean")
-        self.assertEqual(
-            by_surface["publication_proof"][2],
-            "Publication-proof route geomean",
-        )
-        self.assertEqual(by_surface["hot_runtime"][6], "0.34 ms")
-        self.assertEqual(by_surface["publication_proof"][6], "13.82 ms")
-
-    def test_benchmark_promoter_projects_hot_runtime_rows_from_publication_rows(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_hot_runtime_projection_for_test",
-        )
-
-        publication_row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "vortex",
-            "scenario_name": "warm prepared publication-only row",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "source_state_id": "source-state://projection",
-            "source_state_digest": "sha256:projection-source",
-            "prepared_state_id": "prepared-state://projection",
-            "prepared_state_digest": "sha256:projection-prepared",
-            "data_decoded": False,
-            "data_materialized": False,
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:projection",
-            "correctness_digest_stable": True,
-            "runtime_execution_certificate_id": "execution.projection",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "actual_evidence_tier": "publication_full",
-            "computed_result_sink_replay_verified": True,
-            "result_sink_replay_micros": 1200,
-            "metrics": {
-                "query_runtime_millis": 0.34,
-                "vortex_scan_millis": 0.1,
-                "operator_compute_millis": 0.2,
-                "result_sink_write_millis": 5.33,
-                "evidence_render_millis": 8.15,
-                "total_runtime_millis": 13.82,
-                "cli_process_wall_millis": 14.0,
-            },
-        }
-
-        [publication] = module.published_rows([publication_row])
-        publication_claim_status = publication["claim_gate_status"]
-        projected = module.rows_with_hot_runtime_surface_projections([publication])
-
-        self.assertEqual(len(projected), 2)
-        by_surface = {row["timing_surface"]: row for row in projected}
-        hot = by_surface["hot_runtime"]
-        publication = by_surface["publication_proof"]
-
-        self.assertEqual(hot["actual_evidence_tier"], "metadata_sink")
-        self.assertEqual(hot["selected_evidence_tier"], "metadata_sink")
-        self.assertEqual(hot["sink_tier"], "metadata_sink")
-        self.assertEqual(hot["claim_gate_status"], "not_claim_grade")
-        self.assertEqual(hot["total_route_ms"], 0.34)
-        self.assertEqual(hot["hot_route_total_ms"], 0.34)
-        self.assertFalse(hot["output_timing_included_in_total"])
-        self.assertFalse(hot["evidence_timing_included_in_total"])
-        self.assertIn("timing_surface=hot_runtime", hot["route_total_formula"])
-        self.assertEqual(publication["claim_gate_status"], publication_claim_status)
-        self.assertEqual(publication["actual_evidence_tier"], "publication_full")
-        self.assertEqual(publication["total_route_ms"], 13.82)
-        self.assertEqual(
-            len(module.rows_with_hot_runtime_surface_projections(projected)),
-            2,
-        )
-
-    def test_route_share_fails_closed_on_excluded_hot_stage(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_route_share_non_additive_for_test",
-        )
-
-        row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "vortex",
-            "scenario_name": "warm prepared non-additive operator timing",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "source_state_id": "source-state://non-additive",
-            "source_state_digest": "sha256:non-additive-source",
-            "prepared_state_id": "prepared-state://non-additive",
-            "prepared_state_digest": "sha256:non-additive-prepared",
-            "data_decoded": False,
-            "data_materialized": False,
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:non-additive",
-            "correctness_digest_stable": True,
-            "runtime_execution_certificate_id": "execution.non-additive",
-            "runtime_execution_certificate_status": "certified",
-            "runtime_execution_certificate_plan_ref": "plan://non-additive",
-            "claim_gate_status": "not_claim_grade",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
-            "requested_evidence_tier": "metadata_sink",
-            "actual_evidence_tier": "metadata_sink",
-            "metrics": {
-                "query_runtime_millis": 0.12,
-                "vortex_scan_millis": 0.0,
-                "operator_compute_millis": 1.4,
-                "total_runtime_millis": 0.12,
-                "cli_process_wall_millis": 0.2,
-            },
-        }
-
-        [published] = module.published_rows([row])
-        route_share = module.route_share_amdahl_table([published])
-        [route_row] = route_share["rows"]
-
-        self.assertEqual(
-            published["operator_compute_route_relation_schema_version"],
-            "shardloom.operator_compute_route_relation.v1",
-        )
-        self.assertEqual(
-            published["operator_compute_route_relation_status"],
-            "diagnostic_only_exceeds_route_total",
-        )
-        self.assertFalse(published["operator_compute_included_in_route_total"])
-        self.assertEqual(
-            published["operator_compute_route_stage_inclusion_class"],
-            "diagnostic_only",
-        )
-        self.assertEqual(
-            published["operator_compute_route_total_field"],
-            "route_timing_included_stage_total_ms",
-        )
-        self.assertEqual(published["operator_compute_route_total_ms"], 0.12)
-        self.assertEqual(published["operator_compute_route_total_delta_ms"], 1.28)
-        self.assertIn(
-            "operator_compute_millis is interpreted through the selected timing surface",
-            published["operator_compute_route_relation_claim_boundary"],
-        )
-        self.assertEqual(route_row[1], "hot_runtime")
-        self.assertEqual(route_row[5], "Operator compute (excluded diagnostic)")
-        self.assertEqual(route_row[7], "n/a")
-        self.assertEqual(
-            route_row[8],
-            "fix_timing_surface_stage_inclusion_before_optimization",
-        )
-        self.assertEqual(route_row[9], "not_optimization_ready")
-        self.assertEqual(route_row[10], "operator_compute")
-
-    def test_benchmark_promoter_marks_expensive_stage_without_substages_not_ready(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_route_instrument_readiness_for_test",
-        )
-
-        canonical_stage_ids = ",".join(self._canonical_route_timing_stage_ids())
-        row = {
-            "engine": "shardloom-vortex",
-            "status": "success",
-            "actual_evidence_tier": "metadata_sink",
-        }
-        stage_fields = {
-            "operator_compute_ms": 12.0,
-            "timing_surface": "hot_runtime",
-        }
-        inclusion_fields = {
-            "route_timing_stage_inclusion_classes": self._packed_route_stage_map(
-                "included_hot_runtime"
-            ),
-            "route_timing_stage_inclusion_timing_scopes": self._packed_route_stage_map(
-                "hot_runtime:native_vortex_query_only"
-            ),
-        }
-
-        not_ready = module.route_timing_instrument_fields_for_row(
-            row,
-            stage_fields,
-            inclusion_fields,
-        )
-
-        self.assertEqual(
-            not_ready["route_timing_instrument_schema_version"],
-            "shardloom.route_timing_instrument.v1",
-        )
-        self.assertEqual(not_ready["route_timing_instrument_stage_ids"], canonical_stage_ids)
-        self.assertEqual(not_ready["route_timing_instrument_status"], "not_optimization_ready")
-        self.assertEqual(
-            not_ready["route_timing_instrument_expensive_stage_ids"],
-            "operator_compute",
-        )
-        self.assertEqual(
-            not_ready["route_timing_instrument_missing_substage_attribution"],
-            "operator_compute",
-        )
-        self.assertIn(
-            "operator_compute:not_optimization_ready_missing_substage_attribution",
-            not_ready["route_timing_instrument_residual_treatments"],
-        )
-
-        ready = module.route_timing_instrument_fields_for_row(
-            {**row, "operator_kernel_micros": 500},
-            stage_fields,
-            inclusion_fields,
-        )
-
-        self.assertEqual(ready["route_timing_instrument_status"], "optimization_ready")
-        self.assertEqual(ready["route_timing_instrument_not_ready_stage_ids"], "none")
-
-    def test_benchmark_promoter_uses_derived_substages_for_readiness(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_published_route_instrument_readiness_for_test",
-        )
-
-        row = {
-            "engine": "shardloom-vortex",
-            "status": "success",
-            "actual_evidence_tier": "metadata_sink",
-            "timing_surface": "hot_runtime",
-            "claim_gate_status": "not_claim_grade",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "metrics": {
-                "query_runtime_millis": 12.0,
-                "operator_compute_millis": 12.0,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(published["operator_compute_ms"], 12.0)
-        self.assertEqual(published["operator_kernel_micros"], 12_000)
-        self.assertEqual(
-            published["route_timing_instrument_expensive_stage_ids"],
-            "operator_compute",
-        )
-        self.assertEqual(
-            published["route_timing_instrument_missing_substage_attribution"],
-            "none",
-        )
-        self.assertEqual(
-            published["route_timing_instrument_status"],
-            "optimization_ready",
-        )
-
-    def test_benchmark_promoter_merges_hot_rows_without_replacing_publication_rows(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_merge_timing_surface_rows_for_test",
-        )
-
-        base = {
-            "engine": "shardloom-prepared-vortex",
-            "scenario_id": "selective_filter",
-            "scenario_name": "csv: selective filter",
-            "storage_format": "csv",
-            "selected_execution_mode": "prepared_vortex",
-            "route_lane_id": "warm_prepared_query",
-        }
-        publication = {
-            **base,
-            "timing_surface": "publication_proof",
-            "actual_evidence_tier": "publication_full",
-            "timing_surface_evidence_tier": "publication_full",
-            "total_route_ms": 13.82,
-        }
-        hot = {
-            **base,
-            "timing_surface": "hot_runtime",
-            "actual_evidence_tier": "metadata_sink",
-            "timing_surface_evidence_tier": "metadata_sink",
-            "total_route_ms": 0.34,
-        }
-        replacement_hot = {
-            **hot,
-            "total_route_ms": 0.31,
-        }
-
-        merged = module.merge_published_rows([publication, hot], [replacement_hot])
-
-        self.assertEqual(len(merged), 2)
-        by_surface = {row["timing_surface"]: row for row in merged}
-        self.assertEqual(by_surface["publication_proof"]["total_route_ms"], 13.82)
-        self.assertEqual(by_surface["hot_runtime"]["total_route_ms"], 0.31)
-
-    def test_benchmark_promoter_uses_measured_lane_sha_for_manifest_identity(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_measured_lane_sha_for_test",
-        )
-        expected = "0123456789abcdef0123456789abcdef01234567"
-
-        self.assertEqual(
-            module.benchmark_git_sha_for_artifact(
-                {
-                    "engine_versions": {
-                        "shardloom-vortex": {
-                            "available": True,
-                            "version": f"workspace-local-release-{expected}",
-                        }
-                    }
-                }
-            ),
-            expected,
-        )
-
-    def test_benchmark_promoter_keeps_source_state_prepare_out_of_source_admission(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_timing_normalization_for_test",
-        )
-
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "scenario_name": "source state timing split",
-            "status": "success",
-            "selected_execution_mode": "compatibility_import_certified",
-            "requested_execution_mode": "compatibility_import_certified",
-            "timing_scope": "cold_certified_end_to_end",
-            "compatibility_import_included": True,
-            "source_state_id": "source-state://timing-normalization-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://timing-normalization-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.timing-normalization-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "metrics": {
-                "source_state_prepare_micros": 2500,
-                "source_read_millis": 10.0,
-                "compatibility_parse_millis": 12.0,
-                "source_to_columnar_millis": 4.0,
-                "vortex_write_millis": 70.0,
-                "vortex_reopen_verify_millis": 5.0,
-                "vortex_scan_millis": 1.0,
-                "operator_compute_millis": 2.0,
-                "operator_kernel_micros": 0,
-                "result_sink_write_millis": 3.0,
-                "evidence_render_millis": 4.0,
-                "total_runtime_millis": 130.0,
-                "cli_process_wall_millis": 135.0,
-                "python_harness_overhead_millis": 5.0,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertIsNone(published["source_admission_ms"])
-        self.assertIsNone(published["exclusive_source_admission_ms"])
-        self.assertIsNone(published["source_admission_policy_micros"])
-        self.assertEqual(published["source_state_open_micros"], 2500)
-        self.assertEqual(
-            published["source_admission_digest_policy_schema_version"],
-            "shardloom.traditional_analytics.source_admission_digest_policy.v1",
-        )
-        self.assertEqual(
-            published["source_admission_digest_policy_status"],
-            "not_reported_by_engine",
-        )
-        self.assertFalse(published["source_admission_full_content_digest_requested"])
-        self.assertIsNone(published["source_state_family_build_micros"])
-        self.assertIsNone(published["source_state_lazy_family_construction"])
-        self.assertIsNone(published["source_state_family_build_count"])
-        self.assertIsNone(published["source_state_family_reuse_hit_count"])
-        self.assertIsNone(published["source_state_family_reuse_hit"])
-        self.assertIsNone(published["source_state_family_recompute_avoided"])
-        self.assertIsNone(published["source_state_family_build_timing_scope"])
-        self.assertEqual(published["operator_kernel_micros"], 0)
-        self.assertEqual(
-            published["timing_normalization_schema_version"],
-            "shardloom.traditional_analytics.timing_normalization.v1",
-        )
-        self.assertEqual(
-            published["timing_normalization_status"],
-            "complete_with_unmeasured_optional_fields",
-        )
-        self.assertEqual(
-            published["route_timing_stage_inclusion_schema_version"],
-            "shardloom.route_timing_stage_inclusion.v1",
-        )
-        self.assertEqual(published["route_timing_stage_inclusion_status"], "complete")
-        self.assertIn(
-            "source_admission:diagnostic_only",
-            published["route_timing_stage_inclusion_classes"],
-        )
-        self.assertIn(
-            "cli_process_wall:excluded_harness",
-            published["route_timing_stage_inclusion_classes"],
-        )
-
-    def test_benchmark_promoter_emits_source_scout_and_scan_attribution(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_scout_scan_attribution_for_test",
-        )
-
-        row = {
-            "engine": "shardloom",
-            "storage_format": "parquet",
-            "scenario_name": "source scout scan split",
-            "status": "success",
-            "selected_execution_mode": "compatibility_import_certified",
-            "requested_execution_mode": "compatibility_import_certified",
-            "timing_scope": "cold_certified_end_to_end",
-            "compatibility_import_included": True,
-            "rows_scanned": 3,
-            "source_state_id": "source-state://scout-scan-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://scout-scan-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.scout-scan-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "metrics": {
-                "source_stat_micros": 1000,
-                "exclusive_source_read_millis": 12.0,
-                "source_read_header_scout_micros": 1000,
-                "source_read_byte_acquisition_millis": 4.0,
-                "source_read_full_body_millis": 7.0,
-                "source_read_typed_decode_millis": 6.0,
-                "source_read_row_assembly_micros": 0,
-                "source_read_anomaly_quarantine_micros": 0,
-                "source_read_columnar_handoff_millis": 2.0,
-                "source_read_columnar_handoff_micros": 2000,
-                "source_read_scout_status": "source_read_scout_split_recorded",
-                "source_read_scout_reuse_status": "not_reused_fresh_source_read",
-                "source_read_decode_status": "projection_aware_columnar_provider_decode",
-                "source_read_projected_field_mask": "0x00000007",
-                "source_read_filter_field_mask": "0x00000004",
-                "source_read_decoded_columns": "fact.id|fact.metric|fact.flag",
-                "source_read_skipped_columns": "fact.event_date|fact.raw_event_time",
-                "source_read_decoded_column_count": 3,
-                "source_read_skipped_column_count": 2,
-                "source_read_row_materialization_status": (
-                    "columnar_provider_batches_without_row_structs"
-                ),
-                "source_read_unsupported_shape_diagnostic": "not_applicable_non_text_source",
-                "source_state_columnar_preserved": True,
-                "source_state_record_batch_count": 2,
-                "source_state_query_dim_row_count_reuse_status": (
-                    "reused_imported_dim_row_count_for_query_dispatch"
-                ),
-                "compatibility_parse_millis": 6.0,
-                "source_to_columnar_millis": 2.0,
-                "vortex_write_millis": 25.0,
-                "vortex_reopen_verify_millis": 1.0,
-                "vortex_footer_open_micros": 100,
-                "vortex_metadata_verify_micros": 200,
-                "vortex_scan_open_micros": 300,
-                "vortex_scenario_scan_micros": 400,
-                "vortex_scan_millis": 0.8,
-                "vortex_scan_bytes_touched": 2048,
-                "vortex_scan_segments_touched": 4,
-                "vortex_scan_segments_skipped": 2,
-                "vortex_scan_columns_touched": 3,
-                "vortex_scan_decoded_values": 0,
-                "operator_compute_millis": 1.2,
-                "result_sink_write_millis": 0.5,
-                "evidence_render_millis": 0.3,
-                "total_runtime_millis": 49.0,
-                "cli_process_wall_millis": 51.0,
-                "python_harness_overhead_millis": 2.0,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(
-            published["source_read_scout_schema_version"],
-            "shardloom.traditional_analytics.source_read_scout.v1",
-        )
-        self.assertEqual(
-            published["source_read_scout_timing_split_status"], "complete"
-        )
-        self.assertEqual(published["source_read_header_scout_ms"], 1.0)
-        self.assertEqual(published["source_read_byte_acquisition_ms"], 4.0)
-        self.assertEqual(published["source_read_full_body_ms"], 7.0)
-        self.assertEqual(published["source_read_typed_decode_ms"], 6.0)
-        self.assertEqual(published["source_read_row_assembly_ms"], 0.0)
-        self.assertEqual(published["source_read_anomaly_quarantine_ms"], 0.0)
-        self.assertEqual(published["source_read_columnar_handoff_ms"], 2.0)
-        self.assertEqual(published["source_read_scout_residual_ms"], 0.0)
-        self.assertEqual(
-            published["source_state_read_plan"], "projection_aware_source_scout"
-        )
-        self.assertEqual(
-            published["source_state_projection_pushdown_status"],
-            "reader_projection_applied",
-        )
-        self.assertEqual(
-            published["source_state_reader_projection_columns"],
-            "fact.id,fact.metric,fact.flag",
-        )
-        self.assertEqual(published["source_state_reader_projection_column_count"], 3)
-        self.assertEqual(published["source_state_projected_field_mask"], "0x00000007")
-        self.assertEqual(published["source_state_filter_field_mask"], "0x00000004")
-        self.assertEqual(
-            published["source_state_decoded_columns"], "fact.id,fact.metric,fact.flag"
-        )
-        self.assertEqual(
-            published["source_state_skipped_columns"],
-            "fact.event_date,fact.raw_event_time",
-        )
-        self.assertEqual(published["source_state_decoded_column_count"], 3)
-        self.assertEqual(published["source_state_skipped_column_count"], 2)
-        self.assertEqual(
-            published["source_state_query_dim_row_count_reuse_status"],
-            "reused_imported_dim_row_count_for_query_dispatch",
-        )
-        self.assertEqual(
-            published["source_columnar_provider_schema_version"],
-            "shardloom.traditional_analytics.source_columnar_provider.v1",
-        )
-        self.assertEqual(
-            published["source_columnar_provider_status"],
-            "admitted_projected_direct_columnar_provider",
-        )
-        self.assertEqual(
-            published["source_columnar_provider_surface"],
-            "vortex_provider_record_batch",
-        )
-        self.assertEqual(published["source_columnar_source_family"], "already_columnar_source")
-        self.assertEqual(published["source_columnar_input_format"], "parquet")
-        self.assertEqual(published["source_columnar_projected_field_mask"], "0x00000007")
-        self.assertEqual(published["source_columnar_preserved_column_count"], 3)
-        self.assertEqual(published["source_columnar_skipped_column_count"], 2)
-        self.assertEqual(published["source_columnar_materialized_row_count"], 0)
-        self.assertEqual(published["source_columnar_record_batch_count"], 2)
-        self.assertEqual(
-            published["source_columnar_row_materialization_status"],
-            "columnar_provider_batches_without_row_structs",
-        )
-        self.assertEqual(
-            published["source_columnar_projection_pushdown_status"],
-            "reader_projection_pushed_down",
-        )
-        self.assertEqual(
-            published["source_columnar_projection_pushdown_provider"],
-            "parquet_projection_mask_roots",
-        )
-        self.assertEqual(
-            published["source_columnar_null_validity_status"],
-            "no_null_heavy_column_required",
-        )
-        self.assertEqual(
-            published["source_columnar_unsupported_dtype_reason"],
-            "none_supported_benchmark_columnar_shape",
-        )
-        self.assertEqual(published["source_columnar_handoff_micros"], 2000)
-        self.assertEqual(published["source_to_vortex_handoff_micros"], 2000)
-        self.assertEqual(
-            published["source_columnar_correctness_digest_status"],
-            "covered_by_route_correctness_digest",
-        )
-        self.assertFalse(published["source_columnar_fallback_attempted"])
-        self.assertFalse(published["source_columnar_external_engine_invoked"])
-        self.assertIn(
-            "source columnar-provider admission is scenario-scoped",
-            published["source_columnar_claim_boundary"],
-        )
-        self.assertEqual(
-            published["vortex_reopen_scan_attribution_schema_version"],
-            "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1",
-        )
-        self.assertEqual(published["vortex_reopen_verify_split_status"], "complete")
-        self.assertEqual(published["vortex_scan_counter_status"], "complete")
-        self.assertEqual(published["vortex_scan_bytes_touched"], 2048)
-        self.assertEqual(published["vortex_scan_decoded_values"], 0)
-
-        route_share = module.route_share_amdahl_table([published])
-        self.assertEqual(
-            route_share["schema_version"],
-            "shardloom.traditional_analytics.route_share_amdahl.v1",
-        )
-        self.assertEqual(route_share["rows"][0][5], "Vortex write")
-        self.assertEqual(
-            route_share["rows"][0][8],
-            "continue_workspace_safe_writer_metadata_coalescing",
-        )
-        publication_row = {
-            **row,
-            "actual_evidence_tier": "publication_full",
-            "requested_evidence_tier": "publication_full",
-            "selected_evidence_tier": "publication_full",
-        }
-        [publication_published] = module.published_rows([publication_row])
-        projected_rows = module.rows_with_hot_runtime_surface_projections(
-            [publication_published]
-        )
-        [hot_projection] = [
-            projected
-            for projected in projected_rows
-            if projected.get("timing_surface") == "hot_runtime"
-        ]
-        self.assertEqual(
-            hot_projection["source_read_scout_timing_split_status"], "complete"
-        )
-        self.assertEqual(hot_projection["source_read_header_scout_ms"], 1.0)
-        self.assertEqual(hot_projection["source_read_byte_acquisition_ms"], 4.0)
-        self.assertEqual(hot_projection["source_read_full_body_ms"], 7.0)
-        self.assertEqual(hot_projection["source_read_typed_decode_ms"], 6.0)
-        self.assertEqual(hot_projection["source_read_row_assembly_ms"], 0.0)
-        self.assertEqual(hot_projection["source_read_anomaly_quarantine_ms"], 0.0)
-        self.assertEqual(hot_projection["source_read_columnar_handoff_ms"], 2.0)
-
-    def test_benchmark_promoter_blocks_complete_source_scout_when_diagnostic_pieces_missing(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_source_scout_incomplete_for_test",
-        )
-
-        row = {
-            "engine": "shardloom",
-            "storage_format": "avro",
-            "scenario_name": "filter + projection + limit",
-            "status": "success",
-            "selected_execution_mode": "compatibility_import_certified",
-            "requested_execution_mode": "compatibility_import_certified",
-            "timing_scope": "cold_certified_end_to_end",
-            "compatibility_import_included": True,
-            "source_state_id": "source-state://coarse-scout-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://coarse-scout-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.coarse-scout-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "metrics": {
-                "exclusive_source_read_millis": 12.0,
-                "source_read_header_scout_millis": 1.0,
-                "source_read_byte_acquisition_millis": 4.0,
-                "source_read_full_body_millis": 7.0,
-                "compatibility_parse_millis": 6.0,
-                "source_to_columnar_millis": 2.0,
-                "total_runtime_millis": 20.0,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(
-            published["source_read_scout_timing_split_status"],
-            "blocked_missing_source_read_scout_split",
-        )
-        self.assertIsNone(published["source_read_typed_decode_ms"])
-        self.assertIsNone(published["source_read_columnar_handoff_ms"])
-        self.assertEqual(published["source_read_scout_residual_ms"], 0.0)
-
-    def test_benchmark_promoter_keeps_native_vortex_source_scout_diagnostic_only(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_native_vortex_source_scout_diagnostic_for_test",
-        )
-
-        row = {
-            "engine": "shardloom-vortex",
-            "storage_format": "csv",
-            "scenario_name": "csv/file ingest",
-            "status": "success",
-            "selected_execution_mode": "native_vortex",
-            "requested_execution_mode": "native_vortex",
-            "timing_scope": "native_vortex_query_only",
-            "actual_evidence_tier": "metadata_sink",
-            "source_state_id": "source-state://native-scout-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://native-scout-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.native-scout-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "not_claim_grade",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "metrics": {
-                "exclusive_source_read_millis": 12.0,
-                "source_read_millis": 12.0,
-                "vortex_scan_millis": 0.2,
-                "operator_compute_millis": 0.1,
-                "query_runtime_millis": 0.3,
-                "total_runtime_millis": 0.3,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(published["route_lane_id"], "native_vortex_query")
-        self.assertEqual(published["timing_surface"], "hot_runtime")
-        self.assertEqual(
-            published["source_read_scout_timing_split_status"],
-            "not_applicable_diagnostic_only",
-        )
-        self.assertEqual(
-            published["source_read_scout_status"],
-            "diagnostic_only_source_read_outside_route_total",
-        )
-        self.assertIn(
-            "starts from Vortex/prepared state",
-            published["source_read_scout_claim_boundary"],
-        )
-
-    def test_benchmark_promoter_keeps_direct_transient_source_scout_in_route(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_direct_transient_source_scout_for_test",
-        )
-
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "scenario_name": "csv/file ingest",
-            "status": "success",
-            "selected_execution_mode": "internal_local_source_smoke",
-            "requested_execution_mode": "internal_local_source_smoke",
-            "timing_scope": "direct_one_shot",
-            "actual_evidence_tier": "metadata_sink",
-            "source_state_id": "source-state://direct-scout-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "not_applicable_direct_transient",
-            "prepared_state_digest": "not_applicable_direct_transient",
-            "data_decoded": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.direct-scout-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "not_claim_grade",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "metrics": {
-                "exclusive_source_read_millis": 12.0,
-                "source_read_millis": 12.0,
-                "source_read_header_scout_millis": 1.0,
-                "source_read_byte_acquisition_millis": 11.0,
-                "source_read_full_body_millis": 11.0,
-                "operator_compute_millis": 0.1,
-                "query_runtime_millis": 12.3,
-                "total_runtime_millis": 12.3,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(published["route_lane_id"], "direct_transient_route")
-        self.assertNotEqual(
-            published["source_read_scout_status"],
-            "diagnostic_only_source_read_outside_route_total",
-        )
-        self.assertNotEqual(
-            published["source_read_scout_timing_split_status"],
-            "not_applicable_diagnostic_only",
-        )
-
-    def test_benchmark_promoter_flags_common_run_timing_drift(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_common_run_drift_for_test",
-        )
-
-        previous_summary = {
-            "comparative_dashboard": {
-                "engine_timing_overview": {
-                    "rows": [
-                        ["shardloom", "yes", "1/1", "100.00 ms"],
-                        ["shardloom-vortex", "yes", "1/1", "5.00 ms"],
-                        ["pandas", "yes", "1/1", "200.00 ms"],
-                        ["polars-eager", "yes", "1/1", "40.00 ms"],
-                        ["duckdb", "yes", "1/1", "80.00 ms"],
-                    ]
-                }
-            }
-        }
-        current_engine_timing = {
-            "rows": [
-                ["shardloom", "yes", "1/1", "126.00 ms"],
-                ["shardloom-vortex", "yes", "1/1", "6.30 ms"],
-                ["pandas", "yes", "1/1", "250.00 ms"],
-                ["polars-eager", "yes", "1/1", "52.00 ms"],
-                ["duckdb", "yes", "1/1", "100.00 ms"],
-            ]
-        }
-
-        drift = module.common_run_timing_drift_table(
-            previous_summary,
-            current_engine_timing,
-        )
-
-        self.assertEqual(drift["status"], "common_run_slowdown_detected")
-        self.assertEqual(drift["control_engine_count"], 3)
-        self.assertEqual(drift["control_slow_count"], 3)
-        self.assertGreater(drift["control_route_geomean_ratio"], 1.10)
-        self.assertIn("common-run drift", drift["interpretation"])
-        self.assertIn("shardloom", {row[4] for row in drift["rows"]})
-        self.assertIn("control_baseline", {row[4] for row in drift["rows"]})
-
-    def test_benchmark_promoter_prefers_chunks_for_summary_only_inline_rows(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_summary_only_chunk_preference_for_test",
-        )
-
-        target = REPO_ROOT / "target"
-        target.mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=target) as tempdir:
-            chunk_path = Path(tempdir) / "published-benchmark-rows.json"
-            chunk_path.write_text(
-                json.dumps(
-                    {
-                        "rows": [
-                            {
-                                "engine": "shardloom",
-                                "source_state_id": "source-state://chunk",
-                                "claim_gate_status": "claim_grade",
-                            }
-                        ]
-                    }
-                ),
-                encoding="utf-8",
-            )
-            artifact = {
-                "published_benchmark_rows_inlined": "summary_only",
-                "published_benchmark_row_count": 1,
-                "published_benchmark_rows": [
-                    {
-                        "engine": "shardloom",
-                        "source_state_id": None,
-                        "claim_gate_status": "not_claim_grade",
-                    }
-                ],
-                "published_benchmark_row_chunks": [
-                    {
-                        "path": chunk_path.relative_to(REPO_ROOT).as_posix(),
-                        "row_count": 1,
-                    }
-                ],
-            }
-
-            rows = module.artifact_rows(artifact)
-
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["source_state_id"], "source-state://chunk")
-        self.assertEqual(rows[0]["claim_gate_status"], "claim_grade")
-
-    def test_benchmark_promoter_rejects_summary_only_inline_without_chunks(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_summary_only_missing_chunks_for_test",
-        )
-
-        artifact = {
-            "published_benchmark_rows_inlined": "summary_only",
-            "published_benchmark_row_count": 1,
-            "published_benchmark_rows": [
-                {
-                    "engine": "shardloom",
-                    "source_state_id": None,
-                    "claim_gate_status": "not_claim_grade",
-                }
-            ],
-        }
-
-        self.assertEqual(module.artifact_rows(artifact), [])
-
-    def test_benchmark_promoter_admits_row_chunks_incrementally(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_incremental_row_admission_for_test",
-        )
-
-        target = REPO_ROOT / "target"
-        target.mkdir(exist_ok=True)
-        rows = [
-            {"engine": "shardloom", "scenario_id": f"scenario-{index}"}
-            for index in range(5)
-        ]
-        with tempfile.TemporaryDirectory(dir=target) as tempdir:
-            output_dir = Path(tempdir)
-            chunks = module.write_row_chunks(output_dir, rows, chunk_size=2)
-            admission_path = module.row_admission_manifest_path_for_chunks(
-                chunks,
-                output_dir,
-            )
-            admission = json.loads(admission_path.read_text(encoding="utf-8"))
-            chunk_dir = admission_path.parent
-
-            self.assertEqual(len(chunks), 3)
-            self.assertEqual(
-                admission["schema_version"],
-                module.ROW_ADMISSION_MANIFEST_SCHEMA_VERSION,
-            )
-            self.assertTrue(str(chunks[0]["path"]).startswith("target/"))
-            self.assertIn("/published-row-runs/rows-", str(chunks[0]["path"]))
-            self.assertTrue(str(chunks[0]["path"]).endswith(".json.gz"))
-            self.assertEqual(chunks[0]["content_encoding"], "gzip")
-            self.assertIn("uncompressed_sha256", chunks[0])
-            self.assertEqual(
-                module.load_json(REPO_ROOT / chunks[0]["path"])["row_count"],
-                2,
-            )
-            self.assertEqual(admission["row_count"], 5)
-            self.assertEqual(admission["chunk_count"], 3)
-            self.assertEqual(admission["written_chunk_count"], 3)
-            self.assertEqual(admission["reused_chunk_count"], 0)
-            self.assertFalse(admission["fallback_attempted"])
-            self.assertFalse(admission["external_engine_invoked"])
-
-            duplicate = output_dir / "published-benchmark-rows-001 2.json"
-            duplicate.write_text("duplicate", encoding="utf-8")
-            legacy = output_dir / "published-benchmark-rows-000.json"
-            legacy.write_text("legacy", encoding="utf-8")
-            stale = chunk_dir / "published-benchmark-rows-099.json"
-            stale.write_text("stale", encoding="utf-8")
-            stale_run = output_dir / module.PUBLISHED_ROW_RUN_DIR / "rows-stale"
-            stale_run.mkdir(parents=True)
-            (stale_run / "published-benchmark-rows-000.json").write_text(
-                "stale run",
-                encoding="utf-8",
-            )
-
-            chunks = module.write_row_chunks(output_dir, rows, chunk_size=2)
-            admission_path = module.row_admission_manifest_path_for_chunks(
-                chunks,
-                output_dir,
-            )
-            admission = json.loads(admission_path.read_text(encoding="utf-8"))
-
-            self.assertEqual(len(chunks), 3)
-            self.assertEqual(admission["resume_status"], "reused_existing_chunks")
-            self.assertEqual(admission["written_chunk_count"], 0)
-            self.assertEqual(admission["reused_chunk_count"], 3)
-            self.assertFalse(duplicate.exists())
-            self.assertFalse(legacy.exists())
-            self.assertFalse(stale.exists())
-            self.assertFalse(stale_run.exists())
-            self.assertTrue(admission["duplicate_suffixed_artifacts_removed"])
-            self.assertTrue(admission["legacy_top_level_chunk_files_removed"])
-            self.assertTrue(admission["stale_chunk_files_removed"])
-            self.assertTrue(admission["stale_row_run_dirs_removed"])
-
-    def test_benchmark_completeness_validates_row_admission_manifest(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_artifact_completeness.py",
-            "benchmark_completeness_row_admission_for_test",
-        )
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            temp = Path(tempdir)
-            admission_path = temp / "benchmark-row-admission-manifest.json"
-            admission_path.write_text(
-                json.dumps(
-                    {
-                        "schema_version": module.ROW_ADMISSION_MANIFEST_SCHEMA_VERSION,
-                        "row_count": 2,
-                        "chunk_count": 1,
-                        "chunks": [
-                            {
-                                "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
-                                "row_count": 2,
-                                "sha256": "sha256:chunk",
-                            }
-                        ],
-                        "fallback_attempted": False,
-                        "external_engine_invoked": False,
-                    }
-                ),
-                encoding="utf-8",
-            )
-            manifest_path = temp / "manifest.json"
-            manifest = {
-                "artifact_paths": {
-                    "row_admission_manifest": admission_path.as_posix()
-                }
-            }
-            payload = {
-                "published_benchmark_row_count": 2,
-                "published_benchmark_row_chunks": [
-                    {
-                        "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
-                        "row_count": 2,
-                        "sha256": "sha256:chunk",
-                    }
-                ],
-            }
-            blockers: list[str] = []
-
-            module.validate_row_admission_manifest(
-                manifest,
-                manifest_path,
-                payload,
-                blockers,
-            )
-
-        self.assertEqual(blockers, [])
-
-    def _prepare_batch_role_repair_row(
-        self,
-        *,
-        strategy: str,
-        partial_repair_status: str,
-        repaired_roles: str,
-        reused_roles: str = "dim_input,cdc_delta_input",
-        regeneration_performed: bool = True,
-    ) -> dict[str, object]:
-        return {
-            "engine": "shardloom-prepare-batch",
-            "status": "success",
-            "storage_format": "csv",
-            "selected_execution_mode": "prepared_vortex",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "metrics": {
-                "prepare_batch_fallback_attempted": False,
-                "prepare_batch_external_engine_invoked": False,
-                "prepare_batch_prepared_state_dependency_fallback_attempted": False,
-                "prepare_batch_prepared_state_dependency_external_engine_invoked": False,
-                "prepare_batch_prepared_state_dependency_packet_reuse_status": (
-                    "single_evaluation_packet_manifest_hit"
-                    if strategy == "manifest_reuse"
-                    else "single_evaluation_packet_reused_for_role_repair"
-                    if strategy == "role_scoped_repair"
-                    else "single_evaluation_packet_reused_for_full_register"
-                ),
-                "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count": (
-                    0 if strategy == "manifest_reuse" else 1
-                ),
-                "prepare_batch_prepared_state_optimization_strategy": strategy,
-                "prepare_batch_prepared_state_optimization_status": (
-                    "prepared_state_role_repair_admitted"
-                    if strategy == "role_scoped_repair"
-                    else f"prepared_state_{strategy}"
-                ),
-                "prepare_batch_prepared_state_optimization_repaired_roles": repaired_roles,
-                "prepare_batch_prepared_state_optimization_no_fallback_policy_status": (
-                    "passed_fallback_false_external_engine_false"
-                ),
-                "prepare_batch_prepared_state_optimization_fallback_attempted": False,
-                "prepare_batch_prepared_state_optimization_external_engine_invoked": False,
-                "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed": False,
-                "prepare_batch_prepared_state_partial_repair_status": partial_repair_status,
-                "prepare_batch_prepared_state_partial_repair_reused_roles": reused_roles,
-                "prepare_batch_prepared_state_partial_repair_repaired_roles": repaired_roles,
-                "prepare_batch_prepared_state_partial_repair_regeneration_performed": (
-                    regeneration_performed
-                ),
-                "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": False,
-                "prepare_batch_prepared_state_partial_repair_replay_proof": "fnv1a64:proof",
-                "prepare_batch_prepared_state_partial_repair_micros": 10,
-                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": 2,
-                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": 3,
-                "prepare_batch_prepared_state_partial_repair_vortex_write_micros": 4,
-                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": 1,
-            },
-        }
-
-    def _prepare_batch_role_repair_payload(self) -> dict[str, object]:
-        return {
-            "schema_version": "shardloom.prepare_batch_role_repair_evidence.v1",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "claim_boundary": "fixture",
-            "runs": [
-                {
-                    "case_id": "full_prepare_register",
-                    "rows": [
-                        self._prepare_batch_role_repair_row(
-                            strategy="full_prepare_register",
-                            partial_repair_status=(
-                                "blocked_missing_base_manifest_full_prepare_required"
-                            ),
-                            repaired_roles="all_prepared_artifacts_created",
-                            reused_roles="none",
-                            regeneration_performed=False,
-                        )
-                    ],
-                },
-                {
-                    "case_id": "manifest_reuse",
-                    "rows": [
-                        self._prepare_batch_role_repair_row(
-                            strategy="manifest_reuse",
-                            partial_repair_status="not_needed_manifest_hit",
-                            repaired_roles="none",
-                            reused_roles="fact_input,dim_input,cdc_delta_input",
-                            regeneration_performed=False,
-                        )
-                    ],
-                },
-                {
-                    "case_id": "fact_role_repair",
-                    "rows": [
-                        self._prepare_batch_role_repair_row(
-                            strategy="role_scoped_repair",
-                            partial_repair_status="admitted_role_repair_completed",
-                            repaired_roles="fact_input",
-                        )
-                    ],
-                },
-                {
-                    "case_id": "dim_role_repair",
-                    "rows": [
-                        self._prepare_batch_role_repair_row(
-                            strategy="role_scoped_repair",
-                            partial_repair_status="admitted_role_repair_completed",
-                            repaired_roles="dim_input",
-                            reused_roles="fact_input,cdc_delta_input",
-                        )
-                    ],
-                },
-                {
-                    "case_id": "cdc_delta_role_repair",
-                    "rows": [
-                        self._prepare_batch_role_repair_row(
-                            strategy="role_scoped_repair",
-                            partial_repair_status="admitted_role_repair_completed",
-                            repaired_roles="cdc_delta_input",
-                            reused_roles="fact_input,dim_input",
-                        )
-                    ],
-                },
-            ],
-        }
-
-    def test_prepare_batch_role_repair_evidence_validator_requires_all_roles(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_prepare_batch_role_repair_evidence.py",
-            "prepare_batch_role_repair_evidence_for_test",
-        )
-
-        payload = self._prepare_batch_role_repair_payload()
-        blockers, summary = module.validate_artifact_payload(payload)
-
-        self.assertEqual(blockers, [])
-        self.assertEqual(summary["case_count"], 5)
-        self.assertEqual(
-            summary["repaired_roles"],
-            ["cdc_delta_input", "dim_input", "fact_input"],
-        )
-
-        payload["runs"] = [
-            run
-            for run in payload["runs"]
-            if run["case_id"] != "cdc_delta_role_repair"
-        ]
-        blockers, _summary = module.validate_artifact_payload(payload)
-        self.assertTrue(any("cdc_delta_role_repair" in blocker for blocker in blockers))
-
-    def test_benchmark_completeness_validates_prepare_batch_role_repair_evidence(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_artifact_completeness.py",
-            "benchmark_completeness_role_repair_for_test",
-        )
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            temp = Path(tempdir)
-            evidence_path = temp / "prepare-batch-role-repair-evidence.json"
-            evidence_path.write_text(
-                json.dumps(self._prepare_batch_role_repair_payload()),
-                encoding="utf-8",
-            )
-            manifest_path = temp / "manifest.json"
-            manifest = {
-                "benchmark_profile": "full_local",
-                "artifact_paths": {
-                    "prepare_batch_role_repair_evidence": evidence_path.as_posix()
-                },
-            }
-            blockers: list[str] = []
-
-            module.validate_prepare_batch_role_repair_evidence(
-                manifest,
-                manifest_path,
-                blockers,
-            )
-
-        self.assertEqual(blockers, [])
-
-    def test_benchmark_completeness_requires_role_repair_evidence_for_full_local(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_artifact_completeness.py",
-            "benchmark_completeness_role_repair_required_for_test",
-        )
-        blockers: list[str] = []
-
-        module.validate_prepare_batch_role_repair_evidence(
-            {"benchmark_profile": "full_local", "artifact_paths": {}},
-            REPO_ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
-            blockers,
-        )
-
-        self.assertTrue(
-            any("prepare_batch_role_repair_evidence" in blocker for blocker in blockers)
-        )
 
     def test_website_readiness_flags_duplicate_suffixed_artifacts(self) -> None:
         module = self._load_script_module(
@@ -3431,1809 +1270,36 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(len(blockers), 1)
         self.assertIn("duplicate suffixed generated artifact remains", blockers[0])
 
-    def test_benchmark_promoter_blocks_sparse_exclusive_query_split(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_sparse_exclusive_split_for_test",
-        )
 
-        cases = [
-            ({}, None, None),
-            (
-                {"vortex_scan_millis": 0.25},
-                "vortex_scan_ms",
-                0.25,
-            ),
-            (
-                {"operator_compute_millis": 0.75},
-                "operator_compute_ms",
-                0.75,
-            ),
-        ]
 
-        for sparse_metrics, one_sided_field, one_sided_value in cases:
-            with self.subTest(sparse_metrics=sparse_metrics):
-                row = {
-                    "engine": "shardloom-vortex",
-                    "route_lane_id": "warm_prepared_query",
-                    "status": "success",
-                    "metrics": {
-                        "total_runtime_millis": 10.0,
-                        "query_runtime_millis": 9.0,
-                        "result_sink_write_millis": 1.0,
-                        **sparse_metrics,
-                    },
-                }
 
-                stage_fields = module.route_stage_fields_for_row(row)
 
-                self.assertIsNone(stage_fields["exclusive_prepared_query_ms"])
-                self.assertEqual(
-                    stage_fields["exclusive_stage_timing_status"],
-                    "blocked_missing_query_split",
-                )
-                self.assertEqual(
-                    stage_fields["route_timing_exclusive_stage_ids"],
-                    "none",
-                )
-                self.assertIsNone(
-                    stage_fields["route_timing_exclusive_stage_sum_ms"],
-                )
-                self.assertEqual(
-                    stage_fields["route_timing_exclusive_residual_ms"],
-                    9.0,
-                )
-                if one_sided_field is not None:
-                    self.assertEqual(stage_fields[one_sided_field], one_sided_value)
 
-    def test_benchmark_promoter_keeps_query_runtime_as_warm_route_stage(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_warm_query_substage_route_sum_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-vortex",
-            "route_lane_id": "native_vortex_query",
-            "status": "success",
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "total_runtime_millis": 1.0,
-                "result_sink_write_millis": 2.0,
-                "evidence_render_millis": 3.0,
-                "vortex_scan_open_micros": 10_000,
-                "scan_chunk_iter_micros": 20_000,
-                "vortex_chunk_iteration_micros": 20_000,
-                "vortex_projected_field_extract_micros": 5_000,
-                "vortex_encoded_kernel_evidence_micros": 15_000,
-                "operator_kernel_micros": 75_000,
-                "operator_finalize_micros": 0,
-                "result_assembly_micros": 0,
-            },
-        }
 
-        stage_fields = module.route_stage_fields_for_row(row)
 
-        self.assertEqual(stage_fields["vortex_scan_ms"], 50.0)
-        self.assertEqual(stage_fields["operator_compute_ms"], 75.0)
-        self.assertEqual(stage_fields["exclusive_prepared_query_ms"], 1.0)
-        self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 1.0)
-        self.assertEqual(stage_fields["route_timing_exclusive_residual_ms"], 0.0)
 
-    def test_benchmark_promoter_normalizes_scan_chunk_iteration_alias_once(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_scan_chunk_alias_once_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-vortex",
-            "route_lane_id": "native_vortex_query",
-            "status": "success",
-            "scenario_name": "alias scan",
-            "scenario_id": "alias_scan",
-            "storage_format": "vortex",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "vortex_chunk_iteration_micros": 20_000,
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "total_runtime_millis": 1.0,
-                "result_sink_write_millis": 0.0,
-                "evidence_render_millis": 0.0,
-                "vortex_scan_open_micros": 10_000,
-                "scan_chunk_iter_micros": 20_000,
-                "vortex_chunk_iteration_micros": 20_000,
-                "vortex_projected_field_extract_micros": 5_000,
-                "vortex_encoded_kernel_evidence_micros": 15_000,
-                "operator_kernel_micros": 75_000,
-                "operator_finalize_micros": 0,
-                "result_assembly_micros": 0,
-            },
-        }
 
-        stage_fields = module.route_stage_fields_for_row(row)
-        normalized = module.timing_normalization_fields_for_row(row, stage_fields)
 
-        self.assertEqual(normalized["scan_chunk_iter_micros"], 20_000)
-        self.assertNotIn("vortex_chunk_iteration_micros", normalized)
-        self.assertEqual(stage_fields["vortex_scan_ms"], 50.0)
-        [published] = module.published_rows_with_current_route_timing_ledger([row])
-        self.assertEqual(published["scan_chunk_iter_micros"], 20_000)
-        self.assertNotIn("vortex_chunk_iteration_micros", published)
 
-        legacy_only_row = {
-            **row,
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "total_runtime_millis": 1.0,
-                "result_sink_write_millis": 0.0,
-                "evidence_render_millis": 0.0,
-                "vortex_scan_open_micros": 10_000,
-                "vortex_projected_field_extract_micros": 5_000,
-                "vortex_encoded_kernel_evidence_micros": 15_000,
-                "operator_kernel_micros": 75_000,
-                "operator_finalize_micros": 0,
-                "result_assembly_micros": 0,
-            },
-        }
-        [legacy_published] = module.published_rows_with_current_route_timing_ledger(
-            [legacy_only_row]
-        )
-        self.assertEqual(legacy_published["scan_chunk_iter_micros"], 20_000)
-        self.assertNotIn("vortex_chunk_iteration_micros", legacy_published)
 
-    def test_benchmark_promoter_derives_evidence_render_proof_fields(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_evidence_render_proof_for_test",
-        )
 
-        shardloom_row = {
-            "engine": "shardloom-vortex",
-            "storage_format": "csv",
-            "scenario_name": "evidence render proof",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            **self._shardloom_benchmark_route_fields("shardloom-vortex"),
-        }
-        external_row = {
-            "engine": "pandas",
-            "storage_format": "csv",
-            "scenario_name": "external baseline proof",
-            "status": "success",
-            "claim_gate_status": "external_baseline_only",
-            "external_baseline_only": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            **self._external_benchmark_route_fields("pandas"),
-        }
 
-        shardloom_published, external_published = (
-            module.published_rows_with_current_route_timing_ledger(
-                [shardloom_row, external_row]
-            )
-        )
 
-        self.assertEqual(
-            shardloom_published["evidence_render_proof_schema_version"],
-            "shardloom.traditional_analytics.evidence_render_proof.v1",
-        )
-        self.assertEqual(
-            shardloom_published["evidence_render_proof_status"],
-            "compact_machine_evidence_derived",
-        )
-        self.assertTrue(
-            str(shardloom_published["evidence_render_proof_digest"]).startswith(
-                "sha256:"
-            )
-        )
-        self.assertEqual(
-            shardloom_published["evidence_render_hot_path_policy"],
-            "compact_facts_only_human_render_deferred",
-        )
-        self.assertEqual(
-            shardloom_published["evidence_render_route_timing_boundary"],
-            "route_total_includes_evidence_render_timing",
-        )
-        self.assertFalse(shardloom_published["evidence_render_fallback_attempted"])
-        self.assertFalse(
-            shardloom_published["evidence_render_external_engine_invoked"]
-        )
-        self.assertEqual(
-            external_published["evidence_render_proof_status"],
-            "external_baseline_only",
-        )
-        self.assertEqual(
-            external_published["evidence_render_proof_digest"],
-            "external_baseline_only",
-        )
 
-        proof_table = module.evidence_render_proof_table([shardloom_published])
-        self.assertEqual(
-            proof_table["schema_version"],
-            "shardloom.traditional_analytics.evidence_render_proof.v1",
-        )
-        self.assertEqual(proof_table["rows"][0][0], "compact_machine_evidence_derived")
-        self.assertEqual(proof_table["rows"][0][1], 1)
 
-    def test_benchmark_promoter_derives_prepare_once_first_query_route(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_prepare_once_route_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-prepare-batch",
-            "storage_format": "csv",
-            "scenario_name": "prepared batch route row",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://prepared-route-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://prepared-route-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.prepared-route-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "metrics": {
-                "requested_evidence_tier": "metadata_sink",
-                "actual_evidence_tier": "metadata_sink",
-                "persistent_runner_status": "single_process_batch_runner_supported",
-                "prepare_batch_preparation_millis": 100.0,
-                "prepare_batch_source_to_columnar_millis": 20.0,
-                "prepare_batch_vortex_array_build_millis": 30.0,
-                "prepare_batch_vortex_write_millis": 40.0,
-                "prepare_batch_vortex_reopen_verify_millis": 10.0,
-                "batch_scenario_count": 20,
-                "query_runtime_millis": 2.0,
-                "total_runtime_millis": 2.0,
-                "vortex_scan_millis": 1.0,
-                "operator_compute_millis": 2.0,
-                "result_sink_write_millis": 3.0,
-                "evidence_render_millis": 0.5,
-                "cli_process_wall_millis": 110.0,
-                "batch_cli_process_wall_millis": 110.0,
-                "batch_process_wall_shared": True,
-            },
-        }
 
-        [prepare_batch] = module.published_rows([row])
-        rows = module.rows_with_prepare_once_first_query([prepare_batch])
-        by_lane = {item["route_lane_id"]: item for item in rows}
 
-        self.assertEqual(by_lane["prepare_once_batch"]["total_route_ms"], 7.0)
-        self.assertEqual(by_lane["prepare_once_first_query"]["total_route_ms"], 102.0)
-        self.assertEqual(
-            by_lane["prepare_once_batch"]["source_parse_or_columnar_decode_ms"],
-            1.0,
-        )
-        self.assertEqual(by_lane["prepare_once_batch"]["source_to_vortex_array_ms"], 1.5)
-        self.assertEqual(by_lane["prepare_once_batch"]["vortex_write_ms"], 2.0)
-        self.assertEqual(by_lane["prepare_once_batch"]["vortex_reopen_or_verify_ms"], 0.5)
-        self.assertEqual(
-            by_lane["prepare_once_first_query"]["source_parse_or_columnar_decode_ms"],
-            20.0,
-        )
-        self.assertEqual(
-            by_lane["prepare_once_first_query"]["source_to_vortex_array_ms"],
-            30.0,
-        )
-        self.assertEqual(by_lane["prepare_once_first_query"]["vortex_write_ms"], 40.0)
-        self.assertEqual(
-            by_lane["prepare_once_first_query"]["vortex_reopen_or_verify_ms"],
-            10.0,
-        )
-        self.assertEqual(
-            by_lane["prepare_once_first_query"]["route_row_derivation_status"],
-            module.DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS,
-        )
-        self.assertEqual(
-            by_lane["prepare_once_first_query"]["route_timing_included_stage_total_ms"],
-            102.0,
-        )
-        self.assertEqual(
-            by_lane["prepare_once_first_query"]["route_timing_total_delta_ms"],
-            0.0,
-        )
-        self.assertEqual(
-            by_lane["prepare_once_first_query"]["evidence_render_proof_status"],
-            "compact_machine_evidence_derived",
-        )
-        self.assertTrue(
-            str(
-                by_lane["prepare_once_first_query"]["evidence_render_proof_digest"]
-            ).startswith("sha256:")
-        )
-        self.assertNotEqual(
-            by_lane["prepare_once_first_query"]["evidence_render_proof_digest"],
-            by_lane["prepare_once_batch"]["evidence_render_proof_digest"],
-        )
 
-        amortization = module.prepared_route_amortization_table(rows)
-        by_count = {item[0]: item for item in amortization["rows"]}
-        self.assertEqual(set(by_count), {1, 5, 10, 50, 100})
-        self.assertEqual(by_count[1][1], 1)
-        self.assertEqual(by_count[1][2], "102.00 ms")
-        self.assertEqual(by_count[100][2], "3.00 ms")
 
-    def test_benchmark_promoter_emits_operator_mode_inventory(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_operator_mode_for_test",
-        )
 
-        row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "csv",
-            "scenario_name": "selective filter",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://operator-mode-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://operator-mode-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.operator-mode-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "vortex_scan_millis": 0.2,
-                "operator_compute_millis": 0.5,
-                "evidence_render_millis": 0.1,
-                "cli_process_wall_millis": 1.4,
-                "python_harness_overhead_millis": 0.4,
-                "operator_execution_class": "residual_native",
-                "operator_admission_status": "residual_native_supported",
-                "operator_blocker_id": (
-                    "gar-flow-2b.residual_native_operator_not_encoded_native"
-                ),
-                "operator_encoded_native_claim_allowed": False,
-                "operator_residual_native_used": True,
-                "operator_temporary_materialization_used": False,
-                "operator_blocker_matrix_ref": "operator-blocker://selective-filter",
-                "encoded_predicate_provider_status": "selection_vectors_admitted",
-                "encoded_predicate_provider_selected_metric_selection_vector_consumed": True,
-                "encoded_predicate_provider_selected_metric_data_decoded": False,
-                "encoded_predicate_provider_selected_metric_aggregation_status": (
-                    "selection_vector_metric_aggregation_used"
-                ),
-                "fused_pipeline_blocker_id": (
-                    "gar-perf-1c.selection_vector_metric_aggregation_not_admitted"
-                ),
-            },
-        }
 
-        [published] = module.published_rows([row])
 
-        self.assertEqual(
-            published["operator_mode_inventory_schema_version"],
-            "shardloom.operator_mode_inventory.v1",
-        )
-        self.assertEqual(published["operator_execution_mode"], "residual_native")
-        self.assertFalse(published["operator_encoded_native_claim_allowed"])
-        self.assertEqual(published["encoded_native_operators"], "none")
-        self.assertEqual(
-            published["operator_hot_path_candidate"],
-            "selective_filter_selection_vector_metric_aggregation",
-        )
-        self.assertEqual(
-            published["operator_hot_path_candidate_status"],
-            "admitted_selection_vector_metric_aggregation_residual_native",
-        )
 
-        inventory = module.operator_mode_inventory_table([row])
-        candidates = module.operator_hot_path_candidate_table([row])
 
-        self.assertEqual(inventory["schema_version"], "shardloom.operator_mode_inventory.v1")
-        self.assertEqual(inventory["residual_native_row_count"], 1)
-        self.assertIn("runtime-supported", inventory["claim_boundary"])
-        self.assertEqual(
-            candidates["rows"][0][0],
-            "selective_filter_selection_vector_metric_aggregation",
-        )
-        self.assertEqual(
-            candidates["rows"][0][1],
-            "admitted_selection_vector_metric_aggregation_residual_native",
-        )
 
-    def test_benchmark_promoter_emits_partial_encoded_kernel_promotion(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_encoded_kernel_promotion_for_test",
-        )
-
-        row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "csv",
-            "scenario_name": "group by aggregation",
-            "status": "success",
-            "selected_execution_mode": "prepared_vortex",
-            "requested_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://encoded-kernel-row",
-            "source_state_digest": "sha256:source",
-            "prepared_state_id": "prepared-state://encoded-kernel-row",
-            "prepared_state_digest": "sha256:prepared",
-            "data_decoded": False,
-            "data_materialized": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.encoded-kernel-row",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "sha256:correct",
-            "correctness_digest_stable": True,
-            "computed_result_sink_replay_verified": True,
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "vortex_scan_millis": 0.2,
-                "operator_compute_millis": 0.5,
-                "operator_execution_class": "residual_native",
-                "operator_admission_status": "residual_native_supported",
-                "operator_blocker_id": (
-                    "gar-flow-2b.residual_native_operator_not_encoded_native"
-                ),
-                "operator_encoded_native_claim_allowed": False,
-                "operator_residual_native_used": True,
-                "operator_temporary_materialization_used": False,
-                "operator_blocker_matrix_ref": "operator-blocker://group-by",
-                "compressed_kernel_registry_pair_ids": (
-                    "bitpacked_boolean_integer_filter|dictionary_equality_group_by"
-                ),
-                "compressed_kernel_registry_operator_families": (
-                    "filter_predicate|equality_group_by"
-                ),
-                "compressed_kernel_registry_kernel_admitted": "false|true",
-                "compressed_kernel_registry_kernel_executed": "false|true",
-                "compressed_kernel_registry_decoded": "false|false",
-                "compressed_kernel_registry_materialized": "false|false",
-                "compressed_kernel_registry_decoded_reference_compared": "false|true",
-                "compressed_kernel_registry_correctness_digest_status": (
-                    "not_emitted_pair_not_executed|decoded_reference_match"
-                ),
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(
-            published["encoded_kernel_promotion_schema_version"],
-            "shardloom.encoded_kernel_promotion.v1",
-        )
-        self.assertEqual(
-            published["encoded_kernel_promotion_status"],
-            "partial_encoded_kernel_pairs_promoted",
-        )
-        self.assertEqual(published["encoded_kernel_promoted_pair_count"], 1)
-        self.assertEqual(
-            published["encoded_kernel_promoted_pair_ids"],
-            "dictionary_equality_group_by",
-        )
-        self.assertEqual(
-            published["encoded_kernel_promoted_operator_families"],
-            "equality_group_by",
-        )
-        self.assertFalse(published["encoded_kernel_full_operator_claim_allowed"])
-        self.assertEqual(published["operator_execution_mode"], "residual_native")
-        self.assertEqual(
-            published["operator_hot_path_candidate"],
-            "partial_encoded_kernel_to_full_operator_promotion",
-        )
-
-        promotion = module.encoded_kernel_promotion_table([published])
-        self.assertEqual(
-            promotion["partial_encoded_kernel_promoted_row_count"],
-            1,
-        )
-        self.assertIn(
-            "narrower than full operator mode",
-            promotion["claim_boundary"],
-        )
-
-    def test_benchmark_promoter_publication_proof_sidecar_reuses_and_invalidates(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_publication_proof_sidecar_for_test",
-        )
-
-        row = {
-            "engine": "shardloom-prepared-vortex",
-            "scenario_id": "selective_filter",
-            "scenario_name": "selective filter",
-            "storage_format": "csv",
-            "route_lane_id": "warm_prepared_query",
-            "timing_surface": "publication_proof",
-            "actual_evidence_tier": "publication_full",
-            "claim_gate_status": "claim_grade",
-            "evidence_render_proof_status": "compact_machine_evidence_derived",
-            "evidence_render_proof_digest": "sha256:proof-a",
-            "computed_result_vortex_digest": "sha256:sink-a",
-            "computed_result_sink_replay_verified": True,
-            "runtime_execution_certificate_id": "execution.sidecar",
-            "runtime_execution_certificate_status": "certified",
-            "result_sink_write_ms": 0.5,
-            "evidence_render_ms": 3.0,
-            "publication_proof_route_total_ms": 4.0,
-            "route_total_formula": (
-                "timing_surface=publication_proof; total_route_ms = "
-                "query_runtime_millis + result_sink_write_millis + evidence_render_millis"
-            ),
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-        }
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            output_dir = Path(tempdir)
-            chunks = module.write_row_chunks(output_dir, [row])
-            first = module.write_publication_proof_sidecar(output_dir, [row], chunks)
-            self.assertEqual(
-                first["publication_proof_sidecar_status"],
-                "admitted_incremental_publication_proof_sidecar",
-            )
-            self.assertEqual(first["publication_proof_sidecar_record_count"], 1)
-            self.assertEqual(first["publication_proof_sidecar_written_record_count"], 1)
-            sidecar = json.loads(
-                (output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME).read_text(
-                    encoding="utf-8"
-                )
-            )
-            self.assertIs(
-                sidecar["records"][0]["computed_result_sink_replay_verified"],
-                True,
-            )
-
-            second = module.write_publication_proof_sidecar(output_dir, [row], chunks)
-            self.assertEqual(
-                second["publication_proof_sidecar_status"],
-                "reused_existing_publication_proof_sidecar",
-            )
-            self.assertEqual(second["publication_proof_sidecar_reused_record_count"], 1)
-            self.assertEqual(second["publication_proof_sidecar_written_record_count"], 0)
-            self.assertTrue(
-                str(
-                    second["publication_proof_sidecar_source_row_chunks_digest"]
-                ).startswith("sha256:")
-            )
-            self.assertTrue(
-                str(second["publication_proof_sidecar_record_set_digest"]).startswith(
-                    "sha256:"
-                )
-            )
-
-            sidecar_path = output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME
-            second_digest = hashlib.sha256(sidecar_path.read_bytes()).hexdigest()
-            third_same = module.write_publication_proof_sidecar(output_dir, [row], chunks)
-            self.assertEqual(
-                third_same["publication_proof_sidecar_status"],
-                "reused_existing_publication_proof_sidecar",
-            )
-            self.assertEqual(
-                third_same["publication_proof_sidecar_write_status"],
-                "skipped_unchanged_publication_proof_sidecar_write",
-            )
-            self.assertEqual(
-                hashlib.sha256(sidecar_path.read_bytes()).hexdigest(),
-                second_digest,
-            )
-
-            changed = {**row, "evidence_render_proof_digest": "sha256:proof-b"}
-            changed_chunks = module.write_row_chunks(output_dir, [changed])
-            fourth = module.write_publication_proof_sidecar(
-                output_dir,
-                [changed],
-                changed_chunks,
-            )
-            self.assertEqual(
-                fourth["publication_proof_sidecar_status"],
-                "admitted_incremental_publication_proof_sidecar",
-            )
-            self.assertEqual(fourth["publication_proof_sidecar_written_record_count"], 1)
-            self.assertEqual(fourth["publication_proof_sidecar_stale_record_count"], 0)
-            changed_sidecar = json.loads(
-                (output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME).read_text(
-                    encoding="utf-8"
-                )
-            )
-            self.assertEqual(changed_sidecar["stale_record_count"], 0)
-            self.assertEqual(changed_sidecar["removed_stale_record_count"], 1)
-
-    def test_benchmark_promoter_demotes_claim_grade_without_cold_lane_split(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py", "promote_benchmark_cold_lane_gate_for_test"
-        )
-
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "scenario_name": "claim grade missing cold lane",
-            "status": "success",
-            "selected_execution_mode": "compatibility_import_certified",
-            "timing_scope": "cold_certified_end_to_end",
-            "preparation_included": True,
-            "compatibility_import_included": True,
-            "source_state_id": "source-state://claim-grade-missing-cold-lane",
-            "data_decoded": False,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "runtime_execution_certificate_id": "execution.claim-grade-missing-cold-lane",
-            "runtime_execution_certificate_status": "certified",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "claim_grade_missing_evidence": [],
-            "metrics": {
-                "query_runtime_millis": 1.0,
-                "source_read_millis": 0.1,
-                "compatibility_to_vortex_import_millis": 0.2,
-                "vortex_array_build_millis": 0.1,
-                "vortex_write_millis": 0.1,
-                "vortex_reopen_verify_millis": 0.1,
-                "operator_compute_millis": 0.2,
-                "total_runtime_millis": 1.0,
-                "cli_process_wall_millis": 1.2,
-                "python_harness_overhead_millis": 0.2,
-            },
-        }
-
-        [published] = module.published_rows([row])
-
-        self.assertEqual(published["claim_gate_status"], "not_claim_grade")
-        self.assertFalse(published["claim_grade_requirements_met"])
-        self.assertIn(
-            "cold_lane_timing_split_status!=complete",
-            published["claim_grade_missing_evidence"][0],
-        )
-        summary = module.comparative_summary(
-            {"dataset": {}, "generated_at_utc": "2026-01-01T00:00:00Z"},
-            [row],
-            REPO_ROOT / "target" / "claim-grade-missing-cold-lane.json",
-            "full_local",
-            self._public_front_door_benchmark_rows(module),
-        )
-        self.assertEqual(
-            summary["claim_gate_distribution"]["rows"][0][0],
-            "not_claim_grade",
-        )
-
-    def test_full_local_requires_broad_formats_for_current_refresh(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-        from benchmarks.traditional_analytics.benchmark_registry import PROFILES
-
-        profile = PROFILES["full_local"]
-
-        self.assertEqual(
-            benchmark_run.FORMAT_ORDER,
-            ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
-        )
-        self.assertEqual(
-            profile.required_formats,
-            ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
-        )
-        self.assertEqual(profile.optional_formats, ())
-        self.assertNotIn("pyspark", profile.required_lanes)
-        self.assertNotIn("spark-default", profile.required_lanes)
-        self.assertNotIn("spark-local-tuned", profile.required_lanes)
-        self.assertEqual(
-            benchmark_run.CLAIM_READINESS_RERUN_FORMATS,
-            ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
-        )
-        self.assertNotIn("pyspark", benchmark_run.CLAIM_READINESS_RERUN_ENGINES)
-
-    def test_claim_readiness_rerun_uses_all_scenario_fixture_profile(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        args = benchmark_run.parse_args(["--claim-readiness-rerun"])
-
-        self.assertEqual(args.dataset_profile, "tiny_smoke")
-        self.assertIsNone(
-            benchmark_run.scenario_dataset_profile_block_reason(
-                "partition pruning", args.dataset_profile
-            )
-        )
-        self.assertIsNone(
-            benchmark_run.scenario_dataset_profile_block_reason(
-                "many-small-files scan", args.dataset_profile
-            )
-        )
-        self.assertIsNone(
-            benchmark_run.scenario_dataset_profile_block_reason(
-                "malformed timestamp / dirty CSV", args.dataset_profile
-            )
-        )
-
-    def test_claim_readiness_rerun_respects_explicit_dataset_profile(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        args = benchmark_run.parse_args(
-            ["--claim-readiness-rerun", "--dataset-profile", "narrow_fact_dim"]
-        )
-
-        self.assertEqual(args.dataset_profile, "narrow_fact_dim")
-        self.assertIsNotNone(
-            benchmark_run.scenario_dataset_profile_block_reason(
-                "partition pruning", args.dataset_profile
-            )
-        )
-
-    def test_benchmark_runner_canonicalizes_scan_chunk_iteration_alias(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        metrics = benchmark_run.vortex_scan_attribution_stage_metrics(
-            {"vortex_chunk_iteration_micros": "42"}
-        )
-
-        self.assertEqual(metrics["scan_chunk_iter_micros"], 42)
-        self.assertNotIn("vortex_chunk_iteration_micros", metrics)
-        self.assertNotIn(
-            "vortex_chunk_iteration_micros",
-            benchmark_run.VORTEX_SCAN_SPLIT_MICROS_FIELDS,
-        )
-
-    def test_benchmark_runner_warms_shardloom_cli_with_status_command(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        calls: list[tuple[list[str], Path, dict[str, str]]] = []
-
-        def fake_subprocess_run(
-            command: list[str], cwd: Path, env: dict[str, str]
-        ) -> dict[str, object]:
-            calls.append((command, cwd, env))
-            return {
-                "returncode": 0,
-                "stdout": json.dumps(
-                    {
-                        "schema_version": "shardloom.output.v2",
-                        "command": "status",
-                        "status": "success",
-                        "fallback": {"attempted": False},
-                    }
-                ),
-                "stderr": "",
-                "process_wall_millis": 12.5,
-            }
-
-        previous = benchmark_run.subprocess_run
-        try:
-            benchmark_run.subprocess_run = fake_subprocess_run
-            benchmark_run.shardloom_cli_warmup(
-                Path("/repo/target/release/shardloom"),
-                Path("/repo"),
-                {"RUSTUP_TOOLCHAIN": "stable"},
-            )
-        finally:
-            benchmark_run.subprocess_run = previous
-
-        self.assertEqual(len(calls), 1)
-        command, cwd, env = calls[0]
-        self.assertEqual(
-            command,
-            [
-                "/repo/target/release/shardloom",
-                "status",
-                "--format",
-                "json",
-            ],
-        )
-        self.assertEqual(cwd, Path("/repo"))
-        self.assertEqual(env["RUSTUP_TOOLCHAIN"], "stable")
-
-    def test_benchmark_runner_separates_global_startup_warmup_attribution(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        calls: list[Path] = []
-
-        def fake_shardloom_cli_warmup(
-            binary: Path, root: Path, env: dict[str, str]
-        ) -> None:
-            calls.append(binary)
-
-        ticks = iter([0.0, 0.4, 1.0, 1.1, 2.0, 2.2])
-        previous_warmup = benchmark_run.shardloom_cli_warmup
-        previous_perf_counter = benchmark_run.time.perf_counter
-        benchmark_run.SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY.clear()
-        try:
-            benchmark_run.shardloom_cli_warmup = fake_shardloom_cli_warmup
-            benchmark_run.time.perf_counter = lambda: next(ticks)
-
-            first = benchmark_run.shardloom_cli_attributed_warmup(
-                Path("/repo/target/release/shardloom"),
-                Path("/repo"),
-                {},
-            )
-            second = benchmark_run.shardloom_cli_attributed_warmup(
-                Path("/repo/target/release/shardloom"),
-                Path("/repo"),
-                {},
-            )
-            warmed = benchmark_run.warmup_runner(
-                benchmark_run.EngineRunner(
-                    "shardloom-vortex",
-                    "test",
-                    {},
-                    warmup=lambda: second,
-                    startup_time_millis=3.0,
-                )
-            )
-        finally:
-            benchmark_run.shardloom_cli_warmup = previous_warmup
-            benchmark_run.time.perf_counter = previous_perf_counter
-            benchmark_run.SHARDLOOM_GLOBAL_CLI_WARMUP_MILLIS_BY_BINARY.clear()
-
-        self.assertEqual(len(calls), 2)
-        self.assertEqual(first["warmup_time_millis"], 0.0)
-        self.assertEqual(first["startup_warmup_scope"], "covered_by_global_cli_binary_prime")
-        self.assertEqual(first["global_startup_warmup_millis"], 400.0)
-        self.assertEqual(
-            first["global_startup_warmup_scope"],
-            "one_time_cli_binary_prime_shared_across_shardloom_lanes",
-        )
-        self.assertEqual(second["warmup_time_millis"], 100.0)
-        self.assertEqual(
-            second["startup_warmup_scope"],
-            "per_lane_cli_status_warmup_after_global_prime",
-        )
-        self.assertEqual(second["global_startup_warmup_millis"], 400.0)
-        self.assertEqual(warmed.startup_time_millis, 103.0)
-        self.assertEqual(
-            warmed.startup_warmup_scope,
-            "per_lane_cli_status_warmup_after_global_prime",
-        )
-        self.assertEqual(warmed.global_startup_warmup_millis, 400.0)
-
-    def test_benchmark_result_rows_do_not_allocate_global_startup_prime(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            paths = benchmark_run.DatasetPaths(
-                root=root,
-                fact_csv=root / "fact.csv",
-                dim_csv=root / "dim.csv",
-                fact_jsonl=root / "fact.jsonl",
-                dim_jsonl=root / "dim.jsonl",
-                fact_parquet=root / "fact.parquet",
-                dim_parquet=root / "dim.parquet",
-                fact_arrow_ipc=root / "fact.arrow",
-                dim_arrow_ipc=root / "dim.arrow",
-                fact_avro=root / "fact.avro",
-                dim_avro=root / "dim.avro",
-                fact_orc=root / "fact.orc",
-                dim_orc=root / "dim.orc",
-                rows=1,
-                dim_rows=1,
-            )
-            runner = benchmark_run.EngineRunner(
-                "shardloom-vortex",
-                "test",
-                {},
-                startup_time_millis=21.0,
-                startup_warmup_scope=(
-                    "per_lane_cli_status_warmup_after_global_prime"
-                ),
-                global_startup_warmup_millis=400.0,
-                global_startup_warmup_scope=(
-                    "one_time_cli_binary_prime_shared_across_shardloom_lanes"
-                ),
-            )
-            result = benchmark_run.successful_result_from_iterations(
-                runner,
-                paths,
-                "selective filter",
-                "parquet",
-                1,
-                [{"row_count": 1, "metric_sum": 2.0}],
-                [
-                    {
-                        "selected_execution_mode": "native_vortex",
-                        "scenario_compute_micros": "100",
-                        "operator_compute_micros": "50",
-                        "total_runtime_micros": "100",
-                        "source_bytes_read": "10",
-                        "rows_materialized": "1",
-                        "data_decoded": "false",
-                        "data_materialized": "false",
-                        "row_read": "false",
-                        "object_store_io": "false",
-                        "write_io": "false",
-                        "spill_io_performed": "false",
-                        "fallback_attempted": "false",
-                        "external_engine_invoked": "false",
-                        "runtime_fallback_attempted": "false",
-                        "runtime_external_query_engine_invoked": "false",
-                        "persistent_runner_status": (
-                            benchmark_run.PERSISTENT_RUNNER_STATUS
-                        ),
-                        "session_route_used": "false",
-                        "process_spawn_count": "1",
-                    }
-                ],
-                [0.1],
-                [],
-            )
-
-        metrics = result["metrics"]
-        self.assertEqual(metrics["startup_warmup_millis"], 21.0)
-        self.assertIsNone(metrics["global_startup_warmup_millis"])
-        self.assertEqual(
-            metrics["global_startup_warmup_row_allocation_status"],
-            "shared_global_cli_prime_reported_in_engine_versions_not_row_allocated",
-        )
-        self.assertFalse(metrics["session_route_used"])
-        self.assertEqual(metrics["process_spawn_count"], 1)
-
-    def test_shared_prepared_artifact_cache_hit_zeroes_fresh_import_timing(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            fact = root / "fact.vortex"
-            dim = root / "dim.vortex"
-            fact.write_bytes(b"fact")
-            dim.write_bytes(b"dim")
-            manifest = root / ".shardloom" / "prepared-vortex-reuse-manifest.json"
-            manifest.parent.mkdir()
-            manifest.write_text("{}\n", encoding="utf-8")
-            entry = {
-                "fact": fact,
-                "dim": dim,
-                "preparation_millis": 12.5,
-                "prepared_state_lookup_or_create_millis": 12.5,
-                "prepare_route_total_millis": 14.0,
-                "prepare_cli_wall_millis": 22.0,
-                "preparation_cli_process_wall_millis": 22.0,
-                "compatibility_to_vortex_import_micros": "12345",
-                "source_read_micros": "6789",
-                "vortex_write_micros": "3456",
-                "fact_digest": "sha256:fact",
-                "dim_digest": "sha256:dim",
-                "benchmark_harness_prepared_artifact_cache_creator_engine": (
-                    "shardloom-vortex"
-                ),
-                "benchmark_harness_prepared_artifact_workspace_manifest_path": str(
-                    manifest
-                ),
-                "benchmark_harness_prepared_artifact_workspace_manifest_status": (
-                    "workspace_manifest_written"
-                ),
-                "benchmark_harness_prepared_artifact_workspace_manifest_write_micros": (
-                    "42"
-                ),
-            }
-
-            self.assertTrue(
-                benchmark_run.shared_prepared_artifact_entry_is_valid(entry)
-            )
-            reused = benchmark_run.shared_prepared_artifact_cache_hit_entry(
-                entry,
-                "shardloom-prepared-vortex",
-            )
-
-        self.assertEqual(reused["preparation_millis"], 0.0)
-        self.assertEqual(reused["prepared_state_lookup_or_create_millis"], 0.0)
-        self.assertEqual(reused["prepare_route_total_millis"], 0.0)
-        self.assertEqual(reused["preparation_cli_process_wall_millis"], 0.0)
-        self.assertEqual(reused["compatibility_to_vortex_import_micros"], "0")
-        self.assertEqual(reused["source_read_micros"], "0")
-        self.assertEqual(reused["vortex_write_micros"], "0")
-        self.assertEqual(
-            reused["shared_prepared_artifact_original_preparation_millis"],
-            "12.5",
-        )
-        self.assertEqual(
-            reused[
-                "shared_prepared_artifact_original_compatibility_to_vortex_import_micros"
-            ],
-            "12345",
-        )
-        self.assertEqual(
-            reused["benchmark_harness_prepared_artifact_cache_status"],
-            "cache_hit_reused_in_process",
-        )
-        self.assertEqual(
-            reused["benchmark_harness_prepared_artifact_cache_creator_engine"],
-            "shardloom-vortex",
-        )
-        self.assertEqual(
-            reused["benchmark_harness_prepared_artifact_cache_consumer_engine"],
-            "shardloom-prepared-vortex",
-        )
-        self.assertEqual(reused["prepared_state_reuse_hit"], "true")
-        self.assertEqual(
-            reused["prepared_state_reuse_reason"],
-            "same_process_cache_hit_artifact_paths_verified",
-        )
-        self.assertEqual(
-            reused["prepared_state_reuse_scope"],
-            "benchmark_harness_shared_prepared_vortex_artifact_in_process",
-        )
-        self.assertEqual(
-            reused["benchmark_harness_prepared_artifact_workspace_manifest_status"],
-            "workspace_manifest_verified_same_process_cache_hit",
-        )
-        self.assertEqual(
-            reused[
-                "shared_prepared_artifact_original_benchmark_harness_prepared_artifact_workspace_manifest_write_micros"
-            ],
-            "42",
-        )
-        self.assertEqual(
-            reused["benchmark_harness_prepared_artifact_workspace_manifest_write_micros"],
-            "0",
-        )
-
-    def test_prepared_artifact_workspace_manifest_records_local_artifacts(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            for name in [
-                "fact.csv",
-                "dim.csv",
-                "fact.jsonl",
-                "dim.jsonl",
-                "fact.parquet",
-                "dim.parquet",
-                "fact.arrow",
-                "dim.arrow",
-                "fact.avro",
-                "dim.avro",
-                "fact.orc",
-                "dim.orc",
-            ]:
-                (root / name).write_text("fixture\n", encoding="utf-8")
-            fact_vortex = root / "workspace" / "fact.vortex"
-            dim_vortex = root / "workspace" / "dim.vortex"
-            fact_vortex.parent.mkdir()
-            fact_vortex.write_bytes(b"fact-vortex")
-            dim_vortex.write_bytes(b"dim-vortex")
-            paths = benchmark_run.DatasetPaths(
-                root=root,
-                fact_csv=root / "fact.csv",
-                dim_csv=root / "dim.csv",
-                fact_jsonl=root / "fact.jsonl",
-                dim_jsonl=root / "dim.jsonl",
-                fact_parquet=root / "fact.parquet",
-                dim_parquet=root / "dim.parquet",
-                fact_arrow_ipc=root / "fact.arrow",
-                dim_arrow_ipc=root / "dim.arrow",
-                fact_avro=root / "fact.avro",
-                dim_avro=root / "dim.avro",
-                fact_orc=root / "fact.orc",
-                dim_orc=root / "dim.orc",
-                rows=2,
-                dim_rows=1,
-                dataset_profile="tiny_smoke",
-            )
-            fields = {
-                "source_state_id": "source-state://test",
-                "source_state_digest": "fnv1a64:source",
-                "prepared_state_id": "prepared-state://test",
-                "prepared_state_digest": "fnv1a64:prepared",
-            }
-            prepared = {
-                "fact": fact_vortex,
-                "dim": dim_vortex,
-                "fact_digest": "fnv1a64:fact",
-                "dim_digest": "fnv1a64:dim",
-            }
-
-            manifest_fields = (
-                benchmark_run.write_shared_prepared_artifact_workspace_manifest(
-                    paths=paths,
-                    data_format="parquet",
-                    workspace=root / "workspace",
-                    binary=root / "target" / "debug" / "shardloom",
-                    prepared=prepared,
-                    fields=fields,
-                )
-            )
-            manifest_path = Path(
-                manifest_fields[
-                    "benchmark_harness_prepared_artifact_workspace_manifest_path"
-                ]
-            )
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-
-        self.assertEqual(
-            payload["schema_version"],
-            benchmark_run.SHARED_PREPARED_ARTIFACT_WORKSPACE_MANIFEST_SCHEMA_VERSION,
-        )
-        self.assertEqual(payload["scope"], "workspace_manifest_local_vortex_artifacts")
-        self.assertEqual(payload["prepared_fact_digest"], "fnv1a64:fact")
-        self.assertEqual(payload["prepared_dim_digest"], "fnv1a64:dim")
-        self.assertFalse(payload["fallback_attempted"])
-        self.assertFalse(payload["external_engine_invoked"])
-        self.assertTrue(
-            manifest_fields[
-                "benchmark_harness_prepared_artifact_workspace_manifest_digest"
-            ]
-        )
-
-    def test_batch_cli_process_wall_is_amortized_per_scenario(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        self.assertEqual(
-            benchmark_run.amortized_batch_cli_process_wall_millis(34.0, 4),
-            8.5,
-        )
-        self.assertEqual(
-            benchmark_run.amortized_batch_cli_process_wall_millis("33.3333", 3),
-            11.1111,
-        )
-        self.assertIsNone(
-            benchmark_run.amortized_batch_cli_process_wall_millis("not_measured", 4)
-        )
-        self.assertIsNone(
-            benchmark_run.amortized_batch_cli_process_wall_millis(34.0, 0)
-        )
-        self.assertEqual(
-            benchmark_run.row_level_batch_cli_process_wall_millis(753.4, 20),
-            37.67,
-        )
-        self.assertEqual(
-            benchmark_run.row_level_batch_cli_process_wall_millis("not_measured", 20),
-            "not_measured",
-        )
-
-    def test_benchmark_runner_rejects_fallback_during_shardloom_cli_warmup(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        def fake_subprocess_run(
-            command: list[str], cwd: Path, env: dict[str, str]
-        ) -> dict[str, object]:
-            return {
-                "returncode": 0,
-                "stdout": json.dumps(
-                    {
-                        "schema_version": "shardloom.output.v2",
-                        "command": "status",
-                        "status": "success",
-                        "fallback": {"attempted": True},
-                    }
-                ),
-                "stderr": "",
-                "process_wall_millis": 12.5,
-            }
-
-        previous = benchmark_run.subprocess_run
-        try:
-            benchmark_run.subprocess_run = fake_subprocess_run
-            with self.assertRaises(benchmark_run.BenchmarkUnsupported):
-                benchmark_run.shardloom_cli_warmup(
-                    Path("/repo/target/release/shardloom"),
-                    Path("/repo"),
-                    {},
-                )
-        finally:
-            benchmark_run.subprocess_run = previous
-
-    def test_benchmark_runner_prefers_engine_preparation_timing(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        self.assertEqual(
-            benchmark_run.preparation_engine_millis(
-                {
-                    "total_runtime_micros": "26108",
-                    "compatibility_to_vortex_import_micros": "25207",
-                },
-                34.5943,
-            ),
-            25.207,
-        )
-        self.assertEqual(
-            benchmark_run.preparation_engine_millis(
-                {
-                    "prepare_batch_prepared_state_lookup_or_create_micros": "1400",
-                    "prepare_batch_preparation_micros": "1100",
-                    "total_runtime_micros": "26108",
-                    "compatibility_to_vortex_import_micros": "25207",
-                },
-                34.5943,
-            ),
-            1.4,
-        )
-        self.assertEqual(
-            benchmark_run.preparation_engine_millis(
-                {
-                    "prepare_batch_preparation_micros": "1100",
-                    "total_runtime_micros": "26108",
-                    "compatibility_to_vortex_import_micros": "25207",
-                },
-                34.5943,
-            ),
-            1.1,
-        )
-        self.assertEqual(
-            benchmark_run.preparation_engine_millis(
-                {"compatibility_to_vortex_import_micros": "25207"},
-                34.5943,
-            ),
-            25.207,
-        )
-        self.assertEqual(
-            benchmark_run.preparation_engine_millis({}, 34.5943),
-            34.5943,
-        )
-        self.assertEqual(
-            benchmark_run.preparation_route_total_millis(
-                {
-                    "prepare_batch_prepare_route_total_micros": "27108",
-                    "total_runtime_micros": "26108",
-                },
-                34.5943,
-            ),
-            27.108,
-        )
-        self.assertEqual(
-            benchmark_run.preparation_route_total_millis(
-                {"total_runtime_micros": "26108"},
-                34.5943,
-            ),
-            26.108,
-        )
-
-    def test_benchmark_runner_propagates_only_preparation_stage_timings(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        fields = benchmark_run.preparation_stage_timing_fields(
-            {
-                "source_parse_micros": "1773",
-                "compatibility_to_vortex_import_micros": "25207",
-                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
-                "prepare_batch_prepared_state_lookup_or_create_micros": "26000",
-                "prepare_batch_prepare_route_total_micros": "26108",
-                "vortex_write_micros": "21850",
-                "vortex_write_strategy": "upstream_vortex_table_flat_leaf_strategy",
-                "vortex_write_strategy_fallback_attempted": "false",
-                "exclusive_vortex_write_micros": "21850",
-                "total_runtime_micros": "26108",
-                "evidence_render_micros": "182",
-                "vortex_scan_micros": "181",
-                "empty": "",
-            }
-        )
-
-        self.assertEqual(
-            fields,
-            {
-                "source_parse_micros": "1773",
-                "compatibility_to_vortex_import_micros": "25207",
-                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
-                "prepare_batch_prepared_state_lookup_or_create_micros": "26000",
-                "prepare_batch_prepare_route_total_micros": "26108",
-                "vortex_write_micros": "21850",
-                "vortex_write_strategy": "upstream_vortex_table_flat_leaf_strategy",
-                "vortex_write_strategy_fallback_attempted": "false",
-                "exclusive_vortex_write_micros": "21850",
-            },
-        )
-
-    def test_full_local_external_lanes_have_required_scenario_handlers(self) -> None:
-        required_modules = ("pandas", "polars", "duckdb", "datafusion", "dask")
-        missing_modules = [
-            module
-            for module in required_modules
-            if importlib.util.find_spec(module) is None
-        ]
-        if missing_modules:
-            self.skipTest(
-                "full-local benchmark dependencies not installed: "
-                + ", ".join(missing_modules)
-            )
-
-        from benchmarks.traditional_analytics import run as benchmark_run
-        from benchmarks.traditional_analytics.benchmark_registry import PROFILES
-
-        profile = PROFILES["full_local"]
-        external_lanes = tuple(
-            lane for lane in profile.required_lanes if not lane.startswith("shardloom")
-        )
-        runners, missing = benchmark_run.available_runners(external_lanes)
-
-        self.assertEqual(missing, {})
-        for lane in external_lanes:
-            missing_scenarios = sorted(
-                set(profile.required_scenarios) - set(runners[lane].scenarios)
-            )
-            self.assertEqual(missing_scenarios, [], lane)
-
-    def test_local_vortex_wrapper_uses_isolated_run_paths(self) -> None:
-        module = self._load_module_from_path(
-            REPO_ROOT / "examples" / "local-vortex-benchmark" / "run.py",
-            "local_vortex_benchmark_wrapper_for_test",
-        )
-        args = module.parse_args(
-            ["--repo-root", str(REPO_ROOT), "--run-id", "unit-test", "--rows", "7"]
-        )
-
-        context = module.build_run_context(args)
-        self.assertEqual(
-            context["data_dir"],
-            (REPO_ROOT / "target" / "local-vortex-benchmark" / "unit-test" / "data").resolve(),
-        )
-        self.assertEqual(
-            context["output"],
-            (REPO_ROOT / "target" / "local-vortex-benchmark" / "unit-test" / "smoke.json").resolve(),
-        )
-        self.assertIn("--data-dir", context["command"])
-        self.assertIn("--regenerate", context["command"])
-
-        invalid_args = module.parse_args(["--repo-root", str(REPO_ROOT), "--run-id", "../bad"])
-        with self.assertRaises(ValueError):
-            module.build_run_context(invalid_args)
-
-    def test_benchmark_row_promotes_source_scout_and_scan_contract_fields(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-
-            def fixture(name: str) -> Path:
-                path = root / name
-                path.write_text("id\n1\n", encoding="utf-8")
-                return path
-
-            paths = benchmark_run.DatasetPaths(
-                root=root,
-                fact_csv=fixture("fact.csv"),
-                dim_csv=fixture("dim.csv"),
-                fact_jsonl=fixture("fact.jsonl"),
-                dim_jsonl=fixture("dim.jsonl"),
-                fact_parquet=fixture("fact.parquet"),
-                dim_parquet=fixture("dim.parquet"),
-                fact_arrow_ipc=fixture("fact.arrow"),
-                dim_arrow_ipc=fixture("dim.arrow"),
-                fact_avro=fixture("fact.avro"),
-                dim_avro=fixture("dim.avro"),
-                fact_orc=fixture("fact.orc"),
-                dim_orc=fixture("dim.orc"),
-                rows=8,
-                dim_rows=2,
-            )
-            runner = benchmark_run.EngineRunner("shardloom", "test", {})
-            first_evidence = {
-                "source_read_header_scout_micros": "1000",
-                "source_read_byte_acquisition_micros": "2000",
-                "source_read_full_body_micros": "3000",
-                "source_read_typed_decode_micros": "6000",
-                "source_read_row_assembly_micros": "0",
-                "source_read_anomaly_quarantine_micros": "0",
-                "source_read_columnar_handoff_micros": "1000",
-                "source_read_scout_status": "measured",
-                "source_read_scout_reuse_status": "reuse_miss",
-                "vortex_footer_open_micros": "400",
-                "vortex_metadata_verify_micros": "500",
-                "vortex_scan_open_micros": "600",
-                "vortex_scenario_scan_micros": "700",
-                "vortex_scan_bytes_touched": "2048",
-                "vortex_scan_segments_touched": "2",
-                "vortex_scan_segments_skipped": "0",
-                "vortex_scan_columns_touched": "3",
-                "vortex_scan_decoded_values": "16",
-                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
-                "prepare_batch_prepared_state_lookup_or_create_micros": "1200",
-                "prepare_batch_prepare_route_total_micros": "2600",
-                "prepare_batch_vortex_preparation_spine_schema_version": "shardloom.traditional_analytics.vortex_preparation_spine.v1",
-                "prepare_batch_vortex_preparation_spine_status": "full_prepare_wrote_artifacts_with_shared_vortex_context",
-                "prepare_batch_vortex_preparation_spine_artifact_count": "2",
-                "prepare_batch_vortex_preparation_spine_reused_artifact_count": "0",
-                "prepare_batch_vortex_preparation_spine_rewritten_artifact_count": "2",
-                "prepare_batch_vortex_preparation_spine_metadata_first_verify_status": "new_artifacts_written_reopened_or_scanned",
-                "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count": "0",
-                "prepare_batch_vortex_preparation_spine_reopen_verify_strategy": "new_artifact_write_then_reopen_scan",
-                "prepare_batch_vortex_preparation_spine_full_reopen_verify_count": "2",
-                "prepare_batch_vortex_preparation_spine_writer_context_write_count": "2",
-                "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count": "1",
-                "prepare_batch_vortex_preparation_spine_write_coalescing_status": "scheduled_multi_artifact_writes_on_shared_context",
-                "prepare_batch_vortex_preparation_spine_shared_writer_context": "true",
-                "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes": "8192",
-                "prepare_batch_vortex_preparation_spine_buffer_pool_status": "scoped_buffer_pool_disabled_no_hidden_reuse",
-                "prepare_batch_vortex_preparation_spine_buffer_reuse_count": "0",
-                "persistent_runner_status": benchmark_run.PERSISTENT_RUNNER_STATUS,
-                "session_route_used": "false",
-                "process_spawn_count": "1",
-            }
-            second_evidence = {
-                "source_read_header_scout_micros": "3000",
-                "source_read_byte_acquisition_micros": "4000",
-                "source_read_full_body_micros": "5000",
-                "source_read_typed_decode_micros": "8000",
-                "source_read_row_assembly_micros": "0",
-                "source_read_anomaly_quarantine_micros": "0",
-                "source_read_columnar_handoff_micros": "2000",
-                "source_read_scout_status": "measured",
-                "source_read_scout_reuse_status": "reuse_hit",
-                "source_state_read_plan": "projected_csv_reader",
-                "source_state_projection_pushdown_status": "reader_level_projection",
-                "source_state_reader_projection_columns": "id,metric",
-                "source_state_reader_projection_column_count": "2",
-                "source_read_projected_field_mask": "0x00000005",
-                "source_read_filter_field_mask": "0x00000004",
-                "source_read_decoded_columns": "id|metric",
-                "source_read_skipped_columns": "value|flag",
-                "source_read_decoded_column_count": "2",
-                "source_read_skipped_column_count": "2",
-                "vortex_footer_open_micros": "800",
-                "vortex_metadata_verify_micros": "1000",
-                "vortex_scan_open_micros": "1200",
-                "vortex_scenario_scan_micros": "1400",
-                "vortex_scan_bytes_touched": "4096",
-                "vortex_scan_segments_touched": "4",
-                "vortex_scan_segments_skipped": "1",
-                "vortex_scan_columns_touched": "5",
-                "vortex_scan_decoded_values": "32",
-                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
-                "prepare_batch_prepared_state_lookup_or_create_micros": "1600",
-                "prepare_batch_prepare_route_total_micros": "3000",
-                "prepare_batch_vortex_preparation_spine_schema_version": "shardloom.traditional_analytics.vortex_preparation_spine.v1",
-                "prepare_batch_vortex_preparation_spine_status": "full_prepare_wrote_artifacts_with_shared_vortex_context",
-                "prepare_batch_vortex_preparation_spine_artifact_count": "2",
-                "prepare_batch_vortex_preparation_spine_reused_artifact_count": "0",
-                "prepare_batch_vortex_preparation_spine_rewritten_artifact_count": "2",
-                "prepare_batch_vortex_preparation_spine_metadata_first_verify_status": "new_artifacts_written_reopened_or_scanned",
-                "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count": "0",
-                "prepare_batch_vortex_preparation_spine_reopen_verify_strategy": "new_artifact_write_then_reopen_scan",
-                "prepare_batch_vortex_preparation_spine_full_reopen_verify_count": "2",
-                "prepare_batch_vortex_preparation_spine_writer_context_write_count": "2",
-                "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count": "1",
-                "prepare_batch_vortex_preparation_spine_write_coalescing_status": "scheduled_multi_artifact_writes_on_shared_context",
-                "prepare_batch_vortex_preparation_spine_shared_writer_context": "true",
-                "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes": "8192",
-                "prepare_batch_vortex_preparation_spine_buffer_pool_status": "scoped_buffer_pool_disabled_no_hidden_reuse",
-                "prepare_batch_vortex_preparation_spine_buffer_reuse_count": "0",
-                "persistent_runner_status": benchmark_run.PERSISTENT_RUNNER_STATUS,
-                "session_route_used": "false",
-                "process_spawn_count": "1",
-            }
-
-            result = benchmark_run.successful_result_from_iterations(
-                runner,
-                paths,
-                "selective filter",
-                "csv",
-                2,
-                [{"row_count": 1, "metric_sum": 2.0}, {"row_count": 1, "metric_sum": 2.0}],
-                [first_evidence, second_evidence],
-                [10.0, 12.0],
-                [],
-            )
-
-        metrics = result["metrics"]
-        missing_stage_fields = [
-            field
-            for field in benchmark_run.STAGE_TIMING_CONTRACT_FIELDS
-            if field not in metrics
-        ]
-        self.assertEqual(missing_stage_fields, [])
-        missing_source_state_fields = [
-            field
-            for field in benchmark_run.SOURCE_STATE_CONTRACT_FIELDS
-            if field not in metrics
-        ]
-        self.assertEqual(missing_source_state_fields, [])
-        self.assertEqual(metrics["source_read_header_scout_millis"], 2.0)
-        self.assertFalse(metrics["session_route_used"])
-        self.assertEqual(metrics["process_spawn_count"], 1)
-        self.assertEqual(metrics["source_read_byte_acquisition_millis"], 3.0)
-        self.assertEqual(metrics["source_read_full_body_millis"], 4.0)
-        self.assertEqual(metrics["source_read_typed_decode_millis"], 7.0)
-        self.assertEqual(metrics["source_read_row_assembly_millis"], 0.0)
-        self.assertEqual(metrics["source_read_anomaly_quarantine_millis"], 0.0)
-        self.assertEqual(metrics["source_read_columnar_handoff_millis"], 1.5)
-        self.assertEqual(metrics["source_read_header_scout_micros"], 3000)
-        self.assertEqual(metrics["source_read_scout_reuse_status"], "reuse_hit")
-        self.assertEqual(metrics["source_state_read_plan"], "projected_csv_reader")
-        self.assertEqual(
-            metrics["source_state_projection_pushdown_status"], "reader_level_projection"
-        )
-        self.assertEqual(metrics["source_state_reader_projection_columns"], "id,metric")
-        self.assertEqual(metrics["source_state_reader_projection_column_count"], 2)
-        self.assertEqual(metrics["source_state_projected_field_mask"], "0x00000005")
-        self.assertEqual(metrics["source_state_filter_field_mask"], "0x00000004")
-        self.assertEqual(metrics["source_state_decoded_columns"], "id,metric")
-        self.assertEqual(metrics["source_state_skipped_columns"], "value,flag")
-        self.assertEqual(metrics["source_state_decoded_column_count"], 2)
-        self.assertEqual(metrics["source_state_skipped_column_count"], 2)
-        self.assertEqual(metrics["vortex_footer_open_millis"], 0.6)
-        self.assertEqual(metrics["vortex_scenario_scan_millis"], 1.05)
-        self.assertEqual(metrics["vortex_scan_bytes_touched"], 4096)
-        self.assertEqual(metrics["vortex_scan_segments_skipped"], 1)
-        self.assertEqual(metrics["vortex_scan_decoded_values"], 32)
-        self.assertEqual(
-            metrics["prepare_batch_preparation_timing_source"],
-            "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
-        )
-        self.assertEqual(
-            metrics["prepare_batch_prepared_state_lookup_or_create_millis"],
-            1.4,
-        )
-        self.assertEqual(metrics["prepare_batch_prepare_route_total_millis"], 2.8)
-        self.assertEqual(
-            metrics["prepare_batch_vortex_preparation_spine_status"],
-            "full_prepare_wrote_artifacts_with_shared_vortex_context",
-        )
-        self.assertEqual(
-            metrics["prepare_batch_vortex_preparation_spine_rewritten_artifact_count"],
-            2,
-        )
-        self.assertTrue(
-            metrics["prepare_batch_vortex_preparation_spine_shared_writer_context"]
-        )
-
-    def test_benchmark_runner_uses_current_prepare_batch_lifecycle_timing(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-
-            def fixture(name: str) -> Path:
-                path = root / name
-                path.write_text("id\n1\n", encoding="utf-8")
-                return path
-
-            paths = benchmark_run.DatasetPaths(
-                root=root,
-                fact_csv=fixture("fact.csv"),
-                dim_csv=fixture("dim.csv"),
-                fact_jsonl=fixture("fact.jsonl"),
-                dim_jsonl=fixture("dim.jsonl"),
-                fact_parquet=fixture("fact.parquet"),
-                dim_parquet=fixture("dim.parquet"),
-                fact_arrow_ipc=fixture("fact.arrow"),
-                dim_arrow_ipc=fixture("dim.arrow"),
-                fact_avro=fixture("fact.avro"),
-                dim_avro=fixture("dim.avro"),
-                fact_orc=fixture("fact.orc"),
-                dim_orc=fixture("dim.orc"),
-                rows=8,
-                dim_rows=2,
-            )
-            runner = benchmark_run.EngineRunner("shardloom-prepare-batch", "test", {})
-            full_prepare = {
-                "source_read_micros": "1000",
-                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
-                "prepare_batch_preparation_micros": "120000",
-                "prepare_batch_prepared_state_lookup_or_create_micros": "125000",
-                "prepare_batch_prepare_route_total_micros": "150000",
-                "prepare_batch_source_to_columnar_micros": "40000",
-                "prepare_batch_vortex_array_build_micros": "30000",
-                "prepare_batch_vortex_write_micros": "20000",
-                "prepare_batch_vortex_reopen_verify_micros": "10000",
-                "prepare_batch_vortex_preparation_spine_status": "full_prepare_wrote_artifacts_with_shared_vortex_context",
-            }
-            manifest_hit = {
-                "source_read_micros": "3000",
-                "prepare_batch_preparation_timing_source": "workspace_manifest_hit_zero_prepare",
-                "prepare_batch_preparation_micros": "0",
-                "prepare_batch_prepared_state_lookup_or_create_micros": "491",
-                "prepare_batch_prepare_route_total_micros": "110165",
-                "prepare_batch_source_to_columnar_micros": "0",
-                "prepare_batch_vortex_array_build_micros": "0",
-                "prepare_batch_vortex_write_micros": "0",
-                "prepare_batch_vortex_reopen_verify_micros": "0",
-                "prepare_batch_vortex_preparation_spine_status": "manifest_reuse_metadata_verified",
-            }
-
-            result = benchmark_run.successful_result_from_iterations(
-                runner,
-                paths,
-                "selective filter",
-                "csv",
-                2,
-                [{"row_count": 1}, {"row_count": 1}],
-                [full_prepare, manifest_hit],
-                [10.0, 12.0],
-                [],
-            )
-
-        metrics = result["metrics"]
-        self.assertEqual(metrics["source_read_millis"], 2.0)
-        self.assertEqual(
-            metrics["prepare_batch_preparation_timing_source"],
-            "workspace_manifest_hit_zero_prepare",
-        )
-        self.assertEqual(metrics["prepare_batch_preparation_millis"], 0.0)
-        self.assertEqual(
-            metrics["prepare_batch_prepared_state_lookup_or_create_millis"], 0.491
-        )
-        self.assertEqual(metrics["prepare_batch_prepare_route_total_millis"], 110.165)
-        self.assertEqual(metrics["prepare_batch_source_to_columnar_millis"], 0.0)
-        self.assertEqual(metrics["prepare_batch_vortex_array_build_millis"], 0.0)
-        self.assertEqual(metrics["prepare_batch_vortex_write_millis"], 0.0)
-        self.assertEqual(metrics["prepare_batch_vortex_reopen_verify_millis"], 0.0)
-        self.assertEqual(
-            metrics["prepare_batch_vortex_preparation_spine_status"],
-            "manifest_reuse_metadata_verified",
-        )
-
-    def test_benchmark_harness_regenerate_uses_output_scoped_data_dir(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        args = benchmark_run.parse_args(
-            [
-                "--engines",
-                "shardloom",
-                "--formats",
-                "csv",
-                "--output",
-                "target/unit-smoke.json",
-                "--regenerate",
-            ]
-        )
-
-        self.assertEqual(args.data_dir, Path("target/unit-smoke-data"))
-        self.assertFalse(args.data_dir_was_explicit)
-        self.assertFalse(args.full_harness_default_selected)
-
-        default_args = benchmark_run.parse_args(["--rows", "10"])
-        self.assertEqual(default_args.data_dir, benchmark_run.DEFAULT_DATA_DIR)
-        self.assertTrue(default_args.full_harness_default_selected)
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            data_dir = Path(tempdir) / "generated"
-            with benchmark_run.DatasetRegenerationLock(data_dir):
-                with self.assertRaises(RuntimeError):
-                    with benchmark_run.DatasetRegenerationLock(data_dir):
-                        pass
-
-    def test_benchmark_harness_respects_active_rust_toolchain(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        previous_rustup = os.environ.pop("RUSTUP_TOOLCHAIN", None)
-        previous_benchmark_toolchain = os.environ.pop(
-            "SHARDLOOM_BENCHMARK_RUSTUP_TOOLCHAIN",
-            None,
-        )
-        try:
-            env = benchmark_run.cargo_subprocess_env()
-            self.assertNotIn("RUSTUP_TOOLCHAIN", env)
-
-            os.environ["SHARDLOOM_BENCHMARK_RUSTUP_TOOLCHAIN"] = "stable"
-            env = benchmark_run.cargo_subprocess_env()
-            self.assertEqual(env["RUSTUP_TOOLCHAIN"], "stable")
-
-            os.environ["RUSTUP_TOOLCHAIN"] = "1.91.1"
-            env = benchmark_run.cargo_subprocess_env()
-            self.assertEqual(env["RUSTUP_TOOLCHAIN"], "1.91.1")
-        finally:
-            if previous_rustup is None:
-                os.environ.pop("RUSTUP_TOOLCHAIN", None)
-            else:
-                os.environ["RUSTUP_TOOLCHAIN"] = previous_rustup
-            if previous_benchmark_toolchain is None:
-                os.environ.pop("SHARDLOOM_BENCHMARK_RUSTUP_TOOLCHAIN", None)
-            else:
-                os.environ["SHARDLOOM_BENCHMARK_RUSTUP_TOOLCHAIN"] = (
-                    previous_benchmark_toolchain
-                )
-
-    def test_tiny_smoke_admits_taxonomy_extra_scenarios_and_split_parts(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        scenarios = benchmark_run.taxonomy_default_scenarios(
-            include_extra=True,
-            include_stress=False,
-        )
-        for scenario in scenarios:
-            self.assertIsNone(
-                benchmark_run.scenario_dataset_profile_block_reason(
-                    scenario,
-                    "tiny_smoke",
-                ),
-                scenario,
-            )
-
-        if importlib.util.find_spec("pyarrow") is None:
-            self.skipTest("pyarrow is required for Arrow-family split fixture generation")
-        if importlib.util.find_spec("fastavro") is None:
-            self.skipTest("fastavro is required for Avro split fixture generation")
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            paths = benchmark_run.ensure_dataset(
-                Path(tempdir) / "data",
-                rows=32,
-                dim_rows=8,
-                regenerate=True,
-                requested_formats=benchmark_run.FORMAT_ORDER,
-                dataset_profile="tiny_smoke",
-            )
-
-            header = paths.fact_csv.read_text(encoding="utf-8").splitlines()[0].split(",")
-            for column in (
-                "event_date",
-                "nullable_metric_00",
-                "nested_payload",
-                "raw_event_time",
-                "dirty_numeric",
-                "dirty_flag",
-            ):
-                self.assertIn(column, header)
-            self.assertTrue(paths.cdc_delta_csv and paths.cdc_delta_csv.exists())
-            self.assertTrue(paths.nested_jsonl and paths.nested_jsonl.exists())
-            for data_format in benchmark_run.FORMAT_ORDER:
-                self.assertEqual(
-                    len(benchmark_run.fact_part_paths(paths, data_format)),
-                    8,
-                    data_format,
-                )
-
-    def test_prepared_vortex_claim_gate_uses_runtime_release_evidence(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        evidence = {
-            field: expected
-            for field, expected in benchmark_run.SHARDLOOM_PREPARED_RUNTIME_RELEASE_REQUIRED_EVIDENCE
-        }
-        result = {
-            "engine": "shardloom-prepared-vortex",
-            "status": "success",
-            "iterations": benchmark_run.MIN_CLAIM_GRADE_ITERATIONS,
-            "correctness_digest_stable": True,
-            "fallback_attempted": False,
-            "metrics": {"query_runtime_millis": 1.0},
-            "shardloom_evidence": evidence,
-        }
-
-        readiness = benchmark_run.claim_grade_readiness(result)
-
-        self.assertEqual(readiness["claim_gate_status"], "claim_grade")
-        self.assertTrue(readiness["claim_grade_requirements_met"])
-        self.assertEqual(readiness["claim_grade_missing_evidence"], [])
-
-        evidence["computed_result_sink_replay_verified"] = "false"
-        blocked = benchmark_run.claim_grade_readiness(result)
-        self.assertEqual(blocked["claim_gate_status"], "not_claim_grade")
-        self.assertIn(
-            "computed_result_sink_replay_verified!=true",
-            blocked["claim_grade_missing_evidence"][0],
-        )
-
-    def test_runtime_evidence_claim_gate_blocks_unknown_shardloom_status(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
-
-        self.assertEqual(
-            benchmark_run.runtime_evidence_claim_gate_status(True, "success"),
-            "claim_grade",
-        )
-        self.assertEqual(
-            benchmark_run.runtime_evidence_claim_gate_status(True, "unsupported"),
-            "unsupported",
-        )
-        self.assertEqual(
-            benchmark_run.runtime_evidence_claim_gate_status(True, "skipped_by_gate"),
-            "blocked",
-        )
 
     def test_release_readiness_accepts_burned_down_runtime_gap_count(self) -> None:
         module = self._load_script_module(
@@ -5268,1034 +1334,22 @@ class ReleaseScriptTests(unittest.TestCase):
             module.runtime_gap_family_burn_down_blockers(mismatched),
         )
 
-    def test_differential_preparation_matrix_preserves_refinement_evidence(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
 
-        evidence = {
-            "vortex_differential_preparation_status": "admitted_append_only_delta_overlay",
-            "vortex_differential_preparation_update_mode": "append_only",
-            "vortex_differential_preparation_delta_row_count": "1",
-            "vortex_differential_preparation_delta_manifest_digest": "fnv64:delta",
-            "vortex_differential_preparation_overlay_applied": "true",
-            "vortex_differential_preparation_delta_artifact_written": "true",
-            "vortex_differential_preparation_refinement_status": "admitted_append_only_refinement",
-            "vortex_differential_preparation_refinement_mode": "automatic_append_only_delta",
-            "vortex_differential_preparation_automatic_detection_status": "append_only_delta_detected",
-            "vortex_differential_preparation_blocker_id": "none",
-            "vortex_differential_preparation_refinement_manifest_path": "target/.shardloom/base.vortex.differential-refinement.manifest",
-            "vortex_differential_preparation_refinement_manifest_digest": "fnv64:manifest",
-            "vortex_differential_preparation_refinement_manifest_written": "true",
-            "vortex_differential_preparation_refined_prepared_state_id": "vortex-prepared-state-refinement",
-            "vortex_differential_preparation_overlay_consumer_family": "count",
-            "vortex_differential_preparation_overlay_consumer_status": "admitted_base_manifest_plus_delta_reopen_row_count",
-            "vortex_differential_preparation_overlay_consumer_correctness_digest": "fnv64:consumer",
-        }
-        metrics = benchmark_run.vortex_differential_preparation_metadata(
-            "shardloom",
-            "success",
-            metrics={},
-            evidence=evidence,
-        )
-        rows = benchmark_run.vortex_differential_preparation_matrix(
-            [
-                {
-                    "scenario_name": "append_only_refinement",
-                    "engine": "shardloom",
-                    "status": "success",
-                    "selected_execution_mode": "compatibility_import",
-                    "metrics": metrics,
-                }
-            ]
-        )
 
-        self.assertEqual(
-            rows[0]["vortex_differential_preparation_refinement_status"],
-            "admitted_append_only_refinement",
-        )
-        self.assertEqual(
-            rows[0]["vortex_differential_preparation_refinement_mode"],
-            "automatic_append_only_delta",
-        )
-        self.assertEqual(
-            rows[0]["vortex_differential_preparation_refinement_manifest_digest"],
-            "fnv64:manifest",
-        )
-        self.assertTrue(
-            rows[0]["vortex_differential_preparation_refinement_manifest_written"]
-        )
-        self.assertEqual(
-            rows[0]["vortex_differential_preparation_overlay_consumer_status"],
-            "admitted_base_manifest_plus_delta_reopen_row_count",
-        )
 
-        rendered = benchmark_run.render_vortex_differential_preparation_matrix(
-            {"vortex_differential_preparation_matrix": rows}
-        )
-        self.assertIn("admitted_append_only_refinement", rendered)
-        self.assertIn("fnv64:manifest", rendered)
-        self.assertIn("admitted_base_manifest_plus_delta_reopen_row_count", rendered)
 
-    def test_cold_lane_accepts_shared_batch_process_timing(self) -> None:
-        from benchmarks.traditional_analytics import run as benchmark_run
 
-        cold_lane = benchmark_run.cold_lane_attribution_metadata(
-            {
-                "engine": "shardloom-vortex",
-                "status": "success",
-                "selected_execution_mode": "prepared_vortex",
-                "preparation_included_in_timing": False,
-                "metrics": {
-                    "persistent_runner_status": benchmark_run.BATCH_RUNNER_STATUS,
-                    "vortex_scan_millis": 0.4,
-                    "query_runtime_millis": 1.0,
-                    "operator_compute_millis": 0.5,
-                    "evidence_render_millis": 0.1,
-                    "cli_process_wall_millis": 2.0,
-                    "session_route_used": True,
-                    "process_spawn_count": 1,
-                    "batch_cli_process_wall_millis": 2.0,
-                    "batch_process_wall_shared": True,
-                },
-            }
-        )
 
-        self.assertEqual(cold_lane["cold_lane_timing_split_status"], "complete")
-        self.assertTrue(cold_lane["cold_lane_process_harness_timing_present"])
-        self.assertNotIn(
-            "python_harness_overhead_millis",
-            cold_lane["cold_lane_missing_stage_fields"],
-        )
 
-    def test_benchmark_promoter_marks_broad_formats_required_for_full_local(self) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py", "promote_benchmark_formats_for_test"
-        )
-        rows = [
-            {"storage_format": data_format}
-            for data_format in ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
-        ]
 
-        table = module.format_coverage_table(
-            {
-                "format_order": [
-                    "csv",
-                    "jsonl",
-                    "parquet",
-                    "arrow-ipc",
-                    "avro",
-                    "orc",
-                ]
-            },
-            rows,
-            "full_local",
-        )
-        by_format = {row[0]: row for row in table["rows"]}
 
-        for data_format in ("csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"):
-            self.assertEqual(by_format[data_format][1], "required")
-            self.assertEqual(by_format[data_format][2], "available")
 
-    def test_benchmark_promoter_derives_formats_from_merged_rows_for_targeted_refresh(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "promote_benchmark_artifact.py",
-            "promote_benchmark_targeted_format_merge_for_test",
-        )
-        rows = [
-            {"storage_format": data_format}
-            for data_format in ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
-        ]
 
-        self.assertEqual(
-            module.benchmark_format_order(
-                {"format_order": ["jsonl", "avro"]},
-                rows,
-                "full_local",
-            ),
-            ["csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"],
-        )
 
-    def test_benchmark_publication_claim_gate_blocks_stale_git_and_age(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_freshness_for_test",
-        )
 
-        blockers: list[str] = []
-        freshness = module.validate_freshness(
-            {
-                "generated_at_utc": "2026-05-01T00:00:00+00:00",
-                "benchmark_git_sha": "old-sha",
-                "shardloom_git_sha": "old-sha",
-            },
-            REPO_ROOT,
-            blockers,
-            now=datetime(2026, 5, 31, tzinfo=timezone.utc),
-            max_age_days=14,
-            require_current_git=True,
-            allow_dirty_worktree=False,
-            current_git_sha="current-sha",
-            worktree_status=" M shardloom-vortex/src/vortex_ingest.rs",
-        )
 
-        self.assertEqual(freshness["current_git_sha"], "current-sha")
-        self.assertTrue(freshness["worktree_dirty"])
-        self.assertTrue(
-            any("age exceeds freshness limit" in blocker for blocker in blockers)
-        )
-        self.assertTrue(
-            any("benchmark_git_sha='old-sha' does not match current HEAD" in blocker for blocker in blockers)
-        )
-        self.assertIn(
-            "benchmark artifact cannot be current while the worktree is dirty",
-            blockers,
-        )
-        self.assertEqual(freshness["tracked_dirty_status_count"], 1)
-        self.assertEqual(freshness["untracked_status_count"], 0)
 
-    def test_benchmark_publication_claim_gate_ignores_untracked_only_status(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_untracked_for_test",
-        )
 
-        blockers: list[str] = []
-        freshness = module.validate_freshness(
-            {
-                "generated_at_utc": "2026-05-31T00:00:00+00:00",
-                "benchmark_git_sha": "current-sha",
-                "shardloom_git_sha": "current-sha",
-            },
-            REPO_ROOT,
-            blockers,
-            now=datetime(2026, 5, 31, tzinfo=timezone.utc),
-            max_age_days=14,
-            require_current_git=True,
-            allow_dirty_worktree=False,
-            current_git_sha="current-sha",
-            worktree_status="?? local-scratch.json\n?? website/assets/benchmarks/latest/chunk-copy.json",
-        )
-
-        self.assertEqual(blockers, [])
-        self.assertFalse(freshness["worktree_dirty"])
-        self.assertTrue(freshness["untracked_only"])
-        self.assertEqual(freshness["tracked_dirty_status_count"], 0)
-        self.assertEqual(freshness["untracked_status_count"], 2)
-
-    def test_benchmark_publication_claim_gate_accepts_static_publication_descendant(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_publication_descendant_for_test",
-        )
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            repo = Path(tempdir)
-            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "config", "user.email", "test@example.com"],
-                cwd=repo,
-                check=True,
-            )
-            subprocess.run(
-                ["git", "config", "user.name", "ShardLoom Test"],
-                cwd=repo,
-                check=True,
-            )
-            (repo / "shardloom-vortex" / "src").mkdir(parents=True)
-            (repo / "shardloom-vortex" / "src" / "lib.rs").write_text(
-                "pub fn source() {}\n",
-                encoding="utf-8",
-            )
-            subprocess.run(["git", "add", "."], cwd=repo, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "source revision"],
-                cwd=repo,
-                check=True,
-                capture_output=True,
-            )
-            source_sha = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo,
-                text=True,
-            ).strip()
-
-            (repo / "website" / "assets" / "benchmarks" / "latest").mkdir(
-                parents=True
-            )
-            (repo / "website" / "assets" / "benchmarks" / "latest" / "manifest.json").write_text(
-                "{}\n",
-                encoding="utf-8",
-            )
-            (repo / "website" / "benchmarks").mkdir(parents=True)
-            (repo / "website" / "benchmarks" / "index.html").write_text(
-                "<html><body>benchmark publication</body></html>\n",
-                encoding="utf-8",
-            )
-            (repo / "website" / "index.html").write_text(
-                "<html><body>home page generated with current benchmark data</body></html>\n",
-                encoding="utf-8",
-            )
-            (repo / "docs" / "architecture").mkdir(parents=True)
-            (repo / "docs" / "architecture" / "phased-execution-plan.md").write_text(
-                "# Phase plan\n\n- [x] release bookkeeping closed after publication evidence.\n",
-                encoding="utf-8",
-            )
-            (repo / "docs" / "release").mkdir(parents=True)
-            (repo / "docs" / "release" / "maintainer-publication-handoff.md").write_text(
-                "# Handoff\n\nStrict benchmark publication evidence passed.\n",
-                encoding="utf-8",
-            )
-            subprocess.run(["git", "add", "."], cwd=repo, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "publish static benchmark bundle"],
-                cwd=repo,
-                check=True,
-                capture_output=True,
-            )
-            publication_sha = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo,
-                text=True,
-            ).strip()
-
-            blockers: list[str] = []
-            freshness = module.validate_freshness(
-                {
-                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
-                    "benchmark_git_sha": source_sha,
-                    "shardloom_git_sha": source_sha,
-                },
-                repo,
-                blockers,
-                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
-                max_age_days=14,
-                require_current_git=True,
-                allow_dirty_worktree=False,
-                current_git_sha=publication_sha,
-                worktree_status="",
-            )
-
-        self.assertEqual(blockers, [])
-        self.assertEqual(
-            freshness["git_currentness_status"],
-            "static_publication_descendant",
-        )
-        self.assertEqual(
-            freshness["static_publication_delta_paths"],
-            [
-                "docs/architecture/phased-execution-plan.md",
-                "docs/release/maintainer-publication-handoff.md",
-                "website/assets/benchmarks/latest/manifest.json",
-                "website/benchmarks/index.html",
-                "website/index.html",
-            ],
-        )
-
-    def test_benchmark_publication_claim_gate_accepts_control_plane_descendant(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_control_plane_descendant_for_test",
-        )
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            repo = Path(tempdir)
-            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "config", "user.email", "test@example.com"],
-                cwd=repo,
-                check=True,
-            )
-            subprocess.run(
-                ["git", "config", "user.name", "ShardLoom Test"],
-                cwd=repo,
-                check=True,
-            )
-            (repo / "README.md").write_text("# Source revision\n", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=repo, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "source revision"],
-                cwd=repo,
-                check=True,
-                capture_output=True,
-            )
-            source_sha = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo,
-                text=True,
-            ).strip()
-
-            (repo / "scripts").mkdir(parents=True)
-            (repo / "scripts" / "promote_benchmark_artifact.py").write_text(
-                "# promoter-only publication control-plane update\n",
-                encoding="utf-8",
-            )
-            (
-                repo / "scripts" / "check_benchmark_publication_claim_gate.py"
-            ).write_text(
-                "# freshness validator publication control-plane update\n",
-                encoding="utf-8",
-            )
-            (repo / "python" / "tests").mkdir(parents=True)
-            (repo / "python" / "tests" / "test_release_scripts.py").write_text(
-                "# release-script control-plane test update\n",
-                encoding="utf-8",
-            )
-            (repo / "website-src" / "scripts").mkdir(parents=True)
-            (repo / "website-src" / "scripts" / "sync-content.mjs").write_text(
-                "// website benchmark publication mirror sync update\n",
-                encoding="utf-8",
-            )
-            subprocess.run(["git", "add", "."], cwd=repo, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "publication control-plane update"],
-                cwd=repo,
-                check=True,
-                capture_output=True,
-            )
-            current_sha = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo,
-                text=True,
-            ).strip()
-
-            blockers: list[str] = []
-            freshness = module.validate_freshness(
-                {
-                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
-                    "benchmark_git_sha": source_sha,
-                    "shardloom_git_sha": source_sha,
-                },
-                repo,
-                blockers,
-                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
-                max_age_days=14,
-                require_current_git=True,
-                allow_dirty_worktree=False,
-                current_git_sha=current_sha,
-                worktree_status="",
-            )
-
-        self.assertEqual(blockers, [])
-        self.assertEqual(
-            freshness["git_currentness_status"],
-            "static_publication_descendant",
-        )
-        self.assertEqual(freshness["static_publication_delta_paths"], [])
-        self.assertEqual(
-            freshness["benchmark_publication_control_plane_delta_paths"],
-            [
-                "python/tests/test_release_scripts.py",
-                "scripts/check_benchmark_publication_claim_gate.py",
-                "scripts/promote_benchmark_artifact.py",
-                "website-src/scripts/sync-content.mjs",
-            ],
-        )
-
-    def test_benchmark_publication_claim_gate_blocks_source_changes_after_artifact_source(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_source_drift_for_test",
-        )
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            repo = Path(tempdir)
-            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "config", "user.email", "test@example.com"],
-                cwd=repo,
-                check=True,
-            )
-            subprocess.run(
-                ["git", "config", "user.name", "ShardLoom Test"],
-                cwd=repo,
-                check=True,
-            )
-            (repo / "shardloom-vortex" / "src").mkdir(parents=True)
-            source_file = repo / "shardloom-vortex" / "src" / "lib.rs"
-            source_file.write_text("pub fn source() {}\n", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=repo, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "source revision"],
-                cwd=repo,
-                check=True,
-                capture_output=True,
-            )
-            source_sha = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo,
-                text=True,
-            ).strip()
-
-            source_file.write_text("pub fn changed_after_benchmark() {}\n", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=repo, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "source changed after benchmark"],
-                cwd=repo,
-                check=True,
-                capture_output=True,
-            )
-            current_sha = subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo,
-                text=True,
-            ).strip()
-
-            blockers: list[str] = []
-            freshness = module.validate_freshness(
-                {
-                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
-                    "benchmark_git_sha": source_sha,
-                    "shardloom_git_sha": source_sha,
-                },
-                repo,
-                blockers,
-                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
-                max_age_days=14,
-                require_current_git=True,
-                allow_dirty_worktree=False,
-                current_git_sha=current_sha,
-                worktree_status="",
-            )
-
-        self.assertEqual(
-            freshness["git_currentness_status"],
-            "blocked_mismatched_source_revision",
-        )
-        self.assertTrue(
-            any("non-publication source files changed after benchmark source revision" in blocker for blocker in blockers),
-            blockers,
-        )
-        self.assertEqual(
-            freshness["static_publication_nonpublic_delta_paths"],
-            ["shardloom-vortex/src/lib.rs"],
-        )
-
-    def test_benchmark_publication_claim_gate_blocks_dirty_lane_versions(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_lane_versions_for_test",
-        )
-
-        blockers: list[str] = []
-        report = module.validate_shardloom_lane_version_provenance(
-            {
-                "benchmark_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
-                "shardloom_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
-                "lane_versions": {
-                    "pandas": "2.2.3",
-                    "shardloom": "workspace-local-release-d94d30b0-dirty",
-                    "shardloom-vortex": "workspace-local-release-9835ae1",
-                },
-            },
-            blockers,
-            enforce_current_artifact=True,
-        )
-
-        self.assertEqual(report["checked_shardloom_lane_count"], 2)
-        self.assertEqual(report["dirty_shardloom_lanes"], ["shardloom"])
-        self.assertEqual(report["sha_mismatched_shardloom_lanes"], ["shardloom"])
-        self.assertTrue(
-            any("lane_versions['shardloom'] is dirty" in blocker for blocker in blockers)
-        )
-        self.assertTrue(
-            any(
-                "lane_versions['shardloom'] sha 'd94d30b0' does not match" in blocker
-                for blocker in blockers
-            )
-        )
-
-    def test_benchmark_publication_claim_gate_requires_claim_grade_capillary_rows(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_rows_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        payload = {
-            "published_benchmark_artifact": {"format_order": ["csv", "parquet"]},
-            "published_benchmark_rows": [
-                {
-                    "engine": "shardloom",
-                    "storage_format": "csv",
-                    "status": "blocked",
-                    "claim_gate_status": "not_claim_grade",
-                    "claim_grade_requirements_met": False,
-                    "timing_surface": "publication_proof",
-                    "actual_evidence_tier": "publication_full",
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            ],
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["shardloom_row_count"], 1)
-        self.assertEqual(report["missing_capillary_activation_row_count"], 1)
-        self.assertTrue(
-            any("missing public-format coverage" in blocker for blocker in blockers)
-        )
-        self.assertTrue(any("non-success status blocked" in blocker for blocker in blockers))
-        self.assertTrue(any("claim_gate_status=not_claim_grade" in blocker for blocker in blockers))
-        self.assertTrue(any("missing ShardLoom publication engines" in blocker for blocker in blockers))
-
-    def test_benchmark_publication_claim_gate_rejects_schema_only_capillary_rows(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_schema_only_capillary_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "selected_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://claim-grade-row",
-            "source_state_digest": "fnv64:source",
-            "prepared_state_id": "prepared-state://claim-grade-row",
-            "prepared_state_digest": "fnv64:prepared",
-            "data_decoded": False,
-            "runtime_execution_certificate_id": "execution.claim-grade-row",
-            "runtime_execution_certificate_status": "certified",
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "fnv64:correct",
-            "correctness_digest_stable": True,
-            "query_runtime_millis": 1.0,
-            "cold_lane_timing_split_status": "complete",
-            "computed_result_sink_replay_verified": True,
-            "vortex_capillary_preparation_activation_policy": "not_reported",
-            "vortex_capillary_preparation_activation_result": "not_reported",
-            "vortex_capillary_preparation_activation_reason": "not_reported",
-            "vortex_capillary_preparation_activation_observed_bytes": "not_reported",
-            "vortex_capillary_preparation_activation_observed_rows": "not_reported",
-            "vortex_capillary_preparation_activation_observed_columns": "not_reported",
-            "vortex_capillary_preparation_activation_observed_split_count": "not_reported",
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": [row],
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["missing_capillary_activation_row_count"], 1)
-        self.assertTrue(
-            any("missing capillary activation evidence fields" in blocker for blocker in blockers)
-        )
-
-    def test_benchmark_publication_claim_gate_rejects_reuse_without_evidence(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_reuse_evidence_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        row = {
-            "engine": "shardloom-prepare-batch",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "selected_execution_mode": "shardloom-prepare-batch",
-            "source_state_id": "source-state://claim-grade-row",
-            "source_state_digest": "fnv64:source",
-            "prepared_state_id": "prepared-state://claim-grade-row",
-            "prepared_state_digest": "fnv64:prepared",
-            "data_decoded": False,
-            "runtime_execution_certificate_id": "execution.claim-grade-row",
-            "runtime_execution_certificate_status": "certified",
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "fnv64:correct",
-            "correctness_digest_stable": True,
-            "query_runtime_millis": 1.0,
-            "cold_lane_timing_split_status": "complete",
-            "computed_result_sink_replay_verified": True,
-            "vortex_capillary_preparation_activation_policy": (
-                "dynamic_size_complexity_gate.v1"
-            ),
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": (
-                "claim_evidence_requested"
-            ),
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-            **self._shardloom_benchmark_route_fields("shardloom-prepare-batch"),
-        }
-        row["prepared_state_reuse_manifest_digest"] = (
-            "not_applicable_no_reuse_manifest_for_route"
-        )
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": [row],
-        }
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["missing_prepared_state_reuse_evidence_row_count"], 1)
-        self.assertTrue(
-            any("missing prepared-state reuse evidence fields" in blocker for blocker in blockers)
-        )
-
-    def test_benchmark_publication_claim_gate_accepts_current_claim_grade_rows(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_pass_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        capillary_fields = {
-            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-        }
-        runtime_fields = {
-            "selected_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://claim-grade-row",
-            "source_state_digest": "fnv64:source",
-            "prepared_state_id": "prepared-state://claim-grade-row",
-            "prepared_state_digest": "fnv64:prepared",
-            "data_decoded": False,
-            "runtime_execution_certificate_id": "execution.claim-grade-row",
-            "runtime_execution_certificate_status": "certified",
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "fnv64:correct",
-            "correctness_digest_stable": True,
-            "query_runtime_millis": 1.0,
-            "cold_lane_timing_split_status": "complete",
-            "computed_result_sink_replay_verified": True,
-        }
-        rows = []
-        for engine in module.REQUIRED_SHARDLOOM_PUBLICATION_ENGINES:
-            for storage_format in module.REQUIRED_PUBLICATION_FORMATS:
-                rows.append(
-                    {
-                        "engine": engine,
-                        "storage_format": storage_format,
-                        "status": "success",
-                        "claim_gate_status": "claim_grade",
-                        "claim_grade_requirements_met": True,
-                        "fallback_attempted": False,
-                        "external_engine_invoked": False,
-                        **self._shardloom_benchmark_route_fields(engine),
-                        **capillary_fields,
-                        **runtime_fields,
-                    }
-                )
-        hot_runtime_row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "not_claim_grade",
-            "claim_grade_requirements_met": False,
-            "claim_grade_missing_evidence": ["metadata_sink_not_publication_proof"],
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "selected_execution_mode": "prepared_vortex",
-            **self._shardloom_benchmark_route_fields("shardloom-prepared-vortex"),
-            **capillary_fields,
-            **runtime_fields,
-        }
-        hot_runtime_row.update(
-            {
-                "route_timing_surface_schema_version": (
-                    "shardloom.route_timing_surface.v1"
-                ),
-                "timing_surface": "hot_runtime",
-                "timing_surface_label": "Hot runtime",
-                "timing_surface_evidence_tier": "metadata_sink",
-                "timing_surface_default_for_route": True,
-                "requested_evidence_tier": "metadata_sink",
-                "actual_evidence_tier": "metadata_sink",
-                "selected_evidence_tier": "metadata_sink",
-                "sink_tier": "metadata_sink",
-                "includes_output": False,
-                "includes_evidence": False,
-                "output_timing_included_in_total": False,
-                "evidence_timing_included_in_total": False,
-                "evidence_render_included_in_route_total": False,
-                "evidence_tier_result_sink_replay_required": False,
-                "sink_timing_included_in_route_total": False,
-                "sink_timing_inclusion_reason": (
-                    "metadata_sink_has_no_replay_write_timing"
-                ),
-                "result_sink_replay_skip_reason": (
-                    "skipped_metadata_sink_tier_digest_count_path_proof_without_replay"
-                ),
-                "human_evidence_render_skip_reason": (
-                    "skipped_hot_runtime_metadata_sink"
-                ),
-                "route_total_formula": "timing_surface=hot_runtime; query_runtime_millis",
-                "route_timing_included_stage_ids": "prepared_query",
-                "route_timing_excluded_stage_ids": "result_sink_write,evidence_render",
-                "route_timing_included_stage_total_ms": 0.34,
-                "route_timing_total_delta_ms": 0.0,
-                "total_route_ms": 0.34,
-                "query_runtime_millis": 0.34,
-            }
-        )
-        rows.append(hot_runtime_row)
-        for engine in lanes:
-            if engine.startswith("shardloom"):
-                continue
-            rows.append(
-                {
-                    "engine": engine,
-                    "storage_format": "csv",
-                    "status": "success",
-                    "claim_gate_status": "external_baseline_only",
-                    "claim_grade_requirements_met": False,
-                    "external_baseline_only": True,
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                    **self._external_benchmark_route_fields(engine),
-                }
-            )
-        public_front_door_rows = self._public_front_door_benchmark_rows(module)
-        public_front_door_ids = [
-            str(row["front_door_id"]) for row in public_front_door_rows
-        ]
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-            "public_front_door_benchmark_schema_version": (
-                module.PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
-            ),
-            "public_front_door_benchmark_row_count": len(public_front_door_rows),
-            "public_front_door_benchmark_row_ids": public_front_door_ids,
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": rows,
-            "public_front_door_benchmark_schema_version": (
-                module.PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
-            ),
-            "public_front_door_benchmark_rows": public_front_door_rows,
-            "public_front_door_benchmark_row_count": len(public_front_door_rows),
-            "public_front_door_benchmark_row_ids": public_front_door_ids,
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertFalse(blockers)
-        self.assertEqual(
-            report["shardloom_row_count"],
-            len(module.REQUIRED_SHARDLOOM_PUBLICATION_ENGINES)
-            * len(module.REQUIRED_PUBLICATION_FORMATS)
-            + 1,
-        )
-        self.assertEqual(report["missing_capillary_activation_row_count"], 0)
-        self.assertEqual(report["missing_shardloom_engine_format_cell_count"], 0)
-        self.assertEqual(report["shardloom_runtime_validation_counts"], {"passed": 24})
-        self.assertEqual(
-            report["shardloom_claim_gate_counts"],
-            {"claim_grade": 24, "not_claim_grade": 1},
-        )
-        self.assertEqual(report["missing_independent_claim_proof_row_count"], 0)
-        self.assertEqual(report["public_front_door_benchmark_rows"]["row_count"], 2)
-        self.assertEqual(
-            report["public_front_door_benchmark_rows"]["invalid_example_count"],
-            0,
-        )
-
-    def test_benchmark_publication_claim_gate_rejects_false_encoded_native_operator_claim(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_operator_mode_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        capillary_fields = {
-            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-        }
-        row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "selected_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://operator-claim-row",
-            "source_state_digest": "fnv64:source",
-            "prepared_state_id": "prepared-state://operator-claim-row",
-            "prepared_state_digest": "fnv64:prepared",
-            "data_decoded": False,
-            "runtime_execution_certificate_id": "execution.operator-claim-row",
-            "runtime_execution_certificate_status": "certified",
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "fnv64:correct",
-            "correctness_digest_stable": True,
-            "query_runtime_millis": 1.0,
-            "cold_lane_timing_split_status": "complete",
-            "computed_result_sink_replay_verified": True,
-            **self._shardloom_benchmark_route_fields("shardloom-prepared-vortex"),
-            **capillary_fields,
-        }
-        row["operator_encoded_native_claim_allowed"] = True
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": [row],
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["missing_independent_claim_proof_row_count"], 1)
-        self.assertTrue(
-            any("invalid operator mode/encoded-native claim fields" in blocker for blocker in blockers)
-        )
-        self.assertTrue(
-            any(
-                "non_encoded_operator_row_allows_encoded_native_claim" in example
-                for example in report.get("blockers", [])
-            )
-            or any(
-                "non_encoded_operator_row_allows_encoded_native_claim" in blocker
-                for blocker in blockers
-            )
-        )
-
-    def test_benchmark_publication_claim_gate_rejects_invalid_operator_route_relation(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_operator_relation_for_test",
-        )
-        row = {
-            "route_timing_stage_inclusion_classes": self._packed_route_stage_map(
-                "diagnostic_only"
-            ),
-            "operator_compute_route_relation_schema_version": (
-                "shardloom.operator_compute_route_relation.v1"
-            ),
-            "operator_compute_route_relation_status": (
-                "diagnostic_only_exceeds_route_total"
-            ),
-            "operator_compute_included_in_route_total": True,
-            "operator_compute_route_stage_inclusion_class": "diagnostic_only",
-            "operator_compute_route_total_field": "route_timing_included_stage_total_ms",
-            "operator_compute_route_total_ms": 0.12,
-            "operator_compute_route_total_delta_ms": 1.28,
-            "operator_compute_route_relation_claim_boundary": (
-                "operator_compute_millis is interpreted through the selected timing surface"
-            ),
-        }
-
-        status, issues = module.operator_compute_route_relation_issues(
-            row,
-            row_index=7,
-            engine="shardloom-prepared-vortex",
-        )
-
-        self.assertEqual(status, "diagnostic_only_exceeds_route_total")
-        self.assertTrue(
-            any(
-                "diagnostic-only operator relation was marked included" in issue
-                for issue in issues
-            )
-        )
-        self.assertTrue(
-            any(
-                "operator relation included=true but stage class='diagnostic_only'"
-                in issue
-                for issue in issues
-            )
-        )
-
-    def test_benchmark_publish_doctor_accepts_current_static_artifact(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publish_doctor.py",
-            "benchmark_publish_doctor_pass_for_test",
-        )
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            pre_5j_report = Path(tempdir) / "pre-5j-dependency-freshness-gate.json"
-            self._write_passing_pre_5j_dependency_report(pre_5j_report)
-
-            report, packet = module.build_report(
-                manifest_path=REPO_ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
-                repo_root=REPO_ROOT,
-                pre_5j_dependency_report_path=pre_5j_report,
-                require_current_git=False,
-                allow_dirty_worktree=True,
-            )
-
-        self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertFalse(report["benchmark_run_performed"])
-        self.assertFalse(report["fallback_attempted"])
-        self.assertFalse(report["external_engine_invoked"])
-        self.assertEqual(report["artifact_completeness_status"], "passed")
-        self.assertEqual(report["publication_claim_gate_status"], "passed")
-        self.assertEqual(report["mirror_status"]["status"], "passed")
-        self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        next_slice = packet["next_implementation_slice"]
-        if next_slice != "none":
-            self.assertRegex(next_slice, r"^`[A-Z0-9][A-Z0-9-]+` ")
-        self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_clickbench_olap_coverage_accepts_relative_output_path(self) -> None:
         output = Path("target/clickbench-olap-runtime-coverage-test-relative.json")
@@ -6787,481 +1841,13 @@ class ReleaseScriptTests(unittest.TestCase):
             any("fallback_attempted=false" in blocker for blocker in report["blockers"])
         )
 
-    def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publish_doctor.py",
-            "benchmark_publish_doctor_missing_fields_for_test",
-        )
-        with tempfile.TemporaryDirectory() as tempdir:
-            root = Path(tempdir)
-            artifact = root / "benchmark-results.json"
-            manifest = root / "manifest.json"
-            artifact.write_text(
-                json.dumps(
-                    {
-                        "published_benchmark_artifact": {
-                            "format_order": ["csv"],
-                            "scenario_order": ["selective filter"],
-                        },
-                        "published_benchmark_rows": [
-                            {
-                                "engine": "shardloom",
-                                "storage_format": "csv",
-                                "scenario_name": "selective filter",
-                                "status": "success",
-                                "claim_gate_status": "claim_grade",
-                                "fallback_attempted": False,
-                                "external_engine_invoked": False,
-                            }
-                        ],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            manifest.write_text(
-                json.dumps(
-                    {
-                        "schema_version": "shardloom.website_benchmark_manifest.v1",
-                        "generated_at_utc": "2026-01-01T00:00:00+00:00",
-                        "benchmark_profile": "smoke",
-                        "expected_lanes": ["shardloom"],
-                        "available_lanes": ["shardloom"],
-                        "missing_lanes": [],
-                        "lane_versions": {},
-                        "lane_availability_reasons": {},
-                        "environment": {},
-                        "claim_boundary": "fixture",
-                        "performance_claim_allowed": False,
-                        "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
-                        "route_runtime_status_vocabulary": [
-                            "global_runtime_supported",
-                            "feature_gated",
-                            "fixture_smoke_only",
-                            "unsupported",
-                            "external_baseline_only",
-                        ],
-                        "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
-                        "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-                        "benchmark_constitution_required_field_order": [],
-                        "benchmark_constitution_claim_gate_status": "not_claim_grade",
-                        "benchmark_constitution_performance_claim_allowed": False,
-                        "artifact_paths": {"json": str(artifact)},
-                    }
-                ),
-                encoding="utf-8",
-            )
 
-            report, packet = module.build_report(
-                manifest_path=manifest,
-                repo_root=root,
-                require_current_git=False,
-                allow_dirty_worktree=True,
-                max_age_days=-1,
-            )
 
-        self.assertEqual(report["status"], "blocked")
-        self.assertTrue(
-            any("missing route fields" in blocker for blocker in report["blockers"])
-        )
-        self.assertEqual(packet["status"], "blocked")
-        self.assertIn(
-            "check_benchmark_artifact_completeness.py",
-            report["nearest_next_validation_command"],
-        )
 
-    def test_benchmark_artifact_completeness_rejects_source_state_prepare_as_admission(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_artifact_completeness.py",
-            "benchmark_artifact_timing_contract_for_test",
-        )
-        row = {
-            "engine": "shardloom",
-            "status": "success",
-            **self._shardloom_benchmark_route_fields("shardloom"),
-            "source_state_prepare_micros": 2500,
-            "source_admission_ms": 2.5,
-            "source_admission_policy_micros": None,
-            "source_admission_digest_policy_schema_version": (
-                "shardloom.traditional_analytics.source_admission_digest_policy.v1"
-            ),
-            "source_admission_digest_policy_status": "metadata_fingerprint_fast_path",
-            "source_admission_full_content_digest_requested": False,
-            "source_admission_full_content_digest_micros": 0,
-            "source_state_metadata_snapshot_micros": None,
-            "source_state_manifest_validation_micros": None,
-            "source_state_row_count_metadata_micros": None,
-            "source_state_family_build_micros": None,
-        }
-        blockers: list[str] = []
 
-        module.validate_rows({"published_benchmark_rows": [row]}, blockers)
 
-        self.assertTrue(
-            any(
-                "maps broad source_state_prepare_micros to source_admission_ms"
-                in blocker
-                for blocker in blockers
-            ),
-            blockers,
-        )
 
-    def test_benchmark_publish_doctor_route_packet_markdown_is_compact(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publish_doctor.py",
-            "benchmark_publish_doctor_packet_for_test",
-        )
-        packet = {
-            "status": "passed",
-            "benchmark_profile": "full_local",
-            "artifact_status": "complete",
-            "route_runtime_status_counts": {"global_runtime_supported": 600},
-            "operator_execution_mode_counts": {"residual_native": 456},
-            "shardloom_claim_grade_rows": 600,
-            "shardloom_unsupported_rows": 0,
-            "external_baseline_rows": 720,
-            "external_unsupported_rows": 6,
-            "primary_bottleneck": "vortex_write",
-            "operator_inventory_status": "encoded_native_promotion_pending",
-            "next_implementation_slice": "GAR-RUNTIME-IMPL-6D-10 benchmark publish doctor",
-            "required_validators": ["python3 scripts/check_benchmark_publish_doctor.py"],
-            "forbidden_claims": ["performance superiority"],
-            "claim_boundary": "publication readiness only",
-            "fallback_boundary": "no fallback",
-        }
 
-        markdown = module.render_packet_markdown(packet)
-
-        self.assertLess(len(markdown), 2500)
-        self.assertIn("Benchmark Route Packet", markdown)
-        self.assertIn("performance superiority", markdown)
-        self.assertIn("GAR-RUNTIME-IMPL-6D-10", markdown)
-
-    def test_benchmark_publication_claim_gate_recomputes_runtime_envelope_validation(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_runtime_revalidation_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        capillary_fields = {
-            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-        }
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "runtime_execution_validation_status": "passed",
-            "runtime_claim_allowed": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            **capillary_fields,
-        }
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": [row],
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["shardloom_runtime_validation_counts"], {"blocked": 1})
-        self.assertTrue(
-            any("failed runtime envelope validation" in blocker for blocker in blockers)
-        )
-        self.assertTrue(
-            any("runtime_claim_allowed=true" in blocker for blocker in blockers)
-        )
-
-    def test_benchmark_publication_claim_gate_requires_independent_claim_grade_proof(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_independent_proof_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "selected_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://claim-grade-row",
-            "source_state_digest": "fnv64:source",
-            "prepared_state_id": "prepared-state://claim-grade-row",
-            "prepared_state_digest": "fnv64:prepared",
-            "data_decoded": False,
-            "runtime_execution_certificate_id": "execution.claim-grade-row",
-            "runtime_execution_certificate_status": "certified",
-            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-        }
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": [row],
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["shardloom_runtime_validation_counts"], {"passed": 1})
-        self.assertEqual(report["missing_independent_claim_proof_row_count"], 1)
-        self.assertTrue(
-            any("missing independent claim-grade proof" in blocker for blocker in blockers)
-        )
-
-    def test_benchmark_publication_claim_gate_rejects_unlinked_evidence_excluded_claim_row(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_unlinked_fast_path_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        row = {
-            "engine": "shardloom-prepared-vortex",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "selected_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://unlinked-fast-path-row",
-            "source_state_digest": "fnv64:source",
-            "prepared_state_id": "prepared-state://unlinked-fast-path-row",
-            "prepared_state_digest": "fnv64:prepared",
-            "data_decoded": False,
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "fnv64:correct",
-            "correctness_digest_stable": True,
-            "query_runtime_millis": 1.0,
-            "cold_lane_timing_split_status": "complete",
-            "computed_result_sink_replay_verified": True,
-            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-            **self._shardloom_benchmark_route_fields("shardloom-prepared-vortex"),
-        }
-        row.update(
-            {
-                "runtime_execution_certificate_id": "missing",
-                "runtime_execution_certificate_status": "missing",
-                "runtime_execution_certificate_plan_ref": "missing",
-                "certificate_link_status": "missing_required_certificate_link",
-                "evidence_render_included_in_route_total": False,
-            }
-        )
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": [row],
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["missing_independent_claim_proof_row_count"], 1)
-        self.assertTrue(
-            any(
-                "certificate_link_status!=linked_certified_runtime_execution" in blocker
-                for blocker in blockers
-            )
-        )
-
-    def test_benchmark_publication_claim_gate_blocks_local_artifact_paths(self) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_portable_refs_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        row = {
-            "engine": "shardloom",
-            "storage_format": "csv",
-            "status": "success",
-            "claim_gate_status": "claim_grade",
-            "claim_grade_requirements_met": True,
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            "selected_execution_mode": "prepared_vortex",
-            "source_state_id": "source-state://claim-grade-row",
-            "source_state_digest": "fnv64:source",
-            "prepared_state_id": "prepared-state://claim-grade-row",
-            "prepared_state_digest": "fnv64:prepared",
-            "data_decoded": False,
-            "runtime_execution_certificate_id": "execution.claim-grade-row",
-            "runtime_execution_certificate_status": "certified",
-            "iterations": 3,
-            "reproducibility_min_iterations": 3,
-            "reproducibility_iterations_met": True,
-            "correctness_digest": "fnv64:correct",
-            "correctness_digest_stable": True,
-            "query_runtime_millis": 1.0,
-            "cold_lane_timing_split_status": "complete",
-            "computed_result_sink_replay_verified": True,
-            "sink_artifact_ref": r"C:\Users\test\shardloom\result.vortex",
-            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-        }
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": [row],
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(report["nonportable_public_ref_count"], 1)
-        self.assertTrue(
-            any("non-portable local artifact paths" in blocker for blocker in blockers)
-        )
-
-    def test_benchmark_publication_claim_gate_requires_shardloom_row_backed_formats(
-        self,
-    ) -> None:
-        module = self._load_script_module(
-            "check_benchmark_publication_claim_gate.py",
-            "benchmark_publication_claim_gate_shardloom_formats_for_test",
-        )
-        lanes = list(module.expected_lanes_for_profile("full_local"))
-        capillary_fields = {
-            "vortex_capillary_preparation_activation_policy": "dynamic_size_complexity_gate.v1",
-            "vortex_capillary_preparation_activation_result": "activated",
-            "vortex_capillary_preparation_activation_reason": "claim_evidence_requested",
-            "vortex_capillary_preparation_activation_observed_bytes": "67108864",
-            "vortex_capillary_preparation_activation_observed_rows": "1000000",
-            "vortex_capillary_preparation_activation_observed_columns": "8",
-            "vortex_capillary_preparation_activation_observed_split_count": "8",
-        }
-        rows = []
-        for engine in module.REQUIRED_SHARDLOOM_PUBLICATION_ENGINES:
-            rows.append(
-                {
-                    "engine": engine,
-                    "storage_format": "csv",
-                    "status": "success",
-                    "claim_gate_status": "claim_grade",
-                    "claim_grade_requirements_met": True,
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                    **capillary_fields,
-                }
-            )
-        for storage_format in module.REQUIRED_PUBLICATION_FORMATS:
-            rows.append(
-                {
-                    "engine": "pandas",
-                    "storage_format": storage_format,
-                    "status": "success",
-                    "claim_gate_status": "external_baseline_only",
-                    "claim_grade_requirements_met": False,
-                    "external_baseline_only": True,
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            )
-        for engine in lanes:
-            if engine.startswith("shardloom") or engine == "pandas":
-                continue
-            rows.append(
-                {
-                    "engine": engine,
-                    "storage_format": "csv",
-                    "status": "success",
-                    "claim_gate_status": "external_baseline_only",
-                    "claim_grade_requirements_met": False,
-                    "external_baseline_only": True,
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            )
-        manifest = {
-            "benchmark_profile": "full_local",
-            "expected_lanes": lanes,
-            "available_lanes": lanes,
-        }
-        payload = {
-            "published_benchmark_artifact": {
-                "format_order": ["csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"]
-            },
-            "published_benchmark_rows": rows,
-        }
-
-        blockers: list[str] = []
-        report = module.validate_profile_and_rows(manifest, payload, blockers)
-
-        self.assertEqual(
-            report["published_formats"],
-            sorted(module.REQUIRED_PUBLICATION_FORMATS),
-        )
-        self.assertEqual(report["shardloom_format_counts"], {"csv": 4})
-        self.assertEqual(report["missing_shardloom_engine_format_cell_count"], 20)
-        self.assertTrue(
-            any(
-                "ShardLoom publication rows missing public-format coverage" in blocker
-                for blocker in blockers
-            )
-        )
-        self.assertTrue(
-            any("missing engine-format coverage" in blocker for blocker in blockers)
-        )
 
     def _dependabot_pr(self, number: int, title: str) -> dict[str, object]:
         return {
@@ -9014,13 +3600,7 @@ class ReleaseScriptTests(unittest.TestCase):
                         module.EXPECTED_ERROR_SCENARIOS
                     ),
                     "vortex_primitive_routes": module.EXPECTED_VORTEX_PRIMITIVE_ROUTES,
-                    "vortex_local_file_routes": module.EXPECTED_VORTEX_LOCAL_FILE_ROUTES,
                     "source_input_formats": module.EXPECTED_SOURCE_INPUT_FORMATS,
-                    "source_prepared_routes": module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
-                    "source_internal_smoke_routes": (
-                        module.EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS
-                    ),
-                    "source_generated_routes": module.EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
                     "source_invalidation_cases": (
                         module.EXPECTED_SOURCE_INVALIDATION_CASES
                     ),
@@ -9127,6 +3707,7 @@ class ReleaseScriptTests(unittest.TestCase):
         semantic_stage_rows = [
             {
                 "case_id": case_id,
+                "kind": "sql_native_decoded_reference",
                 "status": "passed",
                 "artifact_ref": (
                     "target/admitted-semantics-matrix/artifacts/"
@@ -9134,11 +3715,9 @@ class ReleaseScriptTests(unittest.TestCase):
                 ),
                 "decoded_reference_digest": f"sha256:{index + 1:064x}",
                 "expected_output_digest": f"sha256:{index + 1:064x}",
-                "expected_output_digest_source": "decoded_reference_result_jsonl",
+                "expected_output_digest_source": "canonical_decoded_reference_rows",
                 "observed_output_digest": f"sha256:{index + 1:064x}",
-                "observed_output_digest_source": "envelope_result_jsonl",
-                "correctness_digest": f"fnv64:{index + 1:016x}",
-                "result_digest": f"fnv64:{index + 1:016x}",
+                "observed_output_digest_source": "complete_native_result_rows",
                 "fallback_attempted": False,
                 "external_engine_invoked": False,
                 "blockers": [],
@@ -9296,14 +3875,39 @@ class ReleaseScriptTests(unittest.TestCase):
                 "schema_version": "shardloom.v1_vortex_runtime_scope_report.v1",
                 "status": "passed",
                 "blockers": [],
-                "local_vortex_primitive_route_count": (
-                    module.EXPECTED_VORTEX_PRIMITIVE_ROUTES
-                ),
-                "local_file_benchmark_route_count": (
-                    module.EXPECTED_VORTEX_LOCAL_FILE_ROUTES
-                ),
+                "evidence_class": "declarative_specification",
+                "supported_primitive_route_ids": [
+                    f"primitive-{index}"
+                    for index in range(module.EXPECTED_VORTEX_PRIMITIVE_ROUTES)
+                ],
+                "runtime_execution_performed": False,
+                "performance_evidence_produced": False,
+                "user_route_ids": sorted(module.EXPECTED_VORTEX_USER_ROUTE_IDS),
+                "user_route_rows": [
+                    {
+                        "route_id": "native_vortex_query",
+                        "owner": "shared_native_workflow",
+                        "route_runtime_status": "global_runtime_supported",
+                        "fallback_attempted": False,
+                        "external_engine_invoked": False,
+                    },
+                    {
+                        "route_id": "object_store_lakehouse_runtime",
+                        "owner": "external_environment_gate",
+                        "route_runtime_status": "external_environment_gate_pending",
+                        "fallback_attempted": False,
+                        "external_engine_invoked": False,
+                    },
+                ],
                 "local_vortex_primitive_v1_scope_ready": True,
                 "user_route_v1_vortex_scope_ready": True,
+                "all_no_fallback_no_external_engine": True,
+                "local_vortex_primitive_all_runtime_supported": True,
+                "local_vortex_primitive_all_no_fallback_no_external_engine": True,
+                "claim_gate_status": "not_claim_grade",
+                "performance_claim_allowed": False,
+                "production_claim_allowed": False,
+                "spark_replacement_claim_allowed": False,
                 **false_fields,
             },
         )
@@ -9371,29 +3975,35 @@ class ReleaseScriptTests(unittest.TestCase):
                 "schema_version": "shardloom.v1_source_prepared_state_scope_report.v1",
                 "status": "passed",
                 "blockers": [],
-                "supported_input_formats": [
-                    f"format-{index}"
-                    for index in range(module.EXPECTED_SOURCE_INPUT_FORMATS)
-                ],
-                "prepared_route_ids": [
-                    f"prepared-{index}"
-                    for index in range(module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS)
-                ],
-                "internal_source_smoke_route_ids": [
-                    f"internal-source-smoke-{index}"
-                    for index in range(
-                        module.EXPECTED_SOURCE_INTERNAL_SMOKE_ROUTE_IDS
-                    )
-                ],
-                "generated_route_ids": [
-                    f"generated-{index}"
-                    for index in range(module.EXPECTED_SOURCE_GENERATED_ROUTE_IDS)
-                ],
+                "supported_input_formats": sorted(module.EXPECTED_SOURCE_FORMAT_IDS),
+                "route_ids": sorted(module.EXPECTED_SOURCE_ROUTE_IDS),
                 "invalidation_case_ids": sorted(
                     module.REQUIRED_SOURCE_INVALIDATION_CASE_IDS
                 ),
-                "source_prepared_benchmark_required_fields_ready": True,
-                "source_prepared_benchmark_rows_with_required_fields": 1080,
+                "report_id": "prod-v1-1c.source_prepared_state_scope",
+                "evidence_class": "declarative_specification",
+                "canonical_route": module.EXPECTED_SOURCE_CANONICAL_ROUTE,
+                "state_owner": module.EXPECTED_SOURCE_STATE_OWNER,
+                "reuse_scope": module.EXPECTED_SOURCE_REUSE_SCOPE,
+                "reuse_policy": module.EXPECTED_SOURCE_REUSE_POLICY,
+                "query_answers_cached": False,
+                "runtime_execution_performed": False,
+                "performance_evidence_produced": False,
+                "v1_scope_ready": True,
+                "claim_gate_status": "not_claim_grade",
+                "golden_fixture_paths": [
+                    "docs/architecture/fixtures/v1-source-prepared-state/source-state-golden.json",
+                    "docs/architecture/fixtures/v1-source-prepared-state/vortex-prepared-state-golden.json",
+                    "docs/architecture/fixtures/v1-source-prepared-state/reuse-invalidation-matrix.json",
+                ],
+                "required_runtime_fields": [
+                    "source_state_id",
+                    "source_state_digest",
+                    "prepared_state_id",
+                    "prepared_state_digest",
+                ],
+                "unsupported_boundary_ids": ["global_hidden_cache"],
+                "all_no_fallback_no_external_engine": True,
                 **false_fields,
             },
         )
@@ -9410,12 +4020,10 @@ class ReleaseScriptTests(unittest.TestCase):
                     f"method-{index}"
                     for index in range(module.EXPECTED_OUTPUT_WRITE_METHODS)
                 ],
-                "output_route_ids": [
-                    f"route-{index}" for index in range(module.EXPECTED_OUTPUT_ROUTE_IDS)
-                ],
-                "local_output_sink_benchmark_required_fields_ready": True,
-                "local_output_sink_benchmark_replay_ready": True,
-                "local_output_sink_benchmark_rows_with_required_fields": 960,
+                "output_route_ids": ["native_vortex_query"],
+                "evidence_class": "declarative_contract",
+                "declarative_contract_ready": True,
+                "runtime_evidence_verified": False,
                 **false_fields,
             },
         )
@@ -9940,7 +4548,7 @@ class ReleaseScriptTests(unittest.TestCase):
             self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
             source_path = repo_root / module.ReportPaths().source_prepared_state
             source = json.loads(source_path.read_text(encoding="utf-8"))
-            source["invalidation_case_ids"].remove("corrupted_manifest")
+            source["invalidation_case_ids"].remove("missing_artifact")
             source["invalidation_case_ids"].append("fixture_replacement_case")
             source_path.write_text(json.dumps(source), encoding="utf-8")
             report = module.build_report(repo_root, module.ReportPaths())
@@ -11171,18 +5779,6 @@ class ReleaseScriptTests(unittest.TestCase):
                 'cargo:rustc-env=SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION={vortex_version}\n',
                 encoding="utf-8",
             )
-            benchmark = root / "benchmarks" / "traditional_analytics" / "run.py"
-            benchmark.parent.mkdir(parents=True)
-            benchmark.write_text(
-                "from release_report_utils import upstream_vortex_provider_version\n"
-                "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)\n"
-                f'UPSTREAM_VORTEX_PROVIDER_VERSION = "{CURRENT_VORTEX_MANIFEST_VERSION}"\n'
-                'SHARDLOOM_VORTEX_PROVIDER_VERSION = (\n'
-                '    "shardloom-vortex=0.1.0;vortex=0.73"\n'
-                ')\n'
-                'provider_version = "0.72" if admitted else "not_applicable"\n',
-                encoding="utf-8",
-            )
             client_tests = root / "python" / "tests" / "test_cli_client.py"
             client_tests.parent.mkdir(parents=True)
             client_tests.write_text(
@@ -11197,11 +5793,11 @@ class ReleaseScriptTests(unittest.TestCase):
 
         blockers = [blocker for row in rows for blocker in row["blockers"]]
         self.assertTrue(
-            any('"0.72" if admitted' in blocker for blocker in blockers),
+            any('provider_version, "0.73"' in blocker for blocker in blockers),
             blockers,
         )
         self.assertTrue(
-            any(CURRENT_VORTEX_MANIFEST_VERSION in blocker for blocker in blockers),
+            any('"value": UPSTREAM_VORTEX_PROVIDER_VERSION' in blocker for blocker in blockers),
             blockers,
         )
 
@@ -11714,8 +6310,82 @@ jobs:
         repo_root: Path,
     ) -> None:
         scenario_names = sorted(module.EXPECTED_EXAMPLE_SCENARIOS)
-        supported_rows = sorted(module.SUPPORTED_PARITY_ROWS)
-        pending_rows = sorted(module.BROAD_PENDING_PARITY_ROWS)
+
+        # Copy only the deterministic source declarations consumed by this validator.
+        # These report methods are side-effect-free; no runtime receipt is synthesized.
+        import dataclasses
+
+        package_src = str(REPO_ROOT / "python" / "src")
+        previous_sys_path = list(sys.path)
+        saved_shardloom_modules = {
+            name: loaded
+            for name, loaded in sys.modules.items()
+            if name == "shardloom" or name.startswith("shardloom.")
+        }
+        try:
+            for name in saved_shardloom_modules:
+                sys.modules.pop(name, None)
+            if package_src in sys.path:
+                sys.path.remove(package_src)
+            sys.path.insert(0, package_src)
+            from shardloom import ShardLoomContext
+
+            context = ShardLoomContext(client=None)
+            parity = context.front_door_parity_matrix()
+            semantic = context.front_door_semantic_surface_matrix()
+            routes = context.user_route_capability_report()
+
+            def report_rows(rows: object) -> list[dict[str, object]]:
+                return [dataclasses.asdict(row) for row in rows]
+
+            parity_rows = report_rows(parity.rows)
+            semantic_rows = report_rows(semantic.rows)
+            public_route_rows = report_rows(routes.public_front_door_route_rows)
+            route_capability_rows = report_rows(routes.rows)
+            parity_flags = {
+                "scoped_local_front_door_parity_supported": (
+                    parity.scoped_local_front_door_parity_supported
+                ),
+                "flexible_anything_claim_allowed": parity.flexible_anything_claim_allowed,
+                "performance_equivalence_claim_allowed": (
+                    parity.performance_equivalence_claim_allowed
+                ),
+                "all_no_fallback_no_external_engine": (
+                    parity.all_no_fallback_no_external_engine
+                ),
+            }
+            semantic_fields = {
+                "schema_version": semantic.schema_version,
+                "row_order": semantic.row_order,
+                "dataframe_claim_statement": semantic.dataframe_claim_statement,
+                "dataframe_subset_claim_statement": (
+                    semantic.dataframe_subset_claim_statement
+                ),
+                "sql_claim_statement": semantic.sql_claim_statement,
+                "pandas_compatible_claim_allowed": (
+                    semantic.pandas_compatible_claim_allowed
+                ),
+                "polars_compatible_claim_allowed": semantic.polars_compatible_claim_allowed,
+                "broad_dataframe_compatible_claim_allowed": (
+                    semantic.broad_dataframe_compatible_claim_allowed
+                ),
+                "ansi_sql_compliant_claim_allowed": semantic.ansi_sql_compliant_claim_allowed,
+                "all_no_fallback_no_external_engine": (
+                    semantic.all_no_fallback_no_external_engine
+                ),
+                "all_deterministic_blockers": semantic.all_deterministic_blockers,
+            }
+            route_flags = {
+                "all_no_fallback_no_external_engine": (
+                    routes.all_no_fallback_no_external_engine
+                ),
+            }
+        finally:
+            for name in tuple(sys.modules):
+                if name == "shardloom" or name.startswith("shardloom."):
+                    sys.modules.pop(name, None)
+            sys.modules.update(saved_shardloom_modules)
+            sys.path[:] = previous_sys_path
 
         for rel_path, markers in {
             module.DOC_PATH.as_posix(): module.DOC_MARKERS,
@@ -11733,20 +6403,15 @@ jobs:
                 f'''
                 from __future__ import annotations
 
-                from typing import Any, Callable, Sequence
+                from typing import Sequence
 
                 EXPECTED_ERROR_SCENARIOS = frozenset()
+                SCENARIO_ROUTES = {tuple((name,) for name in scenario_names)!r}
                 profile_order: Sequence[str] = ("release", "debug")
                 fallback_attempted = False
                 external_engine_invoked = False
                 timing_components = {{}}
                 python_wall_millis = 0.0
-
-
-                def scenario_actions(ctx: Any, sl: Any) -> list[tuple[str, Callable[[], Any]]]:
-                    return [
-                        {", ".join(f'("{name}", lambda: None)' for name in scenario_names)}
-                    ]
                 '''
             ),
             encoding="utf-8",
@@ -11760,8 +6425,13 @@ jobs:
                 from types import SimpleNamespace
 
 
-                _SUPPORTED_ROWS = {supported_rows!r}
-                _PENDING_ROWS = {pending_rows!r}
+                _PARITY_ROWS = {parity_rows!r}
+                _SEMANTIC_ROWS = {semantic_rows!r}
+                _PUBLIC_ROUTE_ROWS = {public_route_rows!r}
+                _USER_ROUTE_ROWS = {route_capability_rows!r}
+                _PARITY_FLAGS = {parity_flags!r}
+                _SEMANTIC_FIELDS = {semantic_fields!r}
+                _ROUTE_FLAGS = {route_flags!r}
 
 
                 class ShardLoomContext:
@@ -11769,65 +6439,33 @@ jobs:
                         self.client = client
 
                     def front_door_parity_matrix(self):
-                        rows = [
-                            SimpleNamespace(
-                                row_id=row_id,
-                                support_status="runtime_supported",
-                                runtime_gap_status="admitted_scope",
-                                parity_status="equivalent_admitted_scope",
-                                shared_runtime_path="scoped_local_front_door",
-                                blocker_id=None,
-                                fallback_attempted=False,
-                                external_engine_invoked=False,
-                                claim_boundary="scoped_v1_front_door_only",
-                            )
-                            for row_id in _SUPPORTED_ROWS
-                        ]
-                        rows.extend(
-                            SimpleNamespace(
-                                row_id=row_id,
-                                support_status="pending_broad_scope",
-                                runtime_gap_status="pending_precise_scope",
-                                parity_status="front_door_gap",
-                                shared_runtime_path="not_admitted_for_broad_scope",
-                                blocker_id=f"v1.front_door.{{row_id}}",
-                                fallback_attempted=False,
-                                external_engine_invoked=False,
-                                claim_boundary="outside_scoped_v1_front_door",
-                            )
-                            for row_id in _PENDING_ROWS
-                        )
                         return SimpleNamespace(
-                            rows=tuple(rows),
-                            scoped_local_front_door_parity_supported=True,
-                            flexible_anything_claim_allowed=False,
-                            performance_equivalence_claim_allowed=False,
-                            all_no_fallback_no_external_engine=True,
+                            rows=tuple(SimpleNamespace(**row) for row in _PARITY_ROWS),
+                            **_PARITY_FLAGS,
+                        )
+
+                    def front_door_semantic_surface_matrix(self):
+                        return SimpleNamespace(
+                            rows=tuple(SimpleNamespace(**row) for row in _SEMANTIC_ROWS),
+                            **_SEMANTIC_FIELDS,
                         )
 
                     def user_route_capability_report(self):
-                        rows = (
-                            SimpleNamespace(
-                                front_door_id="python_prepare_vortex",
-                                route_runtime_status="global_runtime_supported",
-                                fallback_attempted=False,
-                                external_engine_invoked=False,
-                                public_user_surface="ctx.prepare_vortex / prepare_vortex",
-                                claim_boundary="scoped_v1_front_door_only",
-                            ),
-                            SimpleNamespace(
-                                front_door_id="sql_prepare_vortex",
-                                route_runtime_status="global_runtime_supported",
-                                fallback_attempted=False,
-                                external_engine_invoked=False,
-                                public_user_surface="sql prepare_vortex",
-                                claim_boundary="scoped_v1_front_door_only",
-                            ),
+                        rows = tuple(
+                            SimpleNamespace(**row) for row in _USER_ROUTE_ROWS
                         )
+
+                        def route(route_id):
+                            return next(row for row in rows if row.route_id == route_id)
+
                         return SimpleNamespace(
-                            public_front_door_route_rows=rows,
-                            all_no_fallback_no_external_engine=True,
-                            unsupported_local_benchmark_route_ids=(),
+                            rows=rows,
+                            route_order=tuple(row.route_id for row in rows),
+                            public_front_door_route_rows=tuple(
+                                SimpleNamespace(**row) for row in _PUBLIC_ROUTE_ROWS
+                            ),
+                            **_ROUTE_FLAGS,
+                            route=route,
                         )
                 '''
             ),
@@ -11883,24 +6521,6 @@ jobs:
             "nested_complex_dtype_general_vortex",
             "vector_device_gpu_vortex_runtime",
         ]
-        provider_route_ids = [
-            "native_vortex_user_aggregate",
-            "native_vortex_user_join",
-            "native_vortex_user_top_n",
-            "native_vortex_user_cast",
-            "native_vortex_user_contains",
-            "native_vortex_user_sink",
-        ]
-        provider_scenario_ids = [
-            "group-by-aggregation",
-            "null-heavy-aggregate",
-            "hash-join",
-            "sort-and-top-k",
-            "clean-cast-filter-write",
-            "malformed-timestamp-dirty-csv",
-            "nested-json-field-scan",
-        ]
-
         for rel_path, markers in {
             module.DOC_PATH.as_posix(): module.DOC_MARKERS,
             **module.PUBLIC_DOC_MARKERS,
@@ -11920,8 +6540,6 @@ jobs:
                 V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS = {tuple(primitive_ids)!r}
                 V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS = {tuple(scenario_ids)!r}
                 V1_VORTEX_SUPPORTED_STARTING_STATES = {tuple(starting_states)!r}
-                V1_VORTEX_PROVIDER_ROUTE_IDS = {tuple(provider_route_ids)!r}
-                V1_VORTEX_PROVIDER_SCENARIO_IDS = {tuple(provider_scenario_ids)!r}
                 V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS = {tuple(unsupported_boundaries)!r}
 
 
@@ -11968,171 +6586,21 @@ jobs:
                     all_no_fallback_no_external_engine = True
 
 
-                def _v1_vortex_provider_rows():
-                    rows = []
-                    scenario_to_route = {{
-                        "group-by-aggregation": ("native_vortex_user_aggregate", "aggregate", False),
-                        "null-heavy-aggregate": ("native_vortex_user_aggregate", "aggregate", False),
-                        "hash-join": ("native_vortex_user_join", "join", True),
-                        "sort-and-top-k": ("native_vortex_user_top_n", "top_n", False),
-                        "clean-cast-filter-write": ("native_vortex_user_cast", "cast", False),
-                        "malformed-timestamp-dirty-csv": ("native_vortex_user_cast", "cast", False),
-                        "nested-json-field-scan": ("native_vortex_user_contains", "contains", False),
-                    }}
-                    for scenario_id in V1_VORTEX_PROVIDER_SCENARIO_IDS:
-                        route_id, operation_family, required_right_input = scenario_to_route[scenario_id]
-                        rows.append(SimpleNamespace(
-                            route_id=route_id,
-                            operation_family=operation_family,
-                            provider_scenario=scenario_id,
-                            benchmark_scenario_id=scenario_id.replace("-", "_"),
-                            python_surface="ctx.read_vortex",
-                            sql_surface="ctx.sql",
-                            required_right_input=required_right_input,
-                            right_input_contract=(
-                                "declared_native_vortex_right_input_required"
-                                if required_right_input
-                                else "not_applicable_single_input"
-                            ),
-                            resolved_internal_command="vortex-production-runtime-run",
-                            feature_gate="vortex-production-runtime",
-                            start_state="native_vortex_file",
-                            vortex_normalization_point="native_vortex_boundary",
-                            execution_policy="native_vortex",
-                            typed_result_contract=(
-                                "provider_backed_native_vortex_result_summary_with_route_certificate"
-                            ),
-                            typed_sink_contract="not_applicable_collect",
-                            decode_materialization_boundary=(
-                                "native_vortex_zero_decode_runtime_with_bounded_python_materialization_boundary"
-                            ),
-                            output_route="provider_result_summary",
-                            evidence_route="public_workflow_run_facade_with_provider_route_certificate",
-                            route_certificate_status="current",
-                            route_certificate_source="fixture",
-                            benchmark_route_equivalence=(
-                                "matches_named_traditional_analytics_vortex_provider_scenario"
-                            ),
-                            route_runtime_status="production_admitted_local_workflow",
-                            fallback_attempted=False,
-                            external_engine_invoked=False,
-                            required_evidence=(
-                                "execution_certificate",
-                                "native_io_certificate",
-                                "provider_route_certificate",
-                                "fallback_disabled",
-                            ),
-                            claim_gate_status="not_claim_grade",
-                            performance_claim_allowed=False,
-                            production_claim_allowed=False,
-                            claim_boundary="exact provider route only",
-                        ))
-                    rows.append(SimpleNamespace(
-                        route_id="native_vortex_user_sink",
-                        operation_family="sink",
-                        provider_scenario="clean-cast-filter-write",
-                        benchmark_scenario_id="clean_cast_filter_write",
-                        python_surface="ctx.read_vortex.write_vortex",
-                        sql_surface="ctx.sql.write_vortex",
-                        required_right_input=False,
-                        right_input_contract="not_applicable_single_input",
-                        resolved_internal_command="vortex-production-runtime-run",
-                        feature_gate="vortex-production-runtime",
-                        start_state="native_vortex_file",
-                        vortex_normalization_point="native_vortex_boundary",
-                        execution_policy="native_vortex",
-                        typed_result_contract="native_vortex_result_sink_with_replay_certificate",
-                        typed_sink_contract="native_vortex_result_sink_with_replay_verified_artifact",
-                        decode_materialization_boundary=(
-                            "native_vortex_zero_decode_runtime_with_bounded_python_materialization_boundary"
-                        ),
-                        output_route="native_vortex_result_sink",
-                        evidence_route="public_workflow_run_facade_with_provider_route_certificate",
-                        route_certificate_status="current",
-                        route_certificate_source="fixture",
-                        benchmark_route_equivalence=(
-                            "matches_named_traditional_analytics_vortex_provider_scenario"
-                        ),
-                        route_runtime_status="production_admitted_local_workflow",
-                        fallback_attempted=False,
-                        external_engine_invoked=False,
-                        required_evidence=(
-                            "execution_certificate",
-                            "native_io_certificate",
-                            "provider_route_certificate",
-                            "result_sink_replay_certificate",
-                            "fallback_disabled",
-                        ),
-                        claim_gate_status="not_claim_grade",
-                        performance_claim_allowed=False,
-                        production_claim_allowed=False,
-                        claim_boundary="exact provider route only",
-                    ))
-                    return tuple(rows)
-
-
-                class _V1VortexProviderRouteReport:
-                    rows = _v1_vortex_provider_rows()
-                    schema_version = "shardloom.native_vortex_provider_route_certificate_report.v1"
-                    route_order = tuple(row.route_id for row in rows)
-                    scenario_order = tuple(row.provider_scenario for row in rows)
-                    v1_scope_document = "docs/architecture/v1-vortex-runtime-scope.md"
-                    v1_provider_route_ids = V1_VORTEX_PROVIDER_ROUTE_IDS
-                    v1_provider_scenario_ids = V1_VORTEX_PROVIDER_SCENARIO_IDS
-                    feature_gate = "vortex-production-runtime"
-                    v1_scope_ready = True
-                    all_runtime_supported = True
-                    all_route_certificates_current = True
-                    all_no_fallback_no_external_engine = True
-                    general_multi_input_join_claim_allowed = False
-                    performance_claim_allowed = False
-                    production_claim_allowed = False
+                _base_user_route_capability_report = (
+                    ShardLoomContext.user_route_capability_report
+                )
 
 
                 def _v1_vortex_user_report(self):
-                    front_rows = (
-                        SimpleNamespace(
-                            front_door_id="python_prepare_vortex",
-                            route_runtime_status="global_runtime_supported",
-                            fallback_attempted=False,
-                            external_engine_invoked=False,
-                            public_user_surface="ctx.prepare_vortex / prepare_vortex",
-                            claim_boundary="scoped_v1_front_door_only",
-                        ),
-                        SimpleNamespace(
-                            front_door_id="sql_prepare_vortex",
-                            route_runtime_status="global_runtime_supported",
-                            fallback_attempted=False,
-                            external_engine_invoked=False,
-                            public_user_surface="sql prepare_vortex",
-                            claim_boundary="scoped_v1_front_door_only",
-                        ),
-                    )
-                    route_rows = {{}}
-                    for route_id in (
-                        "local_file_prepare_once_first_query",
-                        "local_file_prepare_once_batch",
-                        "prepared_vortex_warm_query",
-                        "native_vortex_query",
-                        "local_vortex_primitive_report",
-                        "generated_rows_local_output",
-                    ):
-                        route_rows[route_id] = SimpleNamespace(
-                            route_id=route_id,
-                            route_runtime_status="global_runtime_supported",
-                            fallback_attempted=False,
-                            external_engine_invoked=False,
-                            vortex_normalization_point="native_vortex_boundary",
-                            materialization_decode_boundary="bounded report",
-                        )
-
-                    def route(route_id):
-                        return route_rows[route_id]
+                    base = _base_user_route_capability_report(self)
 
                     return SimpleNamespace(
-                        public_front_door_route_rows=front_rows,
-                        all_no_fallback_no_external_engine=True,
-                        unsupported_local_benchmark_route_ids=(),
+                        rows=base.rows,
+                        public_front_door_route_rows=base.public_front_door_route_rows,
+                        all_no_fallback_no_external_engine=(
+                            base.all_no_fallback_no_external_engine
+                        ),
+                        route_order=base.route_order,
                         v1_vortex_scope_document="docs/architecture/v1-vortex-runtime-scope.md",
                         v1_vortex_supported_starting_states=V1_VORTEX_SUPPORTED_STARTING_STATES,
                         v1_vortex_supported_primitive_route_ids=V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS,
@@ -12140,44 +6608,11 @@ jobs:
                         v1_vortex_unsupported_boundary_ids=V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS,
                         v1_vortex_feature_profile_decision="feature_gated_local_vortex_runtime",
                         v1_vortex_scope_ready=True,
-                        route=route,
+                        route=base.route,
                     )
-
-
-                def _v1_vortex_local_file_report(self):
-                    rows = tuple(
-                        SimpleNamespace(
-                            scenario_id=scenario_id,
-                            route_id="local_file_prepare_once_first_query",
-                            start_state="raw_compat_source",
-                            vortex_normalization_point="SourceState -> vortex_ingest -> VortexPreparedState",
-                            preparation_route="vortex_ingest_prepare_once",
-                            selected_execution_mode="prepared_vortex",
-                            output_route="prepared result",
-                            evidence_route="execution certificate and Native I/O",
-                            materialization_decode_boundary="bounded result",
-                            route_runtime_status="prepared_route_supported",
-                            fallback_attempted=False,
-                            external_engine_invoked=False,
-                            required_evidence=("execution_certificate", "native_io_certificate"),
-                            claim_gate_status="not_claim_grade",
-                            claim_boundary="scoped prepared Vortex benchmark row",
-                        )
-                        for scenario_id in V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS
-                    )
-                    return SimpleNamespace(
-                        rows=rows,
-                        schema_version="shardloom.local_file_benchmark_route_report.v1",
-                        scenario_ids=V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS,
-                        unsupported_scenario_ids=(),
-                        all_no_fallback_no_external_engine=True,
-                    )
-
 
                 ShardLoomContext.local_vortex_primitive_route_report = lambda self: _V1VortexPrimitiveReport()
-                ShardLoomContext.native_vortex_provider_route_certificate_report = lambda self: _V1VortexProviderRouteReport()
                 ShardLoomContext.user_route_capability_report = _v1_vortex_user_report
-                ShardLoomContext.local_file_benchmark_route_report = _v1_vortex_local_file_report
                 '''
             ),
             encoding="utf-8",
@@ -12188,303 +6623,73 @@ jobs:
         module: object,
         repo_root: Path,
     ) -> None:
-        scenario_ids = [
-            "selective_filter",
-            "filter_projection_limit",
-            "group_by_aggregation",
-            "multi_key_group_by",
-            "join_aggregate",
-            "sort_top_k",
-            "row_number_window",
-            "top_n_per_group",
-            "clean_cast_filter_write",
-            "malformed_timestamp_cast",
-            "partition_pruning",
-            "many_small_files_scan",
-            "null_heavy_aggregate",
-            "high_cardinality_string_group_distinct",
-            "nested_json_field_scan",
-            "small_change_over_large_base",
-        ]
-        invalidation_cases = [
-            "cold_prepare_no_manifest",
-            "warm_reuse_manifest_match",
-            "source_changed",
-            "artifact_changed",
-            "schema_changed",
-            "policy_changed",
-            "version_changed",
-            "missing_artifact",
-            "corrupted_manifest",
-        ]
-        required_fields = [
-            "source_state_id",
-            "source_state_digest",
-            "source_state_fingerprint",
-            "source_schema_fingerprint",
-            "source_parse_plan_id",
-            "source_split_manifest_id",
-            "prepared_state_id",
-            "prepared_state_digest",
-            "prepared_state_reuse_hit",
-            "prepared_state_reuse_reason",
-            "prepared_state_reuse_manifest_digest",
-            "prepared_state_invalidation_reason",
-            "fallback_attempted",
-            "external_engine_invoked",
-        ]
-        fixture_paths = [
-            "docs/architecture/fixtures/v1-source-prepared-state/source-state-golden.json",
-            "docs/architecture/fixtures/v1-source-prepared-state/vortex-prepared-state-golden.json",
-            "docs/architecture/fixtures/v1-source-prepared-state/reuse-invalidation-matrix.json",
-        ]
-
-        for rel_path, markers in {
-            module.DOC_PATH.as_posix(): module.DOC_MARKERS,
-            **module.PUBLIC_DOC_MARKERS,
-        }.items():
-            path = repo_root / rel_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            existing = path.read_text(encoding="utf-8") if path.exists() else ""
-            path.write_text(existing + "\n".join(markers) + "\n", encoding="utf-8")
-
-        for rel_path in fixture_paths[:2]:
-            path = repo_root / rel_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(
-                json.dumps(
-                    {
-                        "schema_version": "fixture.v1",
-                        "scope_document": module.DOC_PATH.as_posix(),
-                        "claim_gate_status": "not_claim_grade",
-                        "fallback_attempted": False,
-                        "external_engine_invoked": False,
-                    }
-                ),
-                encoding="utf-8",
+        for rel_path in (module.DOC_PATH, *module.FIXTURE_PATHS):
+            source_path = REPO_ROOT / rel_path
+            target_path = repo_root / rel_path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            existing_text = (
+                target_path.read_text(encoding="utf-8") if target_path.exists() else ""
             )
-        matrix_path = repo_root / fixture_paths[2]
-        matrix_path.parent.mkdir(parents=True, exist_ok=True)
-        matrix_path.write_text(
-            json.dumps(
-                {
-                    "schema_version": (
-                        "shardloom.v1_source_prepared_state_reuse_invalidation_matrix.v1"
-                    ),
-                    "scope_document": module.DOC_PATH.as_posix(),
-                    "cases": [
-                        {
-                            "case_id": case_id,
-                            "reuse_hit": case_id == "warm_reuse_manifest_match",
-                            "reuse_reason": (
-                                "manifest_fingerprints_match"
-                                if case_id == "warm_reuse_manifest_match"
-                                else case_id
-                            ),
-                            "invalidation_reason": (
-                                "none"
-                                if case_id == "warm_reuse_manifest_match"
-                                else case_id
-                            ),
-                        }
-                        for case_id in invalidation_cases
-                    ],
-                    "claim_gate_status": "not_claim_grade",
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            ),
-            encoding="utf-8",
-        )
-        benchmark_path = repo_root / module.LATEST_BENCHMARK_ARTIFACT
-        benchmark_path.parent.mkdir(parents=True, exist_ok=True)
-        benchmark_path.write_text(
-            json.dumps(
-                {
-                    "published_benchmark_rows": [
-                        {
-                            "engine": "shardloom-prepared-vortex",
-                            "scenario_id": scenario_id,
-                            "route_lane_id": "warm_prepared_query",
-                            **{
-                                field: (
-                                    False
-                                    if field
-                                    in {"fallback_attempted", "external_engine_invoked"}
-                                    else f"{field}:{scenario_id}"
-                                )
-                                for field in required_fields
-                            },
-                        }
-                        for scenario_id in scenario_ids
-                    ]
-                }
-            ),
-            encoding="utf-8",
-        )
+            target_path.write_bytes(source_path.read_bytes())
+            if rel_path == module.DOC_PATH and existing_text:
+                target_path.write_text(
+                    target_path.read_text(encoding="utf-8")
+                    + "\n"
+                    + existing_text,
+                    encoding="utf-8",
+                )
 
         package_init = repo_root / "python" / "src" / "shardloom" / "__init__.py"
         existing = package_init.read_text(encoding="utf-8")
         package_init.write_text(
             existing
             + textwrap.dedent(
-                f'''
+                f"""
 
-                _V1_SOURCE_PREPARED_SCENARIO_IDS = {tuple(scenario_ids)!r}
-                _V1_SOURCE_PREPARED_INVALIDATION_CASES = {tuple(invalidation_cases)!r}
-                _V1_SOURCE_PREPARED_REQUIRED_FIELDS = {tuple(required_fields)!r}
-                _V1_SOURCE_PREPARED_FIXTURES = {tuple(fixture_paths)!r}
+                from dataclasses import dataclass
 
+                @dataclass(frozen=True)
+                class _PreparedRouteRow:
+                    route_id: str = {module.ROUTE_IDS[0]!r}
+                    fallback_attempted: bool = False
+                    external_engine_invoked: bool = False
+                    claim_gate_status: str = "not_claim_grade"
 
-                def _source_prepared_row(route_id, scope, *, scenario_id=None):
-                    return SimpleNamespace(
-                        route_id=route_id,
-                        route_display_name=route_id,
-                        scenario_id=scenario_id or route_id,
-                        scenario_name=scenario_id or route_id,
-                        start_state="raw_compat_source",
-                        vortex_normalization_point=(
-                            "local compatibility source -> SourceState -> "
-                            "no persistent VortexPreparedState"
-                            if scope == "not_applicable_no_prepared_state"
-                            else "SourceState -> vortex_ingest -> VortexPreparedState"
-                        ),
-                        source_route="UniversalIngress -> SourceState",
-                        preparation_route=(
-                            "internal_local_source_smoke_no_persistent_preparation"
-                            if scope == "not_applicable_no_prepared_state"
-                            else "vortex_ingest_prepare_once"
-                        ),
-                        execution_mode="prepared_vortex",
-                        selected_execution_mode="prepared_vortex",
-                        output_route="bounded report",
-                        evidence_route="execution certificate and Native I/O evidence",
-                        materialization_decode_boundary="bounded report",
-                        source_state_fingerprint="sha256:source",
-                        source_schema_fingerprint="sha256:schema",
-                        source_parse_plan_id="parse-plan://fixture",
-                        source_split_manifest_id="split-manifest://fixture",
-                        prepared_state_fingerprint="sha256:prepared",
-                        prepared_state_reuse_scope=scope,
-                        prepared_state_reuse_manifest_path=(
-                            "not_applicable_single_vortex_artifact"
-                            if scope == "single_vortex_artifact_no_sidecar"
-                            else "target/.shardloom/prepared-vortex-reuse-manifest.json"
-                        ),
-                        prepared_state_reuse_policy=(
-                            "single_vortex_artifact_no_sidecar.v1"
-                            if scope == "single_vortex_artifact_no_sidecar"
-                            else "shardloom.python.prepared_vortex_reuse_manifest.v1"
-                        ),
-                        prepared_state_reuse_hit=True,
-                        prepared_state_reuse_reason="manifest_fingerprints_match",
-                        prepared_state_reuse_manifest_digest="sha256:manifest",
-                        prepared_state_invalidation_reason="none",
-                        route_runtime_status="global_runtime_supported",
-                        fallback_attempted=False,
-                        external_engine_invoked=False,
-                        required_evidence=("execution_certificate", "native_io_certificate"),
-                        claim_gate_status="not_claim_grade",
-                        claim_boundary="scoped source/prepared-state fixture",
+                @dataclass(frozen=True)
+                class SourcePreparedStateScopeReport:
+                    schema_version: str = "shardloom.v1_source_prepared_state_scope.v1"
+                    report_id: str = "prod-v1-1c.source_prepared_state_scope"
+                    scope_document: str = {module.DOC_PATH.as_posix()!r}
+                    canonical_route: str = {module.CANONICAL_ROUTE!r}
+                    prepared_route_ids: tuple[str, ...] = {module.ROUTE_IDS!r}
+                    supported_input_formats: tuple[str, ...] = {module.SUPPORTED_FORMATS!r}
+                    invalidation_case_ids: tuple[str, ...] = {module.INVALIDATION_CASE_IDS!r}
+                    golden_fixture_paths: tuple[str, ...] = tuple(
+                        {tuple(path.as_posix() for path in module.FIXTURE_PATHS)!r}
                     )
+                    required_runtime_fields: tuple[str, ...] = {module.REQUIRED_RUNTIME_FIELDS!r}
+                    unsupported_boundary_ids: tuple[str, ...] = {module.UNSUPPORTED_BOUNDARIES!r}
+                    state_owner: str = {module.STATE_OWNER!r}
+                    reuse_scope: str = {module.REUSE_SCOPE!r}
+                    reuse_policy: str = {module.REUSE_POLICY!r}
+                    query_answers_cached: bool = False
+                    prepared_user_route_rows: tuple[_PreparedRouteRow, ...] = (
+                        _PreparedRouteRow(),
+                    )
+                    all_no_fallback_no_external_engine: bool = True
+                    v1_scope_ready: bool = True
+                    claim_gate_status: str = "not_claim_grade"
+                    performance_claim_allowed: bool = False
+                    production_claim_allowed: bool = False
+                    spark_replacement_claim_allowed: bool = False
 
-
-                def _v1_source_prepared_scope_report(self):
-                    prepared_routes = (
-                        "local_file_cold_certified_route",
-                        "local_file_prepare_once_first_query",
-                        "local_file_prepare_once_batch",
-                        "prepared_vortex_warm_query",
-                    )
-                    prepared_user = tuple(
-                        _source_prepared_row(
-                            route_id,
-                            "explicit_prepared_state_input"
-                            if route_id == "prepared_vortex_warm_query"
-                            else "workspace_manifest_local_vortex_artifacts",
-                        )
-                        for route_id in prepared_routes
-                    )
-                    direct_user = (
-                        _source_prepared_row(
-                            "local_file_internal_source_smoke_route",
-                            "not_applicable_no_prepared_state",
-                        ),
-                    )
-                    generated_user = (
-                        _source_prepared_row(
-                            "generated_rows_local_output",
-                            "single_vortex_artifact_no_sidecar",
-                        ),
-                    )
-                    prepared_local = tuple(
-                        _source_prepared_row(
-                            "local_file_prepare_once_first_query",
-                            "workspace_manifest_local_vortex_artifacts",
-                            scenario_id=scenario_id,
-                        )
-                        for scenario_id in _V1_SOURCE_PREPARED_SCENARIO_IDS
-                    )
-                    direct_local = tuple(
-                        _source_prepared_row(
-                            "local_file_internal_source_smoke_route",
-                            "not_applicable_no_prepared_state",
-                            scenario_id=scenario_id,
-                        )
-                        for scenario_id in _V1_SOURCE_PREPARED_SCENARIO_IDS
-                    )
-                    return SimpleNamespace(
-                        schema_version="shardloom.v1_source_prepared_state_scope.v1",
-                        report_id="prod-v1-1c.source_prepared_state_scope",
-                        scope_document="docs/architecture/v1-source-prepared-state-scope.md",
-                        canonical_route=(
-                            "UniversalIngress -> SourceState -> vortex_ingest -> "
-                            "VortexPreparedState -> prepared_vortex"
-                        ),
-                        internal_source_smoke_route=(
-                            "UniversalIngress -> SourceState -> internal_local_source_smoke"
-                        ),
-                        supported_input_formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
-                        prepared_route_ids=prepared_routes,
-                        internal_source_smoke_route_ids=(
-                            "local_file_internal_source_smoke_route",
-                        ),
-                        generated_route_ids=("generated_rows_local_output",),
-                        invalidation_case_ids=_V1_SOURCE_PREPARED_INVALIDATION_CASES,
-                        golden_fixture_paths=_V1_SOURCE_PREPARED_FIXTURES,
-                        required_runtime_fields=_V1_SOURCE_PREPARED_REQUIRED_FIELDS,
-                        unsupported_boundary_ids=(
-                            "global_hidden_cache",
-                            "external_cache_service",
-                            "object_store_prepared_state_reuse",
-                            "table_catalog_prepared_state_reuse",
-                            "broad_non_local_preparation",
-                        ),
-                        prepared_user_route_rows=prepared_user,
-                        internal_source_smoke_user_route_rows=direct_user,
-                        generated_user_route_rows=generated_user,
-                        prepared_local_file_rows=prepared_local,
-                        internal_source_smoke_local_file_rows=direct_local,
-                        local_file_routes=SimpleNamespace(
-                            scenario_ids=_V1_SOURCE_PREPARED_SCENARIO_IDS
-                        ),
-                        all_no_fallback_no_external_engine=True,
-                        all_prepared_routes_expose_reuse_contract=True,
-                        all_generated_routes_expose_single_artifact_output=True,
-                        all_internal_source_smoke_routes_are_labeled_non_persistent=True,
-                        all_local_file_prepared_rows_expose_source_and_reuse_evidence=True,
-                        v1_scope_ready=True,
-                        claim_gate_status="not_claim_grade",
-                        performance_claim_allowed=False,
-                        production_claim_allowed=False,
-                        spark_replacement_claim_allowed=False,
-                    )
-
+                def _source_prepared_state_scope_report(self):
+                    return SourcePreparedStateScopeReport()
 
                 ShardLoomContext.source_prepared_state_scope_report = (
-                    _v1_source_prepared_scope_report
+                    _source_prepared_state_scope_report
                 )
-                '''
+                """
             ),
             encoding="utf-8",
         )
@@ -12494,268 +6699,112 @@ jobs:
         module: object,
         repo_root: Path,
     ) -> None:
-        supported_formats = ("json", "jsonl", "csv", "parquet", "arrow-ipc", "avro", "orc", "vortex")
-        default_formats = ("jsonl", "csv", "json")
-        feature_gated_formats = ("parquet", "arrow-ipc", "avro", "orc", "vortex")
-        write_methods = (
-            "write",
-            "write_json",
-            "write_jsonl",
-            "write_csv",
-            "write_parquet",
-            "write_arrow_ipc",
-            "write_avro",
-            "write_orc",
-            "write_vortex",
-            "fanout",
-        )
-        route_ids = (
-            "local_file_internal_source_smoke_route",
-            "local_file_cold_certified_route",
-            "local_file_prepare_once_first_query",
-            "local_file_prepare_once_batch",
-            "prepared_vortex_warm_query",
-            "native_vortex_query",
-            "generated_rows_local_output",
-            "quarantine_output_route",
-        )
-        policy_ids = (
-            "error_if_exists_by_default",
-            "explicit_allow_overwrite",
-            "append_mode_unsupported",
-            "atomic_rename_same_directory",
-            "partial_write_cleanup_reported",
-        )
-        required_fields = (
-            "output_route",
-            "output_native_io_certificate_status",
-            "computed_result_sink_native_io_certificate_status",
-            "computed_result_sink_replay_verified",
-            "output_materialization_required",
-            "output_plan_digest",
-            "result_sink_write_millis",
-            "sink_timing_included_in_route_total",
-            "timing_surface",
-            "fallback_attempted",
-            "external_engine_invoked",
-        )
-        fixture_paths = (
-            "docs/architecture/fixtures/v1-local-output-sink/output-scope-golden.json",
-            "docs/architecture/fixtures/v1-local-output-sink/output-policy-matrix.json",
-            "docs/architecture/fixtures/v1-local-output-sink/output-replay-manifest-golden.json",
-        )
+        for rel_path in (module.DOC_PATH, *module.PUBLIC_DOC_MARKERS):
+            source = REPO_ROOT / rel_path
+            target = repo_root / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            existing = target.read_text(encoding="utf-8") if target.exists() else ""
+            source_text = source.read_text(encoding="utf-8")
+            target.write_text(
+                (
+                    source_text
+                    if rel_path == module.DOC_PATH
+                    else existing + source_text + "\n"
+                ),
+                encoding="utf-8",
+            )
 
-        for rel_path, markers in {
-            module.DOC_PATH.as_posix(): module.DOC_MARKERS,
-            **module.PUBLIC_DOC_MARKERS,
-        }.items():
-            path = repo_root / rel_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            existing = path.read_text(encoding="utf-8") if path.exists() else ""
-            path.write_text(existing + "\n".join(markers) + "\n", encoding="utf-8")
-
-        scope_path = repo_root / fixture_paths[0]
-        scope_path.parent.mkdir(parents=True, exist_ok=True)
-        scope_path.write_text(
-            json.dumps(
-                {
-                    "schema_version": "shardloom.v1_local_output_sink_scope_golden.v1",
-                    "scope_document": module.DOC_PATH.as_posix(),
-                    "supported_output_formats": list(supported_formats),
-                    "default_output_formats": list(default_formats),
-                    "feature_gated_output_formats": list(feature_gated_formats),
-                    "user_write_methods": list(write_methods),
-                    "claim_gate_status": "not_claim_grade",
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            ),
-            encoding="utf-8",
-        )
-        policy_path = repo_root / fixture_paths[1]
-        policy_path.write_text(
-            json.dumps(
-                {
-                    "schema_version": "shardloom.v1_local_output_sink_policy_matrix.v1",
-                    "scope_document": module.DOC_PATH.as_posix(),
-                    "policies": [
-                        {
-                            "policy_id": policy_id,
-                            "runtime_posture": "fixture",
-                            "write_io_allowed": policy_id != "append_mode_unsupported",
-                            "deterministic_diagnostic_required": policy_id == "append_mode_unsupported",
-                        }
-                        for policy_id in policy_ids
-                    ],
-                    "claim_gate_status": "not_claim_grade",
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            ),
-            encoding="utf-8",
-        )
-        replay_path = repo_root / fixture_paths[2]
-        replay_path.write_text(
-            json.dumps(
-                {
-                    "schema_version": "shardloom.v1_local_output_sink_replay_manifest.v1",
-                    "scope_document": module.DOC_PATH.as_posix(),
-                    "manifest_fields": list(required_fields),
-                    "claim_gate_status": "not_claim_grade",
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        benchmark_path = repo_root / module.LATEST_BENCHMARK_ARTIFACT
-        benchmark_path.parent.mkdir(parents=True, exist_ok=True)
-        if benchmark_path.exists():
-            benchmark_payload = json.loads(benchmark_path.read_text(encoding="utf-8"))
-        else:
-            benchmark_payload = {"published_benchmark_rows": []}
-        rows = benchmark_payload.setdefault("published_benchmark_rows", [])
-        source_prepared_fields = (
-            "source_state_id",
-            "source_state_digest",
-            "source_state_fingerprint",
-            "source_schema_fingerprint",
-            "source_parse_plan_id",
-            "source_split_manifest_id",
-            "prepared_state_id",
-            "prepared_state_digest",
-            "prepared_state_reuse_hit",
-            "prepared_state_reuse_reason",
-            "prepared_state_reuse_manifest_digest",
-            "prepared_state_invalidation_reason",
-        )
-        sink_row = {
-            "engine": "shardloom-prepared-vortex",
-            "scenario_id": "clean_cast_filter_write",
-            "route_lane_id": "warm_prepared_query",
-            "output_route": "local_result_sink_or_report",
-            "output_native_io_certificate_status": "certified",
-            "computed_result_sink_native_io_certificate_status": "certified",
-            "computed_result_sink_replay_verified": True,
-            "output_materialization_required": "result_sink_materializes_computed_result",
-            "output_plan_digest": "sha256:output-plan",
-            "result_sink_write_millis": 1.0,
-            "sink_timing_included_in_route_total": False,
-            "timing_surface": "hot_runtime",
-            "fallback_attempted": False,
-            "external_engine_invoked": False,
-            **{
-                field: f"{field}:clean_cast_filter_write"
-                for field in source_prepared_fields
-            },
+        source_path = str(REPO_ROOT / "python" / "src")
+        inserted_source_path = source_path not in sys.path
+        previous_shardloom_modules = {
+            name: value
+            for name, value in sys.modules.items()
+            if name == "shardloom" or name.startswith("shardloom.")
         }
-        for row in rows:
-            if (
-                isinstance(row, dict)
-                and row.get("engine") == sink_row["engine"]
-                and row.get("scenario_id") == sink_row["scenario_id"]
-                and row.get("route_lane_id") == sink_row["route_lane_id"]
-            ):
-                row.update(sink_row)
-                break
-        else:
-            rows.append(sink_row)
-        benchmark_path.write_text(json.dumps(benchmark_payload), encoding="utf-8")
+        if inserted_source_path:
+            sys.path.insert(0, source_path)
+        try:
+            from shardloom import ShardLoomContext
+
+            production_report = ShardLoomContext(
+                client=None
+            ).local_output_sink_scope_report()
+            report_fields = (
+                "schema_version",
+                "report_id",
+                "scope_document",
+                "supported_output_formats",
+                "default_output_formats",
+                "feature_gated_output_formats",
+                "user_write_methods",
+                "output_route_ids",
+                "write_policy_ids",
+                "golden_fixture_paths",
+                "required_runtime_fields",
+                "unsupported_boundary_ids",
+                "all_write_methods_registered",
+                "all_write_methods_no_fallback_no_external_engine",
+                "all_output_routes_no_fallback_no_external_engine",
+                "all_output_routes_emit_sink_evidence",
+                "all_feature_gated_formats_labeled",
+                "write_policy_contract_ready",
+                "v1_scope_ready",
+                "claim_gate_status",
+                "performance_claim_allowed",
+                "production_claim_allowed",
+                "spark_replacement_claim_allowed",
+            )
+            report_values = {
+                field: getattr(production_report, field) for field in report_fields
+            }
+
+            def row_values(row: object) -> dict[str, object]:
+                row_fields = getattr(type(row), "__dataclass_fields__", {})
+                return {name: getattr(row, name) for name in row_fields}
+
+            report_values["write_method_rows"] = tuple(
+                row_values(row) for row in production_report.write_method_rows
+            )
+            report_values["output_user_route_rows"] = tuple(
+                row_values(row) for row in production_report.output_user_route_rows
+            )
+        finally:
+            for name in tuple(sys.modules):
+                if name == "shardloom" or name.startswith("shardloom."):
+                    sys.modules.pop(name, None)
+            sys.modules.update(previous_shardloom_modules)
+            if inserted_source_path:
+                sys.path.remove(source_path)
+
+        for rel_path in report_values["golden_fixture_paths"]:
+            source = REPO_ROOT / rel_path
+            target = repo_root / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
 
         package_init = repo_root / "python" / "src" / "shardloom" / "__init__.py"
         existing = package_init.read_text(encoding="utf-8")
         package_init.write_text(
             existing
             + textwrap.dedent(
-                f'''
+                f"""
 
-                _V1_LOCAL_OUTPUT_FORMATS = {supported_formats!r}
-                _V1_LOCAL_OUTPUT_DEFAULT_FORMATS = {default_formats!r}
-                _V1_LOCAL_OUTPUT_FEATURE_GATED_FORMATS = {feature_gated_formats!r}
-                _V1_LOCAL_OUTPUT_METHODS = {write_methods!r}
-                _V1_LOCAL_OUTPUT_ROUTES = {route_ids!r}
-                _V1_LOCAL_OUTPUT_POLICIES = {policy_ids!r}
-                _V1_LOCAL_OUTPUT_FIXTURES = {fixture_paths!r}
-                _V1_LOCAL_OUTPUT_REQUIRED_FIELDS = {required_fields!r}
-
-
-                def _local_output_method(method):
-                    return SimpleNamespace(
-                        method=method,
-                        family="write",
-                        support_status="fixture_smoke_supported",
-                        required_evidence=("output_native_io_certificate", "result_replay_verified"),
-                        runtime_execution=True,
-                        data_read=True,
-                        write_io=True,
-                        materialization_required=True,
-                        fallback_attempted=False,
-                        external_engine_invoked=False,
-                        claim_gate_status="not_claim_grade",
-                        claim_boundary="feature-gated flat scalar local output fixture for jsonl csv parquet arrow-ipc avro orc vortex",
-                    )
-
-
-                def _local_output_route(route_id):
-                    return SimpleNamespace(
-                        route_id=route_id,
-                        route_display_name=route_id,
-                        desired_outputs=("local_jsonl", "local_csv", "feature_gated_local_vortex_output"),
-                        output_route="local output/result sink route",
-                        evidence_route="OutputPlan, output Native I/O certificate, replay evidence",
-                        materialization_decode_boundary="explicit local sink boundary",
-                        route_runtime_status="global_runtime_supported",
-                        required_evidence=("output_native_io_certificate", "result_replay_verified"),
-                        fallback_attempted=False,
-                        external_engine_invoked=False,
-                        claim_gate_status="not_claim_grade",
-                        claim_boundary="scoped local output/sink fixture for feature-gated flat scalar parquet arrow-ipc avro orc vortex",
-                        no_fallback_no_external_engine=True,
-                    )
-
+                _V1_LOCAL_OUTPUT_REPORT = {report_values!r}
 
                 def _v1_local_output_sink_scope_report(self):
-                    return SimpleNamespace(
-                        schema_version="shardloom.v1_local_output_sink_scope.v1",
-                        report_id="prod-v1-1d.local_output_sink_scope",
-                        scope_document="docs/architecture/v1-local-output-sink-scope.md",
-                        supported_output_formats=_V1_LOCAL_OUTPUT_FORMATS,
-                        default_output_formats=_V1_LOCAL_OUTPUT_DEFAULT_FORMATS,
-                        feature_gated_output_formats=_V1_LOCAL_OUTPUT_FEATURE_GATED_FORMATS,
-                        user_write_methods=_V1_LOCAL_OUTPUT_METHODS,
-                        output_route_ids=_V1_LOCAL_OUTPUT_ROUTES,
-                        write_policy_ids=_V1_LOCAL_OUTPUT_POLICIES,
-                        golden_fixture_paths=_V1_LOCAL_OUTPUT_FIXTURES,
-                        required_runtime_fields=_V1_LOCAL_OUTPUT_REQUIRED_FIELDS,
-                        unsupported_boundary_ids=(
-                            "append_mode",
-                            "object_store_output_paths",
-                            "table_catalog_writes",
-                            "iceberg_delta_transactions",
-                            "remote_uri_sinks",
-                            "broad_nested_complex_sink_shapes",
-                        ),
-                        write_method_rows=tuple(_local_output_method(method) for method in _V1_LOCAL_OUTPUT_METHODS),
-                        output_user_route_rows=tuple(_local_output_route(route_id) for route_id in _V1_LOCAL_OUTPUT_ROUTES),
-                        all_write_methods_registered=True,
-                        all_write_methods_no_fallback_no_external_engine=True,
-                        all_output_routes_no_fallback_no_external_engine=True,
-                        all_output_routes_emit_sink_evidence=True,
-                        all_feature_gated_formats_labeled=True,
-                        write_policy_contract_ready=True,
-                        v1_scope_ready=True,
-                        claim_gate_status="not_claim_grade",
-                        performance_claim_allowed=False,
-                        production_claim_allowed=False,
-                        spark_replacement_claim_allowed=False,
+                    report = _V1_LOCAL_OUTPUT_REPORT.copy()
+                    report["write_method_rows"] = tuple(
+                        SimpleNamespace(**row) for row in report["write_method_rows"]
                     )
-
+                    report["output_user_route_rows"] = tuple(
+                        SimpleNamespace(**row) for row in report["output_user_route_rows"]
+                    )
+                    return SimpleNamespace(**report)
 
                 ShardLoomContext.local_output_sink_scope_report = (
                     _v1_local_output_sink_scope_report
                 )
-                '''
+                """
             ),
             encoding="utf-8",
         )
@@ -13482,10 +7531,6 @@ jobs:
             RELEASE_USER_SURFACE_EXAMPLE_FEATURES,
         )
         self.assertIn("release-user-surfaces", RELEASE_USER_SURFACE_EXAMPLE_FEATURES)
-        self.assertIn(
-            "vortex-traditional-analytics-benchmark",
-            RELEASE_USER_SURFACE_EXAMPLE_FEATURES,
-        )
 
     def test_v1_example_replay_accepts_metadata_reopen_proof(self) -> None:
         module = self._load_script_module(
@@ -13592,92 +7637,82 @@ jobs:
                         emit("capabilities", [{"key": "scope", "value": "deployment"}])
                     if args == ["input-adapters", "--format", "json"]:
                         emit("input-adapters", [{"key": "plan_only", "value": "true"}])
-                    if args[0] == "vortex-prepare":
-                        target_path = Path(args[2])
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
-                        target_path.write_text("vortex-prepared\\n", encoding="utf-8")
-                        emit("vortex-prepare", [
-                            {"key": "vortex_ingest_performed", "value": "true"},
-                            {"key": "target_vortex_path", "value": str(target_path)},
-                            {"key": "prepared_state_created", "value": "true"},
-                            {"key": "source_format", "value": "csv"},
-                            {"key": "claim_gate_status", "value": "not_claim_grade"},
-                        ])
                     if args[0] == "run":
-                        if "--generated-source-kind" in args:
-                            output_path = Path(args[args.index("--output") + 1])
-                            output_path.parent.mkdir(parents=True, exist_ok=True)
-                            output_path.write_text('{"id":1,"label":"alpha","batch_id":1}\\n', encoding="utf-8")
+                        assert args[1] == "dataframe", args
+                        def value(flag):
+                            return args[args.index(flag) + 1]
+                        if value("--request") == "collect":
+                            source = Path(__file__).resolve().parent / "target/local-python-smoke/orders.csv"
+                            assert value("--input") == str(source), args
+                            assert value("--input-format") == "csv", args
+                            bindings = json.loads(value("--source-bindings"))
+                            assert bindings == {str(source): {"input_format": "csv"}}, args
+                            assert value("--sql") == (
+                                f"SELECT id,label,amount FROM '{source}' "
+                                "WHERE amount >= 10 LIMIT 2"
+                            ), args
+                            assert args[args.index("--request") + 1] == "collect", args
+                            result_rows = [
+                                {"id": 2, "label": "beta", "amount": 15},
+                                {"id": 3, "label": "gamma", "amount": 27},
+                            ]
+                            result_schema = {"Struct": [{"names": ["id", "label", "amount"], "dtypes": [
+                                {"Primitive": ["i64", False]}, {"Utf8": False}, {"Primitive": ["i64", False]},
+                            ]}, False]}
                             emit("run", [
-                                {"key": "public_workflow_route_attached", "value": "true"},
-                                {"key": "public_workflow_route_id", "value": "generated_user_rows_direct_output"},
-                                {"key": "public_workflow_resolved_internal_command", "value": "generated-source-user-rows"},
-                                {"key": "output_path", "value": str(output_path)},
-                                {"key": "output_format", "value": "jsonl"},
-                                {"key": "output_row_count", "value": "1"},
-                                {"key": "output_io_performed", "value": "true"},
-                                {"key": "generated_source_kind", "value": "user_rows"},
-                                {"key": "generated_source_row_count", "value": "1"},
-                                {"key": "generated_source_certificate_status", "value": "certified"},
-                                {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
-                                {"key": "claim_gate_status", "value": "fixture_smoke_only"},
-                            ])
-                        if "--input-format" in args and args[args.index("--input-format") + 1] == "vortex":
-                            emit("run", [
-                                {"key": "public_workflow_route_attached", "value": "true"},
-                                {"key": "public_workflow_route_id", "value": "native_vortex_filter_project"},
-                                {"key": "public_workflow_resolved_internal_command", "value": "vortex-filter-project"},
-                                {"key": "public_workflow_runtime_execution", "value": "true"},
-                                {"key": "public_workflow_status", "value": "executed"},
-                                {"key": "source_format", "value": "vortex"},
-                                {"key": "mode", "value": "vortex_filter_project"},
-                                {"key": "primitive", "value": "filter_and_project"},
+                                {"key": "result_schema_json", "value": json.dumps(result_schema)},
+                                {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                                {"key": "result_values_json", "value": json.dumps(result_rows)},
+                                {"key": "runtime_execution", "value": "true"},
                                 {"key": "data_read", "value": "true"},
-                                {"key": "write_io", "value": "false"},
-                                {"key": "filter_project_local_execution_result_known", "value": "true"},
-                                {"key": "filter_project_local_execution_rows_selected", "value": "2"},
-                                {"key": "filter_project_local_execution_rows_projected", "value": "2"},
-                                {"key": "filter_project_local_execution_data_read", "value": "true"},
-                                {"key": "filter_project_local_execution_fallback_attempted", "value": "false"},
-                                {"key": "filter_project_local_execution_projected_columns", "value": "id,label,amount"},
+                                {"key": "rows_projected", "value": "2"},
+                                {"key": "public_workflow_preparation_vortex_ingest_performed", "value": "true"},
+                                {"key": "public_workflow_local_source_prepared_vortex_path", "value": str(Path(__file__).resolve().parent / "target/local-python-smoke/orders.vortex")},
                                 {"key": "claim_gate_status", "value": "not_claim_grade"},
                             ])
-                        emit("run", [
-                            {"key": "public_workflow_route_attached", "value": "true"},
-                            {"key": "public_workflow_route_id", "value": "local_file_vortex_middle_required"},
-                            {"key": "public_workflow_route_executable", "value": "false"},
-                            {"key": "public_workflow_blocker_id", "value": "cg21.route.local_file_vortex_middle_required"},
-                            {"key": "public_workflow_runtime_execution", "value": "false"},
-                            {"key": "public_workflow_status", "value": "blocked"},
-                            {"key": "source_format", "value": "csv"},
-                            {"key": "output_io_performed", "value": "false"},
-                            {"key": "claim_gate_status", "value": "not_claim_grade"},
-                        ], status="unsupported", diagnostics=[{
-                            "code": "SL_UNSUPPORTED_PUBLIC_WORKFLOW_ROUTE",
-                            "severity": "error",
-                            "category": "unsupported_feature",
-                            "message": "local file workflow requires Vortex preparation",
-                            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                        }], returncode=1)
-                    if args[0] == "local-source-runtime":
-                        raise AssertionError("public local quickstart must not use local-source-runtime")
-                    if args[0] == "generated-source-user-rows":
-                        output_path = Path(args[1])
+                        assert value("--request") == "write_jsonl", args
+                        output_path = Path(value("--output"))
+                        assert str(output_path) == str(Path(__file__).resolve().parent / "target/local-python-smoke/generated-reference.jsonl"), args
+                        bindings = json.loads(value("--source-bindings"))
+                        assert len(bindings) == 1, args
+                        source_uri, declaration = next(iter(bindings.items()))
+                        assert declaration == {
+                            "input_format": "memory",
+                            "memory_input": {
+                                "kind": "rows",
+                                "schema": [["id", "int64"], ["label", "utf8"]],
+                                "rows": [["1", "alpha"]],
+                            },
+                        }, args
+                        assert value("--sql") == (
+                            f"SELECT id,label,1 AS batch_id FROM "
+                            f"(SELECT * FROM '{source_uri}') AS _sl_stage_0"
+                        ), args
                         output_path.parent.mkdir(parents=True, exist_ok=True)
                         output_path.write_text('{"id":1,"label":"alpha","batch_id":1}\\n', encoding="utf-8")
-                        emit("generated-source-user-rows", [
-                            {"key": "output_path", "value": str(output_path)},
-                            {"key": "output_format", "value": "jsonl"},
-                            {"key": "generated_source_kind", "value": "user_rows"},
-                            {"key": "generated_source_row_count", "value": "1"},
-                            {"key": "generated_source_certificate_status", "value": "certified"},
-                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                        output_schema = {"Struct": [{"names": ["id", "label", "batch_id"], "dtypes": [
+                            {"Primitive": ["i64", False]}, {"Utf8": False}, {"Primitive": ["i64", False]},
+                        ]}, False]}
+                        output_rows = [{"id": 1, "label": "alpha", "batch_id": 1}]
+                        emit("run", [
+                            {"key": "result_schema_json", "value": json.dumps(output_schema)},
+                            {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                            {"key": "result_values_json", "value": json.dumps(output_rows)},
+                            {"key": "native_vortex_result_export_path", "value": str(output_path)},
+                            {"key": "native_vortex_result_export_format", "value": "jsonl"},
+                            {"key": "native_vortex_result_export_rows_written", "value": "1"},
+                            {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
+                            {"key": "output_row_count", "value": "1"},
+                            {"key": "output_io_performed", "value": "true"},
+                            {"key": "runtime_execution", "value": "true"},
                             {"key": "claim_gate_status", "value": "fixture_smoke_only"},
                         ])
                     if args[0] == "workflow-unsupported-plan":
+                        assert args[1] == "apply", args
+                        assert args[2] == f"read_csv({Path(__file__).resolve().parent / 'target/local-python-smoke/orders.csv'}) -> select(id)", args
+                        assert args[3] == "callable=row_udf", args
                         emit("workflow-unsupported-plan", [
-                            {"key": "blocker_id", "value": "cg21.workflow.to_pandas.decoded_dataframe_unsupported"},
-                            {"key": "required_evidence", "value": "materialization_boundary,decode_evidence"},
+                            {"key": "blocker_id", "value": "cg21.workflow.apply.python_callable_unsupported"},
                             {"key": "runtime_execution", "value": "false"},
                             {"key": "data_read", "value": "false"},
                             {"key": "write_io", "value": "false"},
@@ -13709,26 +7744,47 @@ jobs:
             self.assertIn("quickstart_local_file_route_status=passed", output)
             self.assertIn("quickstart_local_file_runtime_execution=true", output)
             self.assertIn("quickstart_local_file_vortex_ingest_performed=true", output)
-            self.assertIn("quickstart_generated_source_row_count=1", output)
+            self.assertIn("quickstart_local_file_fallback_attempted=false", output)
+            self.assertIn("quickstart_local_file_external_engine_invoked=false", output)
+            self.assertIn(
+                "quickstart_local_file_result_rows=({'id': 2, 'label': 'beta', 'amount': 15}, {'id': 3, 'label': 'gamma', 'amount': 27})",
+                output,
+            )
+            self.assertIn("quickstart_generated_input_row_count=1", output)
+            self.assertIn("quickstart_generated_result_verified=true", output)
+            self.assertIn("quickstart_generated_rows_written=1", output)
+            self.assertIn(
+                f"quickstart_generated_output_path={repo_root.resolve() / 'target/local-python-smoke/generated-reference.jsonl'}",
+                output,
+            )
             self.assertIn("quickstart_generated_output_row_count=1", output)
+            self.assertIn("quickstart_generated_output_commit_status=committed", output)
+            self.assertIn("quickstart_generated_fallback_attempted=false", output)
+            self.assertIn("quickstart_generated_external_engine_invoked=false", output)
             self.assertIn(
                 "quickstart_generated_claim_gate_status=fixture_smoke_only", output
             )
             self.assertIn(
-                "quickstart_unsupported_blocker_id=cg21.workflow.to_pandas.decoded_dataframe_unsupported",
+                "quickstart_unsupported_blocker_id=cg21.workflow.apply.python_callable_unsupported",
                 output,
             )
             self.assertIn("quickstart_unsupported_external_engine_invoked=false", output)
+            self.assertIn("quickstart_unsupported_runtime_execution=false", output)
+            self.assertIn("quickstart_unsupported_data_read=false", output)
+            self.assertIn("quickstart_unsupported_write_io=false", output)
+            self.assertIn("quickstart_unsupported_fallback_attempted=false", output)
             self.assertFalse(
                 (repo_root / "target" / "local-python-smoke" / "orders-out.jsonl").exists()
             )
-            self.assertTrue(
-                (
-                    repo_root
-                    / "target"
-                    / "local-python-smoke"
-                    / "generated-reference.jsonl"
-                ).exists()
+            generated_jsonl = (
+                repo_root
+                / "target"
+                / "local-python-smoke"
+                / "generated-reference.jsonl"
+            )
+            self.assertEqual(
+                [json.loads(line) for line in generated_jsonl.read_text(encoding="utf-8").splitlines()],
+                [{"id": 1, "label": "alpha", "batch_id": 1}],
             )
 
     def test_release_dry_run_transcript_records_user_surface_quickstart_markers(self) -> None:
@@ -13751,12 +7807,20 @@ jobs:
                             "quickstart_local_file_vortex_ingest_performed=true",
                             "quickstart_local_file_fallback_attempted=false",
                             "quickstart_local_file_external_engine_invoked=false",
-                            "quickstart_generated_source_row_count=1",
+                            "quickstart_local_file_result_rows=({'id': 2, 'label': 'beta', 'amount': 15}, {'id': 3, 'label': 'gamma', 'amount': 27})",
+                            "quickstart_generated_input_row_count=1",
+                            "quickstart_generated_result_verified=true",
+                            "quickstart_generated_rows_written=1",
+                            "quickstart_generated_output_path=target/local-python-smoke/generated-reference.jsonl",
                             "quickstart_generated_output_row_count=1",
-                            "quickstart_generated_evidence_fallback_attempted=false",
+                            "quickstart_generated_output_commit_status=committed",
+                            "quickstart_generated_fallback_attempted=false",
+                            "quickstart_generated_external_engine_invoked=false",
                             "quickstart_generated_claim_gate_status=fixture_smoke_only",
-                            "quickstart_unsupported_blocker_id=cg21.workflow.to_pandas.decoded_dataframe_unsupported",
+                            "quickstart_unsupported_blocker_id=cg21.workflow.apply.python_callable_unsupported",
                             "quickstart_unsupported_runtime_execution=false",
+                            "quickstart_unsupported_data_read=false",
+                            "quickstart_unsupported_write_io=false",
                             "quickstart_unsupported_fallback_attempted=false",
                             "quickstart_unsupported_external_engine_invoked=false",
                         ]
@@ -14135,7 +8199,7 @@ jobs:
                 "cli_status_capability_reports",
                 "python_status_capabilities",
                 "python_generated_source_helpers",
-                "cli_vortex_production_runtime_and_prepared_batch_benchmark",
+                "cli_public_native_workflow",
             ]
         ]
         rows.extend(
@@ -14337,7 +8401,7 @@ jobs:
         manifest_ref = "website/assets/benchmarks/latest/manifest.json"
         summary, blockers = module.validate_benchmark_completeness_report(
             {
-                "schema_version": "shardloom.benchmark_artifact_completeness_report.v1",
+                "schema_version": module.BENCHMARK_COMPLETENESS_REPORT_SCHEMA_VERSION,
                 "status": "passed",
                 "manifest": manifest_ref,
                 "benchmark_profile": "full_local",

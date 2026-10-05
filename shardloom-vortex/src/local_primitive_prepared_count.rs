@@ -118,6 +118,18 @@ fn prepare_count_where(
 }
 
 impl PreparedVortexCountWhere {
+    /// Execute the same native count and serialize its exact scalar result.
+    /// # Errors
+    /// Preserves execution errors and rejects insufficient output capacity.
+    pub fn collect_jsonl(
+        &self,
+    ) -> Result<(ExecutedVortexCountWhere, super::collect::CollectedCountRows)> {
+        let mut execution = self.execute()?;
+        let rows = super::collect::render_count_rows(execution.count, &self.session)?;
+        execution.runtime = self.session.snapshot();
+        Ok((execution, rows))
+    }
+
     /// Validate file admission against the generation held by the native scan.
     /// This does not evaluate the predicate or open another provider.
     ///

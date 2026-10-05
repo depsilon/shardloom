@@ -94,8 +94,7 @@ REQUIRED_COMMANDS = (
     "route",
     "run",
     "prepare",
-    "local-source-runtime",
-    "generated-source-sql",
+    "status",
     "vortex-prepare",
 )
 
@@ -121,7 +120,8 @@ REQUIRED_PYTHON_METHODS = (
 REQUIRED_SQL_ENTRYPOINTS = (
     "ctx.sql",
     "sl.sql",
-    "shardloom local-source-runtime --format json",
+    'shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --format json',
+    'shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --format json',
 )
 
 
@@ -206,6 +206,16 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     for command in REQUIRED_COMMANDS:
         if command not in command_set:
             blockers.append(f"{COMMAND_REGISTRY_PATH}: missing registered command {command}")
+    declared_commands = [value for value in payload.get("cli", {}).values()
+                         if isinstance(value, str)]
+    for values in payload.get("cli", {}).values():
+        if isinstance(values, list):
+            declared_commands.extend(value for value in values if isinstance(value, str))
+    declared_commands.extend(payload.get("sql", {}).get("entrypoints", []))
+    command_text = "\n".join([md, *declared_commands])
+    for command in set(re.findall(r"^shardloom ([a-z][a-z-]*)\b", command_text, re.MULTILINE)):
+        if command not in command_set:
+            blockers.append(f"user-surface reference names an unregistered command: {command}")
 
     if payload["dynamic_sources"]["cli_command_registry_source"] != COMMAND_REGISTRY_PATH.as_posix():
         blockers.append(f"{JSON_PATH}: CLI registry source path drifted")
@@ -250,10 +260,12 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "fallback_attempted", "external_engine_invoked"):
         if nested.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_nested_composition.{field} must be false")
-    if set(nested.get("nested_writers", [])) != {"vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro"}:
+    if set(nested.get("nested_writers", [])) != {"vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"}:
         blockers.append(f"{JSON_PATH}: nested writers must match the representable static nested contract")
-    if set(nested.get("denied_nested_writers", [])) != {"csv", "orc"}:
-        blockers.append(f"{JSON_PATH}: nested CSV and ORC must remain explicitly denied")
+    if set(nested.get("denied_nested_writers", [])) != {"orc"}:
+        blockers.append(f"{JSON_PATH}: the pinned nested ORC writer must remain explicitly denied")
+    if "CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence" not in nested.get("writer_fidelity", ""):
+        blockers.append(f"{JSON_PATH}: nested CSV must declare its JSON text and dtype-loss boundary")
 
     typed = payload.get("native_typed_payloads", {})
     types = {"binary", "decimal128", "date32", "timestamp_micros"}

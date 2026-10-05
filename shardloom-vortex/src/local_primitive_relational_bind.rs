@@ -2,9 +2,9 @@
 
 use super::{
     BoundUnary, DType, MaterializedPredicateEvaluator, MemoryLease, Node, NodeKind, Nullability,
-    PathBuf, PreparedVortexSource, ReservedVec, ResidentVortexSession, Result, SetKind,
-    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexRelationalPlan, failed,
-    native_relational_join, native_relational_sort, vortex_error,
+    PathBuf, PreparedVortexSource, ReservedVec, ResidentMemorySource, ResidentVortexSession,
+    Result, ScanSource, SetKind, VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
+    VortexRelationalPlan, failed, native_relational_join, native_relational_sort, vortex_error,
 };
 use crate::relational_query::{
     VortexRelationalJoin, VortexRelationalJoinKind as JoinKind, VortexRelationalScan,
@@ -32,6 +32,7 @@ pub(super) struct Binder<'a> {
     session: &'a ResidentVortexSession,
     sources: ReservedVec<PreparedVortexSource>,
     paths: ReservedVec<PathBuf>,
+    memory_sources: ReservedVec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
     metadata: MemoryLease,
     nodes: usize,
     expression_nodes: usize,
@@ -43,12 +44,26 @@ pub(super) struct Binder<'a> {
     deferred: ReservedVec<Option<Box<super::DynamicLowerer>>>,
 }
 
+pub(super) struct BoundSources {
+    pub(super) sources: Vec<PreparedVortexSource>,
+    pub(super) source_paths: Vec<PathBuf>,
+    pub(super) memory_sources: Vec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    pub(super) metadata: MemoryLease,
+}
+
+#[derive(Clone, Copy)]
+enum SourceIndex {
+    File(usize),
+    Memory(usize),
+}
+
 impl<'a> Binder<'a> {
     pub(super) fn new(session: &'a ResidentVortexSession) -> Result<Self> {
         Ok(Self {
             session,
             sources: ReservedVec::new(session.memory())?,
             paths: ReservedVec::new(session.memory())?,
+            memory_sources: ReservedVec::new(session.memory())?,
             metadata: session.memory().reserve(4096)?,
             nodes: 0,
             expression_nodes: 0,
@@ -70,14 +85,68 @@ impl<'a> Binder<'a> {
         )
     }
 
-    pub(super) fn finish(
-        mut self,
-    ) -> Result<(Vec<PreparedVortexSource>, Vec<PathBuf>, MemoryLease)> {
+    pub(super) fn finish(mut self) -> Result<BoundSources> {
         let (sources, mut source_credit) = self.sources.into_parts();
         let (paths, mut path_credit) = self.paths.into_parts();
+        let (memory_sources, mut memory_credit) = self.memory_sources.into_parts();
         self.metadata.absorb(&mut source_credit)?;
         self.metadata.absorb(&mut path_credit)?;
-        Ok((sources, paths, self.metadata))
+        self.metadata.absorb(&mut memory_credit)?;
+        Ok(BoundSources {
+            sources,
+            source_paths: paths,
+            memory_sources,
+            metadata: self.metadata,
+        })
+    }
+
+    pub(super) fn register_memory_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        build: impl FnOnce(&ResidentVortexSession) -> Result<ResidentMemorySource>,
+    ) -> Result<()> {
+        if self.execution.is_some()
+            || !uri.as_str().starts_with("memory://")
+            || uri.as_str().len() <= "memory://".len()
+            || uri.as_str().len() > 16_384
+            || self
+                .memory_sources
+                .values
+                .iter()
+                .any(|(prior, _)| *prior == uri)
+            || self.sources.values.len() + self.memory_sources.values.len() >= 128
+        {
+            return Err(failed(
+                "memory source requires a unique bounded memory URI before execution",
+            ));
+        }
+        self.charge(uri.as_str().len() * 8 + 4096)?;
+        self.memory_sources.reserve_one()?;
+        let source = build(self.session)?;
+        if !source.belongs_to_session(self.session) {
+            return Err(failed("memory source belongs to another resource owner"));
+        }
+        self.memory_sources.values.push((uri, source));
+        Ok(())
+    }
+
+    fn input(&mut self, uri: &shardloom_core::DatasetUri) -> Result<SourceIndex> {
+        if let Some(index) = self
+            .memory_sources
+            .values
+            .iter()
+            .position(|(prior, _)| prior == uri)
+        {
+            return Ok(SourceIndex::Memory(index));
+        }
+        self.source(uri).map(SourceIndex::File)
+    }
+
+    fn source_dtype(&self, source: SourceIndex) -> &DType {
+        match source {
+            SourceIndex::File(index) => self.sources.values[index].dtype(),
+            SourceIndex::Memory(index) => self.memory_sources.values[index].1.dtype(),
+        }
     }
 
     pub(super) fn bind(&mut self, input: &VortexRelationalPlan, depth: usize) -> Result<Node> {
@@ -201,7 +270,7 @@ impl<'a> Binder<'a> {
                     "execution-time binding cannot add an undeclared source",
                 ));
             }
-            if self.sources.values.len() >= 128 {
+            if self.sources.values.len() + self.memory_sources.values.len() >= 128 {
                 return Err(failed("relational preparation exceeds 128 sources"));
             }
             self.paths.reserve_one()?;
@@ -218,9 +287,9 @@ impl<'a> Binder<'a> {
         &mut self,
         uri: &shardloom_core::DatasetUri,
     ) -> Result<Vec<String>> {
-        let source = self.source(uri)?;
-        let fields = self.sources.values[source]
-            .dtype()
+        let source = self.input(uri)?;
+        let fields = self
+            .source_dtype(source)
             .as_struct_fields_opt()
             .ok_or_else(|| failed("relational source requires a struct schema"))?;
         self.charge(
@@ -230,8 +299,8 @@ impl<'a> Binder<'a> {
                 .checked_mul(4096)
                 .ok_or_else(|| failed("source metadata size overflow"))?,
         )?;
-        let fields = self.sources.values[source]
-            .dtype()
+        let fields = self
+            .source_dtype(source)
             .as_struct_fields_opt()
             .ok_or_else(|| failed("relational source schema is absent"))?;
         fields
@@ -255,8 +324,8 @@ impl<'a> Binder<'a> {
             }
             self.charge(columns.len() * 4096)?;
         }
-        let source = self.source(&scan.source_uri)?;
-        let dtype = self.sources.values[source].dtype();
+        let source = self.input(&scan.source_uri)?;
+        let dtype = self.source_dtype(source);
         let source_fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| failed("relational source requires a struct schema"))?;
@@ -266,7 +335,7 @@ impl<'a> Binder<'a> {
             .checked_mul(4096)
             .ok_or_else(|| failed("source schema metadata overflow"))?;
         self.charge(schema_bytes)?;
-        let dtype = self.sources.values[source].dtype();
+        let dtype = self.source_dtype(source);
         if let Some(predicate) = &scan.predicate {
             validate_predicate_fields(predicate, dtype)?;
         }
@@ -299,6 +368,16 @@ impl<'a> Binder<'a> {
             .as_ref()
             .map(|predicate| MaterializedPredicateEvaluator::compile(predicate, &columns))
             .transpose()?;
+        let source = match source {
+            SourceIndex::File(index) => ScanSource::File(index),
+            SourceIndex::Memory(index) => ScanSource::Memory(Box::new(
+                self.memory_sources.values[index].1.prepare_projection(
+                    &columns.iter().map(String::as_str).collect::<Vec<_>>(),
+                    plan.filter.clone(),
+                    None,
+                )?,
+            )),
+        };
         for (_, dtype) in &fields {
             self.charge(
                 usize::try_from(super::super::native_payload::metadata_bytes(dtype)?)
@@ -532,9 +611,8 @@ fn validate_key_pair(left: &DType, right: &DType) -> Result<()> {
         return Ok(());
     }
     if let (DType::Primitive(left, _), DType::Primitive(right, _)) = (left, right)
-        && ((integer(*left).is_some() && integer(*right).is_some())
-            || (matches!(left, PType::F32 | PType::F64)
-                && matches!(right, PType::F32 | PType::F64)))
+        && (integer(*left).is_some() || matches!(left, PType::F32 | PType::F64))
+        && (integer(*right).is_some() || matches!(right, PType::F32 | PType::F64))
     {
         return Ok(());
     }

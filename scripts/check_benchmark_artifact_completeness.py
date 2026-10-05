@@ -1,2288 +1,395 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Validate ShardLoom website benchmark artifact completeness manifests."""
+"""Verify a complete public-native benchmark packet without executing workloads.
 
+The runner emits final evidence directly. There is no promotion, lane backfill,
+inferred timing, query-answer cache or claim-grade conversion.
+"""
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import gzip
 import hashlib
 import json
-import sys
-from collections import Counter
+import math
 from pathlib import Path
-from typing import Any
-
+import re
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "python" / "src"))
+from benchmarks.traditional_analytics.comparison import round_float
+from benchmarks.traditional_analytics.run import harness_source_inventory
+from benchmarks.traditional_analytics.workloads import WORKLOADS
+from native_workflow_protocol import extract_result, read_json_output, report_fields, strict_json
+from run_clickbench_query_uat import equivalent
 
-from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
-    MANIFEST_SCHEMA_VERSION,
-    PROFILES,
-    expected_lanes_for_profile,
-    lane_required_for_profile,
-)
-from check_prepare_batch_role_repair_evidence import (  # noqa: E402
-    EVIDENCE_SCHEMA_VERSION as PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_SCHEMA_VERSION,
-    validate_artifact_payload as validate_prepare_batch_role_repair_payload,
-)
-from shardloom import validate_runtime_execution_fields  # noqa: E402
-
-
-REPORT_SCHEMA_VERSION = "shardloom.benchmark_artifact_completeness_report.v1"
-DEFAULT_PUBLIC_BENCHMARK_MANIFEST = (
-    ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json"
-)
+REPORT_SCHEMA_VERSION = "shardloom.benchmark_artifact_completeness_report.v2"
+ARTIFACT_SCHEMA_VERSION = "shardloom.public_native_benchmark.v1"
+DEFAULT_PUBLIC_BENCHMARK_MANIFEST = ROOT / "website/assets/benchmarks/latest/manifest.json"
 PUBLIC_BENCHMARK_SURFACE = "clickbench_handoff"
 CLICKBENCH_URL = "https://benchmark.clickhouse.com/"
-REQUIRED_MANIFEST_FIELDS = {
-    "schema_version",
-    "generated_at_utc",
-    "benchmark_profile",
-    "expected_lanes",
-    "available_lanes",
-    "missing_lanes",
-    "lane_versions",
-    "lane_availability_reasons",
-    "environment",
-    "claim_boundary",
-    "performance_claim_allowed",
-    "route_runtime_status_schema_version",
-    "route_runtime_status_vocabulary",
-    "benchmark_constitution_schema_version",
-    "benchmark_constitution_validator",
-    "benchmark_constitution_required_field_order",
-    "benchmark_constitution_claim_gate_status",
-    "benchmark_constitution_performance_claim_allowed",
-    "public_front_door_benchmark_schema_version",
-    "public_front_door_benchmark_row_count",
-    "public_front_door_benchmark_row_ids",
-    "artifact_paths",
-}
-ROUTE_RUNTIME_STATUS_SCHEMA_VERSION = "shardloom.website.route_runtime_status.v1"
-ROUTE_RUNTIME_STATUSES = {
-    "global_runtime_supported",
-    "feature_gated",
-    "fixture_smoke_only",
-    "unsupported",
-    "external_baseline_only",
-}
-ROUTE_TIMING_LEDGER_SCHEMA_VERSION = "shardloom.route_timing_ledger.v1"
-EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION = (
-    "shardloom.traditional_analytics.exclusive_stage_timing.v1"
-)
-TIMING_NORMALIZATION_SCHEMA_VERSION = (
-    "shardloom.traditional_analytics.timing_normalization.v1"
-)
-SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION = (
-    "shardloom.traditional_analytics.source_admission_digest_policy.v1"
-)
-ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION = (
-    "shardloom.route_timing_stage_inclusion.v1"
-)
-ROUTE_TIMING_SURFACE_SCHEMA_VERSION = "shardloom.route_timing_surface.v1"
-ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION = "shardloom.route_timing_instrument.v1"
-OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS = 10.0
-TIMING_SURFACE_BY_EVIDENCE_TIER = {
-    "runtime_minimal": "hot_runtime",
-    "metadata_sink": "hot_runtime",
-    "full_vortex_replay": "full_replay_proof",
-    "publication_full": "publication_proof",
-}
-TIMING_SURFACES = {
-    "hot_runtime",
-    "full_replay_proof",
-    "publication_proof",
-    "external_baseline",
-}
-ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
-    "shardloom.website.benchmark_row_admission_manifest.v1"
-)
-PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_PATH_FIELD = (
-    "prepare_batch_role_repair_evidence"
-)
-PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION = (
-    "shardloom.traditional_analytics.publication_proof_sidecar.v1"
-)
-PUBLICATION_PROOF_SIDECAR_PATH_FIELD = "publication_proof_sidecar"
+OUTPUT_FORMATS = {"collect", "vortex", "json", "jsonl", "csv", "parquet", "arrow_ipc", "avro", "orc"}
 
 
-def runtime_envelope_required(row: dict[str, Any]) -> bool:
-    return True
-PROOF_TIMING_SURFACES = {"full_replay_proof", "publication_proof"}
-FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
-OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"
-OPERATOR_EXECUTION_MODES = {
-    "encoded_native",
-    "residual_native",
-    "materialized_temporary",
-    "unsupported",
-    "external_baseline_only",
-}
-PREPARED_ROUTE_AMORTIZATION_COUNTS = {1, 5, 10, 50, 100}
-DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS = "derived_from_prepare_once_batch_route_timing"
+def load_json(path):
+    path = Path(path)
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8") as stream:
+            return strict_json(stream.read())
+    return strict_json(path.read_text(encoding="utf-8"))
 
 
-def resolve_repo_path(path: Path) -> Path:
-    return path if path.is_absolute() else ROOT / path
-
-
-def default_public_benchmark_manifest_retired(path: Path) -> bool:
-    resolved = resolve_repo_path(path)
-    try:
-        is_default = resolved.resolve(strict=False) == DEFAULT_PUBLIC_BENCHMARK_MANIFEST
-    except OSError:
-        is_default = False
-    return is_default and not resolved.exists()
-
-
-def retired_public_benchmark_report(manifest_path: Path) -> dict[str, Any]:
-    return {
-        "schema_version": REPORT_SCHEMA_VERSION,
-        "status": "passed",
-        "manifest": str(manifest_path),
-        "manifest_sha256": None,
-        "artifact_json_sha256": None,
-        "benchmark_profile": "public_site_retired",
-        "artifact_status": "retired_from_public_website",
-        "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE,
-        "public_benchmark_url": CLICKBENCH_URL,
-        "available_lane_count": 0,
-        "missing_lane_count": 0,
-        "performance_claim_allowed": False,
-        "benchmark_run_performed": False,
-        "fallback_attempted": False,
-        "external_engine_invoked": False,
-        "retired_static_artifact_contract": (
-            "The public website no longer publishes the internal ShardLoom benchmark "
-            "dashboard bundle; it links to ClickBench as the public comparison surface."
-        ),
-        "blockers": [],
-    }
-COLD_BOTTLENECK_SCHEMA_VERSION = "shardloom.traditional_analytics.cold_bottleneck.v1"
-COLD_BOTTLENECK_ROUTE_LANES = {
-    "cold_certified_route",
-    "prepare_once_first_query",
-    "prepare_once_batch",
-}
-COLD_BOTTLENECK_STAGES = {
-    "source_admission",
-    "source_read",
-    "source_parse_or_decode",
-    "source_state_build",
-    "vortex_array_build",
-    "vortex_write",
-    "vortex_digest",
-    "vortex_reopen_verify",
-    "prepared_query",
-    "sink_output",
-    "evidence_render",
-}
-COLD_BOTTLENECK_REQUIRED_FIELDS = {
-    "cold_bottleneck_schema_version",
-    "cold_bottleneck_status",
-    "cold_bottleneck_stage_labels",
-    "cold_bottleneck_primary_stage",
-    "cold_bottleneck_secondary_stage",
-    "cold_route_optimization_hint",
-    "cold_route_optimization_hint_scope",
-    "cold_route_bottleneck_claim_boundary",
-    "source_split_count",
-    "source_open_count",
-    "source_bytes_read",
-    "source_columns_requested",
-    "source_projection_applied",
-    "source_pressure_profile",
-    "vortex_prepared_state_reusable",
-    "vortex_prepared_state_fingerprint",
-    "vortex_prepared_state_fingerprint_status",
-}
-ROUTE_DIAGNOSTIC_REQUIRED_FIELDS = {
-    "source_state_fingerprint",
-    "source_schema_fingerprint",
-    "source_parse_plan_id",
-    "source_split_manifest_id",
-    "source_anomaly_count",
-    "source_quarantine_required",
-    "prepared_state_fingerprint",
-    "prepared_state_reuse_scope",
-    "prepared_state_reuse_manifest_path",
-    "prepared_state_reuse_policy",
-    "prepared_state_reuse_hit",
-    "prepared_state_reuse_reason",
-    "prepared_state_reuse_manifest_digest",
-    "prepared_state_invalidation_reason",
-    "nearest_runnable_route",
-    "required_feature_gate",
-    "runtime_blocker_code",
-}
-EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS = {
-    "exclusive_stage_timing_schema_version",
-    "exclusive_stage_timing_status",
-    "exclusive_stage_timing_scope",
-    "exclusive_stage_included_stage_ids",
-    "route_timing_exclusive_stage_ids",
-    "route_timing_exclusive_stage_sum_ms",
-    "route_timing_exclusive_residual_ms",
-    "route_timing_exclusive_total_delta_ms",
-    "route_timing_exclusive_residual_status",
-    "inclusive_compatibility_to_vortex_import_ms",
-    "inclusive_compatibility_to_vortex_import_timing_scope",
-    "exclusive_stage_timing_claim_boundary",
-}
-TIMING_NORMALIZATION_REQUIRED_FIELDS = {
-    "timing_normalization_schema_version",
-    "timing_normalization_status",
-    "source_admission_policy_micros",
-    "source_admission_digest_policy_schema_version",
-    "source_admission_digest_policy_status",
-    "source_admission_full_content_digest_requested",
-    "source_admission_full_content_digest_micros",
-    "source_stat_micros",
-    "source_state_open_micros",
-    "source_state_metadata_snapshot_micros",
-    "source_state_manifest_validation_micros",
-    "source_state_row_count_metadata_micros",
-    "source_state_family_build_micros",
-    "source_state_lazy_family_construction",
-    "source_state_family_build_timing_scope",
-    "source_state_family_build_count",
-    "source_state_family_reuse_hit_count",
-    "source_state_family_reuse_hit",
-    "source_state_family_recompute_avoided",
-    "source_state_digest_micros",
-    "prepared_manifest_read_micros",
-    "prepared_manifest_match_micros",
-    "vortex_open_footer_micros",
-    "scan_open_micros",
-    "scan_chunk_iter_micros",
-    "operator_kernel_micros",
-    "operator_finalize_micros",
-    "result_sink_plan_micros",
-    "result_sink_write_micros",
-    "result_sink_replay_micros",
-    "human_evidence_render_micros",
-    "json_envelope_emit_micros",
-    "report_fields_build_micros",
-    "cli_process_wall_micros",
-}
-ROUTE_TIMING_STAGE_INCLUSION_REQUIRED_FIELDS = {
-    "route_timing_stage_inclusion_schema_version",
-    "route_timing_stage_inclusion_status",
-    "route_timing_stage_inclusion_stage_ids",
-    "route_timing_stage_inclusion_classes",
-    "route_timing_stage_inclusion_stage_owners",
-    "route_timing_stage_inclusion_timing_scopes",
-    "route_timing_stage_inclusion_skip_reasons",
-    "route_timing_stage_inclusion_claim_boundary",
-}
-ROUTE_TIMING_INSTRUMENT_REQUIRED_FIELDS = {
-    "route_timing_instrument_schema_version",
-    "route_timing_instrument_status",
-    "route_timing_instrument_stage_ids",
-    "route_timing_instrument_stage_parent_stages",
-    "route_timing_instrument_stage_groups",
-    "route_timing_instrument_stage_owners",
-    "route_timing_instrument_inclusion_classes",
-    "route_timing_instrument_timing_scopes",
-    "route_timing_instrument_evidence_levels",
-    "route_timing_instrument_residual_treatments",
-    "route_timing_instrument_substage_fields",
-    "route_timing_instrument_missing_substage_attribution",
-    "route_timing_instrument_expensive_stage_threshold_ms",
-    "route_timing_instrument_expensive_stage_ids",
-    "route_timing_instrument_not_ready_stage_ids",
-    "route_timing_instrument_claim_boundary",
-}
-CANONICAL_ROUTE_TIMING_STAGE_IDS = {
-    "source_admission",
-    "source_read",
-    "source_parse_or_decode",
-    "source_to_vortex_array",
-    "vortex_write",
-    "vortex_digest",
-    "vortex_reopen_verify",
-    "prepared_state_lookup_or_create",
-    "vortex_scan",
-    "operator_compute",
-    "result_sink_write",
-    "evidence_render",
-    "cli_process_wall",
-}
-STAGE_VALUE_FIELD_BY_ID = {
-    "source_admission": "source_admission_ms",
-    "source_read": "source_read_ms",
-    "source_parse_or_decode": "source_parse_or_columnar_decode_ms",
-    "source_to_vortex_array": "source_to_vortex_array_ms",
-    "vortex_write": "vortex_write_ms",
-    "vortex_digest": "exclusive_vortex_digest_ms",
-    "vortex_reopen_verify": "vortex_reopen_or_verify_ms",
-    "prepared_state_lookup_or_create": "prepared_state_lookup_or_create_ms",
-    "vortex_scan": "vortex_scan_ms",
-    "operator_compute": "operator_compute_ms",
-    "result_sink_write": "result_sink_write_ms",
-    "evidence_render": "evidence_render_ms",
-    "cli_process_wall": "cli_process_wall_millis",
-}
-PREPARED_STATE_REUSE_WORKSPACE_SCOPE = "workspace_manifest_local_vortex_artifacts"
-PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH = (
-    "<workspace>/.shardloom/prepared-vortex-reuse-manifest.json"
-)
-PREPARED_STATE_REUSE_WORKSPACE_POLICY = (
-    "shardloom.python.prepared_vortex_reuse_manifest.v1"
-)
-PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION = (
-    "shardloom.public_front_door_benchmark_rows.v1"
-)
-PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND = "public_front_door_route_evidence"
-PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS = (
-    "not_timing_row_route_identity_only"
-)
-REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS = {
-    "local_source_vortex_middle_front_door",
-    "generated_source_prepare_vortex_front_door",
-}
-FAST_PATH_REQUIRED_FIELDS = {
-    "fast_path_attribution_schema_version",
-    "runtime_execution_ms",
-    "output_delivery_ms",
-    "evidence_capture_ms",
-    "evidence_render_ms",
-    "certificate_link_ms",
-    "runtime_execution_timing_scope",
-    "output_delivery_timing_scope",
-    "evidence_capture_timing_status",
-    "certificate_link_timing_status",
-    "runtime_execution_certificate_id",
-    "runtime_execution_certificate_status",
-    "runtime_execution_certificate_plan_ref",
-    "certificate_link_status",
-    "evidence_required_for_claim",
-    "evidence_render_included_in_route_total",
-    "fast_path_claim_boundary",
-}
-OPERATOR_MODE_REQUIRED_FIELDS = {
-    "operator_mode_inventory_schema_version",
-    "operator_execution_class",
-    "operator_admission_status",
-    "operator_encoded_native_claim_allowed",
-    "operator_residual_native_used",
-    "operator_temporary_materialization_used",
-    "operator_blocker_matrix_ref",
-    "operator_execution_mode",
-    "encoded_native_operators",
-    "residual_native_operators",
-    "materialized_temporary_operators",
-    "operator_blocker_code",
-    "operator_hot_path_candidate",
-    "operator_hot_path_candidate_status",
-    "operator_hot_path_next_step",
-    "operator_mode_claim_boundary",
-}
-SOURCE_READ_SCOUT_REQUIRED_FIELDS = {
-    "source_read_scout_schema_version",
-    "source_read_scout_status",
-    "source_read_scout_timing_split_status",
-    "source_read_header_scout_ms",
-    "source_read_byte_acquisition_ms",
-    "source_read_full_body_ms",
-    "source_read_typed_decode_ms",
-    "source_read_row_assembly_ms",
-    "source_read_anomaly_quarantine_ms",
-    "source_read_columnar_handoff_ms",
-    "source_read_scout_residual_ms",
-    "source_read_scout_reuse_status",
-    "source_read_decode_status",
-    "source_read_projected_field_mask",
-    "source_read_filter_field_mask",
-    "source_read_decoded_columns",
-    "source_read_skipped_columns",
-    "source_read_decoded_column_count",
-    "source_read_skipped_column_count",
-    "source_read_row_materialization_status",
-    "source_read_unsupported_shape_diagnostic",
-    "source_read_scout_claim_boundary",
-}
-SOURCE_STATE_PROJECTION_REQUIRED_FIELDS = {
-    "source_state_read_plan",
-    "source_state_projection_pushdown_status",
-    "source_state_reader_projection_columns",
-    "source_state_reader_projection_column_count",
-    "source_state_projected_field_mask",
-    "source_state_filter_field_mask",
-    "source_state_decoded_columns",
-    "source_state_skipped_columns",
-    "source_state_decoded_column_count",
-    "source_state_skipped_column_count",
-}
-VORTEX_WRITER_CONTEXT_REQUIRED_FIELDS = {
-    "vortex_writer_context_schema_version",
-    "vortex_writer_context_status",
-    "vortex_writer_context_open_ms",
-    "vortex_writer_context_write_count",
-    "vortex_writer_context_reuse_hit_count",
-    "vortex_writer_context_reuse_status",
-    "vortex_segment_write_ms",
-    "vortex_workspace_stage_ms",
-    "vortex_write_coalescing_status",
-    "vortex_write_coalescing_reason",
-    "vortex_write_plan_schema_version",
-    "vortex_write_plan_status",
-    "vortex_write_plan_artifact_count",
-    "vortex_write_plan_artifact_roles",
-    "vortex_write_plan_total_artifact_bytes",
-    "vortex_write_plan_total_artifact_rows",
-    "vortex_write_plan_writer_context_count",
-    "vortex_write_plan_shared_writer_context",
-    "vortex_write_plan_writer_context_write_count",
-    "vortex_write_plan_writer_context_reuse_hit_count",
-    "vortex_write_plan_context_open_ms",
-    "vortex_write_plan_segment_write_ms",
-    "vortex_write_plan_workspace_stage_ms",
-    "vortex_write_plan_digest_ms",
-    "vortex_write_plan_verification_ms",
-    "vortex_write_plan_coalescing_status",
-    "vortex_write_plan_coalescing_reason",
-    "vortex_write_plan_digest_status",
-    "vortex_write_plan_verification_status",
-}
-PREPARED_STATE_OPTIMIZATION_REQUIRED_FIELDS = {
-    "prepare_batch_prepared_state_optimization_schema_version",
-    "prepare_batch_prepared_state_optimization_status",
-    "prepare_batch_prepared_state_optimization_strategy",
-    "prepare_batch_prepared_state_optimization_index_digest",
-    "prepare_batch_prepared_state_optimization_manifest_digest",
-    "prepare_batch_prepared_state_optimization_source_packet_digest",
-    "prepare_batch_prepared_state_optimization_changed_roles",
-    "prepare_batch_prepared_state_optimization_reused_roles",
-    "prepare_batch_prepared_state_optimization_repaired_roles",
-    "prepare_batch_prepared_state_optimization_invalidated_derived_states",
-    "prepare_batch_prepared_state_optimization_invalidation_reason",
-    "prepare_batch_prepared_state_optimization_manifest_lookup_ms",
-    "prepare_batch_prepared_state_optimization_manifest_match_ms",
-    "prepare_batch_prepared_state_optimization_cache_miss_create_ms",
-    "prepare_batch_prepared_state_optimization_artifact_write_ms",
-    "prepare_batch_prepared_state_optimization_repair_ms",
-    "prepare_batch_prepared_state_optimization_delta_overlay_ms",
-    "prepare_batch_prepared_state_optimization_replay_verification_ms",
-    "prepare_batch_prepared_state_optimization_delta_overlay_admitted",
-    "prepare_batch_prepared_state_optimization_base_artifact_reused",
-    "prepare_batch_prepared_state_optimization_proof_digest",
-    "prepare_batch_prepared_state_optimization_replay_proof",
-    "prepare_batch_prepared_state_optimization_blocker_id",
-    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed",
-    "prepare_batch_prepared_state_optimization_no_fallback_policy_status",
-    "prepare_batch_prepared_state_optimization_fallback_attempted",
-    "prepare_batch_prepared_state_optimization_external_engine_invoked",
-    "prepare_batch_prepared_state_optimization_claim_boundary",
-}
-REQUIRED_ROUTE_FIELDS = {
-    "route_lane_id",
-    "route_display_name",
-    "route_runtime_status",
-    "start_state",
-    "end_state",
-    "includes_preparation",
-    "includes_query",
-    "includes_output",
-    "includes_evidence",
-    "route_comparable_to_external_end_to_end",
-    "preparation_included",
-    "query_timing_starts_after_preparation",
-    "prepared_state_reused",
-    "route_timing_ledger_schema_version",
-    "route_timing_ledger_status",
-    "route_timing_surface_schema_version",
-    "timing_surface",
-    "timing_surface_label",
-    "timing_surface_evidence_tier",
-    "timing_surface_default_for_route",
-    "timing_surface_claim_boundary",
-    "route_total_formula",
-    "route_timing_scope",
-    "stage_parent_id",
-    "route_timing_included_stage_ids",
-    "route_timing_excluded_stage_ids",
-    "route_timing_included_stage_total_ms",
-    "route_timing_total_delta_ms",
-    *TIMING_NORMALIZATION_REQUIRED_FIELDS,
-    *ROUTE_TIMING_STAGE_INCLUSION_REQUIRED_FIELDS,
-    *EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS,
-    "preparation_timing_included_in_total",
-    "query_timing_included_in_total",
-    "output_timing_included_in_total",
-    "evidence_timing_included_in_total",
-    "performance_claim_allowed",
-    "production_claim_allowed",
-    "spark_replacement_claim_allowed",
-    *ROUTE_DIAGNOSTIC_REQUIRED_FIELDS,
-    *FAST_PATH_REQUIRED_FIELDS,
-    *OPERATOR_MODE_REQUIRED_FIELDS,
-    *SOURCE_READ_SCOUT_REQUIRED_FIELDS,
-    *SOURCE_STATE_PROJECTION_REQUIRED_FIELDS,
-    *VORTEX_WRITER_CONTEXT_REQUIRED_FIELDS,
-}
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Optional JSON report path. The report is always printed to stdout.",
-    )
-    parser.add_argument(
-        "--allow-incomplete",
-        action="store_true",
-        help="Allow missing required lanes if the manifest is explicitly marked incomplete.",
-    )
-    return parser.parse_args()
-
-
-def load_json(path: Path) -> Any:
-    if path.name.endswith(".gz"):
-        with gzip.open(path, "rt", encoding="utf-8") as handle:
-            return json.load(handle)
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def repo_path(path_text: str, manifest_path: Path) -> Path:
-    path = Path(path_text)
-    if path.is_absolute():
-        return path
-    root_candidate = ROOT / path
-    if root_candidate.exists():
-        return root_candidate
-    return manifest_path.parent / path
-
-
-def file_sha256(path: Path) -> str | None:
-    if not path.exists():
-        return None
+def file_sha256(path):
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return "sha256:" + digest.hexdigest()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
-def artifact_json_path(manifest: dict[str, Any], manifest_path: Path) -> Path | None:
-    artifact_paths = manifest.get("artifact_paths")
-    if not isinstance(artifact_paths, dict):
-        return None
-    path_text = artifact_paths.get("json")
-    if not path_text:
-        return None
-    return repo_path(str(path_text), manifest_path)
+def result_rows(payload):
+    rows = payload.get("records", []) if isinstance(payload, dict) else []
+    return rows if isinstance(rows, list) else []
 
 
-def chunked_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    chunks = payload.get("published_benchmark_row_chunks")
-    if not isinstance(chunks, list):
-        return []
-    rows: list[dict[str, Any]] = []
-    for chunk in chunks:
-        if not isinstance(chunk, dict):
-            continue
-        path_text = chunk.get("path")
-        if not isinstance(path_text, str) or not path_text:
-            continue
-        path = repo_path(path_text, ROOT / "website/assets/benchmarks/latest/manifest.json")
-        if not path.exists():
-            continue
-        chunk_payload = load_json(path)
-        chunk_rows = (
-            chunk_payload.get("rows")
-            if isinstance(chunk_payload, dict)
-            else chunk_payload
-        )
-        if isinstance(chunk_rows, list):
-            rows.extend(row for row in chunk_rows if isinstance(row, dict))
-    return rows
+def default_public_benchmark_manifest_retired(path):
+    path = Path(path)
+    if not path.is_absolute():
+        path = ROOT / path
+    return path.resolve() == DEFAULT_PUBLIC_BENCHMARK_MANIFEST.resolve() and not path.exists()
 
 
-def result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    if isinstance(payload.get("published_benchmark_row_chunks"), list):
-        return chunked_result_rows(payload)
-    rows = payload.get("results")
-    if isinstance(rows, list):
-        return [row for row in rows if isinstance(row, dict)]
-    rows = payload.get("published_benchmark_rows")
-    if isinstance(rows, list):
-        return [row for row in rows if isinstance(row, dict)]
-    rows = payload.get("rows")
-    if isinstance(rows, list):
-        return [row for row in rows if isinstance(row, dict)]
-    return []
-
-
-def validate_row_admission_manifest(
-    manifest: dict[str, Any],
-    manifest_path: Path,
-    payload: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    artifact_paths = manifest.get("artifact_paths")
-    if not isinstance(artifact_paths, dict):
-        return
-    path_text = artifact_paths.get("row_admission_manifest")
-    if not path_text:
-        return
-    admission_path = repo_path(str(path_text), manifest_path)
-    if not admission_path.exists():
-        blockers.append(
-            "artifact_paths.row_admission_manifest does not exist: "
-            + str(path_text)
-        )
-        return
-    admission = load_json(admission_path)
-    if not isinstance(admission, dict):
-        blockers.append("row admission manifest must contain an object")
-        return
-    if admission.get("schema_version") != ROW_ADMISSION_MANIFEST_SCHEMA_VERSION:
-        blockers.append("row admission manifest schema_version mismatch")
-    if admission.get("fallback_attempted") is not False:
-        blockers.append("row admission manifest fallback_attempted must be false")
-    if admission.get("external_engine_invoked") is not False:
-        blockers.append("row admission manifest external_engine_invoked must be false")
-    chunks = payload.get("published_benchmark_row_chunks")
-    if not isinstance(chunks, list):
-        blockers.append("row admission manifest present but payload has no row chunks")
-        return
-    if admission.get("chunk_count") != len(chunks):
-        blockers.append("row admission manifest chunk_count mismatch")
-    expected_row_count = payload.get("published_benchmark_row_count")
-    if (
-        isinstance(expected_row_count, int)
-        and admission.get("row_count") != expected_row_count
-    ):
-        blockers.append("row admission manifest row_count mismatch")
-    admitted_chunks = admission.get("chunks")
-    if not isinstance(admitted_chunks, list):
-        blockers.append("row admission manifest chunks must be a list")
-        return
-    admitted_by_path = {
-        str(chunk.get("path")): chunk
-        for chunk in admitted_chunks
-        if isinstance(chunk, dict) and chunk.get("path")
+def retired_public_benchmark_report(manifest_path):
+    return {
+        "schema_version": REPORT_SCHEMA_VERSION, "status": "passed",
+        "manifest": str(manifest_path), "manifest_sha256": None,
+        "artifact_status": "retired_from_public_website", "benchmark_profile": "public_site_retired",
+        "public_benchmark_surface": PUBLIC_BENCHMARK_SURFACE, "public_benchmark_url": CLICKBENCH_URL,
+        "evidence_class": "public_surface_absence_check", "available_lane_count": 0,
+        "missing_lane_count": 0, "performance_claim_allowed": False,
+        "runtime_execution_performed": False, "benchmark_run_performed": False,
+        "fallback_attempted": False, "external_engine_invoked": False, "blockers": [],
     }
-    for chunk in chunks:
-        if not isinstance(chunk, dict):
-            continue
-        path_text = str(chunk.get("path") or "")
-        admitted = admitted_by_path.get(path_text)
-        if not admitted:
-            blockers.append(f"row admission manifest missing chunk: {path_text}")
-            continue
-        for field in ("row_count", "sha256"):
-            if admitted.get(field) != chunk.get(field):
-                blockers.append(
-                    f"row admission manifest chunk {path_text} {field} mismatch"
-                )
 
 
-def validate_prepare_batch_role_repair_evidence(
-    manifest: dict[str, Any],
-    manifest_path: Path,
-    blockers: list[str],
-) -> None:
-    artifact_paths = manifest.get("artifact_paths")
-    if not isinstance(artifact_paths, dict):
-        return
-    path_text = artifact_paths.get(PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_PATH_FIELD)
-    profile = str(manifest.get("benchmark_profile") or "")
-    if not path_text:
-        if profile == "full_local":
-            blockers.append(
-                "full_local benchmark manifest is missing "
-                "artifact_paths.prepare_batch_role_repair_evidence"
-            )
-        return
-    evidence_path = repo_path(str(path_text), manifest_path)
-    if not evidence_path.exists():
-        blockers.append(
-            "artifact_paths.prepare_batch_role_repair_evidence does not exist: "
-            + str(path_text)
-        )
-        return
-    payload = load_json(evidence_path)
-    if not isinstance(payload, dict):
-        blockers.append("prepare-batch role-repair evidence artifact must be an object")
-        return
-    if payload.get("schema_version") != PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_SCHEMA_VERSION:
-        blockers.append("prepare-batch role-repair evidence schema_version mismatch")
-    evidence_blockers, _summary = validate_prepare_batch_role_repair_payload(payload)
-    blockers.extend(evidence_blockers)
+def _digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
-def validate_publication_proof_sidecar(
-    manifest: dict[str, Any],
-    manifest_path: Path,
-    payload: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    publication_rows = [
-        row
-        for row in result_rows(payload)
-        if str(row.get("timing_surface") or "") == "publication_proof"
-    ]
-    artifact_paths = manifest.get("artifact_paths")
-    if not isinstance(artifact_paths, dict):
-        return
-    path_text = artifact_paths.get(PUBLICATION_PROOF_SIDECAR_PATH_FIELD)
-    if not path_text:
-        if publication_rows:
-            blockers.append(
-                "benchmark manifest is missing artifact_paths.publication_proof_sidecar"
-            )
-        return
-    sidecar_path = repo_path(str(path_text), manifest_path)
-    if not sidecar_path.exists():
-        blockers.append(
-            "artifact_paths.publication_proof_sidecar does not exist: "
-            + str(path_text)
-        )
-        return
-    sidecar = load_json(sidecar_path)
-    if not isinstance(sidecar, dict):
-        blockers.append("publication proof sidecar must contain an object")
-        return
-    if sidecar.get("schema_version") != PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION:
-        blockers.append("publication proof sidecar schema_version mismatch")
-    if sidecar.get("fallback_attempted") is not False:
-        blockers.append("publication proof sidecar fallback_attempted must be false")
-    if sidecar.get("external_engine_invoked") is not False:
-        blockers.append("publication proof sidecar external_engine_invoked must be false")
-    records = sidecar.get("records")
-    if not isinstance(records, list):
-        blockers.append("publication proof sidecar records must be a list")
-        records = []
-    record_count = sidecar.get("record_count")
-    if record_count != len(records):
-        blockers.append("publication proof sidecar record_count does not match records")
-    if record_count != len(publication_rows):
-        blockers.append(
-            "publication proof sidecar record_count does not match publication-proof rows"
-        )
-    stale_count = sidecar.get("stale_record_count")
-    if stale_count != 0:
-        blockers.append("publication proof sidecar has stale records")
-    reused_count = sidecar.get("reused_record_count")
-    written_count = sidecar.get("written_record_count")
-    if not isinstance(reused_count, int) or not isinstance(written_count, int):
-        blockers.append("publication proof sidecar reuse/write counts must be integers")
-    elif isinstance(record_count, int) and reused_count + written_count != record_count:
-        blockers.append("publication proof sidecar reuse/write counts do not sum to record_count")
-    if (
-        sidecar.get("resume_status") == "reused_existing_publication_proof_sidecar"
-        and isinstance(record_count, int)
-        and (reused_count != record_count or written_count != 0)
-    ):
-        blockers.append("reused publication proof sidecar must reuse every record")
-    for manifest_key, sidecar_key in (
-        ("publication_proof_sidecar_schema_version", "schema_version"),
-        ("publication_proof_sidecar_status", "resume_status"),
-        ("publication_proof_sidecar_record_count", "record_count"),
-        ("publication_proof_sidecar_reused_record_count", "reused_record_count"),
-        ("publication_proof_sidecar_written_record_count", "written_record_count"),
-        ("publication_proof_sidecar_stale_record_count", "stale_record_count"),
-        ("publication_proof_sidecar_source_row_chunks_digest", "source_row_chunks_digest"),
-        ("publication_proof_sidecar_source_row_chunk_count", "source_row_chunk_count"),
-        ("publication_proof_sidecar_record_set_digest", "record_set_digest"),
-        ("publication_proof_sidecar_fallback_attempted", "fallback_attempted"),
-        ("publication_proof_sidecar_external_engine_invoked", "external_engine_invoked"),
-    ):
-        if manifest.get(manifest_key) != sidecar.get(sidecar_key):
-            blockers.append(
-                f"manifest {manifest_key} does not match publication proof sidecar"
-            )
-    record_ids: set[str] = set()
-    for index, record in enumerate(records):
-        if not isinstance(record, dict):
-            blockers.append(f"publication proof sidecar record {index} must be an object")
-            continue
-        record_id = str(record.get("record_id") or "")
-        if not record_id.startswith("publication-proof:"):
-            blockers.append(f"publication proof sidecar record {index} has invalid record_id")
-        if record_id in record_ids:
-            blockers.append(f"publication proof sidecar record {index} duplicates record_id")
-        record_ids.add(record_id)
-        if not str(record.get("record_digest") or "").startswith("sha256:"):
-            blockers.append(f"publication proof sidecar record {index} missing digest")
-        if record.get("timing_surface") != "publication_proof":
-            blockers.append(f"publication proof sidecar record {index} has wrong surface")
-        if record.get("fallback_attempted") is not False:
-            blockers.append(
-                f"publication proof sidecar record {index} fallback_attempted must be false"
-            )
-        if record.get("external_engine_invoked") is not False:
-            blockers.append(
-                f"publication proof sidecar record {index} external_engine_invoked must be false"
-            )
+def _strings(value, label):
+    if (not isinstance(value, list) or not value or any(not isinstance(item, str) or not item for item in value)
+            or len(set(value)) != len(value)):
+        raise ValueError(f"{label} must be a nonempty unique string array")
+    return value
 
 
-def lane_evidence_counts(payload: dict[str, Any]) -> Counter[str]:
-    counts: Counter[str] = Counter()
-    for row in result_rows(payload):
-        engine = row.get("engine")
-        if engine:
-            lane = str(engine)
-            counts[lane] += 1
-            if lane == "shardloom-vortex":
-                counts["native-vortex"] += 1
-    for row in payload.get("batch_rows", []):
-        if not isinstance(row, dict):
-            continue
-        requested = str(row.get("requested_execution_mode") or "")
-        selected = str(row.get("selected_execution_modes") or "")
-        if requested == "prepared_vortex" or "prepared_vortex" in selected:
-            counts["shardloom-prepared-vortex"] += 1
-        if requested == "native_vortex" or "native_vortex" in selected:
-            counts["shardloom-vortex"] += 1
-            counts["native-vortex"] += 1
-    return counts
+def _seconds(value):
+    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+        raise ValueError("timing must be a finite nonnegative number")
+    return value
 
 
-def promoted_artifact_metadata(payload: dict[str, Any]) -> dict[str, Any]:
-    metadata = payload.get("published_benchmark_artifact")
-    return metadata if isinstance(metadata, dict) else payload
+def _option(command, name):
+    if command.count(name) != 1 or command.index(name) + 1 >= len(command):
+        raise ValueError(f"native command requires exactly one {name} value")
+    return command[command.index(name) + 1]
 
 
-def validate_profile_scope(
-    payload: dict[str, Any],
-    profile: str,
-    blockers: list[str],
-) -> None:
-    metadata = promoted_artifact_metadata(payload)
-    profile_def = PROFILES[profile]
-    format_order = {
-        str(item)
-        for item in metadata.get("format_order", [])
-        if isinstance(item, str)
-    }
-    if not format_order:
-        format_order = {
-            str(row.get("storage_format"))
-            for row in result_rows(payload)
-            if isinstance(row.get("storage_format"), str) and row.get("storage_format")
-        }
-    scenario_order: set[str] = set()
-    for item in metadata.get("scenario_order", []):
-        if not isinstance(item, str):
-            continue
-        scenario_order.add(item)
-        if ": " in item:
-            scenario_order.add(item.split(": ", 1)[1])
-    if not scenario_order:
-        for row in result_rows(payload):
-            scenario = row.get("scenario_name")
-            if not isinstance(scenario, str) or not scenario:
-                continue
-            scenario_order.add(scenario)
-            if ": " in scenario:
-                scenario_order.add(scenario.split(": ", 1)[1])
-    missing_formats = sorted(set(profile_def.required_formats) - format_order)
-    missing_scenarios = sorted(set(profile_def.required_scenarios) - scenario_order)
-    if missing_formats:
-        blockers.append(
-            f"published artifact is missing profile-required formats: {missing_formats}"
-        )
-    if missing_scenarios:
-        blockers.append(
-            f"published artifact is missing profile-required scenarios: {missing_scenarios}"
-        )
+def _bindings(command):
+    bindings = strict_json(_option(command, "--source-bindings"))
+    if (not isinstance(bindings, dict) or not bindings
+            or any(not isinstance(value, dict) for value in bindings.values())):
+        raise ValueError("native command requires explicit source bindings")
+    sql = _option(command, "--sql")
+    for path in bindings:
+        if "'" + path.replace("'", "''") + "'" not in sql:
+            raise ValueError("native SQL does not reference its declared source")
+    return bindings
 
 
-def recursive_text_contains(value: Any, needle: str) -> bool:
-    if isinstance(value, str):
-        return needle in value
-    if isinstance(value, list):
-        return any(recursive_text_contains(item, needle) for item in value)
-    if isinstance(value, dict):
-        return any(recursive_text_contains(item, needle) for item in value.values())
-    return False
+class EvidenceReader:
+    def __init__(self):
+        self.files = {}
+        self.candidate = None
+
+    def verified(self, path, expected):
+        path = Path(path)
+        if not isinstance(expected, str) or re.fullmatch(r"[a-f0-9]{64}", expected) is None:
+            raise ValueError("evidence requires a SHA-256 identity")
+        actual = self.files.get(str(path))
+        if actual is None:
+            actual = file_sha256(path)
+            self.files[str(path)] = actual
+        if actual != expected:
+            raise ValueError(f"evidence content changed: {path}")
+        return path
+
+    def receipt(self, receipt, *, native=False, binary_sha=None, preparation=False):
+        if (not isinstance(receipt, dict) or type(receipt.get("returncode")) is not int
+                or receipt["returncode"] != 0 or receipt.get("guard_failures") != []):
+            raise ValueError("successful process and guard receipt is required")
+        _seconds(receipt.get("seconds"))
+        envelope = load_json(self.verified(receipt["stdout"], receipt["stdout_sha256"]))
+        if not isinstance(envelope, dict):
+            raise ValueError("process evidence must be an object")
+        if not native:
+            if envelope.get("status") != "passed":
+                raise ValueError("independent reference process did not pass")
+            return envelope
+        if receipt.get("binary_sha256") != binary_sha:
+            raise ValueError("native call binary differs from frozen candidate")
+        command = receipt.get("command")
+        if (not isinstance(command, list) or not command
+                or any(not isinstance(item, str) for item in command)):
+            raise ValueError("native command must be a string array")
+        if Path(command[0]).resolve() != self.candidate:
+            raise ValueError("native command does not identify the frozen executable")
+        fallback = envelope.get("fallback", {})
+        if fallback.get("attempted") is not False or fallback.get("engine") is not None:
+            raise ValueError("native envelope has missing or unsafe fallback evidence")
+        if preparation:
+            if len(command) < 4 or command[1] != "vortex-prepare":
+                raise ValueError("prepared inputs require public vortex-prepare receipts")
+            if envelope.get("status") != "success":
+                raise ValueError("native preparation did not report success")
+            return envelope
+        if (command[1:3] != ["run", "sql"]
+                or any(item.startswith("--vortex-") for item in command)):
+            raise ValueError("native calls must use the complete public SQL declaration")
+        fields = report_fields(envelope)
+        requested = _option(command, "--request")
+        if requested == "collect":
+            extract_result(envelope)
+        elif requested.startswith("write_") and requested.removeprefix("write_") in OUTPUT_FORMATS - {"collect"}:
+            output = receipt.get("output", {})
+            if (fields.get("native_vortex_result_export_all_targets_committed") != "true"
+                    or fields.get("native_vortex_result_export_path") != output.get("path")
+                    or _option(command, "--output") != output.get("path")):
+                raise ValueError("native writer lacks committed output evidence")
+            path = self.verified(output["path"], output["sha256"])
+            if path.stat().st_size != output.get("bytes"):
+                raise ValueError("native output byte count differs")
+        else:
+            raise ValueError("unknown native requested output")
+        return envelope
+
+    def prepared_inputs(self, receipts, inputs, binary_sha):
+        targets = set()
+        for receipt in receipts:
+            envelope = self.receipt(receipt, native=True, binary_sha=binary_sha, preparation=True)
+            command = receipt["command"]
+            source, target = Path(command[2]).resolve(), Path(command[3]).resolve()
+            if source not in inputs or target in inputs or target in targets:
+                raise ValueError("preparation must bind frozen inputs to unique new targets")
+            fields = {}
+            if not isinstance(envelope.get("fields"), list):
+                raise ValueError("native preparation fields are absent")
+            for field in envelope["fields"]:
+                if (not isinstance(field, dict) or not isinstance(field.get("key"), str)
+                        or (field["key"] in fields and (
+                            type(fields[field["key"]]) is not type(field.get("value"))
+                            or fields[field["key"]] != field.get("value")))):
+                    raise ValueError("native preparation fields must be unambiguous")
+                key, value = field["key"], field.get("value")
+                if key.endswith(("fallback_attempted", "external_engine_invoked")) and not (value is False or value == "false"):
+                    raise ValueError("native preparation has unsafe execution evidence")
+                fields[key] = value
+            if (fields.get("vortex_ingest_performed") != "true"
+                    or fields.get("external_engine_invoked") != "false"
+                    or fields.get("vortex_ingest_output_commit_status") != "committed"
+                    or fields.get("vortex_ingest_output_canonical_output_path") != str(target)):
+                raise ValueError("native preparation lacks committed Vortex output evidence")
+            digest = fields.get("vortex_ingest_output_output_digest")
+            if not isinstance(digest, str) or not digest.startswith("sha256:"):
+                raise ValueError("native preparation requires a retained output digest")
+            path = self.verified(target, digest.removeprefix("sha256:"))
+            if fields.get("vortex_ingest_output_bytes_written") != str(path.stat().st_size):
+                raise ValueError("prepared Vortex byte count differs")
+            targets.add(target)
+        return targets
 
 
-def runtime_validation_field_map(row: dict[str, Any]) -> dict[str, Any]:
-    fields: dict[str, Any] = {}
-    evidence = row.get("shardloom_evidence")
-    if isinstance(evidence, dict):
-        fields.update(evidence)
-    metrics = row.get("metrics")
-    if isinstance(metrics, dict):
-        fields.update(metrics)
-    for key, value in row.items():
-        if key in {
-            "benchmark_constitution",
-            "iteration_wall_time_millis",
-            "metrics",
-            "output_preview",
-            "runtime_execution_validation",
-            "shardloom_evidence",
-        }:
-            continue
-        fields[key] = value
-    if row.get("selected_execution_mode") == "compatibility_import_certified":
-        fields["preparation_included"] = (
-            row.get("compatibility_import_included") is True
-            or fields.get("preparation_included_in_timing") is True
-        )
-    return fields
-
-
-def _numeric_value(value: Any) -> float | None:
-    if isinstance(value, bool) or value in (None, ""):
-        return None
+def validate_manifest(manifest_path, allow_incomplete=False):
+    """Validate exact case coverage and retained values; incomplete runs fail."""
+    payload = load_json(manifest_path)
+    blockers = []
     try:
-        return float(str(value).strip())
-    except ValueError:
-        return None
-
-
-def _certified_status(value: Any) -> bool:
-    text = str(value or "").lower()
-    return "certified" in text or text == "passed"
-
-
-def _meaningful_operator_blocker(value: Any) -> bool:
-    text = str(value or "").strip().lower()
-    return text not in {
-        "",
-        "none",
-        "missing",
-        "not_reported",
-        "not_applicable",
-        "external_baseline_only",
-    }
-
-
-def _meaningful_reuse_evidence(value: Any) -> bool:
-    text = str(value or "").strip().lower()
-    return text not in {
-        "",
-        "none",
-        "missing",
-        "not_reported",
-        "not_requested",
-        "not_available",
-        "not_applicable",
-        "not_applicable_no_prepared_state",
-        "not_applicable_no_reuse_manifest_for_route",
-    }
-
-
-def _boolish_true(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() == "true"
-
-
-def _csv_set(value: Any) -> set[str]:
-    if not isinstance(value, str):
-        return set()
-    return {part.strip() for part in value.split(",") if part.strip()}
-
-
-def _packed_stage_keys(value: Any) -> set[str]:
-    if not isinstance(value, str):
-        return set()
-    keys: set[str] = set()
-    for token in value.split(";"):
-        if ":" not in token:
-            continue
-        key, _ = token.split(":", 1)
-        if key.strip():
-            keys.add(key.strip())
-    return keys
-
-
-def _packed_stage_values(value: Any) -> dict[str, str]:
-    if not isinstance(value, str):
-        return {}
-    result: dict[str, str] = {}
-    for token in value.split(";"):
-        if ":" not in token:
-            continue
-        key, stage_value = token.split(":", 1)
-        if key.strip():
-            result[key.strip()] = stage_value.strip()
-    return result
-
-
-def _stage_list(value: Any) -> set[str]:
-    return {part for part in _csv_set(value) if part != "none"}
-
-
-def _meaningful_substage_value(value: Any) -> bool:
-    if _numeric_value(value) is not None:
-        return True
-    text = str(value or "").strip().lower()
-    return text not in {
-        "",
-        "none",
-        "missing",
-        "null",
-        "not_reported",
-        "not_reported_by_engine",
-        "not_applicable",
-        "not_applicable_non_cold_route",
-        "external_baseline_only",
-    }
-
-
-def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
-    route_lane_counts: Counter[str] = Counter()
-    for index, row in enumerate(result_rows(payload)):
-        engine = str(row.get("engine", ""))
-        route_lane_id = str(row.get("route_lane_id") or "")
-        route_lane_counts[route_lane_id] += 1
-        row_status = str(row.get("status") or "")
-        shardloom_row = engine.startswith("shardloom")
-        executed_successfully = row_status == "success"
-        shardloom_not_executed = shardloom_row and not executed_successfully
-        if shardloom_not_executed:
-            blockers.append(
-                f"published ShardLoom row {index} must be successful, got status={row_status!r}"
-            )
-        missing_route_fields = sorted(REQUIRED_ROUTE_FIELDS - set(row))
-        if missing_route_fields:
-            blockers.append(
-                f"benchmark row {index} is missing route fields: {missing_route_fields}"
-            )
-        route_status = str(row.get("route_runtime_status") or "")
-        if route_status not in ROUTE_RUNTIME_STATUSES:
-            blockers.append(
-                f"benchmark row {index} has invalid route_runtime_status={route_status!r}"
-            )
-        if row.get("route_timing_ledger_schema_version") != ROUTE_TIMING_LEDGER_SCHEMA_VERSION:
-            blockers.append(f"benchmark row {index} has invalid route timing ledger schema")
-        if row.get("route_timing_surface_schema_version") != ROUTE_TIMING_SURFACE_SCHEMA_VERSION:
-            blockers.append(f"benchmark row {index} has invalid route timing surface schema")
-        timing_surface = str(row.get("timing_surface") or "")
-        if timing_surface not in TIMING_SURFACES:
-            blockers.append(
-                f"benchmark row {index} has invalid timing_surface={timing_surface!r}"
-            )
-        if row.get("fast_path_attribution_schema_version") != FAST_PATH_ATTRIBUTION_SCHEMA_VERSION:
-            blockers.append(f"benchmark row {index} has invalid fast-path attribution schema")
-        if (
-            row.get("operator_mode_inventory_schema_version")
-            != OPERATOR_MODE_INVENTORY_SCHEMA_VERSION
-        ):
-            blockers.append(f"benchmark row {index} has invalid operator-mode inventory schema")
-        operator_mode = str(row.get("operator_execution_mode") or "")
-        if operator_mode not in OPERATOR_EXECUTION_MODES:
-            blockers.append(
-                f"benchmark row {index} has invalid operator_execution_mode={operator_mode!r}"
-            )
-        ledger_status = row.get("route_timing_ledger_status")
-        if shardloom_not_executed:
-            if ledger_status not in {"not_numeric", "not_executed"}:
-                blockers.append(
-                    f"benchmark row {index} has invalid not-executed route timing ledger status"
-                )
-        elif ledger_status != "valid":
-            blockers.append(f"benchmark row {index} route timing ledger is not valid")
-        if row.get("timing_normalization_schema_version") != TIMING_NORMALIZATION_SCHEMA_VERSION:
-            blockers.append(f"benchmark row {index} has invalid timing normalization schema")
-        if (
-            row.get("source_admission_digest_policy_schema_version")
-            != SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION
-        ):
-            blockers.append(
-                f"benchmark row {index} has invalid source admission digest policy schema"
-            )
-        if not str(row.get("source_admission_digest_policy_status") or "").strip():
-            blockers.append(
-                f"benchmark row {index} is missing source admission digest policy status"
-            )
-        if (
-            row.get("route_timing_stage_inclusion_schema_version")
-            != ROUTE_TIMING_STAGE_INCLUSION_SCHEMA_VERSION
-        ):
-            blockers.append(f"benchmark row {index} has invalid stage inclusion schema")
-        missing_instrument_fields = sorted(
-            ROUTE_TIMING_INSTRUMENT_REQUIRED_FIELDS - set(row)
-        )
-        if missing_instrument_fields:
-            blockers.append(
-                f"benchmark row {index} is missing route timing instrument fields: "
-                f"{missing_instrument_fields}"
-            )
-        elif (
-            row.get("route_timing_instrument_schema_version")
-            != ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION
-        ):
-            blockers.append(
-                f"benchmark row {index} has invalid route timing instrument schema"
-            )
-        if not str(row.get("route_total_formula") or "").strip():
-            blockers.append(f"benchmark row {index} is missing route_total_formula")
-        elif route_lane_id == "cold_certified_route" and timing_surface in {
-            "hot_runtime",
-            "publication_proof",
-            "full_replay_proof",
-        }:
-            formula = str(row.get("route_total_formula") or "")
-            included_stage_ids = _stage_list(row.get("route_timing_included_stage_ids"))
-            if "query_runtime_millis" in formula or "query_runtime_millis" in included_stage_ids:
-                blockers.append(
-                    f"benchmark row {index} cold route formula uses query_runtime_millis "
-                    "instead of de-overlapped scan/operator stages"
-                )
-            if (
-                "vortex_scan_ms" not in formula
-                or "operator_compute_ms" not in formula
-                or "vortex_scan_ms" not in included_stage_ids
-                or "operator_compute_ms" not in included_stage_ids
-            ):
-                blockers.append(
-                    f"benchmark row {index} cold route formula is missing de-overlapped "
-                    "scan/operator stage attribution"
-                )
-        if not str(row.get("route_timing_scope") or "").strip():
-            blockers.append(f"benchmark row {index} is missing route_timing_scope")
-        included_total = _numeric_value(row.get("route_timing_included_stage_total_ms"))
-        total_route = _numeric_value(row.get("total_route_ms"))
-        delta = _numeric_value(row.get("route_timing_total_delta_ms"))
-        if shardloom_not_executed:
-            if total_route is not None:
-                blockers.append(
-                    f"benchmark row {index} not-executed route must not report total_route_ms"
-                )
-        elif included_total is None or total_route is None or delta is None:
-            blockers.append(f"benchmark row {index} route timing ledger has non-numeric totals")
-        elif abs(included_total - total_route) > 0.001 or delta > 0.001:
-            blockers.append(
-                f"benchmark row {index} route timing ledger does not reproduce total_route_ms"
-            )
-        missing_exclusive_fields = sorted(EXCLUSIVE_STAGE_TIMING_REQUIRED_FIELDS - set(row))
-        if missing_exclusive_fields:
-            blockers.append(
-                f"benchmark row {index} is missing exclusive stage timing fields: "
-                f"{missing_exclusive_fields}"
-            )
-        else:
-            if (
-                row.get("exclusive_stage_timing_schema_version")
-                != EXCLUSIVE_STAGE_TIMING_SCHEMA_VERSION
-            ):
-                blockers.append(
-                    f"benchmark row {index} has invalid exclusive stage timing schema"
-                )
-            exclusive_sum = _numeric_value(row.get("route_timing_exclusive_stage_sum_ms"))
-            exclusive_delta = _numeric_value(
-                row.get("route_timing_exclusive_total_delta_ms")
-            )
-            exclusive_residual = _numeric_value(
-                row.get("route_timing_exclusive_residual_ms")
-            )
-            if shardloom_row:
-                if shardloom_not_executed:
-                    if row.get("exclusive_stage_timing_status") not in {
-                        "blocked_missing_stage_timing",
-                        "not_executed",
-                    }:
-                        blockers.append(
-                            f"ShardLoom row {index} has invalid not-executed exclusive timing status"
-                        )
-                    if row.get("route_timing_exclusive_residual_status") not in {
-                        "not_numeric",
-                        "not_executed",
-                    }:
-                        blockers.append(
-                            f"ShardLoom row {index} has invalid not-executed exclusive residual status"
-                        )
-                elif row.get("exclusive_stage_timing_status") != "complete":
-                    blockers.append(
-                        f"ShardLoom row {index} exclusive stage timing is not complete"
-                    )
-                elif (
-                    exclusive_sum is None
-                    or exclusive_delta is None
-                    or exclusive_residual is None
-                ):
-                    blockers.append(
-                        f"ShardLoom row {index} exclusive stage timing has non-numeric totals"
-                    )
-                elif row.get("route_timing_exclusive_residual_status") not in {
-                    "auditable_residual",
-                    "zero_residual",
-                }:
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid exclusive residual status"
-                    )
-            elif row.get("exclusive_stage_timing_status") != "external_baseline_only":
-                blockers.append(
-                    f"external row {index} must not report complete ShardLoom exclusive timing"
-                )
-        for timing_field in (
-            "runtime_execution_ms",
-            "output_delivery_ms",
-            "evidence_capture_ms",
-            "evidence_render_ms",
-            "certificate_link_ms",
-        ):
-            value = _numeric_value(row.get(timing_field))
-            if shardloom_not_executed and timing_field == "runtime_execution_ms" and value is None:
+        if allow_incomplete:
+            raise ValueError("incomplete benchmark evidence cannot be admitted")
+        if not isinstance(payload, dict) or payload.get("schema_version") != ARTIFACT_SCHEMA_VERSION:
+            raise ValueError("expected a public_native_benchmark.v1 report")
+        if (payload.get("status") != "passed" or payload.get("performance_claim") is not False
+                or payload.get("independent_reference") is not True
+                or payload.get("query_answers_cached_by_native_adapter") is not False):
+            raise ValueError("a complete independently checked, non-claim benchmark is required")
+        configuration = payload["configuration"]
+        input_state, output_format = configuration["input_state"], configuration["output_format"]
+        if input_state not in ("raw", "prepared") or output_format not in OUTPUT_FORMATS:
+            raise ValueError("unknown benchmark input state or requested output")
+        engines = _strings(payload["engines"], "engines")
+        formats = _strings(configuration["formats"], "formats")
+        scenarios = _strings(configuration["scenarios"], "scenarios")
+        for scenario in scenarios:
+            if scenario not in WORKLOADS or _digest(payload["workload_declarations"].get(scenario)) != _digest(asdict(WORKLOADS[scenario])):
+                raise ValueError("workload declaration differs from the frozen harness")
+        reference = payload["reference_engine"]
+        if "shardloom" not in engines or reference not in engines or reference == "shardloom":
+            raise ValueError("one native candidate and an independent comparison engine are required")
+        if any(engine.startswith("shardloom") and engine != "shardloom" for engine in engines):
+            raise ValueError("multiple ShardLoom execution providers are not admitted")
+        repeats = configuration["repeats"]
+        if type(repeats) is not int or repeats < 1:
+            raise ValueError("repeats must be a positive integer")
+        expected = {(engine, fmt, scenario, repeat) for engine in engines for fmt in formats
+                    for scenario in scenarios for repeat in range(1, repeats + 1)}
+        rows = result_rows(payload)
+        if any(not isinstance(row, dict) or type(row.get("repeat")) is not int for row in rows):
+            raise ValueError("benchmark rows require integer repeat identities")
+        keys = [(row["engine"], row["format"], row["scenario"], row["repeat"]) for row in rows]
+        if len(keys) != len(expected) or set(keys) != expected:
+            raise ValueError("case coverage is missing, duplicated or undeclared")
+        reader = EvidenceReader()
+        binary = payload["binary"]
+        reader.candidate = reader.verified(binary["path"], binary["sha256"]).resolve()
+        if not payload.get("inputs") or not payload.get("harness_sources"):
+            raise ValueError("frozen inputs and harness sources are required")
+        if payload["harness_sources"] != harness_source_inventory():
+            raise ValueError("harness source inventory is incomplete or changed")
+        inputs = set()
+        for item in payload["inputs"]:
+            path = reader.verified(item["path"], item["sha256"])
+            if path.stat().st_size != item["bytes"]:
+                raise ValueError("input byte count differs")
+            if path.resolve() in inputs:
+                raise ValueError("frozen input inventory contains duplicate paths")
+            inputs.add(path.resolve())
+        for path, expected_sha in payload["harness_sources"].items():
+            reader.verified(ROOT / path, expected_sha)
+        references = {(row["format"], row["scenario"]): row["result"] for row in rows
+                      if row["engine"] == reference and row["repeat"] == 1}
+        preparation_identity, prepared_inputs = None, set()
+        for row in rows:
+            if row.get("status") != "passed" or row.get("matches_reference") is not True:
+                raise ValueError("every requested case must pass an independent complete-value comparison")
+            _seconds(row.get("seconds"))
+            if row.get("result_sha256") != _digest(row["result"]):
+                raise ValueError("stored complete result differs from its identity")
+            if not equivalent(row["result"], references[(row["format"], row["scenario"])]):
+                raise ValueError("stored result differs from the independent reference")
+            if row["engine"] != "shardloom":
+                observed = reader.receipt(row["receipt"])
+                if _digest(observed["result"]) != row["result_sha256"]:
+                    raise ValueError("comparison process output differs from the recorded result")
                 continue
-            if value is None or value < 0:
-                blockers.append(
-                    f"benchmark row {index} has invalid fast-path timing field {timing_field}"
-                )
-        if row.get("evidence_render_included_in_route_total") != row.get(
-            "evidence_timing_included_in_total"
-        ):
-            blockers.append(
-                f"benchmark row {index} evidence render inclusion disagrees with route ledger"
-            )
-        if shardloom_row:
-            if row.get("timing_normalization_status") not in {
-                "complete_with_unmeasured_optional_fields",
-                "not_executed",
-            }:
-                blockers.append(
-                    f"ShardLoom row {index} has invalid timing_normalization_status"
-                )
-            if row.get("route_timing_stage_inclusion_status") not in {
-                "complete",
-                "not_executed",
-            }:
-                blockers.append(
-                    f"ShardLoom row {index} has invalid stage inclusion status"
-                )
-            stage_ids = _csv_set(row.get("route_timing_stage_inclusion_stage_ids"))
-            if stage_ids != CANONICAL_ROUTE_TIMING_STAGE_IDS:
-                blockers.append(
-                    f"ShardLoom row {index} stage inclusion ids are incomplete"
-                )
-            for field in (
-                "route_timing_stage_inclusion_classes",
-                "route_timing_stage_inclusion_stage_owners",
-                "route_timing_stage_inclusion_timing_scopes",
-                "route_timing_stage_inclusion_skip_reasons",
-            ):
-                if _packed_stage_keys(row.get(field)) != CANONICAL_ROUTE_TIMING_STAGE_IDS:
-                    blockers.append(
-                        f"ShardLoom row {index} stage inclusion field {field} "
-                        "does not cover every canonical stage"
-                    )
-            if row.get("route_timing_instrument_status") not in {
-                "optimization_ready",
-                "not_optimization_ready",
-                "not_executed",
-            }:
-                blockers.append(
-                    f"ShardLoom row {index} has invalid route timing instrument status"
-                )
-            if (
-                _csv_set(row.get("route_timing_instrument_stage_ids"))
-                != CANONICAL_ROUTE_TIMING_STAGE_IDS
-            ):
-                blockers.append(
-                    f"ShardLoom row {index} route timing instrument ids are incomplete"
-                )
-            for field in (
-                "route_timing_instrument_stage_parent_stages",
-                "route_timing_instrument_stage_groups",
-                "route_timing_instrument_stage_owners",
-                "route_timing_instrument_inclusion_classes",
-                "route_timing_instrument_timing_scopes",
-                "route_timing_instrument_evidence_levels",
-                "route_timing_instrument_residual_treatments",
-                "route_timing_instrument_substage_fields",
-            ):
-                packed = _packed_stage_values(row.get(field))
-                if set(packed) != CANONICAL_ROUTE_TIMING_STAGE_IDS or any(
-                    not value for value in packed.values()
-                ):
-                    blockers.append(
-                        f"ShardLoom row {index} route timing instrument field {field} "
-                        "does not cover every canonical stage"
-                    )
-            threshold = _numeric_value(
-                row.get("route_timing_instrument_expensive_stage_threshold_ms")
-            )
-            if (
-                threshold is None
-                or abs(threshold - OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS) > 0.001
-            ):
-                blockers.append(
-                    f"ShardLoom row {index} has invalid optimization readiness threshold"
-                )
-            substage_fields = _packed_stage_values(
-                row.get("route_timing_instrument_substage_fields")
-            )
-            computed_expensive: set[str] = set()
-            computed_missing_substage: set[str] = set()
-            for stage_id, value_field in STAGE_VALUE_FIELD_BY_ID.items():
-                stage_value = _numeric_value(row.get(value_field))
-                if (
-                    threshold is not None
-                    and stage_value is not None
-                    and stage_value > threshold
-                ):
-                    computed_expensive.add(stage_id)
-                    fields = [
-                        field.strip()
-                        for field in substage_fields.get(stage_id, "").split(",")
-                        if field.strip()
-                    ]
-                    if not any(
-                        _meaningful_substage_value(row.get(field)) for field in fields
-                    ):
-                        computed_missing_substage.add(stage_id)
-            declared_expensive = _stage_list(
-                row.get("route_timing_instrument_expensive_stage_ids")
-            )
-            declared_not_ready = _stage_list(
-                row.get("route_timing_instrument_not_ready_stage_ids")
-            )
-            declared_missing = _stage_list(
-                row.get("route_timing_instrument_missing_substage_attribution")
-            )
-            for field_name, declared in (
-                ("route_timing_instrument_expensive_stage_ids", declared_expensive),
-                ("route_timing_instrument_not_ready_stage_ids", declared_not_ready),
-                (
-                    "route_timing_instrument_missing_substage_attribution",
-                    declared_missing,
-                ),
-            ):
-                if not declared <= CANONICAL_ROUTE_TIMING_STAGE_IDS:
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid stage ids in {field_name}"
-                    )
-            if declared_expensive != computed_expensive:
-                blockers.append(
-                    f"ShardLoom row {index} route timing instrument expensive stages "
-                    "do not match measured >10 ms stages"
-                )
-            if declared_missing != computed_missing_substage:
-                blockers.append(
-                    f"ShardLoom row {index} route timing instrument missing-substage "
-                    "stages do not match measured substage attribution"
-                )
-            if declared_not_ready != computed_missing_substage:
-                blockers.append(
-                    f"ShardLoom row {index} route timing instrument not-ready stages "
-                    "must match missing substage attribution"
-                )
-            if (
-                computed_missing_substage
-                and row.get("route_timing_instrument_status")
-                != "not_optimization_ready"
-            ):
-                blockers.append(
-                    f"ShardLoom row {index} claims optimization readiness while "
-                    ">10 ms stages lack substage attribution"
-                )
-            if (
-                not computed_missing_substage
-                and row.get("status") == "success"
-                and row.get("route_timing_instrument_status")
-                == "not_optimization_ready"
-            ):
-                blockers.append(
-                    f"ShardLoom row {index} reports not_optimization_ready without "
-                    "missing expensive-stage substage attribution"
-                )
-            for field in (
-                "source_read_projected_field_mask",
-                "source_read_filter_field_mask",
-            ):
-                if not str(row.get(field) or "").startswith("0x"):
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid source-read mask field {field}"
-                    )
-            for field in (
-                "source_read_decoded_column_count",
-                "source_read_skipped_column_count",
-            ):
-                value = _numeric_value(row.get(field))
-                if value is None or value < 0:
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid source-read count field {field}"
-                    )
-            for field in (
-                "source_read_decode_status",
-                "source_read_row_materialization_status",
-                "source_read_unsupported_shape_diagnostic",
-            ):
-                if not str(row.get(field) or "").strip():
-                    blockers.append(
-                        f"ShardLoom row {index} is missing source-read field {field}"
-                    )
-            for field in (
-                "source_state_projected_field_mask",
-                "source_state_filter_field_mask",
-            ):
-                if not str(row.get(field) or "").startswith("0x"):
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid SourceState mask field {field}"
-                    )
-            for field in (
-                "source_state_reader_projection_column_count",
-                "source_state_decoded_column_count",
-                "source_state_skipped_column_count",
-            ):
-                value = _numeric_value(row.get(field))
-                if value is None or value < 0:
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid SourceState count field {field}"
-                    )
-            source_state_projection_status = str(
-                row.get("source_state_projection_pushdown_status") or ""
-            )
-            if source_state_projection_status not in {
-                "external_baseline_only",
-                "full_source_read",
-                "not_applicable_no_source_read_stage",
-                "not_executed",
-                "not_reported",
-                "not_requested",
-                "not_requested_full_read",
-                "unsupported",
-                "unsupported_format",
-            }:
-                projection_columns = str(
-                    row.get("source_state_reader_projection_columns") or ""
-                )
-                if projection_columns in {"", "not_reported", "unknown"}:
-                    blockers.append(
-                        f"ShardLoom row {index} claims SourceState projection pushdown "
-                        "without reader projection columns"
-                    )
-            for field in (
-                "vortex_writer_context_write_count",
-                "vortex_writer_context_reuse_hit_count",
-            ):
-                value = _numeric_value(row.get(field))
-                if value is None or value < 0:
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid Vortex writer context count field {field}"
-                    )
-            for field in (
-                "vortex_writer_context_status",
-                "vortex_writer_context_reuse_status",
-                "vortex_write_coalescing_status",
-                "vortex_write_coalescing_reason",
-            ):
-                if not str(row.get(field) or "").strip():
-                    blockers.append(
-                        f"ShardLoom row {index} is missing Vortex writer context field {field}"
-                    )
-            source_state_prepare = _numeric_value(row.get("source_state_prepare_micros"))
-            source_admission = _numeric_value(row.get("source_admission_ms"))
-            direct_source_admission = _numeric_value(
-                row.get("source_admission_policy_micros")
-            )
-            if (
-                source_state_prepare is not None
-                and direct_source_admission is None
-                and source_admission is not None
-                and abs(source_admission - source_state_prepare / 1000.0) <= 0.001
-            ):
-                blockers.append(
-                    f"ShardLoom row {index} maps broad source_state_prepare_micros "
-                    "to source_admission_ms without a direct admission timing field"
-                )
-            output_required_for_surface = timing_surface in PROOF_TIMING_SURFACES
-            evidence_required_for_surface = timing_surface == "publication_proof"
-            if (
-                row.get("output_timing_included_in_total")
-                is not output_required_for_surface
-            ):
-                blockers.append(
-                    f"benchmark row {index} output timing inclusion does not match "
-                    f"timing_surface={timing_surface!r}"
-                )
-            if (
-                row.get("evidence_timing_included_in_total")
-                is not evidence_required_for_surface
-            ):
-                blockers.append(
-                    f"benchmark row {index} evidence timing inclusion does not match "
-                    f"timing_surface={timing_surface!r}"
-                )
-            if not shardloom_not_executed:
-                for field in (
-                    "evidence_sink_tier_schema_version",
-                    "requested_evidence_tier",
-                    "actual_evidence_tier",
-                    "selected_evidence_tier",
-                    "sink_tier",
-                    "evidence_tier_supported_tiers",
-                    "sink_timing_inclusion_reason",
-                    "result_sink_replay_skip_reason",
-                    "human_evidence_render_skip_reason",
-                ):
-                    if not str(row.get(field) or "").strip():
-                        blockers.append(
-                            f"ShardLoom row {index} is missing evidence/sink tier field {field}"
-                        )
-                if row.get("actual_evidence_tier") not in {
-                    "runtime_minimal",
-                    "metadata_sink",
-                    "full_vortex_replay",
-                    "publication_full",
-                }:
-                    blockers.append(f"ShardLoom row {index} has invalid actual evidence tier")
-                elif (
-                    timing_surface
-                    != TIMING_SURFACE_BY_EVIDENCE_TIER[row["actual_evidence_tier"]]
-                ):
-                    blockers.append(
-                        f"ShardLoom row {index} timing surface does not match actual evidence tier"
-                    )
-                if row.get("selected_evidence_tier") != row.get("actual_evidence_tier"):
-                    blockers.append(
-                        f"ShardLoom row {index} selected evidence tier does not match actual tier"
-                    )
-                if row.get("sink_tier") != row.get("actual_evidence_tier"):
-                    blockers.append(f"ShardLoom row {index} sink tier does not match actual tier")
-                if row.get("evidence_tier_result_sink_replay_required") not in {
-                    True,
-                    False,
-                }:
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid evidence tier replay-required flag"
-                    )
-                if row.get("sink_timing_included_in_route_total") not in {True, False}:
-                    blockers.append(
-                        f"ShardLoom row {index} has invalid sink timing route inclusion flag"
-                    )
-        elif (
-            row.get("route_timing_stage_inclusion_status") != "external_baseline_only"
-            or row.get("route_timing_instrument_status") != "external_baseline_only"
-        ):
-            blockers.append(
-                f"external row {index} must keep stage inclusion and timing instrument "
-                "external-baseline-only"
-            )
-        for claim_field in (
-            "performance_claim_allowed",
-            "production_claim_allowed",
-            "spark_replacement_claim_allowed",
-        ):
-            if row.get(claim_field) is not False:
-                blockers.append(f"benchmark row {index} must set {claim_field}=false")
-        for diagnostic_field in ROUTE_DIAGNOSTIC_REQUIRED_FIELDS:
-            value = row.get(diagnostic_field)
-            if value is None or (isinstance(value, str) and not value.strip()):
-                blockers.append(
-                    f"benchmark row {index} is missing route diagnostic field {diagnostic_field}"
-                )
-        if engine.startswith("shardloom"):
-            reuse_hit = _boolish_true(row.get("prepared_state_reuse_hit"))
-            reused = _boolish_true(row.get("prepared_state_reused"))
-            reuse_scope = str(row.get("prepared_state_reuse_scope") or "")
-            if reuse_hit or reused:
-                for reuse_field in (
-                    "prepared_state_reuse_scope",
-                    "prepared_state_reuse_reason",
-                    "prepared_state_reuse_manifest_digest",
-                    "prepared_state_invalidation_reason",
-                ):
-                    if not _meaningful_reuse_evidence(row.get(reuse_field)):
-                        blockers.append(
-                            f"ShardLoom reuse row {index} is missing {reuse_field}"
-                        )
-            if reuse_scope == PREPARED_STATE_REUSE_WORKSPACE_SCOPE:
-                if (
-                    row.get("prepared_state_reuse_manifest_path")
-                    != PREPARED_STATE_REUSE_WORKSPACE_MANIFEST_PATH
-                ):
-                    blockers.append(
-                        f"ShardLoom workspace reuse row {index} has invalid manifest path"
-                    )
-                if (
-                    row.get("prepared_state_reuse_policy")
-                    != PREPARED_STATE_REUSE_WORKSPACE_POLICY
-                ):
-                    blockers.append(
-                        f"ShardLoom workspace reuse row {index} has invalid reuse policy"
-                    )
-            if row.get("status") == "success" and row.get("runtime_blocker_code") != "none":
-                blockers.append(
-                    f"successful ShardLoom row {index} must set runtime_blocker_code=none"
-                )
-            if row.get("claim_gate_status") == "claim_grade":
-                if row.get("evidence_required_for_claim") is not True:
-                    blockers.append(
-                        f"ShardLoom claim-grade row {index} must require evidence for claim"
-                    )
-                if row.get("certificate_link_status") != "linked_certified_runtime_execution":
-                    blockers.append(
-                        f"ShardLoom claim-grade row {index} must link certified runtime execution"
-                    )
-                if not _certified_status(row.get("runtime_execution_certificate_status")):
-                    blockers.append(
-                        f"ShardLoom claim-grade row {index} missing certified runtime certificate"
-                    )
-            if engine == "shardloom-prepare-batch" and row.get("status") == "success":
-                for field in PREPARED_STATE_OPTIMIZATION_REQUIRED_FIELDS:
-                    value = row.get(field)
-                    if value is None or (isinstance(value, str) and not value.strip()):
-                        blockers.append(
-                            f"ShardLoom prepare-batch row {index} is missing prepared-state optimization field {field}"
-                        )
-                if row.get("prepare_batch_prepared_state_optimization_strategy") not in {
-                    "full_prepare_register",
-                    "manifest_reuse",
-                    "role_scoped_repair",
-                    "append_only_delta_overlay",
-                }:
-                    blockers.append(
-                        f"ShardLoom prepare-batch row {index} has invalid prepared-state optimization strategy"
-                    )
-                if row.get(
-                    "prepare_batch_prepared_state_optimization_no_fallback_policy_status"
-                ) != "passed_fallback_false_external_engine_false":
-                    blockers.append(
-                        f"ShardLoom prepare-batch row {index} must pass prepared-state no-fallback policy"
-                    )
-                if row.get("prepare_batch_prepared_state_optimization_fallback_attempted"):
-                    blockers.append(
-                        f"ShardLoom prepare-batch row {index} cannot report prepared-state optimization fallback"
-                    )
-                if row.get(
-                    "prepare_batch_prepared_state_optimization_external_engine_invoked"
-                ):
-                    blockers.append(
-                        f"ShardLoom prepare-batch row {index} cannot report prepared-state optimization external engine"
-                    )
-                if row.get(
-                    "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed"
-                ):
-                    blockers.append(
-                        f"ShardLoom prepare-batch row {index} cannot allow stale prepared artifacts"
-                    )
-                if (
-                    row.get("prepare_batch_prepared_state_optimization_strategy")
-                    == "append_only_delta_overlay"
-                    and row.get(
-                        "prepare_batch_prepared_state_optimization_delta_overlay_admitted"
-                    )
-                    is not True
-                ):
-                    blockers.append(
-                        f"ShardLoom prepare-batch row {index} overlay strategy must admit delta overlay"
-                    )
-            if not str(row.get("nearest_runnable_route") or "").strip():
-                blockers.append(f"ShardLoom row {index} is missing nearest_runnable_route")
-            if route_status == "external_baseline_only":
-                blockers.append(
-                    f"ShardLoom row {index} must not use external_baseline_only route status"
-                )
-            if row.get("status") == "success" and route_status == "unsupported":
-                blockers.append(
-                    f"successful ShardLoom row {index} must not report route_runtime_status=unsupported"
-                )
-            if operator_mode == "external_baseline_only":
-                blockers.append(
-                    f"ShardLoom row {index} must not use external_baseline_only operator mode"
-                )
-            if row.get("status") == "success" and operator_mode == "unsupported":
-                blockers.append(
-                    f"successful ShardLoom row {index} must not report operator_execution_mode=unsupported"
-                )
-            encoded_claim = row.get("operator_encoded_native_claim_allowed")
-            residual_used = row.get("operator_residual_native_used")
-            temporary_used = row.get("operator_temporary_materialization_used")
-            blocker_code = row.get("operator_blocker_code")
-            if operator_mode == "encoded_native":
-                if encoded_claim is not True:
-                    blockers.append(
-                        f"encoded-native ShardLoom row {index} must set "
-                        "operator_encoded_native_claim_allowed=true"
-                    )
-                if residual_used is True or temporary_used is True:
-                    blockers.append(
-                        f"encoded-native ShardLoom row {index} must not report residual/materialized operators"
-                    )
-                if str(blocker_code or "") != "none":
-                    blockers.append(
-                        f"encoded-native ShardLoom row {index} must set operator_blocker_code=none"
-                    )
-            elif operator_mode in {"residual_native", "materialized_temporary", "unsupported"}:
-                if encoded_claim is not False:
-                    blockers.append(
-                        f"non-encoded ShardLoom row {index} must set "
-                        "operator_encoded_native_claim_allowed=false"
-                    )
-                if not _meaningful_operator_blocker(blocker_code):
-                    blockers.append(
-                        f"non-encoded ShardLoom row {index} must publish a deterministic "
-                        "operator_blocker_code"
-                    )
-                if row.get("encoded_native_operators") != "none":
-                    blockers.append(
-                        f"non-encoded ShardLoom row {index} must set encoded_native_operators=none"
-                    )
-            if (
-                route_lane_id == "prepare_once_first_query"
-                and row.get("route_row_derivation_status")
-                != DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS
-            ):
-                blockers.append(
-                    f"ShardLoom prepare-once first-query row {index} must declare "
-                    f"route_row_derivation_status={DERIVED_PREPARE_ONCE_FIRST_QUERY_STATUS}"
-                )
-            missing_cold_fields = sorted(COLD_BOTTLENECK_REQUIRED_FIELDS - set(row))
-            if missing_cold_fields:
-                blockers.append(
-                    f"ShardLoom row {index} is missing cold bottleneck fields: {missing_cold_fields}"
-                )
-            elif route_lane_id in COLD_BOTTLENECK_ROUTE_LANES:
-                if row.get("cold_bottleneck_schema_version") != COLD_BOTTLENECK_SCHEMA_VERSION:
-                    blockers.append(
-                        f"ShardLoom cold row {index} has invalid cold bottleneck schema"
-                    )
-                primary_stage = str(row.get("cold_bottleneck_primary_stage") or "")
-                if shardloom_not_executed:
-                    if row.get("cold_bottleneck_status") != "blocked_row_not_executed":
-                        blockers.append(
-                            f"ShardLoom cold row {index} has invalid not-executed "
-                            f"cold bottleneck status: {row.get('cold_bottleneck_status')}"
-                        )
-                    if primary_stage != "blocked":
-                        blockers.append(
-                            f"ShardLoom cold row {index} has invalid not-executed "
-                            f"primary bottleneck stage: {primary_stage!r}"
-                        )
+            evidence = row["evidence"]
+            if (evidence.get("benchmark_request_protocol") != "public_native_workflow"
+                    or evidence.get("benchmark_query_answer_cached") != "false"
+                    or evidence.get("public_workflow_fallback_attempted") != "false"
+                    or evidence.get("public_workflow_external_engine_invoked") != "false"):
+                raise ValueError("native case lacks shared-engine and no-fallback evidence")
+            if (evidence.get("benchmark_input_state") != input_state
+                    or evidence.get("benchmark_output_format") != output_format):
+                raise ValueError("native case input/output modes differ from the requested configuration")
+            preparations = strict_json(evidence["benchmark_input_preparation_calls"])
+            if (not isinstance(preparations, list)
+                    or bool(preparations) != (input_state == "prepared")):
+                raise ValueError("preparation receipts differ from the requested input state")
+            identity = _digest(preparations)
+            if preparation_identity is None:
+                prepared_inputs = reader.prepared_inputs(preparations, inputs, binary["sha256"])
+                preparation_identity = identity
+            elif identity != preparation_identity:
+                raise ValueError("native cases disagree about their prepared input inventory")
+            calls = strict_json(evidence["benchmark_native_calls"])
+            readbacks = strict_json(evidence["benchmark_output_validation_calls"])
+            if not isinstance(calls, list) or not calls or not isinstance(readbacks, list):
+                raise ValueError("native execution receipts are absent")
+            workload = WORKLOADS[row["scenario"]]
+            first_result = int(workload.write_statement is not None)
+            if len(calls) != len(workload.statements) + first_result:
+                raise ValueError("native call count differs from the complete workload")
+            expected_sql = strict_json(evidence["benchmark_sql_declarations"])
+            if expected_sql != [_option(call["command"], "--sql") for call in calls[first_result:]]:
+                raise ValueError("native calls differ from recorded SQL declarations")
+            writer_count = 0
+            batches = []
+            for index, call in enumerate(calls):
+                envelope = reader.receipt(call, native=True, binary_sha=binary["sha256"])
+                requested_format = "csv" if index < first_result else output_format
+                requested = "collect" if requested_format == "collect" else f"write_{requested_format}"
+                if _option(call["command"], "--request") != requested:
+                    raise ValueError("native call does not request the declared output format")
+                bindings = _bindings(call["command"])
+                admitted_inputs = prepared_inputs if input_state == "prepared" else inputs
+                if any(Path(path).resolve() not in admitted_inputs for path in bindings):
+                    raise ValueError("native source does not belong to the verified input inventory")
+                if input_state == "prepared" and any(binding.get("input_format") != "vortex" for binding in bindings.values()):
+                    raise ValueError("prepared workloads must bind Vortex inputs")
+                if "output" in call:
+                    if writer_count >= len(readbacks):
+                        raise ValueError("native writer lacks readback evidence")
+                    readback = readbacks[writer_count]
+                    writer_count += 1
+                    if requested_format in ("json", "jsonl"):
+                        if (readback.get("kind") != "complete_json_file_readback"
+                                or readback.get("format") != requested_format
+                                or any(readback.get(key) != value for key, value in call["output"].items())):
+                            raise ValueError("JSON readback does not identify the committed output")
+                        _seconds(readback.get("seconds"))
+                        path = reader.verified(readback["path"], readback["sha256"])
+                        rows_from_execution = read_json_output(path, requested_format)
+                    else:
+                        envelope = reader.receipt(readback, native=True, binary_sha=binary["sha256"])
+                        command = readback["command"]
+                        bindings = _bindings(command)
+                        if (set(bindings) != {call["output"]["path"]}
+                                or bindings[call["output"]["path"]].get("input_format") != requested_format
+                                or _option(command, "--request") != "collect"):
+                            raise ValueError("readback does not bind the committed output")
+                        rows_from_execution = extract_result(envelope)
                 else:
-                    if row.get("cold_bottleneck_status") != "complete":
-                        blockers.append(
-                            f"ShardLoom cold row {index} has incomplete cold bottleneck status: "
-                            f"{row.get('cold_bottleneck_status')}"
-                        )
-                    if primary_stage not in COLD_BOTTLENECK_STAGES:
-                        blockers.append(
-                            f"ShardLoom cold row {index} has invalid primary bottleneck stage: "
-                            f"{primary_stage!r}"
-                        )
-                if not str(row.get("cold_route_optimization_hint") or "").strip():
-                    blockers.append(
-                        f"ShardLoom cold row {index} is missing cold_route_optimization_hint"
-                    )
-                for pressure_field in (
-                    "source_split_count",
-                    "source_open_count",
-                    "source_bytes_read",
-                    "source_columns_requested",
-                ):
-                    if _numeric_value(row.get(pressure_field)) is None:
-                        blockers.append(
-                            f"ShardLoom cold row {index} has non-numeric {pressure_field}"
-                        )
-                if row.get("source_projection_applied") not in {True, False}:
-                    blockers.append(
-                        f"ShardLoom cold row {index} must set source_projection_applied boolean"
-                    )
-            elif not str(row.get("cold_bottleneck_status") or "").startswith(
-                "not_applicable"
-            ):
-                blockers.append(
-                    f"ShardLoom non-cold row {index} must not inherit cold bottleneck labels"
-                )
-            if engine == "shardloom" and row.get("route_display_name") == "shardloom":
-                blockers.append(
-                    "internal shardloom lane must be publicly labeled as "
-                    "ShardLoom Cold Certified Route"
-                )
-            if "fallback_attempted" not in row:
-                blockers.append(f"ShardLoom row {index} is missing fallback_attempted")
-            elif row.get("fallback_attempted") is not False:
-                blockers.append(
-                    f"ShardLoom row {index} must set fallback_attempted=false"
-                )
-            if "external_engine_invoked" not in row:
-                blockers.append(f"ShardLoom row {index} is missing external_engine_invoked")
-            elif row.get("external_engine_invoked") is not False:
-                blockers.append(
-                    f"ShardLoom row {index} must set external_engine_invoked=false"
-                )
-            if runtime_envelope_required(row):
-                validation = validate_runtime_execution_fields(
-                    runtime_validation_field_map(row),
-                    command="benchmark-artifact-completeness-row",
-                    status=str(row.get("status", "unknown")),
-                    surface_id=f"benchmark_artifact_row_{index}",
-                    runtime_expected=str(row.get("status", "unknown")) == "success",
-                    execution_mode=str(row.get("selected_execution_mode") or "") or None,
-                )
-                if validation.status != "passed":
-                    blockers.append(
-                        f"ShardLoom row {index} runtime envelope blocked: "
-                        + "; ".join(validation.blockers)
-                    )
-        elif engine:
-            if route_status != "external_baseline_only":
-                blockers.append(
-                    f"external row {index} ({engine}) must set route_runtime_status=external_baseline_only"
-                )
-            if operator_mode != "external_baseline_only":
-                blockers.append(
-                    f"external row {index} ({engine}) must set "
-                    "operator_execution_mode=external_baseline_only"
-                )
-            if row.get("operator_encoded_native_claim_allowed") is not False:
-                blockers.append(
-                    f"external row {index} ({engine}) must not allow encoded-native operator claims"
-                )
-            if (
-                row.get("external_baseline_only") is not True
-                and row.get("row_classification") != "external_baseline_only"
-            ):
-                blockers.append(
-                    f"external row {index} ({engine}) is missing external_baseline_only marker"
-                )
-    for required_lane in (
-        "cold_certified_route",
-        "prepare_once_first_query",
-        "prepare_once_batch",
-        "warm_prepared_query",
-        "native_vortex_query",
-    ):
-        if route_lane_counts[required_lane] == 0:
-            blockers.append(
-                f"published benchmark artifact missing ShardLoom route lane: {required_lane}"
-            )
+                    rows_from_execution = extract_result(envelope)
+                if index >= first_result:
+                    batches.append(rows_from_execution)
+            if writer_count != len(readbacks):
+                raise ValueError("unexpected native readback evidence")
+            if not equivalent(workload.result(batches, round_float), row["result"]):
+                raise ValueError("native complete payload differs from the recorded comparison result")
+            if not math.isclose(row["seconds"], sum(call["seconds"] for call in calls), rel_tol=1e-12, abs_tol=1e-12):
+                raise ValueError("native timing differs from retained process durations")
+        summary = payload.get("summary", {})
+        if (summary.get("complete") is not True or summary.get("expected_cases") != len(expected)
+                or summary.get("recorded_cases") != len(rows) or summary.get("passed_cases") != len(rows)):
+            raise ValueError("summary differs from the complete observed case set")
+    except (KeyError, IndexError, TypeError, ValueError, OSError) as error:
+        blockers.append(str(error))
+    return blockers, payload
 
 
-def validate_prepared_route_amortization(
-    payload: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    dashboard = payload.get("comparative_dashboard")
-    table = dashboard.get("prepared_route_amortization") if isinstance(dashboard, dict) else None
-    if not isinstance(table, dict):
-        blockers.append("comparative_dashboard missing prepared_route_amortization table")
-        return
-    if table.get("schema_version") != "shardloom.website.prepared_route_amortization.v1":
-        blockers.append("prepared_route_amortization schema_version mismatch")
-    counts = {
-        int(row[0])
-        for row in table.get("rows", [])
-        if isinstance(row, list) and row and _numeric_value(row[0]) is not None
-    }
-    missing_counts = sorted(PREPARED_ROUTE_AMORTIZATION_COUNTS - counts)
-    if missing_counts:
-        blockers.append(
-            f"prepared_route_amortization missing query-count rows: {missing_counts}"
-        )
-    for row in table.get("rows", []):
-        if not isinstance(row, list) or len(row) < 3:
-            blockers.append("prepared_route_amortization contains malformed row")
-            continue
-        row_count = _numeric_value(row[1])
-        if row_count is None or row_count <= 0:
-            explicit_missing_hot_row = any(
-                "hot runtime row missing" in str(cell) for cell in row
-            )
-            if not explicit_missing_hot_row:
-                blockers.append(
-                    f"prepared_route_amortization query-count {row[0]} has no route rows"
-                )
-
-
-def validate_route_timing_instrument_readiness(
-    payload: dict[str, Any],
-    manifest: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    dashboard = payload.get("comparative_dashboard")
-    table = (
-        dashboard.get("route_timing_instrument_readiness")
-        if isinstance(dashboard, dict)
-        else None
-    )
-    if not isinstance(table, dict):
-        blockers.append("comparative_dashboard missing route_timing_instrument_readiness table")
-        return
-    if table.get("schema_version") != ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION:
-        blockers.append("route_timing_instrument_readiness schema_version mismatch")
-    threshold = _numeric_value(table.get("threshold_ms"))
-    if (
-        threshold is None
-        or abs(threshold - OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS) > 0.001
-    ):
-        blockers.append("route_timing_instrument_readiness threshold mismatch")
-    headers = table.get("headers")
-    required_headers = {
-        "Optimization readiness",
-        ">10 ms stages",
-        "Not-ready stages",
-        "Route-total stages",
-        "Excluded diagnostic children",
-        "Shared preparation",
-        "Output/sink",
-        "Publication evidence",
-        "Harness",
-    }
-    if not isinstance(headers, list) or not required_headers <= set(headers):
-        blockers.append("route_timing_instrument_readiness table missing required headers")
-        return
-    rows = table.get("rows")
-    if not isinstance(rows, list) or not rows:
-        blockers.append("route_timing_instrument_readiness rows must be non-empty")
-        return
-    readiness_index = headers.index("Optimization readiness")
-    not_ready_index = headers.index("Not-ready stages")
-    saw_readiness = False
-    for row in rows:
-        if not isinstance(row, list) or len(row) <= not_ready_index:
-            blockers.append("route_timing_instrument_readiness contains malformed row")
-            continue
-        readiness = str(row[readiness_index] or "")
-        not_ready_stages = str(row[not_ready_index] or "")
-        if readiness not in {"optimization_ready", "not_optimization_ready"}:
-            blockers.append(
-                "route_timing_instrument_readiness contains invalid readiness status"
-            )
-        if readiness == "optimization_ready" and not_ready_stages != "none":
-            blockers.append(
-                "route_timing_instrument_readiness marks row ready with not-ready stages"
-            )
-        if readiness == "not_optimization_ready" and not_ready_stages == "none":
-            blockers.append(
-                "route_timing_instrument_readiness marks row not ready without stages"
-            )
-        saw_readiness = True
-    if not saw_readiness:
-        blockers.append("route_timing_instrument_readiness has no readable rows")
-    if manifest.get("route_timing_instrument_schema_version") != (
-        ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION
-    ):
-        blockers.append("manifest route_timing_instrument_schema_version mismatch")
-    if manifest.get("route_timing_instrument_status") not in {
-        "optimization_ready",
-        "not_optimization_ready",
-        "not_reported",
-    }:
-        blockers.append("manifest route_timing_instrument_status is invalid")
-
-
-def validate_cold_lane_attribution(
-    payload: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    dashboard = payload.get("comparative_dashboard")
-    table = dashboard.get("cold_lane_attribution") if isinstance(dashboard, dict) else None
-    if not isinstance(table, dict):
-        blockers.append("comparative_dashboard missing cold_lane_attribution table")
-        return
-    if table.get("cold_bottleneck_schema_version") != COLD_BOTTLENECK_SCHEMA_VERSION:
-        blockers.append("cold_lane_attribution cold_bottleneck_schema_version mismatch")
-    if table.get("status") != "passed":
-        blockers.append("cold_lane_attribution table is blocked")
-    headers = table.get("headers")
-    if not isinstance(headers, list) or "Primary bottleneck" not in headers:
-        blockers.append("cold_lane_attribution table must include Primary bottleneck")
-    primary_index = headers.index("Primary bottleneck") if isinstance(headers, list) and "Primary bottleneck" in headers else -1
-    cold_primary_counts: Counter[str] = Counter()
-    for row in table.get("rows", []):
-        if not isinstance(row, list) or len(row) <= primary_index:
-            blockers.append("cold_lane_attribution contains malformed row")
-            continue
-        if primary_index >= 0:
-            primary = str(row[primary_index])
-            if primary in COLD_BOTTLENECK_STAGES:
-                cold_primary_counts[primary] += int(_numeric_value(row[4]) or 0)
-    if not cold_primary_counts:
-        blockers.append("cold_lane_attribution has no cold rows with primary bottleneck stages")
-
-
-def validate_source_state_lazy_family_table(
-    payload: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    dashboard = payload.get("comparative_dashboard")
-    table = dashboard.get("source_state_lazy_family") if isinstance(dashboard, dict) else None
-    if not isinstance(table, dict):
-        blockers.append("comparative_dashboard missing source_state_lazy_family table")
-        return
-    if table.get("schema_version") != "shardloom.website.source_state_lazy_family.v1":
-        blockers.append("source_state_lazy_family schema_version mismatch")
-    headers = table.get("headers")
-    if not isinstance(headers, list) or "Family builds" not in headers:
-        blockers.append("source_state_lazy_family table must include Family builds")
-    if not isinstance(table.get("rows"), list):
-        blockers.append("source_state_lazy_family rows must be a list")
-
-
-def validate_public_front_door_rows(
-    payload: dict[str, Any],
-    manifest: dict[str, Any],
-    blockers: list[str],
-) -> None:
-    if payload.get("public_front_door_benchmark_schema_version") != (
-        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
-    ):
-        blockers.append("public front-door benchmark schema mismatch")
-    if manifest.get("public_front_door_benchmark_schema_version") != (
-        PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION
-    ):
-        blockers.append("manifest public front-door benchmark schema mismatch")
-    rows = payload.get("public_front_door_benchmark_rows")
-    if not isinstance(rows, list):
-        blockers.append("benchmark payload missing public_front_door_benchmark_rows")
-        rows = []
-    row_ids = {
-        str(row.get("front_door_id"))
-        for row in rows
-        if isinstance(row, dict) and row.get("front_door_id")
-    }
-    missing = sorted(REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS - row_ids)
-    extra = sorted(row_ids - REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS)
-    if missing:
-        blockers.append(
-            "benchmark payload missing public front-door rows: " + ",".join(missing)
-        )
-    if extra:
-        blockers.append(
-            "benchmark payload has unclassified public front-door rows: " + ",".join(extra)
-        )
-    if payload.get("public_front_door_benchmark_row_count") != len(rows):
-        blockers.append("public front-door benchmark row count mismatch")
-    if manifest.get("public_front_door_benchmark_row_count") != len(rows):
-        blockers.append("manifest public front-door benchmark row count mismatch")
-    payload_ids = {
-        str(item)
-        for item in payload.get("public_front_door_benchmark_row_ids", [])
-        if isinstance(item, str)
-    }
-    if payload_ids != row_ids:
-        blockers.append("payload public front-door benchmark row ids mismatch")
-    manifest_ids = {
-        str(item)
-        for item in manifest.get("public_front_door_benchmark_row_ids", [])
-        if isinstance(item, str)
-    }
-    if manifest_ids != row_ids:
-        blockers.append("manifest public front-door benchmark row ids mismatch")
-    dashboard = payload.get("comparative_dashboard")
-    public_table = (
-        dashboard.get("public_front_door_routes")
-        if isinstance(dashboard, dict)
-        else None
-    )
-    if not isinstance(public_table, dict):
-        blockers.append("comparative dashboard missing public_front_door_routes table")
-    elif public_table.get("schema_version") != PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION:
-        blockers.append("public front-door route table schema mismatch")
-    for row in rows:
-        if not isinstance(row, dict):
-            blockers.append("public front-door benchmark row is not an object")
-            continue
-        front_door_id = str(row.get("front_door_id") or "missing")
-        if row.get("benchmark_row_kind") != PUBLIC_FRONT_DOOR_BENCHMARK_ROW_KIND:
-            blockers.append(f"{front_door_id}: invalid public front-door row kind")
-        if row.get("benchmark_timing_status") != PUBLIC_FRONT_DOOR_BENCHMARK_TIMING_STATUS:
-            blockers.append(f"{front_door_id}: invalid public front-door timing status")
-        if row.get("benchmark_timing_row") is not False:
-            blockers.append(f"{front_door_id}: public front-door row must not be timing")
-        if row.get("benchmark_route_publication_status") != "published_static_route_identity":
-            blockers.append(f"{front_door_id}: missing public front-door publication status")
-        if row.get("benchmark_route_publication_source") != "user_route_capability_report":
-            blockers.append(f"{front_door_id}: missing public front-door publication source")
-        if row.get("route_runtime_status") != "global_runtime_supported":
-            blockers.append(f"{front_door_id}: route_runtime_status must be global_runtime_supported")
-        if front_door_id == "local_source_vortex_middle_front_door":
-            if row.get("front_door_end_state") != "result_sink":
-                blockers.append(f"{front_door_id}: front door must end at result_sink")
-            if row.get("includes_query") is not True:
-                blockers.append(f"{front_door_id}: first-query row must include query")
-            for token in (".query", ".collect"):
-                if token not in str(row.get("public_user_surface") or ""):
-                    blockers.append(f"{front_door_id}: public surface must show {token}")
-        elif row.get("front_door_end_state") != "VortexPreparedState":
-            blockers.append(f"{front_door_id}: front door must end at VortexPreparedState")
-        elif row.get("includes_query") is not False:
-            blockers.append(f"{front_door_id}: prepared-output row must not include query")
-        if row.get("fallback_attempted") is not False:
-            blockers.append(f"{front_door_id}: fallback_attempted must be false")
-        if row.get("external_engine_invoked") is not False:
-            blockers.append(f"{front_door_id}: external_engine_invoked must be false")
-        if row.get("claim_gate_status") != "not_claim_grade":
-            blockers.append(f"{front_door_id}: claim_gate_status must be not_claim_grade")
-        public_surface = str(row.get("public_user_surface") or "")
-        if ".prepare_vortex" not in public_surface or "workspace=" not in public_surface:
-            blockers.append(f"{front_door_id}: public surface must show prepare_vortex workspace")
-
-
-def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list[str], dict[str, Any]]:
-    blockers: list[str] = []
-    manifest = load_json(manifest_path)
-    missing_fields = REQUIRED_MANIFEST_FIELDS - set(manifest)
-    if missing_fields:
-        blockers.append(f"manifest missing fields: {sorted(missing_fields)}")
-
-    if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
-        blockers.append(
-            f"manifest schema_version must be {MANIFEST_SCHEMA_VERSION}, got {manifest.get('schema_version')}"
-        )
-    if manifest.get("performance_claim_allowed") is not False:
-        blockers.append("performance_claim_allowed must be false")
-    if manifest.get("route_runtime_status_schema_version") != ROUTE_RUNTIME_STATUS_SCHEMA_VERSION:
-        blockers.append("route_runtime_status_schema_version mismatch")
-    route_vocab = set(manifest.get("route_runtime_status_vocabulary") or [])
-    if not ROUTE_RUNTIME_STATUSES.issubset(route_vocab):
-        blockers.append(
-            "route_runtime_status_vocabulary missing values: "
-            f"{sorted(ROUTE_RUNTIME_STATUSES - route_vocab)}"
-        )
-    if (
-        manifest.get("benchmark_constitution_schema_version")
-        != "shardloom.benchmark_constitution_validation.v1"
-    ):
-        blockers.append("benchmark_constitution_schema_version mismatch")
-    if manifest.get("benchmark_constitution_performance_claim_allowed") is not False:
-        blockers.append("benchmark_constitution_performance_claim_allowed must be false")
-    profile = manifest.get("benchmark_profile")
-    if profile not in PROFILES:
-        blockers.append(f"unknown benchmark_profile: {profile}")
-        return blockers, manifest
-
-    expected = set(manifest.get("expected_lanes") or [])
-    available = set(manifest.get("available_lanes") or [])
-    missing = set(manifest.get("missing_lanes") or [])
-    required_expected = set(expected_lanes_for_profile(profile))
-    if not required_expected.issubset(expected):
-        blockers.append(
-            f"expected_lanes missing profile lanes: {sorted(required_expected - expected)}"
-        )
-    unresolved = expected - available - missing
-    if unresolved:
-        blockers.append(f"expected lanes with no availability status: {sorted(unresolved)}")
-    overlap = available & missing
-    if overlap:
-        blockers.append(f"lanes marked both available and missing: {sorted(overlap)}")
-
-    reasons = manifest.get("lane_availability_reasons") or {}
-    for lane in missing:
-        if not reasons.get(lane):
-            blockers.append(f"missing lane lacks availability reason: {lane}")
-    versions = manifest.get("lane_versions") or {}
-    for lane in available:
-        if not versions.get(lane):
-            blockers.append(f"available lane lacks version metadata: {lane}")
-
-    missing_required = [
-        lane for lane in missing if lane_required_for_profile(profile, lane)
-    ]
-    artifact_status = str(manifest.get("artifact_status", "complete"))
-    if missing_required and not (allow_incomplete and artifact_status == "incomplete"):
-        blockers.append(
-            "required lanes missing for profile "
-            f"{profile}: {sorted(missing_required)}"
-        )
-
-    artifact_paths = manifest.get("artifact_paths") or {}
-    json_path_text = artifact_paths.get("json")
-    if not json_path_text:
-        blockers.append("artifact_paths.json is required")
-    else:
-        json_path = repo_path(str(json_path_text), manifest_path)
-        if not json_path.exists():
-            blockers.append(f"artifact_paths.json does not exist: {json_path_text}")
-        else:
-            payload = load_json(json_path)
-            if isinstance(payload, dict):
-                validate_rows(payload, blockers)
-                validate_prepared_route_amortization(payload, blockers)
-                validate_route_timing_instrument_readiness(payload, manifest, blockers)
-                validate_source_state_lazy_family_table(payload, blockers)
-                validate_cold_lane_attribution(payload, blockers)
-                validate_public_front_door_rows(payload, manifest, blockers)
-                validate_profile_scope(payload, profile, blockers)
-                validate_row_admission_manifest(
-                    manifest,
-                    manifest_path,
-                    payload,
-                    blockers,
-                )
-                validate_prepare_batch_role_repair_evidence(
-                    manifest,
-                    manifest_path,
-                    blockers,
-                )
-                validate_publication_proof_sidecar(
-                    manifest,
-                    manifest_path,
-                    payload,
-                    blockers,
-                )
-                if recursive_text_contains(payload, "spark-retire"):
-                    blockers.append(
-                        "published benchmark artifact must not reference spark-retire"
-                    )
-                lane_counts = lane_evidence_counts(payload)
-                for lane in sorted(expected & available):
-                    if lane_counts[lane] == 0:
-                        blockers.append(
-                            f"available expected lane has no published row evidence: {lane}"
-                        )
-                if profile in {"full_local", "full_local_plus_spark"}:
-                    if "polars" in expected or "polars" in available:
-                        blockers.append(
-                            "full benchmark profiles must use polars-eager and "
-                            "polars-lazy, not collapsed polars"
-                        )
-                    for lane in ("polars-eager", "polars-lazy"):
-                        if lane not in expected:
-                            blockers.append(f"full benchmark profile missing {lane}")
-            else:
-                blockers.append("artifact_paths.json must contain an object")
-
-    return blockers, manifest
-
-
-def main() -> int:
-    args = parse_args()
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", type=Path, required=True, help="Current public-native runner report")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
     if default_public_benchmark_manifest_retired(args.manifest):
         report = retired_public_benchmark_report(args.manifest)
-        if args.output is not None:
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(
-                json.dumps(report, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-        print(json.dumps(report, indent=2, sort_keys=True))
-        return 0
-    blockers, manifest = validate_manifest(args.manifest, args.allow_incomplete)
-    report = {
-        "schema_version": REPORT_SCHEMA_VERSION,
-        "status": "passed" if not blockers else "blocked",
-        "manifest": str(args.manifest),
-        "manifest_sha256": file_sha256(args.manifest),
-        "artifact_json_sha256": file_sha256(
-            artifact_json_path(manifest, args.manifest) or Path("__missing__")
-        ),
-        "benchmark_profile": manifest.get("benchmark_profile"),
-        "artifact_status": manifest.get("artifact_status"),
-        "available_lane_count": len(manifest.get("available_lanes") or []),
-        "missing_lane_count": len(manifest.get("missing_lanes") or []),
-        "performance_claim_allowed": manifest.get("performance_claim_allowed"),
-        "benchmark_run_performed": False,
-        "fallback_attempted": False,
-        "external_engine_invoked": False,
-        "blockers": blockers,
-    }
-    if args.output is not None:
+    else:
+        try:
+            blockers, payload = validate_manifest(args.manifest)
+        except (OSError, ValueError) as error:
+            blockers, payload = [str(error)], {}
+        report = {"schema_version": REPORT_SCHEMA_VERSION, "status": "blocked" if blockers else "passed",
+                  "manifest": str(args.manifest), "recorded_cases": len(result_rows(payload)),
+                  "performance_claim_allowed": False, "benchmark_run_performed": False,
+                  "fallback_attempted": False, "external_engine_invoked": False, "blockers": blockers}
+    if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(
-            json.dumps(report, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-    print(json.dumps(report, indent=2, sort_keys=True))
-    return 1 if blockers else 0
+        args.output.write_text(json.dumps(report, indent=2) + "\n")
+    print(json.dumps(report, indent=2))
+    return int(report["status"] != "passed")
 
 
 if __name__ == "__main__":

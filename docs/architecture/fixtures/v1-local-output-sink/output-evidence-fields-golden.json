@@ -1,0 +1,27 @@
+{
+  "claim_gate_status": "not_claim_grade",
+  "declared_fields": [
+    "native_vortex_result_export_format",
+    "native_vortex_result_export_path",
+    "native_vortex_result_export_rows_written",
+    "native_vortex_result_export_projected_columns",
+    "native_vortex_result_export_target_count",
+    "native_vortex_result_export_all_targets_committed",
+    "native_vortex_result_export_fanout_atomicity_contract",
+    "native_vortex_result_export_partial_write_cleanup_status",
+    "native_vortex_result_export_target_fidelity_statuses",
+    "typed_sink_contract",
+    "decode_materialization_boundary",
+    "local_primitive_native_io_certificate_emitted",
+    "public_workflow_fallback_attempted",
+    "public_workflow_external_engine_invoked"
+  ],
+  "evidence_class": "declarative_contract",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "readback_source": "live_tests_or_harness",
+  "replay_result": null,
+  "schema_version": "shardloom.v1_local_output_sink_evidence_fields.v1",
+  "scope_document": "docs/architecture/v1-local-output-sink-scope.md",
+  "runtime_evidence_verified": false
+}

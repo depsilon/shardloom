@@ -10,7 +10,7 @@ use shardloom_core::{
     BinaryOp, Expression as Input, ExpressionKind, LogicalDType, ScalarValue, UnaryOp,
 };
 use vortex::array::{
-    dtype::DecimalDType,
+    dtype::{DecimalDType, StructFields},
     extension::datetime::{Date, TimeUnit, Timestamp},
     scalar::{DecimalValue, Scalar},
 };
@@ -87,6 +87,12 @@ impl Binder<'_> {
             }
             ExpressionKind::Alias { expr, .. } => return self.expression(expr, fields, depth + 1),
             ExpressionKind::Literal(value) => return self.literal_expression(value),
+            ExpressionKind::List { values } => {
+                return self.list_expression(values, fields, depth);
+            }
+            ExpressionKind::Struct { fields: children } => {
+                return self.struct_expression(children, fields, depth);
+            }
             ExpressionKind::Unary { op, expr } => {
                 let child = Box::new(self.expression(expr, fields, depth + 1)?);
                 if matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull) {
@@ -131,9 +137,10 @@ impl Binder<'_> {
                 (dtype, Kind::Binary(left, *op, right))
             }
             ExpressionKind::Compare { left, op, right } => {
-                let left = Box::new(self.expression(left, fields, depth + 1)?);
-                let right = Box::new(self.expression(right, fields, depth + 1)?);
-                compatible(&left.dtype, &right.dtype)?;
+                let (left, right) = comparison_operands(
+                    self.expression(left, fields, depth + 1)?,
+                    self.expression(right, fields, depth + 1)?,
+                )?;
                 (
                     DType::Bool(nullable(&left.dtype, &right.dtype)),
                     Kind::Compare(left, *op, right),
@@ -158,13 +165,75 @@ impl Binder<'_> {
                     },
                 )
             }
-            _ => {
+            ExpressionKind::Unsupported { .. } => {
                 return Err(failed(
                     "expression kind has no admitted native scalar kernel",
                 ));
             }
         };
         Ok(Expression { dtype, kind })
+    }
+
+    fn list_expression(
+        &mut self,
+        values: &[Input],
+        fields: &[(String, DType)],
+        depth: usize,
+    ) -> Result<Expression> {
+        if values.len() > 128 {
+            return Err(failed("list constructor exceeds 128 elements"));
+        }
+        self.charge(values.len() * 4096)?;
+        let values = values
+            .iter()
+            .map(|value| self.expression(value, fields, depth + 1))
+            .collect::<Result<Vec<_>>>()?;
+        let mut element = DType::Null;
+        for value in &values {
+            selected_operand(&value.dtype)?;
+            element = common(&element, &value.dtype)?;
+        }
+        if element == DType::Null {
+            element = DType::Bool(Nullability::Nullable);
+        }
+        Ok(Expression {
+            dtype: DType::List(element.into(), Nullability::NonNullable),
+            kind: Kind::List(values),
+        })
+    }
+
+    fn struct_expression(
+        &mut self,
+        children: &[(String, Input)],
+        fields: &[(String, DType)],
+        depth: usize,
+    ) -> Result<Expression> {
+        if children.is_empty() || children.len() > 128 {
+            return Err(failed("struct constructor requires 1..=128 fields"));
+        }
+        self.charge(children.len() * 4096)?;
+        let mut values = Vec::new();
+        let mut output_fields = Vec::new();
+        for (name, value) in children {
+            validate_name(name)?;
+            if output_fields.iter().any(|(prior, _)| prior == name) {
+                return Err(failed("struct constructor field names must be distinct"));
+            }
+            let mut value = self.expression(value, fields, depth + 1)?;
+            selected_operand(&value.dtype)?;
+            if value.dtype == DType::Null {
+                value = bound_cast(value, DType::Bool(Nullability::Nullable));
+            }
+            output_fields.push((name.clone(), value.dtype.clone()));
+            values.push(value);
+        }
+        Ok(Expression {
+            dtype: DType::Struct(
+                StructFields::from_iter(output_fields),
+                Nullability::NonNullable,
+            ),
+            kind: Kind::Struct(values),
+        })
     }
 
     fn function(
@@ -199,6 +268,7 @@ impl Binder<'_> {
             ("nullif", 2) => {
                 let right = args.pop().expect("length bound");
                 let left = args.pop().expect("length bound");
+                // NULLIF retains its first operand's type and values.
                 compatible(&left.dtype, &right.dtype)?;
                 (
                     left.dtype.as_nullable(),
@@ -264,12 +334,28 @@ impl Binder<'_> {
             ("binary_byte_length" | "byte_length" | "octet_length", 1) => F::ByteLength,
             ("binary_unhex" | "unhex", 1) => F::Unhex,
             ("binary_from_base64" | "from_base64", 1) => F::FromBase64,
+            ("json_extract", 2) => {
+                use crate::local_primitives::native_relational_expression::scalar::text_kernels::JsonPath;
+                F::JsonExtract(JsonPath::parse(
+                    literal_text(&args[1], "JSON path")?.unwrap_or("$"),
+                )?)
+            }
+            ("strptime" | "try_strptime", 2) => {
+                use crate::local_primitives::native_relational_expression::scalar::text_kernels::TimestampFormat;
+                F::Strptime {
+                    format: TimestampFormat::parse(
+                        literal_text(&args[1], "timestamp format")?.unwrap_or("%Y-%m-%d"),
+                    )?,
+                    tolerant: normalized == "try_strptime",
+                }
+            }
             _ => calendar_function(&normalized, args.len()).ok_or_else(|| {
                 failed(&format!(
                     "function '{name}' has no admitted native kernel for this arity"
                 ))
             })?,
         };
+        let args = calendar_arguments(&function, args);
         let nullable = if args.iter().any(|arg| arg.dtype.is_nullable()) {
             Nullability::Nullable
         } else {
@@ -364,6 +450,17 @@ fn calendar_function(name: &str, arity: usize) -> Option<Function> {
         ("timestamp_diff_seconds", 2) => Function::TimestampDifference,
         _ => return None,
     })
+}
+
+fn literal_text<'a>(expression: &'a Expression, label: &str) -> Result<Option<&'a str>> {
+    let Kind::Literal(value) = &expression.kind else {
+        return Err(failed(&format!("{label} requires a literal UTF8 argument")));
+    };
+    match value.value() {
+        Some(vortex::array::scalar::ScalarValue::Utf8(value)) => Ok(Some(value.as_str())),
+        None => Ok(None),
+        _ => Err(failed(&format!("{label} requires a literal UTF8 argument"))),
+    }
 }
 
 fn cast_dtype(source: &DType, target: &LogicalDType, tolerant: bool) -> Result<DType> {
@@ -570,6 +667,24 @@ fn typed_function_dtype(
         }
     };
     let dtype = match function {
+        F::JsonExtract(_) | F::Strptime { .. } => {
+            if args
+                .iter()
+                .any(|arg| !matches!(arg.dtype, DType::Null | DType::Utf8(_)))
+            {
+                return Err(failed("text parsing requires UTF8 arguments"));
+            }
+            if matches!(function, F::JsonExtract(_)) {
+                DType::Utf8(Nullability::Nullable)
+            } else {
+                let nullable = if matches!(function, F::Strptime { tolerant: true, .. }) {
+                    Nullability::Nullable
+                } else {
+                    nullable
+                };
+                DType::Extension(Timestamp::new(TimeUnit::Microseconds, nullable).erased())
+            }
+        }
         F::Abs | F::Floor | F::Ceil | F::Round if matches!(first, DType::Decimal(..)) => {
             let operand = decimal_operand(0, first)?;
             let (precision, scale) = if matches!(function, F::Abs) {
@@ -622,6 +737,78 @@ fn typed_function_dtype(
         _ => return Ok(None),
     };
     Ok(Some(dtype))
+}
+
+fn comparison_operands(
+    mut left: Expression,
+    mut right: Expression,
+) -> Result<(Box<Expression>, Box<Expression>)> {
+    if matches!(left.dtype, DType::Utf8(_))
+        && crate::native_payload_schema::temporal_storage(&right.dtype).is_some()
+    {
+        let dtype = right.dtype.with_nullability(left.dtype.nullability());
+        left = bound_cast(left, dtype);
+    }
+    if matches!(right.dtype, DType::Utf8(_))
+        && crate::native_payload_schema::temporal_storage(&left.dtype).is_some()
+    {
+        let dtype = left.dtype.with_nullability(right.dtype.nullability());
+        right = bound_cast(right, dtype);
+    }
+    if matches!(
+        (&left.dtype, &right.dtype),
+        (DType::Decimal(..), DType::Decimal(..))
+    ) {
+        let dtype = common(&left.dtype, &right.dtype)?;
+        let left_dtype = dtype.with_nullability(left.dtype.nullability());
+        let right_dtype = dtype.with_nullability(right.dtype.nullability());
+        left = bound_cast(left, left_dtype);
+        right = bound_cast(right, right_dtype);
+    }
+    compatible(&left.dtype, &right.dtype)?;
+    Ok((Box::new(left), Box::new(right)))
+}
+
+fn bound_cast(expression: Expression, dtype: DType) -> Expression {
+    if expression.dtype == dtype {
+        return expression;
+    }
+    Expression {
+        dtype,
+        kind: Kind::Cast {
+            input: Box::new(expression),
+            tolerant: false,
+        },
+    }
+}
+
+fn calendar_arguments(function: &Function, args: Vec<Expression>) -> Vec<Expression> {
+    use Function as F;
+    args.into_iter()
+        .enumerate()
+        .map(|(index, arg)| {
+            let target = match function {
+                F::DateExtract(_) | F::DateDifference => Some(true),
+                F::TimestampExtract(_) | F::TimestampDifference => Some(false),
+                F::DateOffset { .. } if index == 0 => Some(true),
+                F::TimestampOffset { .. } if index == 0 => Some(false),
+                _ => None,
+            };
+            if let Some(date) = target
+                && matches!(arg.dtype, DType::Utf8(_))
+            {
+                let nullable = arg.dtype.nullability();
+                let dtype = DType::Extension(if date {
+                    Date::new(TimeUnit::Days, nullable).erased()
+                } else {
+                    Timestamp::new(TimeUnit::Microseconds, nullable).erased()
+                });
+                bound_cast(arg, dtype)
+            } else {
+                arg
+            }
+        })
+        .collect()
 }
 
 fn compatible(left: &DType, right: &DType) -> Result<()> {

@@ -2,21 +2,35 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CANONICAL_MANIFEST = Path("website/assets/benchmarks/latest/manifest.json")
+RETIRED_MIRROR_PATHS = (
+    "website/assets/benchmarks/latest/benchmark-results.json",
+    "website-public/assets/benchmarks/latest/benchmark-results.json",
+    "website/assets/data/benchmark-evidence.json",
+    "website-public/assets/data/benchmark-evidence.json",
+    "website-src/src/data/benchmark-evidence.json",
+    "website/assets/benchmarks/latest/manifest.json",
+    "website-public/assets/benchmarks/latest/manifest.json",
+    "website-src/src/data/benchmark-manifest.json",
+)
 
 
 def load_gate_module():
+    scripts = str(REPO_ROOT / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
     module_path = REPO_ROOT / "scripts" / "check_front_door_benchmark_publication.py"
     spec = importlib.util.spec_from_file_location(
         "check_front_door_benchmark_publication_for_test",
         module_path,
     )
-    assert spec is not None
-    assert spec.loader is not None
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     try:
@@ -27,115 +41,66 @@ def load_gate_module():
 
 
 class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
-    def test_current_repo_gate_reports_local_equivalence_evidence_claim_gated(self) -> None:
+    def test_absent_canonical_mirrors_passes_only_the_surface_check(self) -> None:
         module = load_gate_module()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = module.build_report(root, manifest_path=CANONICAL_MANIFEST)
 
-        report = module.build_report(
-            REPO_ROOT,
-            require_current_git=False,
-            allow_dirty_worktree=True,
-        )
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(report["schema_version"], "shardloom.front_door_benchmark_publication_gate.v1")
+        self.assertEqual(report["evidence_class"], "public_surface_absence_check")
+        self.assertEqual(report["retired_mirror_absence_check"]["inspected_path_count"], 8)
+        self.assertEqual(report["retired_mirror_absence_check"]["present_retired_refs"], [])
+        for field in (
+            "runtime_execution_performed",
+            "benchmark_run_performed",
+            "performance_claim_allowed",
+            "performance_equivalence_claim_allowed",
+            "production_claim_allowed",
+            "superiority_claim_allowed",
+            "parity_claim_allowed",
+            "publication_allowed",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ):
+            self.assertIs(report[field], False)
+        self.assertEqual(report["public_benchmark_surface"], "clickbench_handoff")
+        for field in (
+            "scoped_local_front_door_parity_supported",
+            "sql_python_dataframe_parity_status",
+            "public_front_door_benchmark_row_count",
+            "front_door_equivalence_constitution_status",
+            "measured_front_door_equivalence_artifact_present",
+        ):
+            self.assertNotIn(field, report)
 
-        self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertEqual(
-            report["front_door_performance_publication_status"],
-            "local_equivalence_evidence_present_claim_gated",
-        )
-        self.assertEqual(report["claim_gate_status"], "not_claim_grade")
-        self.assertFalse(report["front_door_performance_equivalence_claim_allowed"])
-        self.assertFalse(report["performance_claim_allowed"])
-        self.assertFalse(report["benchmark_run_performed"])
-        self.assertFalse(report["benchmark_rerun_approved"])
-        self.assertTrue(report["laptop_safe_sequential_controls_confirmed"])
-        self.assertFalse(report["measured_front_door_equivalence_artifact_present"])
-        self.assertFalse(report["publication_attempted"])
-        self.assertFalse(report["fallback_attempted"])
-        self.assertFalse(report["external_engine_invoked"])
-        self.assertTrue(report["scoped_local_front_door_parity_supported"])
-        self.assertEqual(
-            report["front_door_equivalence_artifact_status"],
-            "retired_from_public_website",
-        )
-        self.assertEqual(report["front_door_equivalence_artifact_row_count"], 0)
-        self.assertEqual(
-            report["front_door_equivalence_constitution_status"],
-            "local_constitution_ready",
-        )
-        self.assertEqual(report["front_door_equivalence_constitution_workload_count"], 9)
-        self.assertIn(
-            "front_door_lowering_overhead_millis",
-            report["front_door_equivalence_constitution_timing_fields"],
-        )
-        self.assertIn(
-            "native_vortex_unified_plan_contract",
-            report["front_door_equivalence_constitution_evidence_fields"],
-        )
-        self.assertNotIn("performance_equivalence", report["parity_remaining_gap_row_ids"])
-        self.assertEqual(report["public_front_door_benchmark_row_count"], 2)
-        self.assertIn(
-            "public_claim_review_for_front_door_performance_equivalence",
-            report["missing_claim_grade_evidence"],
-        )
-        self.assertTrue(report["publication_admission_blockers"])
-
-    def test_gate_rejects_overclaimed_front_door_performance_equivalence(self) -> None:
+    def test_each_retired_mirror_blocks_the_surface_check(self) -> None:
         module = load_gate_module()
-        parity_report = {
-            "schema_version": "shardloom.sql_python_dataframe_parity_gate.v1",
-            "status": "passed",
-            "claim_gate_status": "claim_grade",
-            "scoped_local_front_door_parity_supported": True,
-            "all_no_fallback_no_external_engine": True,
-            "flexible_anything_claim_allowed": False,
-            "performance_equivalence_claim_allowed": True,
-            "remaining_gap_row_ids": [],
-            "rows": [
-                {
-                    "row_id": "performance_equivalence",
-                    "runtime_gap_status": "admitted_scope",
-                    "parity_status": "equivalent_admitted_scope",
-                    "blocker_id": None,
-                    "fallback_attempted": False,
-                    "external_engine_invoked": False,
-                }
-            ],
-            "blockers": [],
-        }
-        publication_claim_gate = {
-            "schema_version": "shardloom.benchmark_publication_claim_gate.v1",
-            "status": "passed",
-            "public_front_door_benchmark_rows": {
-                "schema_version": "shardloom.public_front_door_benchmark_rows.v1",
-                "row_count": 2,
-                "front_door_ids": [
-                    "local_source_vortex_middle_front_door",
-                    "generated_source_prepare_vortex_front_door",
-                ],
-                "missing_front_door_ids": [],
-                "invalid_example_count": 0,
-            },
-            "blockers": [],
-        }
+        for retired_ref in RETIRED_MIRROR_PATHS:
+            with self.subTest(retired_ref=retired_ref), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                stale = root / retired_ref
+                stale.parent.mkdir(parents=True, exist_ok=True)
+                stale.write_text("retired", encoding="utf-8")
 
-        report = module.build_report(
-            REPO_ROOT,
-            parity_report=parity_report,
-            publication_claim_gate=publication_claim_gate,
-        )
+                report = module.build_report(root, manifest_path=CANONICAL_MANIFEST)
+
+                self.assertEqual(report["status"], "blocked")
+                self.assertIn(retired_ref, report["retired_mirror_absence_check"]["present_retired_refs"])
+                self.assertFalse(report["publication_allowed"])
+                self.assertTrue(report["blockers"])
+
+    def test_missing_custom_manifest_cannot_admit_local_publication(self) -> None:
+        module = load_gate_module()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            report = module.build_report(root, manifest_path=Path("local-run.json"))
 
         self.assertEqual(report["status"], "blocked")
-        self.assertTrue(
-            any(
-                "performance_equivalence_claim_allowed" in blocker
-                for blocker in report["blockers"]
-            )
-        )
-        self.assertTrue(
-            any("claim_gate_status" in blocker for blocker in report["blockers"])
-        )
-        self.assertTrue(
-            any("performance_equivalence_claim_allowed" in blocker for blocker in report["blockers"])
-        )
+        self.assertFalse(report["publication_allowed"])
+        self.assertTrue(any("not the canonical public site path" in item for item in report["blockers"]))
+        self.assertTrue(any("custom manifest is missing" in item for item in report["blockers"]))
 
 
 if __name__ == "__main__":

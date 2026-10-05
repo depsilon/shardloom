@@ -29,25 +29,23 @@ evidence.
 
 ## Local Workflow Command
 
-Use the benchmark smoke with result-sink replay enabled when you want to inspect
-the current evidence path:
+Use the public benchmark harness with Vortex output to inspect native execution,
+committed output and complete result readback:
 
 ```powershell
 python benchmarks\traditional_analytics\run.py `
-  --engines shardloom `
-  --formats csv,parquet `
-  --scenario "selective filter" `
+  --shardloom-binary target\release\shardloom.exe `
+  --workspace "$HOME\LocalData\shardloom\certified-local-workload" `
+  --engines shardloom pandas --reference-engine pandas `
+  --formats csv parquet `
+  --scenarios "selective filter" `
   --dataset-profile tiny_smoke `
-  --rows 256 `
-  --iterations 3 `
-  --shardloom-build-profile debug `
-  --shardloom-result-sink `
-  --skip-shardloom-native `
-  --no-markdown `
-  --data-dir target\shardloom-local-workload-smoke-data `
-  --output target\shardloom-local-workload-smoke.json `
-  --regenerate
+  --rows 256 --dim-rows 20 --repeats 3 `
+  --input-state raw --output-format vortex
 ```
 
-The generated artifact includes timing rows, coverage rows, certificate fields,
-Native I/O fields, materialization boundary fields, and no-fallback evidence.
+Supply an already-built executable and keep generated artifacts in local-only storage.
+The run retains every workload declaration, complete expected and observed result, resource
+request, native report and process receipt. Pandas supplies an independent reference; it never
+executes work on ShardLoom's behalf. A successful smoke verifies this configured workflow and
+does not establish a performance claim or broader workload certification.

@@ -579,7 +579,7 @@ def validate_runs_today(runs_today: dict[str, Any] | None) -> tuple[dict[str, An
         "cli_status_capability_reports",
         "python_status_capabilities",
         "python_generated_source_helpers",
-        "cli_vortex_production_runtime_and_prepared_batch_benchmark",
+        "cli_public_native_workflow",
     ]:
         if row_id not in by_id:
             blockers.append(f"runs-today missing supported learning row: {row_id}")

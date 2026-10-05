@@ -6,11 +6,13 @@ use super::{
     ParsedRelationQuery, ParsedRelationSource, ParsedSqlLocalSource, PreparedVortexRelational,
     VortexLocalPrimitiveExecutionPolicy, declared_query_sources, unsupported_sql_error,
 };
-use shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_dynamic_schema;
+use shardloom_vortex::local_primitives::prepared_relational::{
+    VortexRelationalPreparation, prepare_relational_with_dynamic_inputs,
+};
 
 #[derive(Clone)]
 pub(super) struct Declaration {
-    pub(super) sources: std::sync::Arc<BTreeMap<ParsedRelationLeaf, DatasetUri>>,
+    pub(super) sources: std::sync::Arc<BTreeMap<ParsedRelationLeaf, Vec<DatasetUri>>>,
     pub(super) bytes: usize,
 }
 
@@ -74,7 +76,8 @@ pub(super) fn predicate_required(predicate: &ParsedPredicate) -> bool {
 pub(super) fn prepare(
     parsed: ParsedRelationQuery,
     policy: VortexLocalPrimitiveExecutionPolicy,
-    resolve_source: &mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<DatasetUri>,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    resolve_source: &mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
 ) -> NativeResult<PreparedVortexRelational> {
     let mut leaves = BTreeSet::new();
     declared_query_sources(&parsed, &mut leaves);
@@ -88,41 +91,58 @@ pub(super) fn prepare(
     let mut declaration_bytes = declaration_bytes(&parsed)?;
     let mut sources = BTreeMap::new();
     for leaf in leaves {
-        let uri = resolve_source(&leaf)?;
+        let uris = if leaf.memory_input.is_some() {
+            vec![DatasetUri::new(leaf.path.to_string_lossy())?]
+        } else {
+            resolve_source(&leaf)?
+        };
+        let uri_bytes = uris
+            .iter()
+            .try_fold(0usize, |bytes, uri| bytes.checked_add(uri.as_str().len()))
+            .ok_or_else(|| unsupported_sql_error("dynamic SQL source metadata overflow"))?;
         declaration_bytes = leaf
             .path
             .as_os_str()
             .len()
-            .checked_add(uri.as_str().len())
+            .checked_add(uri_bytes)
             .and_then(|bytes| bytes.checked_mul(8))
             .and_then(|bytes| bytes.checked_add(16_384))
             .and_then(|bytes| declaration_bytes.checked_add(bytes))
             .ok_or_else(|| unsupported_sql_error("dynamic SQL source metadata overflow"))?;
-        sources.insert(leaf, uri);
+        sources.insert(leaf, uris);
     }
-    let uris = sources.values().cloned().collect::<Vec<_>>();
+    let uris = sources.values().flatten().cloned().collect::<Vec<_>>();
     let declaration = Declaration {
         sources: std::sync::Arc::new(sources),
         bytes: declaration_bytes,
     };
-    prepare_relational_with_dynamic_schema(&uris, policy, declaration_bytes, move |schemas| {
-        let mut resolver =
-            |leaf: &ParsedRelationLeaf| {
+    let memory_parsed = parsed.clone();
+    prepare_relational_with_dynamic_inputs(
+        &uris,
+        policy,
+        declaration_bytes,
+        |schemas| {
+            super::register_sql_memory_inputs(&memory_parsed, schemas)?;
+            inputs(schemas)
+        },
+        move |schemas| {
+            let mut resolver = |leaf: &ParsedRelationLeaf| {
                 declaration.sources.get(leaf).cloned().ok_or_else(|| {
                     unsupported_sql_error("dynamic SQL referenced an undeclared source")
                 })
             };
-        let mut lowerer = Lowerer {
-            schemas,
-            serial: 0,
-            resolve_source: &mut resolver,
-            declaration: Some(declaration.clone()),
-            outer: None,
-        };
-        let mut query = lowerer.query(&parsed)?;
-        lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
-        Ok(query.plan)
-    })
+            let mut lowerer = Lowerer {
+                schemas,
+                serial: 0,
+                resolve_source: &mut resolver,
+                declaration: Some(declaration.clone()),
+                outer: None,
+            };
+            let mut query = lowerer.query(&parsed)?;
+            lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
+            Ok(query.plan)
+        },
+    )
 }
 
 fn declaration_bytes(query: &ParsedRelationQuery) -> NativeResult<usize> {

@@ -21,7 +21,6 @@ external_engine_invoked=false
 The machine-readable sources for this scope are:
 
 - `ShardLoomContext.local_vortex_primitive_route_report()`
-- `ShardLoomContext.native_vortex_provider_route_certificate_report()`
 - `ShardLoomContext.user_route_capability_report()`
 - `ShardLoomContext.local_file_benchmark_route_report()`
 - `benchmarks/clickbench/queries.sql`
@@ -87,19 +86,6 @@ dispatches only the admitted primitive payloads to `vortex-run`, `vortex-count-w
 source-order tail local Vortex primitives. Scoped SQL count/filter predicates include integer
 `=`, `<>`/`!=`, `<`, `<=`, `>`, and `>=`, plus supported null predicates. This is still scoped
 primitive support, not broad Vortex SQL/DataFrame parity.
-
-The admitted direct `.vortex` benchmark-family user routes are exact-shape provider routes:
-Python/DataFrame-style chains and equivalent exact SQL statements that match the existing native
-traditional-analytics scenario families enter through the same `public_workflow_run` facade with
-`execution_policy=native_vortex`, `materialization_policy=zero_decode`,
-`native_vortex_provider_scenario`, and optional `native_vortex_right_input` evidence. When the CLI
-is built with `vortex-production-runtime` or the release package feature set
-`release-user-surfaces`, the facade dispatches these exact shapes to the promoted provider runtime
-through `vortex-production-runtime-run` instead of returning route-missing
-blockers. This is a real ShardLoom-native provider route, but it is not broad arbitrary Vortex
-SQL/DataFrame planning. The legacy `vortex-traditional-analytics-benchmark` feature remains an
-internal compatibility alias for benchmark harness code; public release guidance should use the
-production feature names.
 
 Every native Vortex public route also emits the route-unification contract fields
 `native_vortex_user_route_contract_schema_version`,
@@ -211,44 +197,6 @@ execution, and observed `max_parallelism=2`. It is useful implementation evidenc
 spots, but it is not a ClickBench submission or public performance claim. Remaining above-1s and
 timeout rows are aggregate/distinct/string/sort optimization candidates inside the native Vortex
 runtime family, not permission to create external fallback or ClickBench-only shims.
-
-## Supported Exact Native Vortex Provider Routes
-
-The following exact Python/DataFrame-style chains and equivalent SQL statements are admitted as
-feature-gated native Vortex provider routes because they map to existing ShardLoom
-traditional-analytics runtime scenarios:
-
-| Python/DataFrame shape | Equivalent SQL shape | Provider scenario | Route id |
-| --- | --- | --- | --- |
-| `filter(metric >= 0).group_by("group_key").agg(count/sum).limit(...)` | `SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT ...` | `group-by-aggregation` | `native_vortex_user_aggregate` |
-| `dropna(nullable_metric_00).group_by("group_key").agg(count/sum).limit(...)` | `SELECT group_key, COUNT(*) AS rows, SUM(nullable_metric_00) AS total_nullable_metric FROM 'fact.vortex' WHERE nullable_metric_00 IS NOT NULL GROUP BY group_key LIMIT ...` | `null-heavy-aggregate` | `native_vortex_user_aggregate` |
-| `join(dim, on="dim_key").select("f.id", "d.dim_label", "f.metric").limit(...)` | `SELECT f.id, d.dim_label, f.metric FROM 'fact.vortex' AS f JOIN 'dim.vortex' AS d ON f.dim_key = d.dim_key LIMIT ...` | `hash-join` with `native_vortex_right_input` | `native_vortex_user_join` |
-| `select("id", "group_key", "metric").nlargest(10, "metric")` | `SELECT id, group_key, metric FROM 'fact.vortex' ORDER BY metric DESC LIMIT ...` | `sort-and-top-k` | `native_vortex_user_top_n` |
-| `with_column("amount_float", cast(dirty_numeric)).filter(amount_float >= 0).limit(...)` | `SELECT ..., CAST(dirty_numeric AS float64) AS amount_float FROM 'fact.vortex' WHERE amount_float >= 0 LIMIT ...` | `clean-cast-filter-write` | `native_vortex_user_cast` |
-| `with_column("event_day", cast(raw_event_time AS date32)).limit(...)` | `SELECT ..., CAST(raw_event_time AS date32) AS event_day FROM 'fact.vortex' LIMIT ...` | `malformed-timestamp-dirty-csv` | `native_vortex_user_cast` |
-| `filter(nested_payload.contains("target")).select("id", "nested_payload").limit(...)` | `SELECT id, nested_payload FROM 'events.vortex' WHERE nested_payload LIKE '%target%' LIMIT ...` | `nested-json-field-scan` | `native_vortex_user_contains` |
-| `profile()` on `read_vortex(...)` with optional `select(...)`/`limit(...)` metadata | Metadata/schema profile over a native Vortex source | `vortex-metadata-summary` | `native_vortex_user_profile` |
-| Any admitted provider shape followed by `write_vortex(...)`, `write_jsonl(...)`, or `write_csv(...)` | Exact admitted SQL shape followed by `write_vortex(...)`, `write_jsonl(...)`, or `write_csv(...)` | matching provider scenario | `native_vortex_user_sink` |
-
-These routes emit `public_workflow_native_vortex_provider_scenario` and
-`public_workflow_native_vortex_right_input` fields. Provider-backed `write_jsonl()` and
-`write_csv()` export the bounded provider `result_json` after native Vortex execution with explicit
-decode/materialization evidence. Primitive filter/project/filter-project/distinct/drop-duplicates/duplicate-mask/tail/sample/expression-project/melt/explode/rolling
-row-stream exports, scalar aggregate one-row result exports, and JSONL/CSV fanout are admitted
-through `native_vortex_primitive_row_export` with explicit selected-column or result-row
-decode/materialization evidence. Arbitrary compatibility exports, unsupported
-formats, and non-admitted operator shapes remain blocked. Arbitrary SQL parity remains out of
-scope; only the exact shapes above emit the provider payload.
-
-`ShardLoomContext.native_vortex_provider_route_certificate_report()` is the machine-readable
-certificate surface for these exact routes. It records the route id, operation family, provider
-scenario, benchmark scenario id, Python and SQL surfaces, `native_vortex_right_input` requirement,
-`vortex-production-runtime-run` provider command, feature gate, typed result/sink contract,
-decode/materialization boundary, route certificate source, `claim_gate_status=not_claim_grade`,
-`fallback_attempted=false`, and `external_engine_invoked=false`. The report deliberately keeps
-`general_multi_input_join_claim_allowed=false`, `performance_claim_allowed=false`, and
-`production_claim_allowed=false`: it proves exact route admission and benchmark-family equivalence,
-not arbitrary Vortex SQL/DataFrame planning or a refreshed performance claim.
 
 ## Supported Prepared Vortex Benchmark Families
 

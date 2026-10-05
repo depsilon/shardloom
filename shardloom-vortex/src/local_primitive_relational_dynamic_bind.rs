@@ -32,6 +32,9 @@ impl<'a> Binder<'a> {
             binder.sources.push(source.clone())?;
             binder.paths.push(path.clone())?;
         }
+        for (uri, source) in &owner.memory_sources {
+            binder.register_memory_source(uri.clone(), |_| Ok(source.clone()))?;
+        }
         binder.execution = Some(ExecutionBinding {
             owner,
             context,

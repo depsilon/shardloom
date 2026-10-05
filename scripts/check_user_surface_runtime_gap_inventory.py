@@ -226,6 +226,34 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
 
 DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
     (
+        "checks an unsupported udf request",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "quickstart rejects undeclared executable Python code",
+        "quickstart.no_fallback_diagnostic",
+    ),
+    (
+        "unsupported requests fail with deterministic diagnostics",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "admission failure remains explicit without external execution",
+        "no_fallback_policy",
+    ),
+    (
+        "unsupported work is never delegated to pandas",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "pandas is an independent comparison reference only",
+        "no_fallback_policy",
+    ),
+    (
+        "unsupported shardloom work is reported and is never executed by pandas",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "pandas is an independent comparison reference only",
+        "no_fallback_policy",
+    ),
+    (
         "a successful result and an unsupported diagnostic are different explicit outcomes",
         "policy_rejected",
         "not_applicable_policy_diagnostic",

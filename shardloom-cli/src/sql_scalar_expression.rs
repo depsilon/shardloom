@@ -53,13 +53,14 @@ impl Parser {
         {
             return self.case(raw, id, depth);
         }
-        for operators in [&['+', '-'][..], &['*', '/'][..]] {
+        for operators in [&['+', '-'][..], &['*', '/', '%'][..]] {
             if let Some((index, operator)) = find_top_level_numeric_operator(raw, operators)? {
                 let op = match operator {
                     '+' => BinaryOp::Add,
                     '-' => BinaryOp::Subtract,
                     '*' => BinaryOp::Multiply,
                     '/' => BinaryOp::Divide,
+                    '%' => BinaryOp::Remainder,
                     _ => unreachable!("operator list"),
                 };
                 return Ok(Expression::new(
@@ -259,6 +260,9 @@ fn scalar_function(name: &str) -> bool {
             | "timestamp_diff_seconds"
             | "coalesce"
             | "nullif"
+            | "json_extract"
+            | "strptime"
+            | "try_strptime"
     )
 }
 
@@ -506,10 +510,7 @@ mod tests {
         ).unwrap();
         assert_eq!(parsed.projections, vec!["id"]);
         assert_eq!(parsed.generic_expression_projections.len(), 5);
-        assert_eq!(
-            parsed.generic_expression_projection_output_columns(),
-            "exact,text,selected,filled,day"
-        );
+
         assert_eq!(
             parsed.generic_expression_projections[0].source_columns,
             Vec::<String>::new()

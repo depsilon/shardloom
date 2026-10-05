@@ -1,5 +1,12 @@
 use super::*;
 
+fn computed_columns(aggregate: &ParsedAggregate) -> &[String] {
+    let ParsedAggregateArgument::Computed { source_columns, .. } = &aggregate.argument else {
+        panic!("expected computed aggregate argument");
+    };
+    source_columns
+}
+
 #[test]
 fn native_typed_reductions_parse_arguments_dependencies_and_stable_names() {
     for (raw, columns) in [
@@ -13,7 +20,7 @@ fn native_typed_reductions_parse_arguments_dependencies_and_stable_names() {
         ("COUNT(1)", vec![]),
     ] {
         let aggregate = parse_aggregate_projection(raw).unwrap().unwrap();
-        assert_eq!(aggregate.source_columns(), columns);
+        assert_eq!(computed_columns(&aggregate), columns);
         assert!(matches!(
             aggregate.argument,
             ParsedAggregateArgument::Computed { .. }
@@ -29,8 +36,6 @@ fn native_typed_reductions_parse_arguments_dependencies_and_stable_names() {
                 .output_name()
         );
         assert_ne!(name, "count_all");
-        assert!(aggregate.required_column().is_err());
-        assert!(evaluate_scalar_aggregate(&aggregate, &[], &[]).is_err());
     }
     for (raw, name) in [
         ("SUM(value)", "sum_value"),
@@ -46,7 +51,9 @@ fn native_typed_reductions_parse_arguments_dependencies_and_stable_names() {
         );
     }
     let null = parse_aggregate_projection("COUNT(NULL)").unwrap().unwrap();
-    assert_eq!(null.label(), "count(NULL)");
+    assert!(
+        matches!(&null.argument, ParsedAggregateArgument::Computed { raw, .. } if raw == "NULL")
+    );
     assert_ne!(null.argument, ParsedAggregateArgument::All);
 }
 
@@ -55,26 +62,11 @@ fn native_typed_reductions_parse_having_and_all_dependency_consumers() {
     let parsed = parse_sql_local_source_statement(
         "SELECT category,SUM(amount + fee) AS total FROM 'input.csv' GROUP BY category HAVING AVG(price + tax) > 1 LIMIT 10",
     ).unwrap();
-    assert_eq!(parsed.aggregates[0].source_columns(), ["amount", "fee"]);
+    assert_eq!(computed_columns(&parsed.aggregates[0]), ["amount", "fee"]);
     assert_eq!(
-        parsed.having_aggregates[0].source_columns(),
+        computed_columns(&parsed.having_aggregates[0]),
         ["price", "tax"]
     );
-    let header = ["category", "amount", "fee", "price", "tax"].map(str::to_owned);
-    validate_aggregate_source_columns(&parsed, &header).unwrap();
-    assert!(validate_aggregate_source_columns(&parsed, &header[..4]).is_err());
-    let refs = join_left_existence_source_refs(&parsed);
-    for name in ["category", "amount", "fee", "price", "tax"] {
-        assert!(refs.contains(name));
-    }
-    let read = source_read_plan_for_sql(&parsed);
-    let expected = source_read_plan_for_sql(
-        &parse_sql_local_source_statement(
-            "SELECT category,amount,fee,price,tax FROM 'input.csv' LIMIT 10",
-        )
-        .unwrap(),
-    );
-    assert_eq!(read, expected);
     let argument = parse_aggregate_projection("SUM(value + 1)")
         .unwrap()
         .unwrap();

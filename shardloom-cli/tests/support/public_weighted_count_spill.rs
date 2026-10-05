@@ -117,41 +117,41 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
         assert!(ok, "{surface}: {stdout}");
         let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
         assert_eq!(envelope["status"], "success");
-        let summary = envelope["human_text"]
-            .as_str()
-            .unwrap()
-            .lines()
-            .find(|line| line.starts_with("result summary: "))
-            .unwrap();
-        let result: serde_json::Value =
-            serde_json::from_str(summary.split_once(" values=").unwrap().1).unwrap();
-        let rows = envelope["fields"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|field| field["key"] == "result_jsonl")
-            .unwrap()["value"]
-            .as_str()
-            .unwrap()
-            .lines()
-            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
-            .collect::<Vec<_>>();
-        assert_eq!(rows, expected);
+        assert_eq!(super::complete_result::rows(&envelope), expected);
         assert!(stdout.contains(&field("result_payload_complete", "true")));
         assert!(stdout.contains(&field(
             "result_materialization_boundary",
             "bounded_native_batches_to_jsonl"
         )));
-        let spill = &result["weighted_count_spill"];
-        assert!(spill["runs_written"].as_u64().unwrap() >= 2);
-        assert_eq!(spill["runs_written"], spill["runs_validated"]);
-        assert!(spill["min_run_block_rows"].as_u64().unwrap() > 1);
-        assert_eq!(spill["source_weight"], ROWS as u64);
-        assert!(stdout.contains(&field(
-            "local_primitive_native_weighted_count_spill_family",
+        let spill_field = |name| {
+            super::complete_result::field_value(
+                &envelope,
+                &format!("local_primitive_native_weighted_count_spill_{name}"),
+            )
+        };
+        let runs_written = spill_field("runs_written").parse::<u64>().unwrap();
+        assert!(runs_written >= 2);
+        assert_eq!(
+            runs_written,
+            spill_field("runs_validated").parse::<u64>().unwrap()
+        );
+        assert!(spill_field("min_run_block_rows").parse::<u64>().unwrap() > 1);
+        assert_eq!(
+            spill_field("source_rows").parse::<u64>().unwrap(),
+            ROWS as u64
+        );
+        assert_eq!(spill_field("quota_bytes"), "67108864");
+        assert_eq!(spill_field("memory_bytes"), "8388608");
+        assert!(spill_field("peak_disk_bytes").parse::<u64>().unwrap() <= 67_108_864);
+        assert!(spill_field("peak_reserved_bytes").parse::<u64>().unwrap() <= 8_388_608);
+        assert_eq!(spill_field("owned_cleanup_completed"), "true");
+        assert_eq!(
+            spill_field("family"),
             "weighted_complete_utf8_grouped_count"
-        )));
-        assert!(!stdout.contains("local_primitive_native_aggregate_spill_complete_pairs"));
+        );
+        assert!(!envelope["fields"].as_array().unwrap().iter().any(|item| {
+            item["key"] == "local_primitive_native_aggregate_spill_complete_pairs"
+        }));
         assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
         assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
         assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);

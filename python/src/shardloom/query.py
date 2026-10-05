@@ -15,20 +15,21 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from itertools import combinations
 from pathlib import Path
-from typing import Any, Mapping, Sequence, Union, cast
-from urllib.parse import quote
+from typing import Any, Iterable, Mapping, Sequence, Union, cast
 
 from ._compat import dataclass
+from ._result_schema import ResultType, arrow_table, python_rows, schema_fields
+from .errors import ShardLoomProtocolError
 from .client import (
     Binary,
     CommandPart,
     DEFAULT_PROFILE_ORDER,
     EngineSelectionPlan,
-    GeneratedSourceWriteReport,
     PublicWorkflowExecution,
     PublicWorkflowRoute,
     ShardLoomClient,
-    SqlLocalSourceSmokeReport,
+    _jsonl_object_rows,
+    _required_field,
     VortexIngestSmokeReport,
 )
 from .models import (
@@ -38,7 +39,6 @@ from .models import (
     OutputEnvelope,
     RuntimeActivationSummary,
 )
-from .prepared_route import CompatibilityPreparedVortexRoute
 from .runtime_defaults import (
     DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
     DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
@@ -49,10 +49,6 @@ SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "av
 _NATIVE_UNARY_PRIMITIVES = frozenset({
     "distinct", "drop_duplicates", "duplicate_mask", "tail", "sample",
     "expression_project", "melt", "explode", "pivot", "rolling_window",
-})
-_NATIVE_WRITE_REQUESTS = frozenset({
-    "write_vortex", "write_parquet", "write_arrow_ipc", "write_avro",
-    "write_orc", "write_json", "write_jsonl", "write_csv",
 })
 MAX_DATE_ARITHMETIC_DAYS = 366_000
 MAX_TIMESTAMP_ARITHMETIC_SECONDS = MAX_DATE_ARITHMETIC_DAYS * 86_400
@@ -87,6 +83,7 @@ class WorkflowSource:
     source_format: str
     uri: str
     schema: tuple[tuple[str, str], ...] = ()
+    memory_input: tuple[tuple[str, object], ...] = ()
 
     @property
     def schema_map(self) -> dict[str, str]:
@@ -913,1010 +910,6 @@ class UnsupportedWorkflowReport:
         return tuple(dict.fromkeys(boundaries))
 
 
-class _GeneratedStructuredOutputMixin:
-    __slots__ = ()
-
-    def prepare_vortex(
-        self,
-        target_vortex_path: str | os.PathLike[str] | None = None,
-        *,
-        workspace: str | os.PathLike[str] | None = None,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Prepare this generated source into a caller-owned local Vortex artifact.
-
-        Generated rows already originate inside ShardLoom, so this routes through
-        the real generated-source Vortex writer instead of a compatibility-file
-        ingest. The returned report exposes single-artifact prepared-state
-        fields; repeated compatible calls rewrite the caller-owned local Vortex
-        artifact only when `allow_overwrite=True`.
-        """
-
-        stem_method = getattr(self, "_generated_vortex_stem")
-        target = _generated_prepared_vortex_target_path(
-            stem_method(),
-            target_vortex_path=target_vortex_path,
-            workspace=workspace,
-        )
-        return self.write_vortex(  # type: ignore[attr-defined]
-            target,
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_parquet(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="parquet")`.
-
-        The CLI must be built with `--features universal-format-io`; default
-        binaries return ShardLoom's deterministic Parquet sink blocker.
-        """
-
-        return self.write(  # type: ignore[attr-defined]
-            target_uri,
-            output_format="parquet",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_arrow_ipc(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="arrow-ipc")`.
-
-        The CLI must be built with `--features universal-format-io`; default
-        binaries return ShardLoom's deterministic Arrow IPC sink blocker.
-        """
-
-        return self.write(  # type: ignore[attr-defined]
-            target_uri,
-            output_format="arrow-ipc",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_avro(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="avro")`.
-
-        The CLI must be built with `--features universal-format-io`; default
-        binaries return ShardLoom's deterministic Avro sink blocker.
-        """
-
-        return self.write(  # type: ignore[attr-defined]
-            target_uri,
-            output_format="avro",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_orc(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="orc")`.
-
-        The CLI must be built with `--features universal-format-io`; default
-        binaries return ShardLoom's deterministic ORC sink blocker.
-        """
-
-        return self.write(  # type: ignore[attr-defined]
-            target_uri,
-            output_format="orc",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_vortex(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="vortex")`.
-
-        The CLI must be built with `--features vortex-write`; default binaries
-        return ShardLoom's deterministic Vortex sink blocker.
-        """
-
-        return self.write(  # type: ignore[attr-defined]
-            target_uri,
-            output_format="vortex",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
-    """Scoped source-free user rows that can write a local smoke output."""
-
-    schema_arg: str
-    rows_arg: str
-    client: ShardLoomClient
-    source_kind: str = "user_rows"
-    rows: tuple[tuple[tuple[str, object], ...], ...] = ()
-
-    def select(self, *columns: object) -> "GeneratedRowsSource":
-        """Project a scoped source-free row set before writing it locally.
-
-        This is a generated-row convenience path, not broad DataFrame runtime.
-        The transformed rows still write through ShardLoom's generated-source
-        local-output command and preserve the no-source/no-fallback evidence
-        emitted by that command.
-        """
-
-        selected = _normalize_generated_select_columns(columns)
-        available = self._column_names()
-        missing = tuple(column for column in selected if column not in available)
-        if missing:
-            raise ValueError(
-                "generated row projection referenced unknown column(s): "
-                + ", ".join(missing)
-            )
-        projected_rows = [
-            {column: dict(row)[column] for column in selected} for row in self.rows
-        ]
-        return _generated_rows_source(
-            projected_rows,
-            client=self.client,
-            source_kind=self.source_kind,
-        )
-
-    def project(self, *columns: object) -> "GeneratedRowsSource":
-        """Alias for `select(...)` using familiar DataFrame/project naming."""
-
-        return self.select(*columns)
-
-    def with_column(self, name: object, expression: object) -> "GeneratedRowsSource":
-        """Add or replace one deterministic literal column before local output.
-
-        The first admitted slice intentionally supports only `lit(...)`
-        expressions or direct Python bool/int/float literals. Broader
-        expression-backed generated DataFrame runtime remains blocked until
-        the expression engine and evidence model are promoted.
-        """
-
-        column = _require_non_empty("generated column name", name)
-        literal = _generated_literal_expression(expression)
-        transformed_rows = []
-        for row in self.rows:
-            updated = dict(row)
-            updated[column] = literal
-            transformed_rows.append(updated)
-        return _generated_rows_source(
-            transformed_rows,
-            client=self.client,
-            source_kind=self.source_kind,
-        )
-
-    def with_columns(
-        self,
-        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
-        **named_expressions: object,
-    ) -> "GeneratedRowsSource":
-        """Alias over repeated generated-row `with_column(...)` calls."""
-
-        source = self
-        for name, expression in _normalize_named_projection_items(
-            "generated rows with_columns",
-            columns,
-            named_expressions,
-        ):
-            source = source.with_column(name, expression)
-        return source
-
-    def assign(self, **named_expressions: object) -> "GeneratedRowsSource":
-        """Alias for `with_columns(...)` using pandas-style naming."""
-
-        return self.with_columns(**named_expressions)
-
-    def _column_names(self) -> tuple[str, ...]:
-        if not self.rows:
-            raise ValueError("generated row transforms require retained row values")
-        return tuple(column for column, _value in self.rows[0])
-
-    def _generated_vortex_stem(self) -> str:
-        payload = f"{self.source_kind}\0{self.schema_arg}\0{self.rows_arg}".encode("utf-8")
-        digest = hashlib.sha256(payload).hexdigest()[:16]
-        return f"generated-{self.source_kind}-{digest}"
-
-    def write(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str = "jsonl",
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write generated user rows to a scoped local output sink with evidence."""
-
-        surface = (
-            "dataframe"
-            if self.source_kind.startswith("dataframe_")
-            else "python"
-        )
-        execution = self.client.public_workflow_run(
-            surface,
-            plan_summary=f"generated_source({self.source_kind}) -> write({target_uri})",
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=target_uri,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            generated_source_kind=self.source_kind,
-            generated_schema=self.schema_arg,
-            generated_rows=self.rows_arg,
-            max_parallelism=DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-    def write_jsonl(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="jsonl")`."""
-
-        return self.write(
-            target_uri,
-            output_format="jsonl",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_json(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="json")` (one JSON array)."""
-
-        return self.write(
-            target_uri,
-            output_format="json",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_csv(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="csv")`."""
-
-        return self.write(
-            target_uri,
-            output_format="csv",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def fanout(
-        self,
-        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write generated user rows to a primary output plus fanout sinks."""
-
-        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
-            outputs
-        )
-        execution = self.client.public_workflow_run(
-            "dataframe" if self.source_kind.startswith("dataframe_") else "python",
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=output_path,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            generated_source_kind=self.source_kind,
-            generated_schema=self.schema_arg,
-            generated_rows=self.rows_arg,
-            fanout_outputs=fanout_outputs,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-
-@dataclass(frozen=True, slots=True)
-class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
-    """Scoped ShardLoom-native integer generator that can write a local smoke output."""
-
-    start: int
-    end: int
-    step: int
-    column: str
-    client: ShardLoomClient
-    source_kind: str = "range"
-
-    def filter(self, predicate: object) -> "GeneratedRangeQuerySource":
-        """Return a scoped generated-range SQL query with one filter predicate."""
-
-        return self._query().filter(predicate)
-
-    def where(self, predicate: object) -> "GeneratedRangeQuerySource":
-        """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
-
-        return self.filter(predicate)
-
-    def select(self, *columns: object) -> "GeneratedRangeQuerySource":
-        """Return a scoped generated-range SQL query with a source-column projection."""
-
-        return self._query().select(*columns)
-
-    def project(self, *columns: object) -> "GeneratedRangeQuerySource":
-        """Alias for `select(...)` using familiar DataFrame/project naming."""
-
-        return self.select(*columns)
-
-    def with_column(
-        self,
-        name: object,
-        expression: object,
-    ) -> "GeneratedRangeQuerySource":
-        """Return a scoped generated-range SQL query with one computed int64 column."""
-
-        return self._query().with_column(name, expression)
-
-    def with_columns(
-        self,
-        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
-        **named_expressions: object,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias over repeated generated-range `with_column(...)` calls."""
-
-        query = self._query()
-        for name, expression in _normalize_named_projection_items(
-            "generated range with_columns",
-            columns,
-            named_expressions,
-        ):
-            query = query.with_column(name, expression)
-        return query
-
-    def assign(self, **named_expressions: object) -> "GeneratedRangeQuerySource":
-        """Alias for `with_columns(...)` using pandas-style naming."""
-
-        return self.with_columns(**named_expressions)
-
-    def sort(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Return a scoped generated-range SQL query with one ORDER BY clause."""
-
-        return self._query().sort(*columns, descending=descending)
-
-    def order_by(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias for `sort(...)` using SQL-style naming."""
-
-        return self.sort(*columns, descending=descending)
-
-    def sort_by(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias for `sort(...)` using familiar DataFrame naming."""
-
-        return self.sort(*columns, descending=descending)
-
-    def sort_values(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias for `sort(...)` using pandas-style naming."""
-
-        return self.sort(*columns, descending=descending)
-
-    def limit(self, count: int) -> "GeneratedRangeSource":
-        """Limit an engine-native range/sequence before writing local output."""
-
-        normalized_count = _normalize_non_negative_int("generated range limit", count)
-        limited_end = _limited_range_end(
-            self.start,
-            self.end,
-            self.step,
-            normalized_count,
-        )
-        return GeneratedRangeSource(
-            start=self.start,
-            end=limited_end,
-            step=self.step,
-            column=self.column,
-            client=self.client,
-            source_kind=self.source_kind,
-        )
-
-    def head(self, limit: int = 5) -> "GeneratedRangeSource":
-        """Alias for `limit(...)` using familiar DataFrame preview naming."""
-
-        return self.limit(limit)
-
-    def take(self, count: int) -> "GeneratedRangeSource":
-        """Alias for `limit(...)` using familiar DataFrame preview naming."""
-
-        return self.limit(count)
-
-    def write(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str = "jsonl",
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write the generated integer source to a scoped local output sink with evidence."""
-
-        execution = self.client.public_workflow_run(
-            "python",
-            plan_summary=(
-                f"generated_{self.source_kind}({self.start},{self.end},{self.step}) "
-                f"-> write({target_uri})"
-            ),
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=target_uri,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            generated_source_kind=self.source_kind,
-            generated_range_start=self.start,
-            generated_range_end=self.end,
-            generated_range_step=self.step,
-            generated_range_column=self.column,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-    def write_jsonl(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="jsonl")`."""
-
-        return self.write(
-            target_uri,
-            output_format="jsonl",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_json(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="json")` (one JSON array)."""
-
-        return self.write(
-            target_uri,
-            output_format="json",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_csv(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="csv")`."""
-
-        return self.write(
-            target_uri,
-            output_format="csv",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def fanout(
-        self,
-        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write an engine-native range/sequence to primary and fanout sinks."""
-
-        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
-            outputs
-        )
-        execution = self.client.public_workflow_run(
-            "python",
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=output_path,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            generated_source_kind=self.source_kind,
-            generated_range_start=self.start,
-            generated_range_end=self.end,
-            generated_range_step=self.step,
-            generated_range_column=self.column,
-            fanout_outputs=fanout_outputs,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-    def _generated_vortex_stem(self) -> str:
-        return f"generated-{self.source_kind}-{self.start}-{self.end}-{self.step}-{self.column}"
-
-    def _query(self) -> "GeneratedRangeQuerySource":
-        return GeneratedRangeQuerySource(
-            start=self.start,
-            end=self.end,
-            step=self.step,
-            column=self.column,
-            client=self.client,
-            source_kind=self.source_kind,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
-    """Scoped SQL query over a source-free range generator."""
-
-    start: int
-    end: int
-    step: int
-    column: str
-    client: ShardLoomClient
-    source_kind: str = "range"
-    predicate: str | None = None
-    select_items: tuple[str, ...] = ()
-    sort_key: tuple[str, tuple[str, ...]] | None = None
-    limit_count: int | None = None
-
-    def filter(self, predicate: object) -> "GeneratedRangeQuerySource":
-        """Return this generated-range query with a scoped filter predicate."""
-
-        if self.predicate is not None:
-            raise ValueError("generated range queries admit one filter predicate")
-        return GeneratedRangeQuerySource(
-            start=self.start,
-            end=self.end,
-            step=self.step,
-            column=self.column,
-            client=self.client,
-            source_kind=self.source_kind,
-            predicate=_sql_generated_range_expression_sql(predicate, self.column),
-            select_items=self.select_items,
-            sort_key=self.sort_key,
-            limit_count=self.limit_count,
-        )
-
-    def where(self, predicate: object) -> "GeneratedRangeQuerySource":
-        """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
-
-        return self.filter(predicate)
-
-    def select(self, *columns: object) -> "GeneratedRangeQuerySource":
-        """Return this generated-range query with a source-column projection."""
-
-        return GeneratedRangeQuerySource(
-            start=self.start,
-            end=self.end,
-            step=self.step,
-            column=self.column,
-            client=self.client,
-            source_kind=self.source_kind,
-            predicate=self.predicate,
-            select_items=_normalize_generated_range_select_items(columns, self.column),
-            sort_key=self.sort_key,
-            limit_count=self.limit_count,
-        )
-
-    def project(self, *columns: object) -> "GeneratedRangeQuerySource":
-        """Alias for `select(...)` using familiar DataFrame/project naming."""
-
-        return self.select(*columns)
-
-    def with_column(
-        self,
-        name: object,
-        expression: object,
-    ) -> "GeneratedRangeQuerySource":
-        """Append one scoped generated-range computed int64 projection."""
-
-        column_name = _normalize_output_column_name(name)
-        select_items = self.select_items or _default_generated_range_select_items(
-            self.column
-        )
-        if column_name in _generated_range_select_aliases(select_items):
-            raise ValueError("generated range projection aliases must be unique")
-        expression_sql = _sql_generated_range_projection_expression(
-            expression,
-            self.column,
-        )
-        return GeneratedRangeQuerySource(
-            start=self.start,
-            end=self.end,
-            step=self.step,
-            column=self.column,
-            client=self.client,
-            source_kind=self.source_kind,
-            predicate=self.predicate,
-            select_items=select_items + (f"{expression_sql} AS {column_name}",),
-            sort_key=self.sort_key,
-            limit_count=self.limit_count,
-        )
-
-    def with_columns(
-        self,
-        columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
-        **named_expressions: object,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias over repeated generated-range query `with_column(...)` calls."""
-
-        query = self
-        for name, expression in _normalize_named_projection_items(
-            "generated range query with_columns",
-            columns,
-            named_expressions,
-        ):
-            query = query.with_column(name, expression)
-        return query
-
-    def assign(self, **named_expressions: object) -> "GeneratedRangeQuerySource":
-        """Alias for `with_columns(...)` using pandas-style naming."""
-
-        return self.with_columns(**named_expressions)
-
-    def sort(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Return this generated-range query with one source-free ORDER BY clause."""
-
-        if self.sort_key is not None:
-            raise ValueError("generated range queries admit one ORDER BY clause")
-        sort_columns = _normalize_generated_range_sort_columns(columns)
-        direction = "desc" if descending else "asc"
-        return GeneratedRangeQuerySource(
-            start=self.start,
-            end=self.end,
-            step=self.step,
-            column=self.column,
-            client=self.client,
-            source_kind=self.source_kind,
-            predicate=self.predicate,
-            select_items=self.select_items,
-            sort_key=(direction, sort_columns),
-            limit_count=self.limit_count,
-        )
-
-    def order_by(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias for `sort(...)` using SQL-style naming."""
-
-        return self.sort(*columns, descending=descending)
-
-    def sort_by(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias for `sort(...)` using familiar DataFrame naming."""
-
-        return self.sort(*columns, descending=descending)
-
-    def sort_values(
-        self,
-        *columns: object,
-        descending: bool = False,
-    ) -> "GeneratedRangeQuerySource":
-        """Alias for `sort(...)` using pandas-style naming."""
-
-        return self.sort(*columns, descending=descending)
-
-    def limit(self, count: int) -> "GeneratedRangeQuerySource":
-        """Return this generated-range query with a SQL LIMIT clause."""
-
-        return GeneratedRangeQuerySource(
-            start=self.start,
-            end=self.end,
-            step=self.step,
-            column=self.column,
-            client=self.client,
-            source_kind=self.source_kind,
-            predicate=self.predicate,
-            select_items=self.select_items,
-            sort_key=self.sort_key,
-            limit_count=_normalize_non_negative_int("generated range SQL limit", count),
-        )
-
-    def head(self, limit: int = 5) -> "GeneratedRangeQuerySource":
-        """Alias for `limit(...)` using familiar DataFrame preview naming."""
-
-        return self.limit(limit)
-
-    def take(self, count: int) -> "GeneratedRangeQuerySource":
-        """Alias for `limit(...)` using familiar DataFrame preview naming."""
-
-        return self.limit(count)
-
-    def write(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str = "jsonl",
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write the admitted generated-range SQL query to a local output sink."""
-
-        statement = self._statement()
-        execution = self.client.public_workflow_run(
-            "sql",
-            sql_statement=statement,
-            plan_summary=f"generated_range_query -> write({target_uri})",
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=target_uri,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-    def write_jsonl(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="jsonl")`."""
-
-        return self.write(
-            target_uri,
-            output_format="jsonl",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_json(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="json")` (one JSON array)."""
-
-        return self.write(
-            target_uri,
-            output_format="json",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_csv(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="csv")`."""
-
-        return self.write(
-            target_uri,
-            output_format="csv",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def fanout(
-        self,
-        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write the admitted generated-range SQL query to multiple local sinks."""
-
-        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
-            outputs
-        )
-        execution = self.client.public_workflow_run(
-            "sql",
-            sql_statement=self._statement(),
-            plan_summary=f"generated_range_query -> fanout({output_path})",
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=output_path,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            fanout_outputs=fanout_outputs,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-    def _statement(self) -> str:
-        select_items = self.select_items or _default_generated_range_select_items(
-            self.column
-        )
-        generator = "generate_series" if self.source_kind == "sequence" else "range"
-        statement = (
-            f"SELECT {', '.join(select_items)} "
-            f"FROM {generator}({self.start}, {self.end}, {self.step})"
-        )
-        if self.predicate is not None:
-            statement = f"{statement} WHERE {self.predicate}"
-        if self.sort_key is not None:
-            direction, columns = self.sort_key
-            statement = f"{statement}{_format_order_by_clause(columns, direction)}"
-        if self.limit_count is not None:
-            statement = f"{statement} LIMIT {self.limit_count}"
-        return statement
-
-    def _generated_vortex_stem(self) -> str:
-        return f"generated-{self.source_kind}-query"
-
-
-@dataclass(frozen=True, slots=True)
-class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
-    """Scoped source-free SQL literal/VALUES query that can write local smoke output."""
-
-    statement: str
-    client: ShardLoomClient
-
-    def write(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str = "jsonl",
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write admitted source-free SQL generated rows to a scoped local output sink."""
-
-        execution = self.client.public_workflow_run(
-            "sql",
-            sql_statement=self.statement,
-            plan_summary=f"source_free_sql -> write({target_uri})",
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=target_uri,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-    def write_jsonl(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="jsonl")`."""
-
-        return self.write(
-            target_uri,
-            output_format="jsonl",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_json(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="json")` (one JSON array)."""
-
-        return self.write(
-            target_uri,
-            output_format="json",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def write_csv(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Alias for `write(..., output_format="csv")`."""
-
-        return self.write(
-            target_uri,
-            output_format="csv",
-            allow_overwrite=allow_overwrite,
-            check=check,
-        )
-
-    def fanout(
-        self,
-        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
-        *,
-        allow_overwrite: bool = False,
-        check: bool = True,
-    ) -> GeneratedSourceWriteReport:
-        """Write source-free SQL generated rows to primary and fanout sinks."""
-
-        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
-            outputs
-        )
-        execution = self.client.public_workflow_run(
-            "sql",
-            sql_statement=self.statement,
-            plan_summary=self.operation_summary,
-            requested_output=_public_write_request_for_format(output_format),
-            output_ref=output_path,
-            materialization_policy="bounded",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            fanout_outputs=fanout_outputs,
-            check=check,
-        )
-        return GeneratedSourceWriteReport(execution.envelope)
-
-    def _generated_vortex_stem(self) -> str:
-        return "generated-sql"
-
-
 @dataclass(frozen=True, slots=True)
 class SqlWorkflow:
     """A scoped SQL workflow entry point over currently admitted ShardLoom SQL paths."""
@@ -2055,7 +1048,8 @@ class SqlWorkflow:
     ) -> "SqlWorkflow":
         column = _normalize_output_column_name(name)
         try:
-            expression_sql = _sql_literal(_generated_literal_expression(expression))
+            literal = _generated_literal_expression(expression)
+            expression_sql = "NULL" if literal is None else _sql_literal(literal)
         except (TypeError, ValueError):
             expression_sql = _sql_computed_projection_expression(expression)
         return self._compose(WorkflowOperation("with_column", (column, expression_sql)))
@@ -2149,12 +1143,7 @@ class SqlWorkflow:
             if bounded is None and requested_output == "collect"
             else bounded
         )
-        native_vortex_kwargs = _sql_native_vortex_public_workflow_kwargs(
-            self.statement,
-            requested_output=requested_output,
-        )
         workflow_kwargs = self._declared_or_embedded_vortex_input_kwargs()
-        workflow_kwargs.update(native_vortex_kwargs)
         return self.client.public_workflow_route(
             "sql",
             sql_statement=self.statement,
@@ -2192,12 +1181,7 @@ class SqlWorkflow:
             if bounded is None and requested_output == "collect"
             else bounded
         )
-        native_vortex_kwargs = _sql_native_vortex_public_workflow_kwargs(
-            self.statement,
-            requested_output=requested_output,
-        )
         workflow_kwargs = self._declared_or_embedded_vortex_input_kwargs()
-        workflow_kwargs.update(native_vortex_kwargs)
         return self.client.public_workflow_run(
             "sql",
             sql_statement=self.statement,
@@ -2222,9 +1206,7 @@ class SqlWorkflow:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
     ) -> (
-        SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Collect rows or run admitted local Vortex SQL primitives."""
 
@@ -2235,89 +1217,16 @@ class SqlWorkflow:
                 max_parallelism=max_parallelism,
                 spill=spill,
             )
-        if _is_source_free_sql_statement(self.statement):
-            return self._unsupported_operation(
-                "sql-source-free-projection",
-                "source_free_sql_collect_requires_write_output",
-                check=check,
-            )
-        if (_native_relational_sql_candidate(self.statement)
-                or _native_flat_aggregate_sql_candidate(self.statement)
-                or _native_flat_projection_sql_candidate(self.statement)):
-            envelope = _collect_native_relational(
-                self.client, self.statement, surface="sql",
-                plan_summary=self.operation_summary,
-                input_kwargs=self._declared_or_embedded_vortex_input_kwargs(),
-                check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
-                spill=spill,
-            )
-            return VortexWorkflowExecutionReport(
-                workflow=self._report_workflow(), operation="collect", envelope=envelope,
-            )
-        if report := self._vortex_sql_primitive_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+        envelope = _collect_native_relational(
+            self.client, self.statement, surface="sql",
+            plan_summary=self.operation_summary,
+            input_kwargs=self._declared_or_embedded_vortex_input_kwargs(),
+            check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
             spill=spill,
-        ):
-            return report
-        if report := self._vortex_sql_user_route_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        ):
-            return report
-        native_input_kwargs = self._declared_or_embedded_vortex_input_kwargs()
-        if native_input_kwargs.get("input_format") == "vortex":
-            memory_gb = _normalize_positive_int("memory_gb", memory_gb)
-            max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
-            execution = self.client.public_workflow_run(
-                "sql",
-                input_uri=str(native_input_kwargs["input_uri"]),
-                input_format="vortex",
-                sql_statement=self.statement,
-                plan_summary=self.operation_summary,
-                requested_output="collect",
-                execution_policy="native_vortex",
-                materialization_policy="bounded",
-                evidence_level="runtime_smoke",
-                bounded=True,
-                **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-                check=check,
-            )
-            return VortexWorkflowExecutionReport(
-                workflow=self._report_workflow(),
-                operation="collect",
-                envelope=execution.envelope,
-            )
-        if (
-            _is_local_source_sql_statement(self.statement)
-            and self._bounded_local_source_statement(default_limit=None) is None
-        ):
-            return self._unsupported_operation(
-                "sql-local-source-collect",
-                "local_source_sql_collect_requires_explicit_limit",
-                check=check,
-            )
-        if report := self._local_source_auto_vortex_sql_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        ):
-            return report
-        if _is_local_source_sql_statement(self.statement):
-            return self._public_workflow_blocked_report(
-                operation="native-vortex-sql-local-source",
-                target_ref="local_source_sql_requires_vortex_preparation_and_admitted_native_route",
-                requested_output="collect",
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        return self._unsupported_operation("sql", self.statement, check=check)
+        )
+        return VortexWorkflowExecutionReport(
+            workflow=self._report_workflow(), operation="collect", envelope=envelope,
+        )
 
     def limit(self, count: int) -> "SqlWorkflow":
         """Cap this SQL result without expanding an existing limit."""
@@ -2367,9 +1276,7 @@ class SqlWorkflow:
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return a bounded schema report for admitted local-source SQL."""
 
-        if report := self._bounded_schema_report(check=check):
-            return report
-        return self._unsupported_operation("schema", self.statement, check=check)
+        return self._bounded_schema_report(check=check)
 
     def describe_schema(
         self,
@@ -2378,9 +1285,7 @@ class SqlWorkflow:
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return detailed bounded schema evidence for admitted local-source SQL."""
 
-        if report := self._bounded_schema_report(check=check):
-            return report
-        return self._unsupported_operation("describe-schema", self.statement, check=check)
+        return self._bounded_schema_report(check=check)
 
     def validate_schema(
         self,
@@ -2393,10 +1298,10 @@ class SqlWorkflow:
         normalized = _normalize_schema(schema)
         if not normalized:
             raise ValueError("schema validation contract must not be empty")
-        if report := self._bounded_schema_report(check=check):
-            return _validate_workflow_schema(report, normalized)
-        target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
-        return self._unsupported_operation("validate-schema", target, check=check)
+        report = self._bounded_schema_report(check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _validate_workflow_schema(report, normalized)
 
     def schema_contract(
         self,
@@ -2418,8 +1323,10 @@ class SqlWorkflow:
         normalized_checks = _normalize_columns(checks)
         parsed_checks = _parse_data_quality_checks(normalized_checks)
         if parsed_checks is not None:
-            if report := self._bounded_schema_report(check=check):
-                return _workflow_data_quality_report(report, parsed_checks)
+            report = self._bounded_schema_report(check=check)
+            if isinstance(report, UnsupportedWorkflowOperationReport):
+                return report
+            return _workflow_data_quality_report(report, parsed_checks)
         return self._unsupported_operation(
             "data-quality",
             ",".join(normalized_checks),
@@ -2442,13 +1349,10 @@ class SqlWorkflow:
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Return bounded null-count and schema summary for admitted SQL."""
 
-        if report := self._bounded_schema_report(check=check):
-            return WorkflowDataQualityReport(schema_report=report)
-        return self._unsupported_operation(
-            "data-quality-summary",
-            self.statement,
-            check=check,
-        )
+        report = self._bounded_schema_report(check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowDataQualityReport(schema_report=report)
 
     def profile(
         self,
@@ -2463,40 +1367,16 @@ class SqlWorkflow:
         """Return a metadata-first profile for admitted Vortex/prepared SQL."""
 
         _validate_positive_row_count("profile limit", limit)
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            workflow = self._report_workflow()
-            return WorkflowProfileReport(
-                workflow=workflow,
-                smoke_report=report,
-                schema_report=_workflow_schema_report(workflow, report),
-                limit=limit,
-            )
-        if _is_local_source_sql_statement(self.statement):
-            execution = self.client.public_workflow_run(
-                "sql",
-                sql_statement=self.statement,
-                requested_output="profile",
-                execution_policy="vortex_middle",
-                materialization_policy="bounded",
-                evidence_level="production_admitted_local_workflow",
-                bounded=True,
-                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-                check=check,
-            )
-            workflow = self._report_workflow()
-            if execution.envelope.status == "success":
-                return VortexWorkflowExecutionReport(
-                    workflow=workflow,
-                    operation="profile",
-                    envelope=execution.envelope,
-                )
-            return UnsupportedWorkflowOperationReport(
-                workflow=workflow,
-                operation="profile",
-                envelope=execution.envelope,
-            )
-        return self._unsupported_operation("profile", self.statement, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        workflow = self._report_workflow()
+        return WorkflowProfileReport(
+            workflow=workflow,
+            smoke_report=report,
+            schema_report=_workflow_schema_report(workflow, report),
+            limit=limit,
+        )
 
     def quarantine(
         self,
@@ -2520,26 +1400,26 @@ class SqlWorkflow:
                     ",".join(normalized_checks),
                     check=check,
                 )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            workflow = self._report_workflow()
-            schema_report = _workflow_schema_report(workflow, report)
-            parsed_checks = parsed_checks or _workflow_quarantine_checks(schema_report, ())
-            quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
-            return WorkflowQuarantineReport(
-                workflow=workflow,
-                quality_report=quality_report,
-                checks=tuple(spec.raw for spec in parsed_checks),
-                rows=_workflow_quarantine_rows(schema_report, parsed_checks),
-                limit=limit,
-                target_uri=None if target_uri is None else str(target_uri),
-                output_format=_normalize_optional_quarantine_output_format(
-                    target_uri,
-                    output_format,
-                ),
-                sink_report=None,
-            )
-        target = "none" if target_uri is None else str(target_uri)
-        return self._unsupported_operation("quarantine", target, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        workflow = self._report_workflow()
+        schema_report = _workflow_schema_report(workflow, report)
+        parsed_checks = parsed_checks or _workflow_quarantine_checks(schema_report, ())
+        quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
+        return WorkflowQuarantineReport(
+            workflow=workflow,
+            quality_report=quality_report,
+            checks=tuple(spec.raw for spec in parsed_checks),
+            rows=_workflow_quarantine_rows(schema_report, parsed_checks),
+            limit=limit,
+            target_uri=None if target_uri is None else str(target_uri),
+            output_format=_normalize_optional_quarantine_output_format(
+                target_uri,
+                output_format,
+            ),
+            sink_report=None,
+        )
 
     def preview(
         self,
@@ -2550,13 +1430,7 @@ class SqlWorkflow:
         """Return a bounded preview through the native Vortex SQL route when admitted."""
 
         _validate_positive_row_count("preview limit", limit)
-        if (
-            _is_local_source_sql_statement(self.statement)
-            or _vortex_sql_primitive_shape(self.statement)
-            or _vortex_sql_user_route_shape(self.statement)
-        ):
-            return self.limit(limit).collect(check=check)
-        return self._unsupported_operation("preview", str(limit), check=check)
+        return self.limit(limit).collect(check=check)
 
     def head(
         self,
@@ -2567,13 +1441,7 @@ class SqlWorkflow:
         """Return a bounded SQL preview using familiar DataFrame naming."""
 
         _validate_positive_row_count("head limit", limit)
-        if (
-            _is_local_source_sql_statement(self.statement)
-            or _vortex_sql_primitive_shape(self.statement)
-            or _vortex_sql_user_route_shape(self.statement)
-        ):
-            return self.limit(limit).collect(check=check)
-        return self._unsupported_operation("head", str(limit), check=check)
+        return self.limit(limit).collect(check=check)
 
     def take(
         self,
@@ -2583,14 +1451,8 @@ class SqlWorkflow:
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded SQL preview for the requested row count."""
 
-        _validate_positive_row_count("take count", count)
-        if (
-            _is_local_source_sql_statement(self.statement)
-            or _vortex_sql_primitive_shape(self.statement)
-            or _vortex_sql_user_route_shape(self.statement)
-        ):
-            return self.limit(count).collect(check=check)
-        return self._unsupported_operation("take", str(count), check=check)
+        _validate_positive_row_count("take limit", count)
+        return self.limit(count).collect(check=check)
 
     def to_python_objects(
         self,
@@ -2600,25 +1462,10 @@ class SqlWorkflow:
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source SQL."""
 
-        shape = _vortex_sql_primitive_shape(self.statement)
-        if shape is not None and shape.distinct:
-            workflow = self if limit is None else self.limit(limit)
-            report = workflow._vortex_sql_primitive_collect_report(
-                check=check,
-                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-                max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-            )
-            if (report is not None and report.status == "success"
-                    and report.envelope.field("result_jsonl") is not None):
-                return report.result_rows
-            if report is not None and report.status != "success":
-                return UnsupportedWorkflowOperationReport(
-                    self._report_workflow(), "to-python-objects", report.envelope
-                )
-            return self._unsupported_operation("to-python-objects", self.statement, check=check)
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return report.result_rows
-        return self._unsupported_operation("to-python-objects", self.statement, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return report.python_objects
 
     def to_pandas(
         self,
@@ -2628,8 +1475,6 @@ class SqlWorkflow:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a pandas DataFrame at an explicit bounded materialization boundary."""
 
-        if self._bounded_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-pandas", self.statement, check=check)
         pandas = _optional_module("pandas")
         if pandas is None:
             return self._unsupported_operation(
@@ -2637,9 +1482,10 @@ class SqlWorkflow:
                 "missing optional dependency: pandas",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_pandas(report.result_rows, pandas)
-        return self._unsupported_operation("to-pandas", self.statement, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_pandas(report, pandas)
 
     def to_arrow(
         self,
@@ -2649,8 +1495,6 @@ class SqlWorkflow:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table at an explicit bounded materialization boundary."""
 
-        if self._bounded_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-arrow", self.statement, check=check)
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -2658,9 +1502,10 @@ class SqlWorkflow:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_arrow_table(report.result_rows, pyarrow)
-        return self._unsupported_operation("to-arrow", self.statement, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_table(report, pyarrow)
 
     def to_arrow_table(
         self,
@@ -2670,8 +1515,6 @@ class SqlWorkflow:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table for admitted bounded local-source SQL."""
 
-        if self._bounded_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-arrow-table", self.statement, check=check)
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -2679,9 +1522,10 @@ class SqlWorkflow:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_arrow_table(report.result_rows, pyarrow)
-        return self._unsupported_operation("to-arrow-table", self.statement, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_table(report, pyarrow)
 
     def to_arrow_ipc(
         self,
@@ -2691,8 +1535,6 @@ class SqlWorkflow:
     ) -> bytes | UnsupportedWorkflowOperationReport:
         """Return Arrow IPC stream bytes for admitted bounded local-source SQL."""
 
-        if self._bounded_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-arrow-ipc", self.statement, check=check)
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -2700,9 +1542,10 @@ class SqlWorkflow:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_arrow_ipc(report.result_rows, pyarrow)
-        return self._unsupported_operation("to-arrow-ipc", self.statement, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_ipc(report, pyarrow)
 
     def to_numpy(
         self,
@@ -2712,8 +1555,6 @@ class SqlWorkflow:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a NumPy array for admitted bounded local-source SQL rows."""
 
-        if self._bounded_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-numpy", self.statement, check=check)
         numpy = _optional_module("numpy")
         if numpy is None:
             return self._unsupported_operation(
@@ -2721,9 +1562,10 @@ class SqlWorkflow:
                 "missing optional dependency: numpy",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_numpy(report.result_rows, numpy)
-        return self._unsupported_operation("to-numpy", self.statement, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_numpy(report, numpy)
 
     def display(
         self,
@@ -2734,13 +1576,14 @@ class SqlWorkflow:
         """Return a bounded notebook/display preview for admitted local-source SQL."""
 
         _validate_positive_row_count("display limit", limit)
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return WorkflowNotebookPreview(
-                workflow=self._report_workflow(),
-                smoke_report=report,
-                limit=limit,
-            )
-        return self._unsupported_operation("display", str(limit), check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowNotebookPreview(
+            workflow=self._report_workflow(),
+            smoke_report=report,
+            limit=limit,
+        )
 
     def write(
         self,
@@ -2753,10 +1596,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Write an admitted SQL result to a scoped local output."""
 
@@ -2781,10 +1621,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="jsonl")`."""
 
@@ -2808,10 +1645,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
@@ -2835,10 +1669,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="csv")`."""
 
@@ -2861,7 +1692,7 @@ class SqlWorkflow:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`.
 
         Local SQL-source Parquet output requires a CLI built with
@@ -2888,7 +1719,7 @@ class SqlWorkflow:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`.
 
         Local SQL-source Arrow IPC output requires a CLI built with
@@ -2915,7 +1746,7 @@ class SqlWorkflow:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`.
 
         Local SQL-source Avro output requires a CLI built with
@@ -2942,7 +1773,7 @@ class SqlWorkflow:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`.
 
         Local SQL-source ORC output requires a CLI built with
@@ -2970,10 +1801,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="vortex")`.
 
@@ -3005,9 +1833,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Write an admitted SQL result to primary and fanout local sinks."""
 
@@ -3015,22 +1841,6 @@ class SqlWorkflow:
         output_format, output_path = normalized_outputs[0]
         fanout_outputs = normalized_outputs[1:]
         requested_output = _public_write_request_for_format(output_format)
-        if _is_source_free_sql_statement(self.statement):
-            execution = self.client.public_workflow_run(
-                "sql",
-                sql_statement=self.statement,
-                plan_summary=self.operation_summary,
-                requested_output=requested_output,
-                output_ref=output_path,
-                materialization_policy="bounded",
-                evidence_level="runtime_smoke",
-                bounded=True,
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-                check=check,
-            )
-            return GeneratedSourceWriteReport(execution.envelope)
         return self._public_workflow_write_report(
             output_path,
             requested_output=requested_output,
@@ -3054,22 +1864,8 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> (
-        GeneratedSourceWriteReport
-        | SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
-        if (not _native_relational_sql_candidate(self.statement)
-                and requested_output in {"write_vortex", "write_jsonl", "write_csv"}
-                and _vortex_sql_user_route_shape(self.statement) is not None):
-            return self._vortex_sql_user_route_write_report(
-                target_uri, requested_output=requested_output,
-                allow_overwrite=allow_overwrite, check=check,
-                fanout_outputs=fanout_outputs,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-            )
         # The CLI owns source preparation and native operator/sink admission.
         # Sending the original statement preserves optimized aggregate/sort paths
         # and avoids rebuilding compatibility inputs in Python for each sink.
@@ -3089,283 +1885,18 @@ class SqlWorkflow:
             check=check,
             **self._declared_or_embedded_vortex_input_kwargs(),
         )
-        if _is_source_free_sql_statement(self.statement):
-            return GeneratedSourceWriteReport(execution.envelope)
         return VortexWorkflowExecutionReport(
             workflow=self._report_workflow(),
             operation=requested_output,
             envelope=execution.envelope,
         )
 
-    def _public_workflow_blocked_report(
-        self,
-        *,
-        operation: str,
-        target_ref: str | None = None,
-        requested_output: str = "collect",
-        output_ref: str | os.PathLike[str] | None = None,
-        allow_overwrite: bool = False,
-        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        execution = self.client.public_workflow_run(
-            "sql",
-            sql_statement=self.statement,
-            plan_summary=self.operation_summary,
-            requested_output=requested_output,
-            output_ref=output_ref,
-            fanout_outputs=fanout_outputs,
-            execution_policy="vortex_middle",
-            materialization_policy="bounded",
-            evidence_level="production_admitted_local_workflow",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        )
-        return UnsupportedWorkflowOperationReport(
-            workflow=self._report_workflow(),
-            operation=operation,
-            envelope=execution.envelope,
-        )
 
-    def _local_source_auto_vortex_sql_collect_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        candidate = _local_source_auto_vortex_sql_candidate(
-            self.statement,
-            client=self.client,
-        )
-        if candidate is None:
-            return None
-        if (
-            _vortex_sql_primitive_shape(candidate.workflow.statement) is None
-            and _vortex_sql_user_route_shape(candidate.workflow.statement) is None
-        ):
-            return None
-        preparation = self._prepare_local_sql_vortex_sources(
-            candidate,
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-        )
-        if preparation is not None and preparation.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self._report_workflow(),
-                operation="prepare_vortex",
-                envelope=preparation,
-                preparation_envelope=preparation,
-            )
-        report = candidate.workflow._vortex_sql_primitive_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        )
-        if report is None:
-            report = candidate.workflow._vortex_sql_user_route_collect_report(
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-            )
-        if report is None or report.envelope.status != "success":
-            return None
-        return VortexWorkflowExecutionReport(
-            workflow=self._report_workflow(),
-            operation=report.operation,
-            envelope=report.envelope,
-            preparation_envelope=preparation,
-        )
 
-    def _local_source_prepared_sql_compatibility_collect_report(
-        self,
-        *,
-        check: bool,
-    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
-        candidate = _local_source_auto_vortex_sql_candidate(
-            self.statement,
-            client=self.client,
-        )
-        if candidate is None:
-            return None
-        preparation = self._prepare_local_sql_vortex_sources(
-            candidate,
-            check=check,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        )
-        if preparation is not None and preparation.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self._report_workflow(),
-                operation="prepare_vortex",
-                envelope=preparation,
-                preparation_envelope=preparation,
-            )
-        report = self.client.local_source_runtime(
-            self.statement,
-            product_local_workflow=True,
-            check=check,
-        )
-        return SqlLocalSourceSmokeReport(
-            report.envelope,
-            preparation_envelope=preparation,
-        )
 
-    def _local_source_prepared_sql_compatibility_write_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str,
-        allow_overwrite: bool,
-        check: bool,
-    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
-        candidate = _local_source_auto_vortex_sql_candidate(
-            self.statement,
-            client=self.client,
-        )
-        if candidate is None:
-            return None
-        preparation = self._prepare_local_sql_vortex_sources(
-            candidate,
-            check=check,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        )
-        if preparation is not None and preparation.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self._report_workflow(),
-                operation="prepare_vortex",
-                envelope=preparation,
-                preparation_envelope=preparation,
-            )
-        report = self.client.local_source_runtime(
-            self.statement,
-            output_path=target_uri,
-            output_format=output_format,
-            allow_overwrite=allow_overwrite,
-            product_local_workflow=True,
-            check=check,
-        )
-        return SqlLocalSourceSmokeReport(
-            report.envelope,
-            preparation_envelope=preparation,
-        )
 
-    def _local_source_auto_vortex_sql_write_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        requested_output: str,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        candidate = _local_source_auto_vortex_sql_candidate(
-            self.statement,
-            client=self.client,
-        )
-        if candidate is None:
-            return None
-        provider_shape = _vortex_sql_user_route_shape(candidate.workflow.statement)
-        primitive_payload = (
-            _native_vortex_row_export_payload_from_primitive_shape(
-                _vortex_sql_primitive_shape(candidate.workflow.statement)
-            )
-            if requested_output in {"write_json", "write_jsonl", "write_csv"}
-            else None
-        )
-        if provider_shape is None and primitive_payload is None:
-            return None
-        preparation = self._prepare_local_sql_vortex_sources(
-            candidate,
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-        )
-        if preparation is not None and preparation.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self._report_workflow(),
-                operation="prepare_vortex",
-                envelope=preparation,
-                preparation_envelope=preparation,
-            )
-        report = candidate.workflow._vortex_sql_user_route_write_report(
-            target_uri,
-            requested_output=requested_output,
-            allow_overwrite=allow_overwrite,
-            fanout_outputs=fanout_outputs,
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        )
-        if report is None:
-            return None
-        return VortexWorkflowExecutionReport(
-            workflow=self._report_workflow(),
-            operation=report.operation,
-            envelope=report.envelope,
-            preparation_envelope=preparation,
-        )
 
-    def _local_source_auto_vortex_sql_write_vortex_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        return self._local_source_auto_vortex_sql_write_report(
-            target_uri,
-            requested_output="write_vortex",
-            allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        )
 
-    def _prepare_local_sql_vortex_sources(
-        self,
-        candidate: _PreparedVortexSqlCandidate,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-    ) -> OutputEnvelope | None:
-        first_preparation: OutputEnvelope | None = None
-        for source in candidate.sources:
-            source.target.parent.mkdir(parents=True, exist_ok=True)
-            report = self.client.vortex_prepare(
-                source.source_uri,
-                source.target,
-                input_format=source.source_format,
-                allow_overwrite=True,
-                certification_level="ingest_certified",
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                check=check,
-            )
-            if first_preparation is None:
-                first_preparation = report.envelope
-            if report.envelope.status != "success":
-                return report.envelope
-        return first_preparation
 
     def _unsupported_operation(
         self,
@@ -3391,18 +1922,12 @@ class SqlWorkflow:
             envelope=envelope,
         )
 
-    def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
-        statement = self._bounded_local_source_statement(default_limit=100)
-        if statement is None:
-            return None
-        if _is_local_source_sql_statement(statement):
-            return None
-        report = SqlWorkflow(
-            statement=statement,
-            client=self.client,
-        )._local_source_prepared_sql_compatibility_collect_report(check=check)
-        if not isinstance(report, SqlLocalSourceSmokeReport) or report.status != "success":
-            return None
+    def _bounded_schema_report(
+        self, *, check: bool,
+    ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
+        report = self._bounded_materialization_report(limit=100, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
         return _workflow_schema_report(self._report_workflow(), report)
 
     def _bounded_materialization_report(
@@ -3410,229 +1935,18 @@ class SqlWorkflow:
         *,
         limit: int | None,
         check: bool,
-    ) -> SqlLocalSourceSmokeReport | None:
-        if _native_relational_sql_candidate(self.statement):
-            workflow = self if limit is None else self.limit(limit)
-            report = workflow.collect(check=check)
-            return SqlLocalSourceSmokeReport(report.envelope) if report.status == "success" else None
-        statement = self._bounded_local_source_statement(default_limit=limit)
-        if statement is None:
-            return None
-        if _is_local_source_sql_statement(statement):
-            return None
-        report = SqlWorkflow(
-            statement=statement,
-            client=self.client,
-        )._local_source_prepared_sql_compatibility_collect_report(check=check)
-        if not isinstance(report, SqlLocalSourceSmokeReport):
-            return None
-        return report if report.status == "success" else None
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+        if limit is not None:
+            _validate_positive_row_count("materialization limit", limit)
+        report = self.collect(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        if report.status != "success":
+            return UnsupportedWorkflowOperationReport(report.workflow, "collect", report.envelope)
+        return report
 
-    def _bounded_local_source_statement(self, *, default_limit: int | None) -> str | None:
-        if default_limit is not None:
-            _validate_positive_row_count("materialization limit", default_limit)
-        normalized = self.statement.strip().rstrip(";").strip()
-        relational = _native_relational_sql_candidate(normalized)
-        if not _is_local_source_sql_statement(normalized) and not relational:
-            return None
-        limit_index = _find_top_level_sql_keyword_outside_quotes(normalized, "limit")
-        if limit_index is not None:
-            if default_limit is None:
-                return normalized
-            return _cap_top_level_sql_limit(normalized, limit_index, default_limit)
-        if default_limit is None:
-            return normalized if relational else None
-        return f"{normalized} LIMIT {default_limit}"
 
-    def _vortex_sql_primitive_collect_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        shape = _vortex_sql_primitive_shape(self.statement)
-        if shape is None:
-            return None
-        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
-        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
-        if shape.count:
-            primitive = "count_where" if shape.predicate else "count"
-            columns = None
-        elif shape.sort_rows is not None:
-            primitive = "sort_rows"
-            columns = shape.columns
-        elif shape.distinct:
-            primitive = "distinct"
-            columns = shape.columns
-        elif shape.predicate and shape.columns:
-            primitive = "filter_project"
-            columns = shape.columns
-        elif shape.predicate:
-            primitive = "filter"
-            columns = None
-        elif shape.columns and shape.predicate is None:
-            primitive = "project"
-            columns = shape.columns
-        else:
-            return None
-        envelope = self.client.public_workflow_run(
-            "sql",
-            input_uri=shape.uri,
-            input_format="vortex",
-            sql_statement=self.statement,
-            plan_summary=self.operation_summary,
-            requested_output="collect",
-            execution_policy="native_vortex",
-            materialization_policy=(
-                "zero_decode" if primitive in {"count", "count_where"} else "bounded"
-            ),
-            evidence_level="runtime_smoke",
-            bounded=True,
-            native_vortex_operation_family=_native_vortex_operation_family_for_primitive(
-                primitive
-            ),
-            vortex_primitive=primitive,
-            vortex_predicate=shape.predicate,
-            vortex_columns=columns,
-            vortex_source_order_limit=shape.limit,
-            vortex_sort_rows=shape.sort_rows,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        ).envelope
-        return VortexWorkflowExecutionReport(
-            workflow=self._report_workflow(),
-            operation="collect",
-            envelope=envelope,
-        )
 
-    def _vortex_sql_user_route_collect_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        shape = _vortex_sql_user_route_shape(self.statement)
-        if shape is None:
-            return None
-        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
-        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
-        envelope = self.client.public_workflow_run(
-            "sql",
-            input_uri=shape.uri,
-            input_format="vortex",
-            sql_statement=self.statement,
-            plan_summary=self.operation_summary,
-            requested_output="collect",
-            execution_policy="native_vortex",
-            materialization_policy="zero_decode",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            native_vortex_operation_family=shape.operation_family,
-            native_vortex_provider_scenario=shape.provider_scenario,
-            native_vortex_right_input=shape.right_input,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        ).envelope
-        return VortexWorkflowExecutionReport(
-            workflow=self._report_workflow(),
-            operation="collect",
-            envelope=envelope,
-        )
-
-    def _vortex_sql_user_route_write_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        requested_output: str,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        shape = _vortex_sql_user_route_shape(self.statement)
-        if shape is None:
-            if requested_output not in _NATIVE_WRITE_REQUESTS:
-                return None
-            primitive_shape = _vortex_sql_primitive_shape(self.statement)
-            primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
-                primitive_shape
-            )
-            if primitive_payload is None:
-                return None
-            envelope = self.client.public_workflow_run(
-                "sql",
-                input_uri=primitive_shape.uri,
-                input_format="vortex",
-                sql_statement=self.statement,
-                plan_summary=self.operation_summary,
-                requested_output=requested_output,
-                output_ref=target_uri,
-                fanout_outputs=fanout_outputs,
-                execution_policy="native_vortex",
-                materialization_policy="bounded",
-                evidence_level="runtime_smoke",
-                bounded=True,
-                allow_overwrite=allow_overwrite,
-                **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-                check=check,
-                **primitive_payload,
-            ).envelope
-            return VortexWorkflowExecutionReport(
-                workflow=self._report_workflow(),
-                operation=requested_output,
-                envelope=envelope,
-            )
-        envelope = self.client.public_workflow_run(
-            "sql",
-            input_uri=shape.uri,
-            input_format="vortex",
-            sql_statement=self.statement,
-            plan_summary=self.operation_summary,
-            requested_output=requested_output,
-            output_ref=target_uri,
-            fanout_outputs=fanout_outputs,
-            execution_policy="native_vortex",
-            materialization_policy="zero_decode",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            native_vortex_operation_family="sink",
-            native_vortex_provider_scenario=shape.provider_scenario,
-            native_vortex_right_input=shape.right_input,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        ).envelope
-        return VortexWorkflowExecutionReport(
-            workflow=self._report_workflow(),
-            operation=requested_output,
-            envelope=envelope,
-        )
-
-    def _vortex_sql_user_route_write_vortex_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        return self._vortex_sql_user_route_write_report(
-            target_uri,
-            requested_output="write_vortex",
-            allow_overwrite=allow_overwrite,
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        )
 
     def _report_workflow(self) -> "LazyFrame":
         return LazyFrame(
@@ -3723,24 +2037,130 @@ class UnsupportedWorkflowOperationReport:
 
 @dataclass(frozen=True, slots=True)
 class VortexWorkflowExecutionReport:
-    """Report for an admitted local Vortex primitive query-builder execution."""
+    """Rows, diagnostics and sink evidence from the shared Vortex-native engine."""
 
     workflow: "LazyFrame"
     operation: str
     envelope: OutputEnvelope
-    preparation_envelope: OutputEnvelope | None = None
 
     @property
     def result_jsonl(self) -> str:
         """Return complete bounded rows when this execution includes a row payload."""
 
-        return SqlLocalSourceSmokeReport(self.envelope).result_jsonl
+        if self.envelope.field("result_values_json") is not None:
+            return "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in self.result_rows)
+        return _required_field(self.envelope, "result_jsonl", allow_empty=True)
 
     @property
     def result_rows(self) -> tuple[Mapping[str, Any], ...]:
         """Decode this execution's rows without reading or executing its source again."""
 
-        return SqlLocalSourceSmokeReport(self.envelope).result_rows
+        values = self.envelope.field("result_values_json")
+        if values is None:
+            return _jsonl_object_rows(self.result_jsonl, field_name="result_jsonl")
+        try:
+            rows = json.loads(values)
+        except ValueError as error:
+            raise ShardLoomProtocolError("invalid native result_values_json") from error
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ShardLoomProtocolError("native result_values_json requires an array of row objects")
+        return tuple(rows)
+
+    @property
+    def result_schema(self) -> tuple[tuple[str, ResultType], ...]:
+        """Return the ordered schema delivered by this native execution."""
+
+        return schema_fields(_required_field(self.envelope, "result_schema_json"),
+                             _required_field(self.envelope, "result_schema_format"))
+
+    @property
+    def result_columns(self) -> tuple[str, ...]:
+        """Return actual output names even when no rows were produced."""
+
+        return tuple(name for name, _ in self.result_schema)
+
+    @property
+    def python_objects(self) -> tuple[Mapping[str, Any], ...]:
+        """Restore logical binary, decimal and temporal values at this boundary."""
+
+        return tuple(python_rows(self.result_rows, self.result_schema))
+
+    @property
+    def first_result_row(self) -> Mapping[str, Any] | None:
+        """Return the first collected row, or None for an empty result."""
+
+        rows = self.result_rows
+        return rows[0] if rows else None
+
+    @property
+    def is_error(self) -> bool:
+        return self.envelope.is_error
+
+    @property
+    def has_error_diagnostics(self) -> bool:
+        return self.envelope.has_error_diagnostics
+
+    @property
+    def diagnostics(self) -> tuple[Diagnostic, ...]:
+        return self.envelope.diagnostics
+
+    @property
+    def unsupported_reasons(self) -> tuple[str, ...]:
+        reasons = tuple(dict.fromkeys(
+            diagnostic.reason or diagnostic.message for diagnostic in self.diagnostics
+            if diagnostic.reason or diagnostic.message
+        ))
+        if not reasons and self.is_error and self.envelope.human_text:
+            return (self.envelope.human_text,)
+        return reasons
+
+    @property
+    def output_path(self) -> str | None:
+        """Return the primary artifact path reported by the native sink."""
+
+        return self.envelope.field("native_vortex_result_export_path")
+
+    @property
+    def output_format(self) -> str | None:
+        return self.envelope.field("native_vortex_result_export_format")
+
+    @property
+    def rows_written(self) -> int | None:
+        return self.envelope.field_int("native_vortex_result_export_rows_written")
+
+    @property
+    def output_row_count(self) -> int | None:
+        """Return the engine's complete output count when it was reported."""
+
+        return _first_int_field(self.envelope, (
+            "output_row_count", "native_vortex_result_export_rows_written",
+            "rows_projected", "local_primitive_rows_selected",
+        ))
+
+    @property
+    def output_sha256(self) -> str | None:
+        """Return the native writer's digest when that writer reports one."""
+
+        return self.envelope.field("native_vortex_array_sink_output_sha256")
+
+    @property
+    def output_commit_status(self) -> str | None:
+        """Report completion only when every declared sink was committed."""
+
+        committed = self.envelope.field_bool("native_vortex_result_export_all_targets_committed")
+        if committed is None:
+            return None
+        return "committed" if committed else "not_committed"
+
+    @property
+    def native_io_certificate_status(self) -> str | None:
+        return self.envelope.field("local_primitive_native_io_certificate_status")
+
+    @property
+    def output_replay_verified(self) -> bool:
+        """A recorded row count or successful commit does not establish replay."""
+
+        return self.envelope.field_bool("native_vortex_result_export_replay_verified", False) is True
 
     @property
     def command(self) -> str:
@@ -3875,9 +2295,10 @@ class VortexWorkflowExecutionReport:
     def runtime_execution(self) -> bool:
         """Whether the report represents actual local Vortex runtime execution."""
 
-        return self.data_read or _any_true_field(
+        return _any_true_field(
             self.envelope,
             (
+                "runtime_execution",
                 "local_primitive_report_present",
                 "filtered_count_local_execution_result_known",
                 "project_local_execution_result_known",
@@ -3961,21 +2382,17 @@ class VortexWorkflowExecutionReport:
 
     @property
     def vortex_ingest_performed(self) -> bool:
-        """Whether this workflow first normalized a compatibility input into Vortex."""
+        """Whether this native execution performed compatibility input preparation."""
 
-        return self.preparation_envelope is not None and (
-            self.preparation_envelope.field_bool("vortex_ingest_performed", False) is True
-            or self.preparation_envelope.field_bool("prepared_state_created", False) is True
-            or self.preparation_envelope.field_bool("prepared_state_reused", False) is True
-        )
+        return self.envelope.field_bool(
+            "public_workflow_preparation_vortex_ingest_performed", False
+        ) is True
 
     @property
     def prepared_vortex_path(self) -> str | None:
         """Return the internally prepared Vortex artifact path, when present."""
 
-        if self.preparation_envelope is None:
-            return None
-        return self.preparation_envelope.field("target_vortex_path")
+        return self.envelope.field("public_workflow_local_source_prepared_vortex_path")
 
     @property
     def source_state_id(self) -> str | None:
@@ -4008,114 +2425,17 @@ class VortexWorkflowExecutionReport:
         return self._preparation_field("source_state_projection_pushdown_status")
 
     def _preparation_field(self, key: str) -> str | None:
-        if self.preparation_envelope is None:
-            return self.envelope.field(key)
-        return self.preparation_envelope.field(key) or self.envelope.field(key)
+        return self.envelope.field(f"public_workflow_preparation_{key}") or self.envelope.field(key)
 
 
-@dataclass(frozen=True, slots=True)
-class _VortexPrimitiveWorkflowShape:
-    """Parsed subset of lazy operations admitted by local Vortex primitives."""
-
-    predicate: str | None = None
-    columns: tuple[str, ...] | None = None
-    limit: int | None = None
-    distinct: bool = False
-    drop_duplicates: bool = False
-    deduplicate_key_columns: tuple[str, ...] | None = None
-    duplicate_mask: bool = False
-    duplicate_keep: str = "first"
-    tail_limit: int | None = None
-    sample_count: int | None = None
-    sample_seed: int | None = None
-    sample_fraction: float | None = None
-    sample_with_replacement: bool = False
-    sample_weight_column: str | None = None
-    expression_projection: str | None = None
-    melt_projection: str | None = None
-    explode_projection: str | None = None
-    pivot_projection: str | None = None
-    rolling_window: str | None = None
-    sort_rows: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class _NativeVortexUserRouteShape:
-    """Exact provider-backed native Vortex user route shape."""
-
-    operation_family: str
-    provider_scenario: str
-    right_input: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class _NativeVortexSqlUserRouteShape:
-    """Exact SQL provider-backed native Vortex user route shape."""
-
-    uri: str
-    operation_family: str
-    provider_scenario: str
-    right_input: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class _VortexSqlPrimitiveWorkflowShape:
-    """Parsed SQL subset admitted by local Vortex primitive commands."""
-
-    uri: str
-    predicate: str | None = None
-    columns: tuple[str, ...] | None = None
-    limit: int | None = None
-    count: bool = False
-    distinct: bool = False
-    sort_rows: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class _PreparedVortexWorkflowCandidate:
-    """Local compatibility workflow rewritten to a Vortex-native source."""
-
-    frame: "LazyFrame"
-    left_target: Path
-    right_source_uri: str | None = None
-    right_source_format: str | None = None
-    right_target: Path | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class _PreparedVortexSqlSource:
-    """One local SQL source ref normalized into a prepared Vortex artifact."""
-
-    source_uri: str
-    source_format: str
-    target: Path
-
-
-@dataclass(frozen=True, slots=True)
-class _PreparedVortexSqlCandidate:
-    """Local compatibility SQL rewritten to native Vortex source refs."""
-
-    workflow: "SqlWorkflow"
-    sources: tuple[_PreparedVortexSqlSource, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class _VortexSqlRouteClauses:
-    """Parsed top-level SQL clauses for exact native Vortex provider routes."""
-
-    where: str | None = None
-    group_by: str | None = None
-    order_by: str | None = None
-    limit: int | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class _ParsedVortexSqlSingleSourceRoute:
-    """Parsed single-source SQL route used for structural provider admission."""
-
-    uri: str
-    projection: tuple[str, ...]
-    clauses: _VortexSqlRouteClauses
 
 
 @dataclass(frozen=True, slots=True)
@@ -4225,40 +2545,6 @@ class RollingFrame:
         return self._aggregate("max", column, alias=alias, check=check, **kwargs)
 
 
-def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
-    normalized = primitive.strip().lower().replace("-", "_")
-    if normalized in {"count", "count_where", "filter_count", "filtered_count"}:
-        return "count"
-    if normalized in {"distinct", "distinct_rows", "unique"}:
-        return "distinct"
-    if normalized in {"drop_duplicates", "drop_duplicate_rows", "deduplicate", "dedup"}:
-        return "distinct"
-    if normalized in {"duplicate_mask", "duplicate_mask_rows", "duplicated"}:
-        return "duplicate_mask"
-    if normalized in {"tail", "tail_rows", "source_order_tail"}:
-        return "top_n"
-    if normalized in {"sort_rows", "sort", "order_by", "sort_index"}:
-        return "top_n"
-    if normalized in {"sample", "sample_rows", "deterministic_sample"}:
-        return "sample"
-    if normalized in {"expression_project", "expression_project_rows", "mask", "replace"}:
-        return "expression_project"
-    if normalized in {"melt", "melt_rows", "unpivot"}:
-        return "melt"
-    if normalized in {"explode", "explode_rows", "list_explode"}:
-        return "explode"
-    if normalized in {"pivot", "pivot_rows", "pivot_table", "pivot_wide_reshape"}:
-        return "pivot"
-    if normalized in {
-        "rolling",
-        "rolling_window",
-        "rolling_rows",
-        "rolling_sum",
-        "rolling_mean",
-        "rolling_count",
-    }:
-        return "rolling_window"
-    return "filter_project_limit"
 
 
 def _strip_index_metadata_operations(
@@ -4267,259 +2553,10 @@ def _strip_index_metadata_operations(
     return tuple(operation for operation in operations if operation.kind != "set_index")
 
 
-def _sql_native_vortex_public_workflow_kwargs(
-    statement: str,
-    *,
-    requested_output: str,
-) -> dict[str, Any]:
-    """Return exact native Vortex route payloads inferred from a SQL workflow."""
-
-    if (_native_relational_sql_candidate(statement)
-            or _native_flat_aggregate_sql_candidate(statement)
-            or _native_flat_projection_sql_candidate(statement)):
-        return {}
-    if requested_output in _NATIVE_WRITE_REQUESTS:
-        provider_shape = _vortex_sql_user_route_shape(statement)
-        if provider_shape is not None:
-            payload: dict[str, Any] = {
-                "input_uri": provider_shape.uri,
-                "input_format": "vortex",
-                "native_vortex_operation_family": "sink",
-                "native_vortex_provider_scenario": provider_shape.provider_scenario,
-            }
-            if provider_shape.right_input is not None:
-                payload["native_vortex_right_input"] = provider_shape.right_input
-            return payload
-        primitive_shape = _vortex_sql_primitive_shape(statement)
-        primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
-            primitive_shape
-        )
-        if primitive_payload is not None:
-            return {
-                "input_uri": primitive_shape.uri,
-                "input_format": "vortex",
-                **primitive_payload,
-            }
-        return {}
-    if requested_output != "collect":
-        return {}
-    primitive_shape = _vortex_sql_primitive_shape(statement)
-    if primitive_shape is not None:
-        if primitive_shape.count:
-            primitive = "count_where" if primitive_shape.predicate else "count"
-            columns = None
-        elif primitive_shape.sort_rows is not None:
-            primitive = "sort_rows"
-            columns = primitive_shape.columns
-        elif primitive_shape.distinct:
-            primitive = "distinct"
-            columns = primitive_shape.columns
-        elif primitive_shape.predicate and primitive_shape.columns:
-            primitive = "filter_project"
-            columns = primitive_shape.columns
-        elif primitive_shape.predicate:
-            primitive = "filter"
-            columns = None
-        elif primitive_shape.columns:
-            primitive = "project"
-            columns = primitive_shape.columns
-        else:
-            primitive = None
-            columns = None
-        if primitive is not None:
-            return {
-                "input_uri": primitive_shape.uri,
-                "input_format": "vortex",
-                "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
-                    primitive
-                ),
-                "vortex_primitive": primitive,
-                "vortex_predicate": primitive_shape.predicate,
-                "vortex_columns": columns,
-                "vortex_source_order_limit": primitive_shape.limit,
-                "vortex_sort_rows": primitive_shape.sort_rows,
-            }
-    provider_shape = _vortex_sql_user_route_shape(statement)
-    if provider_shape is None:
-        return {}
-    payload = {
-        "input_uri": provider_shape.uri,
-        "input_format": "vortex",
-        "native_vortex_operation_family": provider_shape.operation_family,
-        "native_vortex_provider_scenario": provider_shape.provider_scenario,
-    }
-    if provider_shape.right_input is not None:
-        payload["native_vortex_right_input"] = provider_shape.right_input
-    return payload
 
 
-def _native_vortex_collect_payload_from_primitive_shape(
-    shape: _VortexPrimitiveWorkflowShape | None,
-) -> dict[str, Any] | None:
-    if shape is None:
-        return None
-    if shape.expression_projection is not None:
-        primitive = "expression_project"
-        source_order_limit = shape.limit
-    elif shape.melt_projection is not None:
-        primitive = "melt"
-        source_order_limit = shape.limit
-    elif shape.explode_projection is not None:
-        primitive = "explode"
-        source_order_limit = shape.limit
-    elif shape.pivot_projection is not None:
-        primitive = "pivot"
-        source_order_limit = shape.limit
-    elif shape.rolling_window is not None:
-        primitive = "rolling_window"
-        source_order_limit = shape.limit
-    elif shape.sort_rows is not None:
-        primitive = "sort_rows"
-        source_order_limit = shape.limit
-    elif shape.sample_count is not None or shape.sample_fraction is not None:
-        primitive = "sample"
-        source_order_limit = shape.sample_count
-    elif shape.tail_limit is not None:
-        primitive = "tail"
-        source_order_limit = shape.tail_limit
-    elif shape.distinct:
-        primitive = "distinct"
-        source_order_limit = shape.limit
-    elif shape.drop_duplicates:
-        primitive = "drop_duplicates"
-        source_order_limit = shape.limit
-    elif shape.duplicate_mask:
-        primitive = "duplicate_mask"
-        source_order_limit = shape.limit
-    elif shape.predicate and shape.columns:
-        primitive = "filter_project"
-        source_order_limit = shape.limit
-    elif shape.predicate:
-        primitive = "filter"
-        source_order_limit = shape.limit
-    elif shape.columns:
-        primitive = "project"
-        source_order_limit = shape.limit
-    else:
-        return None
-    return {
-        "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
-            primitive
-        ),
-        "vortex_primitive": primitive,
-        "vortex_predicate": shape.predicate,
-        "vortex_columns": shape.columns,
-        "vortex_source_order_limit": source_order_limit,
-        "vortex_sample_seed": shape.sample_seed,
-        "vortex_sample_fraction": shape.sample_fraction,
-        "vortex_sample_replacement": shape.sample_with_replacement,
-        "vortex_sample_weight_column": shape.sample_weight_column,
-        "vortex_duplicate_keep": shape.duplicate_keep
-        if primitive in {"duplicate_mask", "drop_duplicates"}
-        else None,
-        "vortex_deduplicate_key_columns": shape.deduplicate_key_columns
-        if primitive == "drop_duplicates"
-        else None,
-        "vortex_expression_projection": shape.expression_projection,
-        "vortex_melt_projection": shape.melt_projection,
-        "vortex_explode_projection": shape.explode_projection,
-        "vortex_pivot_projection": shape.pivot_projection,
-        "vortex_rolling_window": shape.rolling_window,
-        "vortex_sort_rows": shape.sort_rows,
-    }
 
 
-def _native_vortex_row_export_payload_from_primitive_shape(
-    shape: Any | None,
-) -> dict[str, Any] | None:
-    if shape is None or getattr(shape, "count", False):
-        return None
-    predicate = getattr(shape, "predicate", None)
-    columns = getattr(shape, "columns", None)
-    sample_count = getattr(shape, "sample_count", None)
-    sample_fraction = getattr(shape, "sample_fraction", None)
-    sample_with_replacement = bool(getattr(shape, "sample_with_replacement", False))
-    sample_weight_column = getattr(shape, "sample_weight_column", None)
-    duplicate_keep = getattr(shape, "duplicate_keep", None)
-    deduplicate_key_columns = getattr(shape, "deduplicate_key_columns", None)
-    tail_limit = getattr(shape, "tail_limit", None)
-    expression_projection = getattr(shape, "expression_projection", None)
-    melt_projection = getattr(shape, "melt_projection", None)
-    explode_projection = getattr(shape, "explode_projection", None)
-    pivot_projection = getattr(shape, "pivot_projection", None)
-    rolling_window = getattr(shape, "rolling_window", None)
-    sort_rows = getattr(shape, "sort_rows", None)
-    if expression_projection is not None:
-        primitive = "expression_project"
-        source_order_limit = getattr(shape, "limit", None)
-    elif melt_projection is not None:
-        primitive = "melt"
-        source_order_limit = getattr(shape, "limit", None)
-    elif explode_projection is not None:
-        primitive = "explode"
-        source_order_limit = getattr(shape, "limit", None)
-    elif pivot_projection is not None:
-        primitive = "pivot"
-        source_order_limit = getattr(shape, "limit", None)
-    elif rolling_window is not None:
-        primitive = "rolling_window"
-        source_order_limit = getattr(shape, "limit", None)
-    elif sort_rows is not None:
-        primitive = "sort_rows"
-        source_order_limit = getattr(shape, "limit", None)
-    elif sample_count is not None or sample_fraction is not None:
-        primitive = "sample"
-        source_order_limit = sample_count
-    elif tail_limit is not None:
-        primitive = "tail"
-        source_order_limit = tail_limit
-    elif getattr(shape, "duplicate_mask", False):
-        primitive = "duplicate_mask"
-        source_order_limit = getattr(shape, "limit", None)
-    elif getattr(shape, "distinct", False):
-        primitive = "distinct"
-        source_order_limit = getattr(shape, "limit", None)
-    elif getattr(shape, "drop_duplicates", False):
-        primitive = "drop_duplicates"
-        source_order_limit = getattr(shape, "limit", None)
-    elif predicate and columns:
-        primitive = "filter_project"
-        source_order_limit = getattr(shape, "limit", None)
-    elif predicate:
-        primitive = "filter"
-        source_order_limit = getattr(shape, "limit", None)
-    elif columns:
-        primitive = "project"
-        source_order_limit = getattr(shape, "limit", None)
-    else:
-        # A validated source-only shape writes every field through the existing
-        # native projection path; callers need not add a redundant select("*").
-        primitive = "project"
-        columns = ("*",)
-        source_order_limit = getattr(shape, "limit", None)
-    return {
-        "native_vortex_operation_family": "sink",
-        "vortex_primitive": primitive,
-        "vortex_predicate": predicate,
-        "vortex_columns": columns,
-        "vortex_source_order_limit": source_order_limit,
-        "vortex_sample_seed": getattr(shape, "sample_seed", None),
-        "vortex_sample_fraction": sample_fraction,
-        "vortex_sample_replacement": sample_with_replacement,
-        "vortex_sample_weight_column": sample_weight_column,
-        "vortex_duplicate_keep": duplicate_keep
-        if primitive in {"duplicate_mask", "drop_duplicates"}
-        else None,
-        "vortex_deduplicate_key_columns": deduplicate_key_columns
-        if primitive == "drop_duplicates"
-        else None,
-        "vortex_expression_projection": expression_projection,
-        "vortex_melt_projection": melt_projection,
-        "vortex_explode_projection": explode_projection,
-        "vortex_pivot_projection": pivot_projection,
-        "vortex_rolling_window": rolling_window,
-        "vortex_sort_rows": sort_rows,
-    }
 
 
 def _vortex_expression_project_columns_from_payload(payload: str) -> tuple[str, ...] | None:
@@ -4929,7 +2966,7 @@ class WorkflowSchemaReport:
     """Schema report backed by an admitted local-source runtime smoke."""
 
     workflow: "LazyFrame"
-    smoke_report: SqlLocalSourceSmokeReport
+    smoke_report: VortexWorkflowExecutionReport
     fields: tuple[WorkflowSchemaField, ...]
 
     @property
@@ -5109,7 +3146,7 @@ class WorkflowProfileReport:
     """Bounded runtime profile over an admitted local-source workflow."""
 
     workflow: "LazyFrame"
-    smoke_report: SqlLocalSourceSmokeReport
+    smoke_report: VortexWorkflowExecutionReport
     schema_report: WorkflowSchemaReport
     limit: int
 
@@ -5153,13 +3190,13 @@ class WorkflowProfileReport:
     def runtime_execution(self) -> bool:
         """Whether the backing runtime smoke executed."""
 
-        return True
+        return self.smoke_report.runtime_execution
 
     @property
     def data_read(self) -> bool:
         """Whether the backing runtime smoke read source data."""
 
-        return True
+        return self.smoke_report.data_read
 
     @property
     def write_io(self) -> bool:
@@ -5209,7 +3246,7 @@ class WorkflowQuarantineReport:
     limit: int
     target_uri: str | None
     output_format: str | None
-    sink_report: SqlLocalSourceSmokeReport | None = None
+    sink_report: VortexWorkflowExecutionReport | None = None
 
     @property
     def quarantine_policy(self) -> str:
@@ -5265,25 +3302,25 @@ class WorkflowQuarantineReport:
 
         if self.sink_report is None:
             return None
-        return self.sink_report.output_native_io_certificate_status
+        return self.sink_report.native_io_certificate_status
 
     @property
     def result_replay_verified(self) -> bool:
         """Whether a written quarantine sink was replay verified."""
 
-        return self.sink_report is not None and self.sink_report.result_replay_verified
+        return self.sink_report is not None and self.sink_report.output_replay_verified
 
     @property
     def runtime_execution(self) -> bool:
         """Whether the backing runtime smoke executed."""
 
-        return True
+        return self.quality_report.schema_report.smoke_report.runtime_execution
 
     @property
     def data_read(self) -> bool:
         """Whether the backing runtime smoke read source data."""
 
-        return True
+        return self.quality_report.schema_report.smoke_report.data_read
 
     @property
     def write_io(self) -> bool:
@@ -5337,7 +3374,7 @@ class WorkflowNotebookPreview:
     """Bounded notebook/display preview with explicit materialization evidence."""
 
     workflow: "LazyFrame"
-    smoke_report: SqlLocalSourceSmokeReport
+    smoke_report: VortexWorkflowExecutionReport
     limit: int
 
     @property
@@ -5874,8 +3911,7 @@ class LazyFrame:
                     )
                     if payload is not None:
                         candidate = indexed._append(WorkflowOperation("melt", (payload,)))
-                        if (candidate._vortex_primitive_shape() is not None
-                                or candidate._native_relational_statement() is not None):
+                        if candidate._relation_statement() is not None:
                             return candidate
         if ignore_index and (
             payload := _vortex_melt_projection_payload(
@@ -6702,7 +4738,7 @@ class LazyFrame:
                 if isinstance(expression, (Decimal, bytes, bytearray, date))
                 else _generated_literal_expression(expression)
             )
-            expression_sql = _sql_literal(literal)
+            expression_sql = "NULL" if literal is None else _sql_literal(literal)
         except (TypeError, ValueError):
             try:
                 expression_sql = _sql_computed_projection_expression(expression)
@@ -6802,54 +4838,6 @@ class LazyFrame:
             raise ValueError("limit count must be non-negative")
         return self._append(WorkflowOperation("limit", (str(count),)))
 
-    def _native_vortex_public_workflow_kwargs(
-        self,
-        *,
-        requested_output: str,
-    ) -> dict[str, Any]:
-        """Return exact native Vortex route payloads inferred from this lazy plan."""
-
-        if self._native_relational_statement() is not None or self.source.source_format != "vortex":
-            return {}
-        if requested_output == "profile":
-            return {"native_vortex_operation_family": "profile"}
-        if requested_output in _NATIVE_WRITE_REQUESTS:
-            shape = self._native_vortex_user_route_shape()
-            if shape is not None:
-                payload: dict[str, Any] = {
-                    "native_vortex_operation_family": "sink",
-                    "native_vortex_provider_scenario": shape.provider_scenario,
-                }
-                if shape.right_input is not None:
-                    payload["native_vortex_right_input"] = shape.right_input
-                return payload
-            primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
-                self._vortex_primitive_shape()
-            )
-            if primitive_payload is not None:
-                return primitive_payload
-            if requested_output in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc"}:
-                return self._native_vortex_structured_export_payload() or {}
-            return {}
-        if requested_output != "collect":
-            return {}
-        primitive_shape = self._vortex_primitive_shape()
-        if primitive_shape is not None:
-            primitive_payload = _native_vortex_collect_payload_from_primitive_shape(
-                primitive_shape
-            )
-            if primitive_payload is not None:
-                return primitive_payload
-        provider_shape = self._native_vortex_user_route_shape()
-        if provider_shape is None:
-            return {}
-        payload = {
-            "native_vortex_operation_family": provider_shape.operation_family,
-            "native_vortex_provider_scenario": provider_shape.provider_scenario,
-        }
-        if provider_shape.right_input is not None:
-            payload["native_vortex_right_input"] = provider_shape.right_input
-        return payload
 
     def plan(self, *, check: bool = False) -> OutputEnvelope:
         """Return a side-effect-free input/read planning envelope."""
@@ -6896,12 +4884,9 @@ class LazyFrame:
         effective_evidence_level = evidence_level
         if (
             evidence_level == "runtime_smoke"
-            and _is_query_builder_local_source(self.source)
+            and _is_declared_local_source(self.source)
         ):
             effective_evidence_level = "production_admitted_local_workflow"
-        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
-            requested_output=requested_output,
-        )
         effective_execution_policy = (
             _public_workflow_default_execution_policy(self.source)
             if execution_policy is None
@@ -6912,11 +4897,8 @@ class LazyFrame:
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
-            sql_statement=relational_statement or self._sql_local_source_statement(),
-            source_bindings=(
-                _workflow_source_bindings(self._declared_sources())
-                if relational_statement else None
-            ),
+            sql_statement=relational_statement,
+            source_bindings=_workflow_source_bindings(self._declared_sources()),
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
@@ -6926,7 +4908,6 @@ class LazyFrame:
             bounded=normalized_bounded,
             check=check,
             **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            **native_vortex_kwargs,
         )
 
     def run(
@@ -6950,9 +4931,6 @@ class LazyFrame:
             if bounded is None and requested_output == "collect"
             else bounded
         )
-        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
-            requested_output=requested_output,
-        )
         effective_execution_policy = (
             _public_workflow_default_execution_policy(self.source)
             if execution_policy is None
@@ -6963,11 +4941,8 @@ class LazyFrame:
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
-            sql_statement=relational_statement or self._sql_local_source_statement(),
-            source_bindings=(
-                _workflow_source_bindings(self._declared_sources())
-                if relational_statement else None
-            ),
+            sql_statement=relational_statement,
+            source_bindings=_workflow_source_bindings(self._declared_sources()),
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
@@ -6977,7 +4952,6 @@ class LazyFrame:
             bounded=normalized_bounded,
             **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
-            **native_vortex_kwargs,
         )
 
     def prepare(
@@ -7015,61 +4989,14 @@ class LazyFrame:
         """Return a metadata-first profile for admitted Vortex/prepared workflows."""
 
         _validate_positive_row_count("profile limit", limit)
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return WorkflowProfileReport(
-                workflow=self,
-                smoke_report=report,
-                schema_report=_workflow_schema_report(self, report),
-                limit=limit,
-            )
-        if self.source.source_format == "vortex" or _is_query_builder_local_source(
-            self.source
-        ):
-            execution = self._public_workflow_profile_execution(check=check)
-            if execution.envelope.status == "success":
-                return VortexWorkflowExecutionReport(
-                    workflow=self,
-                    operation="profile",
-                    envelope=execution.envelope,
-                )
-            return UnsupportedWorkflowOperationReport(
-                workflow=self,
-                operation="profile",
-                envelope=execution.envelope,
-            )
-        return self._unsupported_operation("profile", str(limit), check=check)
-
-    def _public_workflow_profile_execution(
-        self,
-        *,
-        check: bool,
-    ) -> PublicWorkflowExecution:
-        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
-            requested_output="profile",
-        )
-        return self.client.public_workflow_run(
-            "dataframe",
-            input_uri=self.source.uri,
-            input_format=_public_workflow_input_format(self.source),
-            sql_statement=self._sql_local_source_statement(),
-            plan_summary=self.operation_summary,
-            requested_output="profile",
-            execution_policy=(
-                "native_vortex" if self.source.source_format == "vortex" else "vortex_middle"
-            ),
-            materialization_policy=(
-                "zero_decode" if self.source.source_format == "vortex" else "bounded"
-            ),
-            evidence_level=(
-                "runtime_smoke"
-                if self.source.source_format == "vortex"
-                else "production_admitted_local_workflow"
-            ),
-            bounded=True,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-            check=check,
-            **native_vortex_kwargs,
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowProfileReport(
+            workflow=self,
+            smoke_report=report,
+            schema_report=_workflow_schema_report(self, report),
+            limit=limit,
         )
 
     def collect(
@@ -7081,62 +5008,23 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
     ) -> (
-        SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
-        """Collect admitted local file rows or run admitted local Vortex primitives."""
-
+        """Collect the complete bounded result through the shared native engine."""
         if limit is not None:
-            frame = self if _workflow_has_limit(self.operations) else self.limit(limit)
-            return frame.collect(
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-            )
-        if statement := self._native_relational_statement():
-            envelope = _collect_native_relational(
-                self.client, statement, surface="dataframe",
-                plan_summary=self.operation_summary,
-                input_kwargs={"input_uri": self.source.uri,
-                              "input_format": _public_workflow_input_format(self.source),
-                              "source_bindings": _workflow_source_bindings(self._declared_sources())},
-                check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
-                spill=spill,
-            )
-            return VortexWorkflowExecutionReport(workflow=self, operation="collect", envelope=envelope)
-        if report := self._vortex_user_route_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        ):
-            return report
-        if report := self._vortex_local_primitive_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        ):
-            return report
-        if report := self._local_source_auto_vortex_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        ):
-            return report
-        if _is_query_builder_local_source(self.source):
-            return self._public_workflow_blocked_report(
-                operation="collect",
-                requested_output="collect",
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        return self._unsupported_operation("collect", check=check)
+            return self.limit(limit).collect(check=check, memory_gb=memory_gb,
+                                            max_parallelism=max_parallelism, spill=spill)
+        statement = self._relation_statement()
+        if statement is None:
+            return self._unsupported_operation("collect", check=check)
+        envelope = _collect_native_relational(
+            self.client, statement, surface="dataframe", plan_summary=self.operation_summary,
+            input_kwargs={"input_uri": self.source.uri,
+                          "input_format": _public_workflow_input_format(self.source),
+                          "source_bindings": _workflow_source_bindings(self._declared_sources())},
+            check=check, memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill,
+        )
+        return VortexWorkflowExecutionReport(self, "collect", envelope)
 
     def count(
         self,
@@ -7146,38 +5034,13 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
     ) -> (
-        SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
-        """Return a scoped row-count report for admitted local workflows."""
-
-        if report := self._vortex_local_primitive_count_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        ):
-            return report
-        if report := self._local_source_auto_vortex_count_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        ):
-            return report
-        if self._can_append_scalar_aggregate():
-            return (
-                self._append(WorkflowOperation("aggregate", ("count(*)",)))
-                .limit(1)
-                .collect(
-                    check=check,
-                    memory_gb=memory_gb,
-                    max_parallelism=max_parallelism,
-                    spill=spill,
-                )
-            )
-        return self._unsupported_operation("count", check=check)
+        """Declare COUNT over this complete input; native planning selects its strategy."""
+        if self._relation_statement() is None:
+            return self._unsupported_operation("count", check=check)
+        return self._append(WorkflowOperation("aggregate", ("COUNT(*) AS count",))).collect(
+            check=check, memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill)
 
     def write(
         self,
@@ -7190,91 +5053,16 @@ class LazyFrame:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport
-        | SqlLocalSourceSmokeReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
-        """Write an admitted Vortex-backed result to a local sink."""
-
+        """Write this complete native declaration through the requested output adapter."""
         normalized_output_format = _normalize_local_output_format(output_format)
-        if normalized_output_format == "vortex":
-            return self.write_vortex(
-                target_uri,
-                allow_overwrite=allow_overwrite,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
         requested_output = _public_write_request_for_format(normalized_output_format)
-        if (self._native_relational_statement() is not None
-                or self._sql_local_source_statement() is not None):
-            return self._public_workflow_write_report(
-                target_uri, requested_output=requested_output,
-                allow_overwrite=allow_overwrite, memory_gb=memory_gb,
-                max_parallelism=max_parallelism, spill=spill, check=check,
-            )
-        if self.source.source_format == "vortex":
-            return self._vortex_user_route_write_report(
-                target_uri,
-                requested_output=requested_output,
-                operation=f"write_{normalized_output_format.replace('-', '_')}",
-                allow_overwrite=allow_overwrite,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        if report := self._local_source_auto_vortex_write_report(
-            target_uri,
-            requested_output=requested_output,
-            operation=f"write_{normalized_output_format.replace('-', '_')}",
-            allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        ):
-            return report
-        if _is_query_builder_local_source(self.source):
-            return self._public_workflow_blocked_report(
-                operation=f"native-vortex-{normalized_output_format}-sink",
-                target_ref=str(target_uri),
-                requested_output=requested_output,
-                output_ref=target_uri,
-                allow_overwrite=allow_overwrite,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        statement = self._sql_local_source_statement()
-        if statement is None:
-            if self.source.source_format == "vortex":
-                return self._unsupported_operation(
-                    "native-vortex-sink",
-                    str(target_uri),
-                    check=check,
-                )
-            raise ValueError(
-                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, feature-gated flat Parquet, feature-gated flat Arrow IPC, feature-gated flat Avro, or feature-gated flat ORC source with "
-                "select(...), optional filter(...), and limit(...) operations, "
-                "aggregate(...), optional filter(...), and limit(...) operations, or "
-                "optional filter(...), group_by(...).agg(...), and limit(...) operations, "
-                "select(...), optional filter(...), sort(...), and limit(...) operations, "
-                "select(...), optional filter(...), distinct(), optional sort(...), and limit(...) operations, "
-                "with_column(...), optional filter(...), and limit(...) operations, or "
-                "select(...), optional filter(...), window(...), and limit(...) operations, or "
-                "a scoped local-source join with select(...), optional filter(...), and limit(...)"
-            )
+        if self._relation_statement() is None:
+            return self._unsupported_operation(requested_output, str(target_uri), check=check)
         return self._public_workflow_write_report(
-            target_uri,
-            requested_output=requested_output,
-            allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
+            target_uri, requested_output=requested_output, allow_overwrite=allow_overwrite,
+            memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill, check=check,
         )
 
     def write_jsonl(
@@ -7286,7 +5074,7 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="jsonl")`."""
 
         return self.write(
@@ -7308,7 +5096,7 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
         return self.write(
@@ -7330,7 +5118,7 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="csv")`."""
 
         return self.write(
@@ -7352,7 +5140,7 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -7378,7 +5166,7 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -7404,7 +5192,7 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -7430,7 +5218,7 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -7457,69 +5245,17 @@ class LazyFrame:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        SqlLocalSourceSmokeReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
-        """Write an admitted local source result to multiple local sinks."""
-
+        """Write one declared workflow through the common multi-output owner."""
         normalized_outputs = _normalize_fanout_outputs(outputs)
         output_format, output_path = normalized_outputs[0]
-        requested_output = _public_write_request_for_format(output_format)
-        fanout_outputs = normalized_outputs[1:]
-        if (self._native_relational_statement() is not None
-                or self.source.schema and self._sql_local_source_statement() is not None):
-            return self._public_workflow_write_report(
-                output_path,
-                requested_output=requested_output,
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        if self.source.source_format == "vortex":
-            return self._vortex_user_route_write_report(
-                output_path,
-                requested_output=requested_output,
-                operation=f"fanout_{output_format.replace('-', '_')}",
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        if report := self._local_source_auto_vortex_write_report(
-            output_path,
-            requested_output=requested_output,
-            operation=f"fanout_{output_format.replace('-', '_')}",
-            allow_overwrite=allow_overwrite,
-            fanout_outputs=fanout_outputs,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        ):
-            return report
-        if _is_query_builder_local_source(self.source):
-            return self._public_workflow_blocked_report(
-                operation="native-vortex-fanout-sink",
-                target_ref=str(output_path),
-                requested_output=requested_output,
-                output_ref=output_path,
-                allow_overwrite=allow_overwrite,
-                fanout_outputs=fanout_outputs,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        return self._unsupported_operation(
-            "native-vortex-fanout-sink",
-            str(output_path),
-            check=check,
+        if self._relation_statement() is None:
+            return self._unsupported_operation("fanout", str(output_path), check=check)
+        return self._public_workflow_write_report(
+            output_path, requested_output=_public_write_request_for_format(output_format),
+            allow_overwrite=allow_overwrite, fanout_outputs=normalized_outputs[1:],
+            memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill, check=check,
         )
 
     def to_pandas(
@@ -7530,8 +5266,6 @@ class LazyFrame:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a pandas DataFrame at an explicit bounded materialization boundary."""
 
-        if self._sql_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-pandas", check=check)
         pandas = _optional_module("pandas")
         if pandas is None:
             return self._unsupported_operation(
@@ -7539,9 +5273,10 @@ class LazyFrame:
                 "missing optional dependency: pandas",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_pandas(report.result_rows, pandas)
-        return self._unsupported_operation("to-pandas", check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_pandas(report, pandas)
 
     def to_arrow(
         self,
@@ -7551,8 +5286,6 @@ class LazyFrame:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table at an explicit bounded materialization boundary."""
 
-        if self._sql_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-arrow", check=check)
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -7560,9 +5293,10 @@ class LazyFrame:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_arrow_table(report.result_rows, pyarrow)
-        return self._unsupported_operation("to-arrow", check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_table(report, pyarrow)
 
     def to_arrow_table(
         self,
@@ -7572,8 +5306,6 @@ class LazyFrame:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table for admitted bounded local-source workflows."""
 
-        if self._sql_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-arrow-table", check=check)
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -7581,9 +5313,10 @@ class LazyFrame:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_arrow_table(report.result_rows, pyarrow)
-        return self._unsupported_operation("to-arrow-table", check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_table(report, pyarrow)
 
     def to_arrow_ipc(
         self,
@@ -7593,8 +5326,6 @@ class LazyFrame:
     ) -> bytes | UnsupportedWorkflowOperationReport:
         """Return Arrow IPC stream bytes for admitted bounded local-source workflows."""
 
-        if self._sql_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-arrow-ipc", check=check)
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -7602,9 +5333,10 @@ class LazyFrame:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_arrow_ipc(report.result_rows, pyarrow)
-        return self._unsupported_operation("to-arrow-ipc", check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_ipc(report, pyarrow)
 
     def to_numpy(
         self,
@@ -7614,8 +5346,6 @@ class LazyFrame:
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a NumPy array for admitted bounded local-source workflow rows."""
 
-        if self._sql_local_source_statement(default_limit=limit) is None:
-            return self._unsupported_operation("to-numpy", check=check)
         numpy = _optional_module("numpy")
         if numpy is None:
             return self._unsupported_operation(
@@ -7623,9 +5353,10 @@ class LazyFrame:
                 "missing optional dependency: numpy",
                 check=check,
             )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return _rows_to_numpy(report.result_rows, numpy)
-        return self._unsupported_operation("to-numpy", check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_numpy(report, numpy)
 
     def to_python_objects(
         self,
@@ -7634,43 +5365,29 @@ class LazyFrame:
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source workflows."""
 
-        if (self._native_relational_statement() is not None
-                or any(operation.kind in _NATIVE_UNARY_PRIMITIVES for operation in self.operations)):
-            report = self.collect(check=check)
-            if (isinstance(report, VortexWorkflowExecutionReport) and report.status == "success"
-                    and report.envelope.field("result_jsonl") is not None):
-                return report.result_rows
-            if isinstance(report, VortexWorkflowExecutionReport) and report.status != "success":
-                return UnsupportedWorkflowOperationReport(self, "to-python-objects", report.envelope)
-            return self._unsupported_operation("to-python-objects", check=check)
-        if report := self._bounded_materialization_report(limit=None, check=check):
-            return report.result_rows
-        return self._unsupported_operation("to-python-objects", check=check)
+        report = self._bounded_materialization_report(limit=None, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return report.python_objects
 
     def prepare_vortex(
         self,
         target_vortex_path: str | os.PathLike[str] | None = None,
         *,
-        dim: str | os.PathLike[str] | None = None,
         workspace: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
-        cdc_delta: str | os.PathLike[str] | None = None,
-        result_workspace: str | os.PathLike[str] | None = None,
-        evidence_level: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         check: bool = True,
-    ) -> VortexIngestSmokeReport | CompatibilityPreparedVortexRoute:
+    ) -> VortexIngestSmokeReport | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Prepare this raw local source into a caller-owned `VortexPreparedState`.
 
         When `workspace` is supplied without `target_vortex_path`, the target is derived as
         `<workspace>/<source-stem>.vortex`. The real CLI `vortex-prepare` route writes the selected
         single `.vortex` artifact and reports no-sidecar evidence; callers opt into replacing an
-        existing artifact with ``allow_overwrite=True``. Supplying ``dim=...`` returns the queryable
-        compatibility prepared route used by
-        ``ctx.prepare_vortex(..., dim=..., workspace=...).query(...).collect()``.
+        existing artifact with ``allow_overwrite=True`` when the writer admits replacement.
         """
 
         if self.engine_mode not in {"auto", "batch"}:
@@ -7678,12 +5395,23 @@ class LazyFrame:
                 "LazyFrame.prepare_vortex currently supports engine_mode='auto' or 'batch' "
                 "for scoped local batch preparation; live/hybrid preparation remains gated"
             )
+        if self.source.memory_input:
+            target = _generated_prepared_vortex_target_path(
+                self.source.uri.rsplit("/", 1)[-1],
+                target_vortex_path=target_vortex_path, workspace=workspace,
+            )
+            return self.write_vortex(
+                target, allow_overwrite=allow_overwrite, check=check,
+                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB if memory_gb is None else memory_gb,
+                max_parallelism=(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM
+                                 if max_parallelism is None else max_parallelism),
+            )
         if self.source.source_format == "vortex":
             raise ValueError(
                 "LazyFrame.prepare_vortex starts from raw compatibility input; "
                 "read_vortex(...) sources are already Vortex-native"
             )
-        if not _is_query_builder_local_source(self.source):
+        if not _is_declared_local_source(self.source):
             raise ValueError(
                 "LazyFrame.prepare_vortex requires a local CSV, JSON/JSONL/NDJSON, Parquet, "
                 "Arrow IPC, Avro, or ORC source"
@@ -7692,54 +5420,6 @@ class LazyFrame:
             raise ValueError(
                 "LazyFrame.prepare_vortex prepares the raw local source before query operators; "
                 "call it directly on read_*(...) or use write_vortex(...) for a query-result sink"
-            )
-        route_requested = any(
-            value is not None
-            for value in (
-                dim,
-                cdc_delta,
-                result_workspace,
-                evidence_level,
-            )
-        )
-        if route_requested:
-            if dim is None:
-                raise ValueError(
-                    "LazyFrame.prepare_vortex query routes require dim=... so the traditional "
-                    "analytics prepared route has an explicit dimension input"
-                )
-            if workspace is None:
-                raise ValueError(
-                    "LazyFrame.prepare_vortex query routes require workspace=... so "
-                    "VortexPreparedState artifacts have an explicit caller-owned location"
-                )
-            if target_vortex_path is not None:
-                raise ValueError(
-                    "target_vortex_path applies only to the single-source vortex-prepare "
-                    "helper; prepared query routes use workspace=... plus dim=..."
-                )
-            if allow_overwrite:
-                raise ValueError(
-                    "allow_overwrite applies only to the single-source vortex-prepare helper; "
-                    "prepared query routes use manifest-based reuse policy"
-                )
-            if certification_level != "ingest_certified":
-                raise ValueError(
-                    "certification_level applies only to the single-source vortex-prepare "
-                    "helper; prepared query routes use traditional-analytics route evidence"
-                )
-            return CompatibilityPreparedVortexRoute.from_inputs(
-                client=self.client,
-                fact_input=self.source.uri,
-                dim_input=dim,
-                workspace=workspace,
-                input_format=input_format,
-                cdc_delta_input=cdc_delta,
-                result_workspace=result_workspace,
-                evidence_level=evidence_level,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                check=check,
             )
         target = _prepared_vortex_target_path(
             self.source.uri,
@@ -7767,102 +5447,11 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
-        """Write an admitted local source result to a scoped local Vortex sink.
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+        """Write native Vortex output through the common output adapter contract."""
+        return self.write(target_uri, output_format="vortex", allow_overwrite=allow_overwrite,
+                          memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill, check=check)
 
-        The CLI must be built with `--features vortex-write`; default binaries
-        return ShardLoom's deterministic Vortex sink blocker.
-        """
-
-        if (self._native_relational_statement() is not None
-                or self._sql_local_source_statement() is not None):
-            return self._public_workflow_write_report(
-                target_uri, requested_output="write_vortex",
-                allow_overwrite=allow_overwrite, memory_gb=memory_gb,
-                max_parallelism=max_parallelism, spill=spill, check=check,
-            )
-        if self.source.source_format == "vortex":
-            return self._vortex_user_route_write_vortex_report(
-                target_uri,
-                allow_overwrite=allow_overwrite,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        if report := self._local_source_auto_vortex_write_vortex_report(
-            target_uri,
-            allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        ):
-            return report
-        if _is_query_builder_local_source(self.source):
-            return self._public_workflow_blocked_report(
-                operation="write-vortex",
-                target_ref=str(target_uri),
-                requested_output="write_vortex",
-                output_ref=target_uri,
-                allow_overwrite=allow_overwrite,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        if self._sql_local_source_statement() is None:
-            return self._unsupported_operation("write-vortex", str(target_uri), check=check)
-        return self._public_workflow_write_report(
-            target_uri,
-            requested_output="write_vortex",
-            allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        )
-
-    def _public_workflow_blocked_report(
-        self,
-        *,
-        operation: str,
-        target_ref: str | None = None,
-        requested_output: str,
-        output_ref: str | os.PathLike[str] | None = None,
-        allow_overwrite: bool = False,
-        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        # The public SQL facade cannot infer a replacement for a declared schema.
-        # Unlowerable declared writes must remain side-effect-free blockers.
-        if self.source.schema and requested_output.startswith("write_"):
-            return self._unsupported_operation(operation, target_ref, check=check)
-        execution = self.client.public_workflow_run(
-            "dataframe",
-            input_uri=self.source.uri,
-            input_format=_public_workflow_input_format(self.source),
-            sql_statement=self._sql_local_source_statement(),
-            plan_summary=self.operation_summary,
-            requested_output=requested_output,
-            output_ref=output_ref,
-            execution_policy="vortex_middle",
-            materialization_policy="bounded",
-            evidence_level="production_admitted_local_workflow",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            fanout_outputs=fanout_outputs,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        )
-        return UnsupportedWorkflowOperationReport(
-            workflow=self,
-            operation=operation,
-            envelope=execution.envelope,
-        )
 
     def _public_workflow_write_report(
         self,
@@ -7875,10 +5464,8 @@ class LazyFrame:
         max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
         spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-    ) -> SqlLocalSourceSmokeReport:
-        statement = self._native_relational_statement() or self._native_vortex_aggregate_statement()
-        if statement is None:
-            statement = self._sql_local_source_statement(allow_native_source=True)
+    ) -> VortexWorkflowExecutionReport:
+        statement = self._relation_statement()
         if statement is None:
             raise ValueError(
                 "public workflow write facade requires an admitted local-source statement"
@@ -7887,15 +5474,8 @@ class LazyFrame:
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
-            source_schema=(
-                (self.source.schema or None)
-                if self.source.source_format != "vortex"
-                else None
-            ),
-            source_bindings=(
-                _workflow_source_bindings(self._declared_sources())
-                if _native_relational_sql_candidate(statement) else None
-            ),
+            source_schema=_prepare_vortex_schema_hints(self.source),
+            source_bindings=_workflow_source_bindings(self._declared_sources()),
             sql_statement=statement,
             plan_summary=self.operation_summary,
             requested_output=requested_output,
@@ -7908,7 +5488,9 @@ class LazyFrame:
             **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
             check=check,
         )
-        return SqlLocalSourceSmokeReport(execution.envelope)
+        return VortexWorkflowExecutionReport(
+            workflow=self, operation=requested_output, envelope=execution.envelope,
+        )
 
     def sql(
         self,
@@ -7960,7 +5542,7 @@ class LazyFrame:
             right_operations = other.operations
             if right_operations:
                 right_statement = other._relation_statement()
-            right_source_local = _is_declared_local_source(other.source)
+            right_source_local = other._relation_statement() is not None
             right_source_vortex = other.source.source_format == "vortex"
         elif isinstance(other, SqlWorkflow):
             right_uri = ""
@@ -7976,7 +5558,7 @@ class LazyFrame:
         target = f"{normalized_how}:{columns}:{normalized_condition or ''}:{right_summary}"
         if (
             (
-                (_is_declared_local_source(self.source) or self.source.source_format == "vortex")
+                self._relation_statement() is not None
                 and (right_source_local or right_source_vortex)
             )
             and (not right_operations or right_statement is not None)
@@ -8151,9 +5733,7 @@ class LazyFrame:
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return a bounded schema report for admitted local-source workflows."""
 
-        if report := self._bounded_schema_report(check=check):
-            return report
-        return self._unsupported_operation("schema", check=check)
+        return self._bounded_schema_report(check=check)
 
     def describe_schema(
         self,
@@ -8162,9 +5742,7 @@ class LazyFrame:
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return detailed bounded schema evidence for admitted local-source workflows."""
 
-        if report := self._bounded_schema_report(check=check):
-            return report
-        return self._unsupported_operation("describe-schema", check=check)
+        return self._bounded_schema_report(check=check)
 
     def validate_schema(
         self,
@@ -8177,10 +5755,10 @@ class LazyFrame:
         normalized = _normalize_schema(schema)
         if not normalized:
             raise ValueError("schema validation contract must not be empty")
-        if report := self._bounded_schema_report(check=check):
-            return _validate_workflow_schema(report, normalized)
-        target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
-        return self._unsupported_operation("validate-schema", target, check=check)
+        report = self._bounded_schema_report(check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _validate_workflow_schema(report, normalized)
 
     def data_quality_check(
         self,
@@ -8192,8 +5770,10 @@ class LazyFrame:
         normalized_checks = _normalize_columns(checks)
         parsed_checks = _parse_data_quality_checks(normalized_checks)
         if parsed_checks is not None:
-            if report := self._bounded_schema_report(check=check):
-                return _workflow_data_quality_report(report, parsed_checks)
+            report = self._bounded_schema_report(check=check)
+            if isinstance(report, UnsupportedWorkflowOperationReport):
+                return report
+            return _workflow_data_quality_report(report, parsed_checks)
         return self._unsupported_operation(
             "data-quality",
             ",".join(normalized_checks),
@@ -8216,9 +5796,10 @@ class LazyFrame:
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Return bounded null-count and schema summary for admitted workflows."""
 
-        if report := self._bounded_schema_report(check=check):
-            return WorkflowDataQualityReport(schema_report=report)
-        return self._unsupported_operation("data-quality-summary", check=check)
+        report = self._bounded_schema_report(check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowDataQualityReport(schema_report=report)
 
     def quarantine(
         self,
@@ -8242,45 +5823,46 @@ class LazyFrame:
                     ",".join(normalized_checks),
                     check=check,
                 )
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            schema_report = _workflow_schema_report(self, report)
-            parsed_checks = parsed_checks or _workflow_quarantine_checks(schema_report, ())
-            quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
-            rows = _workflow_quarantine_rows(schema_report, parsed_checks)
-            normalized_output_format = _normalize_optional_quarantine_output_format(
-                target_uri,
-                output_format,
-            )
-            sink_report: SqlLocalSourceSmokeReport | None = None
-            if target_uri is not None and rows:
-                pushdown_statement = self._quarantine_pushdown_statement(
-                    parsed_checks,
-                    limit=limit,
-                )
-                if pushdown_statement is not None and normalized_output_format is not None:
-                    sink = SqlWorkflow(
-                        statement=pushdown_statement,
-                        client=self.client,
-                    )._local_source_prepared_sql_compatibility_write_report(
-                        target_uri,
-                        output_format=normalized_output_format,
-                        allow_overwrite=allow_overwrite,
-                        check=check,
-                    )
-                    if isinstance(sink, SqlLocalSourceSmokeReport) and sink.status == "success":
-                        sink_report = sink
-            return WorkflowQuarantineReport(
-                workflow=self,
-                quality_report=quality_report,
-                checks=tuple(spec.raw for spec in parsed_checks),
-                rows=rows,
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        schema_report = _workflow_schema_report(self, report)
+        parsed_checks = parsed_checks or _workflow_quarantine_checks(schema_report, ())
+        quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
+        rows = _workflow_quarantine_rows(schema_report, parsed_checks)
+        normalized_output_format = _normalize_optional_quarantine_output_format(
+            target_uri,
+            output_format,
+        )
+        sink_report: VortexWorkflowExecutionReport | None = None
+        if target_uri is not None and rows:
+            pushdown_statement = self._quarantine_pushdown_statement(
+                parsed_checks,
                 limit=limit,
-                target_uri=None if target_uri is None else str(target_uri),
-                output_format=normalized_output_format,
-                sink_report=sink_report,
             )
-        target = "none" if target_uri is None else str(target_uri)
-        return self._unsupported_operation("quarantine", target, check=check)
+            if pushdown_statement is not None and normalized_output_format is not None:
+                sink = SqlWorkflow(
+                    statement=pushdown_statement,
+                    client=self.client,
+                    source_bindings=self._declared_sources(),
+                ).write(
+                    target_uri,
+                    output_format=normalized_output_format,
+                    allow_overwrite=allow_overwrite,
+                    check=check,
+                )
+                if sink.envelope.status == "success":
+                    sink_report = sink
+        return WorkflowQuarantineReport(
+            workflow=self,
+            quality_report=quality_report,
+            checks=tuple(spec.raw for spec in parsed_checks),
+            rows=rows,
+            limit=limit,
+            target_uri=None if target_uri is None else str(target_uri),
+            output_format=normalized_output_format,
+            sink_report=sink_report,
+        )
 
     def preview(
         self,
@@ -8291,9 +5873,7 @@ class LazyFrame:
         """Return a bounded local preview when admitted, otherwise report unsupported."""
 
         _validate_positive_row_count("preview limit", limit)
-        if _is_query_builder_local_source(self.source):
-            return self.limit(limit).collect(check=check)
-        return self._unsupported_operation("preview", str(limit), check=check)
+        return self.limit(limit).collect(check=check)
 
     def head(
         self,
@@ -8304,9 +5884,7 @@ class LazyFrame:
         """Return a bounded preview report using familiar DataFrame naming."""
 
         _validate_positive_row_count("head limit", limit)
-        if _is_query_builder_local_source(self.source):
-            return self.limit(limit).collect(check=check)
-        return self._unsupported_operation("head", str(limit), check=check)
+        return self.limit(limit).collect(check=check)
 
     def take(
         self,
@@ -8316,10 +5894,8 @@ class LazyFrame:
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded preview report for the requested row count."""
 
-        _validate_positive_row_count("take count", count)
-        if _is_query_builder_local_source(self.source):
-            return self.limit(count).collect(check=check)
-        return self._unsupported_operation("take", str(count), check=check)
+        _validate_positive_row_count("take limit", count)
+        return self.limit(count).collect(check=check)
 
     def display(
         self,
@@ -8330,13 +5906,14 @@ class LazyFrame:
         """Return a bounded notebook/display preview for admitted workflows."""
 
         _validate_positive_row_count("display limit", limit)
-        if report := self._bounded_materialization_report(limit=limit, check=check):
-            return WorkflowNotebookPreview(
-                workflow=self,
-                smoke_report=report,
-                limit=limit,
-            )
-        return self._unsupported_operation("display", str(limit), check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowNotebookPreview(
+            workflow=self,
+            smoke_report=report,
+            limit=limit,
+        )
 
     def certify(self, *, check: bool = False) -> WorkflowCertificationReport:
         """Return report-only certificate surfaces for this workflow."""
@@ -8386,15 +5963,7 @@ class LazyFrame:
         )
 
     def _with_rewritten_projection(self, projection: tuple[str, ...]) -> "LazyFrame":
-        operations = tuple(
-            operation for operation in self.operations if operation.kind != "select"
-        )
-        return LazyFrame(
-            source=self.source,
-            client=self.client,
-            operations=(*operations, WorkflowOperation("select", projection)),
-            engine_mode=self.engine_mode,
-        )
+        return self._append(WorkflowOperation("select", projection))
 
     def _with_combined_filter_condition(self, predicate: str) -> "LazyFrame":
         operations: list[WorkflowOperation] = []
@@ -8529,1498 +6098,23 @@ class LazyFrame:
             return "native-vortex-string-contains"
         return operation
 
-    def _local_source_auto_vortex_collect_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-        if candidate is None:
-            return None
-        if (
-            candidate.frame._vortex_primitive_shape() is None
-            and candidate.frame._native_vortex_user_route_shape() is None
-        ):
-            return None
-        preparation = self._prepare_vortex_candidate(
-            candidate,
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-        )
-        if preparation.envelope.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self,
-                operation="prepare_vortex",
-                envelope=preparation.envelope,
-                preparation_envelope=preparation.envelope,
-            )
-        report = candidate.frame._vortex_local_primitive_collect_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        )
-        if report is None:
-            report = candidate.frame._vortex_user_route_collect_report(
-                check=check,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-            )
-        if report is None or report.envelope.status != "success":
-            return None
-        return VortexWorkflowExecutionReport(
-            workflow=self,
-            operation=report.operation,
-            envelope=report.envelope,
-            preparation_envelope=preparation.envelope,
-        )
 
-    def _local_source_auto_vortex_count_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-        if candidate is None or candidate.frame._vortex_primitive_shape() is None:
-            return None
-        preparation = self._prepare_vortex_candidate(
-            candidate,
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-        )
-        if preparation.envelope.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self,
-                operation="prepare_vortex",
-                envelope=preparation.envelope,
-                preparation_envelope=preparation.envelope,
-            )
-        report = candidate.frame._vortex_local_primitive_count_report(
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-        )
-        if report is None or report.envelope.status != "success":
-            return None
-        return VortexWorkflowExecutionReport(
-            workflow=self,
-            operation=report.operation,
-            envelope=report.envelope,
-            preparation_envelope=preparation.envelope,
-        )
 
-    def _local_source_auto_vortex_write_vortex_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        return self._local_source_auto_vortex_write_report(
-            target_uri,
-            requested_output="write_vortex",
-            operation="write_vortex",
-            allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        )
 
-    def _local_source_auto_vortex_write_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        requested_output: str,
-        operation: str,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-        if candidate is None:
-            return None
-        provider_shape = candidate.frame._native_vortex_user_route_shape()
-        primitive_payload = (
-            _native_vortex_row_export_payload_from_primitive_shape(
-                candidate.frame._vortex_primitive_shape()
-            )
-            if requested_output in {
-                "write_vortex", "write_parquet", "write_arrow_ipc", "write_avro",
-                "write_orc", "write_json", "write_jsonl", "write_csv",
-            }
-            else None
-        )
-        structured_binary_payload = requested_output in {
-            "write_vortex",
-            "write_parquet",
-            "write_arrow_ipc",
-            "write_avro",
-            "write_orc",
-        } and candidate.frame._has_structured_binary_export_shape()
-        if provider_shape is None and primitive_payload is None and not structured_binary_payload:
-            return None
-        preparation = self._prepare_vortex_candidate(
-            candidate,
-            check=check,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-        )
-        if preparation.envelope.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self,
-                operation="prepare_vortex",
-                envelope=preparation.envelope,
-                preparation_envelope=preparation.envelope,
-            )
-        report = candidate.frame._vortex_user_route_write_report(
-            target_uri,
-            requested_output=requested_output,
-            operation=operation,
-            allow_overwrite=allow_overwrite,
-            fanout_outputs=fanout_outputs,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        )
-        if report is None or isinstance(report, UnsupportedWorkflowOperationReport):
-            return None
-        if report.envelope.status != "success":
-            return None
-        return VortexWorkflowExecutionReport(
-            workflow=self,
-            operation=report.operation,
-            envelope=report.envelope,
-            preparation_envelope=preparation.envelope,
-        )
 
-    def _local_source_prepared_sql_compatibility_collect_report(
-        self,
-        *,
-        check: bool,
-    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
-        statement = self._sql_local_source_statement()
-        if statement is None:
-            return None
-        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-        if candidate is None:
-            return None
-        preparation = self._prepare_vortex_candidate(
-            candidate,
-            check=check,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        )
-        if preparation.envelope.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self,
-                operation="prepare_vortex",
-                envelope=preparation.envelope,
-                preparation_envelope=preparation.envelope,
-            )
-        report = self.client.local_source_runtime(
-            statement,
-            product_local_workflow=True,
-            check=check,
-        )
-        return SqlLocalSourceSmokeReport(
-            report.envelope,
-            preparation_envelope=preparation.envelope,
-        )
 
-    def _local_source_prepared_sql_compatibility_write_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        output_format: str,
-        allow_overwrite: bool,
-        check: bool,
-    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
-        statement = self._sql_local_source_statement()
-        if statement is None:
-            return None
-        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-        if candidate is None:
-            return None
-        preparation = self._prepare_vortex_candidate(
-            candidate,
-            check=check,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        )
-        if preparation.envelope.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self,
-                operation="prepare_vortex",
-                envelope=preparation.envelope,
-                preparation_envelope=preparation.envelope,
-            )
-        report = self.client.local_source_runtime(
-            statement,
-            output_path=target_uri,
-            output_format=output_format,
-            allow_overwrite=allow_overwrite,
-            product_local_workflow=True,
-            check=check,
-        )
-        return SqlLocalSourceSmokeReport(
-            report.envelope,
-            preparation_envelope=preparation.envelope,
-        )
 
-    def _local_source_prepared_sql_compatibility_fanout_report(
-        self,
-        outputs: Sequence[tuple[str, CommandPart]],
-        *,
-        allow_overwrite: bool,
-        check: bool,
-    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
-        if not outputs:
-            return None
-        statement = self._sql_local_source_statement()
-        if statement is None:
-            return None
-        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-        if candidate is None:
-            return None
-        preparation = self._prepare_vortex_candidate(
-            candidate,
-            check=check,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        )
-        if preparation.envelope.status != "success":
-            return VortexWorkflowExecutionReport(
-                workflow=self,
-                operation="prepare_vortex",
-                envelope=preparation.envelope,
-                preparation_envelope=preparation.envelope,
-            )
-        output_format, output_path = outputs[0]
-        report = self.client.local_source_runtime(
-            statement,
-            output_path=output_path,
-            output_format=output_format,
-            fanout_outputs=outputs[1:],
-            allow_overwrite=allow_overwrite,
-            product_local_workflow=True,
-            check=check,
-        )
-        return SqlLocalSourceSmokeReport(
-            report.envelope,
-            preparation_envelope=preparation.envelope,
-        )
 
-    def _prepared_vortex_candidate_for_admitted_runtime(
-        self,
-    ) -> _PreparedVortexWorkflowCandidate | None:
-        if not _is_query_builder_local_source(self.source):
-            return None
-        left_target = _auto_prepared_vortex_target_path(self.source)
-        operations = list(self.operations)
-        right_source_uri: str | None = None
-        right_source_format: str | None = None
-        right_target: Path | None = None
-        for index, operation in enumerate(operations):
-            if operation.kind != "join" or len(operation.values) != 7:
-                continue
-            right_uri = operation.values[0]
-            inferred_format = _source_format_for_local_source_ref(right_uri)
-            if inferred_format is None:
-                return None
-            right_source = WorkflowSource(inferred_format, right_uri)
-            right_source_uri = right_uri
-            right_source_format = _public_workflow_input_format(right_source)
-            right_target = _auto_prepared_vortex_target_path(right_source)
-            operations[index] = WorkflowOperation(
-                "join",
-                (str(right_target), *operation.values[1:]),
-            )
-            break
-        frame = LazyFrame(
-            source=WorkflowSource("vortex", str(left_target), self.source.schema),
-            client=self.client,
-            operations=tuple(operations),
-            engine_mode=self.engine_mode,
-        )
-        return _PreparedVortexWorkflowCandidate(
-            frame=frame,
-            left_target=left_target,
-            right_source_uri=right_source_uri,
-            right_source_format=right_source_format,
-            right_target=right_target,
-        )
 
-    def _prepare_vortex_candidate(
-        self,
-        candidate: _PreparedVortexWorkflowCandidate,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-    ) -> VortexIngestSmokeReport:
-        candidate.left_target.parent.mkdir(parents=True, exist_ok=True)
-        if candidate.right_target is not None:
-            candidate.right_target.parent.mkdir(parents=True, exist_ok=True)
-            if candidate.right_source_uri is None or candidate.right_source_format is None:
-                raise ValueError("prepared Vortex join candidate is missing right source metadata")
-            right_preparation = self.client.vortex_prepare(
-                candidate.right_source_uri,
-                candidate.right_target,
-                input_format=candidate.right_source_format,
-                allow_overwrite=True,
-                certification_level="ingest_certified",
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                check=check,
-            )
-            if right_preparation.envelope.status != "success":
-                return right_preparation
-        return self.client.vortex_prepare(
-            self.source.uri,
-            candidate.left_target,
-            input_format=_public_workflow_input_format(self.source),
-            schema=self.source.schema or None,
-            allow_overwrite=True,
-            certification_level="ingest_certified",
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            check=check,
-        )
 
-    def _vortex_local_primitive_collect_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        shape = self._vortex_primitive_shape()
-        if shape is None:
-            return None
-        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
-        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
-        envelope: OutputEnvelope | None = None
-        if shape.expression_projection is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="expression_project",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=shape.expression_projection,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.melt_projection is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="melt",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=shape.melt_projection,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.explode_projection is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="explode",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=shape.explode_projection,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.pivot_projection is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="pivot",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=shape.pivot_projection,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.rolling_window is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="rolling_window",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=shape.rolling_window,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.sort_rows is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="sort_rows",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-                sort_rows=shape.sort_rows,
-            )
-        elif shape.sample_count is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="sample",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.sample_count,
-                sample_seed=shape.sample_seed,
-                sample_fraction=None,
-                sample_with_replacement=shape.sample_with_replacement,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-                sample_weight_column=shape.sample_weight_column,
-            )
-        elif shape.sample_fraction is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="sample",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=None,
-                sample_seed=shape.sample_seed,
-                sample_fraction=shape.sample_fraction,
-                sample_with_replacement=shape.sample_with_replacement,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-                sample_weight_column=shape.sample_weight_column,
-            )
-        elif shape.tail_limit is not None:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="tail",
-                predicate=None,
-                columns=shape.columns,
-                source_order_limit=shape.tail_limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.distinct:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="distinct",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.drop_duplicates:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="drop_duplicates",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=shape.duplicate_keep,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-                deduplicate_key_columns=shape.deduplicate_key_columns,
-            )
-        elif shape.duplicate_mask:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="duplicate_mask",
-                predicate=None,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=shape.duplicate_keep,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.predicate and shape.columns:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="filter_project",
-                predicate=shape.predicate,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.predicate:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="filter",
-                predicate=shape.predicate,
-                columns=None,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        elif shape.columns:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="project",
-                predicate=None,
-                columns=shape.columns,
-                source_order_limit=shape.limit,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        if envelope is None:
-            return None
-        return VortexWorkflowExecutionReport(
-            workflow=self,
-            operation="collect",
-            envelope=envelope,
-        )
 
-    def _vortex_local_primitive_count_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        shape = self._vortex_primitive_shape()
-        if (
-            shape is None
-            or shape.columns is not None
-            or shape.limit is not None
-            or shape.distinct
-            or shape.duplicate_mask
-            or shape.tail_limit is not None
-            or shape.sample_count is not None
-            or shape.sample_fraction is not None
-            or shape.expression_projection is not None
-            or shape.melt_projection is not None
-            or shape.explode_projection is not None
-            or shape.pivot_projection is not None
-            or shape.rolling_window is not None
-            or shape.sort_rows is not None
-        ):
-            return None
-        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
-        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
-        if shape.predicate:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="count_where",
-                predicate=shape.predicate,
-                columns=None,
-                source_order_limit=None,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        else:
-            envelope = self._run_vortex_primitive_public_workflow(
-                primitive="count",
-                predicate=None,
-                columns=None,
-                source_order_limit=None,
-                sample_seed=None,
-                sample_fraction=None,
-                sample_with_replacement=False,
-                duplicate_keep=None,
-                expression_projection=None,
-                melt_projection=None,
-                explode_projection=None,
-                pivot_projection=None,
-                rolling_window=None,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-            )
-        return VortexWorkflowExecutionReport(
-            workflow=self,
-            operation="count",
-            envelope=envelope,
-        )
 
-    def _vortex_user_route_collect_report(
-        self,
-        *,
-        check: bool,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | None:
-        shape = self._native_vortex_user_route_shape()
-        if shape is None:
-            return None
-        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
-        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
-        envelope = self.client.public_workflow_run(
-            "dataframe",
-            input_uri=self.source.uri,
-            input_format="vortex",
-            plan_summary=self.operation_summary,
-            requested_output="collect",
-            execution_policy="native_vortex",
-            materialization_policy="zero_decode",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            native_vortex_operation_family=shape.operation_family,
-            native_vortex_provider_scenario=shape.provider_scenario,
-            native_vortex_right_input=shape.right_input,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        ).envelope
-        return VortexWorkflowExecutionReport(
-            workflow=self,
-            operation="collect",
-            envelope=envelope,
-        )
 
-    def _vortex_user_route_write_vortex_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
-        return self._vortex_user_route_write_report(
-            target_uri,
-            requested_output="write_vortex",
-            operation="write_vortex",
-            allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
-            spill=spill,
-            check=check,
-        )
 
-    def _vortex_user_route_write_report(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        requested_output: str,
-        operation: str,
-        allow_overwrite: bool,
-        check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-        spill: Mapping[str, object] | str | None = None,
-        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
-        if (self._native_relational_statement() is not None
-                or self._native_vortex_aggregate_statement() is not None):
-            report = self._public_workflow_write_report(
-                target_uri,
-                requested_output=requested_output,
-                allow_overwrite=allow_overwrite,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                spill=spill,
-                check=check,
-                fanout_outputs=fanout_outputs,
-            )
-            return VortexWorkflowExecutionReport(
-                workflow=self, operation=operation, envelope=report.envelope
-            )
-        shape = self._native_vortex_user_route_shape()
-        if shape is None:
-            if requested_output in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc", "write_json", "write_jsonl", "write_csv"}:
-                primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
-                    self._vortex_primitive_shape()
-                )
-                if primitive_payload is not None:
-                    write_method = requested_output.removeprefix("write_")
-                    envelope = self.client.public_workflow_run(
-                        "dataframe",
-                        input_uri=self.source.uri,
-                        input_format="vortex",
-                        plan_summary=f"{self.operation_summary} -> write_{write_method}({target_uri})",
-                        requested_output=requested_output,
-                        output_ref=target_uri,
-                        fanout_outputs=fanout_outputs,
-                        execution_policy="native_vortex",
-                        materialization_policy="bounded",
-                        evidence_level="runtime_smoke",
-                        bounded=True,
-                        allow_overwrite=allow_overwrite,
-                        **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-                        check=check,
-                        **primitive_payload,
-                    ).envelope
-                    return VortexWorkflowExecutionReport(
-                        workflow=self,
-                        operation=operation,
-                        envelope=envelope,
-                    )
-            if (
-                requested_output
-                in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro", "write_orc"}
-                and (structured_payload := self._native_vortex_structured_export_payload()) is not None
-            ):
-                write_method = requested_output.removeprefix("write_")
-                envelope = self.client.public_workflow_run(
-                    "dataframe",
-                    input_uri=self.source.uri,
-                    input_format="vortex",
-                    plan_summary=f"{self.operation_summary} -> write_{write_method}({target_uri})",
-                    requested_output=requested_output,
-                    output_ref=target_uri,
-                    fanout_outputs=fanout_outputs,
-                    execution_policy="native_vortex",
-                    materialization_policy="bounded",
-                    evidence_level="runtime_smoke",
-                    bounded=True,
-                    allow_overwrite=allow_overwrite,
-                    **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-                    check=check,
-                    **structured_payload,
-                ).envelope
-                return VortexWorkflowExecutionReport(
-                    workflow=self,
-                    operation=operation,
-                    envelope=envelope,
-                )
-            return self._unsupported_operation(
-                "native-vortex-sink",
-                str(target_uri),
-                check=check,
-            )
-        write_method = requested_output.removeprefix("write_")
-        envelope = self.client.public_workflow_run(
-            "dataframe",
-            input_uri=self.source.uri,
-            input_format="vortex",
-            plan_summary=f"{self.operation_summary} -> write_{write_method}({target_uri})",
-            requested_output=requested_output,
-            output_ref=target_uri,
-            fanout_outputs=fanout_outputs,
-            execution_policy="native_vortex",
-            materialization_policy="zero_decode",
-            evidence_level="runtime_smoke",
-            bounded=True,
-            allow_overwrite=allow_overwrite,
-            native_vortex_operation_family="sink",
-            native_vortex_provider_scenario=shape.provider_scenario,
-            native_vortex_right_input=shape.right_input,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        ).envelope
-        return VortexWorkflowExecutionReport(
-            workflow=self,
-            operation=operation,
-            envelope=envelope,
-        )
 
-    def _run_vortex_primitive_public_workflow(
-        self,
-        *,
-        primitive: str,
-        predicate: str | None,
-        columns: Sequence[str] | None,
-        source_order_limit: int | None,
-        sample_seed: int | None,
-        sample_fraction: float | None,
-        sample_with_replacement: bool,
-        duplicate_keep: str | None,
-        expression_projection: str | None,
-        melt_projection: str | None,
-        explode_projection: str | None,
-        pivot_projection: str | None,
-        rolling_window: str | None,
-        memory_gb: int,
-        max_parallelism: int,
-        spill: Mapping[str, object] | str | None = None,
-        check: bool,
-        sort_rows: str | None = None,
-        sample_weight_column: str | None = None,
-        deduplicate_key_columns: Sequence[str] | None = None,
-    ) -> OutputEnvelope:
-        return self.client.public_workflow_run(
-            "dataframe",
-            input_uri=self.source.uri,
-            input_format="vortex",
-            plan_summary=self.operation_summary,
-            requested_output="collect",
-            execution_policy="native_vortex",
-            materialization_policy=(
-                "zero_decode" if primitive in {"count", "count_where"} else "bounded"
-            ),
-            evidence_level="runtime_smoke",
-            bounded=True,
-            native_vortex_operation_family=_native_vortex_operation_family_for_primitive(
-                primitive
-            ),
-            vortex_primitive=primitive,
-            vortex_predicate=predicate,
-            vortex_columns=columns,
-            vortex_source_order_limit=source_order_limit,
-            vortex_sample_seed=sample_seed,
-            vortex_sample_fraction=sample_fraction,
-            vortex_sample_replacement=sample_with_replacement,
-            vortex_sample_weight_column=sample_weight_column,
-            vortex_duplicate_keep=duplicate_keep,
-            vortex_deduplicate_key_columns=deduplicate_key_columns,
-            vortex_expression_projection=expression_projection,
-            vortex_melt_projection=melt_projection,
-            vortex_explode_projection=explode_projection,
-            vortex_pivot_projection=pivot_projection,
-            vortex_rolling_window=rolling_window,
-            vortex_sort_rows=sort_rows,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
-            check=check,
-        ).envelope
 
-    def _vortex_primitive_shape(self) -> _VortexPrimitiveWorkflowShape | None:
-        if self.source.source_format != "vortex":
-            return None
-        predicate: str | None = None
-        columns: tuple[str, ...] | None = None
-        limit: int | None = None
-        distinct = False
-        drop_duplicates = False
-        deduplicate_key_columns: tuple[str, ...] | None = None
-        duplicate_mask = False
-        duplicate_keep = "first"
-        tail_limit: int | None = None
-        sample_count: int | None = None
-        sample_seed: int | None = None
-        sample_fraction: float | None = None
-        sample_with_replacement = False
-        sample_weight_column: str | None = None
-        expression_projection: str | None = None
-        melt_projection: str | None = None
-        explode_projection: str | None = None
-        pivot_projection: str | None = None
-        rolling_window: str | None = None
-        sort_key: tuple[str, tuple[str, ...], str | None, str] | None = None
-        for operation in self.operations:
-            if operation.kind == "set_index":
-                continue
-            if sort_key is not None and operation.kind != "limit":
-                return None
-            if operation.kind == "filter":
-                if (
-                    predicate is not None
-                    or limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                if _sql_filter_requires_native_vortex_expression_route(operation.values[0]):
-                    return None
-                predicate = _vortex_tiny_predicate_from_sql(operation.values[0])
-                if predicate is None:
-                    return None
-            elif operation.kind == "select":
-                if (
-                    columns is not None
-                    or limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                if any(
-                    column.lower() in {"null", "true", "false"}
-                    or (column != "*" and not _is_sql_identifier(column))
-                    for column in operation.values
-                ):
-                    return None
-                columns = operation.values
-            elif operation.kind == "distinct":
-                if (
-                    distinct
-                    or drop_duplicates
-                    or limit is not None
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                distinct = True
-            elif operation.kind == "drop_duplicates":
-                if (
-                    drop_duplicates
-                    or limit is not None
-                    or distinct
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                key_columns, parsed_duplicate_keep = _duplicate_mask_operation_parts(
-                    operation.values
-                )
-                if key_columns is None:
-                    return None
-                if columns is None:
-                    columns = self._projection_columns_for_schema_or_explicit_selection(
-                        allowed_operations={"filter", "drop_duplicates", "limit"}
-                    )
-                if columns is None:
-                    return None
-                if any(column not in columns for column in key_columns):
-                    return None
-                drop_duplicates = True
-                deduplicate_key_columns = key_columns
-                duplicate_keep = parsed_duplicate_keep
-            elif operation.kind == "duplicate_mask":
-                if (
-                    duplicate_mask
-                    or predicate is not None
-                    or limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                duplicate_columns, parsed_duplicate_keep = _duplicate_mask_operation_parts(
-                    operation.values
-                )
-                if duplicate_columns is None:
-                    return None
-                if columns is not None and any(
-                    column not in columns for column in duplicate_columns
-                ):
-                    return None
-                columns = duplicate_columns
-                duplicate_mask = True
-                duplicate_keep = parsed_duplicate_keep
-            elif operation.kind == "tail":
-                if (
-                    predicate is not None
-                    or limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                parsed_tail = int(operation.values[0])
-                if parsed_tail <= 0:
-                    return None
-                tail_limit = parsed_tail
-            elif operation.kind == "sample":
-                if (
-                    limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                parts = _sample_operation_parts(operation.values)
-                if parts is None:
-                    return None
-                (sample_count, sample_fraction, sample_seed,
-                 sample_with_replacement, sample_weight_column) = parts
-            elif operation.kind == "expression_project":
-                if (
-                    limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                if len(operation.values) != 1:
-                    return None
-                parsed_columns = _vortex_expression_project_columns_from_payload(
-                    operation.values[0]
-                )
-                if parsed_columns is None:
-                    return None
-                if columns is not None and columns != parsed_columns:
-                    return None
-                columns = parsed_columns
-                expression_projection = operation.values[0]
-            elif operation.kind == "melt":
-                if (
-                    limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                if len(operation.values) != 1:
-                    return None
-                parsed_columns = _vortex_melt_projection_columns_from_payload(
-                    operation.values[0]
-                )
-                if parsed_columns is None:
-                    return None
-                if columns is not None and columns != parsed_columns:
-                    return None
-                columns = parsed_columns
-                melt_projection = operation.values[0]
-            elif operation.kind == "explode":
-                if (
-                    limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                if len(operation.values) != 1:
-                    return None
-                parsed_columns = _vortex_explode_projection_columns_from_payload(
-                    operation.values[0]
-                )
-                if parsed_columns is None:
-                    return None
-                if columns is not None:
-                    if any(column not in columns for column in parsed_columns):
-                        return None
-                else:
-                    columns = parsed_columns
-                explode_projection = operation.values[0]
-            elif operation.kind == "pivot":
-                if (
-                    limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                if len(operation.values) != 1:
-                    return None
-                parsed_columns = _vortex_pivot_projection_columns_from_payload(
-                    operation.values[0]
-                )
-                if parsed_columns is None:
-                    return None
-                if columns is not None and columns != parsed_columns:
-                    return None
-                columns = parsed_columns
-                pivot_projection = operation.values[0]
-            elif operation.kind == "rolling_window":
-                if (
-                    limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                if len(operation.values) != 1:
-                    return None
-                parsed_columns = _vortex_rolling_window_columns_from_payload(
-                    operation.values[0]
-                )
-                if parsed_columns is None:
-                    return None
-                if columns is not None and columns != parsed_columns:
-                    return None
-                columns = parsed_columns
-                rolling_window = operation.values[0]
-            elif operation.kind == "sort":
-                if (
-                    limit is not None
-                    or distinct
-                    or drop_duplicates
-                    or duplicate_mask
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                    or expression_projection is not None
-                    or melt_projection is not None
-                    or explode_projection is not None
-                    or pivot_projection is not None
-                    or rolling_window is not None
-                ):
-                    return None
-                direction, sort_columns, null_ordering = _parse_sort_operation_values(
-                    operation.values
-                )
-                tie_policy = _parse_sort_keep_policy(operation.values)
-                if (
-                    direction not in {"asc", "desc"}
-                    or null_ordering is not None
-                    or not sort_columns
-                    or any(not _is_sql_identifier(column) for column in sort_columns)
-                ):
-                    return None
-                sort_key = (direction, sort_columns, null_ordering, tie_policy)
-            elif operation.kind == "limit":
-                if (
-                    limit is not None
-                    or tail_limit is not None
-                    or sample_count is not None
-                    or sample_fraction is not None
-                ):
-                    return None
-                parsed_limit = int(operation.values[0])
-                if parsed_limit <= 0:
-                    return None
-                limit = parsed_limit
-            else:
-                return None
-        sort_rows = None
-        if sort_key is not None:
-            if limit is None:
-                return None
-            sort_rows = _vortex_sort_rows_payload(
-                sort_key[0],
-                sort_key[1],
-                limit,
-                tie_policy=sort_key[3],
-            )
-            if sort_rows is None:
-                return None
-        return _VortexPrimitiveWorkflowShape(
-            predicate=predicate,
-            columns=columns,
-            limit=limit,
-            distinct=distinct,
-            drop_duplicates=drop_duplicates,
-            deduplicate_key_columns=deduplicate_key_columns,
-            duplicate_mask=duplicate_mask,
-            duplicate_keep=duplicate_keep,
-            tail_limit=tail_limit,
-            sample_count=sample_count,
-            sample_seed=sample_seed,
-            sample_fraction=sample_fraction,
-            sample_with_replacement=sample_with_replacement,
-            sample_weight_column=sample_weight_column,
-            expression_projection=expression_projection,
-            melt_projection=melt_projection,
-            explode_projection=explode_projection,
-            pivot_projection=pivot_projection,
-            rolling_window=rolling_window,
-            sort_rows=sort_rows,
-        )
 
-    def _native_vortex_user_route_shape(self) -> _NativeVortexUserRouteShape | None:
-        if self.source.source_format != "vortex":
-            return None
-        operations = _strip_index_metadata_operations(self.operations)
-        if _matches_vortex_group_by_aggregation_shape(operations):
-            return _NativeVortexUserRouteShape(
-                operation_family="aggregate",
-                provider_scenario="group-by-aggregation",
-            )
-        if _matches_vortex_null_heavy_aggregate_shape(operations):
-            return _NativeVortexUserRouteShape(
-                operation_family="aggregate",
-                provider_scenario="null-heavy-aggregate",
-            )
-        if right_input := _vortex_hash_join_right_input(operations):
-            return _NativeVortexUserRouteShape(
-                operation_family="join",
-                provider_scenario="hash-join",
-                right_input=right_input,
-            )
-        if _matches_vortex_global_top_n_shape(operations):
-            return _NativeVortexUserRouteShape(
-                operation_family="top_n",
-                provider_scenario="sort-and-top-k",
-            )
-        if _matches_vortex_clean_cast_shape(operations):
-            return _NativeVortexUserRouteShape(
-                operation_family="cast",
-                provider_scenario="clean-cast-filter-write",
-            )
-        if _matches_vortex_malformed_timestamp_shape(operations):
-            return _NativeVortexUserRouteShape(
-                operation_family="cast",
-                provider_scenario="malformed-timestamp-dirty-csv",
-            )
-        if _matches_vortex_nested_json_contains_shape(operations):
-            return _NativeVortexUserRouteShape(
-                operation_family="contains",
-                provider_scenario="nested-json-field-scan",
-            )
-        return None
 
-    def _native_vortex_structured_export_payload(self) -> dict[str, Any] | None:
-        if not self._has_structured_binary_export_shape():
-            return None
-        operations = [operation for operation in self.operations if operation.kind != "set_index"]
-        limit = None
-        if operations[-1].kind == "limit":
-            limit = int(operations.pop().values[0])
-        sources = list(operations[0].values)
-        fields = [{"name": name, "source": name} for name in sources]
-        names = set(sources)
-        for operation in operations[1:]:
-            name, expression = operation.values
-            if name in names:
-                return None
-            names.add(name)
-            expression = str(expression).strip()
-            if expression.startswith("ARRAY["):
-                try:
-                    values = [_native_vortex_structured_literal(token)
-                              for token in _split_projection_function_args(expression[6:-1])]
-                except (TypeError, ValueError):
-                    return None
-                fields.append({"name": name, "array": values})
-            else:
-                columns = _split_projection_function_args(expression[7:-1])
-                fields.append({"name": name, "struct": list(columns)})
-                sources.extend(column for column in columns if column not in sources)
-        return {
-            "native_vortex_operation_family": "sink",
-            "vortex_primitive": "expression_project",
-            "vortex_columns": tuple(sources),
-            "vortex_source_order_limit": limit,
-            "vortex_expression_projection": json.dumps({"structured_columns": fields}, ensure_ascii=False),
-        }
 
     def _has_structured_binary_export_shape(self) -> bool:
         if self.source.source_format != "vortex":
@@ -10063,7 +6157,7 @@ class LazyFrame:
     def _can_append_scalar_aggregate(self) -> bool:
         if self._relation_statement() is not None:
             return True
-        if not _is_query_builder_local_source(self.source) and self.source.source_format != "vortex":
+        if not _is_declared_local_source(self.source) and self.source.source_format != "vortex":
             return False
         if self.source.source_format == "vortex" and any(
             operation.kind == "limit" for operation in self.operations
@@ -10077,7 +6171,7 @@ class LazyFrame:
     def _can_append_group_by_aggregate(self, columns: tuple[str, ...]) -> bool:
         if self._relation_statement() is not None:
             return True
-        if not _is_query_builder_local_source(self.source):
+        if not _is_declared_local_source(self.source):
             return False
         return all(
             operation.kind not in {"select", "aggregate", "group_by", "sort"}
@@ -10085,7 +6179,7 @@ class LazyFrame:
         )
 
     def _can_append_value_counts(self, columns: tuple[str, ...]) -> bool:
-        if not _is_query_builder_local_source(self.source):
+        if not _is_declared_local_source(self.source):
             return False
         if not columns or any(not _is_sql_identifier(column) for column in columns):
             return False
@@ -10095,7 +6189,7 @@ class LazyFrame:
         )
 
     def _can_append_nunique(self, column: str) -> bool:
-        if not _is_query_builder_local_source(self.source) or not _is_sql_identifier(column):
+        if not _is_declared_local_source(self.source) or not _is_sql_identifier(column):
             return False
         filter_count = sum(1 for operation in self.operations if operation.kind == "filter")
         return filter_count <= 1 and all(
@@ -10124,7 +6218,7 @@ class LazyFrame:
             return True
         if any(operation.kind == "limit" for operation in self.operations):
             return False
-        if _is_query_builder_local_source(self.source):
+        if _is_declared_local_source(self.source):
             return all(operation.kind != "sort" for operation in self.operations)
         if self.source.source_format == "vortex":
             return all(
@@ -10136,7 +6230,7 @@ class LazyFrame:
     def _can_append_window(self, expressions: tuple[str, ...]) -> bool:
         if expressions and self._relation_statement() is not None:
             return True
-        if (not (_is_query_builder_local_source(self.source) or self.source.source_format == "vortex")
+        if (not (_is_declared_local_source(self.source) or self.source.source_format == "vortex")
                 or not expressions):
             return False
         for operation in self.operations:
@@ -10148,7 +6242,7 @@ class LazyFrame:
     def _can_append_having(self) -> bool:
         if self._relation_statement() is not None:
             return bool(self.operations and self.operations[-1].kind == "aggregate")
-        if not _is_query_builder_local_source(self.source) and self.source.source_format != "vortex":
+        if not _is_declared_local_source(self.source) and self.source.source_format != "vortex":
             return False
         saw_aggregate = False
         for operation in self.operations:
@@ -10162,7 +6256,7 @@ class LazyFrame:
     def _can_append_projection_column(self, column_name: str, *, allow_vortex: bool = False) -> bool:
         if self._relation_statement() is not None:
             return True
-        if (not _is_query_builder_local_source(self.source)
+        if (not _is_declared_local_source(self.source)
                 and not (allow_vortex and self.source.source_format == "vortex")):
             return False
         saw_join = False
@@ -10198,7 +6292,7 @@ class LazyFrame:
         on: object,
         how: str,
     ) -> bool:
-        if not _is_query_builder_local_source(self.source):
+        if self._relation_statement() is None:
             return False
         try:
             normalized_how = _normalize_join_how(how)
@@ -10595,11 +6689,14 @@ class LazyFrame:
         )
 
     def _schema_declared_projection_columns(self) -> tuple[str, ...] | None:
-        if not _is_query_builder_local_source(self.source):
+        from ._relational_sql import frame_stages
+
+        rendered = frame_stages(self)
+        if rendered is None or not rendered.columns:
             return None
-        return self._projection_columns_for_schema_or_explicit_selection(
-            allowed_operations={"filter", "limit"}
-        )
+        if any(not _is_sql_identifier(name) for name in rendered.columns):
+            return None
+        return rendered.columns
 
     def _projection_columns_for_schema_or_explicit_selection(
         self,
@@ -10853,41 +6950,28 @@ class LazyFrame:
             for column in projection_columns
         )
 
-    def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
-        statement = self._sql_local_source_statement(default_limit=100)
-        if statement is None:
-            return None
-        if _is_query_builder_local_source(self.source):
-            return None
-        frame = self if _workflow_has_limit(self.operations) else self.limit(100)
-        report = frame._local_source_prepared_sql_compatibility_collect_report(check=check)
-        if not isinstance(report, SqlLocalSourceSmokeReport) or report.status != "success":
-            return None
-        return _workflow_schema_report(frame, report)
+    def _bounded_schema_report(
+        self, *, check: bool,
+    ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
+        report = self._bounded_materialization_report(limit=100, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _workflow_schema_report(self, report)
 
     def _bounded_materialization_report(
         self,
         *,
         limit: int | None,
         check: bool,
-    ) -> SqlLocalSourceSmokeReport | None:
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         if limit is not None:
             _validate_positive_row_count("materialization limit", limit)
-        if self._native_relational_statement() is not None:
-            report = self.collect(limit=limit, check=check)
-            return SqlLocalSourceSmokeReport(report.envelope) if report.status == "success" else None
-        statement = self._sql_local_source_statement(default_limit=limit)
-        if statement is None:
-            return None
-        if _is_query_builder_local_source(self.source):
-            return None
-        frame = self
-        if limit is not None and not _workflow_has_limit(self.operations):
-            frame = self.limit(limit)
-        report = frame._local_source_prepared_sql_compatibility_collect_report(check=check)
-        if not isinstance(report, SqlLocalSourceSmokeReport):
-            return None
-        return report if report.status == "success" else None
+        report = self.collect(limit=limit, check=check)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        if report.status != "success":
+            return UnsupportedWorkflowOperationReport(report.workflow, "collect", report.envelope)
+        return report
 
     def _quarantine_pushdown_statement(
         self,
@@ -10924,7 +7008,7 @@ class LazyFrame:
             client=self.client,
             operations=tuple(operations),
             engine_mode=self.engine_mode,
-        )._sql_local_source_statement(default_limit=None)
+        )._relation_statement()
 
     def _append_group_by_aggregate(
         self,
@@ -10947,37 +7031,8 @@ class LazyFrame:
                                for source in operation.source_bindings))
 
     def _native_relational_statement(self) -> str | None:
-        """Complete SQL for shared native admission, including flat aggregates."""
-        from ._relational_sql import flat_order_is_safe, render_frame
-
-        if self._has_structured_binary_export_shape():
-            return None
-        unary = {"expression_project", "set_index", "distinct", "tail", "sample", "drop_duplicates", "duplicate_mask", "melt", "rolling_window", "explode", "pivot"}
-        if any(operation.kind in unary for operation in self.operations):
-            ordinary = tuple(operation for operation in self.operations if operation.kind not in unary)
-            if flat_order_is_safe(ordinary):
-                native = self
-                if self.source.source_format != "vortex":
-                    candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-                    native = candidate.frame if candidate is not None else self
-                if native._vortex_primitive_shape() is not None:
-                    return None
-        existing_route = self._native_vortex_user_route_shape()
-        if existing_route is not None and existing_route.operation_family == "cast":
-            return None
-        statement = (
-            self._sql_local_source_statement(allow_native_source=True, require_limit=False)
-            if flat_order_is_safe(self.operations) else None
-        )
-        if statement is None:
-            statement = render_frame(self)
-        # Flat scalar projections also need complete native SQL admission. The
-        # primitive facade accepts bare columns only; aliases and literals must
-        # not depend on a later LIMIT introducing a derived relation.
-        if statement and (_native_relational_sql_candidate(statement)
-                          or _native_flat_projection_sql_candidate(statement)):
-            return statement
-        return self._native_vortex_aggregate_statement()
+        """Submit every complete declaration to shared native admission."""
+        return self._relation_statement()
 
     def _relation_statement(self) -> str | None:
         """Render this complete input, including its order and limits, without I/O."""
@@ -10989,30 +7044,12 @@ class LazyFrame:
                 return statement
         return render_frame(self)
 
-    def _native_vortex_aggregate_statement(self) -> str | None:
-        """Lower a complete ordered aggregate chain without moving input limits."""
-        stages = ("filter", "group_by", "aggregate", "having", "sort", "limit")
-        position = -1
-        saw_aggregate = False
-        for operation in self.operations:
-            if operation.kind not in stages:
-                return None
-            next_position = stages.index(operation.kind)
-            if next_position <= position:
-                return None
-            position = next_position
-            saw_aggregate |= operation.kind == "aggregate"
-        if not saw_aggregate:
-            return None
-        return self._sql_local_source_statement(
-            allow_native_source=True, require_limit=False
-        )
 
     def _sql_local_source_statement(
         self, *, default_limit: int | None = None, allow_native_source: bool = False,
         require_limit: bool = True,
     ) -> str | None:
-        if not _is_query_builder_local_source(self.source) and not (
+        if not _is_declared_local_source(self.source) and not (
             allow_native_source and (
                 self.source.source_format == "vortex" or _is_declared_local_source(self.source)
             )
@@ -12162,30 +8199,31 @@ def from_rows(
     rows: Sequence[Mapping[str, object]],
     *,
     client: ShardLoomClient | None = None,
-    source_kind: str = "user_rows",
+    schema: Mapping[str, object] | None = None,
     **client_config: object,
-) -> GeneratedRowsSource:
-    """Create a scoped source-free generated row set for local output smoke writes."""
+) -> LazyFrame:
+    """Declare native scalar rows; pass schema for typed empty or all-null columns."""
 
-    return _generated_rows_source(
+    return _memory_rows_source(
         rows,
         client=_client_from_config(client, client_config),
-        source_kind=source_kind,
+        schema=schema,
     )
 
 
 def literal_table(
     rows: Sequence[Mapping[str, object]],
     *,
+    schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedRowsSource:
-    """Create a scoped source-free literal table for local output smoke writes."""
+) -> LazyFrame:
+    """Declare a literal table for the shared native engine."""
 
     return from_rows(
         rows,
+        schema=schema,
         client=client,
-        source_kind="literal_table",
         **client_config,
     )
 
@@ -12194,19 +8232,16 @@ def dataframe_source_free_projection(
     *expressions: object,
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedRowsSource:
+) -> LazyFrame:
     """Create a scoped one-row DataFrame-style literal projection.
 
-    This is source-free generated output, not broad DataFrame execution. The
-    admitted expression surface is deliberately literal-only and lowers to the
-    generated-source local-output command so the CLI emits generated-source,
-    output-sink, and no-fallback evidence.
+    Literal values become typed native input. Later expressions and output
+    use the same native engine as file-backed DataFrame workflows.
     """
 
-    return _generated_rows_source(
+    return _memory_rows_source(
         [_dataframe_source_free_projection_row(expressions)],
         client=_client_from_config(client, client_config),
-        source_kind="dataframe_source_free_projection",
     )
 
 
@@ -12216,21 +8251,20 @@ def dataframe_generated_with_column(
     *,
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedRowsSource:
+) -> LazyFrame:
     """Create a scoped one-row generated DataFrame with one literal column.
 
     This admits the narrow source-free `with_column` helper advertised by the
     generated-output capability matrix. It is not broad DataFrame expression
-    execution; source-backed generated rows and range expressions still use
+    execution; source-backed native rows and range expressions still use
     `from_rows(...).with_column(...)` and `range(...).with_column(...)`.
     """
 
     column = _require_non_empty("generated DataFrame column name", name)
     literal = _generated_literal_expression(expression)
-    return _generated_rows_source(
+    return _memory_rows_source(
         [{column: literal}],
         client=_client_from_config(client, client_config),
-        source_kind="dataframe_generated_with_column",
     )
 
 
@@ -12242,8 +8276,8 @@ def range(
     column: str = "value",
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedRangeSource:
-    """Create a scoped source-free ShardLoom-native range for local output smoke writes."""
+) -> LazyFrame:
+    """Declare a native integer input with an exclusive end for the shared engine."""
 
     normalized_start = _require_range_int("start", start)
     normalized_end = _require_range_int("end", end)
@@ -12251,11 +8285,10 @@ def range(
     if normalized_step == 0:
         raise ValueError("range step must not be zero")
     normalized_column = _require_non_empty("range column", column)
-    return GeneratedRangeSource(
-        start=normalized_start,
-        end=normalized_end,
-        step=normalized_step,
-        column=normalized_column,
+    return _native_memory_frame(
+        {"kind": "range", "start": normalized_start, "end": normalized_end,
+         "step": normalized_step, "column": normalized_column, "inclusive": False},
+        schema=((normalized_column, "int64"),),
         client=_client_from_config(client, client_config),
     )
 
@@ -12268,23 +8301,10 @@ def sequence(
     column: str = "value",
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedRangeSource:
-    """Create a scoped source-free ShardLoom-native sequence for local output smoke writes."""
+) -> LazyFrame:
+    """Alias for the native integer range, including its exclusive end."""
 
-    normalized_start = _require_range_int("start", start)
-    normalized_end = _require_range_int("end", end)
-    normalized_step = _require_range_int("step", step)
-    if normalized_step == 0:
-        raise ValueError("sequence step must not be zero")
-    normalized_column = _require_non_empty("sequence column", column)
-    return GeneratedRangeSource(
-        start=normalized_start,
-        end=normalized_end,
-        step=normalized_step,
-        column=normalized_column,
-        client=_client_from_config(client, client_config),
-        source_kind="sequence",
-    )
+    return range(start, end, step=step, column=column, client=client, **client_config)
 
 
 def sql_values(
@@ -12292,11 +8312,11 @@ def sql_values(
     *,
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedSqlSource:
-    """Create a scoped source-free SQL VALUES generated source for local output smokes."""
+) -> SqlWorkflow:
+    """Declare SQL VALUES for the shared native engine."""
 
     statement = _require_non_empty("SQL VALUES clause", values_clause)
-    return GeneratedSqlSource(
+    return SqlWorkflow(
         statement=statement,
         client=_client_from_config(client, client_config),
     )
@@ -12307,11 +8327,11 @@ def sql_literal_select(
     *,
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedSqlSource:
-    """Create a scoped source-free SQL literal SELECT generated source for local output smokes."""
+) -> SqlWorkflow:
+    """Declare a source-free SQL projection for the shared native engine."""
 
     statement = _require_non_empty("SQL literal SELECT expression", expression)
-    return GeneratedSqlSource(
+    return SqlWorkflow(
         statement=statement,
         client=_client_from_config(client, client_config),
     )
@@ -12384,7 +8404,7 @@ def calendar(
     include_parts: bool = True,
     client: ShardLoomClient | None = None,
     **client_config: object,
-) -> GeneratedRowsSource:
+) -> LazyFrame:
     """Create a scoped source-free calendar/date dimension for local output.
 
     Dates are generated in Python with an inclusive `start` and exclusive `end`,
@@ -12416,7 +8436,6 @@ def calendar(
     return from_rows(
         rows,
         client=client,
-        source_kind="calendar",
         **client_config,
     )
 
@@ -12424,11 +8443,12 @@ def calendar(
 def from_pandas(
     dataframe: object,
     *,
+    schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
     engine_mode: str = "auto",
     check: bool = False,
     **client_config: object,
-) -> GeneratedRowsSource | UnsupportedWorkflowOperationReport:
+) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from a pandas DataFrame-like object."""
 
     resolved_client = _client_from_config(client, client_config)
@@ -12442,10 +8462,11 @@ def from_pandas(
     if rows is None:
         return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
     try:
-        return _generated_rows_source(
+        return _memory_rows_source(
             rows,
             client=resolved_client,
-            source_kind="user_rows",
+            schema=schema,
+            engine_mode=engine_mode,
         )
     except (TypeError, ValueError):
         return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
@@ -12454,11 +8475,12 @@ def from_pandas(
 def from_arrow_table(
     table: object,
     *,
+    schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
     engine_mode: str = "auto",
     check: bool = False,
     **client_config: object,
-) -> GeneratedRowsSource | UnsupportedWorkflowOperationReport:
+) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from an Arrow table-like object."""
 
     resolved_client = _client_from_config(client, client_config)
@@ -12472,10 +8494,11 @@ def from_arrow_table(
     if rows is None:
         return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
     try:
-        return _generated_rows_source(
+        return _memory_rows_source(
             rows,
             client=resolved_client,
-            source_kind="user_rows",
+            schema=schema,
+            engine_mode=engine_mode,
         )
     except (TypeError, ValueError):
         return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
@@ -12484,11 +8507,12 @@ def from_arrow_table(
 def from_arrow_ipc(
     source: object,
     *,
+    schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
     engine_mode: str = "auto",
     check: bool = False,
     **client_config: object,
-) -> GeneratedRowsSource | UnsupportedWorkflowOperationReport:
+) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from an Arrow IPC stream/file."""
 
     resolved_client = _client_from_config(client, client_config)
@@ -12517,130 +8541,134 @@ def from_arrow_ipc(
     if rows is None:
         return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
     try:
-        return _generated_rows_source(
+        return _memory_rows_source(
             rows,
             client=resolved_client,
-            source_kind="user_rows",
+            schema=schema,
+            engine_mode=engine_mode,
         )
     except (TypeError, ValueError):
         return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
 
 
-def _generated_rows_args(
-    rows: Sequence[Mapping[str, object]],
-) -> tuple[str, str, tuple[tuple[tuple[str, object], ...], ...]]:
-    if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
-        raise TypeError("rows must be a non-empty sequence of mappings")
-    if not rows:
-        raise ValueError("rows must not be empty")
-    first = rows[0]
-    if not isinstance(first, Mapping):
-        raise TypeError("rows must contain mappings")
-    if any(not isinstance(key, str) for key in first.keys()):
-        raise TypeError("generated row column names must be strings")
-    columns = tuple(first.keys())
-    if not columns or any(column.strip() == "" for column in columns):
-        raise ValueError("row column names must not be empty")
-    if len(set(columns)) != len(columns):
-        raise ValueError("row column names must be unique")
-    value_types = tuple(_generated_value_type(first[column]) for column in columns)
-    row_tokens: list[str] = []
-    normalized_rows: list[tuple[tuple[str, object], ...]] = []
-    for index, row in enumerate(rows):
-        if not isinstance(row, Mapping):
-            raise TypeError(f"row {index} is not a mapping")
-        if any(not isinstance(key, str) for key in row.keys()):
-            raise TypeError("generated row column names must be strings")
-        row_keys = tuple(row.keys())
-        if row_keys != columns:
-            raise ValueError(
-                "all generated rows must have the same columns in the same order"
-            )
-        parts = []
-        normalized_row = []
-        for column, value_type in zip(columns, value_types):
-            value = row[column]
-            parts.append(
-                f"{_generated_token(column)}={_generated_token(_generated_value(value_type, value))}"
-            )
-            normalized_row.append((column, value))
-        row_tokens.append(",".join(parts))
-        normalized_rows.append(tuple(normalized_row))
-    schema_arg = ",".join(
-        f"{_generated_token(column)}:{value_type}"
-        for column, value_type in zip(columns, value_types)
-    )
-    return schema_arg, ";".join(row_tokens), tuple(normalized_rows)
-
-
-def _generated_rows_source(
+def _memory_rows_source(
     rows: Sequence[Mapping[str, object]],
     *,
     client: ShardLoomClient,
-    source_kind: str,
-) -> GeneratedRowsSource:
-    schema_arg, rows_arg, normalized_rows = _generated_rows_args(rows)
-    return GeneratedRowsSource(
-        schema_arg=schema_arg,
-        rows_arg=rows_arg,
-        client=client,
-        source_kind=_normalize_generated_source_kind(source_kind),
-        rows=normalized_rows,
+    schema: Mapping[str, object] | None = None,
+    engine_mode: str = "auto",
+) -> LazyFrame:
+    """Declare bounded nullable scalar rows without executing any expressions."""
+    if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
+        raise TypeError("rows must be a sequence of mappings")
+    if len(rows) > 65_536:
+        raise ValueError("native row input exceeds 65,536 rows")
+    declared = _normalize_schema(schema)
+    if declared:
+        columns = tuple(name for name, _ in declared)
+    elif rows and isinstance(rows[0], Mapping):
+        columns = tuple(rows[0])
+    elif rows:
+        raise TypeError("rows must contain mappings")
+    else:
+        raise ValueError("empty row input requires an explicit schema")
+    if not columns or len(columns) > 64:
+        raise ValueError("native row input requires 1..=64 columns")
+    if any(not isinstance(name, str) for name in columns):
+        raise TypeError("row column names must be strings")
+    if any(not name or len(name.encode("utf-8")) > 256 for name in columns):
+        raise ValueError("row column names must contain 1..=256 UTF8 bytes")
+    keys = set(columns)
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise TypeError(f"row {index} is not a mapping")
+        if set(row) != keys:
+            raise ValueError("all rows must match the declared column names")
+    if declared:
+        aliases = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
+                   "boolean": "bool", "str": "utf8", "string": "utf8"}
+        kinds = tuple(aliases.get(str(dtype).lower(), str(dtype).lower()) for _, dtype in declared)
+        if any(kind not in {"int64", "float64", "bool", "utf8"} for kind in kinds):
+            raise ValueError("native row schema admits int64, float64, bool and utf8")
+    else:
+        kinds = tuple(_infer_memory_column_type(row[name] for row in rows) for name in columns)
+    schema_fields = tuple(zip(columns, kinds))
+    encoded_rows = tuple(tuple(None if row[name] is None else _memory_value(kind, row[name])
+                               for name, kind in schema_fields) for row in rows)
+    return _native_memory_frame(
+        {"kind": "rows", "schema": schema_fields, "rows": encoded_rows},
+        schema=schema_fields, client=client, engine_mode=engine_mode,
     )
 
 
-def _generated_value_type(value: object) -> str:
-    if isinstance(value, bool):
+def _infer_memory_column_type(values: Iterable[object]) -> str:
+    kinds = {_memory_value_type(value) for value in values if value is not None}
+    if not kinds:
+        return "bool"
+    if kinds <= {"int64", "float64"}:
+        return "float64" if "float64" in kinds else "int64"
+    if len(kinds) == 1:
+        return next(iter(kinds))
+    raise TypeError("row values in a column must share one scalar type")
+
+
+def _native_memory_frame(
+    declaration: Mapping[str, object], *, schema: tuple[tuple[str, str], ...],
+    client: ShardLoomClient, engine_mode: str = "auto",
+) -> LazyFrame:
+    payload = json.dumps(declaration, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    if len(payload) > 8 * 1024 * 1024:
+        raise ValueError("native memory declaration exceeds 8 MiB")
+    uri = "memory://input/" + hashlib.sha256(payload).hexdigest()
+    return LazyFrame(
+        source=WorkflowSource("memory", uri, schema, tuple(declaration.items())),
+        client=client, engine_mode=_normalize_engine_mode(engine_mode),
+    )
+
+
+def _memory_value_type(value: object) -> str:
+    if value is None or isinstance(value, bool):
         return "bool"
     if isinstance(value, int):
+        if not -(1 << 63) <= value < (1 << 63):
+            raise ValueError("native row integers must fit int64")
         return "int64"
     if isinstance(value, float):
         if not math.isfinite(value):
-            raise ValueError("float generated row values must be finite")
+            raise ValueError("float native row values must be finite")
         return "float64"
     if isinstance(value, str):
         return "utf8"
     raise TypeError(
-        "generated row values must be bool, int, float, or str for the scoped local smoke"
+        "native row values must be None, bool, int, float, or str"
     )
 
 
-def _generated_value(value_type: str, value: object) -> str:
+def _memory_value(value_type: str, value: object) -> str:
     if value_type == "bool":
         if not isinstance(value, bool):
-            raise TypeError("generated bool columns must contain only bool values")
+            raise TypeError("native bool columns must contain only bool values")
         return "true" if value else "false"
     if value_type == "int64":
         if isinstance(value, bool) or not isinstance(value, int):
-            raise TypeError("generated int64 columns must contain only int values")
+            raise TypeError("native int64 columns must contain only int values")
+        if not -(1 << 63) <= value < (1 << 63):
+            raise ValueError("native row integers must fit int64")
         return str(value)
     if value_type == "float64":
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise TypeError("generated float64 columns must contain only numeric values")
+            raise TypeError("native float64 columns must contain only numeric values")
+        if isinstance(value, int) and builtins.abs(value) > (1 << 53):
+            raise ValueError("integer-to-float row conversion exceeds the exact integer range")
         numeric = float(value)
         if not math.isfinite(numeric):
-            raise ValueError("float generated row values must be finite")
+            raise ValueError("float native row values must be finite")
         return str(numeric)
     if value_type == "utf8":
         if not isinstance(value, str):
-            raise TypeError("generated utf8 columns must contain only str values")
+            raise TypeError("native utf8 columns must contain only str values")
         return value
-    raise ValueError(f"unsupported generated value type {value_type!r}")
-
-
-def _normalize_generated_source_kind(value: str) -> str:
-    normalized = value.strip().lower().replace("-", "_")
-    if normalized not in {
-        "user_rows",
-        "literal_table",
-        "calendar",
-        "dataframe_source_free_projection",
-        "dataframe_generated_with_column",
-    }:
-        raise ValueError(
-            "generated source kind must be one of ('user_rows', 'literal_table', 'calendar', 'dataframe_source_free_projection', 'dataframe_generated_with_column')"
-        )
-    return normalized
+    raise ValueError(f"unsupported native input value type {value_type!r}")
 
 
 def _dataframe_source_free_projection_row(
@@ -12654,7 +8682,7 @@ def _dataframe_source_free_projection_row(
             name = _normalize_output_column_name(raw_name)
             if name in row:
                 raise ValueError("DataFrame source-free projection aliases must be unique")
-            _generated_value_type(raw_value)
+            _memory_value_type(raw_value)
             row[name] = raw_value
         if not row:
             raise ValueError("DataFrame source-free projection mapping must not be empty")
@@ -12680,7 +8708,7 @@ def _dataframe_source_free_projection_item(expression: object) -> tuple[str, obj
         if isinstance(value, str) and value.strip().startswith("lit("):
             value = _generated_literal_expression(value)
         else:
-            _generated_value_type(value)
+            _memory_value_type(value)
         return name, value
     if isinstance(expression, str):
         return _parse_dataframe_literal_alias_expression(expression)
@@ -12724,128 +8752,8 @@ def _parse_dataframe_literal_alias_expression(expression: str) -> tuple[str, obj
         raise ValueError(
             "DataFrame source-free projection lit(...) must contain a bool, int, float, or string literal"
         ) from exc
-    _generated_value_type(value)
+    _memory_value_type(value)
     return _normalize_output_column_name(alias_node.value), value
-
-
-def _normalize_generated_select_columns(columns: tuple[object, ...]) -> tuple[str, ...]:
-    if len(columns) == 1 and isinstance(columns[0], Sequence) and not isinstance(
-        columns[0],
-        (str, bytes, bytearray),
-    ):
-        values = tuple(columns[0])
-    else:
-        values = columns
-    if not values:
-        raise ValueError("generated row projection must include at least one column")
-    normalized = tuple(
-        _require_non_empty("generated projection column", value) for value in values
-    )
-    if len(set(normalized)) != len(normalized):
-        raise ValueError("generated row projection columns must be unique")
-    return normalized
-
-
-def _default_generated_range_select_items(public_column: str) -> tuple[str, ...]:
-    alias = _normalize_output_column_name(public_column)
-    return (f"value AS {alias}",)
-
-
-def _normalize_generated_range_select_items(
-    columns: tuple[object, ...],
-    public_column: str,
-) -> tuple[str, ...]:
-    if len(columns) == 1 and _is_non_string_sequence(columns[0]):
-        values = tuple(columns[0])
-    else:
-        values = columns
-    if not values:
-        raise ValueError("generated range projection must include the range column")
-    if len(values) != 1:
-        raise ValueError("generated range select currently admits only the range column once")
-    raw = values[0].sql if isinstance(values[0], ColumnExpression) else str(values[0])
-    column = _rewrite_generated_range_column_sql(raw, public_column)
-    if _normalize_expression_column(column) != "value":
-        raise ValueError("generated range select currently admits only the range column")
-    return _default_generated_range_select_items(public_column)
-
-
-def _generated_range_select_aliases(select_items: tuple[str, ...]) -> tuple[str, ...]:
-    aliases: list[str] = []
-    for item in select_items:
-        upper = item.upper()
-        marker = " AS "
-        marker_index = upper.rfind(marker)
-        if marker_index >= 0:
-            aliases.append(item[marker_index + len(marker) :].strip())
-        else:
-            aliases.append(item.strip())
-    return tuple(aliases)
-
-
-def _normalize_generated_range_sort_columns(columns: tuple[object, ...]) -> tuple[str, ...]:
-    normalized = tuple(
-        _normalize_output_column_name(column) for column in _normalize_columns(columns)
-    )
-    if len(set(normalized)) != len(normalized):
-        raise ValueError("generated range ORDER BY keys must be unique")
-    return normalized
-
-
-def _sql_generated_range_expression_sql(expression: object, public_column: str) -> str:
-    return _rewrite_generated_range_column_sql(_predicate_sql(expression), public_column)
-
-
-def _sql_generated_range_projection_expression(
-    expression: object,
-    public_column: str,
-) -> str:
-    if isinstance(expression, ColumnExpression):
-        return _rewrite_generated_range_column_sql(expression.sql, public_column)
-    try:
-        literal = _generated_literal_expression(expression)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "generated range computed columns admit shardloom column expressions "
-            "or int64 literal expressions only"
-        ) from exc
-    if isinstance(literal, bool) or not isinstance(literal, int):
-        raise ValueError("generated range computed-column literals must be int64 values")
-    return str(literal)
-
-
-def _rewrite_generated_range_column_sql(raw: str, public_column: str) -> str:
-    text = _require_non_empty("generated range SQL expression", raw)
-    public = _normalize_output_column_name(public_column)
-    if public == "value":
-        return text
-    rewritten: list[str] = []
-    in_quote = False
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if char == "'":
-            rewritten.append(char)
-            if in_quote and index + 1 < len(text) and text[index + 1] == "'":
-                rewritten.append(text[index + 1])
-                index += 2
-                continue
-            in_quote = not in_quote
-            index += 1
-            continue
-        if not in_quote and (char == "_" or char.isalpha()):
-            end = index + 1
-            while end < len(text) and _is_identifier_char(text[end]):
-                end += 1
-            token = text[index:end]
-            rewritten.append("value" if token == public else token)
-            index = end
-            continue
-        rewritten.append(char)
-        index += 1
-    if in_quote:
-        raise ValueError("generated range SQL expression has an unclosed string literal")
-    return "".join(rewritten)
 
 
 def _generated_literal_expression(expression: object) -> object:
@@ -12865,16 +8773,16 @@ def _generated_literal_expression(expression: object) -> object:
         if lowered in {"true", "false"}:
             return lowered == "true"
         if lowered in {"null", "none"}:
-            raise ValueError("literal with_column does not support null literals yet")
+            return None
         try:
             parsed = ast.literal_eval(inner)
         except (SyntaxError, ValueError) as exc:
             raise ValueError(
                 "lit(...) expression must contain a bool, int, float, or quoted string"
             ) from exc
-        _generated_value_type(parsed)
+        _memory_value_type(parsed)
         return parsed
-    _generated_value_type(expression)
+    _memory_value_type(expression)
     return expression
 
 
@@ -12974,10 +8882,6 @@ def _validate_positive_row_count(name: str, value: object) -> None:
         raise TypeError(f"{name} must be an integer")
     if value <= 0:
         raise ValueError(f"{name} must be positive")
-
-
-def _generated_token(value: str) -> str:
-    return quote(value, safe="")
 
 
 def _read_source(
@@ -13092,55 +8996,8 @@ def _prepared_vortex_target_path(
     return Path(workspace).expanduser() / f"{stem}.vortex"
 
 
-def _auto_prepared_vortex_target_path(source: WorkflowSource) -> Path:
-    source_path = Path(source.uri).expanduser()
-    source_name = source_path.name or "source"
-    stem = _safe_generated_vortex_stem(Path(source_name).stem or "source")
-    digest = hashlib.sha256(
-        f"{source.uri}|{source.source_format}|{source.schema!r}".encode("utf-8")
-    ).hexdigest()[:16]
-    parent = source_path.parent if source_path.parent != Path("") else Path(".")
-    return parent / ".shardloom" / "prepared" / f"{stem}-{digest}.vortex"
 
 
-def _local_source_auto_vortex_sql_candidate(
-    statement: str,
-    *,
-    client: ShardLoomClient,
-) -> _PreparedVortexSqlCandidate | None:
-    """Rewrite local SQL source refs to prepared Vortex refs when every ref is local/native."""
-
-    refs = _sql_source_refs(statement)
-    if not refs:
-        return None
-    rewritten = statement
-    sources: list[_PreparedVortexSqlSource] = []
-    seen: set[str] = set()
-    for ref in refs:
-        if ref in seen:
-            continue
-        seen.add(ref)
-        if _is_local_vortex_source_ref(ref):
-            continue
-        source_format = _source_format_for_local_source_ref(ref)
-        if source_format is None:
-            return None
-        source = WorkflowSource(source_format, ref)
-        target = _auto_prepared_vortex_target_path(source)
-        sources.append(
-            _PreparedVortexSqlSource(
-                source_uri=ref,
-                source_format=source_format,
-                target=target,
-            )
-        )
-        rewritten = rewritten.replace(_sql_string_literal(ref), _sql_string_literal(str(target)))
-    if not sources or rewritten == statement:
-        return None
-    return _PreparedVortexSqlCandidate(
-        workflow=SqlWorkflow(statement=rewritten, client=client),
-        sources=tuple(sources),
-    )
 
 
 def _generated_prepared_vortex_target_path(
@@ -14561,15 +10418,6 @@ def _vortex_expression_scalar_payload(
     return None
 
 
-def _native_vortex_structured_literal(token: str) -> object:
-    if token.upper() in {"NULL", "TRUE", "FALSE"}:
-        return {"NULL": None, "TRUE": True, "FALSE": False}[token.upper()]
-    if token.startswith("'"):
-        return _parse_sql_string_literal_token(token)
-    value = _parse_numeric_literal_token(token)
-    if isinstance(value, int) and not -(1 << 63) <= value < (1 << 64):
-        raise ValueError("native array integer literals must fit Int64 or UInt64")
-    return value
 
 
 def _sql_complex_projection_literal(value: object) -> str:
@@ -16017,162 +11865,6 @@ def _workflow_has_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:
     return False
 
 
-def _matches_vortex_group_by_aggregation_shape(
-    operations: Sequence[WorkflowOperation],
-) -> bool:
-    filter_expr, group_by, aggregate, limit = _vortex_grouped_aggregate_parts(operations)
-    return (
-        limit is not None
-        and limit == 100
-        and group_by == ("group_key",)
-        and _aggregate_values_include(aggregate, "count(*) AS rows")
-        and _aggregate_values_include(aggregate, "sum(metric) AS total_metric")
-        and filter_expr is None
-    )
-
-
-def _matches_vortex_null_heavy_aggregate_shape(
-    operations: Sequence[WorkflowOperation],
-) -> bool:
-    filter_expr, group_by, aggregate, limit = _vortex_grouped_aggregate_parts(operations)
-    return (
-        limit is not None
-        and group_by == ("group_key",)
-        and _aggregate_values_include(aggregate, "count(*) AS rows")
-        and _aggregate_values_include(
-            aggregate,
-            "sum(nullable_metric_00) AS total_nullable_metric",
-        )
-        and filter_expr is not None
-        and _sql_normalized("nullable_metric_00 IS NOT NULL") in _sql_normalized(filter_expr)
-    )
-
-
-def _vortex_grouped_aggregate_parts(
-    operations: Sequence[WorkflowOperation],
-) -> tuple[str | None, tuple[str, ...] | None, tuple[str, ...], int | None]:
-    filter_expr: str | None = None
-    group_by: tuple[str, ...] | None = None
-    aggregate: tuple[str, ...] = ()
-    limit: int | None = None
-    stages = ("filter", "group_by", "aggregate", "limit")
-    position = -1
-    for operation in operations:
-        if operation.kind not in stages:
-            return None, None, (), None
-        next_position = stages.index(operation.kind)
-        if next_position <= position:
-            return None, None, (), None
-        position = next_position
-        if operation.kind == "filter" and filter_expr is None:
-            filter_expr = operation.values[0]
-        elif operation.kind == "group_by" and group_by is None:
-            group_by = operation.values
-        elif operation.kind == "aggregate" and not aggregate:
-            aggregate = operation.values
-        elif operation.kind == "limit" and limit is None:
-            limit = int(operation.values[0])
-        else:
-            return None, None, (), None
-    return filter_expr, group_by, aggregate, limit
-
-
-def _aggregate_values_include(values: tuple[str, ...], expected: str) -> bool:
-    expected_normalized = _sql_normalized(expected)
-    return any(_sql_normalized(value) == expected_normalized for value in values)
-
-
-def _vortex_hash_join_right_input(operations: Sequence[WorkflowOperation]) -> str | None:
-    if len(operations) not in {2, 3}:
-        return None
-    join = operations[0]
-    if join.kind != "join" or len(join.values) != 7:
-        return None
-    right_uri, left_key, right_key, how, left_alias, right_alias, condition = join.values
-    if (
-        left_key != "dim_key"
-        or right_key != "dim_key"
-        or how != "inner"
-        or left_alias != "f"
-        or right_alias != "d"
-        or condition
-    ):
-        return None
-    select_seen = False
-    limit_seen = False
-    for operation in operations[1:]:
-        if operation.kind == "select" and not select_seen:
-            select_seen = operation.values == ("f.id", "d.dim_label", "f.metric")
-        elif operation.kind == "limit" and not limit_seen:
-            limit_seen = int(operation.values[0]) > 0
-        else:
-            return None
-    return right_uri if select_seen and limit_seen else None
-
-
-def _matches_vortex_global_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:
-    if len(operations) != 3:
-        return False
-    select, sort, limit = operations
-    return (
-        select.kind == "select"
-        and select.values == ("id", "group_key", "metric")
-        and sort.kind == "sort"
-        and sort.values == ("desc", "metric")
-        and limit.kind == "limit"
-        and int(limit.values[0]) == 10
-    )
-
-
-def _matches_vortex_clean_cast_shape(operations: Sequence[WorkflowOperation]) -> bool:
-    if len(operations) != 3:
-        return False
-    computed, filter_op, limit = operations
-    return (
-        computed.kind == "with_column"
-        and computed.values[0] == "amount_float"
-        and _sql_normalized(computed.values[1])
-        == _sql_normalized("CAST(dirty_numeric AS float64)")
-        and filter_op.kind == "filter"
-        and _sql_normalized(filter_op.values[0]) == _sql_normalized("amount_float >= 0")
-        and limit.kind == "limit"
-        and int(limit.values[0]) > 0
-    )
-
-
-def _matches_vortex_malformed_timestamp_shape(
-    operations: Sequence[WorkflowOperation],
-) -> bool:
-    if len(operations) != 2:
-        return False
-    computed, limit = operations
-    return (
-        computed.kind == "with_column"
-        and computed.values[0] == "event_day"
-        and _sql_normalized(computed.values[1])
-        == _sql_normalized("CAST(raw_event_time AS date32)")
-        and limit.kind == "limit"
-        and int(limit.values[0]) > 0
-    )
-
-
-def _matches_vortex_nested_json_contains_shape(
-    operations: Sequence[WorkflowOperation],
-) -> bool:
-    if len(operations) != 3:
-        return False
-    filter_op, select, limit = operations
-    return (
-        filter_op.kind == "filter"
-        and _sql_filter_looks_like_substring_contains(filter_op.values[0])
-        and "nested_payload" in filter_op.values[0]
-        and select.kind == "select"
-        and select.values == ("id", "nested_payload")
-        and limit.kind == "limit"
-        and int(limit.values[0]) > 0
-    )
-
-
 def _sql_normalized(value: str) -> str:
     return "".join(value.strip().lower().split())
 
@@ -16291,402 +11983,6 @@ def _embedded_vortex_input_uri(statement: str) -> str | None:
     return unique_refs[0]
 
 
-def _vortex_sql_primitive_shape(
-    statement: str,
-) -> _VortexSqlPrimitiveWorkflowShape | None:
-    if _native_relational_sql_candidate(statement):
-        return None
-    normalized = statement.strip().rstrip(";").strip()
-    if not _starts_with_sql_keyword(normalized, "select"):
-        return None
-    refs = _sql_source_refs(normalized)
-    if len(refs) != 1 or not _is_local_vortex_source_ref(refs[0]):
-        return None
-    select_body = normalized[len("select") :].strip()
-    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
-    if from_position is None:
-        return None
-    projection = select_body[:from_position].strip()
-    from_tail = select_body[from_position + len("from") :].strip()
-    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
-    if parsed_ref is None:
-        return None
-    source_ref, tail = parsed_ref
-    if source_ref != refs[0] or not _is_local_vortex_source_ref(source_ref):
-        return None
-    parsed_tail = _parse_vortex_sql_primitive_tail(tail)
-    if parsed_tail is None:
-        return None
-    predicate_sql, order_by_sql, limit = parsed_tail
-    predicate = None
-    if predicate_sql is not None:
-        predicate = _vortex_sql_predicate_to_tiny(predicate_sql)
-        if predicate is None:
-            return None
-    distinct = _starts_with_sql_keyword(projection, "distinct")
-    if distinct:
-        projection = projection[len("distinct") :].strip()
-        if not projection:
-            return None
-    count = _is_sql_count_star_projection(projection)
-    if count:
-        if distinct or order_by_sql is not None or limit is not None:
-            return None
-        return _VortexSqlPrimitiveWorkflowShape(
-            uri=source_ref,
-            predicate=predicate,
-            count=True,
-        )
-    columns: tuple[str, ...] | None
-    if projection == "*":
-        columns = ("*",)
-    else:
-        try:
-            columns = tuple(
-                _normalize_output_column_name(column)
-                for column in _split_projection_function_args(projection)
-            )
-        except ValueError:
-            return None
-        if not columns:
-            return None
-    if order_by_sql is not None:
-        if distinct or limit is None:
-            return None
-        sort_rows = _vortex_sql_order_by_to_sort_payload(order_by_sql, limit)
-        if sort_rows is None:
-            return None
-        return _VortexSqlPrimitiveWorkflowShape(
-            uri=source_ref,
-            predicate=predicate,
-            columns=columns,
-            limit=limit,
-            distinct=distinct,
-            sort_rows=sort_rows,
-        )
-    if distinct:
-        if columns == ("*",):
-            return None
-        return _VortexSqlPrimitiveWorkflowShape(
-            uri=source_ref,
-            predicate=predicate,
-            columns=columns,
-            limit=limit,
-            distinct=True,
-        )
-    if predicate is None:
-        return _VortexSqlPrimitiveWorkflowShape(
-            uri=source_ref,
-            columns=columns,
-            limit=limit,
-        )
-    return _VortexSqlPrimitiveWorkflowShape(
-        uri=source_ref,
-        predicate=predicate,
-        columns=columns,
-        limit=limit,
-    )
-
-
-def _vortex_sql_user_route_shape(
-    statement: str,
-) -> _NativeVortexSqlUserRouteShape | None:
-    if _native_relational_sql_candidate(statement):
-        return None
-    normalized = statement.strip().rstrip(";").strip()
-    if not _starts_with_sql_keyword(normalized, "select"):
-        return None
-    refs = _sql_source_refs(normalized)
-    if not refs or any(not _is_local_vortex_source_ref(ref) for ref in refs):
-        return None
-    has_limit = _find_top_level_sql_keyword_outside_quotes(normalized, "limit") is not None
-    if not has_limit:
-        return None
-    if len(refs) == 1:
-        parsed = _parse_vortex_sql_single_source_route(normalized, refs[0])
-        if parsed is None:
-            return None
-        if _vortex_sql_matches_null_heavy_aggregate(parsed):
-            return _NativeVortexSqlUserRouteShape(
-                uri=parsed.uri,
-                operation_family="aggregate",
-                provider_scenario="null-heavy-aggregate",
-            )
-        if _vortex_sql_matches_group_by_aggregation(parsed):
-            return _NativeVortexSqlUserRouteShape(
-                uri=parsed.uri,
-                operation_family="aggregate",
-                provider_scenario="group-by-aggregation",
-            )
-        if _vortex_sql_matches_global_top_n(parsed):
-            return _NativeVortexSqlUserRouteShape(
-                uri=parsed.uri,
-                operation_family="top_n",
-                provider_scenario="sort-and-top-k",
-            )
-        if _vortex_sql_matches_clean_cast(parsed):
-            return _NativeVortexSqlUserRouteShape(
-                uri=parsed.uri,
-                operation_family="cast",
-                provider_scenario="clean-cast-filter-write",
-            )
-        if _vortex_sql_matches_malformed_timestamp(parsed):
-            return _NativeVortexSqlUserRouteShape(
-                uri=parsed.uri,
-                operation_family="cast",
-                provider_scenario="malformed-timestamp-dirty-csv",
-            )
-        if _vortex_sql_matches_nested_json_contains(parsed):
-            return _NativeVortexSqlUserRouteShape(
-                uri=parsed.uri,
-                operation_family="contains",
-                provider_scenario="nested-json-field-scan",
-            )
-        return None
-    if len(refs) == 2 and _vortex_sql_matches_hash_join(normalized, refs[0], refs[1]):
-        return _NativeVortexSqlUserRouteShape(
-            uri=refs[0],
-            operation_family="join",
-            provider_scenario="hash-join",
-            right_input=refs[1],
-        )
-    return None
-
-
-def _parse_vortex_sql_single_source_route(
-    statement: str,
-    expected_uri: str,
-) -> _ParsedVortexSqlSingleSourceRoute | None:
-    select_body = statement[len("select") :].strip()
-    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
-    if from_position is None:
-        return None
-    projection_sql = select_body[:from_position].strip()
-    from_tail = select_body[from_position + len("from") :].strip()
-    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
-    if parsed_ref is None:
-        return None
-    uri, tail = parsed_ref
-    if uri != expected_uri:
-        return None
-    try:
-        projection = tuple(
-            _normalize_sql_projection_item(item)
-            for item in _split_projection_function_args(projection_sql)
-        )
-    except ValueError:
-        return None
-    if not projection:
-        return None
-    clauses = _parse_vortex_sql_route_clauses(tail)
-    if clauses is None:
-        return None
-    return _ParsedVortexSqlSingleSourceRoute(
-        uri=uri,
-        projection=projection,
-        clauses=clauses,
-    )
-
-
-def _parse_vortex_sql_route_clauses(value: str) -> _VortexSqlRouteClauses | None:
-    tail = value.strip()
-    if not tail:
-        return None
-    spans: list[tuple[int, int, str]] = []
-    for clause in ("where", "group by", "order by", "limit"):
-        span = _find_top_level_sql_phrase_span_outside_quotes(tail, clause)
-        if span is not None:
-            spans.append((span[0], span[1], clause))
-    if not spans:
-        return None
-    spans.sort()
-    canonical_order = {
-        "where": 0,
-        "group by": 1,
-        "order by": 2,
-        "limit": 3,
-    }
-    ordered_positions = [canonical_order[clause] for _, _, clause in spans]
-    if ordered_positions != sorted(ordered_positions):
-        return None
-    if tail[: spans[0][0]].strip():
-        return None
-    seen: set[str] = set()
-    values: dict[str, str] = {}
-    previous_position = -1
-    for index, (start, end, clause) in enumerate(spans):
-        if start <= previous_position or clause in seen:
-            return None
-        seen.add(clause)
-        next_start = spans[index + 1][0] if index + 1 < len(spans) else len(tail)
-        body = tail[end:next_start].strip()
-        if not body:
-            return None
-        values[clause] = body
-        previous_position = start
-    if "limit" not in values:
-        return None
-    limit_text = values["limit"]
-    if not limit_text.isdecimal():
-        return None
-    limit = int(limit_text)
-    if limit <= 0:
-        return None
-    return _VortexSqlRouteClauses(
-        where=values.get("where"),
-        group_by=values.get("group by"),
-        order_by=values.get("order by"),
-        limit=limit,
-    )
-
-
-def _normalize_sql_projection_item(value: str) -> str:
-    return _sql_normalized(value)
-
-
-def _sql_projection_equals(
-    projection: Sequence[str],
-    expected: Sequence[str],
-) -> bool:
-    return tuple(projection) == tuple(_sql_normalized(item) for item in expected)
-
-
-def _sql_clause_equals(value: str | None, expected: str) -> bool:
-    return value is not None and _sql_normalized(value) == _sql_normalized(expected)
-
-
-def _vortex_sql_matches_group_by_aggregation(
-    parsed: _ParsedVortexSqlSingleSourceRoute,
-) -> bool:
-    return (
-        _sql_projection_equals(
-            parsed.projection,
-            (
-                "group_key",
-                "count(*) AS rows",
-                "sum(metric) AS total_metric",
-            ),
-        )
-        and parsed.clauses.where is None
-        and _sql_clause_equals(parsed.clauses.group_by, "group_key")
-        and parsed.clauses.order_by is None
-        and parsed.clauses.limit == 100
-    )
-
-
-def _vortex_sql_matches_null_heavy_aggregate(
-    parsed: _ParsedVortexSqlSingleSourceRoute,
-) -> bool:
-    return (
-        _sql_projection_equals(
-            parsed.projection,
-            (
-                "group_key",
-                "count(*) AS rows",
-                "sum(nullable_metric_00) AS total_nullable_metric",
-            ),
-        )
-        and _sql_clause_equals(parsed.clauses.where, "nullable_metric_00 IS NOT NULL")
-        and _sql_clause_equals(parsed.clauses.group_by, "group_key")
-        and parsed.clauses.order_by is None
-    )
-
-
-def _vortex_sql_matches_hash_join(statement: str, left_uri: str, right_uri: str) -> bool:
-    select_body = statement[len("select") :].strip()
-    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
-    if from_position is None:
-        return False
-    projection_sql = select_body[:from_position].strip()
-    try:
-        projection = tuple(
-            _normalize_sql_projection_item(item)
-            for item in _split_projection_function_args(projection_sql)
-        )
-    except ValueError:
-        return False
-    if not _sql_projection_equals(projection, ("f.id", "d.dim_label", "f.metric")):
-        return False
-    from_tail = select_body[from_position + len("from") :].strip()
-    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
-    if parsed_ref is None:
-        return False
-    uri, tail = parsed_ref
-    if uri != left_uri:
-        return False
-    tail_compact = _sql_normalized(tail)
-    expected_prefix = _sql_normalized(
-        f"AS f JOIN '{right_uri}' AS d ON f.dim_key = d.dim_key LIMIT"
-    )
-    if not tail_compact.startswith(expected_prefix):
-        return False
-    limit_text = tail_compact[len(expected_prefix) :]
-    return limit_text.isdecimal() and int(limit_text) > 0
-
-
-def _vortex_sql_matches_global_top_n(
-    parsed: _ParsedVortexSqlSingleSourceRoute,
-) -> bool:
-    return (
-        _sql_projection_equals(parsed.projection, ("id", "group_key", "metric"))
-        and parsed.clauses.where is None
-        and parsed.clauses.group_by is None
-        and _sql_clause_equals(parsed.clauses.order_by, "metric DESC")
-        and parsed.clauses.limit == 10
-    )
-
-
-def _vortex_sql_matches_clean_cast(
-    parsed: _ParsedVortexSqlSingleSourceRoute,
-) -> bool:
-    return (
-        _sql_projection_equals(
-            parsed.projection,
-            (
-                "id",
-                "group_key",
-                "metric",
-                "CAST(dirty_numeric AS float64) AS amount_float",
-            ),
-        )
-        and (
-            _sql_clause_equals(parsed.clauses.where, "amount_float >= 0")
-            or _sql_clause_equals(
-                parsed.clauses.where,
-                "CAST(dirty_numeric AS float64) >= 0",
-            )
-        )
-        and parsed.clauses.group_by is None
-        and parsed.clauses.order_by is None
-    )
-
-
-def _vortex_sql_matches_malformed_timestamp(
-    parsed: _ParsedVortexSqlSingleSourceRoute,
-) -> bool:
-    return (
-        _sql_projection_equals(
-            parsed.projection,
-            (
-                "id",
-                "CAST(raw_event_time AS date32) AS event_day",
-            ),
-        )
-        and parsed.clauses.where is None
-        and parsed.clauses.group_by is None
-        and parsed.clauses.order_by is None
-    )
-
-
-def _vortex_sql_matches_nested_json_contains(
-    parsed: _ParsedVortexSqlSingleSourceRoute,
-) -> bool:
-    return (
-        _sql_projection_equals(parsed.projection, ("id", "nested_payload"))
-        and _sql_clause_equals(parsed.clauses.where, "nested_payload LIKE '%target%'")
-        and parsed.clauses.group_by is None
-        and parsed.clauses.order_by is None
-    )
 
 
 def _find_top_level_sql_phrase_span_outside_quotes(
@@ -16749,172 +12045,18 @@ def _find_top_level_sql_phrase_span_outside_quotes(
     return None
 
 
-def _parse_sql_single_quoted_prefix(value: str) -> tuple[str, str] | None:
-    if not value.startswith("'"):
-        return None
-    current: list[str] = []
-    index = 1
-    while index < len(value):
-        char = value[index]
-        if char == "'":
-            if index + 1 < len(value) and value[index + 1] == "'":
-                current.append("'")
-                index += 2
-                continue
-            return "".join(current), value[index + 1 :].strip()
-        current.append(char)
-        index += 1
-    return None
 
 
-def _parse_vortex_sql_primitive_tail(
-    value: str,
-) -> tuple[str | None, str | None, int | None] | None:
-    tail = value.strip()
-    if not tail:
-        return None, None, None
-    spans: list[tuple[int, int, str]] = []
-    for clause in ("where", "order by", "limit"):
-        span = _find_top_level_sql_phrase_span_outside_quotes(tail, clause)
-        if span is not None:
-            spans.append((span[0], span[1], clause))
-    if not spans:
-        return None
-    spans.sort()
-    canonical_order = {"where": 0, "order by": 1, "limit": 2}
-    ordered_positions = [canonical_order[clause] for _, _, clause in spans]
-    if ordered_positions != sorted(ordered_positions):
-        return None
-    if tail[: spans[0][0]].strip():
-        return None
-    seen: set[str] = set()
-    values: dict[str, str] = {}
-    previous_position = -1
-    for index, (start, end, clause) in enumerate(spans):
-        if start <= previous_position or clause in seen:
-            return None
-        seen.add(clause)
-        next_start = spans[index + 1][0] if index + 1 < len(spans) else len(tail)
-        body = tail[end:next_start].strip()
-        if not body:
-            return None
-        values[clause] = body
-        previous_position = start
-    limit: int | None = None
-    if "limit" in values:
-        limit_text = values["limit"]
-        if not limit_text or not limit_text.isdecimal():
-            return None
-        parsed_limit = int(limit_text)
-        if parsed_limit <= 0:
-            return None
-        limit = parsed_limit
-    if "order by" in values and limit is None:
-        return None
-    return values.get("where"), values.get("order by"), limit
 
 
-def _vortex_sql_order_by_to_sort_payload(value: str, limit: int) -> str | None:
-    try:
-        items = tuple(_split_projection_function_args(value))
-    except ValueError:
-        return None
-    if not items:
-        return None
-    columns: list[str] = []
-    direction: str | None = None
-    for item in items:
-        parts = item.strip().split()
-        if len(parts) == 1:
-            item_direction = "asc"
-            column = parts[0]
-        elif len(parts) == 2 and parts[1].lower() in {"asc", "desc"}:
-            item_direction = parts[1].lower()
-            column = parts[0]
-        else:
-            return None
-        try:
-            normalized_column = _normalize_output_column_name(column)
-        except ValueError:
-            return None
-        if direction is None:
-            direction = item_direction
-        elif direction != item_direction:
-            return None
-        columns.append(normalized_column)
-    return _vortex_sort_rows_payload(direction or "asc", tuple(columns), limit)
 
 
-def _is_sql_count_star_projection(value: str) -> bool:
-    return "".join(value.split()).lower() == "count(*)"
 
 
-def _vortex_sql_predicate_to_tiny(value: str) -> str | None:
-    predicate = value.strip()
-    lower = predicate.lower()
-    for suffix, primitive in (
-        (" is not null", "is_not_null"),
-        (" is null", "is_null"),
-    ):
-        if lower.endswith(suffix):
-            column = predicate[: -len(suffix)].strip()
-            try:
-                return f"{primitive}:{_normalize_output_column_name(column)}"
-            except ValueError:
-                return None
-    if "!=" in predicate or "<>" in predicate:
-        return None
-    for operator, primitive in (
-        (">=", "gte"),
-        ("<=", "lte"),
-        ("=", "eq"),
-        (">", "gt"),
-        ("<", "lt"),
-    ):
-        position = _find_unquoted_token(predicate, operator)
-        if position is None:
-            continue
-        left = predicate[:position].strip()
-        right = predicate[position + len(operator) :].strip()
-        try:
-            column = _normalize_output_column_name(left)
-        except ValueError:
-            return None
-        literal = _parse_sql_int_literal(right)
-        if literal is None:
-            return None
-        return f"{primitive}:{column}:{literal}"
-    return None
 
 
-def _find_unquoted_token(value: str, token: str) -> int | None:
-    in_quote = False
-    index = 0
-    while index <= len(value) - len(token):
-        char = value[index]
-        if char == "'":
-            if in_quote and index + 1 < len(value) and value[index + 1] == "'":
-                index += 2
-                continue
-            in_quote = not in_quote
-            index += 1
-            continue
-        if not in_quote and value.startswith(token, index):
-            return index
-        index += 1
-    return None
 
 
-def _parse_sql_int_literal(value: str) -> str | None:
-    text = value.strip()
-    if not text or text in {"+", "-"}:
-        return None
-    if not all(
-        char.isdigit() or (index == 0 and char in {"+", "-"})
-        for index, char in enumerate(text)
-    ):
-        return None
-    return str(int(text))
 
 
 def _is_local_csv_source_ref(value: str) -> bool:
@@ -16958,8 +12100,10 @@ def _workflow_source_bindings(sources: Sequence[WorkflowSource]) -> dict[str, di
     bindings: dict[str, dict[str, object]] = {}
     for source in sources:
         binding: dict[str, object] = {"input_format": _public_workflow_input_format(source)}
-        if source.schema and source.source_format != "vortex":
-            binding["source_schema"] = source.schema
+        if source.memory_input:
+            binding["memory_input"] = dict(source.memory_input)
+        elif schema := _prepare_vortex_schema_hints(source):
+            binding["source_schema"] = schema
         previous = bindings.setdefault(source.uri, binding)
         if previous != binding:
             raise ValueError(f"conflicting format or schema declarations for source {source.uri!r}")
@@ -17009,20 +12153,6 @@ def _is_declared_local_source(source: WorkflowSource) -> bool:
     )
 
 
-def _is_query_builder_local_source(source: WorkflowSource) -> bool:
-    if source.source_format == "csv":
-        return _is_local_csv_source_ref(source.uri)
-    if source.source_format == "json":
-        return _is_local_json_source_ref(source.uri)
-    if source.source_format == "parquet":
-        return _is_local_parquet_source_ref(source.uri)
-    if source.source_format == "arrow-ipc":
-        return _is_local_arrow_ipc_source_ref(source.uri)
-    if source.source_format == "avro":
-        return _is_local_avro_source_ref(source.uri)
-    if source.source_format == "orc":
-        return _is_local_orc_source_ref(source.uri)
-    return False
 
 
 def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
@@ -17052,57 +12182,10 @@ def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
     return tuple(values)
 
 
-def _native_relational_sql_candidate(statement: str) -> bool:
-    """Syntax-only dispatch; Rust parses and admits the full native plan."""
-    if any(_contains_sql_keyword_outside_quotes(statement, keyword)
-           for keyword in ("join", "union", "intersect", "except", "over", "replace or add")):
-        return True
-    first = _find_sql_keyword_outside_quotes(statement, "select")
-    return first is not None and _contains_sql_keyword_outside_quotes(statement[first + 6:], "select")
 
 
-def _native_flat_projection_sql_candidate(statement: str) -> bool:
-    """Submit scalar projections whole; Rust owns expression admission."""
-    select = _find_top_level_sql_keyword_outside_quotes(statement, "select")
-    source = _find_top_level_sql_keyword_outside_quotes(statement, "from")
-    if select is None or source is None or source <= select or not _sql_source_refs(statement):
-        return False
-    projection = statement[select + len("select"):source].strip()
-    if _starts_with_sql_keyword(projection, "distinct"):
-        projection = projection[len("distinct"):].strip()
-    if _is_sql_count_star_projection(projection):
-        return False
-    try:
-        columns = _split_projection_function_args(projection)
-    except ValueError:
-        # Do not replace native parser diagnostics with Python parser errors.
-        return True
-    scalar = any(value.lower() in {"null", "true", "false"}
-                 or (value != "*" and not _is_sql_identifier(value))
-                 for value in columns)
-    if scalar:
-        existing = _vortex_sql_user_route_shape(statement)
-        if existing is not None and existing.operation_family == "cast":
-            return False
-    return scalar
 
 
-def _native_flat_aggregate_sql_candidate(statement: str) -> bool:
-    """Dispatch aggregate syntax to Rust without selecting an aggregate strategy."""
-    source = _find_top_level_sql_keyword_outside_quotes(statement, "from")
-    select = _find_top_level_sql_keyword_outside_quotes(statement, "select")
-    if source is None or select is None or source <= select:
-        return False
-    projection = statement[select + len("select"):source].strip()
-    grouped = _contains_sql_keyword_outside_quotes(statement, "group by")
-    # Preserve the established metadata COUNT(*) collection route. Any other
-    # aggregate clause needs complete SQL admission, including HAVING/ordering.
-    if (_is_sql_count_star_projection(projection) and not grouped
-            and not any(_contains_sql_keyword_outside_quotes(statement, clause)
-                        for clause in ("having", "order by", "offset"))):
-        return False
-    return grouped or any(_contains_sql_keyword_outside_quotes(projection, function)
-                          for function in ("count", "sum", "avg", "min", "max"))
 
 
 def _terminal_resource_kwargs(
@@ -17333,31 +12416,6 @@ def _parse_sort_keep_policy(values: tuple[str, ...]) -> str:
     return keep if keep in {"first", "last", "all"} else "first"
 
 
-def _vortex_sort_rows_payload(
-    direction: str,
-    columns: tuple[str, ...],
-    limit: int,
-    *,
-    tie_policy: str = "first",
-) -> str | None:
-    if direction not in {"asc", "desc"} or limit <= 0:
-        return None
-    if not columns or any(not _is_sql_identifier(column) for column in columns):
-        return None
-    normalized_tie_policy = tie_policy.strip().lower().replace("_", "-")
-    if normalized_tie_policy not in {"first", "last", "all"}:
-        return None
-    return json.dumps(
-        {
-            "order_by": [
-                {"column": column, "descending": direction == "desc"}
-                for column in columns
-            ],
-            "limit": limit,
-            "tie_policy": normalized_tie_policy,
-        },
-        separators=(",", ":"),
-    )
 
 
 def _format_order_by_clause(
@@ -17474,48 +12532,21 @@ def _optional_sql_having_clause(predicate: str | None) -> str:
 
 def _workflow_schema_report(
     workflow: LazyFrame,
-    smoke_report: SqlLocalSourceSmokeReport,
+    smoke_report: VortexWorkflowExecutionReport,
 ) -> WorkflowSchemaReport:
     rows = smoke_report.result_rows
-    fields = _infer_workflow_schema_fields(rows, workflow.source.schema)
+    declared = dict(workflow.source.schema)
+    fields = tuple(
+        WorkflowSchemaField(
+            name=name, dtype=dtype.label, nullable=dtype.nullable,
+            declared_dtype=declared.get(name),
+            observed_non_null_count=builtins.sum(row[name] is not None for row in rows),
+            null_count=builtins.sum(row[name] is None for row in rows),
+        ) for name, dtype in smoke_report.result_schema
+    )
     return WorkflowSchemaReport(workflow=workflow, smoke_report=smoke_report, fields=fields)
 
 
-def _infer_workflow_schema_fields(
-    rows: tuple[Mapping[str, Any], ...],
-    declared_schema: tuple[tuple[str, str], ...],
-) -> tuple[WorkflowSchemaField, ...]:
-    declared = {name: dtype for name, dtype in declared_schema}
-    field_order: list[str] = []
-    for name, _dtype in declared_schema:
-        if name not in field_order:
-            field_order.append(name)
-    for row in rows:
-        for name in row:
-            if name not in field_order:
-                field_order.append(name)
-
-    fields: list[WorkflowSchemaField] = []
-    for name in field_order:
-        values = [row.get(name) for row in rows]
-        non_null_values = [value for value in values if value is not None]
-        observed_dtype = _merge_observed_dtypes(
-            _infer_python_scalar_dtype(value) for value in non_null_values
-        )
-        declared_dtype = declared.get(name)
-        dtype = observed_dtype or _normalize_schema_dtype_token(declared_dtype) or "null"
-        null_count = len(rows) - len(non_null_values)
-        fields.append(
-            WorkflowSchemaField(
-                name=name,
-                dtype=dtype,
-                nullable=null_count > 0,
-                declared_dtype=declared_dtype,
-                observed_non_null_count=len(non_null_values),
-                null_count=null_count,
-            )
-        )
-    return tuple(fields)
 
 
 def _infer_python_scalar_dtype(value: object) -> str:
@@ -17532,15 +12563,6 @@ def _infer_python_scalar_dtype(value: object) -> str:
     return "json"
 
 
-def _merge_observed_dtypes(dtypes: Sequence[str]) -> str | None:
-    unique = tuple(dict.fromkeys(dtype for dtype in dtypes if dtype != "null"))
-    if not unique:
-        return None
-    if len(unique) == 1:
-        return unique[0]
-    if set(unique) <= {"int64", "float64"}:
-        return "float64"
-    return "mixed"
 
 
 def _normalize_schema_dtype_token(value: str | None) -> str | None:
@@ -17864,28 +12886,31 @@ def _row_field_order(rows: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(fields)
 
 
-def _rows_to_pandas(rows: Sequence[Mapping[str, Any]], pandas: object) -> object:
-    return getattr(pandas, "DataFrame")(_rows_as_dicts(rows))
+def _result_to_pandas(report: VortexWorkflowExecutionReport, pandas: object) -> object:
+    # Object columns preserve NULL and full-width integers without float coercion.
+    return getattr(pandas, "DataFrame")(report.python_objects, columns=report.result_columns, dtype=object)
 
 
-def _rows_to_arrow_table(rows: Sequence[Mapping[str, Any]], pyarrow: object) -> object:
-    table_type = getattr(pyarrow, "Table")
-    return table_type.from_pylist(_rows_as_dicts(rows))
+def _result_to_arrow_table(report: VortexWorkflowExecutionReport, pyarrow: object) -> object:
+    return arrow_table(report.result_rows, report.result_schema, pyarrow)
 
 
-def _rows_to_arrow_ipc(rows: Sequence[Mapping[str, Any]], pyarrow: object) -> bytes:
-    table = _rows_to_arrow_table(rows, pyarrow)
+def _result_to_arrow_ipc(report: VortexWorkflowExecutionReport, pyarrow: object) -> bytes:
+    table = _result_to_arrow_table(report, pyarrow)
     sink = getattr(pyarrow, "BufferOutputStream")()
     with pyarrow.ipc.new_stream(sink, table.schema) as writer:
         writer.write_table(table)
-    buffer = sink.getvalue()
-    return buffer.to_pybytes()
+    return sink.getvalue().to_pybytes()
 
 
-def _rows_to_numpy(rows: Sequence[Mapping[str, Any]], numpy: object) -> object:
-    columns = _row_field_order(rows)
-    values = [[row.get(column) for column in columns] for row in rows]
-    return getattr(numpy, "asarray")(values)
+def _result_to_numpy(report: VortexWorkflowExecutionReport, numpy: object) -> object:
+    rows, columns = report.python_objects, report.result_columns
+    # Assign whole cells to keep mixed scalars and nested values in two axes.
+    values = getattr(numpy, "empty")((len(rows), len(columns)), dtype=object)
+    for index, row in enumerate(rows):
+        for column_index, column in enumerate(columns):
+            values[index, column_index] = row[column]
+    return values
 
 
 def _pandas_like_records(dataframe: object) -> Sequence[Mapping[str, object]] | None:
@@ -18018,14 +13043,6 @@ def _normalize_fanout_outputs(
     if not normalized:
         raise ValueError("fanout outputs must not be empty")
     return tuple(normalized)
-
-
-def _generated_primary_and_fanout_outputs(
-    outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
-) -> tuple[CommandPart, str, tuple[tuple[str, CommandPart], ...]]:
-    normalized = _normalize_fanout_outputs(outputs)
-    output_format, output_path = normalized[0]
-    return output_path, output_format, normalized[1:]
 
 
 def _is_non_string_sequence(value: object) -> bool:

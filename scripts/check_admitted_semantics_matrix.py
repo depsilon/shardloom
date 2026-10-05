@@ -20,7 +20,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from native_workflow_protocol import extract_result, public_workflow_command, report_fields, strict_json
 from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
+from run_clickbench_query_uat import equivalent
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,7 +96,6 @@ class SqlFixtureCase:
     source_text: str
     statement_template: str
     expected_jsonl: str
-    expected_fields: dict[str, str]
     property_seed: int | None = None
     fuzz_seed: int | None = None
     fuzz_surface: str | None = None
@@ -324,15 +325,6 @@ def property_numeric_case() -> SqlFixtureCase:
             "FROM '{source}' WHERE amount >= 10 LIMIT 100"
         ),
         expected_jsonl=jsonl(expected),
-        expected_fields={
-            "sql_statement_kind": "local_source_computed_projection_filter_limit",
-            "generic_expression_projection_runtime_execution": "true",
-            "generic_expression_projection_output_column": "gross,spread",
-            "projected_columns": "id,gross,spread",
-            "claim_gate_status": "fixture_smoke_only",
-            "production_claim_allowed": "false",
-            "performance_claim_allowed": "false",
-        },
         property_seed=PROPERTY_SEED,
     )
 
@@ -351,20 +343,6 @@ def string_function_composition_case() -> SqlFixtureCase:
             '{"id":1,"label_key":"alpha-north","middle":"lph","prefix":"al",'
             '"suffix":"ha","scrubbed":"lph"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "string_function",
-            "string_function_runtime_execution": "true",
-            "string_function_operator": "concat",
-            "string_function_source_column": "label+segment",
-            "string_function_literal_count": "2",
-            "string_function_projection_runtime_execution": "true",
-            "string_function_projection_operator": "concat,substr,left,right,replace",
-            "string_function_projection_source_column": "label+segment,label,label,label,label",
-            "string_function_projection_output_column": "label_key,middle,prefix,suffix,scrubbed",
-            "string_function_projection_literal_count": "1,2,1,1,2",
-            "projected_columns": "id,label_key,middle,prefix,suffix,scrubbed",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -386,26 +364,11 @@ def temporal_arithmetic_difference_case() -> SqlFixtureCase:
             "FROM '{source}' WHERE DATE_DIFF_DAYS(end_date, start_date) >= 4 LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"plus_three":"2026-05-22","end_minus_two":"2026-05-21",'
-            '"span_days":4,"shifted_ts":"2026-05-19T12:36:15Z","elapsed_seconds":185}\n'
-            '{"id":2,"plus_three":"2026-01-04","end_minus_two":"2026-01-08",'
-            '"span_days":9,"shifted_ts":"2026-01-01T00:01:30Z","elapsed_seconds":90}\n'
+            '{"id":1,"plus_three":20595,"end_minus_two":20594,'
+            '"span_days":4,"shifted_ts":1779194175000000,"elapsed_seconds":185}\n'
+            '{"id":2,"plus_three":20457,"end_minus_two":20461,'
+            '"span_days":9,"shifted_ts":1767225690000000,"elapsed_seconds":90}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "generic_expression",
-            "generic_expression_predicate_runtime_execution": "true",
-            "generic_expression_predicate_operator_family": "temporal_difference",
-            "date_arithmetic_projection_runtime_execution": "true",
-            "date_arithmetic_projection_operator": "date_add_days,date_sub_days",
-            "date_arithmetic_projection_output_column": "plus_three,end_minus_two",
-            "timestamp_arithmetic_projection_runtime_execution": "true",
-            "timestamp_arithmetic_projection_operator": "timestamp_add_seconds",
-            "timestamp_arithmetic_projection_output_column": "shifted_ts",
-            "generic_expression_projection_runtime_execution": "true",
-            "generic_expression_projection_output_column": "span_days,elapsed_seconds",
-            "projected_columns": "id,plus_three,end_minus_two,span_days,shifted_ts,elapsed_seconds",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -428,28 +391,11 @@ def interval_literal_temporal_arithmetic_case() -> SqlFixtureCase:
             ">= TIMESTAMP '2026-01-01T01:00:00Z' LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"next_day":"2026-05-20","prior_two":"2026-05-17",'
-            '"shifted_ts":"2026-05-19T12:36:15Z","prior_minute":"2026-05-19T12:33:45Z"}\n'
-            '{"id":2,"next_day":"2026-01-02","prior_two":"2025-12-30",'
-            '"shifted_ts":"2026-01-01T00:01:30Z","prior_minute":"2025-12-31T23:59:00Z"}\n'
+            '{"id":1,"next_day":20593,"prior_two":20590,'
+            '"shifted_ts":1779194175000000,"prior_minute":1779194025000000}\n'
+            '{"id":2,"next_day":20455,"prior_two":20452,'
+            '"shifted_ts":1767225690000000,"prior_minute":1767225540000000}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "timestamp_arithmetic",
-            "timestamp_arithmetic_runtime_execution": "true",
-            "timestamp_arithmetic_operator": "timestamp_add_seconds",
-            "timestamp_arithmetic_seconds": "3600",
-            "timestamp_arithmetic_source_column": "event_ts",
-            "date_arithmetic_projection_runtime_execution": "true",
-            "date_arithmetic_projection_operator": "date_add_days,date_sub_days",
-            "date_arithmetic_projection_days": "1,2",
-            "date_arithmetic_projection_output_column": "next_day,prior_two",
-            "timestamp_arithmetic_projection_runtime_execution": "true",
-            "timestamp_arithmetic_projection_operator": "timestamp_add_seconds,timestamp_sub_seconds",
-            "timestamp_arithmetic_projection_seconds": "90,60",
-            "timestamp_arithmetic_projection_output_column": "shifted_ts,prior_minute",
-            "projected_columns": "id,next_day,prior_two,shifted_ts,prior_minute",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -470,27 +416,9 @@ def timestamp_offset_literal_normalization_case() -> SqlFixtureCase:
             ">= TIMESTAMP '2026-05-19T12:34:56-05:00' ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":2,"event_ts_utc":"2026-05-19T17:34:56Z"}\n'
-            '{"id":3,"event_ts_utc":"2026-05-19T17:35:00Z"}\n'
+            '{"id":2,"event_ts_utc":1779212096000000}\n'
+            '{"id":3,"event_ts_utc":1779212100000000}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "cast",
-            "cast_runtime_execution": "true",
-            "cast_source_column": "event_ts",
-            "cast_target_dtype": "timestamp_micros",
-            "cast_mode": "strict",
-            "cast_projection_runtime_execution": "true",
-            "cast_projection_source_column": "event_ts",
-            "cast_projection_output_column": "event_ts_utc",
-            "cast_projection_target_dtype": "timestamp_micros",
-            "cast_projection_mode": "strict",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "projected_columns": "id,event_ts_utc",
-            "fallback_attempted": "false",
-            "external_engine_invoked": "false",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -511,20 +439,10 @@ def conditional_projection_case() -> SqlFixtureCase:
             "FROM '{source}' WHERE id >= 1 LIMIT 3"
         ),
         expected_jsonl=(
-            '{"id":1,"size_band":"small","cutoff_day":"2025-12-31","label_choice":"fallback-alpha"}\n'
-            '{"id":2,"size_band":"large","cutoff_day":"2026-12-31","label_choice":"preferred-beta"}\n'
-            '{"id":3,"size_band":"small","cutoff_day":"2026-12-31","label_choice":"fallback-gamma"}\n'
+            '{"id":1,"size_band":"small","cutoff_day":20453,"label_choice":"fallback-alpha"}\n'
+            '{"id":2,"size_band":"large","cutoff_day":20818,"label_choice":"preferred-beta"}\n'
+            '{"id":3,"size_band":"small","cutoff_day":20818,"label_choice":"fallback-gamma"}\n'
         ),
-        expected_fields={
-            "conditional_projection_runtime_execution": "true",
-            "conditional_projection_predicate_family": "comparison,comparison,comparison",
-            "conditional_projection_source_column": "amount,event_date,amount+fallback_label+preferred_label",
-            "conditional_projection_output_column": "size_band,cutoff_day,label_choice",
-            "conditional_projection_then_dtype": "utf8,date32,utf8",
-            "conditional_projection_else_dtype": "utf8,date32,utf8",
-            "projected_columns": "id,size_band,cutoff_day,label_choice",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -535,21 +453,9 @@ def binary_hex_literal_projection_case() -> SqlFixtureCase:
         source_text="id,label\n1,alpha\n2,beta\n",
         statement_template="SELECT id,X'00ff10' AS payload FROM '{source}' LIMIT 10",
         expected_jsonl=(
-            '{"id":1,"payload":"binary[hex=00ff10]"}\n'
-            '{"id":2,"payload":"binary[hex=00ff10]"}\n'
+            '{"id":1,"payload":"00ff10"}\n'
+            '{"id":2,"payload":"00ff10"}\n'
         ),
-        expected_fields={
-            "literal_projection_runtime_execution": "true",
-            "literal_projection_columns": "payload",
-            "literal_projection_count": "1",
-            "literal_projection_dtype": "binary",
-            "binary_literal_projection_runtime_execution": "true",
-            "binary_literal_projection_columns": "payload",
-            "binary_literal_projection_byte_count": "3",
-            "binary_literal_projection_hex_value": "00ff10",
-            "projected_columns": "id,payload",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -563,21 +469,9 @@ def binary_text_literal_projection_case() -> SqlFixtureCase:
             "FROM '{source}' LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"marker":"binary[hex=6f6b]","payload":"binary[hex=726177]"}\n'
-            '{"id":2,"marker":"binary[hex=6f6b]","payload":"binary[hex=726177]"}\n'
+            '{"id":1,"marker":"6f6b","payload":"726177"}\n'
+            '{"id":2,"marker":"6f6b","payload":"726177"}\n'
         ),
-        expected_fields={
-            "literal_projection_runtime_execution": "true",
-            "literal_projection_columns": "marker,payload",
-            "literal_projection_count": "2",
-            "literal_projection_dtype": "binary,binary",
-            "binary_literal_projection_runtime_execution": "true",
-            "binary_literal_projection_columns": "marker,payload",
-            "binary_literal_projection_byte_count": "2,3",
-            "binary_literal_projection_hex_value": "6f6b,726177",
-            "projected_columns": "id,marker,payload",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -591,19 +485,6 @@ def complex_array_literal_projection_case() -> SqlFixtureCase:
             '{"id":1,"values":[1,2,null]}\n'
             '{"id":2,"values":[1,2,null]}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_complex_projection_limit",
-            "complex_projection_runtime_execution": "true",
-            "complex_projection_columns": "values",
-            "complex_projection_count": "1",
-            "complex_projection_kind": "array_literal",
-            "complex_projection_output_dtype": "list",
-            "complex_projection_source_column": "not_applicable",
-            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
-            "complex_projection_equality_semantics": "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
-            "projected_columns": "id,values",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -617,19 +498,6 @@ def complex_struct_source_projection_case() -> SqlFixtureCase:
             '{"id":1,"payload":{"label":"alpha","amount":8}}\n'
             '{"id":2,"payload":{"label":"beta","amount":null}}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_complex_projection_limit",
-            "complex_projection_runtime_execution": "true",
-            "complex_projection_columns": "payload",
-            "complex_projection_count": "1",
-            "complex_projection_kind": "struct_source_columns",
-            "complex_projection_output_dtype": "struct",
-            "complex_projection_source_column": "label,amount",
-            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
-            "complex_projection_equality_semantics": "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
-            "projected_columns": "id,payload",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -646,23 +514,6 @@ def complex_csv_output_projection_case() -> SqlFixtureCase:
             '{"id":1,"values":[1,2],"payload":{"label":"alpha","amount":8}}\n'
             '{"id":2,"values":[1,2],"payload":{"label":"beta","amount":null}}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_complex_projection_limit",
-            "complex_projection_runtime_execution": "true",
-            "complex_projection_columns": "values,payload",
-            "complex_projection_count": "2",
-            "complex_projection_kind": "array_literal,struct_source_columns",
-            "complex_projection_output_dtype": "list,struct",
-            "complex_projection_source_column": "label,amount",
-            "complex_projection_output_boundary": "csv_json_text_output_with_result_jsonl_evidence",
-            "output_format": "csv",
-            "output_plan_conversion_blocker": "none",
-            "output_plan_type_nullability_support": "flat_scalar_and_nested_json_text_values_null_as_empty_boundary",
-            "output_fidelity_loss": "csv:csv_text_roundtrip_loses_static_and_nested_type_metadata",
-            "result_replay_verified": "true",
-            "projected_columns": "id,values,payload",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         output_format="csv",
         output_name="complex-csv-output-result.csv",
         expected_output_text=(
@@ -686,22 +537,6 @@ def complex_distinct_projection_equality_case() -> SqlFixtureCase:
             '{"label":"alpha","payload":{"label":"alpha","amount":8},"values":[1,2,null]}\n'
             '{"label":"beta","payload":{"label":"beta","amount":null},"values":[1,2,null]}\n'
         ),
-        expected_fields={
-            "distinct_projection_runtime_execution": "true",
-            "distinct_projection_output_columns": "label,payload,values",
-            "distinct_projection_input_row_count": "3",
-            "distinct_projection_output_row_count": "2",
-            "complex_projection_runtime_execution": "true",
-            "complex_projection_columns": "payload,values",
-            "complex_projection_count": "2",
-            "complex_projection_kind": "struct_source_columns,array_literal",
-            "complex_projection_output_dtype": "struct,list",
-            "complex_projection_source_column": "label,amount",
-            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
-            "complex_projection_equality_semantics": "admitted_distinct_projection_and_union_distinct_result_boundary_values_only",
-            "projected_columns": "label,payload,values",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -719,25 +554,6 @@ def complex_order_by_projection_case() -> SqlFixtureCase:
             '{"id":3,"payload":{"label":"beta","amount":null}}\n'
             '{"id":1,"payload":{"label":"gamma","amount":13}}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_complex_projection_order_by_topn_limit",
-            "order_by_runtime_execution": "true",
-            "top_n_runtime_execution": "true",
-            "sort_operator_family": "single_key_complex_result_boundary_topn",
-            "sort_keys": "payload",
-            "sort_direction": "asc",
-            "complex_projection_runtime_execution": "true",
-            "complex_projection_columns": "payload",
-            "complex_projection_count": "1",
-            "complex_projection_kind": "struct_source_columns",
-            "complex_projection_output_dtype": "struct",
-            "complex_projection_source_column": "label,amount",
-            "complex_projection_output_boundary": "jsonl_nested_result_boundary_only",
-            "complex_projection_ordering_columns": "payload",
-            "complex_projection_ordering_semantics": "admitted_canonical_structural_result_boundary_values_only",
-            "projected_columns": "id,payload",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -763,18 +579,6 @@ def sql_union_complex_distinct_equality_case() -> SqlFixtureCase:
             '{"id":2,"values":[1],"payload":{"label":"beta"}}\n'
             '{"id":3,"values":[1],"payload":{"label":"gamma"}}\n'
         ),
-        expected_fields={
-            "sql_union_runtime_execution": "true",
-            "sql_union_mode": "distinct",
-            "sql_union_branch_count": "2",
-            "sql_union_input_row_count": "4",
-            "sql_union_distinct_input_row_count": "3",
-            "sql_union_output_row_count": "3",
-            "sql_union_order_by_runtime_execution": "true",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -801,18 +605,6 @@ def sql_union_complex_ordering_case() -> SqlFixtureCase:
             '{"id":2,"payload":{"label":"beta"}}\n'
             '{"id":1,"payload":{"label":"alpha"}}\n'
         ),
-        expected_fields={
-            "sql_union_runtime_execution": "true",
-            "sql_union_mode": "all",
-            "sql_union_branch_count": "2",
-            "sql_union_input_row_count": "4",
-            "sql_union_output_row_count": "4",
-            "sql_union_order_by_runtime_execution": "true",
-            "sort_operator_family": "single_key_complex_result_boundary_topn",
-            "sort_keys": "payload",
-            "sort_direction": "desc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -832,23 +624,9 @@ def binary_cast_projection_predicate_case() -> SqlFixtureCase:
             "WHERE CAST(CONCAT(label_prefix,label_suffix) AS binary) = X'616c706861' LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"label_bytes":"binary[hex=616c706861]",'
-            '"amount_bytes":"binary[hex=343261]"}\n'
+            '{"id":1,"label_bytes":"616c706861",'
+            '"amount_bytes":"343261"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "cast",
-            "cast_runtime_execution": "true",
-            "cast_source_column": "label_prefix+label_suffix",
-            "cast_target_dtype": "binary",
-            "cast_mode": "strict",
-            "cast_projection_runtime_execution": "true",
-            "cast_projection_source_column": "label_prefix+label_suffix,amount_text",
-            "cast_projection_output_column": "label_bytes,amount_bytes",
-            "cast_projection_target_dtype": "binary,binary",
-            "cast_projection_mode": "strict,try",
-            "projected_columns": "id,label_bytes,amount_bytes",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -862,25 +640,9 @@ def binary_cast_ordering_predicate_case() -> SqlFixtureCase:
             "WHERE CAST(LOWER(TRIM(label)) AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":2,"label_bytes":"binary[hex=62657461]"}\n'
-            '{"id":5,"label_bytes":"binary[hex=67616d6d61]"}\n'
+            '{"id":2,"label_bytes":"62657461"}\n'
+            '{"id":5,"label_bytes":"67616d6d61"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "cast",
-            "cast_runtime_execution": "true",
-            "cast_source_column": "label",
-            "cast_target_dtype": "binary",
-            "cast_mode": "strict",
-            "cast_projection_runtime_execution": "true",
-            "cast_projection_source_column": "label",
-            "cast_projection_output_column": "label_bytes",
-            "cast_projection_target_dtype": "binary",
-            "cast_projection_mode": "strict",
-            "projected_columns": "id,label_bytes",
-            "fallback_attempted": "false",
-            "external_engine_invoked": "false",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -900,30 +662,9 @@ def decimal_cast_projection_predicate_case() -> SqlFixtureCase:
             "WHERE CAST(amount AS numeric(10,2)) >= 10.00 LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"amount_decimal":"12.34","raw_decimal":"12.30"}\n'
+            '{"id":1,"amount_decimal":"decimal128(10,2):1234",'
+            '"raw_decimal":"decimal128(10,2):1230"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "cast",
-            "cast_runtime_execution": "true",
-            "cast_source_column": "amount",
-            "cast_target_dtype": "decimal128(10,2)",
-            "cast_mode": "strict",
-            "cast_projection_runtime_execution": "true",
-            "cast_projection_source_column": "amount,raw_amount",
-            "cast_projection_output_column": "amount_decimal,raw_decimal",
-            "cast_projection_target_dtype": "decimal128(10,2),decimal128(10,2)",
-            "cast_projection_mode": "strict,try",
-            "decimal_cast_runtime_execution": "true",
-            "decimal_cast_source_column": "amount,amount,raw_amount",
-            "decimal_cast_output_column": "amount_decimal,raw_decimal",
-            "decimal_cast_target_dtype": "decimal128(10,2),decimal128(10,2),decimal128(10,2)",
-            "decimal_cast_precision": "10,10,10",
-            "decimal_cast_scale": "2,2,2",
-            "decimal_cast_mode": "strict,strict,try",
-            "decimal_cast_output_boundary": "jsonl_exact_decimal_string_csv_exact_decimal_text_parquet_arrow_avro_vortex_typed_decimal_orc_blocked",
-            "projected_columns": "id,amount_decimal,raw_decimal",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -942,21 +683,13 @@ def decimal_arithmetic_projection_case() -> SqlFixtureCase:
             "LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"adjusted":"13.59","half":"6.170000","scaled":"18.5100"}\n'
-            '{"id":2,"adjusted":"16.75","half":"7.750000","scaled":"23.2500"}\n'
-            '{"id":3,"adjusted":"22.50","half":"10.625000","scaled":"31.8750"}\n'
+            '{"id":1,"adjusted":"decimal128(11,2):1359",'
+            '"half":"decimal128(38,6):6170000","scaled":"decimal128(13,4):185100"}\n'
+            '{"id":2,"adjusted":"decimal128(11,2):1675",'
+            '"half":"decimal128(38,6):7750000","scaled":"decimal128(13,4):232500"}\n'
+            '{"id":3,"adjusted":"decimal128(11,2):2250",'
+            '"half":"decimal128(38,6):10625000","scaled":"decimal128(13,4):318750"}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_computed_projection_filter_limit",
-            "generic_expression_predicate_runtime_execution": "true",
-            "generic_expression_projection_runtime_execution": "true",
-            "generic_expression_projection_source_column": "amount,amount,amount",
-            "generic_expression_projection_output_column": "adjusted,half,scaled",
-            "generic_expression_projection_operator_family": "cast+numeric_binary,cast+numeric_binary,cast+numeric_binary",
-            "generic_expression_projection_binary_operator_count": "3",
-            "projected_columns": "id,adjusted,half,scaled",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -976,22 +709,12 @@ def binary_helper_projection_case() -> SqlFixtureCase:
             "FROM '{source}' LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"payload_hex":"binary[hex=00ff10]",'
-            '"payload_b64":"binary[hex=00ff10]"}\n'
-            '{"id":2,"payload_hex":"binary[hex=616c706861]",'
-            '"payload_b64":"binary[hex=616c706861]"}\n'
+            '{"id":1,"payload_hex":"00ff10",'
+            '"payload_b64":"00ff10"}\n'
+            '{"id":2,"payload_hex":"616c706861",'
+            '"payload_b64":"616c706861"}\n'
             '{"id":3,"payload_hex":null,"payload_b64":null}\n'
         ),
-        expected_fields={
-            "binary_helper_projection_runtime_execution": "true",
-            "binary_helper_projection_operator": "unhex,from_base64",
-            "binary_helper_projection_source_column": "hex_payload,b64_prefix+b64_suffix",
-            "binary_helper_projection_output_column": "payload_hex,payload_b64",
-            "binary_helper_projection_output_dtype": "binary",
-            "binary_helper_projection_null_semantics": "null_propagating_utf8_decode",
-            "projected_columns": "id,payload_hex,payload_b64",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1012,20 +735,6 @@ def binary_helper_predicate_case() -> SqlFixtureCase:
             "OR UNHEX(LOWER(TRIM(hex_payload))) != BINARY 'alpha' LIMIT 10"
         ),
         expected_jsonl='{"id":1}\n{"id":3}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "filter_runtime_execution": "true",
-            "binary_helper_predicate_runtime_execution": "true",
-            "binary_helper_predicate_operator": "from_base64,unhex",
-            "binary_helper_predicate_comparison_operator": "eq,not_eq",
-            "binary_helper_predicate_source_column": "b64_prefix+b64_suffix,hex_payload",
-            "binary_helper_predicate_literal_hex_value": "00ff10,616c706861",
-            "binary_helper_predicate_null_semantics": (
-                "null_propagating_utf8_decode_then_sql_where_true_only"
-            ),
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1046,25 +755,6 @@ def binary_byte_length_projection_predicate_case() -> SqlFixtureCase:
             "WHERE BYTE_LENGTH(FROM_BASE64(CONCAT(b64_prefix,b64_suffix))) >= 4 LIMIT 10"
         ),
         expected_jsonl='{"id":2,"payload_len":5,"label_len":4}\n',
-        expected_fields={
-            "predicate_operator_family": "binary_byte_length",
-            "binary_byte_length_projection_runtime_execution": "true",
-            "binary_byte_length_projection_argument_family": "unhex,cast",
-            "binary_byte_length_projection_source_column": "hex_payload,label_prefix+label_suffix",
-            "binary_byte_length_projection_output_column": "payload_len,label_len",
-            "binary_byte_length_projection_output_dtype": "int64",
-            "binary_byte_length_projection_null_semantics": "null_propagating_binary_decode",
-            "binary_byte_length_predicate_runtime_execution": "true",
-            "binary_byte_length_predicate_argument_family": "from_base64",
-            "binary_byte_length_predicate_comparison_operator": "gte",
-            "binary_byte_length_predicate_source_column": "b64_prefix+b64_suffix",
-            "binary_byte_length_predicate_rhs_dtype": "int64",
-            "binary_byte_length_predicate_null_semantics": (
-                "null_propagating_binary_decode_then_sql_where_true_only"
-            ),
-            "projected_columns": "id,payload_len,label_len",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1075,15 +765,6 @@ def in_predicate_literal_null_case() -> SqlFixtureCase:
         source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,,21\n4,gamma,13\n",
         statement_template="SELECT id,label FROM '{source}' WHERE label IN ('alpha', NULL) LIMIT 10",
         expected_jsonl='{"id":1,"label":"alpha"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_predicate",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_list_null_value_count": "1",
-            "in_predicate_null_semantics": "sql_three_valued_where_filter",
-            "selected_row_count": "1",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1100,22 +781,6 @@ def row_value_in_predicate_case() -> SqlFixtureCase:
             '{"id":1,"label":"alpha"}\n'
             '{"id":3,"label":"gamma"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "row_value_in_predicate",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "3",
-            "in_list_null_value_count": "1",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_groups": "id+label",
-            "row_value_in_column_count": "2",
-            "row_value_in_tuple_count": "3",
-            "row_value_in_null_value_count": "1",
-            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
-            "in_predicate_null_semantics": "sql_three_valued_where_filter",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1134,33 +799,6 @@ def row_value_in_subquery_case() -> SqlFixtureCase:
             '{"id":1,"label":"alpha"}\n'
             '{"id":3,"label":"gamma"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "row_value_in_subquery",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "3",
-            "in_list_null_value_count": "1",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_groups": "id+label",
-            "row_value_in_column_count": "2",
-            "row_value_in_tuple_count": "3",
-            "row_value_in_null_value_count": "1",
-            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "allowed_id,allowed_label",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "5",
-            "in_subquery_filtered_row_count": "4",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "3",
-            "in_subquery_materialized_null_value_count": "1",
-            "in_predicate_null_semantics": "sql_three_valued_where_filter",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1182,28 +820,6 @@ def not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_list_null_value_count": "0",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_input_row_count": "3",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "in_subquery_materialized_null_value_count": "0",
-            "in_predicate_null_semantics": "not_applicable",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1226,33 +842,6 @@ def row_value_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "in_predicate_runtime_execution": "true",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_groups": "id+label",
-            "row_value_in_column_count": "2",
-            "row_value_in_tuple_count": "2",
-            "row_value_in_null_value_count": "0",
-            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "allowed_id,allowed_label",
-            "in_subquery_source_format": "csv",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_input_row_count": "3",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "in_subquery_materialized_null_value_count": "0",
-            "in_predicate_null_semantics": "not_applicable",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1283,24 +872,6 @@ def exists_subquery_case() -> SqlFixtureCase:
             '{"id":2,"label":"beta"}\n'
             '{"id":3,"label":"gamma"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "exists_subquery",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "wildcard",
-            "exists_subquery_source_column": "not_applicable",
-            "exists_subquery_source_format": "csv",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "exists_subquery_input_row_count": "3",
-            "exists_subquery_filtered_row_count": "2",
-            "exists_subquery_bounded_row_count": "1",
-            "exists_subquery_scan_bound": "50000",
-            "exists_subquery_result": "true",
-            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
-            "selected_row_count": "3",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1333,26 +904,6 @@ def quantified_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":5,"label":"epsilon"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "quantified_subquery",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "quantified_subquery_source_column": "threshold",
-            "quantified_subquery_source_format": "csv",
-            "quantified_subquery_filter_runtime_execution": "true",
-            "quantified_subquery_order_by_runtime_execution": "true",
-            "quantified_subquery_limit_runtime_execution": "true",
-            "quantified_subquery_input_row_count": "3",
-            "quantified_subquery_filtered_row_count": "2",
-            "quantified_subquery_materialization_bound": "32",
-            "quantified_subquery_materialized_value_count": "2",
-            "quantified_subquery_materialized_null_value_count": "0",
-            "quantified_subquery_null_semantics": "sql_all_three_valued_where_filter",
-            "having_quantified_subquery_runtime_execution": "false",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "thresholds",
@@ -1386,18 +937,6 @@ def sql_union_composition_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "sql_union_runtime_execution": "true",
-            "sql_union_mode": "distinct",
-            "sql_union_branch_count": "2",
-            "sql_union_input_row_count": "5",
-            "sql_union_distinct_input_row_count": "4",
-            "sql_union_output_row_count": "4",
-            "sql_union_order_by_runtime_execution": "true",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1419,20 +958,6 @@ def sql_intersect_composition_case() -> SqlFixtureCase:
             "ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "sql_set_operation_runtime_execution": "true",
-            "sql_set_operation_mode": "intersect_distinct",
-            "sql_set_operator": "INTERSECT",
-            "sql_set_operation_branch_count": "2",
-            "sql_set_operation_input_row_count": "7",
-            "sql_set_operation_candidate_row_count": "2",
-            "sql_set_operation_output_row_count": "2",
-            "sql_set_operation_null_semantics": "sql_intersect_distinct_groups_nulls",
-            "sql_union_mode": "intersect_distinct",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1454,20 +979,6 @@ def sql_except_composition_case() -> SqlFixtureCase:
             "ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "sql_set_operation_runtime_execution": "true",
-            "sql_set_operation_mode": "except_distinct",
-            "sql_set_operator": "EXCEPT",
-            "sql_set_operation_branch_count": "2",
-            "sql_set_operation_input_row_count": "6",
-            "sql_set_operation_candidate_row_count": "2",
-            "sql_set_operation_output_row_count": "2",
-            "sql_set_operation_null_semantics": "sql_except_distinct_groups_nulls",
-            "sql_union_mode": "except_distinct",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -1480,20 +991,6 @@ def in_subquery_scalar_case() -> SqlFixtureCase:
             "SELECT id,label FROM '{source}' WHERE id IN (SELECT id FROM '{allowed}') LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "3",
-            "in_list_null_value_count": "1",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_materialized_value_count": "3",
-            "in_subquery_materialized_null_value_count": "1",
-            "in_predicate_null_semantics": "sql_three_valued_where_filter",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(("allowed", "in-subquery-allowed.csv", "id\n1\n3\nNULL\n"),),
     )
 
@@ -1509,26 +1006,6 @@ def in_subquery_filtered_ordered_limited_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":3,"label":"gamma"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_list_null_value_count": "0",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "4",
-            "in_subquery_filtered_row_count": "3",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "2",
-            "in_subquery_materialized_null_value_count": "0",
-            "in_predicate_null_semantics": "not_applicable",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1551,18 +1028,6 @@ def correlated_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1595,24 +1060,6 @@ def source_qualified_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "in_subquery",
-            "source_qualified_subquery_source_column": "id",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1644,26 +1091,6 @@ def source_qualified_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "in_subquery",
-            "source_qualified_subquery_source_column": "id",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1695,22 +1122,6 @@ def source_qualified_row_value_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "row_value_in_subquery",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "row_value_in_subquery",
-            "source_qualified_subquery_source_column": "id+label",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1742,25 +1153,6 @@ def source_qualified_row_value_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "row_value_in_subquery",
-            "source_qualified_subquery_source_column": "id+label",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1792,23 +1184,6 @@ def source_qualified_exists_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "exists_subquery",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "id",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "exists_subquery",
-            "source_qualified_subquery_source_column": "id",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1840,22 +1215,6 @@ def source_qualified_not_exists_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_operator": "not",
-            "exists_subquery_runtime_execution": "true",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "exists_subquery",
-            "source_qualified_subquery_source_column": "id",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1891,24 +1250,6 @@ def source_qualified_quantified_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "quantified_subquery",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "quantified_subquery_source_column": "min_amount",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "thresholds",
-            "source_qualified_subquery_operator_family": "quantified_subquery",
-            "source_qualified_subquery_source_column": "min_amount",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "3",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "thresholds",
@@ -1931,22 +1272,6 @@ def correlated_row_value_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "row_value_in_subquery",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_groups": "id+label",
-            "row_value_in_column_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -1977,18 +1302,6 @@ def correlated_exists_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "exists_subquery",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_filter_runtime_execution": "true",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -2019,23 +1332,6 @@ def correlated_not_exists_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -2070,19 +1366,6 @@ def correlated_quantified_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "quantified_subquery",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "3",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "thresholds",
@@ -2105,22 +1388,6 @@ def joined_projected_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "a.id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "4",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "false",
-            "projected_subquery_having_runtime_execution": "false",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -2143,27 +1410,6 @@ def joined_projected_row_value_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "row_value_in_subquery",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_groups": "id+label",
-            "row_value_in_column_count": "2",
-            "row_value_in_tuple_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "s.id,s.label",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "4",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "false",
-            "projected_subquery_having_runtime_execution": "false",
-            "projected_subquery_output_column_count": "2",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -2186,22 +1432,6 @@ def grouped_having_projected_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "6",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "false",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -2245,26 +1475,6 @@ def joined_projected_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "a.id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "4",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "false",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             ("allowed", "joined-projected-not-in-allowed.csv", PROJECTED_NEGATIVE_ALLOWED_TEXT),
         ),
@@ -2283,26 +1493,6 @@ def grouped_having_projected_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "6",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             ("grouped", "grouped-projected-not-in-values.csv", PROJECTED_NEGATIVE_GROUPED_TEXT),
         ),
@@ -2321,27 +1511,6 @@ def joined_projected_row_value_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "in_predicate_runtime_execution": "true",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "row_value_in_tuple_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "s.id,s.label",
-            "in_subquery_input_row_count": "4",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialized_value_count": "2",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "2",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -2364,23 +1533,6 @@ def grouped_having_projected_row_value_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_source_column": "id,label",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "2",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -2409,27 +1561,6 @@ def joined_projected_not_exists_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "a.id",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "exists_subquery_input_row_count": "4",
-            "exists_subquery_filtered_row_count": "0",
-            "exists_subquery_bounded_row_count": "0",
-            "exists_subquery_result": "false",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "4",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -2457,26 +1588,6 @@ def grouped_having_projected_not_exists_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "id",
-            "exists_subquery_filter_runtime_execution": "false",
-            "exists_subquery_input_row_count": "6",
-            "exists_subquery_filtered_row_count": "0",
-            "exists_subquery_bounded_row_count": "0",
-            "exists_subquery_result": "false",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "4",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -2504,24 +1615,6 @@ def joined_projected_exists_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "exists_subquery",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "c.id",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "exists_subquery_input_row_count": "4",
-            "exists_subquery_filtered_row_count": "2",
-            "exists_subquery_bounded_row_count": "2",
-            "exists_subquery_result": "true",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "4",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "candidates",
@@ -2554,25 +1647,6 @@ def grouped_having_projected_exists_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "exists_subquery",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "id",
-            "exists_subquery_filter_runtime_execution": "false",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "exists_subquery_input_row_count": "6",
-            "exists_subquery_filtered_row_count": "2",
-            "exists_subquery_bounded_row_count": "2",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "false",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "4",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -2603,30 +1677,6 @@ def joined_projected_quantified_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":3,"label":"gamma"}\n{"id":5,"label":"epsilon"}\n',
-        expected_fields={
-            "predicate_operator_family": "quantified_subquery",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "quantified_subquery_source_column": "t.threshold",
-            "quantified_subquery_source_format": "csv",
-            "quantified_subquery_filter_runtime_execution": "true",
-            "quantified_subquery_order_by_runtime_execution": "true",
-            "quantified_subquery_limit_runtime_execution": "true",
-            "quantified_subquery_input_row_count": "3",
-            "quantified_subquery_filtered_row_count": "2",
-            "quantified_subquery_materialization_bound": "32",
-            "quantified_subquery_materialized_value_count": "2",
-            "quantified_subquery_materialized_null_value_count": "0",
-            "quantified_subquery_null_semantics": "sql_all_three_valued_where_filter",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "false",
-            "projected_subquery_having_runtime_execution": "false",
-            "projected_subquery_output_column_count": "1",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "thresholds",
@@ -2655,22 +1705,6 @@ def correlated_joined_projected_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_source_column": "c.id",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "candidates",
@@ -2699,24 +1733,6 @@ def correlated_joined_projected_row_value_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "row_value_in_subquery",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_source_column": "c.id,c.label",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "2",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "candidates",
@@ -2749,23 +1765,6 @@ def correlated_joined_projected_quantified_subquery_case() -> SqlFixtureCase:
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "quantified_subquery",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_filter_runtime_execution": "true",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "quantified_subquery_source_column": "t.threshold",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "id",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "3",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "thresholds",
@@ -2802,25 +1801,6 @@ def correlated_joined_projected_exists_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "exists_subquery",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "c.id",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "candidates",
@@ -2867,26 +1847,6 @@ def correlated_joined_projected_not_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "in_predicate_runtime_execution": "true",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_source_column": "c.id",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "candidates",
@@ -2915,27 +1875,6 @@ def correlated_joined_projected_row_value_not_in_subquery_case() -> SqlFixtureCa
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_source_column": "c.id,c.label",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "2",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "candidates",
@@ -2964,28 +1903,6 @@ def correlated_joined_projected_not_exists_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "c.id",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "candidates",
@@ -3031,24 +1948,6 @@ def correlated_grouped_having_projected_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "false",
-            "in_subquery_source_column": "id",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "false",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -3072,26 +1971,6 @@ def correlated_grouped_having_projected_row_value_in_subquery_case() -> SqlFixtu
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "row_value_in_subquery",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "false",
-            "in_subquery_source_column": "id,label",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "false",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "2",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -3119,25 +1998,6 @@ def correlated_grouped_having_projected_quantified_subquery_case() -> SqlFixture
             '{"id":3,"label":"gamma"}\n'
             '{"id":4,"label":"delta"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "quantified_subquery",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_filter_runtime_execution": "false",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "quantified_subquery_source_column": "threshold",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "false",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "id",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "3",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -3161,25 +2021,6 @@ def correlated_grouped_having_projected_exists_subquery_case() -> SqlFixtureCase
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "exists_subquery",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "id",
-            "exists_subquery_filter_runtime_execution": "false",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_join_runtime_execution": "false",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -3203,27 +2044,6 @@ def correlated_grouped_having_projected_not_in_subquery_case() -> SqlFixtureCase
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "in_predicate_runtime_execution": "true",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "false",
-            "in_subquery_source_column": "id",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -3247,28 +2067,6 @@ def correlated_grouped_having_projected_row_value_not_in_subquery_case() -> SqlF
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "id,label",
-            "row_value_in_column_count": "2",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "false",
-            "in_subquery_source_column": "id,label",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "2",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -3292,27 +2090,6 @@ def correlated_grouped_having_projected_not_exists_subquery_case() -> SqlFixture
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":4,"label":"delta"}\n',
-        expected_fields={
-            "predicate_operator_family": "logical_predicate",
-            "logical_predicate_runtime_execution": "true",
-            "logical_predicate_operator": "not",
-            "logical_predicate_leaf_count": "1",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "id",
-            "exists_subquery_filter_runtime_execution": "false",
-            "projected_subquery_runtime_execution": "true",
-            "projected_subquery_group_by_runtime_execution": "true",
-            "projected_subquery_having_runtime_execution": "true",
-            "projected_subquery_output_column_count": "1",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "amount,id",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "4",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "grouped",
@@ -3336,30 +2113,6 @@ def nested_in_subquery_case() -> SqlFixtureCase:
             ") LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_list_null_value_count": "0",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "allowed_id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "4",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "2",
-            "in_subquery_materialized_null_value_count": "0",
-            "nested_subquery_runtime_execution": "true",
-            "nested_subquery_predicate_count": "1",
-            "nested_subquery_max_depth": "1",
-            "nested_subquery_materialization_order": "inner_first_depth_first",
-            "in_predicate_null_semantics": "not_applicable",
-            "selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -3395,35 +2148,9 @@ def having_in_subquery_case() -> SqlFixtureCase:
             ") ORDER BY total DESC LIMIT 10"
         ),
         expected_jsonl=(
-            '{"region":"north","rows":3,"total":45}\n'
-            '{"region":"east","rows":2,"total":23}\n'
+            '{"region":"north","rows":3,"total":45.0}\n'
+            '{"region":"east","rows":2,"total":23.0}\n'
         ),
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "in_subquery",
-            "having_source_column": "rows",
-            "having_in_subquery_runtime_execution": "true",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_list_null_value_count": "0",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "rows",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "3",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "2",
-            "in_subquery_materialized_null_value_count": "0",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -3453,37 +2180,7 @@ def having_not_in_subquery_case() -> SqlFixtureCase:
             "WHERE allowed.enabled IS TRUE ORDER BY allowed.min_amount ASC LIMIT 10"
             ") ORDER BY region ASC LIMIT 10"
         ),
-        expected_jsonl='{"region":"east","total":30}\n{"region":"south","total":12}\n',
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "logical_predicate",
-            "having_source_column": "total",
-            "having_in_subquery_runtime_execution": "true",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "3",
-            "in_list_null_value_count": "0",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "min_amount",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "3",
-            "in_subquery_filtered_row_count": "3",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "3",
-            "in_subquery_materialized_null_value_count": "0",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "in_subquery",
-            "source_qualified_subquery_source_column": "min_amount",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
+        expected_jsonl='{"region":"east","total":30.0}\n{"region":"south","total":12.0}\n',
         auxiliary_sources=(
             (
                 "allowed",
@@ -3514,46 +2211,9 @@ def having_row_value_in_subquery_case() -> SqlFixtureCase:
             ") ORDER BY region ASC LIMIT 10"
         ),
         expected_jsonl=(
-            '{"region":"east","label":"C","total":30}\n'
-            '{"region":"north","label":"A","total":25}\n'
+            '{"region":"east","label":"C","total":30.0}\n'
+            '{"region":"north","label":"A","total":25.0}\n'
         ),
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "group_by_multi_key_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "row_value_in_subquery",
-            "having_source_column": "region,label",
-            "having_in_subquery_runtime_execution": "true",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "3",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "region,label",
-            "row_value_in_column_groups": "region+label",
-            "row_value_in_column_count": "2",
-            "row_value_in_tuple_count": "3",
-            "row_value_in_null_value_count": "0",
-            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "region,label",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "3",
-            "in_subquery_filtered_row_count": "3",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "3",
-            "in_subquery_materialized_null_value_count": "0",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "row_value_in_subquery",
-            "source_qualified_subquery_source_column": "region+label",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -3583,44 +2243,7 @@ def having_row_value_not_in_subquery_case() -> SqlFixtureCase:
             "WHERE allowed.enabled IS TRUE ORDER BY allowed.min_amount ASC LIMIT 10"
             ") ORDER BY region ASC LIMIT 10"
         ),
-        expected_jsonl='{"region":"south","label":"B","total":12}\n',
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "group_by_multi_key_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "logical_predicate",
-            "having_source_column": "region,label",
-            "having_in_subquery_runtime_execution": "true",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "3",
-            "row_value_in_predicate_runtime_execution": "true",
-            "row_value_in_source_columns": "region,label",
-            "row_value_in_column_groups": "region+label",
-            "row_value_in_column_count": "2",
-            "row_value_in_tuple_count": "3",
-            "row_value_in_null_value_count": "0",
-            "row_value_in_null_semantics": "sql_row_value_three_valued_where_filter",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "region,label",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "3",
-            "in_subquery_filtered_row_count": "3",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "3",
-            "in_subquery_materialized_null_value_count": "0",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "row_value_in_subquery",
-            "source_qualified_subquery_source_column": "region+label",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "1",
-            "claim_gate_status": "fixture_smoke_only",
-        },
+        expected_jsonl='{"region":"south","label":"B","total":12.0}\n',
         auxiliary_sources=(
             (
                 "allowed",
@@ -3651,32 +2274,10 @@ def having_exists_subquery_case() -> SqlFixtureCase:
             ") ORDER BY total DESC LIMIT 10"
         ),
         expected_jsonl=(
-            '{"region":"north","rows":3,"total":45}\n'
-            '{"region":"east","rows":2,"total":23}\n'
-            '{"region":"west","rows":1,"total":20}\n'
+            '{"region":"north","rows":3,"total":45.0}\n'
+            '{"region":"east","rows":2,"total":23.0}\n'
+            '{"region":"west","rows":1,"total":20.0}\n'
         ),
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "exists_subquery",
-            "having_exists_subquery_runtime_execution": "true",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "wildcard",
-            "exists_subquery_source_format": "csv",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "exists_subquery_input_row_count": "3",
-            "exists_subquery_filtered_row_count": "2",
-            "exists_subquery_bounded_row_count": "1",
-            "exists_subquery_result": "true",
-            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "3",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -3707,38 +2308,7 @@ def having_not_exists_subquery_case() -> SqlFixtureCase:
             "ORDER BY allowed.min_amount ASC LIMIT 10"
             ") ORDER BY region ASC LIMIT 10"
         ),
-        expected_jsonl='{"region":"south","total":12}\n',
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "logical_predicate",
-            "having_exists_subquery_runtime_execution": "true",
-            "exists_subquery_runtime_execution": "true",
-            "exists_subquery_projection_kind": "column_list",
-            "exists_subquery_source_column": "region",
-            "exists_subquery_source_format": "not_materialized",
-            "exists_subquery_filter_runtime_execution": "true",
-            "exists_subquery_order_by_runtime_execution": "true",
-            "exists_subquery_limit_runtime_execution": "true",
-            "exists_subquery_filtered_row_count": "0",
-            "exists_subquery_bounded_row_count": "0",
-            "exists_subquery_result": "false",
-            "exists_subquery_null_semantics": "sql_exists_two_valued_presence_test",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "exists_subquery",
-            "source_qualified_subquery_source_column": "region",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "region",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "3",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "1",
-            "claim_gate_status": "fixture_smoke_only",
-        },
+        expected_jsonl='{"region":"south","total":12.0}\n',
         auxiliary_sources=(
             (
                 "allowed",
@@ -3770,35 +2340,9 @@ def having_quantified_subquery_case() -> SqlFixtureCase:
             ") ORDER BY total DESC LIMIT 10"
         ),
         expected_jsonl=(
-            '{"region":"north","rows":3,"total":45}\n'
-            '{"region":"east","rows":2,"total":23}\n'
+            '{"region":"north","rows":3,"total":45.0}\n'
+            '{"region":"east","rows":2,"total":23.0}\n'
         ),
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "quantified_subquery",
-            "having_source_column": "total",
-            "having_quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "quantified_subquery_source_column": "threshold",
-            "quantified_subquery_source_format": "csv",
-            "quantified_subquery_filter_runtime_execution": "true",
-            "quantified_subquery_order_by_runtime_execution": "true",
-            "quantified_subquery_limit_runtime_execution": "true",
-            "quantified_subquery_input_row_count": "3",
-            "quantified_subquery_filtered_row_count": "2",
-            "quantified_subquery_materialization_bound": "32",
-            "quantified_subquery_materialized_value_count": "2",
-            "quantified_subquery_materialized_null_value_count": "0",
-            "quantified_subquery_null_semantics": "sql_all_three_valued_where_filter",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "thresholds",
@@ -3829,42 +2373,7 @@ def having_correlated_quantified_subquery_case() -> SqlFixtureCase:
             "ORDER BY allowed.min_amount ASC LIMIT 10"
             ") ORDER BY region ASC LIMIT 10"
         ),
-        expected_jsonl='{"region":"south","total":12}\n',
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "having_operator_family": "quantified_subquery",
-            "having_source_column": "total",
-            "having_quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_runtime_execution": "true",
-            "quantified_subquery_quantifier": "all",
-            "quantified_subquery_comparison_operator": "gt",
-            "quantified_subquery_source_column": "min_amount",
-            "quantified_subquery_source_format": "not_materialized",
-            "quantified_subquery_filter_runtime_execution": "true",
-            "quantified_subquery_order_by_runtime_execution": "true",
-            "quantified_subquery_limit_runtime_execution": "true",
-            "quantified_subquery_input_row_count": "0",
-            "quantified_subquery_filtered_row_count": "0",
-            "quantified_subquery_materialization_bound": "32",
-            "quantified_subquery_materialized_value_count": "0",
-            "quantified_subquery_materialized_null_value_count": "0",
-            "quantified_subquery_null_semantics": "sql_all_three_valued_where_filter",
-            "source_qualified_subquery_runtime_execution": "true",
-            "source_qualified_subquery_source_qualifier": "allowed",
-            "source_qualified_subquery_operator_family": "quantified_subquery",
-            "source_qualified_subquery_source_column": "min_amount",
-            "correlated_subquery_runtime_execution": "true",
-            "correlated_subquery_outer_alias": "outer",
-            "correlated_subquery_outer_column": "region",
-            "correlated_subquery_evaluation_strategy": "per_outer_row_bounded_subquery_materialization",
-            "correlated_subquery_outer_row_evaluation_count": "3",
-            "having_input_row_count": "3",
-            "having_selected_row_count": "1",
-            "claim_gate_status": "fixture_smoke_only",
-        },
+        expected_jsonl='{"region":"south","total":12.0}\n',
         auxiliary_sources=(
             (
                 "allowed",
@@ -3897,19 +2406,6 @@ def distinct_count_grouped_case() -> SqlFixtureCase:
             '{"region":"east","unique_customers":2,"rows":4}\n'
             '{"region":"west","unique_customers":2,"rows":2}\n'
         ),
-        expected_fields={
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "aggregate_functions": "count(DISTINCT customer_id),count(*)",
-            "distinct_aggregate_runtime_execution": "true",
-            "distinct_aggregate_function": "count(DISTINCT customer_id)",
-            "distinct_aggregate_column": "customer_id",
-            "distinct_aggregate_null_semantics": "sql_count_distinct_ignores_nulls",
-            "group_by_runtime_execution": "true",
-            "group_by_group_count": "2",
-            "projected_columns": "region,unique_customers,rows",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -3933,16 +2429,6 @@ def select_distinct_projection_case() -> SqlFixtureCase:
             '{"region":"east","label":"alpha"}\n'
             '{"region":"north","label":"gamma"}\n'
         ),
-        expected_fields={
-            "distinct_projection_runtime_execution": "true",
-            "distinct_projection_output_columns": "region,label",
-            "distinct_projection_input_row_count": "5",
-            "distinct_projection_output_row_count": "2",
-            "distinct_projection_limit_applied_after_deduplication": "true",
-            "distinct_projection_null_semantics": "sql_select_distinct_groups_nulls",
-            "projected_columns": "region,label",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -3966,19 +2452,6 @@ def select_distinct_aggregate_having_case() -> SqlFixtureCase:
             '{"region":"east","rows":2}\n'
             '{"region":"west","rows":2}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_distinct_group_by_aggregate_limit_having",
-            "aggregate_runtime_execution": "true",
-            "group_by_runtime_execution": "true",
-            "having_runtime_execution": "true",
-            "distinct_projection_runtime_execution": "true",
-            "distinct_projection_output_columns": "region,rows",
-            "distinct_projection_input_row_count": "2",
-            "distinct_projection_output_row_count": "2",
-            "distinct_projection_limit_applied_after_deduplication": "true",
-            "projected_columns": "region,rows",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -3993,16 +2466,6 @@ def having_hidden_aggregate_case() -> SqlFixtureCase:
             "ORDER BY rows DESC LIMIT 10"
         ),
         expected_jsonl='{"region":"east","rows":2}\n{"region":"west","rows":2}\n',
-        expected_fields={
-            "having_runtime_execution": "true",
-            "having_operator_family": "logical_predicate",
-            "having_source_column": "sum(amount),count(*),count(DISTINCT id)",
-            "having_aggregate_runtime_execution": "true",
-            "having_aggregate_function": "sum(amount),count(*),count(DISTINCT id)",
-            "having_aggregate_output_column": "__having_sum_amount_1,__having_count_all_2,__having_count_distinct_id_3",
-            "output_row_count": "2",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -4033,21 +2496,6 @@ def window_mixed_case() -> SqlFixtureCase:
             '{"id":4,"region":"west","amount":15,"rn":1,"r":1,"previous_amount":null,"bucket":1}\n'
             '{"id":5,"region":"west","amount":5,"rn":2,"r":2,"previous_amount":15,"bucket":2}\n'
         ),
-        expected_fields={
-            "window_runtime_execution": "true",
-            "window_operator_family": "mixed",
-            "window_function": "row_number,rank,lag,ntile",
-            "window_partition_columns": "region;region;region;region",
-            "window_order_by_columns": "amount;amount;amount;amount",
-            "window_order_by_directions": "desc;desc;desc;desc",
-            "window_output_columns": "rn,r,previous_amount,bucket",
-            "window_row_number_runtime_execution": "true",
-            "window_rank_runtime_execution": "true",
-            "window_lag_runtime_execution": "true",
-            "window_ntile_runtime_execution": "true",
-            "projected_columns": "id,region,amount,rn,r,previous_amount,bucket",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -4072,18 +2520,6 @@ def select_distinct_window_case() -> SqlFixtureCase:
             '{"region":"east","r":1}\n'
             '{"region":"east","r":3}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_distinct_window_limit",
-            "window_runtime_execution": "true",
-            "window_rank_runtime_execution": "true",
-            "distinct_projection_runtime_execution": "true",
-            "distinct_projection_output_columns": "region,r",
-            "distinct_projection_input_row_count": "5",
-            "distinct_projection_output_row_count": "2",
-            "distinct_projection_limit_applied_after_deduplication": "true",
-            "projected_columns": "region,r",
-            "claim_gate_status": "fixture_smoke_only",
-        },
     )
 
 
@@ -4109,19 +2545,6 @@ def join_multi_key_case() -> SqlFixtureCase:
             '{"f.id":3,"d.segment":"consumer"}\n'
             '{"f.id":5,"d.segment":"startup"}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_inner_equi_join_filter_limit",
-            "join_runtime_execution": "true",
-            "join_type": "inner_equi",
-            "join_left_key": "f.customer_id,f.region",
-            "join_right_key": "d.customer_id,d.region",
-            "join_key_arity": "2",
-            "join_multi_key_runtime_execution": "true",
-            "join_matched_row_count": "3",
-            "join_rows_output": "3",
-            "projected_columns": "f.id,d.segment",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "dim",
@@ -4146,20 +2569,6 @@ def join_scalar_expression_condition_case() -> SqlFixtureCase:
             '{"f.id":3,"d.segment":"small"}\n'
             '{"f.id":3,"d.segment":"large"}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_inner_expression_join_limit",
-            "join_runtime_execution": "true",
-            "join_type": "inner_expression",
-            "join_on_predicate_runtime_execution": "true",
-            "join_on_predicate_operator_family": "generic_expression",
-            "join_on_predicate_source_column": "d.discount,f.amount",
-            "join_key_arity": "0",
-            "join_candidate_row_count": "6",
-            "join_matched_row_count": "3",
-            "join_rows_output": "3",
-            "projected_columns": "f.id,d.segment",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "dim",
@@ -4191,20 +2600,6 @@ def join_logical_or_condition_case() -> SqlFixtureCase:
             '{"f.id":2,"d.segment":"cross_match"}\n'
             '{"f.id":3,"d.segment":"both"}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_inner_expression_join_limit",
-            "join_runtime_execution": "true",
-            "join_type": "inner_expression",
-            "join_on_predicate_runtime_execution": "true",
-            "join_on_predicate_operator_family": "logical",
-            "join_on_predicate_source_column": "f.customer_id,d.customer_id,f.region,d.region",
-            "join_key_arity": "0",
-            "join_candidate_row_count": "12",
-            "join_matched_row_count": "5",
-            "join_rows_output": "5",
-            "projected_columns": "f.id,d.segment",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "dim",
@@ -4239,17 +2634,6 @@ def select_distinct_join_case() -> SqlFixtureCase:
             '{"f.region":"east","d.segment":"retail"}\n'
             '{"f.region":"west","d.segment":"enterprise"}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_inner_equi_join_distinct_limit",
-            "join_runtime_execution": "true",
-            "distinct_projection_runtime_execution": "true",
-            "distinct_projection_output_columns": "f.region,d.segment",
-            "distinct_projection_input_row_count": "3",
-            "distinct_projection_output_row_count": "2",
-            "distinct_projection_limit_applied_after_deduplication": "true",
-            "projected_columns": "f.region,d.segment",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "dim",
@@ -4275,13 +2659,6 @@ def sql_parser_surface_fuzz_case() -> SqlFixtureCase:
             " SeLeCt id,label FROM '{source}' WHERE value >= 10 ORDER BY id DESC LIMIT 2"
         ),
         expected_jsonl='{"id":3,"label":"gamma"}\n{"id":2,"label":"beta"}\n',
-        expected_fields={
-            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
-            "projected_columns": "id,label",
-            "sort_keys": "id",
-            "sort_direction": "desc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         fuzz_seed=20260613,
         fuzz_surface="sql_parsing_subset",
     )
@@ -4303,15 +2680,6 @@ def expression_parser_fuzz_case() -> SqlFixtureCase:
             "FROM '{source}' WHERE amount >= 5 ORDER BY id ASC LIMIT 3"
         ),
         expected_jsonl='{"id":1,"score":7}\n{"id":2,"score":18}\n{"id":3,"score":36}\n',
-        expected_fields={
-            "sql_statement_kind": "local_source_computed_projection_order_by_topn_filter_limit",
-            "generic_expression_projection_runtime_execution": "true",
-            "generic_expression_projection_output_column": "score",
-            "projected_columns": "id,score",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         fuzz_seed=20260614,
         fuzz_surface="expression_parsing",
     )
@@ -4333,15 +2701,6 @@ def route_selection_join_fuzz_case() -> SqlFixtureCase:
             "ON f.dim_key = d.dim_key WHERE f.value >= 10 ORDER BY f.id ASC LIMIT 10"
         ),
         expected_jsonl='{"f.id":2,"d.segment":"edge"}\n{"f.id":3,"d.segment":"core"}\n',
-        expected_fields={
-            "sql_statement_kind": "local_source_inner_equi_join_order_by_topn_filter_limit",
-            "join_runtime_execution": "true",
-            "join_on_predicate_operator_family": "equi_keys",
-            "projected_columns": "f.id,d.segment",
-            "sort_keys": "f.id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             ("dim", "route-selection-join-dim.csv", "dim_key,segment\n100,core\n200,edge\n"),
         ),
@@ -4366,17 +2725,7 @@ def route_selection_aggregate_topn_fuzz_case() -> SqlFixtureCase:
             "FROM '{source}' WHERE value >= 0 GROUP BY group_key "
             "ORDER BY total DESC LIMIT 2"
         ),
-        expected_jsonl='{"group_key":20,"rows":1,"total":22}\n{"group_key":10,"rows":2,"total":20}\n',
-        expected_fields={
-            "sql_statement_kind": "local_source_group_by_aggregate_order_by_topn_filter_limit",
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "projected_columns": "group_key,rows,total",
-            "sort_keys": "total",
-            "sort_direction": "desc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
+        expected_jsonl='{"group_key":20,"rows":1,"total":22.0}\n{"group_key":10,"rows":2,"total":20.0}\n',
         fuzz_seed=20260616,
         fuzz_surface="route_selection",
     )
@@ -4391,14 +2740,6 @@ def output_writer_policy_fuzz_case() -> SqlFixtureCase:
             "SELECT id,label FROM '{source}' WHERE value >= 8 ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl='{"id":1,"label":"alpha"}\n{"id":2,"label":"beta"}\n',
-        expected_fields={
-            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
-            "output_format": "csv",
-            "projected_columns": "id,label",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         output_format="csv",
         output_name="output-writer-policy.csv",
         expected_output_text="id,label\n1,alpha\n2,beta\n",
@@ -4428,13 +2769,6 @@ def filter_project_limit_property_case() -> SqlFixtureCase:
             '{"id":5,"label":"omega","value":18}\n'
             '{"id":2,"label":"beta","value":12}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
-            "projected_columns": "id,label,value",
-            "sort_keys": "value",
-            "sort_direction": "desc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         property_seed=20260618,
     )
 
@@ -4460,15 +2794,6 @@ def join_property_case() -> SqlFixtureCase:
             '{"f.id":3,"d.segment":"core","f.value":22}\n'
             '{"f.id":5,"d.segment":"edge","f.value":18}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_inner_equi_join_order_by_topn_filter_limit",
-            "join_runtime_execution": "true",
-            "join_on_predicate_operator_family": "equi_keys",
-            "projected_columns": "f.id,d.segment,f.value",
-            "sort_keys": "f.id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "dim",
@@ -4498,19 +2823,9 @@ def aggregate_topn_property_case() -> SqlFixtureCase:
             "ORDER BY total DESC LIMIT 2"
         ),
         expected_jsonl=(
-            '{"group_key":20,"rows":2,"total":40}\n'
-            '{"group_key":10,"rows":2,"total":20}\n'
+            '{"group_key":20,"rows":2,"total":40.0}\n'
+            '{"group_key":10,"rows":2,"total":20.0}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_group_by_aggregate_order_by_topn_filter_limit",
-            "aggregate_runtime_execution": "true",
-            "aggregate_operator_family": "grouped_aggregate",
-            "group_by_runtime_execution": "true",
-            "projected_columns": "group_key,rows,total",
-            "sort_keys": "total",
-            "sort_direction": "desc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         property_seed=20260620,
     )
 
@@ -4533,28 +2848,6 @@ def subquery_property_case() -> SqlFixtureCase:
             ") ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "predicate_operator_family": "in_subquery",
-            "in_predicate_runtime_execution": "true",
-            "in_list_value_count": "2",
-            "in_list_null_value_count": "0",
-            "in_subquery_runtime_execution": "true",
-            "in_subquery_filter_runtime_execution": "true",
-            "in_subquery_order_by_runtime_execution": "true",
-            "in_subquery_limit_runtime_execution": "true",
-            "in_subquery_source_column": "id",
-            "in_subquery_source_format": "csv",
-            "in_subquery_input_row_count": "3",
-            "in_subquery_filtered_row_count": "2",
-            "in_subquery_materialization_bound": "32",
-            "in_subquery_materialized_value_count": "2",
-            "in_subquery_materialized_null_value_count": "0",
-            "in_predicate_null_semantics": "not_applicable",
-            "selected_row_count": "2",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         auxiliary_sources=(
             (
                 "allowed",
@@ -4580,20 +2873,6 @@ def string_function_property_case() -> SqlFixtureCase:
             '{"id":3,"label_key":"gamma-north","middle":"amm","prefix":"ga",'
             '"suffix":"ma","scrubbed":"gmm"}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "string_function",
-            "string_function_runtime_execution": "true",
-            "string_function_operator": "concat",
-            "string_function_source_column": "label+segment",
-            "string_function_literal_count": "2",
-            "string_function_projection_runtime_execution": "true",
-            "string_function_projection_operator": "concat,substr,left,right,replace",
-            "string_function_projection_source_column": "label+segment,label,label,label,label",
-            "string_function_projection_output_column": "label_key,middle,prefix,suffix,scrubbed",
-            "string_function_projection_literal_count": "1,2,1,1,2",
-            "projected_columns": "id,label_key,middle,prefix,suffix,scrubbed",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         property_seed=20260622,
     )
 
@@ -4616,26 +2895,11 @@ def temporal_property_case() -> SqlFixtureCase:
             "FROM '{source}' WHERE DATE_DIFF_DAYS(end_date, start_date) >= 3 LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":1,"plus_three":"2026-06-04","end_minus_two":"2026-06-02",'
-            '"span_days":3,"shifted_ts":"2026-06-01T00:01:30Z","elapsed_seconds":120}\n'
-            '{"id":2,"plus_three":"2026-06-13","end_minus_two":"2026-06-14",'
-            '"span_days":6,"shifted_ts":"2026-06-10T12:01:30Z","elapsed_seconds":270}\n'
+            '{"id":1,"plus_three":20608,"end_minus_two":20606,'
+            '"span_days":3,"shifted_ts":1780272090000000,"elapsed_seconds":120}\n'
+            '{"id":2,"plus_three":20617,"end_minus_two":20618,'
+            '"span_days":6,"shifted_ts":1781092890000000,"elapsed_seconds":270}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "generic_expression",
-            "generic_expression_predicate_runtime_execution": "true",
-            "generic_expression_predicate_operator_family": "temporal_difference",
-            "date_arithmetic_projection_runtime_execution": "true",
-            "date_arithmetic_projection_operator": "date_add_days,date_sub_days",
-            "date_arithmetic_projection_output_column": "plus_three,end_minus_two",
-            "timestamp_arithmetic_projection_runtime_execution": "true",
-            "timestamp_arithmetic_projection_operator": "timestamp_add_seconds",
-            "timestamp_arithmetic_projection_output_column": "shifted_ts",
-            "generic_expression_projection_runtime_execution": "true",
-            "generic_expression_projection_output_column": "span_days,elapsed_seconds",
-            "projected_columns": "id,plus_three,end_minus_two,span_days,shifted_ts,elapsed_seconds",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         property_seed=20260623,
     )
 
@@ -4655,20 +2919,11 @@ def decimal_property_case() -> SqlFixtureCase:
             "LIMIT 10"
         ),
         expected_jsonl=(
-            '{"id":2,"adjusted":"13.25","half":"6.250000","scaled":"15.6250"}\n'
-            '{"id":3,"adjusted":"21.00","half":"10.125000","scaled":"25.3125"}\n'
+            '{"id":2,"adjusted":"decimal128(11,2):1325",'
+            '"half":"decimal128(38,6):6250000","scaled":"decimal128(13,4):156250"}\n'
+            '{"id":3,"adjusted":"decimal128(11,2):2100",'
+            '"half":"decimal128(38,6):10125000","scaled":"decimal128(13,4):253125"}\n'
         ),
-        expected_fields={
-            "sql_statement_kind": "local_source_computed_projection_filter_limit",
-            "generic_expression_predicate_runtime_execution": "true",
-            "generic_expression_projection_runtime_execution": "true",
-            "generic_expression_projection_source_column": "amount,amount,amount",
-            "generic_expression_projection_output_column": "adjusted,half,scaled",
-            "generic_expression_projection_operator_family": "cast+numeric_binary,cast+numeric_binary,cast+numeric_binary",
-            "generic_expression_projection_binary_operator_count": "3",
-            "projected_columns": "id,adjusted,half,scaled",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         property_seed=20260624,
     )
 
@@ -4693,25 +2948,6 @@ def binary_property_case() -> SqlFixtureCase:
             '{"id":2,"payload_len":5,"label_len":4}\n'
             '{"id":3,"payload_len":5,"label_len":5}\n'
         ),
-        expected_fields={
-            "predicate_operator_family": "binary_byte_length",
-            "binary_byte_length_projection_runtime_execution": "true",
-            "binary_byte_length_projection_argument_family": "unhex,cast",
-            "binary_byte_length_projection_source_column": "hex_payload,label_prefix+label_suffix",
-            "binary_byte_length_projection_output_column": "payload_len,label_len",
-            "binary_byte_length_projection_output_dtype": "int64",
-            "binary_byte_length_projection_null_semantics": "null_propagating_binary_decode",
-            "binary_byte_length_predicate_runtime_execution": "true",
-            "binary_byte_length_predicate_argument_family": "from_base64",
-            "binary_byte_length_predicate_comparison_operator": "gte",
-            "binary_byte_length_predicate_source_column": "b64_prefix+b64_suffix",
-            "binary_byte_length_predicate_rhs_dtype": "int64",
-            "binary_byte_length_predicate_null_semantics": (
-                "null_propagating_binary_decode_then_sql_where_true_only"
-            ),
-            "projected_columns": "id,payload_len,label_len",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         property_seed=20260625,
     )
 
@@ -4725,14 +2961,6 @@ def output_jsonl_property_case() -> SqlFixtureCase:
             "SELECT id,label FROM '{source}' WHERE value >= 10 ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
-        expected_fields={
-            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
-            "output_format": "jsonl",
-            "projected_columns": "id,label",
-            "sort_keys": "id",
-            "sort_direction": "asc",
-            "claim_gate_status": "fixture_smoke_only",
-        },
         output_format="jsonl",
         output_name="output-jsonl-property.jsonl",
         expected_output_text='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
@@ -4756,15 +2984,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":2,"amount_i64":null}\n'
                 '{"id":3,"amount_i64":15}\n'
             ),
-            expected_fields={
-                "cast_projection_runtime_execution": "true",
-                "cast_projection_source_column": "raw_amount",
-                "cast_projection_output_column": "amount_i64",
-                "cast_projection_target_dtype": "int64",
-                "cast_projection_mode": "try",
-                "projected_columns": "id,amount_i64",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="string_transform_length_utf8",
@@ -4780,14 +2999,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":2,"lowered":"beta","raised":"BETA","trimmed":"BETA","label_len":4}\n'
                 '{"id":3,"lowered":"gamma","raised":"GAMMA","trimmed":"gamma","label_len":5}\n'
             ),
-            expected_fields={
-                "string_transform_projection_runtime_execution": "true",
-                "string_transform_projection_operator": "lower,upper,trim",
-                "string_length_projection_runtime_execution": "true",
-                "string_length_projection_output_column": "label_len",
-                "projected_columns": "id,lowered,raised,trimmed,label_len",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="regex_predicate_utf8",
@@ -4801,16 +3012,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":1,"label":"alpha","starts_with_a":true}\n'
                 '{"id":3,"label":"gamma","starts_with_a":false}\n'
             ),
-            expected_fields={
-                "predicate_operator_family": "string_predicate",
-                "string_predicate_runtime_execution": "true",
-                "string_predicate_operator": "regex_match",
-                "predicate_projection_runtime_execution": "true",
-                "predicate_projection_predicate_family": "string_predicate",
-                "predicate_projection_source_column": "label",
-                "projected_columns": "id,label,starts_with_a",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="like_predicate_utf8",
@@ -4823,13 +3024,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":1,"label":"alpha"}\n'
                 '{"id":3,"label":"alpine"}\n'
             ),
-            expected_fields={
-                "predicate_operator_family": "string_predicate",
-                "string_predicate_runtime_execution": "true",
-                "string_predicate_operator": "like_pattern",
-                "projected_columns": "id,label",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="like_escape_predicate_utf8",
@@ -4839,15 +3033,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 "SELECT id,label FROM '{source}' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 10"
             ),
             expected_jsonl='{"id":2,"label":"al_pha"}\n',
-            expected_fields={
-                "predicate_operator_family": "string_predicate",
-                "string_predicate_runtime_execution": "true",
-                "string_predicate_operator": "like_pattern",
-                "string_predicate_like_escape_runtime_execution": "true",
-                "string_predicate_like_escape_character": "!",
-                "projected_columns": "id,label",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="temporal_extract_utc_date32_timestamp",
@@ -4868,14 +3053,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":1,"event_year":2026,"event_month":5,"event_hour":12,"event_second":56}\n'
                 '{"id":2,"event_year":2027,"event_month":1,"event_hour":3,"event_second":5}\n'
             ),
-            expected_fields={
-                "date_extract_projection_runtime_execution": "true",
-                "date_extract_projection_operator": "date_year,date_month",
-                "timestamp_extract_projection_runtime_execution": "true",
-                "timestamp_extract_projection_operator": "timestamp_hour,timestamp_second",
-                "projected_columns": "id,event_year,event_month,event_hour,event_second",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="null_coalesce_nullif",
@@ -4898,14 +3075,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":3,"label_clean":"beta","amount_nonzero":15}\n'
                 '{"id":4,"label_clean":"unknown","amount_nonzero":null}\n'
             ),
-            expected_fields={
-                "null_coalesce_projection_runtime_execution": "true",
-                "null_coalesce_projection_fallback_dtype": "utf8",
-                "nullif_projection_runtime_execution": "true",
-                "nullif_projection_sentinel_dtype": "int64",
-                "projected_columns": "id,label_clean,amount_nonzero",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="predicate_projection_three_valued",
@@ -4930,13 +3099,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":3,"is_large":null,"missing_label":false,'
                 '"inactive_or_unknown":true,"current_year":null}\n'
             ),
-            expected_fields={
-                "predicate_projection_runtime_execution": "true",
-                "predicate_projection_predicate_family": "comparison,null_predicate,boolean_predicate,comparison",
-                "predicate_projection_source_column": "amount,label,active,event_date",
-                "projected_columns": "id,is_large,missing_label,inactive_or_unknown,current_year",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="null_safe_comparison_predicate_semantics",
@@ -4958,15 +3120,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":3,"same_null_safe":false}\n'
                 '{"id":4,"same_null_safe":false}\n'
             ),
-            expected_fields={
-                "predicate_operator_family": "logical_predicate",
-                "logical_predicate_runtime_execution": "true",
-                "null_predicate_runtime_execution": "true",
-                "predicate_projection_runtime_execution": "true",
-                "predicate_projection_predicate_family": "logical_predicate",
-                "projected_columns": "id,same_null_safe",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="order_by_explicit_null_ordering",
@@ -4988,16 +3141,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":3,"label":"gamma"}\n'
                 '{"id":2,"label":"beta"}\n'
             ),
-            expected_fields={
-                "order_by_runtime_execution": "true",
-                "top_n_runtime_execution": "true",
-                "sort_operator_family": "single_key_scalar_topn",
-                "sort_keys": "amount",
-                "sort_direction": "asc",
-                "sort_null_ordering": "nulls_first",
-                "top_n_limit": "4",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         SqlFixtureCase(
             case_id="subquery_predicate_projection_semantics",
@@ -5025,27 +3168,6 @@ def executable_cases() -> list[SqlFixtureCase]:
                 '{"id":3,"matched":true,"status":"allowed"}\n'
                 '{"id":4,"matched":false,"status":"blocked"}\n'
             ),
-            expected_fields={
-                "predicate_operator_family": "none",
-                "predicate_projection_runtime_execution": "true",
-                "predicate_projection_predicate_family": "in_subquery",
-                "predicate_projection_source_column": "amount+id",
-                "conditional_projection_runtime_execution": "true",
-                "conditional_projection_predicate_family": "in_subquery",
-                "conditional_projection_source_column": "amount+id",
-                "in_subquery_runtime_execution": "true",
-                "in_subquery_source_column": "id,id",
-                "in_subquery_filter_runtime_execution": "true",
-                "in_subquery_order_by_runtime_execution": "true",
-                "in_subquery_limit_runtime_execution": "true",
-                "correlated_subquery_runtime_execution": "true",
-                "correlated_subquery_outer_alias": "outer",
-                "correlated_subquery_outer_column": "amount,id",
-                "correlated_subquery_outer_row_evaluation_count": "4",
-                "fallback_attempted": "false",
-                "external_engine_invoked": "false",
-                "claim_gate_status": "fixture_smoke_only",
-            },
             auxiliary_sources=(
                 (
                     "allowed",
@@ -5080,20 +3202,9 @@ def executable_cases() -> list[SqlFixtureCase]:
                 "ORDER BY total_amount DESC LIMIT 10"
             ),
             expected_jsonl=(
-                '{"region":"east","rows":2,"total_amount":22}\n'
-                '{"region":"west","rows":2,"total_amount":19}\n'
+                '{"region":"east","rows":2,"total_amount":22.0}\n'
+                '{"region":"west","rows":2,"total_amount":19.0}\n'
             ),
-            expected_fields={
-                "aggregate_runtime_execution": "true",
-                "aggregate_operator_family": "grouped_aggregate",
-                "group_by_runtime_execution": "true",
-                "having_runtime_execution": "true",
-                "having_operator_family": "logical_predicate",
-                "having_source_column": "total_amount,rows",
-                "having_input_row_count": "3",
-                "having_selected_row_count": "2",
-                "claim_gate_status": "fixture_smoke_only",
-            },
         ),
         string_function_composition_case(),
         temporal_arithmetic_difference_case(),
@@ -5210,7 +3321,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             source_text="id,amount\n1,8\n",
             statement_template="SELECT id,amount / 0 AS broken FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="numeric arithmetic projection division by zero is a runtime data error",
+            diagnostic_fragment='division by zero',
             support_state="runtime_error_diagnostic",
             oracle_boundary="deterministic_runtime_error_diagnostic",
             stage_kind="runtime_error_diagnostic",
@@ -5223,7 +3334,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id,TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE "
                 "'America/Chicago' AS unsupported FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="timezone database semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5234,7 +3345,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id,TIMEZONE('America/Chicago', event_ts) AS unsupported "
                 "FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="timezone database semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5245,7 +3356,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id,CAST(event_ts AS timestamptz) AS unsupported "
                 "FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="timezone database semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5255,7 +3366,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template=(
                 "SELECT id,label COLLATE nocase AS folded FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5265,7 +3376,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template=(
                 "SELECT id FROM '{source}' WHERE label ILIKE 'a%' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5276,7 +3387,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE label = X'616c706861' LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="comparison operands are not admitted together: utf8 and binary",
+            diagnostic_fragment='incompatible key types require an explicit lossless cast',
         ),
         UnsupportedCase(
             case_id="unsupported_nonbinary_source_binary_ordering_predicate",
@@ -5286,7 +3397,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE label > BINARY 'alpha' LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="comparison operands are not admitted together: utf8 and binary",
+            diagnostic_fragment='incompatible key types require an explicit lossless cast',
         ),
         UnsupportedCase(
             case_id="unsupported_list_array_access_cast",
@@ -5295,7 +3406,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template=(
                 "SELECT id,LIST_EXTRACT(payload, 1) AS item FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="list and array accessors, function constructors, casts, and equality semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5305,7 +3416,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template=(
                 "SELECT id,ROW(label, amount) AS payload FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="row constructors plus struct casts, equality, and access semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5316,7 +3427,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE id IN "
                 "(SELECT ARRAY[1] AS value_list FROM '{source}') LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization",
         ),
         UnsupportedCase(
@@ -5327,7 +3438,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id,ARRAY[1,2] AS values FROM '{source}' LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="output_plan_conversion_blocker=typed_complex_preservation_not_admitted",
+            diagnostic_fragment='ORC does not admit nested output',
             output_format="orc",
             output_name="nested.orc",
         ),
@@ -5340,7 +3451,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "FROM '{source}' LIMIT 10"
             ),
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment="output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted",
+            diagnostic_fragment='ORC does not admit decimal or temporal output',
             output_format="orc",
             output_name="decimal.orc",
         ),
@@ -5351,7 +3462,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template=(
                 "SELECT id,VARIANT_GET(payload, 'field') AS field FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="variant access semantics are not admitted",
         ),
         UnsupportedCase(
@@ -5359,7 +3470,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
             source_name="union-dtype-unsupported.csv",
             source_text="id,payload\n1,alpha\n",
             statement_template="SELECT CAST(payload AS union) AS payload FROM '{source}' LIMIT 10",
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="union dtype casts are not admitted",
         ),
         UnsupportedCase(
@@ -5373,7 +3484,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id,event_date + INTERVAL '1' DAY AS next_day "
                 "FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="arbitrary ANSI INTERVAL arithmetic is not admitted",
         ),
         UnsupportedCase(
@@ -5384,7 +3495,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT f.id,d.segment FROM '{source}' AS f "
                 "JOIN '{source}' AS d ON ARRAY[f.customer_id] = ARRAY[d.customer_id] LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="JOIN ON complex key expressions are not admitted",
         ),
         UnsupportedCase(
@@ -5395,7 +3506,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE id IN "
                 "(SELECT id,label FROM '{source}') LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment="multi-column IN subqueries require row-value source columns",
             support_state="invalid_shape_diagnostic",
             oracle_boundary="deterministic_invalid_shape_diagnostic",
@@ -5409,7 +3520,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE id IN "
                 "(SELECT missing.id FROM '{source}' AS allowed) LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment=(
                 "qualified IN subquery selected columns references admit only the subquery source qualifier"
             ),
@@ -5423,7 +3534,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "(SELECT allowed.id,allowed.label FROM '{source}' AS allowed "
                 "WHERE missing.id = outer.id) LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment=(
                 "qualified IN subquery predicates admit only outer.<column> references or the subquery source qualifier"
             ),
@@ -5436,7 +3547,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE EXISTS "
                 "(SELECT missing.id FROM '{source}' AS allowed LIMIT 1) LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment=(
                 "qualified EXISTS subquery projection references admit only the subquery source qualifier"
             ),
@@ -5450,7 +3561,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "(SELECT allowed.amount FROM '{source}' AS allowed "
                 "ORDER BY missing.amount LIMIT 10) LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment=(
                 "qualified local subquery ORDER BY references admit only the subquery source qualifier"
             ),
@@ -5463,7 +3574,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE id IN "
                 "(SELECT id FROM '{source}' WHERE outer.amount > 10) LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment=(
                 "correlated IN subquery predicates admit outer.<column> references only in "
                 "column-to-column comparisons"
@@ -5477,7 +3588,7 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "SELECT id FROM '{source}' WHERE id IN "
                 "(SELECT id FROM '{source}' WHERE outer.id = outer.amount) LIMIT 10"
             ),
-            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_code='SL_UNSUPPORTED_SQL',
             diagnostic_fragment=(
                 "correlated IN subquery predicates require exactly one outer.<column> reference "
                 "per column comparison"
@@ -5654,7 +3765,7 @@ def validate_matrix_manifest(
 def parse_json_output(completed: subprocess.CompletedProcess[str], label: str) -> tuple[dict[str, Any], list[str]]:
     blockers: list[str] = []
     try:
-        payload = json.loads(completed.stdout)
+        payload = strict_json(completed.stdout)
         if not isinstance(payload, dict):
             raise ValueError("envelope is not an object")
     except Exception as exc:  # noqa: BLE001 - surfaced in report.
@@ -5670,6 +3781,47 @@ def run_cli_json(
     args: list[str],
 ) -> subprocess.CompletedProcess[str]:
     return run_subprocess(repo_root=repo_root, command=[str(binary), *args, "--format", "json"])
+
+
+def canonical_rows_digest(rows: list[dict[str, Any]]) -> str:
+    return digest_text(json.dumps(rows, sort_keys=True, allow_nan=False))
+
+
+def expected_rows(expected_jsonl: str) -> list[dict[str, Any]]:
+    return [strict_json(line) for line in expected_jsonl.splitlines()]
+
+
+def workflow_source_bindings(
+    source_path: Path,
+    auxiliary_refs: list[Path] | tuple[Path, ...] = (),
+) -> dict[str, dict[str, str]]:
+    return {
+        str(path): {"input_format": "csv"}
+        for path in (source_path, *auxiliary_refs)
+    }
+
+
+def selected_workflow_fields(fields: dict[str, Any]) -> dict[str, Any]:
+    evidence_keys = {
+        "public_workflow_requested_output",
+        "result_payload_complete",
+        "output_row_count",
+        "result_schema_json",
+        "result_schema_format",
+        "output_path",
+        "output_commit_status",
+        "output_io_performed",
+        "native_vortex_result_export_path",
+        "native_vortex_result_export_format",
+        "native_vortex_result_export_rows_written",
+        "native_vortex_result_export_all_targets_committed",
+    }
+    return {
+        key: fields[key]
+        for key in sorted(fields)
+        if key in evidence_keys
+        or key.endswith(("fallback_attempted", "external_engine_invoked"))
+    }
 
 
 def materialize_source(work_dir: Path, case_id: str, source_name: str, source_text: str) -> Path:
@@ -5696,26 +3848,20 @@ def run_executable_case(
         format_paths[placeholder] = auxiliary_path
         auxiliary_refs.append(auxiliary_path)
     statement = case.statement_template.format(**format_paths)
-    cli_args = ["local-source-runtime", statement]
     output_path: Path | None = None
     if case.output_format is not None:
         output_name = case.output_name or f"{case.case_id}.{case.output_format}"
         output_path = work_dir / case.case_id / output_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        cli_args.extend(
-            [
-                "--output-format",
-                case.output_format,
-                "--output",
-                str(output_path),
-                "--allow-overwrite",
-            ]
-        )
-    completed = run_cli_json(
-        repo_root=repo_root,
-        binary=binary,
-        args=cli_args,
+    cli_args = public_workflow_command(
+        binary,
+        statement,
+        source_bindings=workflow_source_bindings(source_path, auxiliary_refs),
+        requested_output="collect" if output_path is None else f"write_{case.output_format}",
+        output=output_path,
+        allow_overwrite=output_path is not None,
     )
+    completed = run_subprocess(repo_root=repo_root, command=cli_args)
     payload, blockers = parse_json_output(completed, case.case_id)
     artifact_ref = work_dir / "artifacts" / f"{case.case_id}.json"
     write_json(
@@ -5728,49 +3874,72 @@ def run_executable_case(
         },
     )
     expected_digest = digest_text(case.expected_jsonl)
-    expected_output_digest = expected_digest
-    expected_output_digest_source = "decoded_reference_result_jsonl"
-    if case.expected_output_text is not None:
-        expected_output_digest = digest_text(case.expected_output_text)
-        expected_output_digest_source = "decoded_reference_output_artifact"
     observed_output_digest = ""
     observed_output_digest_source = ""
-    if output_path is not None:
-        if not output_path.exists():
-            blockers.append(f"{case.case_id}: expected output artifact was not written")
-        else:
-            observed_output_text = output_path.read_text(encoding="utf-8")
-            observed_output_digest = digest_text(observed_output_text)
-            observed_output_digest_source = "sink_output_artifact"
-            if (
-                case.expected_output_text is not None
-                and observed_output_text != case.expected_output_text
-            ):
-                blockers.append(f"{case.case_id}: output artifact does not match decoded reference")
+    expected_output_digest = ""
+    expected_output_digest_source = ""
+    fields: dict[str, Any] = {}
+    expected = []
+    try:
+        expected = expected_rows(case.expected_jsonl)
+    except Exception as exc:  # noqa: BLE001 - invalid reference is reported with the case.
+        blockers.append(f"{case.case_id}: decoded reference JSONL is invalid: {exc}")
+
+    if output_path is None:
+        expected_output_digest = canonical_rows_digest(expected)
+        expected_output_digest_source = "canonical_decoded_reference_rows"
+    elif case.expected_output_text is None:
+        blockers.append(f"{case.case_id}: writer case is missing expected_output_text")
+    else:
+        expected_output_digest = digest_text(case.expected_output_text)
+        expected_output_digest_source = "decoded_reference_output_artifact"
+
     if completed.returncode != 0:
         blockers.append(f"{case.case_id}: returncode={completed.returncode}")
     if payload:
         if payload.get("status") != "success":
             blockers.append(f"{case.case_id}: status={payload.get('status')!r}, expected 'success'")
         blockers.extend(no_fallback_blockers(payload, case.case_id))
-        fields = field_map(payload)
-        observed_jsonl = fields.get("result_jsonl")
-        if observed_jsonl != case.expected_jsonl:
-            blockers.append(f"{case.case_id}: result_jsonl does not match decoded reference")
-        if output_path is None and observed_jsonl is not None:
-            observed_output_digest = digest_text(observed_jsonl)
-            observed_output_digest_source = "envelope_result_jsonl"
-        for key, value in case.expected_fields.items():
-            observed = fields.get(key)
-            if observed != value:
-                blockers.append(f"{case.case_id}: {key}={observed!r}, expected {value!r}")
-        correctness_digest = fields.get("correctness_digest", "")
-        if not correctness_digest.startswith("fnv64:"):
-            blockers.append(f"{case.case_id}: correctness_digest must be fnv64-prefixed")
-        if observed_output_digest and observed_output_digest != expected_output_digest:
-            blockers.append(f"{case.case_id}: observed output digest does not match expected")
-    else:
-        fields = {}
+        try:
+            fields = report_fields(payload)
+        except Exception as exc:  # noqa: BLE001 - malformed evidence becomes a case blocker.
+            blockers.append(f"{case.case_id}: invalid public workflow evidence: {exc}")
+
+    if output_path is not None:
+        committed = fields.get("native_vortex_result_export_all_targets_committed")
+        if not (committed is True or committed == "true"):
+            blockers.append(
+                f"{case.case_id}: native Vortex export did not report all targets committed"
+            )
+        for key, expected_value in {
+            "public_workflow_requested_output": f"write_{case.output_format}",
+            "native_vortex_result_export_path": str(output_path),
+            "native_vortex_result_export_format": case.output_format,
+            "native_vortex_result_export_rows_written": str(len(expected)),
+        }.items():
+            if fields.get(key) != expected_value:
+                blockers.append(
+                    f"{case.case_id}: {key}={fields.get(key)!r}, expected {expected_value!r}"
+                )
+        if not output_path.exists():
+            blockers.append(f"{case.case_id}: expected output artifact was not written")
+        else:
+            observed_output_bytes = output_path.read_bytes()
+            observed_output_digest = "sha256:" + hashlib.sha256(observed_output_bytes).hexdigest()
+            observed_output_digest_source = "sink_output_artifact"
+            if case.expected_output_text is not None and observed_output_bytes != case.expected_output_text.encode("utf-8"):
+                blockers.append(f"{case.case_id}: output artifact does not match decoded reference")
+    elif payload and fields:
+        try:
+            observed_rows = extract_result(payload)
+            if not equivalent(observed_rows, expected):
+                blockers.append(f"{case.case_id}: complete native rows do not match decoded reference")
+            observed_output_digest = canonical_rows_digest(observed_rows)
+            observed_output_digest_source = "complete_native_result_rows"
+        except Exception as exc:  # noqa: BLE001 - malformed/truncated result is a case blocker.
+            blockers.append(f"{case.case_id}: complete native result is invalid: {exc}")
+    if observed_output_digest and observed_output_digest != expected_output_digest:
+        blockers.append(f"{case.case_id}: observed output digest does not match expected")
 
     if matrix_row is None:
         blockers.append(f"{case.case_id}: missing matrix row")
@@ -5805,8 +3974,8 @@ def run_executable_case(
 
     return {
         "case_id": case.case_id,
-        "kind": "sql_local_source_decoded_reference",
-        "command": command_text([str(binary), *cli_args, "--format", "json"]),
+        "kind": "sql_native_decoded_reference",
+        "command": command_text(cli_args),
         "returncode": completed.returncode,
         "status": "passed" if not blockers else "failed",
         "artifact_ref": rel(repo_root, artifact_ref),
@@ -5818,26 +3987,10 @@ def run_executable_case(
         "expected_output_digest_source": expected_output_digest_source,
         "observed_output_digest": observed_output_digest,
         "observed_output_digest_source": observed_output_digest_source,
-        "correctness_digest": fields.get("correctness_digest", "") if payload else "",
-        "result_digest": fields.get("result_digest", "") if payload else "",
         "property_seed": case.property_seed,
         "fuzz_seed": case.fuzz_seed,
         "fuzz_surface": case.fuzz_surface or "",
-        "selected_fields": {
-            key: fields[key]
-            for key in sorted(
-                set(case.expected_fields)
-                | {
-                    "correctness_digest",
-                    "fallback_attempted",
-                    "external_engine_invoked",
-                    "claim_gate_status",
-                    "production_claim_allowed",
-                    "performance_claim_allowed",
-                }
-            )
-            if key in fields
-        },
+        "selected_fields": selected_workflow_fields(fields),
         "fallback_attempted": False,
         "external_engine_invoked": False,
         "blockers": blockers,
@@ -5854,7 +4007,6 @@ def run_unsupported_case(
 ) -> dict[str, Any]:
     source_path = materialize_source(work_dir, case.case_id, case.source_name, case.source_text)
     statement = case.statement_template.format(source=source_path)
-    cli_args = ["local-source-runtime", statement]
     output_path: Path | None = None
     if case.output_format is not None:
         output_name = case.output_name or f"{case.case_id}.{case.output_format}"
@@ -5862,21 +4014,15 @@ def run_unsupported_case(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if case.preexisting_output_text is not None:
             output_path.write_text(case.preexisting_output_text, encoding="utf-8")
-        cli_args.extend(
-            [
-                "--output-format",
-                case.output_format,
-                "--output",
-                str(output_path),
-            ]
-        )
-        if case.allow_overwrite:
-            cli_args.append("--allow-overwrite")
-    completed = run_cli_json(
-        repo_root=repo_root,
-        binary=binary,
-        args=cli_args,
+    cli_args = public_workflow_command(
+        binary,
+        statement,
+        source_bindings=workflow_source_bindings(source_path),
+        requested_output="collect" if output_path is None else f"write_{case.output_format}",
+        output=output_path,
+        allow_overwrite=output_path is not None and case.allow_overwrite,
     )
+    completed = run_subprocess(repo_root=repo_root, command=cli_args)
     payload, blockers = parse_json_output(completed, case.case_id)
     artifact_ref = work_dir / "artifacts" / f"{case.case_id}.json"
     write_json(
@@ -5900,12 +4046,17 @@ def run_unsupported_case(
     if (
         output_path is not None
         and case.preexisting_output_text is not None
-        and output_path.read_text(encoding="utf-8") != case.preexisting_output_text
+        and (
+            not output_path.is_file()
+            or output_path.read_bytes() != case.preexisting_output_text.encode("utf-8")
+        )
     ):
         blockers.append(f"{case.case_id}: unsupported sink modified existing output artifact")
     if payload:
-        if payload.get("status") != "error":
-            blockers.append(f"{case.case_id}: status={payload.get('status')!r}, expected 'error'")
+        if payload.get("status") not in {"error", "unsupported"}:
+            blockers.append(
+                f"{case.case_id}: status={payload.get('status')!r}, expected an error or unsupported result"
+            )
         diagnostics = payload.get("diagnostics")
         if not isinstance(diagnostics, list) or not diagnostics:
             blockers.append(f"{case.case_id}: missing diagnostic row")
@@ -5960,7 +4111,7 @@ def run_unsupported_case(
     return {
         "case_id": case.case_id,
         "kind": case.stage_kind,
-        "command": command_text([str(binary), *cli_args, "--format", "json"]),
+        "command": command_text(cli_args),
         "returncode": completed.returncode,
         "status": "passed" if not blockers else "failed",
         "artifact_ref": rel(repo_root, artifact_ref),

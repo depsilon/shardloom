@@ -3,12 +3,11 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import subprocess
 
-from run_clickbench_query_uat import file_sha256, strict_json
-from run_native_unary_uat import csv_cell
+from run_clickbench_query_uat import file_sha256
+from native_workflow_outputs import write_outputs
 from native_typed_key_cases import run as typed_key_cases
 from native_typed_expression_cases import run as typed_expression_cases
 from native_typed_unary_cases import run as typed_unary_cases
@@ -67,52 +66,18 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     def write_all(family, workflow, expected, columns, *, nested=False, typed_orc=True,
                   json_cells=("payload", "amount"), spill=None, denied_writers=None):
         execution = resources if spill is None else dict(resources, spill=spill)
-        for extension in ("vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl", "csv", "orc"):
-            guard()
-            name = f"{family}-{extension}"
-            destination = output / f"{name}.{extension}"
-            report = getattr(workflow, f"write_{extension}")(destination, check=False, **execution)
-            if denied_writers and extension in denied_writers:
-                denied(name, report, destination, denied_writers[extension])
-                continue
-            if nested and extension in ("csv", "orc"):
-                denied(name, report, destination, "nested")
-                continue
-            if typed_orc and extension == "orc":
-                denied(name, report, destination, "ORC does not admit decimal or temporal")
-                continue
-            verified(name, report, spill=spill)
-            if extension == "csv":
-                with destination.open(newline="") as stream:
-                    reader = csv.DictReader(stream)
-                    if reader.fieldnames != columns:
-                        raise ValueError(f"{name}: CSV field order differs")
-                    actual = list(reader)
-                csv_expected = [{key: json.dumps(value) if key in json_cells and value is not None
-                                 else csv_cell(value) for key, value in row.items()} for row in expected]
-                equal(name, actual, csv_expected, destination)
-                continue
-            if extension == "json":
-                actual = strict_json(destination.read_text())
-            else:
-                decoded = destination
-                if extension != "jsonl":
-                    reopened = destination
-                    if extension != "vortex":
-                        reopened = output / f"{name}-normalized.vortex"
-                        accepted(f"{name}-normalize", getattr(context, f"read_{extension}")(
-                            destination).prepare(reopened, check=False))
-                    empty = accepted(f"{name}-schema", context.sql(
-                        f"SELECT * FROM (SELECT * FROM {literal(reopened)}) AS reopened LIMIT 0"
-                    ).collect(check=False))
-                    if empty.field("output_columns") != ",".join(columns):
-                        raise ValueError(f"{name}: reopened field order differs")
-                    decoded = output / f"{name}-reopened.jsonl"
-                    accepted(f"{name}-read", context.sql(
-                        f"SELECT * FROM (SELECT * FROM {literal(reopened)}) AS reopened"
-                    ).write_jsonl(decoded, check=False))
-                actual = [strict_json(line) for line in decoded.read_text().splitlines()]
-            equal(name, actual, expected, destination)
+        denials = dict(denied_writers or {})
+        if nested:
+            denials.setdefault("orc", "nested")
+        if typed_orc:
+            denials.setdefault("orc", "ORC does not admit decimal or temporal")
+        write_outputs(
+            context, output, workflow, expected, columns, name=family, guard=guard,
+            accepted=accepted, complete=equal,
+            formats=("vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl", "csv", "orc"),
+            execution=execution, csv_json_columns=json_cells, denied_formats=denials,
+            denied=denied, written=lambda name, report: verified(name, report, spill=spill),
+        )
 
     def exercise_workflow(name, workflow, expected, columns, **writers):
         route = workflow.route(bounded=True, check=False, **resources)

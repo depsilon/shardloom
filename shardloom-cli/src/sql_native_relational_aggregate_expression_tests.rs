@@ -166,7 +166,7 @@ fn native_typed_reductions_sql_grouped_projection_preserves_aliases_order_and_hi
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
         assert_eq!(empty.execution.output_columns, ["total", "id", "raw"]);
-        assert!(empty.result_jsonl.value().is_empty());
+        assert_eq!(empty.result_jsonl.value(), "");
     }
     verify(
         &format!(

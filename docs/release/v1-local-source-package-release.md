@@ -100,11 +100,11 @@ not become production, object-store, platform, or performance claims by being en
 
 | Feature gate | Package/Homebrew posture | Claim boundary |
 | --- | --- | --- |
-| `release-user-surfaces` | Selected package build feature set for release user surfaces. | Enables scoped local adapters, Vortex writes, local primitives, and the production-named provider runtime; does not imply production/platform or performance superiority. |
+| `release-user-surfaces` | Selected package build feature set for release user surfaces. | In `shardloom-vortex`, enables `universal-format-io`, `vortex-write`, `vortex-local-primitives`, and `vortex-encoded-read-spike`. The CLI feature also enables `shardloom-vortex/vortex-staged-output-fs`; it does not imply production/platform or performance superiority. |
 | `universal-format-io` | Included in `release-user-surfaces` for scoped local flat-scalar structured input/output support. | Parquet, Arrow IPC, Avro, and ORC remain scoped local adapter/sink evidence surfaces, not broad production table/lakehouse support. |
 | `vortex-write` | Included in `release-user-surfaces` for scoped local Vortex output support. | Vortex output is the highest-fidelity target, but broad native write/commit/object-store behavior requires separate write-intent, recovery, and Native I/O evidence. |
-| `vortex-production-runtime` | Included in `release-user-surfaces` for promoted provider-backed native Vortex operator routes. | Benchmark-family prepared/native routes can support local evidence rows, but package availability does not imply performance superiority, arbitrary Vortex SQL/DataFrame support, or production runtime scope. |
-| `vortex-traditional-analytics-benchmark` | Legacy/internal compatibility alias for benchmark harness and provider implementation code. | Do not present this as the release user-surface gate; use `vortex-production-runtime` or `release-user-surfaces` in public package guidance. |
+| `vortex-local-primitives` | Included in `release-user-surfaces` for admitted native computation over local files and typed memory. | Shared native operators report their resource, decode, materialization, and result boundaries; unsupported shapes fail explicitly. |
+| `vortex-encoded-read-spike` | Included in `release-user-surfaces` as a separately named Vortex read feature. | Its inclusion records the configured build surface and does not imply broad encoded-read coverage or performance claims. |
 
 Package-channel proofs must state which binary/build profile was smoked. If a future channel ships
 with any of these gates enabled by default, the channel proof must include the matching route,

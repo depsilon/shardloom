@@ -107,17 +107,14 @@ def parse_args() -> argparse.Namespace:
         "--include-benchmark-smoke",
         action="store_true",
         help=(
-            "Also run the optional local Vortex benchmark smoke. This may compile the "
-            "benchmark-only feature lane and is intentionally not required for package-channel proof."
+            "Also compare a small public native workflow with pandas using the built binary. "
+            "Requires pandas in the selected Python environment; no benchmark-only build is used."
         ),
     )
     parser.add_argument(
-        "--skip-benchmark-smoke",
-        action="store_false",
-        dest="include_benchmark_smoke",
-        help=(
-            "Deprecated compatibility flag. Benchmark smoke is skipped by default for package-channel proof."
-        ),
+        "--benchmark-workspace", type=Path,
+        default=Path.home() / "LocalData/shardloom/release-benchmark-proof",
+        help="Local-only workspace for the optional benchmark and its retained receipts.",
     )
     parser.add_argument(
         "--benchmark-smoke-timeout-seconds",
@@ -702,40 +699,37 @@ def stage_python_package_with_bundled_cli(
         }
 
 
-def generated_user_rows_runtime_script(output_path: Path) -> str:
+def native_output_runtime_script(output_path: Path, declaration: str, expected: list[dict[str, Any]]) -> str:
+    """Check actual committed rows from the same public native workflow."""
     output_arg = json.dumps(str(output_path))
     return (
+        "import json; from pathlib import Path; "
         "from shardloom import context; "
         "ctx=context(); "
-        "report=ctx.from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write("
+        f"report={declaration}.write("
         f"{output_arg}, allow_overwrite=True); "
-        "print('generated_source_kind=' + report.generated_source_kind); "
-        "print('generated_source_row_count=' + str(report.generated_source_row_count)); "
-        "print('output_io_performed=' + str(report.envelope.field('output_io_performed'))); "
-        "print('generated_source_certificate_status=' + report.generated_source_certificate_status); "
-        "print('output_native_io_certificate_status=' + report.output_native_io_certificate_status); "
+        "assert report.envelope.status == 'success', report.envelope.human_text; "
+        "assert report.output_commit_status == 'committed'; "
+        "assert report.fallback_attempted is False and report.external_engine_invoked is False; "
+        f"actual=[json.loads(line) for line in Path({output_arg}).read_text().splitlines()]; "
+        f"assert actual == {expected!r}, actual; "
+        "print('native_result_rows_validated=' + str(len(actual))); "
+        "print('output_commit_status=' + report.output_commit_status); "
+        "print('native_io_certificate_status=' + str(report.native_io_certificate_status)); "
         "print('fallback_attempted=' + str(report.fallback_attempted)); "
         "print('external_engine_invoked=' + str(report.external_engine_invoked)); "
         "print('claim_gate_status=' + report.claim_gate_status)"
     )
 
 
+def generated_user_rows_runtime_script(output_path: Path) -> str:
+    rows = [{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]
+    return native_output_runtime_script(output_path, f"ctx.from_rows({rows!r})", rows)
+
+
 def generated_range_runtime_script(output_path: Path) -> str:
-    output_arg = json.dumps(str(output_path))
-    return (
-        "from shardloom import context; "
-        "ctx=context(); "
-        f"report=ctx.range(0, 8, column='id').write({output_arg}, allow_overwrite=True); "
-        "print('generated_source_kind=' + report.generated_source_kind); "
-        "print('generated_source_row_count=' + str(report.generated_source_row_count)); "
-        "print('generated_source_range_start=' + str(report.generated_source_range_start)); "
-        "print('generated_source_range_end=' + str(report.generated_source_range_end)); "
-        "print('output_io_performed=' + str(report.envelope.field('output_io_performed'))); "
-        "print('generated_source_certificate_status=' + report.generated_source_certificate_status); "
-        "print('output_native_io_certificate_status=' + report.output_native_io_certificate_status); "
-        "print('fallback_attempted=' + str(report.fallback_attempted)); "
-        "print('external_engine_invoked=' + str(report.external_engine_invoked)); "
-        "print('claim_gate_status=' + report.claim_gate_status)"
+    return native_output_runtime_script(
+        output_path, "ctx.range(0, 8, column='id')", [{'id': value} for value in range(8)]
     )
 
 
@@ -1003,15 +997,19 @@ def main() -> int:
             run_step(
                 name="example_local_vortex_benchmark_smoke",
                 command=[
-                    str(clean_python),
+                    str(package_python),
                     "examples/local-vortex-benchmark/run.py",
                     "--repo-root",
                     str(repo_root),
-                    "--run-root",
-                    "target/release-dry-run-proof/local-vortex-benchmark",
+                    "--shardloom-binary",
+                    str(binary),
+                    "--workspace",
+                    str(args.benchmark_workspace),
+                    "--input-state",
+                    "prepared",
                     "--rows",
                     str(args.rows),
-                    "--iterations",
+                    "--repeats",
                     str(args.iterations),
                 ],
                 cwd=repo_root,
@@ -1101,9 +1099,15 @@ def write_transcript(
             "quickstart_local_file_vortex_ingest_performed=true",
             "quickstart_local_file_fallback_attempted=false",
             "quickstart_local_file_external_engine_invoked=false",
-            "quickstart_generated_source_row_count=",
+            "quickstart_local_file_result_rows=",
+            "quickstart_generated_input_row_count=",
+            "quickstart_generated_result_verified=true",
+            "quickstart_generated_rows_written=",
             "quickstart_generated_output_row_count=",
-            "quickstart_generated_evidence_fallback_attempted=false",
+            "quickstart_generated_output_path=",
+            "quickstart_generated_output_commit_status=committed",
+            "quickstart_generated_fallback_attempted=false",
+            "quickstart_generated_external_engine_invoked=false",
             "quickstart_generated_claim_gate_status=",
         ]
     )
@@ -1112,6 +1116,8 @@ def write_transcript(
         for marker in [
             "quickstart_unsupported_blocker_id=",
             "quickstart_unsupported_runtime_execution=false",
+            "quickstart_unsupported_data_read=false",
+            "quickstart_unsupported_write_io=false",
             "quickstart_unsupported_fallback_attempted=false",
             "quickstart_unsupported_external_engine_invoked=false",
         ]
@@ -1189,8 +1195,8 @@ def write_transcript(
             )
         ),
         "benchmark_smoke_optional_reason": (
-            "benchmark-only feature compilation belongs to benchmark and feature-matrix gates, "
-            "not package-channel publication proof"
+            "independent benchmark comparisons require optional baseline dependencies and are "
+            "separate from package installation proof"
         ),
         "provenance_dry_run_performed": step_passed("release_provenance_dry_run"),
         "sbom_checksum_manifest_generated": any(

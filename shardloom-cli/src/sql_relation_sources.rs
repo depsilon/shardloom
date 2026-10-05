@@ -64,6 +64,7 @@ pub(super) struct ParsedRelationUnary {
 pub(crate) struct ParsedRelationLeaf {
     pub(crate) path: PathBuf,
     pub(crate) declared_identifier: bool,
+    pub(crate) memory_input: Option<crate::native_memory_input::MemoryInput>,
 }
 
 impl ParsedRelationLeaf {
@@ -71,6 +72,25 @@ impl ParsedRelationLeaf {
         Ok(Self {
             path: parse_source_path(raw)?,
             declared_identifier: validate_sql_identifier(raw).is_ok(),
+            memory_input: None,
+        })
+    }
+
+    pub(super) fn memory(
+        input: crate::native_memory_input::MemoryInput,
+    ) -> Result<Self, ShardLoomError> {
+        use sha2::{Digest as _, Sha256};
+        input.validate()?;
+        let declaration = serde_json::to_vec(&input)
+            .map_err(|error| unsupported_sql_error(&error.to_string()))?;
+        let mut uri = String::from("memory://sql-input/");
+        for byte in Sha256::digest(&declaration) {
+            write!(&mut uri, "{byte:02x}").expect("String writes cannot fail");
+        }
+        Ok(Self {
+            path: PathBuf::from(uri),
+            declared_identifier: false,
+            memory_input: Some(input),
         })
     }
 }
@@ -81,14 +101,14 @@ pub(super) enum ParsedRelationQuery {
     Set(Box<ParsedSqlLocalSourceUnion>),
 }
 
+#[cfg(test)]
 impl ParsedRelationSource {
-    /// The decoded reference accepts actual local leaves only. Native lowering
-    /// handles derived relations without calling this filesystem boundary.
+    /// Inspect a file leaf in parser tests without executing the declaration.
     pub(super) fn local_path(&self) -> Result<&Path, ShardLoomError> {
         match self {
-            Self::Local(leaf) => Ok(&leaf.path),
-            Self::Derived(_) | Self::Unary(_) => Err(unsupported_sql_error(
-                "derived relations require the native relational runtime; decoded-reference execution is not admitted",
+            Self::Local(leaf) if leaf.memory_input.is_none() => Ok(&leaf.path),
+            Self::Local(_) | Self::Derived(_) | Self::Unary(_) => Err(unsupported_sql_error(
+                "expected a file leaf in the parsed relation",
             )),
         }
     }
@@ -212,7 +232,7 @@ pub(super) fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, Shard
     })
 }
 
-fn parse_source(
+pub(super) fn parse_source(
     raw: &str,
     require_alias: bool,
 ) -> Result<(ParsedRelationSource, Option<String>), ShardLoomError> {
@@ -244,6 +264,8 @@ fn parse_source(
             ));
         }
         ParsedRelationSource::Derived(Arc::new(ParsedRelationQuery::parse(&relation[1..close])?))
+    } else if let Some(input) = super::memory_inputs::parse_range(relation)? {
+        ParsedRelationSource::Local(ParsedRelationLeaf::memory(input)?)
     } else if let Some(unary) = unary::parse(relation)? {
         if alias.is_none() {
             return Err(unsupported_sql_error(
@@ -291,7 +313,7 @@ mod tests {
                 .local_path()
                 .unwrap_err()
                 .to_string()
-                .contains("native relational runtime")
+                .contains("expected a file leaf")
         );
         let right = &parsed.join.as_ref().unwrap().right_source;
         assert!(

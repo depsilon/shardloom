@@ -159,25 +159,6 @@ VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
         ],
     },
     {
-        "path": "benchmarks/traditional_analytics/run.py",
-        "required_markers": [
-            "from release_report_utils import upstream_vortex_provider_version",
-            "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)",
-            'SHARDLOOM_VORTEX_PROVIDER_VERSION = (',
-        ],
-        "forbidden_markers": [
-            "_read_upstream_vortex_provider_version",
-            'UPSTREAM_VORTEX_PROVIDER_VERSION = "$CURRENT_VORTEX_PROVIDER_VERSION"',
-            'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.73"',
-            'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.74"',
-            '"0.72" if admitted',
-            "vortex=0.72",
-            "vortex=$CURRENT_VORTEX_PROVIDER_VERSION",
-            "provider_version, \"0.72\"",
-            'provider_version, "$CURRENT_VORTEX_PROVIDER_VERSION"',
-        ],
-    },
-    {
         "path": "python/tests/test_cli_client.py",
         "required_markers": [
             "from release_report_utils import upstream_vortex_provider_version",

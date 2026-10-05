@@ -11,7 +11,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import shardloom as sl
 from shardloom.models import OutputEnvelope
-from shardloom.query import _native_relational_sql_candidate
 
 
 class NativeRelationalCollectionTests(unittest.TestCase):
@@ -20,9 +19,13 @@ class NativeRelationalCollectionTests(unittest.TestCase):
         self.context = sl.ShardLoomContext(self.client)
 
     @staticmethod
-    def reply(rows: list[dict[str, object]]) -> SimpleNamespace:
+    def reply(rows: list[dict[str, object]], fields=None) -> SimpleNamespace:
+        fields = fields or {"key": {"Primitive": ["i64", True]}}
         return SimpleNamespace(envelope=OutputEnvelope.from_field_mapping({
             "result_jsonl": "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            "result_schema_json": json.dumps({"Struct": [
+                {"names": list(fields), "dtypes": list(fields.values())}, False]}),
+            "result_schema_format": "vortex.dtype.serde.v1",
             "output_row_count": str(len(rows)), "result_payload_complete": "true",
             "resident_relational_handle_retained": "true",
             "fallback_attempted": "false", "external_engine_invoked": "false",
@@ -159,7 +162,8 @@ class NativeRelationalCollectionTests(unittest.TestCase):
         for workflow in [frame, self.context.sql(statement)]:
             for rows in [[], [{"key": 9, "position": 1}]]:
                 with self.subTest(workflow=workflow, rows=rows), mock.patch.object(
-                    self.client, "public_workflow_run", return_value=self.reply(rows)
+                    self.client, "public_workflow_run", return_value=self.reply(rows, {
+                        "key": {"Primitive": ["i64", True]}, "position": {"Primitive": ["u64", False]}})
                 ) as run:
                     self.assertEqual(workflow.to_python_objects(check=True), tuple(rows))
                     self.assertEqual(run.call_count, 1)
@@ -191,7 +195,8 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 self.assertEqual(run.call_args.kwargs["source_bindings"], expected)
                 workflow.route(check=True)
                 self.assertEqual(route.call_args.kwargs["source_bindings"], expected)
-                self.assertTrue(_native_relational_sql_candidate(route.call_args.kwargs["sql_statement"]))
+                self.assertIn("left.vortex", route.call_args.kwargs["sql_statement"])
+                self.assertIn("right.data", route.call_args.kwargs["sql_statement"])
 
     def test_conflicting_source_declarations_fail_before_execution(self) -> None:
         strings = self.context.read_csv("same.csv", schema={"key": "utf8"}).select("key")
@@ -274,9 +279,19 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                         "inner.jsonl": {"input_format": "jsonl", "source_schema": inner.source.schema},
                     })
 
-    def test_dispatch_ignores_relational_words_inside_escaped_values_and_paths(self) -> None:
-        self.assertFalse(_native_relational_sql_candidate("SELECT value FROM 'join-over-union.vortex' WHERE label = 'select '' join except' LIMIT 1"))
-        self.assertTrue(_native_relational_sql_candidate("SELECT value FROM 'input.vortex' WHERE value IN (SELECT value FROM 'right.vortex')"))
+    def test_sql_declarations_preserve_escaped_values_paths_and_subqueries(self) -> None:
+        statements = [
+            "SELECT value FROM 'join-over-union.vortex' WHERE label = 'select '' join except' LIMIT 1",
+            "SELECT value FROM 'input.vortex' WHERE value IN (SELECT value FROM 'right.vortex')",
+        ]
+        for statement in statements:
+            with self.subTest(statement=statement), mock.patch.object(
+                self.client, "public_workflow_run", return_value=self.reply([])
+            ) as run:
+                self.context.sql(statement).collect(check=True)
+                run.assert_called_once()
+                self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
+                self.assertNotIn("vortex_primitive", run.call_args.kwargs)
 
     def test_subquery_helpers_never_discard_transformed_source_operations(self) -> None:
         source = self.context.read_vortex("right.vortex")
@@ -518,12 +533,15 @@ class NativeRelationalCollectionTests(unittest.TestCase):
             run.assert_not_called()
             prepare.assert_not_called()
 
-    def test_standalone_unary_strategies_remain_selected_where_order_is_admitted(self) -> None:
+    def test_standalone_unary_declarations_reach_the_shared_binder(self) -> None:
         source = self.context.read_vortex("input.vortex", schema={"id": "int64", "value": "int64"})
         for result in [source.tail(2), source.select("id").sample(2, seed=7), source.drop_duplicates("id").limit(2), source.duplicated("id").limit(2), source.reset_index().limit(2), source.melt(id_vars="id", value_vars="value").limit(2), source.rolling(2).sum("value").limit(2)]:
             with self.subTest(operations=result.operations):
-                self.assertIsNotNone(result._vortex_primitive_shape())
-                self.assertIsNone(result._native_relational_statement())
+                with mock.patch.object(self.client, "public_workflow_run", return_value=self.reply([])) as run:
+                    result.collect(check=True)
+                    self.assertIn("input.vortex", run.call_args.kwargs["sql_statement"])
+                    self.assertNotIn("vortex_primitive", run.call_args.kwargs)
+                    run.assert_called_once()
 
     def test_prepare_preserves_compatible_source_schema_without_overriding_native_types(self) -> None:
         schema = {"label": "utf8", "items": "list<struct<code:list<int64>>>"}
@@ -565,7 +583,7 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
             prepare.assert_not_called()
         native = self.context.read_vortex("nested.vortex", schema=dict(source.source.schema))
-        self.assertIsNotNone(native.select("id", "items").explode("items").limit(2)._vortex_primitive_shape())
+        self.assertIn("FROM EXPLODE((", native.select("id", "items").explode("items").limit(2)._relation_statement())
 
 
 if __name__ == "__main__":
