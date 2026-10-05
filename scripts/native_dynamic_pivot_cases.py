@@ -8,6 +8,7 @@ import json
 
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
+from native_report_evidence import require_native_resource_admission
 
 
 def literal(value):
@@ -74,9 +75,8 @@ def expected_cases():
 
 
 def validate_dynamic_fields(name, envelope, stages=None, scans=None, reused=None):
+    require_native_resource_admission(name, envelope)
     required = {
-        "public_workflow_memory_gb": "1",
-        "public_workflow_native_vortex_provider_scenario": "none",
         "resident_relational_handle_retained": "true",
         "resident_relational_lowering_reused": "false",
         "relational_schema_binding": "during_execution",
@@ -90,8 +90,6 @@ def validate_dynamic_fields(name, envelope, stages=None, scans=None, reused=None
     for key, value in required.items():
         if envelope.field(key) != value:
             raise ValueError(f"{name}: {key} differs: {envelope.field(key)!r} != {value!r}")
-    if int(envelope.field("resident_peak_reserved_buffer_bytes")) > 1 << 30:
-        raise ValueError(f"{name}: reservation peak exceeded the declared grant")
 
 
 def run(context, output, guard, accepted, complete, sources, identity):

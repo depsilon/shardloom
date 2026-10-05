@@ -8,6 +8,7 @@ import json
 
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
+from native_report_evidence import require_native_resource_admission
 
 
 def run(context, output, guard, accepted, complete, sources, identity):
@@ -28,10 +29,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
 
     def verified(name, report):
         envelope = accepted(name, report)
-        if envelope.field("public_workflow_memory_gb") != "1":
-            raise ValueError(f"{name}: lost the declared memory grant")
-        if envelope.field("public_workflow_native_vortex_provider_scenario") != "none":
-            raise ValueError(f"{name}: selected an unrelated schema-specific provider")
+        require_native_resource_admission(name, envelope)
         return envelope
 
     def equal(name, actual, expected, destination=None):
