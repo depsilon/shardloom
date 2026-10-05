@@ -66,3 +66,20 @@ when expected records are missing or any record is unsupported, failed, or misma
 Do not infer performance, production readiness, or engine superiority from source alignment,
 `--list`, or partial reports. Public benchmark pages and broader product documentation must be
 reviewed separately before describing this harness as accepted or publishing measurements.
+
+## Complete Public Regression Families
+
+The public relational acceptance runner has independent `base`, `unary`, `nested`,
+`pivot`, `typed`, and `memory` families. Its `all` selector retains the same case
+declarations. `run_native_relational_suite.py` runs the six families sequentially
+in separate local output directories, retaining each original summary and its
+SHA-256. The suite checks their disjoint union against a frozen name-to-row-count
+manifest before reporting complete coverage. Every family must finish, preserve
+input and executable identity, and match the same runtime/harness provenance.
+
+This partition avoids repeated storage scans over earlier families' output files.
+It retains the 3,000-second process-group deadline per family, the 12-GiB free-space
+headroom, the 100-GiB total workspace ceiling, and a combined 192-MiB log ceiling.
+The shared workload guard rejects overlap. Failed/interrupted observations remain
+failed; they cannot be combined into a successful suite. This is harness structure,
+not an engine performance claim or permission to weaken any result oracle.

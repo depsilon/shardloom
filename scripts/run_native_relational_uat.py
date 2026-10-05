@@ -110,7 +110,7 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--build-commit", required=True)
-    parser.add_argument("--family", choices=("all", "unary", "nested", "pivot", "typed", "reductions", "memory"), default="all")
+    parser.add_argument("--family", choices=("all", "base", "unary", "nested", "pivot", "typed", "reductions", "memory"), default="all")
     parser.add_argument("--materializations", nargs="+", choices=MATERIALIZATIONS, default=["python"],
                         help="memory-family conversion matrix; requested optional packages are required")
     parser.add_argument("--nested-fixture-generator", type=Path,
@@ -255,7 +255,7 @@ def main() -> int:
 
         context = sl.context(binary=str(binary), cwd=output, timeout=120)
         client = context.client
-        if args.family == "all":
+        if args.family in ("all", "base"):
             raw_left, raw_right = output / "cargo.jsonl", output / "dimension.jsonl"
             typed_left, typed_right = output / "typed-left.csv", output / "typed-right.data"
             typed_left.write_text("key,amount\n001,2\n1,3\n")

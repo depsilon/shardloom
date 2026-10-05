@@ -215,6 +215,8 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_heldout_operator_uat.py -v
       - name: Native output acceptance harness
         run: python -B -m unittest discover -s scripts -p test_native_output_uat.py -v
+      - name: Native regression family coverage and supervision
+        run: python -B -m unittest discover -s scripts -p test_native_relational_suite.py -v
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
