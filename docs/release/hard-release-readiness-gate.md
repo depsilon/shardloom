@@ -483,8 +483,8 @@ intentionally reports:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=144
-executable_fixture_count=117
+matrix_row_count=145
+executable_fixture_count=118
 diagnostic_case_count=25
 unsupported_diagnostic_count=23
 runtime_error_diagnostic_count=1

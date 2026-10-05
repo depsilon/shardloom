@@ -63,6 +63,18 @@ that failed build, installation from the unchanged lockfile and the passing
 rebuild. These additional checks establish local integration; hosted acceptance
 remains a separate gate.
 
+The final hosted conformance job subsequently rejected stale aggregate counts:
+the admitted frame fixture had passed, increasing the inventory to 118 executable
+fixtures, 143 runtime cases and 145 total stages. The
+[conformance repair receipt](evidence/native-analytic-frames-conformance-repair-2026-10-05.json)
+preserves that failed job and replays its eight original reports successfully
+without changing their values. The checker now shares exact expected counts and
+tests them against the actual fixture inventory. Missing/stale matrix fields,
+incomplete native digests and stale runtime counts remain rejected. Formatter,
+strict workspace Clippy, workspace tests and 594 Python tests (six optional
+dependency skips) pass. This is a report-contract repair; the accepted runtime
+executable, original results and production/publication boundaries are unchanged.
+
 ## Frame contract and limits
 
 The admitted units are ROWS, GROUPS and RANGE, with explicit bounds, empty intervals and CURRENT ROW/GROUP/TIES/NO OTHERS exclusions. The omitted frame defaults to RANGE UNBOUNDED PRECEDING through CURRENT ROW. GROUPS requires ORDER BY. A bounded RANGE frame requires exactly one ordering key. ROWS and GROUPS offsets are nonnegative integer literals counting rows or peer groups and must fit an addressable row count. RANGE offsets must match the order domain: integer offsets for integer keys, finite nonnegative numeric offsets for floating keys, nonnegative scaled decimal offsets for decimal keys, whole-day durations for Date32, or fixed microseconds for TimestampMicros. Bind-time checks reject reversed bounds, invalid unbounded endpoints, unsupported offset forms and incompatible range domains. NTH_VALUE positions must be positive and no larger than the admitted input-row limit.

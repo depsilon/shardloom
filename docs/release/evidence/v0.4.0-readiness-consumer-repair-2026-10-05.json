@@ -1,0 +1,1932 @@
+{
+  "schema_version": "shardloom.release_readiness_consumer_repair.v1",
+  "status": "passed_local",
+  "base_commit": "b705fe5d5cd536dd8f68da4e09997cdaa51b18b5",
+  "cause": "The hard gate expected 34 matrix fields and two retired digest aliases. The current producer emits 31 fields and six explicit native/decoded digest counters.",
+  "correction": "Share the canonical expected-count map; require its exact key set including the native prepared route, and retain all six explicit digest checks.",
+  "changed_sources": {
+    "scripts/check_release_readiness.py": {
+      "before_sha256": "1b8fb2835cab65a952432ba53fc986bbbe8ba9c4891efdca8f06a361de141d36",
+      "after_sha256": "35bc99678088cb73100db5c20dc8f7edd3594d03eb735c006b21c5396e15ac35",
+      "diff": "diff --git a/scripts/check_release_readiness.py b/scripts/check_release_readiness.py\nindex 6f229edf..77c4f7b0 100644\n--- a/scripts/check_release_readiness.py\n+++ b/scripts/check_release_readiness.py\n@@ -31,6 +31,7 @@ from release_channel_contract import (\n     selected_channel_ids,\n )\n from golden_workflow_contract import GOLDEN_WORKFLOW_IDS\n+from check_v1_correctness_conformance import MATRIX_EXPECTED_COUNTS\n \n \n ROOT = Path(__file__).resolve().parents[1]\n@@ -1899,7 +1900,7 @@ def main() -> int:\n             expected_matrix_values = {\n                 \"schema_version\": \"shardloom.v1_correctness_conformance_matrix.v1\",\n                 \"matrix_id\": \"prod-v1-2b.correctness_conformance\",\n-                \"expected_count_field_count\": 34,\n+                \"expected_count_field_count\": len(MATRIX_EXPECTED_COUNTS),\n                 \"required_semantic_case_count\": 47,\n                 \"required_unsupported_case_count\": 11,\n                 \"report_input_count\": 8,\n@@ -1970,8 +1971,6 @@ def main() -> int:\n                     \"admitted_semantics\",\n                     \"required_stage_observed_output_digest_source_count\",\n                 ): 47,\n-                (\"admitted_semantics\", \"required_stage_correctness_digest_count\"): 47,\n-                (\"admitted_semantics\", \"required_stage_result_digest_count\"): 47,\n                 (\n                     \"admitted_semantics\",\n                     \"required_unsupported_stage_diagnostic_field_count\",\n"
+    },
+    "scripts/check_v1_correctness_conformance.py": {
+      "before_sha256": "8e7037c84a470184b844f83dcdfd8d4548eaf15d617ea537701320f5809f08f6",
+      "after_sha256": "8b0abfe833565bd51ae27ea322aca88464a430fab748158734e66d0c2e50b2ff",
+      "diff": "diff --git a/scripts/check_v1_correctness_conformance.py b/scripts/check_v1_correctness_conformance.py\nindex 65690b4e..a8747d69 100644\n--- a/scripts/check_v1_correctness_conformance.py\n+++ b/scripts/check_v1_correctness_conformance.py\n@@ -83,6 +83,39 @@ EXPECTED_ADMITTED_VALIDATOR_CASES = EXPECTED_EXECUTABLE_FIXTURES + EXPECTED_DIAG\n EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS = EXPECTED_ADMITTED_VALIDATOR_CASES\n EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS = 2\n EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS = EXPECTED_DIAGNOSTIC_CASES\n+MATRIX_EXPECTED_COUNTS = {\n+    \"front_door_supported_rows\": EXPECTED_FRONT_DOOR_SUPPORTED_ROWS,\n+    \"front_door_pending_rows\": EXPECTED_FRONT_DOOR_PENDING_ROWS,\n+    \"front_door_example_scenarios\": len(EXPECTED_EXAMPLE_SCENARIOS),\n+    \"front_door_expected_error_scenarios\": len(EXPECTED_ERROR_SCENARIOS),\n+    \"vortex_primitive_routes\": EXPECTED_VORTEX_PRIMITIVE_ROUTES,\n+    \"source_input_formats\": EXPECTED_SOURCE_INPUT_FORMATS,\n+    \"source_prepared_routes\": len(EXPECTED_SOURCE_ROUTE_IDS),\n+    \"source_invalidation_cases\": EXPECTED_SOURCE_INVALIDATION_CASES,\n+    \"output_formats\": EXPECTED_OUTPUT_FORMATS,\n+    \"output_write_methods\": EXPECTED_OUTPUT_WRITE_METHODS,\n+    \"output_routes\": EXPECTED_OUTPUT_ROUTE_IDS,\n+    \"python_user_surface_method_rows\": EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,\n+    \"example_replay_doc_sources\": EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,\n+    \"example_replay_runtime_commands\": EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS,\n+    \"example_replay_scenarios\": EXPECTED_EXAMPLE_REPLAY_SCENARIOS,\n+    \"example_replay_expected_error_scenarios\": EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS,\n+    \"example_replay_unsupported_failure_fixtures\": EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES,\n+    \"golden_workflows\": len(EXPECTED_GOLDEN_WORKFLOWS),\n+    \"golden_stage_count_min\": EXPECTED_GOLDEN_STAGE_COUNT_MIN,\n+    \"executable_fixtures\": EXPECTED_EXECUTABLE_FIXTURES,\n+    \"diagnostic_cases\": EXPECTED_DIAGNOSTIC_CASES,\n+    \"unsupported_diagnostics\": EXPECTED_UNSUPPORTED_DIAGNOSTICS,\n+    \"runtime_error_diagnostics\": EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,\n+    \"invalid_shape_diagnostics\": EXPECTED_INVALID_SHAPE_DIAGNOSTICS,\n+    \"property_lanes\": EXPECTED_PROPERTY_LANE_COUNT,\n+    \"deterministic_fuzz_cases\": EXPECTED_DETERMINISTIC_FUZZ_CASES,\n+    \"admitted_stage_count_min\": EXPECTED_ADMITTED_STAGE_COUNT_MIN,\n+    \"admitted_validator_cases\": EXPECTED_ADMITTED_VALIDATOR_CASES,\n+    \"admitted_required_runtime_rows\": EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,\n+    \"admitted_support_report_rows\": EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS,\n+    \"admitted_deterministic_unsupported_rows\": EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,\n+}\n ADMITTED_ARTIFACT_REF_PREFIX = \"target/admitted-semantics-matrix/artifacts/\"\n SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES = {\n     \"canonical_decoded_reference_rows\",\n@@ -422,40 +455,13 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]\n     if not isinstance(expected_counts, dict):\n         blockers.append(\"matrix expected_counts must be an object\")\n         expected_counts = {}\n-    for field, expected in {\n-        \"front_door_supported_rows\": EXPECTED_FRONT_DOOR_SUPPORTED_ROWS,\n-        \"front_door_pending_rows\": EXPECTED_FRONT_DOOR_PENDING_ROWS,\n-        \"front_door_example_scenarios\": len(EXPECTED_EXAMPLE_SCENARIOS),\n-        \"front_door_expected_error_scenarios\": len(EXPECTED_ERROR_SCENARIOS),\n-        \"vortex_primitive_routes\": EXPECTED_VORTEX_PRIMITIVE_ROUTES,\n-        \"source_input_formats\": EXPECTED_SOURCE_INPUT_FORMATS,\n-        \"source_invalidation_cases\": EXPECTED_SOURCE_INVALIDATION_CASES,\n-        \"output_formats\": EXPECTED_OUTPUT_FORMATS,\n-        \"output_write_methods\": EXPECTED_OUTPUT_WRITE_METHODS,\n-        \"output_routes\": EXPECTED_OUTPUT_ROUTE_IDS,\n-        \"python_user_surface_method_rows\": EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,\n-        \"example_replay_doc_sources\": EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,\n-        \"example_replay_runtime_commands\": EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS,\n-        \"example_replay_scenarios\": EXPECTED_EXAMPLE_REPLAY_SCENARIOS,\n-        \"example_replay_expected_error_scenarios\": EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS,\n-        \"example_replay_unsupported_failure_fixtures\": (\n-            EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES\n-        ),\n-        \"golden_workflows\": len(EXPECTED_GOLDEN_WORKFLOWS),\n-        \"golden_stage_count_min\": EXPECTED_GOLDEN_STAGE_COUNT_MIN,\n-        \"executable_fixtures\": EXPECTED_EXECUTABLE_FIXTURES,\n-        \"diagnostic_cases\": EXPECTED_DIAGNOSTIC_CASES,\n-        \"unsupported_diagnostics\": EXPECTED_UNSUPPORTED_DIAGNOSTICS,\n-        \"runtime_error_diagnostics\": EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,\n-        \"invalid_shape_diagnostics\": EXPECTED_INVALID_SHAPE_DIAGNOSTICS,\n-        \"property_lanes\": EXPECTED_PROPERTY_LANE_COUNT,\n-        \"deterministic_fuzz_cases\": EXPECTED_DETERMINISTIC_FUZZ_CASES,\n-        \"admitted_stage_count_min\": EXPECTED_ADMITTED_STAGE_COUNT_MIN,\n-        \"admitted_validator_cases\": EXPECTED_ADMITTED_VALIDATOR_CASES,\n-        \"admitted_required_runtime_rows\": EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,\n-        \"admitted_support_report_rows\": EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS,\n-        \"admitted_deterministic_unsupported_rows\": EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,\n-    }.items():\n+    if expected_counts.keys() != MATRIX_EXPECTED_COUNTS.keys():\n+        blockers.append(\n+            \"matrix expected_counts fields mismatch: \"\n+            f\"missing={sorted(MATRIX_EXPECTED_COUNTS.keys() - expected_counts.keys())} \"\n+            f\"extra={sorted(expected_counts.keys() - MATRIX_EXPECTED_COUNTS.keys())}\"\n+        )\n+    for field, expected in MATRIX_EXPECTED_COUNTS.items():\n         if expected_counts.get(field) != expected:\n             blockers.append(f\"matrix expected_counts.{field}={expected_counts.get(field)}\")\n \n"
+    },
+    "python/tests/test_release_report_producer_contracts.py": {
+      "before_sha256": "94f870fefbfd282452ea4f9a3203fa2f8b6c04fb5ec31a01cd0dcc31efc29979",
+      "after_sha256": "86705f5d58703b0fc029660349ba6913f03e98b4e6c67e0414f51a7023d4c284",
+      "diff": "diff --git a/python/tests/test_release_report_producer_contracts.py b/python/tests/test_release_report_producer_contracts.py\nindex d98c8bed..483e0909 100644\n--- a/python/tests/test_release_report_producer_contracts.py\n+++ b/python/tests/test_release_report_producer_contracts.py\n@@ -69,6 +69,21 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):\n         _, blockers = conformance._validate_matrix(matrix)\n         self.assertEqual(blockers, [])\n \n+    def test_correctness_matrix_rejects_missing_stale_or_extra_route_counts(self) -> None:\n+        matrix = json.loads((REPO_ROOT / conformance.DEFAULT_MATRIX).read_text())\n+        for mutation in (\"missing\", \"stale\", \"extra\"):\n+            with self.subTest(mutation=mutation):\n+                changed = copy.deepcopy(matrix)\n+                counts = changed[\"expected_counts\"]\n+                if mutation == \"missing\":\n+                    del counts[\"source_prepared_routes\"]\n+                elif mutation == \"stale\":\n+                    counts[\"source_prepared_routes\"] = 7\n+                else:\n+                    counts[\"retired_facade_route_count\"] = 7\n+                _, blockers = conformance._validate_matrix(changed)\n+                self.assertTrue(any(\"expected_counts\" in item for item in blockers), blockers)\n+\n     def test_conformance_accepts_actual_vortex_source_and_output_reports(self) -> None:\n         for producer, consumer in (\n             (vortex_scope.build_report, conformance._validate_vortex),\n@@ -124,6 +139,46 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):\n         checks = self._readiness_checks(reports)\n         self.assertTrue(any(mismatch in text for text in checks[\"v1_correctness_conformance_gate\"][\"blockers\"]))\n \n+    def test_readiness_consumes_complete_conformance_producer_and_requires_native_digests(self) -> None:\n+        # Reuse the existing complete input fixture, then run the actual producer.\n+        # The hard gate must accept its current output without invented aliases.\n+        from python.tests.test_release_scripts import ReleaseScriptTests\n+\n+        with tempfile.TemporaryDirectory() as directory:\n+            root = Path(directory)\n+            ReleaseScriptTests()._write_v1_correctness_conformance_fixture_reports(conformance, root)\n+            report = conformance.build_report(root, conformance.ReportPaths())\n+        self.assertEqual(report[\"status\"], \"passed\", report[\"blockers\"])\n+        report_name = \"v1-correctness-conformance-report.json\"\n+        gate = \"v1_correctness_conformance_gate\"\n+        checks = self._readiness_checks({report_name: report})\n+        self.assertEqual(checks[gate][\"blockers\"], [])\n+        semantic = report[\"summaries\"][\"admitted_semantics\"]\n+        for retired in (\"required_stage_correctness_digest_count\", \"required_stage_result_digest_count\"):\n+            self.assertNotIn(retired, semantic)\n+        for field in (\n+            \"required_stage_decoded_reference_digest_count\",\n+            \"required_stage_expected_output_digest_count\",\n+            \"required_stage_observed_output_digest_count\",\n+            \"required_stage_output_digest_match_count\",\n+            \"required_stage_expected_output_digest_source_count\",\n+            \"required_stage_observed_output_digest_source_count\",\n+        ):\n+            for mutation in (\"missing\", \"incomplete\"):\n+                with self.subTest(field=field, mutation=mutation):\n+                    changed = copy.deepcopy(report)\n+                    values = changed[\"summaries\"][\"admitted_semantics\"]\n+                    if mutation == \"missing\":\n+                        del values[field]\n+                    else:\n+                        values[field] -= 1\n+                    checks = self._readiness_checks({report_name: changed})\n+                    self.assertTrue(any(field in item for item in checks[gate][\"blockers\"]))\n+        changed = copy.deepcopy(report)\n+        changed[\"matrix_summary\"][\"expected_count_field_count\"] = 34\n+        checks = self._readiness_checks({report_name: changed})\n+        self.assertTrue(any(\"expected_count_field_count\" in item for item in checks[gate][\"blockers\"]))\n+\n \n if __name__ == \"__main__\":\n     unittest.main()\n"
+    },
+    "python/tests/test_release_scripts.py": {
+      "before_sha256": "f73f9948f2b6eeca6c3d4e2321d917abe9fb1c50d23ba22a4b492c619f9744f7",
+      "after_sha256": "f8638b39400a7d4a14c76d2be399eeac0ff093f078bb384b69c2b2c8940522d9",
+      "diff": "diff --git a/python/tests/test_release_scripts.py b/python/tests/test_release_scripts.py\nindex 6f0b4614..151f8c54 100644\n--- a/python/tests/test_release_scripts.py\n+++ b/python/tests/test_release_scripts.py\n@@ -3601,6 +3601,7 @@ class ReleaseScriptTests(unittest.TestCase):\n                     ),\n                     \"vortex_primitive_routes\": module.EXPECTED_VORTEX_PRIMITIVE_ROUTES,\n                     \"source_input_formats\": module.EXPECTED_SOURCE_INPUT_FORMATS,\n+                    \"source_prepared_routes\": len(module.EXPECTED_SOURCE_ROUTE_IDS),\n                     \"source_invalidation_cases\": (\n                         module.EXPECTED_SOURCE_INVALIDATION_CASES\n                     ),\n"
+    }
+  },
+  "tests": {
+    "focused_cases": 170,
+    "full_python_cases": 593,
+    "full_python_passed": 587,
+    "full_python_skipped": 6,
+    "mutations": "Missing/stale/extra matrix counts; missing or incomplete values for each of six digest counters; obsolete total count 34."
+  },
+  "initial_test_failure": "The old synthetic fixture omitted source_prepared_routes. Its explicit map now includes the same required native route as the checked-in matrix.",
+  "gates": {
+    "release-040-conformance-consumer-tests-1": {
+      "receipt": {
+        "command": [
+          "env",
+          "PYTHONPATH=python/src",
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "python.tests.test_release_report_producer_contracts",
+          "python.tests.test_v1_correctness_conformance",
+          "python.tests.test_release_scripts"
+        ],
+        "cwd": "<repo>",
+        "timeout": 300.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "failed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 16143437918,
+          "log_bytes": 20258816,
+          "free_bytes": 45009129472,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 24158,
+        "storage_last_observation": {
+          "workspace_bytes": 16143442014,
+          "log_bytes": 20258816,
+          "free_bytes": 45009756160,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 1,
+        "storage_final_observation": {
+          "workspace_bytes": 16143442014,
+          "log_bytes": 20258816,
+          "free_bytes": 45009969152,
+          "reserved_candidate_bytes": 134217728
+        },
+        "error": "RuntimeError: acceptance returned 1; inspect <evidence>/release-040-conformance-consumer-tests-1.log",
+        "supervised_seconds": 3.93932520900853,
+        "log_sha256": "2fa804dda47089e381229f53d5a50b2e1263998bed78d8b44a377c7a6766e7b7"
+      },
+      "receipt_sha256": "3d8898a07f2208b88d33687d2143a8b73025ac7de17030210fb9f0e60498b7f0",
+      "log": "......F...........................................................................................................................................F.......................\n======================================================================\nFAIL: test_readiness_consumes_complete_conformance_producer_and_requires_native_digests (python.tests.test_release_report_producer_contracts.ReleaseReportProducerContractsTests.test_readiness_consumes_complete_conformance_producer_and_requires_native_digests)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<repo>/python/tests/test_release_report_producer_contracts.py\", line 151, in test_readiness_consumes_complete_conformance_producer_and_requires_native_digests\n    self.assertEqual(report[\"status\"], \"passed\", report[\"blockers\"])\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 'failed' != 'passed'\n- failed\n+ passed\n : [\"matrix expected_counts fields mismatch: missing=['source_prepared_routes'] extra=[]\", 'matrix expected_counts.source_prepared_routes=None']\n\n======================================================================\nFAIL: test_v1_correctness_conformance_gate_passes_complete_fixture (python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"<repo>/python/tests/test_release_scripts.py\", line 4042, in test_v1_correctness_conformance_gate_passes_complete_fixture\n    self.assertEqual(report[\"status\"], \"passed\", report[\"blockers\"])\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 'failed' != 'passed'\n- failed\n+ passed\n : [\"matrix expected_counts fields mismatch: missing=['source_prepared_routes'] extra=[]\", 'matrix expected_counts.source_prepared_routes=None']\n\n----------------------------------------------------------------------\nRan 170 tests in 2.527s\n\nFAILED (failures=2)\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpc_koxky3/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpumwh6e61/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmp8kq5_ker/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmp7utu5sbz/target/release-dry-run-proof/transcript.json\n"
+    },
+    "release-040-conformance-consumer-tests-2": {
+      "receipt": {
+        "command": [
+          "env",
+          "PYTHONPATH=python/src",
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "python.tests.test_release_report_producer_contracts",
+          "python.tests.test_v1_correctness_conformance",
+          "python.tests.test_release_scripts"
+        ],
+        "cwd": "<repo>",
+        "timeout": 300.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 16143446110,
+          "log_bytes": 20258816,
+          "free_bytes": 45006970880,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 24294,
+        "storage_last_observation": {
+          "workspace_bytes": 16143450206,
+          "log_bytes": 20258816,
+          "free_bytes": 45008838656,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 16143450206,
+          "log_bytes": 20258816,
+          "free_bytes": 45007527936,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 3.8081435000058264,
+        "log_sha256": "8f0f5fa1584aa41e88023983d4e3bc962faab8d42475557855111eeeb5e027a5"
+      },
+      "receipt_sha256": "f48a0b9365f563a45950d82923f67a9c23b7b3259bc67957f73f1b8ca6f4a03c",
+      "log": "..........................................................................................................................................................................\n----------------------------------------------------------------------\nRan 170 tests in 2.411s\n\nOK\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpsqwonmj4/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpkb9vax__/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpv4pzay1f/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpy8lg3srw/target/release-dry-run-proof/transcript.json\n"
+    },
+    "release-040-python-tests-1": {
+      "receipt": {
+        "command": [
+          "env",
+          "PYTHONPATH=python/src",
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests"
+        ],
+        "cwd": "<repo>",
+        "timeout": 600.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 16145838174,
+          "log_bytes": 20258816,
+          "free_bytes": 44958015488,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 25338,
+        "storage_last_observation": {
+          "workspace_bytes": 16145842270,
+          "log_bytes": 20258816,
+          "free_bytes": 44958130176,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 16145842270,
+          "log_bytes": 20258816,
+          "free_bytes": 44958552064,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 15.268761541927233,
+        "log_sha256": "3b62beeb2f49791a488cf82615162739b9f370e6fd0cd838a72f3ce256be7f18"
+      },
+      "receipt_sha256": "0ca40349cfad0a7d517be9fe1764d2bddf3212fd8b881b697568e5ecbd3413d6",
+      "log": "......................................................................................................................................................................................................................................s..................ss...........................s.....ss...................................................................................................................................................................................................................................................................................................................\n----------------------------------------------------------------------\nRan 593 tests in 14.203s\n\nOK (skipped=6)\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpkrzbqheg/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmptqmhvbyl/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmp712ea4_j/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmp8taxojqz/target/release-dry-run-proof/transcript.json\n"
+    },
+    "release-040-conformance-hosted-replay-1": {
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<evidence>/replay_release_040_conformance.py"
+        ],
+        "cwd": "<repo>",
+        "timeout": 300.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 16145703006,
+          "log_bytes": 20258816,
+          "free_bytes": 44963799040,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 25192,
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 16145834078,
+          "log_bytes": 20258816,
+          "free_bytes": 44961398784,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 0.8574233750114217,
+        "log_sha256": "b774fcf97d3541306137696f79e2004346045f898b0f1427eb98b7b7b2bb3f0f"
+      },
+      "receipt_sha256": "d594748b7607ab82520e9baa243a10d03e3cd3cdfe18dcb3107f2932f64b5789",
+      "log": "{\n  \"status\": \"passed\",\n  \"removed_stale_blockers\": [\n    \"v1 correctness/conformance matrix_summary.expected_count_field_count=31\",\n    \"v1 correctness/conformance admitted_semantics.required_stage_correctness_digest_count=None\",\n    \"v1 correctness/conformance admitted_semantics.required_stage_result_digest_count=None\"\n  ],\n  \"other_checks_unchanged\": true,\n  \"public_release_ready\": false\n}\n"
+    }
+  },
+  "hosted_report_replay": {
+    "status": "passed",
+    "scope": "report_only_replay_of_preserved_hosted_artifacts",
+    "prior_reports": {
+      "<hosted-replay>/target/hard-release-readiness-gate.json": {
+        "admitted_semantics_report_ref": "target/admitted-semantics-matrix-report.json",
+        "architecture_tracker_report_ref": "target/release-architecture-tracker-report.json",
+        "blockers": [
+          "clean_install_first_10_minutes_and_benchmark_smoke: clean_conda_env_install_status=skipped_by_request",
+          "publication_api_schema_stability_gate: publication/API/schema stability gate remains blocked",
+          "per_claim_evidence_attachment_matrix: per-claim evidence attachment matrix remains not claim-grade",
+          "architecture_tracker_validation: architecture_tracker_status=blocked",
+          "architecture_tracker_validation: phase plan has unchecked items: 135",
+          "final_release_rehearsal: rehearsal_status=blocked",
+          "final_release_rehearsal: architecture tracker blockers: phase plan has unchecked items: 135",
+          "final_release_rehearsal: architecture tracker status must include passed: status=blocked,architecture_tracker_status=blocked",
+          "feature_build_matrix: missing release validation evidence",
+          "v1_correctness_conformance_gate: v1 correctness/conformance matrix_summary.expected_count_field_count=31",
+          "v1_correctness_conformance_gate: v1 correctness/conformance admitted_semantics.required_stage_correctness_digest_count=None",
+          "v1_correctness_conformance_gate: v1 correctness/conformance admitted_semantics.required_stage_result_digest_count=None",
+          "required_validation_commands: missing release validation evidence",
+          "required_validation_commands: attach current run evidence for: cargo fmt --all -- --check",
+          "required_validation_commands: attach current run evidence for: cargo clippy --workspace --all-targets -- -D warnings",
+          "required_validation_commands: attach current run evidence for: cargo test --workspace --all-targets",
+          "required_validation_commands: attach current run evidence for: python -m unittest discover python/tests",
+          "required_validation_commands: attach current run evidence for: python -m build python",
+          "required_validation_commands: attach current run evidence for: python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+          "required_validation_commands: attach current run evidence for: cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+          "required_validation_commands: attach current run evidence for: python scripts/check_contribution_governance.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_ci_gate_matrix.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_workspace_version_sources.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_release_security_gate.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_release_architecture_tracker.py --allow-blocked",
+          "required_validation_commands: attach current run evidence for: python scripts/check_package_channel_readiness.py --require-local-evidence",
+          "required_validation_commands: attach current run evidence for: python scripts/check_golden_workflows.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_admitted_semantics_matrix.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_runtime_execution_envelopes.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_website_readiness.py",
+          "required_validation_commands: attach current run evidence for: python scripts/final_release_rehearsal.py --allow-blocked",
+          "required_validation_commands: attach current run evidence for: python scripts/check_production_usability_gate.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_python_user_surface_completion.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_sql_python_dataframe_parity.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_front_door_runtime_scope.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_vortex_runtime_scope.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_source_prepared_state_scope.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_local_output_sink_scope.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_local_format_production_profiles.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_local_format_pushdown_fidelity.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_compatibility_output_translation_reports.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_local_format_edge_case_fixtures.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_local_resource_safety.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_observability_support.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_api_schema_stability.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_example_replay.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_correctness_conformance.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_v1_security_ci_hardening.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_user_surface_runtime_gap_inventory.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_user_surface_graduation_matrix.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_runtime_gap_family_burn_down.py",
+          "required_validation_commands: attach current run evidence for: python scripts/check_user_route_capability_report.py"
+        ],
+        "checks": [
+          {
+            "blockers": [
+              "clean_conda_env_install_status=skipped_by_request"
+            ],
+            "name": "clean_install_first_10_minutes_and_benchmark_smoke",
+            "ref": "target/release-dry-run-proof/transcript.json",
+            "status": "blocked"
+          },
+          {
+            "blockers": [],
+            "name": "security_dependency_provenance_and_known_unsupported_paths",
+            "ref": "target/release-security-gate-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "contribution_governance_intake_gate",
+            "ref": "target/contribution-governance-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "golden_workflow_validator",
+            "ref": "target/golden-workflow-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "admitted_semantics_matrix_validator",
+            "ref": "target/admitted-semantics-matrix-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "package_metadata_license_and_discoverability",
+            "ref": "Cargo.toml python/pyproject.toml",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "workspace_rust_vortex_version_source_contract",
+            "ref": "target/workspace-version-source-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "package_channel_readiness_matrix",
+            "ref": "docs/release/package-channel-readiness-matrix.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [
+              "publication/API/schema stability gate remains blocked"
+            ],
+            "name": "publication_api_schema_stability_gate",
+            "ref": "docs/release/publication-api-schema-stability-gate.md",
+            "status": "blocked"
+          },
+          {
+            "blockers": [],
+            "name": "v1_api_schema_stability",
+            "ref": "target/v1-api-schema-stability-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [
+              "per-claim evidence attachment matrix remains not claim-grade"
+            ],
+            "name": "per_claim_evidence_attachment_matrix",
+            "ref": "docs/release/per-claim-evidence-attachment-matrix.md",
+            "status": "blocked"
+          },
+          {
+            "blockers": [
+              "architecture_tracker_status=blocked",
+              "phase plan has unchecked items: 135"
+            ],
+            "name": "architecture_tracker_validation",
+            "ref": "target/release-architecture-tracker-report.json",
+            "status": "blocked"
+          },
+          {
+            "blockers": [
+              "rehearsal_status=blocked",
+              "architecture tracker blockers: phase plan has unchecked items: 135",
+              "architecture tracker status must include passed: status=blocked,architecture_tracker_status=blocked"
+            ],
+            "name": "final_release_rehearsal",
+            "ref": "target/final-release-rehearsal/final-release-rehearsal-report.json",
+            "status": "blocked"
+          },
+          {
+            "blockers": [
+              "missing release validation evidence"
+            ],
+            "name": "feature_build_matrix",
+            "ref": "target/release-validation-evidence.json",
+            "status": "blocked"
+          },
+          {
+            "blockers": [],
+            "name": "typed_envelope_compatibility",
+            "ref": "shardloom-cli/tests/typed_envelope_contract_snapshots.rs",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "production_usability_gate",
+            "ref": "target/production-usability-gate.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "python_user_surface_completion_gate",
+            "ref": "target/python-user-surface-completion-gate.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "sql_python_dataframe_parity_gate",
+            "ref": "target/sql-python-dataframe-parity-gate.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "v1_front_door_runtime_scope_gate",
+            "ref": "target/v1-front-door-runtime-scope-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "v1_vortex_runtime_scope_gate",
+            "ref": "target/v1-vortex-runtime-scope-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "v1_source_prepared_state_scope_gate",
+            "ref": "target/v1-source-prepared-state-scope-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "v1_local_output_sink_scope_gate",
+            "ref": "target/v1-local-output-sink-scope-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "v1_local_resource_safety_gate",
+            "ref": "target/v1-local-resource-safety-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "v1_observability_support_gate",
+            "ref": "target/v1-observability-support-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "v1_example_replay_gate",
+            "ref": "target/v1-example-replay-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [
+              "v1 correctness/conformance matrix_summary.expected_count_field_count=31",
+              "v1 correctness/conformance admitted_semantics.required_stage_correctness_digest_count=None",
+              "v1 correctness/conformance admitted_semantics.required_stage_result_digest_count=None"
+            ],
+            "name": "v1_correctness_conformance_gate",
+            "ref": "target/v1-correctness-conformance-report.json",
+            "status": "blocked"
+          },
+          {
+            "blockers": [],
+            "name": "v1_security_ci_hardening_gate",
+            "ref": "target/v1-security-ci-hardening-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "user_surface_runtime_gap_inventory",
+            "ref": "target/user-surface-runtime-gap-inventory.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "user_surface_graduation_matrix",
+            "ref": "target/user-surface-graduation-matrix.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "runtime_gap_family_burn_down",
+            "ref": "target/runtime-gap-family-burn-down.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [],
+            "name": "user_route_capability_report",
+            "ref": "target/user-route-capability-report.json",
+            "status": "passed"
+          },
+          {
+            "blockers": [
+              "missing release validation evidence",
+              "attach current run evidence for: cargo fmt --all -- --check",
+              "attach current run evidence for: cargo clippy --workspace --all-targets -- -D warnings",
+              "attach current run evidence for: cargo test --workspace --all-targets",
+              "attach current run evidence for: python -m unittest discover python/tests",
+              "attach current run evidence for: python -m build python",
+              "attach current run evidence for: python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+              "attach current run evidence for: cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+              "attach current run evidence for: python scripts/check_contribution_governance.py",
+              "attach current run evidence for: python scripts/check_ci_gate_matrix.py",
+              "attach current run evidence for: python scripts/check_workspace_version_sources.py",
+              "attach current run evidence for: python scripts/check_release_security_gate.py",
+              "attach current run evidence for: python scripts/check_release_architecture_tracker.py --allow-blocked",
+              "attach current run evidence for: python scripts/check_package_channel_readiness.py --require-local-evidence",
+              "attach current run evidence for: python scripts/check_golden_workflows.py",
+              "attach current run evidence for: python scripts/check_admitted_semantics_matrix.py",
+              "attach current run evidence for: python scripts/check_runtime_execution_envelopes.py",
+              "attach current run evidence for: python scripts/check_website_readiness.py",
+              "attach current run evidence for: python scripts/final_release_rehearsal.py --allow-blocked",
+              "attach current run evidence for: python scripts/check_production_usability_gate.py",
+              "attach current run evidence for: python scripts/check_python_user_surface_completion.py",
+              "attach current run evidence for: python scripts/check_sql_python_dataframe_parity.py",
+              "attach current run evidence for: python scripts/check_v1_front_door_runtime_scope.py",
+              "attach current run evidence for: python scripts/check_v1_vortex_runtime_scope.py",
+              "attach current run evidence for: python scripts/check_v1_source_prepared_state_scope.py",
+              "attach current run evidence for: python scripts/check_v1_local_output_sink_scope.py",
+              "attach current run evidence for: python scripts/check_local_format_production_profiles.py",
+              "attach current run evidence for: python scripts/check_local_format_pushdown_fidelity.py",
+              "attach current run evidence for: python scripts/check_compatibility_output_translation_reports.py",
+              "attach current run evidence for: python scripts/check_local_format_edge_case_fixtures.py",
+              "attach current run evidence for: python scripts/check_v1_local_resource_safety.py",
+              "attach current run evidence for: python scripts/check_v1_observability_support.py",
+              "attach current run evidence for: python scripts/check_v1_api_schema_stability.py",
+              "attach current run evidence for: python scripts/check_v1_example_replay.py",
+              "attach current run evidence for: python scripts/check_v1_correctness_conformance.py",
+              "attach current run evidence for: python scripts/check_v1_security_ci_hardening.py",
+              "attach current run evidence for: python scripts/check_user_surface_runtime_gap_inventory.py",
+              "attach current run evidence for: python scripts/check_user_surface_graduation_matrix.py",
+              "attach current run evidence for: python scripts/check_runtime_gap_family_burn_down.py",
+              "attach current run evidence for: python scripts/check_user_route_capability_report.py"
+            ],
+            "name": "required_validation_commands",
+            "ref": "target/release-validation-evidence.json",
+            "status": "blocked"
+          }
+        ],
+        "contribution_governance_report_ref": "target/contribution-governance-report.json",
+        "external_engine_invoked": false,
+        "fallback_attempted": false,
+        "final_release_rehearsal_report_ref": "target/final-release-rehearsal/final-release-rehearsal-report.json",
+        "golden_workflow_report_ref": "target/golden-workflow-report.json",
+        "package_channel_matrix_ref": "docs/release/package-channel-readiness-matrix.json",
+        "package_channel_report_ref": "target/package-channel-readiness-report.json",
+        "per_claim_evidence_matrix_ref": "docs/release/per-claim-evidence-attachment-matrix.md",
+        "production_usability_report_ref": "target/production-usability-gate.json",
+        "public_package_claim_allowed": false,
+        "public_release_claim_allowed": false,
+        "publication_attempted": false,
+        "required_validation_commands": [
+          "cargo fmt --all -- --check",
+          "cargo clippy --workspace --all-targets -- -D warnings",
+          "cargo test --workspace --all-targets",
+          "python -m unittest discover python/tests",
+          "python -m build python",
+          "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+          "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+          "python scripts/check_contribution_governance.py",
+          "python scripts/check_ci_gate_matrix.py",
+          "python scripts/check_workspace_version_sources.py",
+          "python scripts/check_release_security_gate.py",
+          "python scripts/check_release_architecture_tracker.py --allow-blocked",
+          "python scripts/check_package_channel_readiness.py --require-local-evidence",
+          "python scripts/check_golden_workflows.py",
+          "python scripts/check_admitted_semantics_matrix.py",
+          "python scripts/check_runtime_execution_envelopes.py",
+          "python scripts/check_website_readiness.py",
+          "python scripts/final_release_rehearsal.py --allow-blocked",
+          "python scripts/check_production_usability_gate.py",
+          "python scripts/check_python_user_surface_completion.py",
+          "python scripts/check_sql_python_dataframe_parity.py",
+          "python scripts/check_v1_front_door_runtime_scope.py",
+          "python scripts/check_v1_vortex_runtime_scope.py",
+          "python scripts/check_v1_source_prepared_state_scope.py",
+          "python scripts/check_v1_local_output_sink_scope.py",
+          "python scripts/check_local_format_production_profiles.py",
+          "python scripts/check_local_format_pushdown_fidelity.py",
+          "python scripts/check_compatibility_output_translation_reports.py",
+          "python scripts/check_local_format_edge_case_fixtures.py",
+          "python scripts/check_v1_local_resource_safety.py",
+          "python scripts/check_v1_observability_support.py",
+          "python scripts/check_v1_api_schema_stability.py",
+          "python scripts/check_v1_example_replay.py",
+          "python scripts/check_v1_correctness_conformance.py",
+          "python scripts/check_v1_security_ci_hardening.py",
+          "python scripts/check_user_surface_runtime_gap_inventory.py",
+          "python scripts/check_user_surface_graduation_matrix.py",
+          "python scripts/check_runtime_gap_family_burn_down.py",
+          "python scripts/check_user_route_capability_report.py"
+        ],
+        "schema_version": "shardloom.hard_release_readiness_gate.v1",
+        "secrets_required": false,
+        "status": "blocked",
+        "tag_created": false,
+        "user_surface_runtime_gap_inventory_ref": "target/user-surface-runtime-gap-inventory.json",
+        "v1_api_schema_stability_report_ref": "target/v1-api-schema-stability-report.json",
+        "v1_correctness_conformance_report_ref": "target/v1-correctness-conformance-report.json",
+        "v1_example_replay_report_ref": "target/v1-example-replay-report.json",
+        "v1_front_door_runtime_scope_report_ref": "target/v1-front-door-runtime-scope-report.json",
+        "v1_local_output_sink_scope_report_ref": "target/v1-local-output-sink-scope-report.json",
+        "v1_local_resource_safety_report_ref": "target/v1-local-resource-safety-report.json",
+        "v1_observability_support_report_ref": "target/v1-observability-support-report.json",
+        "v1_security_ci_hardening_report_ref": "target/v1-security-ci-hardening-report.json",
+        "v1_source_prepared_state_scope_report_ref": "target/v1-source-prepared-state-scope-report.json",
+        "v1_vortex_runtime_scope_report_ref": "target/v1-vortex-runtime-scope-report.json",
+        "workspace_version_source_report_ref": "target/workspace-version-source-report.json"
+      },
+      "<hosted-replay>/target/v1-correctness-conformance-report.json": {
+        "admitted_semantics_validator_status": "passed",
+        "blockers": [],
+        "claim_gate_status": "not_claim_grade",
+        "correctness_claim_allowed": true,
+        "decoded_reference_differential_execution_performed": true,
+        "deterministic_fuzz_execution_performed": true,
+        "docs_example_execution_status": "passed",
+        "example_replay_validator_status": "passed",
+        "external_engine_invoked": false,
+        "external_engines_allowed_as_oracles_only": true,
+        "external_oracle_used": false,
+        "fallback_attempted": false,
+        "gate_id": "prod-v1-2b.correctness_conformance",
+        "golden_workflow_validator_status": "passed",
+        "input_report_count": 8,
+        "input_report_refs": {
+          "admitted_semantics": "target/admitted-semantics-matrix-report.json",
+          "example_replay": "target/v1-example-replay-report.json",
+          "front_door": "target/v1-front-door-runtime-scope-report.json",
+          "golden_workflow": "target/golden-workflow-report.json",
+          "local_output_sink": "target/v1-local-output-sink-scope-report.json",
+          "python_user_surface": "target/python-user-surface-completion-gate.json",
+          "source_prepared_state": "target/v1-source-prepared-state-scope-report.json",
+          "vortex_runtime": "target/v1-vortex-runtime-scope-report.json"
+        },
+        "matrix_ref": "docs/release/v1-correctness-conformance-matrix.json",
+        "matrix_status": "passed",
+        "matrix_summary": {
+          "expected_count_field_count": 31,
+          "matrix_id": "prod-v1-2b.correctness_conformance",
+          "report_input_count": 8,
+          "required_semantic_case_count": 47,
+          "required_unsupported_case_count": 11,
+          "residual_gap_count": 3,
+          "schema_version": "shardloom.v1_correctness_conformance_matrix.v1"
+        },
+        "operation_coverage_rows": [
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "clean_cast_filter_write",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "clean_cast_filter_write",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "with_column",
+              "filter",
+              "limit",
+              "write_vortex"
+            ],
+            "semantic_case_ids": [
+              "try_cast_projection_null_on_invalid",
+              "decimal_cast_projection_predicate",
+              "output_writer_policy_fuzz_seed_20260617",
+              "decimal_property_seed_20260624",
+              "output_jsonl_property_seed_20260626"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "filter_projection_limit",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "filter_projection_limit",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "filter",
+              "select",
+              "limit",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "predicate_projection_three_valued",
+              "order_by_explicit_null_ordering",
+              "filter_project_limit_property_seed_20260618"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "global_top_n",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "global_top_n",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "select",
+              "nlargest",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "order_by_explicit_null_ordering",
+              "filter_project_limit_property_seed_20260618"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "group_by_aggregation",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "group_by_aggregation",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "filter",
+              "group_by",
+              "agg",
+              "limit",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "aggregate_having_output_rows",
+              "distinct_count_grouped",
+              "aggregate_topn_property_seed_20260620"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "hash_join",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "hash_join",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "join",
+              "select",
+              "limit",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "join_scalar_expression_condition",
+              "join_multi_key_expression_condition",
+              "join_property_seed_20260619"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "malformed_timestamp_cast",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "malformed_timestamp_cast",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "with_column",
+              "limit",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "try_cast_projection_null_on_invalid",
+              "temporal_property_seed_20260623"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [
+              "unsupported_timezone_database_policy",
+              "unsupported_timestamptz_policy"
+            ],
+            "unsupported_diagnostic_evidence_complete": true
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "nested_json_field_scan",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "nested_json_field_scan",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_json",
+              "filter",
+              "select",
+              "limit",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "string_transform_length_utf8",
+              "like_predicate_utf8",
+              "string_function_property_seed_20260622"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "null_heavy_aggregate",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "null_heavy_aggregate",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "dropna",
+              "group_by",
+              "agg",
+              "limit",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "null_coalesce_nullif",
+              "distinct_count_grouped",
+              "aggregate_having_output_rows",
+              "aggregate_topn_property_seed_20260620"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          },
+          {
+            "blockers": [],
+            "expected_error": false,
+            "front_door_scenario_id": "selective_filter",
+            "no_fallback_evidence_complete": true,
+            "operation_id": "selective_filter",
+            "python_accessor_evidence_complete": true,
+            "python_methods": [
+              "read_csv",
+              "filter",
+              "select",
+              "limit",
+              "collect"
+            ],
+            "semantic_case_ids": [
+              "predicate_projection_three_valued",
+              "null_safe_comparison_predicate_semantics",
+              "filter_project_limit_property_seed_20260618"
+            ],
+            "semantic_output_digest_evidence_complete": true,
+            "status": "passed",
+            "unsupported_case_ids": [],
+            "unsupported_diagnostic_evidence_complete": null
+          }
+        ],
+        "package_upload_attempted": false,
+        "performance_claim_allowed": false,
+        "production_claim_allowed": false,
+        "property_execution_performed": true,
+        "public_package_claim_allowed": false,
+        "public_release_claim_allowed": false,
+        "publication_attempted": false,
+        "residual_unsupported_rows": {
+          "admitted_semantics": [
+            "broad SQL-standard subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants, and deterministic outer-reference diagnostics",
+            "external-oracle result artifact population",
+            "general fuzz execution beyond the deterministic v1 property/fuzz lanes"
+          ],
+          "front_door": [
+            "object_store_lakehouse_catalog"
+          ],
+          "local_output_sink": [
+            "append_mode",
+            "object_store_output_paths",
+            "table_catalog_writes",
+            "iceberg_delta_transactions",
+            "remote_uri_sinks",
+            "broad_nested_complex_sink_shapes"
+          ],
+          "source_prepared_state": [
+            "global_hidden_cache",
+            "external_cache_service",
+            "object_store_prepared_state_reuse",
+            "table_catalog_prepared_state_reuse",
+            "broad_non_local_preparation"
+          ],
+          "vortex_runtime": [
+            "object_store_vortex_io",
+            "table_catalog_vortex_io",
+            "generalized_source_sink_api",
+            "broad_vortex_sql_dataframe_parity",
+            "nested_complex_dtype_general_vortex",
+            "vector_device_gpu_vortex_runtime"
+          ]
+        },
+        "runtime_support_claim_allowed": false,
+        "schema_version": "shardloom.v1_correctness_conformance_report.v1",
+        "scope_report_status": "passed",
+        "spark_replacement_claim_allowed": false,
+        "status": "passed",
+        "summaries": {
+          "admitted_semantics": {
+            "deterministic_fuzz_case_count": 5,
+            "deterministic_fuzz_execution_performed": true,
+            "deterministic_unsupported_oracle_row_count": 25,
+            "deterministic_unsupported_row_count": 25,
+            "deterministic_unsupported_scope_status": "passed",
+            "diagnostic_case_count": 25,
+            "executable_fixture_count": 117,
+            "fuzz_case_ids": [
+              "sql_parser_surface_fuzz_seed_20260613",
+              "expression_parser_fuzz_seed_20260614",
+              "route_selection_join_fuzz_seed_20260615",
+              "route_selection_aggregate_topn_fuzz_seed_20260616",
+              "output_writer_policy_fuzz_seed_20260617"
+            ],
+            "property_case_ids": [
+              "numeric_generic_property_seed_20260521",
+              "filter_project_limit_property_seed_20260618",
+              "join_property_seed_20260619",
+              "aggregate_topn_property_seed_20260620",
+              "in_subquery_property_seed_20260621",
+              "string_function_property_seed_20260622",
+              "temporal_property_seed_20260623",
+              "decimal_property_seed_20260624",
+              "binary_property_seed_20260625",
+              "output_jsonl_property_seed_20260626"
+            ],
+            "property_lane_count": 10,
+            "remaining_matrix_gap_status": "passed",
+            "remaining_matrix_gaps": [
+              "broad SQL-standard subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants, and deterministic outer-reference diagnostics",
+              "external-oracle result artifact population",
+              "general fuzz execution beyond the deterministic v1 property/fuzz lanes"
+            ],
+            "required_executable_stage_evidence_count": 47,
+            "required_semantic_case_count": 47,
+            "required_stage_artifact_ref_count": 58,
+            "required_stage_decoded_reference_digest_count": 47,
+            "required_stage_expected_output_digest_count": 47,
+            "required_stage_expected_output_digest_source_count": 47,
+            "required_stage_no_external_engine_count": 58,
+            "required_stage_no_fallback_count": 58,
+            "required_stage_observed_output_digest_count": 47,
+            "required_stage_observed_output_digest_source_count": 47,
+            "required_stage_output_digest_match_count": 47,
+            "required_unsupported_case_count": 11,
+            "required_unsupported_stage_diagnostic_field_count": 11,
+            "required_unsupported_stage_evidence_count": 11,
+            "semantic_fixture_evidence_status": "passed",
+            "stage_count": 144,
+            "unsupported_diagnostic_count": 23,
+            "v1_expected_validator_case_count": 142,
+            "v1_missing_validator_case_count": 0,
+            "v1_required_runtime_row_count": 142,
+            "v1_runtime_scope_status": "passed",
+            "v1_support_report_row_count": 2,
+            "v1_unexpected_required_runtime_row_count": 0
+          },
+          "example_replay": {
+            "all_no_fallback_no_external_engine": true,
+            "benchmark_expected_error_scenario_count": 0,
+            "benchmark_scenario_count": 9,
+            "docs_marker_count": 39,
+            "docs_marker_pass_count": 39,
+            "docs_marker_source_count": 6,
+            "golden_workflow_replay_verified_count": 3,
+            "golden_workflow_stage_count": 9,
+            "runtime_command_count": 3,
+            "unsupported_failure_fixture_count": 1
+          },
+          "front_door": {
+            "broad_pending_parity_row_count": 1,
+            "example_scenario_count": 9,
+            "expected_error_scenario_count": 0,
+            "supported_parity_row_count": 10
+          },
+          "golden_workflow": {
+            "stage_count": 9,
+            "workflow_count": 3,
+            "workflow_ids": [
+              "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+              "source_free_sql_values_to_local_vortex_output_replay_fidelity",
+              "prepared_native_vortex_count_filter_project_execution_certificates"
+            ]
+          },
+          "local_output_sink": {
+            "evidence_class": "declarative_contract",
+            "output_route_count": 1,
+            "runtime_evidence_verified": false,
+            "supported_output_format_count": 8,
+            "write_method_count": 10
+          },
+          "operation_coverage": {
+            "operation_coverage_diagnostic_row_count": 1,
+            "operation_coverage_no_fallback_row_count": 9,
+            "operation_coverage_output_digest_row_count": 9,
+            "operation_coverage_python_method_link_count": 45,
+            "operation_coverage_python_method_rows_present": 45,
+            "operation_coverage_row_count": 9,
+            "operation_coverage_semantic_link_count": 28,
+            "operation_coverage_status": "passed",
+            "operation_coverage_unique_python_method_count": 13,
+            "operation_coverage_unsupported_link_count": 2
+          },
+          "python_user_surface": {
+            "method_matrix_row_count": 114,
+            "method_matrix_row_list_count": 114,
+            "required_operation_method_count": 13,
+            "required_operation_method_rows_present": 13
+          },
+          "source_prepared_state": {
+            "evidence_class": "declarative_specification",
+            "invalidation_case_count": 7,
+            "invalidation_case_ids": [
+              "artifact_changed",
+              "first_request",
+              "memory_declaration_changed",
+              "missing_artifact",
+              "resource_policy_changed",
+              "same_source_same_declaration",
+              "source_changed"
+            ],
+            "query_answers_cached": false,
+            "report_id": "prod-v1-1c.source_prepared_state_scope",
+            "reuse_scope": "native_session_or_explicit_vortex_artifact",
+            "route_count": 1,
+            "state_owner": "ResidentVortexSession",
+            "supported_input_format_count": 7
+          },
+          "vortex_runtime": {
+            "evidence_class": "declarative_specification",
+            "performance_evidence_produced": false,
+            "primitive_route_count": 11,
+            "runtime_execution_performed": false,
+            "user_route_ids": [
+              "native_vortex_query",
+              "object_store_lakehouse_runtime"
+            ]
+          }
+        },
+        "tag_created": false,
+        "unsupported_path_test_status": "passed",
+        "v1_correctness_matrix_status": "passed"
+      }
+    },
+    "prior_report_hashes": {
+      "<hosted-replay>/target/hard-release-readiness-gate.json": "e7a23e4ea750c49bd43e513d17fe3767d392a9df6d6de7aa2afd5208df3a7710",
+      "<hosted-replay>/target/v1-correctness-conformance-report.json": "72c62e605f427279ce5461a541ec53a1eb464bbab99b8ba7522523a501c0891c"
+    },
+    "current_reports": {
+      "check_v1_correctness_conformance.py": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "<repo>/scripts/check_v1_correctness_conformance.py",
+          "--repo-root",
+          "<hosted-replay>",
+          "--output",
+          "<evidence>/release-040-check_v1_correctness_conformance-replay-1.json"
+        ],
+        "returncode": 0,
+        "stdout": "<evidence>/release-040-check_v1_correctness_conformance-replay-1.json\n",
+        "stderr": "",
+        "output_sha256": "72c62e605f427279ce5461a541ec53a1eb464bbab99b8ba7522523a501c0891c",
+        "report": {
+          "admitted_semantics_validator_status": "passed",
+          "blockers": [],
+          "claim_gate_status": "not_claim_grade",
+          "correctness_claim_allowed": true,
+          "decoded_reference_differential_execution_performed": true,
+          "deterministic_fuzz_execution_performed": true,
+          "docs_example_execution_status": "passed",
+          "example_replay_validator_status": "passed",
+          "external_engine_invoked": false,
+          "external_engines_allowed_as_oracles_only": true,
+          "external_oracle_used": false,
+          "fallback_attempted": false,
+          "gate_id": "prod-v1-2b.correctness_conformance",
+          "golden_workflow_validator_status": "passed",
+          "input_report_count": 8,
+          "input_report_refs": {
+            "admitted_semantics": "target/admitted-semantics-matrix-report.json",
+            "example_replay": "target/v1-example-replay-report.json",
+            "front_door": "target/v1-front-door-runtime-scope-report.json",
+            "golden_workflow": "target/golden-workflow-report.json",
+            "local_output_sink": "target/v1-local-output-sink-scope-report.json",
+            "python_user_surface": "target/python-user-surface-completion-gate.json",
+            "source_prepared_state": "target/v1-source-prepared-state-scope-report.json",
+            "vortex_runtime": "target/v1-vortex-runtime-scope-report.json"
+          },
+          "matrix_ref": "docs/release/v1-correctness-conformance-matrix.json",
+          "matrix_status": "passed",
+          "matrix_summary": {
+            "expected_count_field_count": 31,
+            "matrix_id": "prod-v1-2b.correctness_conformance",
+            "report_input_count": 8,
+            "required_semantic_case_count": 47,
+            "required_unsupported_case_count": 11,
+            "residual_gap_count": 3,
+            "schema_version": "shardloom.v1_correctness_conformance_matrix.v1"
+          },
+          "operation_coverage_rows": [
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "clean_cast_filter_write",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "clean_cast_filter_write",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "with_column",
+                "filter",
+                "limit",
+                "write_vortex"
+              ],
+              "semantic_case_ids": [
+                "try_cast_projection_null_on_invalid",
+                "decimal_cast_projection_predicate",
+                "output_writer_policy_fuzz_seed_20260617",
+                "decimal_property_seed_20260624",
+                "output_jsonl_property_seed_20260626"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "filter_projection_limit",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "filter_projection_limit",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "filter",
+                "select",
+                "limit",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "predicate_projection_three_valued",
+                "order_by_explicit_null_ordering",
+                "filter_project_limit_property_seed_20260618"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "global_top_n",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "global_top_n",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "select",
+                "nlargest",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "order_by_explicit_null_ordering",
+                "filter_project_limit_property_seed_20260618"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "group_by_aggregation",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "group_by_aggregation",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "filter",
+                "group_by",
+                "agg",
+                "limit",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "aggregate_having_output_rows",
+                "distinct_count_grouped",
+                "aggregate_topn_property_seed_20260620"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "hash_join",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "hash_join",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "join",
+                "select",
+                "limit",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "join_scalar_expression_condition",
+                "join_multi_key_expression_condition",
+                "join_property_seed_20260619"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "malformed_timestamp_cast",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "malformed_timestamp_cast",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "with_column",
+                "limit",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "try_cast_projection_null_on_invalid",
+                "temporal_property_seed_20260623"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [
+                "unsupported_timezone_database_policy",
+                "unsupported_timestamptz_policy"
+              ],
+              "unsupported_diagnostic_evidence_complete": true
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "nested_json_field_scan",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "nested_json_field_scan",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_json",
+                "filter",
+                "select",
+                "limit",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "string_transform_length_utf8",
+                "like_predicate_utf8",
+                "string_function_property_seed_20260622"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "null_heavy_aggregate",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "null_heavy_aggregate",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "dropna",
+                "group_by",
+                "agg",
+                "limit",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "null_coalesce_nullif",
+                "distinct_count_grouped",
+                "aggregate_having_output_rows",
+                "aggregate_topn_property_seed_20260620"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            },
+            {
+              "blockers": [],
+              "expected_error": false,
+              "front_door_scenario_id": "selective_filter",
+              "no_fallback_evidence_complete": true,
+              "operation_id": "selective_filter",
+              "python_accessor_evidence_complete": true,
+              "python_methods": [
+                "read_csv",
+                "filter",
+                "select",
+                "limit",
+                "collect"
+              ],
+              "semantic_case_ids": [
+                "predicate_projection_three_valued",
+                "null_safe_comparison_predicate_semantics",
+                "filter_project_limit_property_seed_20260618"
+              ],
+              "semantic_output_digest_evidence_complete": true,
+              "status": "passed",
+              "unsupported_case_ids": [],
+              "unsupported_diagnostic_evidence_complete": null
+            }
+          ],
+          "package_upload_attempted": false,
+          "performance_claim_allowed": false,
+          "production_claim_allowed": false,
+          "property_execution_performed": true,
+          "public_package_claim_allowed": false,
+          "public_release_claim_allowed": false,
+          "publication_attempted": false,
+          "residual_unsupported_rows": {
+            "admitted_semantics": [
+              "broad SQL-standard subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants, and deterministic outer-reference diagnostics",
+              "external-oracle result artifact population",
+              "general fuzz execution beyond the deterministic v1 property/fuzz lanes"
+            ],
+            "front_door": [
+              "object_store_lakehouse_catalog"
+            ],
+            "local_output_sink": [
+              "append_mode",
+              "object_store_output_paths",
+              "table_catalog_writes",
+              "iceberg_delta_transactions",
+              "remote_uri_sinks",
+              "broad_nested_complex_sink_shapes"
+            ],
+            "source_prepared_state": [
+              "global_hidden_cache",
+              "external_cache_service",
+              "object_store_prepared_state_reuse",
+              "table_catalog_prepared_state_reuse",
+              "broad_non_local_preparation"
+            ],
+            "vortex_runtime": [
+              "object_store_vortex_io",
+              "table_catalog_vortex_io",
+              "generalized_source_sink_api",
+              "broad_vortex_sql_dataframe_parity",
+              "nested_complex_dtype_general_vortex",
+              "vector_device_gpu_vortex_runtime"
+            ]
+          },
+          "runtime_support_claim_allowed": false,
+          "schema_version": "shardloom.v1_correctness_conformance_report.v1",
+          "scope_report_status": "passed",
+          "spark_replacement_claim_allowed": false,
+          "status": "passed",
+          "summaries": {
+            "admitted_semantics": {
+              "deterministic_fuzz_case_count": 5,
+              "deterministic_fuzz_execution_performed": true,
+              "deterministic_unsupported_oracle_row_count": 25,
+              "deterministic_unsupported_row_count": 25,
+              "deterministic_unsupported_scope_status": "passed",
+              "diagnostic_case_count": 25,
+              "executable_fixture_count": 117,
+              "fuzz_case_ids": [
+                "sql_parser_surface_fuzz_seed_20260613",
+                "expression_parser_fuzz_seed_20260614",
+                "route_selection_join_fuzz_seed_20260615",
+                "route_selection_aggregate_topn_fuzz_seed_20260616",
+                "output_writer_policy_fuzz_seed_20260617"
+              ],
+              "property_case_ids": [
+                "numeric_generic_property_seed_20260521",
+                "filter_project_limit_property_seed_20260618",
+                "join_property_seed_20260619",
+                "aggregate_topn_property_seed_20260620",
+                "in_subquery_property_seed_20260621",
+                "string_function_property_seed_20260622",
+                "temporal_property_seed_20260623",
+                "decimal_property_seed_20260624",
+                "binary_property_seed_20260625",
+                "output_jsonl_property_seed_20260626"
+              ],
+              "property_lane_count": 10,
+              "remaining_matrix_gap_status": "passed",
+              "remaining_matrix_gaps": [
+                "broad SQL-standard subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants, and deterministic outer-reference diagnostics",
+                "external-oracle result artifact population",
+                "general fuzz execution beyond the deterministic v1 property/fuzz lanes"
+              ],
+              "required_executable_stage_evidence_count": 47,
+              "required_semantic_case_count": 47,
+              "required_stage_artifact_ref_count": 58,
+              "required_stage_decoded_reference_digest_count": 47,
+              "required_stage_expected_output_digest_count": 47,
+              "required_stage_expected_output_digest_source_count": 47,
+              "required_stage_no_external_engine_count": 58,
+              "required_stage_no_fallback_count": 58,
+              "required_stage_observed_output_digest_count": 47,
+              "required_stage_observed_output_digest_source_count": 47,
+              "required_stage_output_digest_match_count": 47,
+              "required_unsupported_case_count": 11,
+              "required_unsupported_stage_diagnostic_field_count": 11,
+              "required_unsupported_stage_evidence_count": 11,
+              "semantic_fixture_evidence_status": "passed",
+              "stage_count": 144,
+              "unsupported_diagnostic_count": 23,
+              "v1_expected_validator_case_count": 142,
+              "v1_missing_validator_case_count": 0,
+              "v1_required_runtime_row_count": 142,
+              "v1_runtime_scope_status": "passed",
+              "v1_support_report_row_count": 2,
+              "v1_unexpected_required_runtime_row_count": 0
+            },
+            "example_replay": {
+              "all_no_fallback_no_external_engine": true,
+              "benchmark_expected_error_scenario_count": 0,
+              "benchmark_scenario_count": 9,
+              "docs_marker_count": 39,
+              "docs_marker_pass_count": 39,
+              "docs_marker_source_count": 6,
+              "golden_workflow_replay_verified_count": 3,
+              "golden_workflow_stage_count": 9,
+              "runtime_command_count": 3,
+              "unsupported_failure_fixture_count": 1
+            },
+            "front_door": {
+              "broad_pending_parity_row_count": 1,
+              "example_scenario_count": 9,
+              "expected_error_scenario_count": 0,
+              "supported_parity_row_count": 10
+            },
+            "golden_workflow": {
+              "stage_count": 9,
+              "workflow_count": 3,
+              "workflow_ids": [
+                "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+                "source_free_sql_values_to_local_vortex_output_replay_fidelity",
+                "prepared_native_vortex_count_filter_project_execution_certificates"
+              ]
+            },
+            "local_output_sink": {
+              "evidence_class": "declarative_contract",
+              "output_route_count": 1,
+              "runtime_evidence_verified": false,
+              "supported_output_format_count": 8,
+              "write_method_count": 10
+            },
+            "operation_coverage": {
+              "operation_coverage_diagnostic_row_count": 1,
+              "operation_coverage_no_fallback_row_count": 9,
+              "operation_coverage_output_digest_row_count": 9,
+              "operation_coverage_python_method_link_count": 45,
+              "operation_coverage_python_method_rows_present": 45,
+              "operation_coverage_row_count": 9,
+              "operation_coverage_semantic_link_count": 28,
+              "operation_coverage_status": "passed",
+              "operation_coverage_unique_python_method_count": 13,
+              "operation_coverage_unsupported_link_count": 2
+            },
+            "python_user_surface": {
+              "method_matrix_row_count": 114,
+              "method_matrix_row_list_count": 114,
+              "required_operation_method_count": 13,
+              "required_operation_method_rows_present": 13
+            },
+            "source_prepared_state": {
+              "evidence_class": "declarative_specification",
+              "invalidation_case_count": 7,
+              "invalidation_case_ids": [
+                "artifact_changed",
+                "first_request",
+                "memory_declaration_changed",
+                "missing_artifact",
+                "resource_policy_changed",
+                "same_source_same_declaration",
+                "source_changed"
+              ],
+              "query_answers_cached": false,
+              "report_id": "prod-v1-1c.source_prepared_state_scope",
+              "reuse_scope": "native_session_or_explicit_vortex_artifact",
+              "route_count": 1,
+              "state_owner": "ResidentVortexSession",
+              "supported_input_format_count": 7
+            },
+            "vortex_runtime": {
+              "evidence_class": "declarative_specification",
+              "performance_evidence_produced": false,
+              "primitive_route_count": 11,
+              "runtime_execution_performed": false,
+              "user_route_ids": [
+                "native_vortex_query",
+                "object_store_lakehouse_runtime"
+              ]
+            }
+          },
+          "tag_created": false,
+          "unsupported_path_test_status": "passed",
+          "v1_correctness_matrix_status": "passed"
+        }
+      },
+      "check_release_readiness.py": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "<repo>/scripts/check_release_readiness.py",
+          "--repo-root",
+          "<hosted-replay>",
+          "--output",
+          "<evidence>/release-040-check_release_readiness-replay-1.json"
+        ],
+        "returncode": 1,
+        "stdout": "<evidence>/release-040-check_release_readiness-replay-1.json\n",
+        "stderr": "",
+        "output_sha256": "6290dd0e7c064853e2822a2f810afb12a4a140665e5ffebac8f3bfeec9009eec",
+        "report": {
+          "admitted_semantics_report_ref": "target/admitted-semantics-matrix-report.json",
+          "architecture_tracker_report_ref": "target/release-architecture-tracker-report.json",
+          "blockers": [
+            "clean_install_first_10_minutes_and_benchmark_smoke: clean_conda_env_install_status=skipped_by_request",
+            "publication_api_schema_stability_gate: publication/API/schema stability gate remains blocked",
+            "per_claim_evidence_attachment_matrix: per-claim evidence attachment matrix remains not claim-grade",
+            "architecture_tracker_validation: architecture_tracker_status=blocked",
+            "architecture_tracker_validation: phase plan has unchecked items: 135",
+            "final_release_rehearsal: rehearsal_status=blocked",
+            "final_release_rehearsal: architecture tracker blockers: phase plan has unchecked items: 135",
+            "final_release_rehearsal: architecture tracker status must include passed: status=blocked,architecture_tracker_status=blocked",
+            "feature_build_matrix: missing release validation evidence",
+            "required_validation_commands: missing release validation evidence",
+            "required_validation_commands: attach current run evidence for: cargo fmt --all -- --check",
+            "required_validation_commands: attach current run evidence for: cargo clippy --workspace --all-targets -- -D warnings",
+            "required_validation_commands: attach current run evidence for: cargo test --workspace --all-targets",
+            "required_validation_commands: attach current run evidence for: python -m unittest discover python/tests",
+            "required_validation_commands: attach current run evidence for: python -m build python",
+            "required_validation_commands: attach current run evidence for: python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+            "required_validation_commands: attach current run evidence for: cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+            "required_validation_commands: attach current run evidence for: python scripts/check_contribution_governance.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_ci_gate_matrix.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_workspace_version_sources.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_release_security_gate.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_release_architecture_tracker.py --allow-blocked",
+            "required_validation_commands: attach current run evidence for: python scripts/check_package_channel_readiness.py --require-local-evidence",
+            "required_validation_commands: attach current run evidence for: python scripts/check_golden_workflows.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_admitted_semantics_matrix.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_runtime_execution_envelopes.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_website_readiness.py",
+            "required_validation_commands: attach current run evidence for: python scripts/final_release_rehearsal.py --allow-blocked",
+            "required_validation_commands: attach current run evidence for: python scripts/check_production_usability_gate.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_python_user_surface_completion.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_sql_python_dataframe_parity.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_front_door_runtime_scope.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_vortex_runtime_scope.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_source_prepared_state_scope.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_local_output_sink_scope.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_local_format_production_profiles.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_local_format_pushdown_fidelity.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_compatibility_output_translation_reports.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_local_format_edge_case_fixtures.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_local_resource_safety.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_observability_support.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_api_schema_stability.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_example_replay.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_correctness_conformance.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_v1_security_ci_hardening.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_user_surface_runtime_gap_inventory.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_user_surface_graduation_matrix.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_runtime_gap_family_burn_down.py",
+            "required_validation_commands: attach current run evidence for: python scripts/check_user_route_capability_report.py"
+          ],
+          "checks": [
+            {
+              "blockers": [
+                "clean_conda_env_install_status=skipped_by_request"
+              ],
+              "name": "clean_install_first_10_minutes_and_benchmark_smoke",
+              "ref": "target/release-dry-run-proof/transcript.json",
+              "status": "blocked"
+            },
+            {
+              "blockers": [],
+              "name": "security_dependency_provenance_and_known_unsupported_paths",
+              "ref": "target/release-security-gate-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "contribution_governance_intake_gate",
+              "ref": "target/contribution-governance-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "golden_workflow_validator",
+              "ref": "target/golden-workflow-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "admitted_semantics_matrix_validator",
+              "ref": "target/admitted-semantics-matrix-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "package_metadata_license_and_discoverability",
+              "ref": "Cargo.toml python/pyproject.toml",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "workspace_rust_vortex_version_source_contract",
+              "ref": "target/workspace-version-source-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "package_channel_readiness_matrix",
+              "ref": "docs/release/package-channel-readiness-matrix.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [
+                "publication/API/schema stability gate remains blocked"
+              ],
+              "name": "publication_api_schema_stability_gate",
+              "ref": "docs/release/publication-api-schema-stability-gate.md",
+              "status": "blocked"
+            },
+            {
+              "blockers": [],
+              "name": "v1_api_schema_stability",
+              "ref": "target/v1-api-schema-stability-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [
+                "per-claim evidence attachment matrix remains not claim-grade"
+              ],
+              "name": "per_claim_evidence_attachment_matrix",
+              "ref": "docs/release/per-claim-evidence-attachment-matrix.md",
+              "status": "blocked"
+            },
+            {
+              "blockers": [
+                "architecture_tracker_status=blocked",
+                "phase plan has unchecked items: 135"
+              ],
+              "name": "architecture_tracker_validation",
+              "ref": "target/release-architecture-tracker-report.json",
+              "status": "blocked"
+            },
+            {
+              "blockers": [
+                "rehearsal_status=blocked",
+                "architecture tracker blockers: phase plan has unchecked items: 135",
+                "architecture tracker status must include passed: status=blocked,architecture_tracker_status=blocked"
+              ],
+              "name": "final_release_rehearsal",
+              "ref": "target/final-release-rehearsal/final-release-rehearsal-report.json",
+              "status": "blocked"
+            },
+            {
+              "blockers": [
+                "missing release validation evidence"
+              ],
+              "name": "feature_build_matrix",
+              "ref": "target/release-validation-evidence.json",
+              "status": "blocked"
+            },
+            {
+              "blockers": [],
+              "name": "typed_envelope_compatibility",
+              "ref": "shardloom-cli/tests/typed_envelope_contract_snapshots.rs",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "production_usability_gate",
+              "ref": "target/production-usability-gate.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "python_user_surface_completion_gate",
+              "ref": "target/python-user-surface-completion-gate.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "sql_python_dataframe_parity_gate",
+              "ref": "target/sql-python-dataframe-parity-gate.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_front_door_runtime_scope_gate",
+              "ref": "target/v1-front-door-runtime-scope-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_vortex_runtime_scope_gate",
+              "ref": "target/v1-vortex-runtime-scope-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_source_prepared_state_scope_gate",
+              "ref": "target/v1-source-prepared-state-scope-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_local_output_sink_scope_gate",
+              "ref": "target/v1-local-output-sink-scope-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_local_resource_safety_gate",
+              "ref": "target/v1-local-resource-safety-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_observability_support_gate",
+              "ref": "target/v1-observability-support-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_example_replay_gate",
+              "ref": "target/v1-example-replay-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_correctness_conformance_gate",
+              "ref": "target/v1-correctness-conformance-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "v1_security_ci_hardening_gate",
+              "ref": "target/v1-security-ci-hardening-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "user_surface_runtime_gap_inventory",
+              "ref": "target/user-surface-runtime-gap-inventory.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "user_surface_graduation_matrix",
+              "ref": "target/user-surface-graduation-matrix.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "runtime_gap_family_burn_down",
+              "ref": "target/runtime-gap-family-burn-down.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [],
+              "name": "user_route_capability_report",
+              "ref": "target/user-route-capability-report.json",
+              "status": "passed"
+            },
+            {
+              "blockers": [
+                "missing release validation evidence",
+                "attach current run evidence for: cargo fmt --all -- --check",
+                "attach current run evidence for: cargo clippy --workspace --all-targets -- -D warnings",
+                "attach current run evidence for: cargo test --workspace --all-targets",
+                "attach current run evidence for: python -m unittest discover python/tests",
+                "attach current run evidence for: python -m build python",
+                "attach current run evidence for: python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+                "attach current run evidence for: cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+                "attach current run evidence for: python scripts/check_contribution_governance.py",
+                "attach current run evidence for: python scripts/check_ci_gate_matrix.py",
+                "attach current run evidence for: python scripts/check_workspace_version_sources.py",
+                "attach current run evidence for: python scripts/check_release_security_gate.py",
+                "attach current run evidence for: python scripts/check_release_architecture_tracker.py --allow-blocked",
+                "attach current run evidence for: python scripts/check_package_channel_readiness.py --require-local-evidence",
+                "attach current run evidence for: python scripts/check_golden_workflows.py",
+                "attach current run evidence for: python scripts/check_admitted_semantics_matrix.py",
+                "attach current run evidence for: python scripts/check_runtime_execution_envelopes.py",
+                "attach current run evidence for: python scripts/check_website_readiness.py",
+                "attach current run evidence for: python scripts/final_release_rehearsal.py --allow-blocked",
+                "attach current run evidence for: python scripts/check_production_usability_gate.py",
+                "attach current run evidence for: python scripts/check_python_user_surface_completion.py",
+                "attach current run evidence for: python scripts/check_sql_python_dataframe_parity.py",
+                "attach current run evidence for: python scripts/check_v1_front_door_runtime_scope.py",
+                "attach current run evidence for: python scripts/check_v1_vortex_runtime_scope.py",
+                "attach current run evidence for: python scripts/check_v1_source_prepared_state_scope.py",
+                "attach current run evidence for: python scripts/check_v1_local_output_sink_scope.py",
+                "attach current run evidence for: python scripts/check_local_format_production_profiles.py",
+                "attach current run evidence for: python scripts/check_local_format_pushdown_fidelity.py",
+                "attach current run evidence for: python scripts/check_compatibility_output_translation_reports.py",
+                "attach current run evidence for: python scripts/check_local_format_edge_case_fixtures.py",
+                "attach current run evidence for: python scripts/check_v1_local_resource_safety.py",
+                "attach current run evidence for: python scripts/check_v1_observability_support.py",
+                "attach current run evidence for: python scripts/check_v1_api_schema_stability.py",
+                "attach current run evidence for: python scripts/check_v1_example_replay.py",
+                "attach current run evidence for: python scripts/check_v1_correctness_conformance.py",
+                "attach current run evidence for: python scripts/check_v1_security_ci_hardening.py",
+                "attach current run evidence for: python scripts/check_user_surface_runtime_gap_inventory.py",
+                "attach current run evidence for: python scripts/check_user_surface_graduation_matrix.py",
+                "attach current run evidence for: python scripts/check_runtime_gap_family_burn_down.py",
+                "attach current run evidence for: python scripts/check_user_route_capability_report.py"
+              ],
+              "name": "required_validation_commands",
+              "ref": "target/release-validation-evidence.json",
+              "status": "blocked"
+            }
+          ],
+          "contribution_governance_report_ref": "target/contribution-governance-report.json",
+          "external_engine_invoked": false,
+          "fallback_attempted": false,
+          "final_release_rehearsal_report_ref": "target/final-release-rehearsal/final-release-rehearsal-report.json",
+          "golden_workflow_report_ref": "target/golden-workflow-report.json",
+          "package_channel_matrix_ref": "docs/release/package-channel-readiness-matrix.json",
+          "package_channel_report_ref": "target/package-channel-readiness-report.json",
+          "per_claim_evidence_matrix_ref": "docs/release/per-claim-evidence-attachment-matrix.md",
+          "production_usability_report_ref": "target/production-usability-gate.json",
+          "public_package_claim_allowed": false,
+          "public_release_claim_allowed": false,
+          "publication_attempted": false,
+          "required_validation_commands": [
+            "cargo fmt --all -- --check",
+            "cargo clippy --workspace --all-targets -- -D warnings",
+            "cargo test --workspace --all-targets",
+            "python -m unittest discover python/tests",
+            "python -m build python",
+            "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+            "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+            "python scripts/check_contribution_governance.py",
+            "python scripts/check_ci_gate_matrix.py",
+            "python scripts/check_workspace_version_sources.py",
+            "python scripts/check_release_security_gate.py",
+            "python scripts/check_release_architecture_tracker.py --allow-blocked",
+            "python scripts/check_package_channel_readiness.py --require-local-evidence",
+            "python scripts/check_golden_workflows.py",
+            "python scripts/check_admitted_semantics_matrix.py",
+            "python scripts/check_runtime_execution_envelopes.py",
+            "python scripts/check_website_readiness.py",
+            "python scripts/final_release_rehearsal.py --allow-blocked",
+            "python scripts/check_production_usability_gate.py",
+            "python scripts/check_python_user_surface_completion.py",
+            "python scripts/check_sql_python_dataframe_parity.py",
+            "python scripts/check_v1_front_door_runtime_scope.py",
+            "python scripts/check_v1_vortex_runtime_scope.py",
+            "python scripts/check_v1_source_prepared_state_scope.py",
+            "python scripts/check_v1_local_output_sink_scope.py",
+            "python scripts/check_local_format_production_profiles.py",
+            "python scripts/check_local_format_pushdown_fidelity.py",
+            "python scripts/check_compatibility_output_translation_reports.py",
+            "python scripts/check_local_format_edge_case_fixtures.py",
+            "python scripts/check_v1_local_resource_safety.py",
+            "python scripts/check_v1_observability_support.py",
+            "python scripts/check_v1_api_schema_stability.py",
+            "python scripts/check_v1_example_replay.py",
+            "python scripts/check_v1_correctness_conformance.py",
+            "python scripts/check_v1_security_ci_hardening.py",
+            "python scripts/check_user_surface_runtime_gap_inventory.py",
+            "python scripts/check_user_surface_graduation_matrix.py",
+            "python scripts/check_runtime_gap_family_burn_down.py",
+            "python scripts/check_user_route_capability_report.py"
+          ],
+          "schema_version": "shardloom.hard_release_readiness_gate.v1",
+          "secrets_required": false,
+          "status": "blocked",
+          "tag_created": false,
+          "user_surface_runtime_gap_inventory_ref": "target/user-surface-runtime-gap-inventory.json",
+          "v1_api_schema_stability_report_ref": "target/v1-api-schema-stability-report.json",
+          "v1_correctness_conformance_report_ref": "target/v1-correctness-conformance-report.json",
+          "v1_example_replay_report_ref": "target/v1-example-replay-report.json",
+          "v1_front_door_runtime_scope_report_ref": "target/v1-front-door-runtime-scope-report.json",
+          "v1_local_output_sink_scope_report_ref": "target/v1-local-output-sink-scope-report.json",
+          "v1_local_resource_safety_report_ref": "target/v1-local-resource-safety-report.json",
+          "v1_observability_support_report_ref": "target/v1-observability-support-report.json",
+          "v1_security_ci_hardening_report_ref": "target/v1-security-ci-hardening-report.json",
+          "v1_source_prepared_state_scope_report_ref": "target/v1-source-prepared-state-scope-report.json",
+          "v1_vortex_runtime_scope_report_ref": "target/v1-vortex-runtime-scope-report.json",
+          "workspace_version_source_report_ref": "target/workspace-version-source-report.json"
+        }
+      }
+    },
+    "removed_stale_blockers": [
+      "v1 correctness/conformance matrix_summary.expected_count_field_count=31",
+      "v1 correctness/conformance admitted_semantics.required_stage_correctness_digest_count=None",
+      "v1 correctness/conformance admitted_semantics.required_stage_result_digest_count=None"
+    ],
+    "other_checks_unchanged": true,
+    "public_release_ready": false,
+    "runtime_execution_performed": false,
+    "publication_attempted": false,
+    "producer_sha256": "c878099bac6af39592f6c42a9466e6aeecec01d10568add609c76ebec4afa1dc"
+  },
+  "runtime_implementation_changed": false,
+  "publication_attempted": false,
+  "public_release_ready": false,
+  "prior_native_doc_and_ci_receipt": {
+    "path": "docs/benchmarks/evidence/native-typed-reductions-first-steps-repair-2026-10-05.json",
+    "sha256": "58a4e5baf145184e907d1701b129668a44c92821744a213a7d500c6715c61c5a"
+  }
+}

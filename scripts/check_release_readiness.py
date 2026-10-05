@@ -31,6 +31,12 @@ from release_channel_contract import (
     selected_channel_ids,
 )
 from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
+from check_v1_correctness_conformance import (
+    EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
+    EXPECTED_ADMITTED_VALIDATOR_CASES,
+    EXPECTED_EXECUTABLE_FIXTURES,
+    MATRIX_EXPECTED_COUNTS,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -575,7 +581,7 @@ def main() -> int:
             admitted_semantics_blockers.append(
                 "admitted semantics decoded_reference_differential_execution_performed missing"
             )
-        if admitted_semantics.get("executable_fixture_count") != 117:
+        if admitted_semantics.get("executable_fixture_count") != EXPECTED_EXECUTABLE_FIXTURES:
             admitted_semantics_blockers.append(
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
@@ -1899,7 +1905,7 @@ def main() -> int:
             expected_matrix_values = {
                 "schema_version": "shardloom.v1_correctness_conformance_matrix.v1",
                 "matrix_id": "prod-v1-2b.correctness_conformance",
-                "expected_count_field_count": 34,
+                "expected_count_field_count": len(MATRIX_EXPECTED_COUNTS),
                 "required_semantic_case_count": 47,
                 "required_unsupported_case_count": 11,
                 "report_input_count": 8,
@@ -1918,7 +1924,7 @@ def main() -> int:
             )
         else:
             expected_summary_values = {
-                ("admitted_semantics", "executable_fixture_count"): 117,
+                ("admitted_semantics", "executable_fixture_count"): EXPECTED_EXECUTABLE_FIXTURES,
                 ("admitted_semantics", "diagnostic_case_count"): 25,
                 ("admitted_semantics", "unsupported_diagnostic_count"): 23,
                 ("admitted_semantics", "property_lane_count"): 10,
@@ -1928,8 +1934,8 @@ def main() -> int:
                 ("admitted_semantics", "required_unsupported_case_count"): 11,
                 ("admitted_semantics", "remaining_matrix_gap_status"): "passed",
                 ("admitted_semantics", "v1_runtime_scope_status"): "passed",
-                ("admitted_semantics", "v1_expected_validator_case_count"): 142,
-                ("admitted_semantics", "v1_required_runtime_row_count"): 142,
+                ("admitted_semantics", "v1_expected_validator_case_count"): EXPECTED_ADMITTED_VALIDATOR_CASES,
+                ("admitted_semantics", "v1_required_runtime_row_count"): EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
                 ("admitted_semantics", "v1_missing_validator_case_count"): 0,
                 (
                     "admitted_semantics",
@@ -1970,8 +1976,6 @@ def main() -> int:
                     "admitted_semantics",
                     "required_stage_observed_output_digest_source_count",
                 ): 47,
-                ("admitted_semantics", "required_stage_correctness_digest_count"): 47,
-                ("admitted_semantics", "required_stage_result_digest_count"): 47,
                 (
                     "admitted_semantics",
                     "required_unsupported_stage_diagnostic_field_count",

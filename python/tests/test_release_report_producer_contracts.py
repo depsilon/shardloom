@@ -27,6 +27,7 @@ import check_v1_correctness_conformance as conformance
 import check_v1_local_output_sink_scope as output_scope
 import check_v1_source_prepared_state_scope as source_scope
 import check_v1_vortex_runtime_scope as vortex_scope
+import check_admitted_semantics_matrix as admitted
 
 
 class ReleaseReportProducerContractsTests(unittest.TestCase):
@@ -68,6 +69,34 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
         matrix = json.loads((REPO_ROOT / conformance.DEFAULT_MATRIX).read_text())
         _, blockers = conformance._validate_matrix(matrix)
         self.assertEqual(blockers, [])
+
+    def test_conformance_counts_cover_actual_admitted_fixture_inventory(self) -> None:
+        cases = admitted.executable_cases()
+        diagnostics = admitted.unsupported_cases()
+        case_ids = {case.case_id for case in [*cases, *diagnostics]}
+        matrix = json.loads((REPO_ROOT / "docs/status/admitted-semantics-matrix.json").read_text())
+        _, summary = admitted.validate_matrix_manifest(matrix, case_ids)
+        self.assertEqual(summary["status"], "passed", summary["blockers"])
+        self.assertEqual(len(cases), conformance.EXPECTED_EXECUTABLE_FIXTURES)
+        self.assertEqual(len(diagnostics), conformance.EXPECTED_DIAGNOSTIC_CASES)
+        self.assertEqual(summary["row_count"], conformance.EXPECTED_ADMITTED_STAGE_COUNT_MIN)
+        self.assertEqual(summary["v1_expected_validator_case_count"], conformance.EXPECTED_ADMITTED_VALIDATOR_CASES)
+        self.assertEqual(summary["v1_required_runtime_row_count"], conformance.EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS)
+
+    def test_correctness_matrix_rejects_missing_stale_or_extra_route_counts(self) -> None:
+        matrix = json.loads((REPO_ROOT / conformance.DEFAULT_MATRIX).read_text())
+        for mutation in ("missing", "stale", "extra"):
+            with self.subTest(mutation=mutation):
+                changed = copy.deepcopy(matrix)
+                counts = changed["expected_counts"]
+                if mutation == "missing":
+                    del counts["source_prepared_routes"]
+                elif mutation == "stale":
+                    counts["source_prepared_routes"] = 7
+                else:
+                    counts["retired_facade_route_count"] = 7
+                _, blockers = conformance._validate_matrix(changed)
+                self.assertTrue(any("expected_counts" in item for item in blockers), blockers)
 
     def test_conformance_accepts_actual_vortex_source_and_output_reports(self) -> None:
         for producer, consumer in (
@@ -123,6 +152,52 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
         summary["output_route_count"] = 7
         checks = self._readiness_checks(reports)
         self.assertTrue(any(mismatch in text for text in checks["v1_correctness_conformance_gate"]["blockers"]))
+
+    def test_readiness_consumes_complete_conformance_producer_and_requires_native_digests(self) -> None:
+        # Reuse the existing complete input fixture, then run the actual producer.
+        # The hard gate must accept its current output without invented aliases.
+        from python.tests.test_release_scripts import ReleaseScriptTests
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ReleaseScriptTests()._write_v1_correctness_conformance_fixture_reports(conformance, root)
+            report = conformance.build_report(root, conformance.ReportPaths())
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        report_name = "v1-correctness-conformance-report.json"
+        gate = "v1_correctness_conformance_gate"
+        checks = self._readiness_checks({report_name: report})
+        self.assertEqual(checks[gate]["blockers"], [])
+        semantic = report["summaries"]["admitted_semantics"]
+        for retired in ("required_stage_correctness_digest_count", "required_stage_result_digest_count"):
+            self.assertNotIn(retired, semantic)
+        for field in (
+            "required_stage_decoded_reference_digest_count",
+            "required_stage_expected_output_digest_count",
+            "required_stage_observed_output_digest_count",
+            "required_stage_output_digest_match_count",
+            "required_stage_expected_output_digest_source_count",
+            "required_stage_observed_output_digest_source_count",
+        ):
+            for mutation in ("missing", "incomplete"):
+                with self.subTest(field=field, mutation=mutation):
+                    changed = copy.deepcopy(report)
+                    values = changed["summaries"]["admitted_semantics"]
+                    if mutation == "missing":
+                        del values[field]
+                    else:
+                        values[field] -= 1
+                    checks = self._readiness_checks({report_name: changed})
+                    self.assertTrue(any(field in item for item in checks[gate]["blockers"]))
+        changed = copy.deepcopy(report)
+        changed["matrix_summary"]["expected_count_field_count"] = 34
+        checks = self._readiness_checks({report_name: changed})
+        self.assertTrue(any("expected_count_field_count" in item for item in checks[gate]["blockers"]))
+        for field in ("executable_fixture_count", "v1_expected_validator_case_count", "v1_required_runtime_row_count"):
+            with self.subTest(stale_count=field):
+                changed = copy.deepcopy(report)
+                changed["summaries"]["admitted_semantics"][field] -= 1
+                checks = self._readiness_checks({report_name: changed})
+                self.assertTrue(any(field in item for item in checks[gate]["blockers"]))
 
 
 if __name__ == "__main__":

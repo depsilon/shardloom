@@ -26,7 +26,7 @@ docs/status/admitted-semantics-matrix.json
 shardloom.admitted_semantics_fixture_matrix.v1
 ```
 
-The 144-row matrix runs its 117 executable fixtures and 25 diagnostic cases
+The 145-row matrix runs its 118 executable fixtures and 25 diagnostic cases
 through the public `run sql` workflow, alongside two capability reports. SQL,
 source fixtures, property seeds and row ordering retain their original independent
 expectations. Complete native results must include their declared Vortex schema;
@@ -56,8 +56,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=144
-executable_fixture_count=117
+matrix_row_count=145
+executable_fixture_count=118
 diagnostic_case_count=25
 unsupported_diagnostic_count=23
 runtime_error_diagnostic_count=1
@@ -179,6 +179,7 @@ Covered fixture rows:
 - `select_distinct_aggregate_having`
 - `having_hidden_aggregate_expression`
 - `window_rank_offset_distribution`
+- `window_analytic_frames`
 - `select_distinct_window`
 - `join_multi_key_expression_condition`
 - `join_scalar_expression_condition`
