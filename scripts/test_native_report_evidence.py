@@ -48,6 +48,30 @@ class NativeReportEvidenceTests(unittest.TestCase):
         ]:
             require_native_resource_admission("test", SimpleNamespace(field=fields.get))
 
+    def test_native_array_writer_uses_its_session_allocator_evidence(self):
+        fields = {
+            "public_workflow_memory_gb": "1",
+            "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
+            "public_workflow_route_id": "native_vortex_primitive_row_export",
+            "native_vortex_result_export_kind": "owned_native_array_stream",
+            "native_vortex_array_sink_source_generation_validated": "true",
+            "local_primitive_resource_memory_budget_bytes": "1073741824",
+            "native_vortex_array_sink_peak_reserved_bytes": "279803",
+        }
+        require_native_resource_admission("test", SimpleNamespace(field=fields.get))
+        changes = [
+            {"native_vortex_array_sink_peak_reserved_bytes": value}
+            for value in [None, "", "-1", "1.5", "NaN", "١", "1073741825"]
+        ] + [
+            {"native_vortex_result_export_kind": "primitive_row_stream"},
+            {"native_vortex_array_sink_source_generation_validated": "false"},
+            {"local_primitive_resource_memory_budget_bytes": "2147483648"},
+            {"public_workflow_native_vortex_plan_route_family": "scenario_dispatch"},
+        ]
+        for change in changes:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                require_native_resource_admission("test", SimpleNamespace(field=(fields | change).get))
+
     def test_native_resource_peak_never_accepts_missing_malformed_or_oversized_proof(self):
         base = {"public_workflow_memory_gb": "1",
                 "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
