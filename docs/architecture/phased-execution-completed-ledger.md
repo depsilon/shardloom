@@ -17,6 +17,81 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-TYPED-REDUCTIONS` — complete computed aggregate arguments and exact
+  Decimal128 reductions through existing aggregate, rolling and scalar pivot
+  state under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
+  [typed reduction contract](native-typed-reductions-2026-10-04.md).
+  - V1 scope classification: `required_for_v1`.
+  - October 4 maintainer scope clarification: file inputs in any admitted format,
+    typed memory and source-free declarations enter one Vortex-native computation
+    path before the requested result or output. SQL, Python, DataFrame and CLI
+    remain wrappers. Delete retired execution routes and benchmark-specific
+    providers; no compatibility runtime is retained for previous publications.
+    Parameterize the public UAT harness by input state, workload and output.
+  - ShardLoom technique review: preserve metadata/pruning and optimized primitive
+    routes; share native expression projection, exact state, one PulseWeave
+    admission, reserved capacity, capillary delivery and existing timing/evidence
+    owners across public declarations. Availability is not a speedup claim.
+  - Execution checklist:
+    - [x] Lower aggregate expressions and implement exact wide decimal totals,
+      fixed result types, NULL handling and checked finalization in shared owners.
+    - [x] Extend existing rolling/pivot state and margins; prove empty admission,
+      bounded ownership, constrained grants, cancellation and failed publication.
+    - [x] Freeze independent complete public/direct correctness, required local
+      checks and complete typed Full43 regression; update exact support and
+      immutable evidence. Use this consolidated engine as the control for later
+      paired optimization measurements; earlier result protocols do not authorize
+      an alternate runtime or a speedup claim.
+      The [October 5 acceptance](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
+      records 20,445 public checks, 202 direct checks, all 129 Full43 executions,
+      22 source gates and independent inspection of the immutable packet.
+    - [x] Record merged hosted checks and primary acceptance in this ledger;
+      no independent review approval is inferred.
+  - Hosted merge: [PR #1518](https://github.com/depsilon/shardloom/pull/1518)
+    merged at `b6f2069318f16bad9a1846e15ff7a28bd409876b`, after all 39 checks
+    on `addb6250b7a379d25d24a1054c742240007d4ee9` passed.
+    There were no submitted reviews; the review bot reported exhausted quota.
+  - Acceptance: complete native expression/reduction workflows with exact decimal
+    values, schemas and writer readback. Existing primitive calculation order,
+    bare-column paths and pivot/rolling policies remain compatible. No frontend
+    evaluator, source replay or external-engine fallback.
+  - Dependency: merged nested keys/state. Wider analytic frames,
+    scalar-value subqueries, nested pivot state, adapters and general state spill
+    remain subsequent work under the universal queue; this is not their closure.
+
+- [x] `NATIVE-ANALYTIC-FRAMES` — extend the shared relational window family with
+  framed aggregate and value functions under PERF-02/03/07/10/11/12 and
+  CG-3/5/19/20/21. Follow the
+  [analytic frame contract](native-analytic-frames-2026-10-05.md).
+  - V1 scope classification: `required_for_v1`.
+  - Dependency: the consolidated typed-reduction engine merged in PR #1518
+    with complete local and hosted acceptance. Keep native builds,
+    tests and UAT sequential under the existing resource and storage guards.
+  - ShardLoom technique review: reuse partition/order groups, exact keys, native
+    retained arrays, one PulseWeave grant, reserved state and bounded delivery.
+    Add frame state within the existing window owner; no frontend executor.
+  - Execution checklist:
+    - [x] Bind ROWS/GROUPS/RANGE bounds, exclusions and computed arguments;
+      preserve ranking/navigation and deterministic empty-plan admission.
+    - [x] Implement moving aggregate/value state with exact decimal and reversible
+      floating totals, typed NULLs, selected payload ownership and failure cleanup.
+    - [x] Freeze independent complete workflow/writer results, resource proof,
+      required local checks and Full43 regression; align capabilities and docs.
+      The [October 5 frame acceptance](../benchmarks/native-analytic-frames-full43-2026-10-05.md)
+      records 22,658 public checks, 202 direct checks, all 129 Full43 executions,
+      22 source gates and successful independent packet inspection.
+    - [x] Record merged hosted checks and primary acceptance in this ledger;
+      no independent review approval is inferred.
+  - Hosted merge: [PR #1519](https://github.com/depsilon/shardloom/pull/1519)
+    merged at `b925541a2122f06a06f55ca141a5afb6908344b7`, after all 39 checks
+    on `21f6c1549257262a54e3fa9678064e10c264408f` passed. The merged tree
+    equals the accepted tree. There were no submitted reviews; the review bot
+    reported exhausted quota. The conformance-count repair and fresh hosted
+    gates are retained in the frame acceptance report.
+  - Acceptance: one shared native window family with complete-value proof.
+    Retained state remains grant-bounded; window spill is a separate resource
+    obligation. No performance or broad competitive-gate closure follows.
+
 Hosted provenance below records the saved GitHub PR metadata and status-check rollups. Passing hosted checks do not establish review approval. PR #1515's body states that the Codex review bot exhausted its quota; no fresh bot review approval is claimed for this batch.
 
 - [x] `NATIVE-NESTED-COMPOSITION` — carry static nested payloads and compose
