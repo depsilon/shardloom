@@ -117,6 +117,15 @@ productization, CI matrix, user-surface reference and diff checks pass. The audi
 reports zero vulnerabilities, and all 171 document contract tests pass. Hosted
 review/checks remain pending and do not alter these immutable runtime observations.
 
+The first hosted package smoke produced the expected complete rows but its
+example checker required the retired preparation-ingest property. The checker
+and release transcript now verify the shared native-plan family and declared
+file/memory source-open counts. Missing or invalid evidence fails the example
+and its printed status. The accepted executable passes the corrected example,
+and all 157 release-script tests pass, including negative evidence checks.
+The [package-checker receipt](evidence/native-typed-reductions-package-checker-2026-10-05.json)
+retains the hosted failure, local checks and unchanged runtime-source hashes.
+
 ## Resource and evidence boundaries
 
 Large local work stays serial under the existing process/storage guards.

@@ -7665,9 +7665,9 @@ jobs:
                                 {"key": "result_values_json", "value": json.dumps(result_rows)},
                                 {"key": "runtime_execution", "value": "true"},
                                 {"key": "data_read", "value": "true"},
-                                {"key": "rows_projected", "value": "2"},
-                                {"key": "public_workflow_preparation_vortex_ingest_performed", "value": "true"},
-                                {"key": "public_workflow_local_source_prepared_vortex_path", "value": str(Path(__file__).resolve().parent / "target/local-python-smoke/orders.vortex")},
+                                {"key": "output_row_count", "value": "2"},
+                                {"key": "public_workflow_native_vortex_plan_route_family", "value": "native_vortex_unified_plan"},
+                                {"key": "resident_source_opens", "value": "1"},
                                 {"key": "claim_gate_status", "value": "not_claim_grade"},
                             ])
                         assert value("--request") == "write_jsonl", args
@@ -7702,6 +7702,8 @@ jobs:
                             {"key": "native_vortex_result_export_format", "value": "jsonl"},
                             {"key": "native_vortex_result_export_rows_written", "value": "1"},
                             {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
+                            {"key": "public_workflow_native_vortex_plan_route_family", "value": "native_vortex_unified_plan"},
+                            {"key": "resident_source_opens", "value": "0"},
                             {"key": "output_row_count", "value": "1"},
                             {"key": "output_io_performed", "value": "true"},
                             {"key": "runtime_execution", "value": "true"},
@@ -7743,7 +7745,9 @@ jobs:
             self.assertIn("quickstart_local_file_blocker_id=none", output)
             self.assertIn("quickstart_local_file_route_status=passed", output)
             self.assertIn("quickstart_local_file_runtime_execution=true", output)
-            self.assertIn("quickstart_local_file_vortex_ingest_performed=true", output)
+            self.assertIn("quickstart_local_file_native_plan_family=native_vortex_unified_plan", output)
+            self.assertIn("quickstart_local_file_source_opens=1", output)
+            self.assertIn("quickstart_local_file_output_row_count=2", output)
             self.assertIn("quickstart_local_file_fallback_attempted=false", output)
             self.assertIn("quickstart_local_file_external_engine_invoked=false", output)
             self.assertIn(
@@ -7751,6 +7755,8 @@ jobs:
                 output,
             )
             self.assertIn("quickstart_generated_input_row_count=1", output)
+            self.assertIn("quickstart_generated_native_plan_family=native_vortex_unified_plan", output)
+            self.assertIn("quickstart_generated_source_opens=0", output)
             self.assertIn("quickstart_generated_result_verified=true", output)
             self.assertIn("quickstart_generated_rows_written=1", output)
             self.assertIn(
@@ -7786,6 +7792,23 @@ jobs:
                 [json.loads(line) for line in generated_jsonl.read_text(encoding="utf-8").splitlines()],
                 [{"id": 1, "label": "alpha", "batch_id": 1}],
             )
+            original_cli = fake_cli.read_text(encoding="utf-8")
+            for original, replacement in (
+                ('"public_workflow_native_vortex_plan_route_family"', '"missing_plan_family"'),
+                ('"native_vortex_unified_plan"', '"unadmitted_plan_family"'),
+                ('"resident_source_opens", "value": "1"', '"resident_source_opens", "value": "2"'),
+                ('"resident_source_opens", "value": "0"', '"resident_source_opens", "value": "1"'),
+            ):
+                with self.subTest(missing_or_invalid_evidence=original):
+                    self.assertIn(original, original_cli)
+                    fake_cli.write_text(original_cli.replace(original, replacement), encoding="utf-8")
+                    stdout = io.StringIO()
+                    with contextlib.redirect_stdout(stdout):
+                        returncode = module.main(
+                            ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                        )
+                    self.assertEqual(returncode, 1, stdout.getvalue())
+                    self.assertIn("quickstart_user_surface_status=failed", stdout.getvalue())
 
     def test_release_dry_run_transcript_records_user_surface_quickstart_markers(self) -> None:
         module = self._load_script_module(
@@ -7804,11 +7827,15 @@ jobs:
                             "quickstart_local_file_blocker_id=none",
                             "quickstart_local_file_route_status=passed",
                             "quickstart_local_file_runtime_execution=true",
-                            "quickstart_local_file_vortex_ingest_performed=true",
+                            "quickstart_local_file_native_plan_family=native_vortex_unified_plan",
+                            "quickstart_local_file_source_opens=1",
+                            "quickstart_local_file_output_row_count=2",
                             "quickstart_local_file_fallback_attempted=false",
                             "quickstart_local_file_external_engine_invoked=false",
                             "quickstart_local_file_result_rows=({'id': 2, 'label': 'beta', 'amount': 15}, {'id': 3, 'label': 'gamma', 'amount': 27})",
                             "quickstart_generated_input_row_count=1",
+                            "quickstart_generated_native_plan_family=native_vortex_unified_plan",
+                            "quickstart_generated_source_opens=0",
                             "quickstart_generated_result_verified=true",
                             "quickstart_generated_rows_written=1",
                             "quickstart_generated_output_path=target/local-python-smoke/generated-reference.jsonl",
