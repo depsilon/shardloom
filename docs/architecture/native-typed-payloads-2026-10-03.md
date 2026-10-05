@@ -2,8 +2,10 @@
 
 # Native binary, decimal and temporal payloads
 
-Status: locally accepted under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21;
-hosted acceptance remains pending. The [phase plan](phased-execution-plan.md) owns sequencing.
+Status: accepted under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21 and merged in
+[PR #1508](https://github.com/depsilon/shardloom/pull/1508) on October 4 after all
+37 hosted checks passed. The [completed ledger](phased-execution-completed-ledger.md)
+records exact identities and review limitations; the [phase plan](phased-execution-plan.md) owns sequencing.
 This extends the [universal workflow plan](universal-workflow-completion-2026-10-01.md)
 and [nested payload contract](native-nested-composition-2026-10-02.md); it does
 not close their wider operator, adapter, resource or spill obligations.

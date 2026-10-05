@@ -2,7 +2,9 @@
 
 # Native dynamic pivot composition
 
-Status: implemented with complete local acceptance; hosted review remains pending.
+Status: implemented and merged in [PR #1507](https://github.com/depsilon/shardloom/pull/1507)
+on October 4 after all 37 hosted checks passed. Exact head/merge identities and
+review limitations are in the [completed ledger](phased-execution-completed-ledger.md).
 This unit follows static
 nested composition under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. It does not
 close those entire owners or authorize a release.
@@ -164,6 +166,6 @@ Python, feature/MSRV and documentation checks. All 258 paired Full43 retained
 results match; no predeclared timing or memory investigation threshold is crossed.
 The [acceptance report](../benchmarks/native-dynamic-pivot-full43-2026-10-03.md)
 records the unchanged aggregate timing, complete readbacks, certificate payloads
-and portable proof. Hosted runtime review and checks
-remain pending. This evidence does not establish a performance improvement or
+and portable proof. PR #1507 subsequently merged after all 37 hosted checks
+passed. This evidence does not establish a performance improvement or
 complete the broader PERF and competitive gates.

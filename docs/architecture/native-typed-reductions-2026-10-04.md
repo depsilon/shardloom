@@ -2,7 +2,11 @@
 
 # Native aggregate expressions and decimal reductions
 
-Status: implementation contract; acceptance pending. This continues the locally
+Status: implemented with complete local core acceptance on October 5; hosted
+integration and documentation/website refresh remain pending. The
+[acceptance report](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
+records 20,445 public checks, 202 retained-workflow checks, all 129 Full43
+executions and independently inspected portable evidence. This continues the
 accepted [nested keys and state](native-nested-keys-state-2026-10-04.md) under
 PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. The
 [phase plan](phased-execution-plan.md) owns sequencing. The expert comparator is
@@ -228,8 +232,10 @@ The pinned array and datetime-parts runtime has no formatted timestamp parser.
 The implementation therefore extends existing ShardLoom kernels over Vortex
 columns, retaining native output, reservations, cancellation and certificates.
 SQL, Python, DataFrame and benchmark callers share these kernels. Focused tests
-cover nulls, malformed inputs, alias precedence, exact integers and CTE composition;
-broader public workload acceptance remains required before completion.
+cover nulls, malformed inputs, alias precedence, exact integers and CTE composition.
+The modular public workload matrix also passes 1,408 complete records, including
+704 native records, plus a separate 32-record input-state probe; the acceptance
+report preserves its original execution identity and exact retention proof.
 
 | Existing component and callers | Required extension |
 | --- | --- |
@@ -283,29 +289,37 @@ existing universal-workflow owners and are subsequent implementation work.
 
 ## Acceptance
 
-- [ ] Implement shared aggregate expression lowering and exact decimal state,
+- [x] Implement shared aggregate expression lowering and exact decimal state,
   with complete dependency/alias/empty-plan admission and unchanged bare calls.
-- [ ] Extend rolling and pivot through their existing state owners, including
+- [x] Extend rolling and pivot through their existing state owners, including
   centered boundaries, exact margins, fills, cancellation and constrained grants.
-- [ ] Freeze independent full-value expectations for positive and negative
+- [x] Freeze independent full-value expectations for positive and negative
   public workflows: renamed schemas, joins/derived input, HAVING, lazy branches,
   constants, NULLs, dictionary/chunk boundaries, scales 0/6/38, precision limits,
   large-intermediate cancellation, representable averages with oversized totals,
   inexact averages, final overflow and writer rollback.
-- [ ] Verify retained output lifetime, state release, all representable writer
+- [x] Verify retained output lifetime, state release, all representable writer
   readbacks and unaffected prior public/direct-unary cases.
-- [ ] Run required workspace/native/Python, lean/MSRV and affected documentation
+- [x] Run required workspace/native/Python, lean/MSRV and affected documentation
   gates, then freeze source, binaries, oracles and portable evidence.
-- [ ] Run complete Full43 through the shared public workflow and strict typed
+- [x] Run complete Full43 through the shared public workflow and strict typed
   result protocol under the existing serial storage/process guards. Freeze all
   expected values, query text, input identity, executable and harness sources
   before execution; retain every failed or inconclusive observation.
-- [ ] Establish the consolidated engine as the control for subsequent paired
+- [x] Establish the consolidated engine as the control for subsequent paired
   optimization measurements. Earlier binaries without the complete typed result
   protocol are retained regression evidence, not a second live execution route
   or a source of speedup claims for this consolidation.
 - [ ] Complete hosted review/gates
   and record the finite completion in the ledger.
+
+The accepted native executable is built from `eb39c2eb`; the final assertion-only
+checker source is `82766e8b`. Integration with the accepted stack at `ef6cd4c4`
+preserves exactly the tested source tree. The packet records all original hashes
+and failed observations; later source identities do not relabel prior runs.
+Independent inspection with a separate streaming JSON parser verifies every
+reported count, all 129 shared-family reports, the complete raw report inventory,
+resource boundaries and absence of successful fallback execution.
 
 Availability requires correctness, resource and failure proof. No speedup,
 competitive superiority or broad gate completion is implied. CG-1 through CG-23

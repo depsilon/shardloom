@@ -2,8 +2,10 @@
 
 # Native nested payload composition
 
-Status: implemented with the local acceptance records below, including the
-null-parent intake review correction; hosted acceptance remains pending.
+Status: implemented and merged in [PR #1506](https://github.com/depsilon/shardloom/pull/1506)
+on October 4 after all 40 hosted checks passed, including the null-parent intake
+review correction. Exact head/merge identities and review limitations are in the
+[completed ledger](phased-execution-completed-ledger.md).
 This continues
 the [universal workflow plan](universal-workflow-completion-2026-10-01.md) after
 [flat unary composition](native-unary-composition-2026-10-02.md), under
@@ -331,4 +333,5 @@ The earlier immutable public and Full43 records remain evidence for their
 original revisions. Full43 was not rerun for this correction: it reads an
 existing native Vortex artifact and cannot reach the changed nested Arrow-intake
 traversal. No timing, benchmark artifact or performance claim changes. The full
-native suites include the new adapter regression; hosted checks still gate merge.
+native suites include the new adapter regression. PR #1506 subsequently merged
+after all 40 hosted checks passed; the historical runtime records remain unchanged.

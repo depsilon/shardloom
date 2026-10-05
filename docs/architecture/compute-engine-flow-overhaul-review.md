@@ -1,8 +1,9 @@
 # Compute Engine Flow Alignment Review
 
-Status: source-aligned interface note; live harness acceptance remains pending. This review records
-how the current traditional analytics harness is intended to meet the public native workflow
-boundary. It does not certify runtime behavior or report benchmark results.
+Status: source-aligned interface with complete local harness acceptance recorded in
+the [October 5 acceptance report](../benchmarks/native-typed-reductions-full43-2026-10-05.md).
+The matrix passes 1,408 complete records, including 704 native candidate records,
+plus a 32-record input-state probe. This is correctness evidence, not a speedup claim.
 
 ## Candidate Flow
 
@@ -57,15 +58,19 @@ query or an input-format label that differs from the actual reader request.
 
 ## Validation Boundary
 
-This documentation describes the interface and intended measurement protocol only. The harness has
-not yet completed live acceptance. A future acceptance pass must verify raw and prepared inputs,
-requested sink/readback, exact result matching against an independent reference, stable hashes,
-no-fallback evidence, and nonzero outcomes for failure/unsupported cases. Reports remain incomplete
-when expected records are missing or any record is unsupported, failed, or mismatched.
+The accepted matrix verifies raw and prepared inputs, requested sink/readback,
+exact results against an independent reference, stable hashes and no-fallback
+evidence. Independent verification reconstructs all workload declarations and
+source bindings. The original harness revision and executable remain identified;
+complete source-byte and executable identity justify retaining those results
+across the subsequent assertion-only acceptance changes. Unit checks also prove
+nonzero outcomes for failure/unsupported cases. Reports remain incomplete when
+expected records are missing or any record is unsupported, failed, or mismatched.
 
-Do not infer performance, production readiness, or engine superiority from source alignment,
-`--list`, or partial reports. Public benchmark pages and broader product documentation must be
-reviewed separately before describing this harness as accepted or publishing measurements.
+Do not infer performance, production readiness, or engine superiority from this
+correctness matrix, source alignment, `--list`, or partial reports. Public
+benchmark pages and broader product documentation require their own synchronized
+review before publishing measurements.
 
 ## Complete Public Regression Families
 

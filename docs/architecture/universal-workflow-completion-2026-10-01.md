@@ -74,9 +74,10 @@ frozen build passes 2,459 public checks, including 496 nested checks, and all 25
 paired Full43 comparisons. Fresh acceptance after the three review repairs also
 passes the required Q21 memory repeat; the
 [new report](../benchmarks/native-nested-review-full43-2026-10-03.md) preserves the
-original measurements and the unreproduced memory flag. Hosted runtime review and
-checks remain pending; the website dependency update is handled separately in
-[PR #1517](https://github.com/depsilon/shardloom/pull/1517). The [dynamic pivot continuation](native-dynamic-pivot-composition-2026-10-03.md)
+original measurements and the unreproduced memory flag. Runtime
+[PR #1506](https://github.com/depsilon/shardloom/pull/1506) and the separate website
+dependency [PR #1517](https://github.com/depsilon/shardloom/pull/1517) both merged
+after all 40 hosted checks passed. The [dynamic pivot continuation](native-dynamic-pivot-composition-2026-10-03.md)
 connects scalar pivot-domain discovery to the same binder, operators and sinks,
 including separate correlated parameter scopes. Its frozen local runtime passes
 3,305 public checks, including 846 pivot checks, all 24 selected local gates and
@@ -89,7 +90,8 @@ static nested leaves, through the same native result and writer components.
 Its frozen `8237a900` passes 4,109 public checks (804 typed), 202 direct-unary
 checks, all 24 selected local gate categories and all 258 paired Full43 results;
 the [typed acceptance report](../benchmarks/native-typed-payloads-full43-2026-10-03.md)
-preserves exact scope and evidence. Hosted review remains pending. Flat typed-key
+preserves exact scope and evidence. The dynamic pivot and typed payload units
+merged in PRs #1507 and #1508 after all 37 hosted checks passed for each. Flat typed-key
 hashing, equality, ordering, expression selection and aggregate extrema now have
 local acceptance on `2f402226`: 5,733 public checks/12,282,897 rows, a 2,428-check
 typed subset/4,595,372 rows, 202 direct checks/131,734 rows, all 24 local gate
@@ -108,7 +110,8 @@ correction adds 90 checks and preserves the original cases and complete oracles;
 no speedup is claimed. See the [acceptance report](../benchmarks/native-typed-expressions-full43-2026-10-03.md)
 and [review packet](../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz),
 which retain the original acceptance as a separate immutable observation.
-Hosted review remains pending. The [typed-unary continuation](native-typed-unary-2026-10-03.md)
+The typed-key and typed-expression units merged in PRs #1509 and #1510 after all
+37 hosted checks passed for each. The [typed-unary continuation](native-typed-unary-2026-10-03.md)
 extends the existing retained state with exact binary, Decimal128, Date32 and
 microsecond timestamp values for selectors, rewrites, melt, rolling COUNT and
 scoped pivot policies. Frozen `948551d4` passes 9,300 public checks/14,125,745 rows,
@@ -118,7 +121,8 @@ calls match; aggregate thresholds are not crossed, while Q9's timing/RSS
 observation remains inconclusive. The [report](../benchmarks/native-typed-unary-full43-2026-10-03.md)
 and [packet](../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz) retain all
 observations, independent unary oracles and the two interrupted public attempts.
-Hosted acceptance remains open. The [nested key/state continuation](native-nested-keys-state-2026-10-04.md)
+The typed-unary unit merged in PR #1515 after all 37 hosted checks passed.
+The [nested key/state continuation](native-nested-keys-state-2026-10-04.md)
 extends the same key and retained-buffer owners to static lists, fixed-size lists
 and structs, including admitted typed leaves. Recursive logical comparison,
 COUNT/DISTINCT/MIN/MAX, selected expressions and scoped unary state pass local
@@ -129,15 +133,30 @@ Full43 results and six Q28 repeats match. No aggregate/RSS screen is crossed;
 the initial Q28 timing gain does not reproduce. The
 [report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md) and
 [independently verified packet](../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz)
-retain every observation and all four interrupted public attempts. Hosted
-acceptance remains open. Wider aggregate/window semantics, adapters and remaining
-resource/spill transitions retain the obligations below.
+retain every observation and all four interrupted public attempts. The unit
+merged in PR #1516 after all 37 hosted checks passed. Exact head/merge identities
+and review limitations for all seven units are in the
+[completed ledger](phased-execution-completed-ledger.md). Passing checks do not
+turn unavailable automated review into approval.
+
+The [typed reduction and universal-route consolidation](native-typed-reductions-2026-10-04.md)
+now has complete local acceptance on the revised engine: 20,445 public checks
+and 14,282,070 complete row comparisons, 202 direct retained-workflow checks,
+all 129 shared-engine Full43 executions, 22 core source gates, 144 admitted
+semantic stages and nine golden workflow stages. The parameterized workload
+harness adds 1,408 complete records plus a separate 32-record probe. The
+[October 5 report](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
+links the independently inspected packet and records exact runtime, checker
+and source-tree identity. Hosted integration and current documentation/website
+checks remain pending for this unit. Wider analytic frames, scalar-value
+subqueries, nested pivot state, adapters and remaining resource/spill transitions
+retain the obligations below.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
 | Sources and types | Local adapters, schema admission, Vortex preparation, native files/partitions, bounded generated and memory-visible inputs; binary, exact Decimal128, Date32 and microsecond timestamp payloads, including admitted nested leaves. | Broader typed/nested semantics, partition/schema evolution and source adapters; retain fidelity and source identity. | PERF-11; CG-19/20/21 |
-| Operator composition | Native relational stages and shared unary families compose with ordered public declarations; static nested payload/explode, scalar pivot schemas, typed keys/expressions/unary state and static nested key/state have local acceptance on the same runtime. | Wider join/set/window/subquery and aggregate semantics, nested pivot state and broader prepared/public parity. Finish hosted acceptance of the nested/pivot/typed units; use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
-| Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output has six representable destinations, including the four new typed leaf families. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
+| Operator composition | Native relational stages and shared unary families compose with ordered public declarations; static nested payload/explode, scalar pivot schemas and typed/nested state are merged. Computed aggregate arguments and exact decimal aggregate/rolling/pivot state have complete local acceptance through the consolidated engine. | Analytic frames, scalar-value subqueries, nested pivot state and broader prepared/public parity. Complete hosted integration of the accepted reduction/consolidation unit; use the existing twelve-family inventory. | PERF-02/10; CG-20/21 |
+| Results and writers | Owned Vortex arrays, shared local writers and bounded native batches for executable flat-scalar aggregate/ordered output, including admitted spill output; bounded static nested output preserves types in six representable formats, including the four new typed leaf families, and supports CSV as explicit JSON-text translation. | Extend result streams through the remaining operator/type families and broader chains; preserve format-specific denials and fidelity. | PERF-07/11; CG-3/19/21 |
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
 
@@ -157,13 +176,12 @@ The first runtime unit connects bounded native result composition and local outp
 for already executable flat-scalar aggregate and ordered-result families; its
 [contract and acceptance](native-workflow-streaming-2026-10-01.md) record exact
 coverage. Retained unary execution and admitted flat-scalar relational/unary
-composition now have their own acceptance records. Finish hosted acceptance of
-the static nested, scalar dynamic-pivot, typed-payload, typed-key, typed-expression,
-typed-unary and nested-key/state continuations,
-and continue with the [typed reduction contract](native-typed-reductions-2026-10-04.md)
-for computed aggregate arguments and exact decimal aggregate/rolling/pivot state.
-Its acceptance is pending. Broader aggregate/window, adapter and resource
-families continue under their ownership contracts.
+composition now have their own acceptance records. The static nested, scalar
+dynamic-pivot, typed-payload, typed-key, typed-expression, typed-unary and
+nested-key/state continuations are merged. Complete hosted integration of the
+locally accepted [typed reduction/consolidation unit](native-typed-reductions-2026-10-04.md),
+then continue analytic frames, scalar-value subqueries and nested pivot state.
+Broader adapter and resource families continue under their ownership contracts.
 Freeze exact expressions, sinks and
 pressure cases against current source at intake. Unsupported
 extensions need a concrete remaining checklist rather than a permanent benchmark-only

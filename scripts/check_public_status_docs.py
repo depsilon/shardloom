@@ -202,7 +202,8 @@ COMPUTE_FLOW_MARKERS = {
         "This reference owns current compute-flow vocabulary",
     ),
     "docs/architecture/compute-engine-flow-overhaul-review.md": (
-        "Status: source-aligned interface note",
+        "Status: source-aligned interface with complete local harness acceptance",
+        "native-typed-reductions-full43-2026-10-05.md",
         "There is one candidate identity, `shardloom`",
         "names do not select private",
         "Reports remain incomplete",

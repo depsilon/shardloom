@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "before_commit": "82766e8b8a8bafdeee0da9e9d70950b5b1623581",
+  "merged_commit": "ef6cd4c41472d66a45e47c0e8bde524ed87778f6",
+  "upstream_commit": "42eb2a033b9bc07859a58e1f8edb9c3f1a242302",
+  "before_tree": "99279365495c2fbc9d6986a0eeda85552313b9e3",
+  "after_tree": "99279365495c2fbc9d6986a0eeda85552313b9e3",
+  "source_content_changed": false,
+  "retained_acceptance": "final-core-acceptance-14.json"
+}

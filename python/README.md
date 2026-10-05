@@ -460,7 +460,8 @@ ID columns; inferred value columns come from the preceding output. See the
 Static List/FixedSizeList/Struct payloads compose through admitted relational
 stages and ordered/repeated explode. Nested payloads can be written as Vortex,
 JSON, JSONL, Arrow IPC, Parquet or Avro when the dtype is representable; nested
-CSV and ORC are denied. Exploded flat output still supports all eight writers.
+CSV translates nested values to quoted JSON text cells without preserving their
+logical dtype; ORC rejects nested output. Exploded flat output supports all eight writers.
 Current source builds extend relational keys to static List, FixedSizeList and
 Struct values for equality, hashing and ordering in the existing join, set,
 group, sort, window and subquery kernels. COUNT, COUNT DISTINCT, MIN/MAX,
@@ -472,9 +473,9 @@ Retained nested values are admitted for DISTINCT/duplicate selection and masks,
 tail, sampling, parent-level forward fill (a NULL parent takes the prior
 complete value; child NULLs do not trigger filling), lossless same-shape melt
 and rolling COUNT. See the [nested key and retained-state contract](../docs/architecture/native-nested-keys-state-2026-10-04.md);
-its local and hosted acceptance remains pending. General Variant/extension
-operations, structured literals, nested arithmetic/string operations, broader
-aggregate/window behavior, adapters and general state spill remain outside this
+it is merged with complete local and hosted check evidence. General Variant/extension
+operations, nested arithmetic/string operations, wider analytic-window behavior,
+adapters and general state spill remain outside this
 scope. Scalar pivot type/domain restrictions remain in force. See also the
 [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
@@ -488,14 +489,22 @@ arithmetic/rounding and scoped binary/calendar functions through the shared
 native expression binder. Decimal arithmetic output metadata binds before
 execution; explicit decimal downscaling requires zero discarded digits. Key
 compatibility still requires matching decimal precision/scale and preserves
-distinct temporal types. Richer aggregate/window semantics, broader adapters
+distinct temporal types. Wider analytic-window semantics, broader adapters
 and state spill remain separate. See the [typed expression contract](../docs/architecture/native-typed-expressions-2026-10-03.md).
 Flat typed values also retain exact logical types through duplicate selection and
 masks, tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and
 scoped pivot first/first-unique/COUNT. Python bytes, Decimal, date and datetime
 declare exact native literals. Decimal rewrites reuse checked native arithmetic;
-legacy predicates, sampling weights and numeric rolling/pivot restrictions remain.
+primitive predicate and typed sampling-weight restrictions remain.
 See the [typed unary contract](../docs/architecture/native-typed-unary-2026-10-03.md).
+Computed aggregate arguments and exact decimal aggregate, rolling and scalar
+pivot reductions now have complete local acceptance through the shared native
+engine. SUM uses precision 38 at the input scale; AVG uses precision 38 at
+`max(input_scale,6)` and rejects inexact division. Final overflow fails explicitly.
+ARRAY/STRUCT constructors preserve admitted logical child types. The
+[revised engine report](../docs/benchmarks/native-typed-reductions-full43-2026-10-05.md)
+records 20,445 public checks, 202 direct checks and all 129 Full43 executions,
+with no benchmark-specific executor or external fallback.
 See the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
 Binary supports all eight writers; ORC rejects decimal and temporal payloads. JSON/JSONL and collection
 encode binary as lowercase hex, decimals as `decimal128(precision,scale):unscaled_integer`,

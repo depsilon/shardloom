@@ -36,19 +36,18 @@ public invocation and verification boundaries. The phase plan owns the active wo
 
 ## One-Sentence Model
 
-ShardLoom admits a request, chooses explicit route modes, executes only through ShardLoom-native
-and Vortex-native boundaries, records what materialized or decoded, emits certificates and no-fallback
-evidence, then blocks or allows a narrow claim.
+ShardLoom receives admitted inputs or a source-free declaration, normalizes data into Vortex-native
+state, executes the shared native plan, and delivers the requested result or output with explicit
+resource, materialization and no-fallback evidence.
 
 ```text
-front door
--> source route
--> preparation route
--> execution route
--> output route
--> timing surface
--> evidence
--> claim gate
+CLI / SQL / Python / DataFrame declaration
+-> capability, type and policy admission
+-> input adapters or generated values
+-> Vortex-native preparation and retained state
+-> one shared native plan and operator family
+-> requested collection or output adapter
+-> complete result, resource and no-fallback evidence
 ```
 
 Core identity:
@@ -63,8 +62,9 @@ evidence-certified routes
 claim-gated benchmark reporting
 ```
 
-SQL and Python are front doors. The execution route is the admitted source, preparation,
-execution-mode, output, timing, and evidence path behind those front doors.
+CLI, SQL, Python and DataFrame APIs declare the same engine work. Input format, prepared-state
+reuse and output format describe data boundaries; they do not select alternative evaluators.
+The executed public plan family is `native_vortex_unified_plan`.
 
 ## Documentation Structure
 
@@ -84,8 +84,8 @@ This reference uses a small set of source-grounded documentation rules:
 
 | Reader | Start here | Stop when you can answer |
 | --- | --- | --- |
-| New user | At a glance, Route atlas, Current support snapshot | Which route am I using? |
-| Runtime implementer | Runtime contract, Execution mode lanes, Provider admission | Where is support decided? |
+| New user | At a glance, Route atlas, Current support snapshot | How does my input reach the native engine? |
+| Runtime implementer | Runtime contract, Execution mode lanes, Native operator hot path | Where is support decided? |
 | Benchmark reviewer | Timing surfaces, Stage attribution, Benchmark route labels | What was timed? |
 | Release reviewer | Evidence fields, Claim gate, What must never happen | Is a public claim allowed? |
 | Codex agent | Codex anchor prompt, Required invariants, Validation | Which invariant must my edit preserve? |
@@ -106,13 +106,13 @@ next owning doc or phase item
 
 ```mermaid
 flowchart LR
-    ACCESS["Access<br/>CLI / Python / SQL / adapter"]
+    ACCESS["Declaration<br/>CLI / SQL / Python / DataFrame"]
     REQUEST["Typed request<br/>source + workload + output intent"]
     ADMISSION["Admission<br/>policy + capability + semantics"]
-    SOURCE["Source route<br/>UniversalIngress / SourceState"]
-    PREPARE["Preparation<br/>vortex-prepare / VortexPreparedState"]
-    EXECUTE["Execution route<br/>compatibility import / prepared Vortex / native Vortex"]
-    OUTPUT["Output route<br/>OutputPlan / SinkArtifact"]
+    SOURCE["Input boundary<br/>file / memory / generated / no source"]
+    PREPARE["Vortex-native preparation<br/>normalize or reuse native state"]
+    EXECUTE["Shared native plan<br/>prune / transform / aggregate / compose"]
+    OUTPUT["Delivery<br/>collection or requested output format"]
     TIMING["Timing surface<br/>hot_runtime / replay / publication"]
     CLAIM["Claim gate<br/>evidence + blockers + no fallback"]
 
@@ -126,7 +126,8 @@ flowchart LR
 | No fallback execution | Unsupported work returns deterministic diagnostics with `fallback_attempted=false` and `external_engine_invoked=false`; Spark, DataFusion, DuckDB, Polars, pandas, Dask, Ray, Velox, Trino, databases, and warehouses do not execute ShardLoom work as fallback. |
 | Vortex is native | Vortex is the preferred input/output persistence target; compatibility formats are translation or import/export boundaries, not fallback execution engines. |
 | Front door is not route | CLI, Python, SQL, notebooks, adapters, and planned REST/event APIs express work; route evidence names the actual source/preparation/execution/output path. |
-| Preparation is visible | Non-Vortex inputs reach `prepared_vortex` only through `UniversalIngress`, `SourceState`, Vortex preparation, and `VortexPreparedState`. |
+| Preparation is visible | Admitted file adapters, typed memory and generated values normalize into Vortex-native state. Existing Vortex artifacts and retained native results can be reused. Evidence distinguishes normalization, artifact preparation and reuse. |
+| One execution family | Public requests report `public_workflow_native_vortex_plan_route_family=native_vortex_unified_plan`. Shared planners, kernels, resource admission and writers own execution. Source-free plans use that same family. |
 | Claims are gated | Runtime support, claim-grade evidence, production support, package readiness, performance claims, and Spark-replacement claims are separate fields. |
 | Timing surface is explicit | `hot_runtime`, `full_replay_proof`, and `publication_proof` rows must never silently replace each other. |
 
@@ -136,7 +137,7 @@ flowchart LR
 | --- | --- | --- |
 | Access and front doors | CLI, Python, SQL, adapters, planned API surfaces | typed request envelope, typed output envelope |
 | Source and preparation | `UniversalIngress`, `InputAdapter`, `SourceState`, `vortex-prepare`, `VortexPreparedState` | metadata-first source identity, optional source-content digest proof, prepared-state IDs/digests, stream batch policy, source-unit hints, dictionary handoff posture, import certificates |
-| Execution lanes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`; internal smoke is not a public lane | `requested_execution_mode`, `selected_execution_mode`, `mode_selection_reason`, execution certificates |
+| Native execution | one shared plan with native operators and explicit admission | `public_workflow_native_vortex_plan_route_family`, execution certificates, resource evidence |
 | Engine fabric | batch, live, hybrid, auto engine mode | `requested_engine_mode`, `selected_engine_mode`, effect and state boundaries |
 | Output and materialization | `OutputPlan`, `SinkArtifact`, Vortex output, compatibility exports | decode/materialization status, result-sink replay, metadata preservation/loss |
 | Timing and benchmarks | route lanes, timing surfaces, stage attribution | `timing_surface`, `route_total_formula`, stage milliseconds, claim gate status |
@@ -144,14 +145,15 @@ flowchart LR
 
 ## Route Atlas
 
-| Route | Starts from | Includes | Does not imply |
+These are input and preparation states around the same engine.
+
+| Boundary | Starts from | Includes | Does not imply |
 | --- | --- | --- | --- |
-| `compatibility_import_certified` | A recognized compatibility source admitted through `UniversalIngress` | source read, parse/decode where required, Vortex preparation, Vortex write/reopen, scan/query, output/replay, certificates, claim-gate evidence | pure query-speed timing, broad SQL/DataFrame support, object-store/table production I/O |
-| `prepared_vortex` | Existing `VortexPreparedState` | warm prepared query work, provider admission, output route, evidence | direct CSV/JSONL/Parquet/database/object-store reads |
-| `native_vortex` | Existing Vortex artifact or native Vortex state | native Vortex scan/source path, provider admission, output route, evidence | compatibility import or external engine evaluation |
-| `internal_local_source_smoke` | Internal compatibility diagnostic | internal diagnostic one-shot local path with explicit materialization/decode status | public workflow runtime, prepared-state reuse, native Vortex claim, or claim-grade production runtime |
-| `vortex_middle` | Public local workflow policy | prepare local compatibility input into Vortex or use native Vortex input before execution | separate execution lane, hidden fallback, or direct local-source runtime |
-| `external_baseline_only` | Explicit benchmark baseline row | comparison-only timing or correctness reference | ShardLoom runtime support or fallback execution |
+| File import | An admitted CSV, JSON, JSONL, Parquet, Arrow IPC, Avro or ORC file | format-specific reading and Vortex normalization before native computation | support for every schema, broad remote I/O or a format-specific evaluator |
+| Native or prepared input | An existing Vortex artifact or retained Vortex-native state | native source binding, reuse, planning and computation | that preparation was timed in the query |
+| Typed memory | Explicitly typed caller values | native value admission and normalization before the same plan | Python or another library executing transformations |
+| Generated or source-free input | Admitted rows, ranges, sequences or source-free SQL | native value generation and the shared plan | source file reads or a frontend evaluator |
+| Collection or file output | The native result | bounded delivery and an admitted writer for the requested format | zero decode, preserved compatibility-format metadata or state spill |
 
 ## Native Operator Hot Path
 
@@ -377,169 +379,36 @@ show `hot runtime row missing`.
 
 ## Benchmark Route Labels
 
-Public benchmark rows should use stable route lane labels:
+The current parameterized harness has one candidate identity, `shardloom`.
+Its workload catalog supplies complete SQL declarations to the public engine.
+`raw` and `prepared` input state, input format and requested sink are independent
+parameters. They never dispatch query-specific candidate executors. ClickBench
+uses the same public SQL workflow and verifies the shared native plan family.
 
-| Route lane id | Display label | Expected interpretation |
-| --- | --- | --- |
-| `cold_certified_route` | ShardLoom Cold Certified Route | Certified cold import/stage/query/output route. |
-| `prepare_once_first_query` | ShardLoom Prepare-Once First Query | First query after preparation is included or adjacent, depending on row formula. |
-| `prepare_once_batch` | ShardLoom Prepare-Once Batch | Amortized preparation plus child query rows with explicit attribution. |
-| `warm_prepared_query` | ShardLoom Warm Prepared Query | Query from existing `VortexPreparedState`. |
-| `native_vortex_query` | ShardLoom Native Vortex Query | Query from existing Vortex-native state/artifact. |
-| `direct_transient_route` | Internal Local Source Smoke Route | One-shot local transient path. |
-| `external_baseline_end_to_end` | External Baseline End-to-End | Comparison-only external baseline. |
+Record the actual input binding, complete declaration, binary and source hashes,
+reference identity, requested output, complete-value comparison and no-fallback
+fields. Attribute preparation, native query process time, writer/readback work
+and harness wall time explicitly. External baselines run in independent comparison
+processes and cannot satisfy candidate execution.
 
-Benchmark artifacts and website rows must expose:
-
-```text
-route_runtime_status
-route_lane_id
-route_display_name
-actual_evidence_tier
-timing_surface
-claim_gate_status
-performance_claim_allowed=false
-production_claim_allowed=false
-spark_replacement_claim_allowed=false
-fallback_attempted=false
-external_engine_invoked=false
-public_front_door_benchmark_rows
-compute_flow_evidence
-```
-
-## Contract Test Anchors
-
-The following labels are intentionally kept as stable reference anchors for validators, benchmark
-artifacts, and website data. They are vocabulary contracts, not a second phase queue.
-
-Workflow anchors:
-
-```text
-one-shot compatibility query
-ingest/stage workflow
-prepared Vortex query
-native Vortex query
-benchmark baseline comparison
-explicit execution mode
-explicit materialization/decode boundaries
-evidence-certified execution
-claim-gated benchmark/reporting
-Transient compatibility boundary
-```
-
-Execution-mode transition anchors:
-
-```text
-SELECTED --> DIRECT
-SELECTED --> COMPAT
-SELECTED --> PREPARED
-SELECTED --> NATIVE
-```
-
-Provider and blocker anchors:
-
-```text
-vortex_native_claim_allowed
-compatibility_import_included
-vortex_prepare_included
-vortex_write_reopen_included
-direct_transient_execution
-claim_gate_status=not_claim_grade
-execution_mode_attribution_contract
-use_vortex_native_provider
-wrap_vortex_concept
-implement_shardloom_kernel
-baseline_or_oracle_only
-unsupported_until_vortex_or_shardloom_evidence
-operator_execution_class
-operator_blocker_id
-operator_encoded_native_claim_allowed
-persistent_runner_admission_gate
-process_startup_attribution
-Unsupported work must return deterministic unsupported diagnostics
-SQL local-source smoke
-scoped fixture-smoke local CSV/JSONL/flat JSON/Parquet/Arrow IPC/Avro/ORC
-Actionable implementation work must be represented in the active phase queue
-docs/architecture/compute-engine-flow-overhaul-review.md
-```
-
-Stage attribution anchors:
-
-```text
-total_runtime_millis
-source_stat_millis
-source_read_millis
-source_parse_millis
-compatibility_parse_millis
-source_to_columnar_millis
-source_state_materialization_layout
-source_state_parse_normalization
-source_state_columnar_preserved
-source_state_record_batch_count
-compatibility_to_vortex_import_millis
-compatibility_to_vortex_import_timing_scope
-vortex_array_build_millis
-vortex_array_build_provider_kind
-vortex_array_build_provider_surface
-vortex_array_build_strategy
-vortex_array_build_input_layout
-vortex_array_build_record_batch_count
-vortex_array_build_manual_scalar_copy_avoided
-vortex_write_millis
-vortex_digest_millis
-vortex_reopen_verify_millis
-vortex_reopen_millis
-vortex_scan_millis
-operator_compute_millis
-operator_compute_timing_scope
-result_sink_write_millis
-evidence_render_millis
-evidence_render_timing_status
-not_available
-not_applicable
-rows avoided
-stable correctness digest
-Native I/O certificate
-work_avoidance_evidence_schema
-python_harness_overhead_status
-```
-
-Source-state reuse anchors are owned by
-`docs/architecture/source-state-reuse-coverage-matrix.md`. Prepared/native batch evidence carries
-`source_state_coverage` fields and uses
-`source_state_digest_status=emitted_scoped_in_memory_source_state_digest` when scoped in-memory
-source-state digests are present.
-
-```text
-source_metadata_snapshot_status=per_batch_source_metadata_reused
-source_state_reuse_status=per_batch_dimension_label_state_reused
-source_state_reuse_status=per_batch_fact_metric_state_reused
-source_state_fact_metric_*
-source_state_reuse_status=per_batch_category_metric_state_reused
-source_state_category_metric_*
-source_state_reuse_status=per_batch_group_category_metric_state_reused
-source_state_group_category_metric_*
-source_state_reuse_status=per_batch_ranked_metric_state_reused
-source_state_ranked_metric_*
-source_state_reuse_status=per_batch_selective_filter_state_reused
-source_state_selective_filter_*
-source_state_reuse_status=per_batch_dirty_input_state_reused
-source_state_dirty_input_*
-source_state_reuse_status=per_batch_date_null_metric_state_reused
-source_state_date_null_metric_*
-```
+Older immutable benchmark reports retain their original lane and timing labels.
+They describe those historical measurements; they do not define current runtime
+dispatch or establish performance for the consolidated engine. The
+[harness alignment note](compute-engine-flow-overhaul-review.md) and
+[October 5 acceptance report](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
+record the current invocation, complete result and evidence boundaries.
 
 ## Current Support Snapshot
 
 | Surface | Current posture | Claim boundary |
 | --- | --- | --- |
-| CLI and Python local smokes | Scoped local technical-preview paths exist. | Not package-readiness, production, or broad DataFrame/SQL support. |
-| Local compatibility inputs | CSV/JSONL/flat JSON and selected feature-gated local formats enter through `UniversalIngress`. | Compatibility import/export is not fallback execution. |
-| Vortex preparation | Feature-gated local `vortex-prepare` creates `VortexPreparedState` evidence. | Scoped local flat-schema evidence only. |
-| Prepared/native benchmark routes | Promoted artifacts separate cold, prepare-once, warm prepared, native, direct, and baseline lanes. | Claims depend on `timing_surface`, evidence tier, and claim gate. |
-| SQL/DataFrame front doors | Scoped fixture/local-source rows exist for selected expressions and outputs. | Not broad PySpark, pandas, Polars, SQL-standard/ANSI-style, or production parity. |
+| Public CLI, SQL, Python and DataFrame | Shared native plan admission, execution and result delivery; retained native results compose without frontend evaluation. | Support remains bounded by admitted operators, schemas, resources and output representations. |
+| Local inputs | Eight admitted file formats, typed memory and source-free declarations are covered by the parameterized public acceptance. | Format recognition does not admit every logical type or remote connector. |
+| Vortex preparation | Compatibility data normalizes before execution; native artifacts and retained results are reusable. | Vortex is native input and highest-fidelity output. Preparation and query time remain distinct. |
+| Native operators | Relational composition, nested payloads/keys, typed expressions/unary operators and exact decimal reductions have complete local acceptance. | Wider analytic frames, scalar-value subqueries, nested pivot state, broader adapters and general state spill retain their own acceptance gates. |
+| Current benchmark harness | Raw/prepared input and requested output parameters exercise one public candidate; all 129 Full43 executions verify `native_vortex_unified_plan`. | Complete correctness evidence is available; this consolidation has no paired speedup claim. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked. | No production platform claim. |
-| Package/release | Local no-publication rehearsals and gates exist. | Public package/release claims remain blocked until explicit release gates pass. |
+| Package/release | Selected-channel identities and proofs are owned by the release matrix. The revised engine requires its own subsequent release train. | Existing package publication does not certify unshipped source or production readiness. |
 
 ## Runtime Contract
 
@@ -550,7 +419,7 @@ flowchart LR
     POLICY["Policy check<br/>effects + credentials + no fallback"]
     CAPABILITY["Capability check<br/>source + operator + sink"]
     UNSUPPORTED["Unsupported diagnostic<br/>deterministic blocker"]
-    ROUTE["Admitted route<br/>source + preparation + execution"]
+    ROUTE["Shared native plan<br/>source binding + operators + delivery"]
     CERT["Evidence contract<br/>certificates + no-fallback fields"]
 
     USER --> ENVELOPE --> POLICY --> CAPABILITY
@@ -558,54 +427,52 @@ flowchart LR
     CAPABILITY --> UNSUPPORTED --> CERT
 ```
 
-Admission happens before execution. Capability recognition is not runtime support. If a route is
-not admitted, the result is an unsupported diagnostic, not external execution.
+Admission happens before execution. Capability recognition is not runtime support. Unsupported
+work returns deterministic diagnostics with no external execution. Vortex native array, compute,
+scan and sink providers stay isolated inside the admitted ShardLoom boundary; query-engine
+integrations are never providers for unsupported work.
 
 ## Source And Preparation
 
 ```mermaid
 flowchart LR
-    INPUT["Input descriptor<br/>file / Vortex / generated / remote ref"]
-    ADAPTER["InputAdapter<br/>format-specific recognition"]
-    SOURCE["SourceState<br/>metadata identity + schema + route"]
-    INGEST["vortex_ingest<br/>local preparation boundary"]
-    PREPARED["VortexPreparedState<br/>artifact ref + digest"]
-    PREPARED_ROUTE["prepared_vortex<br/>warm prepared execution"]
+    INPUT["File / typed memory / generated values"]
+    ADAPTER["Input admission<br/>format + schema + policy"]
+    INGEST["Normalize<br/>Vortex-native values or prepared artifact"]
+    NATIVE["Existing Vortex artifact / retained native result"]
+    SOURCE["Shared native source binding"]
+    PLAN["Shared native plan"]
     BLOCK["Blocker<br/>unsupported source or policy"]
 
-    INPUT --> ADAPTER --> SOURCE --> INGEST --> PREPARED --> PREPARED_ROUTE
+    INPUT --> ADAPTER --> INGEST --> SOURCE --> PLAN
+    NATIVE --> SOURCE
     ADAPTER --> BLOCK
     INGEST --> BLOCK
 ```
 
-`prepared_vortex` starts at `VortexPreparedState`. It does not become a parallel direct reader for
-CSV, JSONL, Parquet, databases, object-store objects, generated rows, or ad hoc Python values.
+Adapters own reading and normalization. Operators consume the native binding; they do not replay
+original compatibility files. A source-free declaration can generate native values or evaluate
+admitted expressions in the same plan. Remote references are recognized only where a concrete
+adapter and effect policy admit them; recognition alone performs no remote I/O.
 
 ## Execution Mode Lanes
 
 ```mermaid
 flowchart LR
-    REQUEST["requested_execution_mode<br/>explicit concrete lane"]
-    SELECT["selected_execution_mode<br/>with reason"]
-    COMPAT["compatibility_import_certified<br/>cold certified lane"]
-    PREPARED["prepared_vortex<br/>prepared-state lane"]
-    NATIVE["native_vortex<br/>native Vortex lane"]
-    DIRECT["internal_local_source_smoke<br/>internal diagnostic lane"]
-    BASELINE["external_baseline_only<br/>comparison only"]
-    RESULT["Result envelope<br/>route + evidence + claim status"]
+    REQUEST["Public declaration"]
+    INPUT["Input and preparation admission"]
+    NATIVE["native_vortex_unified_plan"]
+    OUTPUT["Requested collection or writer"]
+    RESULT["Result envelope<br/>source + preparation + execution evidence"]
 
-    REQUEST --> SELECT
-    SELECT --> COMPAT --> RESULT
-    SELECT --> PREPARED --> RESULT
-    SELECT --> NATIVE --> RESULT
-    SELECT -. internal diagnostics only .-> DIRECT --> RESULT
-    SELECT -. baseline only .-> BASELINE --> RESULT
+    REQUEST --> INPUT --> NATIVE --> OUTPUT --> RESULT
 ```
 
-`auto` is not a public execution lane. Legacy callers may request it as a compatibility alias, but
-facades normalize local-file workflow policy to `vortex_middle` and must report a concrete selected
-mode such as `prepared_vortex`, `native_vortex`, or `compatibility_import_certified`.
-`internal_local_source_smoke` must never appear as the product runtime middle.
+Serialized evidence still distinguishes `compatibility_import_certified`, `prepared_vortex` and
+`native_vortex` to describe import/preparation attribution. These values do not select separate
+executors. Public workflow policy is `vortex_middle`, and its plan-family evidence names the shared
+native engine. Retired transient and query-specific benchmark executors are deleted; prior
+publications do not justify retaining them.
 
 ## Engine Fabric
 
@@ -731,8 +598,8 @@ Not allowed:
 - Do not compare hot query runtime against publication-proof totals without saying so.
 - Do not call `prepared_vortex` a direct reader for compatibility files.
 - Do not hide source admission, preparation, materialization, decode, sink, or evidence-render costs.
-- Do not use `auto` to hide unsupported routes or mode substitution; normalize to
-  `vortex_middle` or a concrete execution lane before route evidence is emitted.
+- Do not use mode labels to hide unsupported work or introduce an alternate evaluator.
+  Admit the declaration through the shared native plan or return an explicit diagnostic.
 - Do not let website copy imply production support, package publication, Spark-displacement, object-store/lakehouse runtime, Foundry production, or performance superiority without claim-grade evidence.
 - Do not keep outdated legacy docs on public pages when this reference, the phase plan, or promoted benchmark artifacts have moved on.
 
@@ -773,7 +640,7 @@ npm run build
 npm run check
 cd ..
 python scripts/check_website_readiness.py
-node website/validate_static_assets.js
+node scripts/validate_static_assets.cjs
 git diff --check
 ```
 

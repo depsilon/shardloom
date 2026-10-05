@@ -2,8 +2,10 @@
 
 # Native typed unary state
 
-Status: implemented with local functional acceptance under PERF-02/03/07/10/11/12 and
-CG-3/5/19/20/21. The [phase plan](phased-execution-plan.md) owns sequencing.
+Status: implemented and accepted under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21;
+merged in [PR #1515](https://github.com/depsilon/shardloom/pull/1515) on October 4
+after all 37 hosted checks passed. The [completed ledger](phased-execution-completed-ledger.md)
+records exact identities and review limitations. The [phase plan](phased-execution-plan.md) owns sequencing.
 This continues the locally accepted [typed expressions](native-typed-expressions-2026-10-03.md),
 [unary composition](native-unary-composition-2026-10-02.md) and
 [dynamic pivot](native-dynamic-pivot-composition-2026-10-03.md) contracts.
@@ -196,9 +198,9 @@ Q15 timing and Q34 RSS flags do not reproduce; Q9 reverses timing direction and
 remains flagged for timing/RSS. Its performance conclusion stays inconclusive,
 with both cohorts retained and no speedup or uniformly unchanged-performance
 claim. The report distinguishes these observations from functional acceptance.
-Hosted runtime review and checks remain pending. The earlier review exhausted
-the bot's quota; local review evidence is retained. No package, tag or release
-is published.
+PR #1515 subsequently merged after all 37 hosted checks passed. The earlier
+review exhausted the bot's quota and is not counted as approval; local review
+evidence is retained. This unit publishes no package, tag or release.
 
 Broader aggregate/window semantics, nested keys, adapters, general state
 spill/recovery, native Python binding experiments, paused large text/format
