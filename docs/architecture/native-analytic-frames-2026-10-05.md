@@ -2,8 +2,8 @@
 
 # Native analytic frames
 
-Status: implemented with focused native verification; complete frozen public
-acceptance and hosted review remain pending. This is the analytic-frame
+Status: complete frozen local acceptance and independent packet inspection;
+hosted review/checks remain pending. This is the analytic-frame
 continuation already required by the universal workflow queue. The preceding
 consolidated engine has completed its independent local acceptance.
 
@@ -130,16 +130,17 @@ when the current grant is insufficient. Reservations are not an RSS limit.
   results, dictionary/chunk boundaries, input reordering and repeated execution.
 - [x] Prove cancellation, constrained grants, empty-plan rejection and writer
   rollback through shared execution and resource reports.
-- [ ] Freeze complete public SQL/DataFrame/CLI workflows, all representable sinks,
+- [x] Freeze complete public SQL/DataFrame/CLI workflows, all representable sinks,
   input-format coverage, required source checks and Full43 regression evidence.
 - [ ] Complete hosted review and checks and update the canonical phase ledger.
 
-The focused verification covers ten native frame tests, five SQL lowering tests
-and the independent exact-rational floating accumulator fixtures. The complete
-native Vortex suite passes 2,301 tests with 23 intentionally ignored tests; the
-default workspace tests and strict default/native lint checks also pass. These
-checks do not substitute for the pending frozen public SQL/DataFrame/CLI matrix
-or Full43 regression.
+Frozen source `22f1e6ba` passes 22,658 public checks and 15,349,350 complete row
+comparisons, including 2,213 frame checks and 1,067,280 independently specified
+rows. The separate direct matrix passes 202 checks; all 129 Full43 executions,
+22 source gates, 145 admitted-semantics stages and nine golden stages pass.
+The [acceptance report](../benchmarks/native-analytic-frames-full43-2026-10-05.md)
+links the immutable packet and successful independent streaming inspection.
+The earlier focused checks and interrupted attempts remain recorded separately.
 
 Scalar-value subqueries, nested pivot extensions, adapters and general state
 spill retain their existing owners. Website and hardware work follow core

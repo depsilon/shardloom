@@ -303,8 +303,11 @@ the ledger.
       preserve ranking/navigation and deterministic empty-plan admission.
     - [x] Implement moving aggregate/value state with exact decimal and reversible
       floating totals, typed NULLs, selected payload ownership and failure cleanup.
-    - [ ] Freeze independent complete workflow/writer results, resource proof,
+    - [x] Freeze independent complete workflow/writer results, resource proof,
       required local checks and Full43 regression; align capabilities and docs.
+      The [October 5 frame acceptance](../benchmarks/native-analytic-frames-full43-2026-10-05.md)
+      records 22,658 public checks, 202 direct checks, all 129 Full43 executions,
+      22 source gates and successful independent packet inspection.
     - [ ] Complete hosted review/checks and record finite completion in the ledger.
   - Acceptance: one shared native window family with complete-value proof.
     Retained state remains grant-bounded; window spill is a separate resource
