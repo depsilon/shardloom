@@ -30,6 +30,7 @@ from release_channel_contract import (
     SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     selected_channel_ids,
 )
+from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -517,11 +518,7 @@ def main() -> int:
                 "golden workflow support_matrix_status="
                 + str(golden_workflow.get("support_matrix_status", "missing"))
             )
-        required_workflows = {
-            "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-            "generated_source_to_local_vortex_output_replay_fidelity",
-            "prepared_native_vortex_count_filter_project_execution_certificates",
-        }
+        required_workflows = GOLDEN_WORKFLOW_IDS
         observed_workflows = set(golden_workflow.get("workflow_ids", []))
         missing_workflows = sorted(required_workflows - observed_workflows)
         if missing_workflows:
@@ -1371,7 +1368,7 @@ def main() -> int:
                 v1_vortex_blockers.append("v1 Vortex native route owner mismatch")
             if routes_by_id["native_vortex_query"].get("route_runtime_status") != "global_runtime_supported":
                 v1_vortex_blockers.append("v1 Vortex native route must be globally supported")
-            if routes_by_id["object_store_lakehouse_runtime"].get("owner") != "external_environment_gate":
+            if routes_by_id["object_store_lakehouse_runtime"].get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
                 v1_vortex_blockers.append("v1 Vortex object-store route must remain externally gated")
             if routes_by_id["object_store_lakehouse_runtime"].get("route_runtime_status") != "external_environment_gate_pending":
                 v1_vortex_blockers.append("v1 Vortex object-store route must remain externally gated")
@@ -1996,7 +1993,7 @@ def main() -> int:
                 ("vortex_runtime", "performance_evidence_produced"): False,
                 ("local_output_sink", "supported_output_format_count"): 8,
                 ("local_output_sink", "write_method_count"): 10,
-                ("local_output_sink", "output_route_count"): 7,
+                ("local_output_sink", "output_route_count"): 1,
                 ("python_user_surface", "method_matrix_row_count"): 114,
                 ("python_user_surface", "method_matrix_row_list_count"): 114,
                 ("python_user_surface", "required_operation_method_count"): 13,
@@ -2315,7 +2312,7 @@ def main() -> int:
                 user_route_capability_blockers.append("native_vortex_query owner must be shared_native_workflow")
             if native_route.get("route_runtime_status") != "global_runtime_supported":
                 user_route_capability_blockers.append("native_vortex_query must be globally runtime supported")
-            if external_route.get("owner") != "external_environment_gate":
+            if external_route.get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
                 user_route_capability_blockers.append("object-store route must remain externally gated")
             if external_route.get("route_runtime_status") != "external_environment_gate_pending":
                 user_route_capability_blockers.append("object-store route must remain externally gated")

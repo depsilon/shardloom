@@ -126,6 +126,23 @@ and all 157 release-script tests pass, including negative evidence checks.
 The [package-checker receipt](evidence/native-typed-reductions-package-checker-2026-10-05.json)
 retains the hosted failure, local checks and unchanged runtime-source hashes.
 
+A subsequent hosted source-state gate exposed missing explicit false release
+and publication declarations. Tracing its downstream consumers also found stale
+route ownership, output-route counts, quickstart fields and golden-workflow
+identities. The checkers now consume the current producer contracts and retain
+strict rejection of missing, ambiguous or unsafe evidence. Golden replay records
+its existing complete-row comparison, and each quickstart creates fresh source
+and output paths so repeated runs preserve earlier files.
+
+All 184 focused release-contract tests pass. Fresh resource-safety,
+observability, golden-workflow and example-replay checks pass against the accepted
+executable, including downstream correctness consumers. The
+[release-report repair receipt](evidence/native-typed-reductions-release-report-repair-2026-10-05.json)
+preserves the hosted failure, three failed local follow-ups, diagnostic evidence,
+successful replay and exact repair sources. All 681 runtime source hashes and the
+accepted binary hash are unchanged; this follow-up does not replace or relabel
+the original runtime acceptance. Hosted rechecks remain pending.
+
 ## Resource and evidence boundaries
 
 Large local work stays serial under the existing process/storage guards.

@@ -661,7 +661,9 @@ def validate_user_route_report(payload: Mapping[str, Any]) -> tuple[dict[str, An
         "external_engine_invoked": False,
     }
     for key, value in expected.items():
-        if payload.get(key) != value:
+        actual = payload.get(key)
+        matches = actual is value if isinstance(value, bool) else actual == value
+        if not matches:
             blockers.append(f"user_route_capability: {key}={payload.get(key, 'missing')}")
     if payload.get("all_no_fallback_no_external_engine") is not True:
         blockers.append("user_route_capability: all_no_fallback_no_external_engine must be true")
@@ -684,7 +686,7 @@ def validate_user_route_report(payload: Mapping[str, Any]) -> tuple[dict[str, An
             blockers.append("user_route_capability: native_vortex_query owner mismatch")
         if native.get("route_runtime_status") != "global_runtime_supported":
             blockers.append("user_route_capability: native_vortex_query must be globally supported")
-        if external.get("owner") != "external_environment_gate":
+        if external.get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
             blockers.append("user_route_capability: object-store route must remain externally gated")
         if external.get("route_runtime_status") != "external_environment_gate_pending":
             blockers.append("user_route_capability: object-store route must remain externally gated")

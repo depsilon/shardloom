@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 from pathlib import Path
 from typing import Sequence
 
@@ -35,8 +36,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     smoke = client.smoke_check()
     capabilities = client.capabilities()
 
-    quickstart_dir = repo_root / "target" / "local-python-smoke"
-    quickstart_dir.mkdir(parents=True, exist_ok=True)
+    quickstart_root = repo_root / "target" / "local-python-smoke"
+    quickstart_root.mkdir(parents=True, exist_ok=True)
+    quickstart_dir = Path(tempfile.mkdtemp(prefix="run-", dir=quickstart_root))
     source_path = quickstart_dir / "orders.csv"
     generated_output_path = quickstart_dir / "generated-reference.jsonl"
     source_path.write_text(
@@ -53,12 +55,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         .select("id", "label", "amount")
         .limit(2)
     )
-    local_file = workflow.collect()
+    local_file = workflow.collect(check=True)
 
     generated = (
         ctx.from_rows([{"id": 1, "label": "alpha"}])
         .with_column("batch_id", 1)
-        .write_jsonl(generated_output_path, allow_overwrite=True)
+        .write_jsonl(generated_output_path)
     )
     expected_generated_rows = [{"id": 1, "label": "alpha", "batch_id": 1}]
     generated_result_verified = False

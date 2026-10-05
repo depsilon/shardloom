@@ -20,6 +20,7 @@ from typing import Any
 
 from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 from native_workflow_protocol import extract_result, read_json_output
+from golden_workflow_contract import LOCAL_FILE_WORKFLOW_ID, SOURCE_FREE_WORKFLOW_ID, NATIVE_PRIMITIVE_WORKFLOW_ID
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -318,6 +319,7 @@ def run_cli_stage(
     completed = run_subprocess(repo_root=repo_root, command=command)
     payload: dict[str, Any]
     blockers: list[str] = []
+    complete_result_rows_verified = False
     try:
         payload = json.loads(completed.stdout)
         if not isinstance(payload, dict):
@@ -351,6 +353,8 @@ def run_cli_stage(
                     blockers.append(
                         f"{stage_id}: result rows differ from the declared fixture expectation"
                     )
+                else:
+                    complete_result_rows_verified = True
             except (TypeError, ValueError) as exc:
                 blockers.append(f"{stage_id}: invalid complete native result: {exc}")
     for artifact_path in artifact_paths:
@@ -377,6 +381,8 @@ def run_cli_stage(
         "status": "passed" if not blockers else "failed",
         "artifact_ref": rel(repo_root, artifact_ref),
         "selected_fields": fields,
+        "complete_result_rows_verified": complete_result_rows_verified and not blockers,
+        "complete_result_row_count": len(expected_rows) if expected_rows is not None else None,
         "blockers": blockers,
     }
 
@@ -866,7 +872,7 @@ def workflow_local_csv_to_prepared_and_fanout(
     fanout_stage["status"] = "failed" if fanout_stage["blockers"] else "passed"
     blockers = [blocker for stage in stages for blocker in stage["blockers"]]
     return {
-        "workflow_id": "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+        "workflow_id": LOCAL_FILE_WORKFLOW_ID,
         "status": "passed" if not blockers else "failed",
         "source_route": "local_csv_input_adapter",
         "preparation_route": "vortex_ingest",
@@ -987,7 +993,7 @@ def workflow_source_free_sql_to_vortex(
     ]
     blockers = [blocker for stage in stages for blocker in stage["blockers"]]
     return {
-        "workflow_id": "source_free_sql_values_to_local_vortex_output_replay_fidelity",
+        "workflow_id": SOURCE_FREE_WORKFLOW_ID,
         "status": "passed" if not blockers else "failed",
         "source_route": "source_free_sql_values",
         "preparation_route": "public_sql_vortex_output",
@@ -1123,7 +1129,7 @@ def workflow_certified_native_primitives(
     ]
     blockers = [blocker for stage in stages for blocker in stage["blockers"]]
     return {
-        "workflow_id": "prepared_native_vortex_count_filter_project_execution_certificates",
+        "workflow_id": NATIVE_PRIMITIVE_WORKFLOW_ID,
         "status": "passed" if not blockers else "failed",
         "source_route": "local_vortex_fixture",
         "preparation_route": "checked_in_prepared_vortex_fixture",

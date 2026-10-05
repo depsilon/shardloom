@@ -12,6 +12,11 @@ The script imports the source-tree Python package, resolves the local CLI,
 runs status, smoke, and capability checks, and exits nonzero if fallback is
 attempted.
 
+Each run creates its source and generated JSONL result in a fresh directory under
+`target/local-python-smoke/`, reopens the result and prints its path. Replaying the
+example preserves earlier sources and outputs and does not request replacement
+of an existing file.
+
 Files in this example:
 
 - `environment.yml`: minimal source-checkout environment shape.

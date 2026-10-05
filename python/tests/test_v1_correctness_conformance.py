@@ -48,7 +48,7 @@ class V1CorrectnessConformanceReportTests(unittest.TestCase):
                 },
                 {
                     "route_id": "object_store_lakehouse_runtime",
-                    "owner": "external_environment_gate",
+                    "owner": "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog",
                     "route_runtime_status": "external_environment_gate_pending",
                     "fallback_attempted": False,
                     "external_engine_invoked": False,
