@@ -152,6 +152,21 @@ retains the failure and proof: only that test differs within the preceding
 681-file Rust/Cargo/Python source inventory; engine implementation and accepted
 binary bytes remain unchanged.
 
+The final hosted report job found three missing first-steps source declarations.
+The guide now includes file, memory-row and generated-row entry points, builds
+the admitted native feature set, and writes its example to a new temporary
+directory each time. Two executions of the literal documented Python command
+produce the complete expected row and preserve the earlier output.
+
+The [first-steps repair receipt](evidence/native-typed-reductions-first-steps-repair-2026-10-05.json)
+preserves the original documentation failure and an isolated replay against the
+exact downloaded hosted evidence. All eight report commands required to exit
+successfully in that job pass, including local finished-product readiness.
+The ninth command, hard release readiness, remains blocked as the workflow
+explicitly permits before publication; its blockers are retained. The downloaded
+Linux executable is not run locally. This documentation-only correction leaves
+runtime acceptance unchanged, and does not establish public release readiness.
+
 ## Resource and evidence boundaries
 
 Large local work stays serial under the existing process/storage guards.

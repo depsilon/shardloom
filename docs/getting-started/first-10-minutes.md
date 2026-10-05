@@ -39,7 +39,7 @@ phase-plan internals.
 ## 1. Build The CLI
 
 ```powershell
-cargo build -p shardloom-cli --bin shardloom
+cargo build -p shardloom-cli --bin shardloom --features release-user-surfaces
 ```
 
 ## 2. Run Status And Capabilities
@@ -57,7 +57,7 @@ python examples\local-python-smoke\run.py --repo-root .
 ```
 
 The script imports the Python wrapper, runs status, smoke, and capability
-checks, creates `target/local-python-smoke/orders.csv`, runs a bounded CSV
+checks, creates a fresh `target/local-python-smoke/run-*/orders.csv`, runs a bounded CSV
 workflow and a caller-declared memory-row write through the shared native
 route, checks an unsupported UDF request, and prints evidence markers such as
 `quickstart_local_file_blocker_id`, `quickstart_generated_output_row_count`,
@@ -75,10 +75,17 @@ or Foundry production claim. See
 
 ## 5. Try Memory-Backed Native Output
 
+After creating `ctx = context(repo_root='.')`, use `ctx.read('orders.csv')`
+for a file, `ctx.from_rows([{'id': 1}])` for declared memory rows, or
+`ctx.range(0, 3)` for generated rows. These declarations enter the same native
+planner when collected or written; Python does not evaluate the query.
+
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from pathlib import Path; import tempfile; from shardloom import context; output=Path(tempfile.mkdtemp(prefix='shardloom-first-steps-'))/'generated-reference.jsonl'; ctx=context(repo_root='.'); r=ctx.from_rows([{'id': 1, 'label': 'alpha'}]).write(output); print(output, r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
+
+The example writes to a new temporary directory on each run and prints its path.
 
 Source-free and typed-memory declarations use the shared native workflow. `collect()` can return
 complete typed results, and callers can request the same declared sinks used by other workflows.
