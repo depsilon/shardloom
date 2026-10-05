@@ -17,6 +17,7 @@ import run_clickbench_query_uat as query_uat
 from run_clickbench_query_uat import compress_completed_log, correctness_boundary, equivalent, extract_reference_result, extract_result, read_json_log, run_command, run_profiled_command, score, strict_json
 from native_workflow_protocol import public_workflow_command
 from clickbench_reference_packet import canonical_values_sha256
+from native_workflow_test_support import schema_payload
 
 
 def envelope(summary):
@@ -24,33 +25,6 @@ def envelope(summary):
         {"key": "public_workflow_fallback_attempted", "value": "false"},
         {"key": "public_workflow_external_engine_invoked", "value": "false"},
     ]}
-
-
-def schema_payload(rows, dtypes=None, names=None):
-    names = list(rows[0]) if names is None and rows else (names or [])
-    if dtypes is None:
-        dtypes = []
-        for name in names:
-            values = [row[name] for row in rows]
-            present = next((value for value in values if value is not None), None)
-            nullable = any(value is None for value in values)
-            if present is None:
-                dtype = "Null"
-            elif type(present) is bool:
-                dtype = {"Bool": nullable}
-            elif type(present) is int:
-                kind = "u64" if present > (1 << 63) - 1 else "i64"
-                dtype = {"Primitive": [kind, nullable]}
-            elif isinstance(present, str):
-                dtype = {"Utf8": nullable}
-            else:
-                raise AssertionError(f"test schema needs an explicit dtype for {name}")
-            dtypes.append(dtype)
-    schema = {"Struct": [{"names": names, "dtypes": dtypes}, False]}
-    return [
-        {"key": "result_schema_json", "value": json.dumps(schema)},
-        {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
-    ]
 
 
 class ClickBenchUatTests(unittest.TestCase):

@@ -160,7 +160,7 @@ def cases(rows: list[dict]) -> list[dict]:
     filtered = sorted(filtered, key=lambda row: (-row["metric_units"], row["row_key"]))[3:15]
     tail = rows[-12:]
     result = [
-        case("metadata_count", "scalar", "SELECT COUNT(*) FROM heldout", len(rows)),
+        case("metadata_count", "scalar", "SELECT COUNT(*) FROM heldout", [{"count_all": len(rows)}]),
         case("nullable_numeric_scalar", "scalar", f"SELECT {numeric_measures} FROM heldout", [scalar_oracle(rows, "optional_units")]),
         case("exact_integer_extrema", "scalar", "SELECT MIN(exact_identifier) AS smallest, MAX(exact_identifier) AS largest FROM heldout",
              [{"smallest": -(2**63), "largest": 2**63 - 1}]),
