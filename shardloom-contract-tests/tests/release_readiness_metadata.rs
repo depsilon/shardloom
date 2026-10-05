@@ -860,7 +860,9 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
     assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
     assert!(first_ten.contains(".from_rows([{'id': 1, 'label': 'alpha'}])"));
-    assert!(first_ten.contains(".write('target/generated-reference.jsonl'"));
+    assert!(first_ten.contains("tempfile.mkdtemp(prefix='shardloom-first-steps-')"));
+    assert!(first_ten.contains("/'generated-reference.jsonl'"));
+    assert!(first_ten.contains(".write(output)"));
     assert!(first_ten.contains("--input-state raw"));
     assert!(first_ten.contains("--reference-engine pandas"));
     assert!(first_ten.contains("public package release"));
