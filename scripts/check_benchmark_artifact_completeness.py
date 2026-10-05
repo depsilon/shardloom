@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT))
 from benchmarks.traditional_analytics.comparison import round_float
+from benchmarks.traditional_analytics.benchmark_models import comparison_input_format
 from benchmarks.traditional_analytics.run import harness_source_inventory
 from benchmarks.traditional_analytics.workloads import WORKLOADS
 from native_workflow_protocol import extract_result, read_json_output, report_fields, strict_json
@@ -96,6 +97,47 @@ def _option(command, name):
     if command.count(name) != 1 or command.index(name) + 1 >= len(command):
         raise ValueError(f"native command requires exactly one {name} value")
     return command[command.index(name) + 1]
+
+
+def _role_sources(paths, data_format, roles):
+    sources = {}
+    for role in roles:
+        if role == "parts":
+            directory = Path(paths[f"fact_{data_format.replace('-', '_')}_parts_dir"])
+            extension = "arrow" if data_format == "arrow-ipc" else data_format
+            members = sorted(directory.glob(f"part-*.{extension}"))
+        else:
+            key = "cdc_delta_csv" if role == "delta" else f"{role}_{data_format.replace('-', '_')}"
+            members = [Path(paths[key])]
+        if not members:
+            raise ValueError("workload source role has no declared files")
+        sources[role] = [(path.resolve(), "csv" if role == "delta" else data_format) for path in members]
+    return sources
+
+
+def _native_declarations(workload, paths, data_format, input_state, preparations):
+    targets = {}
+    for receipt in preparations:
+        command = receipt["command"]
+        key = (Path(command[2]).resolve(), _option(command, "--input-format"))
+        if key in targets:
+            raise ValueError("native input preparation duplicates a source and format")
+        targets[key] = Path(command[3]).resolve()
+    expressions, bindings = {}, {}
+    for role, members in _role_sources(paths, data_format, workload.source_roles).items():
+        references = []
+        for source, source_format in members:
+            path, bound_format = source, source_format
+            if input_state == "prepared":
+                if source_format != "vortex":
+                    path = targets[(source, source_format)]
+                bound_format = "vortex"
+            bindings[path] = bound_format
+            references.append("'" + str(path).replace("'", "''") + "'")
+        expressions[role] = ("(" + " UNION ALL ".join(f"SELECT * FROM {ref}" for ref in references)
+                             + ") AS parts") if role == "parts" else references[0]
+    statements, writer = workload.bind(expressions)
+    return list(statements), ([writer] if writer is not None else []) + list(statements), bindings
 
 
 def _bindings(command):
@@ -176,14 +218,17 @@ class EvidenceReader:
             raise ValueError("unknown native requested output")
         return envelope
 
-    def prepared_inputs(self, receipts, inputs, binary_sha):
+    def prepared_inputs(self, receipts, inputs, binary_sha, *, fixtures=False):
         targets = set()
         for receipt in receipts:
             envelope = self.receipt(receipt, native=True, binary_sha=binary_sha, preparation=True)
             command = receipt["command"]
             source, target = Path(command[2]).resolve(), Path(command[3]).resolve()
-            if source not in inputs or target in inputs or target in targets:
+            if (source not in inputs or target == source or target in targets
+                    or (target in inputs) != fixtures):
                 raise ValueError("preparation must bind frozen inputs to unique new targets")
+            if fixtures and (_option(command, "--input-format") != "csv" or target.suffix != ".vortex"):
+                raise ValueError("native format fixtures require declared CSV-to-Vortex preparation")
             fields = {}
             if not isinstance(envelope.get("fields"), list):
                 raise ValueError("native preparation fields are absent")
@@ -211,6 +256,36 @@ class EvidenceReader:
             targets.add(target)
         return targets
 
+    def reused_inputs(self, records, inputs):
+        reused = set()
+        for item in records:
+            path = self.verified(item["path"], item["sha256"]).resolve()
+            if (path not in inputs or path in reused or item.get("input_format") != "vortex"
+                    or path.suffix != ".vortex" or path.stat().st_size != item.get("bytes")):
+                raise ValueError("native reuse must identify unique frozen Vortex inputs")
+            reused.add(path)
+        return reused
+
+    def comparison(self, row, inputs):
+        """Verify the actual reader request, including the Vortex oracle boundary."""
+        receipt = row["receipt"]
+        job = load_json(self.verified(receipt["job"], receipt["job_sha256"]))
+        actual_format = comparison_input_format(row["format"])
+        if (row.get("comparison_input_format") != actual_format
+                or any(job.get(key) != value for key, value in {
+                    "operation": "baseline", "engine": row["engine"],
+                    "format": actual_format, "scenario": row["scenario"],
+                }.items())):
+            raise ValueError("comparison input format or workload differs from its retained job")
+        for members in _role_sources(job["paths"], actual_format, WORKLOADS[row["scenario"]].source_roles).values():
+            if any(path not in inputs for path, _source_format in members):
+                raise ValueError("comparison input does not belong to the frozen fixture inventory")
+        observed = self.receipt(receipt)
+        if (observed.get("input_format") != actual_format
+                or observed.get("execution_role") != "independent_comparison_only"):
+            raise ValueError("comparison process does not attest its actual input format")
+        return observed, job
+
 
 def validate_manifest(manifest_path, allow_incomplete=False):
     """Validate exact case coverage and retained values; incomplete runs fail."""
@@ -231,6 +306,8 @@ def validate_manifest(manifest_path, allow_incomplete=False):
             raise ValueError("unknown benchmark input state or requested output")
         engines = _strings(payload["engines"], "engines")
         formats = _strings(configuration["formats"], "formats")
+        if payload.get("comparison_input_formats") != {fmt: comparison_input_format(fmt) for fmt in formats}:
+            raise ValueError("comparison input format mapping is absent or inconsistent")
         scenarios = _strings(configuration["scenarios"], "scenarios")
         for scenario in scenarios:
             if scenario not in WORKLOADS or _digest(payload["workload_declarations"].get(scenario)) != _digest(asdict(WORKLOADS[scenario])):
@@ -268,9 +345,16 @@ def validate_manifest(manifest_path, allow_incomplete=False):
             inputs.add(path.resolve())
         for path, expected_sha in payload["harness_sources"].items():
             reader.verified(ROOT / path, expected_sha)
+        fixture_preparations = payload.get("native_fixture_preparation", [])
+        if not isinstance(fixture_preparations, list) or bool(fixture_preparations) != ("vortex" in formats):
+            raise ValueError("native fixture preparation differs from the requested formats")
+        fixture_targets = reader.prepared_inputs(fixture_preparations, inputs, binary["sha256"], fixtures=True)
+        if fixture_targets != {path for path in inputs if path.suffix == ".vortex"}:
+            raise ValueError("native fixture preparation does not prove every frozen Vortex input")
         references = {(row["format"], row["scenario"]): row["result"] for row in rows
                       if row["engine"] == reference and row["repeat"] == 1}
         preparation_identity, prepared_inputs = None, set()
+        verified_reference_jobs = {}
         for row in rows:
             if row.get("status") != "passed" or row.get("matches_reference") is not True:
                 raise ValueError("every requested case must pass an independent complete-value comparison")
@@ -280,10 +364,15 @@ def validate_manifest(manifest_path, allow_incomplete=False):
             if not equivalent(row["result"], references[(row["format"], row["scenario"])]):
                 raise ValueError("stored result differs from the independent reference")
             if row["engine"] != "shardloom":
-                observed = reader.receipt(row["receipt"])
+                observed, job = reader.comparison(row, inputs)
                 if _digest(observed["result"]) != row["result_sha256"]:
                     raise ValueError("comparison process output differs from the recorded result")
+                if row["engine"] == reference:
+                    verified_reference_jobs.setdefault((row["format"], row["scenario"]), job)
                 continue
+            reference_job = verified_reference_jobs.get((row["format"], row["scenario"]))
+            if reference_job is None:
+                raise ValueError("independent reference must be verified before the candidate workload")
             evidence = row["evidence"]
             if (evidence.get("benchmark_request_protocol") != "public_native_workflow"
                     or evidence.get("benchmark_query_answer_cached") != "false"
@@ -294,12 +383,15 @@ def validate_manifest(manifest_path, allow_incomplete=False):
                     or evidence.get("benchmark_output_format") != output_format):
                 raise ValueError("native case input/output modes differ from the requested configuration")
             preparations = strict_json(evidence["benchmark_input_preparation_calls"])
+            reused = strict_json(evidence.get("benchmark_native_input_reuse", "[]"))
             if (not isinstance(preparations, list)
-                    or bool(preparations) != (input_state == "prepared")):
+                    or not isinstance(reused, list)
+                    or bool(preparations or reused) != (input_state == "prepared")):
                 raise ValueError("preparation receipts differ from the requested input state")
-            identity = _digest(preparations)
+            identity = _digest([preparations, reused])
             if preparation_identity is None:
                 prepared_inputs = reader.prepared_inputs(preparations, inputs, binary["sha256"])
+                prepared_inputs |= reader.reused_inputs(reused, inputs)
                 preparation_identity = identity
             elif identity != preparation_identity:
                 raise ValueError("native cases disagree about their prepared input inventory")
@@ -312,8 +404,11 @@ def validate_manifest(manifest_path, allow_incomplete=False):
             if len(calls) != len(workload.statements) + first_result:
                 raise ValueError("native call count differs from the complete workload")
             expected_sql = strict_json(evidence["benchmark_sql_declarations"])
-            if expected_sql != [_option(call["command"], "--sql") for call in calls[first_result:]]:
-                raise ValueError("native calls differ from recorded SQL declarations")
+            statements, declarations, expected_bindings = _native_declarations(
+                workload, reference_job["paths"], row["format"], input_state, preparations)
+            if (expected_sql != statements
+                    or declarations != [_option(call["command"], "--sql") for call in calls]):
+                raise ValueError("native calls differ from the declared complete workload")
             writer_count = 0
             batches = []
             for index, call in enumerate(calls):
@@ -323,11 +418,13 @@ def validate_manifest(manifest_path, allow_incomplete=False):
                 if _option(call["command"], "--request") != requested:
                     raise ValueError("native call does not request the declared output format")
                 bindings = _bindings(call["command"])
+                observed_bindings = {Path(path).resolve(): binding.get("input_format")
+                                     for path, binding in bindings.items()}
+                if len(observed_bindings) != len(bindings) or observed_bindings != expected_bindings:
+                    raise ValueError("native source bindings differ from the declared workload inputs")
                 admitted_inputs = prepared_inputs if input_state == "prepared" else inputs
                 if any(Path(path).resolve() not in admitted_inputs for path in bindings):
                     raise ValueError("native source does not belong to the verified input inventory")
-                if input_state == "prepared" and any(binding.get("input_format") != "vortex" for binding in bindings.values()):
-                    raise ValueError("prepared workloads must bind Vortex inputs")
                 if "output" in call:
                     if writer_count >= len(readbacks):
                         raise ValueError("native writer lacks readback evidence")

@@ -14,8 +14,9 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
-from benchmark_models import BenchmarkUnsupported, DatasetPaths, EngineRunner, FORMAT_ORDER
-from fixtures import fact_path, dim_path, fact_part_paths
+from benchmark_models import BenchmarkUnsupported, DatasetPaths, EngineRunner, COMPARISON_FORMATS
+from fixtures import fact_path, dim_path, fact_part_paths, fixture_arrow_column_types
+from native_workflow_protocol import read_json_output
 from comparison import (
     round_float, normalize_scalar_result, normalize_group_rows, normalize_top_rows,
     normalize_multi_group_rows, normalize_rank_rows, normalize_top_group_rows,
@@ -76,6 +77,16 @@ def pyarrow_table_for_format(path: Path, data_format: str) -> Any:
         return arrow_csv.read_csv(path)
     if data_format == "jsonl":
         return arrow_json.read_json(path)
+    if data_format == "json":
+        rows = read_json_output(path, "json")
+        if not rows:
+            raise BenchmarkUnsupported("JSON array input requires at least one row to establish its schema")
+        columns = list(rows[0])
+        if any(list(row) != columns for row in rows):
+            raise ValueError("JSON fixture rows must preserve the declared column names and order")
+        return pa.Table.from_pylist(
+            rows, schema=pa.schema(fixture_arrow_column_types(pa, columns).items())
+        )
     if data_format == "parquet":
         return pq.read_table(path)
     if data_format == "arrow-ipc":
@@ -406,7 +417,7 @@ def pandas_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=COMPARISON_FORMATS,
     )
 
 def polars_eager_runner() -> EngineRunner:
@@ -421,9 +432,11 @@ def polars_eager_runner() -> EngineRunner:
             return pl.read_ipc(path)
         if data_format == "avro":
             return pl.read_avro(path)
-        if data_format == "orc":
+        if data_format in {"orc", "json"}:
             return pl.from_arrow(pyarrow_table_for_format(path, data_format))
-        return pl.read_csv(path)
+        if data_format == "csv":
+            return pl.read_csv(path)
+        raise BenchmarkUnsupported(f"polars-eager does not support {data_format} in this harness")
 
     def read_fact(paths: DatasetPaths, data_format: str) -> Any:
         return read_frame(fact_path(paths, data_format), data_format)
@@ -784,7 +797,7 @@ def polars_eager_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=COMPARISON_FORMATS,
     )
 
 def polars_lazy_runner() -> EngineRunner:
@@ -800,7 +813,7 @@ def polars_lazy_runner() -> EngineRunner:
             return pl.scan_ipc(path)
         if data_format == "avro":
             return pl.read_avro(path).lazy()
-        if data_format == "orc":
+        if data_format in {"orc", "json"}:
             return pl.from_arrow(pyarrow_table_for_format(path, data_format)).lazy()
         if data_format == "csv":
             return pl.scan_csv(path)
@@ -816,7 +829,7 @@ def polars_lazy_runner() -> EngineRunner:
             return pl.scan_ipc(path)
         if data_format == "avro":
             return pl.read_avro(path).lazy()
-        if data_format == "orc":
+        if data_format in {"orc", "json"}:
             return pl.from_arrow(pyarrow_table_for_format(path, data_format)).lazy()
         if data_format == "csv":
             return pl.scan_csv(path)
@@ -839,7 +852,7 @@ def polars_lazy_runner() -> EngineRunner:
                 [pl.read_avro(part) for part in parts],
                 how="vertical_relaxed",
             ).lazy()
-        if data_format == "orc":
+        if data_format in {"orc", "json"}:
             return pl.concat(
                 [
                     pl.from_arrow(pyarrow_table_for_format(part, data_format))
@@ -1196,14 +1209,14 @@ def polars_lazy_runner() -> EngineRunner:
             "small change over large base": small_change_over_large_base,
             "nested JSON field scan": nested_json_field_scan,
         },
-        formats=FORMAT_ORDER,
+        formats=COMPARISON_FORMATS,
     )
 
 def duckdb_runner() -> EngineRunner:
     import duckdb  # type: ignore
 
     con = duckdb.connect(database=":memory:")
-    arrow_backed_formats = {"arrow-ipc", "avro", "orc"}
+    arrow_backed_formats = {"arrow-ipc", "avro", "orc", "json"}
 
     def table_expr(paths: DatasetPaths, table: str, data_format: str) -> str:
         path = fact_path(paths, data_format) if table == "fact" else dim_path(paths, data_format)
@@ -1213,8 +1226,10 @@ def duckdb_runner() -> EngineRunner:
             function = "read_json_auto"
         elif data_format in arrow_backed_formats:
             return table
-        else:
+        elif data_format == "csv":
             function = "read_csv_auto"
+        else:
+            raise BenchmarkUnsupported(f"duckdb does not support {data_format} in this harness")
         return f"{function}({sql_literal(path)})"
 
     def list_sql_literal(paths: tuple[Path, ...]) -> str:
@@ -1257,7 +1272,9 @@ def duckdb_runner() -> EngineRunner:
         if data_format in arrow_backed_formats:
             register_arrow_parts_table("fact_parts", parts, data_format)
             return "fact_parts"
-        return f"read_csv_auto({list_sql_literal(parts)})"
+        if data_format == "csv":
+            return f"read_csv_auto({list_sql_literal(parts)})"
+        raise BenchmarkUnsupported(f"duckdb does not support {data_format} fact parts")
 
     def register_arrow_backed_tables(paths: DatasetPaths, data_format: str) -> None:
         for name, path in (
@@ -1574,7 +1591,7 @@ def duckdb_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=COMPARISON_FORMATS,
         close=con.close,
     )
 
@@ -1647,13 +1664,15 @@ def spark_runner(profile: str) -> EngineRunner:
             return spark_instance().read.json(str(paths.fact_jsonl))
         if data_format == "orc":
             return spark_instance().read.orc(str(paths.fact_orc))
-        if data_format in {"arrow-ipc", "avro"}:
+        if data_format in {"arrow-ipc", "avro", "json"}:
             return spark_instance().createDataFrame(
                 pandas_frame_for_format(fact_path(paths, data_format), data_format)
             )
-        return spark_instance().read.option("header", True).option("inferSchema", True).csv(
-            str(paths.fact_csv)
-        )
+        if data_format == "csv":
+            return spark_instance().read.option("header", True).option("inferSchema", True).csv(
+                str(paths.fact_csv)
+            )
+        raise BenchmarkUnsupported(f"Spark does not support {data_format} fact inputs")
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
         if data_format == "parquet":
@@ -1662,13 +1681,15 @@ def spark_runner(profile: str) -> EngineRunner:
             return spark_instance().read.json(str(paths.dim_jsonl))
         if data_format == "orc":
             return spark_instance().read.orc(str(paths.dim_orc))
-        if data_format in {"arrow-ipc", "avro"}:
+        if data_format in {"arrow-ipc", "avro", "json"}:
             return spark_instance().createDataFrame(
                 pandas_frame_for_format(dim_path(paths, data_format), data_format)
             )
-        return spark_instance().read.option("header", True).option("inferSchema", True).csv(
-            str(paths.dim_csv)
-        )
+        if data_format == "csv":
+            return spark_instance().read.option("header", True).option("inferSchema", True).csv(
+                str(paths.dim_csv)
+            )
+        raise BenchmarkUnsupported(f"Spark does not support {data_format} dimension inputs")
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
         frame = read_fact(paths, data_format)
@@ -1842,7 +1863,7 @@ def spark_runner(profile: str) -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=COMPARISON_FORMATS,
         warmup=warmup_spark,
         close=close_spark,
     )
@@ -1891,9 +1912,14 @@ def datafusion_runner() -> EngineRunner:
         elif data_format == "orc":
             register_arrow_table(ctx, "fact", paths.fact_orc, data_format)
             register_arrow_table(ctx, "dim", paths.dim_orc, data_format)
-        else:
+        elif data_format == "json":
+            register_arrow_table(ctx, "fact", fact_path(paths, data_format), data_format)
+            register_arrow_table(ctx, "dim", dim_path(paths, data_format), data_format)
+        elif data_format == "csv":
             ctx.register_csv("fact", paths.fact_csv, has_header=True)
             ctx.register_csv("dim", paths.dim_csv, has_header=True)
+        else:
+            raise BenchmarkUnsupported(f"DataFusion does not support {data_format} input")
         return pyarrow_rows(ctx.sql(sql).collect())
 
     def query_fact_parts(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
@@ -1922,8 +1948,12 @@ def datafusion_runner() -> EngineRunner:
             ctx.register_avro("fact", paths.fact_avro)
         elif data_format == "orc":
             register_arrow_table(ctx, "fact", paths.fact_orc, data_format)
-        else:
+        elif data_format == "json":
+            register_arrow_table(ctx, "fact", fact_path(paths, data_format), data_format)
+        elif data_format == "csv":
             ctx.register_csv("fact", paths.fact_csv, has_header=True)
+        else:
+            raise BenchmarkUnsupported(f"DataFusion does not support {data_format} CDC input")
         ctx.register_csv("cdc_delta", paths.cdc_delta_csv, has_header=True)
         return pyarrow_rows(ctx.sql(sql).collect())
 
@@ -2184,7 +2214,7 @@ def datafusion_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=COMPARISON_FORMATS,
     )
 
 def dask_runner() -> EngineRunner:
@@ -2198,24 +2228,28 @@ def dask_runner() -> EngineRunner:
             return dd.read_parquet(paths.fact_parquet)
         if data_format == "jsonl":
             return dd.read_json(paths.fact_jsonl, lines=True, blocksize=blocksize)
-        if data_format in {"arrow-ipc", "avro", "orc"}:
+        if data_format in {"arrow-ipc", "avro", "orc", "json"}:
             return dd.from_pandas(
                 pandas_frame_for_format(fact_path(paths, data_format), data_format),
                 npartitions=1,
             )
-        return dd.read_csv(paths.fact_csv, blocksize=blocksize)
+        if data_format == "csv":
+            return dd.read_csv(paths.fact_csv, blocksize=blocksize)
+        raise BenchmarkUnsupported(f"Dask does not support {data_format} fact inputs")
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
         if data_format == "parquet":
             return dd.read_parquet(paths.dim_parquet)
         if data_format == "jsonl":
             return dd.read_json(paths.dim_jsonl, lines=True, blocksize=blocksize)
-        if data_format in {"arrow-ipc", "avro", "orc"}:
+        if data_format in {"arrow-ipc", "avro", "orc", "json"}:
             return dd.from_pandas(
                 pandas_frame_for_format(dim_path(paths, data_format), data_format),
                 npartitions=1,
             )
-        return dd.read_csv(paths.dim_csv, blocksize=blocksize)
+        if data_format == "csv":
+            return dd.read_csv(paths.dim_csv, blocksize=blocksize)
+        raise BenchmarkUnsupported(f"Dask does not support {data_format} dimension inputs")
 
     def read_fact_parts(paths: DatasetPaths, data_format: str) -> Any:
         parts = fact_part_paths(paths, data_format)
@@ -2484,7 +2518,7 @@ def dask_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=COMPARISON_FORMATS,
     )
 
 ENGINE_FACTORIES = {

@@ -26,7 +26,19 @@ GENERATED_DATASET_PROFILES = (
     "cdc_delta_overlay",
 )
 
-FORMAT_ORDER = ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
+FORMAT_ORDER = ("csv", "json", "jsonl", "vortex", "parquet", "arrow-ipc", "avro", "orc")
+COMPARISON_FORMATS = tuple(fmt for fmt in FORMAT_ORDER if fmt != "vortex")
+
+
+def comparison_input_format(candidate_format: str) -> str:
+    """Use the original CSV fixture as the independent Vortex query oracle.
+
+    This does not claim that a comparison adapter reads Vortex. The report and
+    retained worker job record the actual comparison input format separately.
+    """
+    if candidate_format not in FORMAT_ORDER:
+        raise ValueError(f"unknown candidate input format: {candidate_format}")
+    return "csv" if candidate_format == "vortex" else candidate_format
 
 @dataclass(frozen=True)
 class DatasetPaths:
@@ -56,6 +68,12 @@ class DatasetPaths:
     cdc_delta_csv: Path | None = None
     nested_jsonl: Path | None = None
     output_root: Path | None = None
+    fact_json: Path | None = None
+    dim_json: Path | None = None
+    fact_json_parts_dir: Path | None = None
+    fact_vortex: Path | None = None
+    dim_vortex: Path | None = None
+    fact_vortex_parts_dir: Path | None = None
 
     @classmethod
     def from_record(cls, record: dict[str, Any]) -> DatasetPaths:

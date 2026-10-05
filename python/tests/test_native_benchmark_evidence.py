@@ -82,12 +82,19 @@ class NativeBenchmarkEvidenceTests(unittest.TestCase):
             ],
         }
 
-        reference_envelope = {"status": "passed", "result": RESULT}
+        reference_envelope = {"status": "passed", "result": RESULT, "input_format": "csv",
+                              "execution_role": "independent_comparison_only"}
         reference_log = root / "reference.stdout.json"
         reference_log_sha = write_json(reference_log, reference_envelope)
+        reference_job = root / "reference.job.json"
+        reference_job_sha = write_json(reference_job, {
+            "operation": "baseline", "engine": "pandas", "format": "csv",
+            "scenario": SCENARIO, "paths": {"fact_csv": str(source)},
+        })
         reference_receipt = {
             "returncode": 0, "guard_failures": [], "seconds": 0.75,
             "stdout": str(reference_log), "stdout_sha256": reference_log_sha,
+            "job": str(reference_job), "job_sha256": reference_job_sha,
         }
 
         native_evidence = {
@@ -100,10 +107,12 @@ class NativeBenchmarkEvidenceTests(unittest.TestCase):
             "benchmark_native_calls": json.dumps([native_call]),
             "benchmark_output_validation_calls": "[]",
             "benchmark_input_preparation_calls": "[]",
+            "benchmark_native_input_reuse": "[]",
             "benchmark_sql_declarations": json.dumps([sql]),
         }
         rows = [
             {"engine": "pandas", "format": "csv", "scenario": SCENARIO, "repeat": 1,
+             "comparison_input_format": "csv",
              "status": "passed", "matches_reference": True, "seconds": 0.75,
              "result": copy.deepcopy(RESULT), "result_sha256": digest_value(RESULT),
              "receipt": reference_receipt},
@@ -116,6 +125,8 @@ class NativeBenchmarkEvidenceTests(unittest.TestCase):
             "schema_version": validator.ARTIFACT_SCHEMA_VERSION,
             "status": "passed", "performance_claim": False,
             "independent_reference": True,
+            "comparison_input_formats": {"csv": "csv"},
+            "native_fixture_preparation": [],
             "query_answers_cached_by_native_adapter": False,
             "configuration": {
                 "formats": ["csv"], "scenarios": [SCENARIO], "repeats": 1,
@@ -240,6 +251,132 @@ class NativeBenchmarkEvidenceTests(unittest.TestCase):
         manifest = root / "manifest.json"
         write_json(manifest, payload)
         return validator.validate_manifest(manifest, allow_incomplete=allow_incomplete)[0]
+
+    def make_native_format_packet(self, root: Path, input_state: str):
+        manifest, payload, _, _, _, _, target, _ = self.make_prepared_packet(root)
+        evidence = payload["records"][1]["evidence"]
+        payload["native_fixture_preparation"] = json.loads(evidence["benchmark_input_preparation_calls"])
+        evidence["benchmark_input_preparation_calls"] = "[]"
+        item = {"path": str(target), "sha256": validator.file_sha256(target), "bytes": target.stat().st_size}
+        payload["inputs"].append(item)
+        if input_state == "prepared":
+            evidence["benchmark_native_input_reuse"] = json.dumps([{**item, "input_format": "vortex"}])
+        payload["configuration"].update(formats=["vortex"], input_state=input_state)
+        payload["comparison_input_formats"] = {"vortex": "csv"}
+        evidence["benchmark_input_state"] = input_state
+        for record in payload["records"]:
+            record["format"] = "vortex"
+        receipt = payload["records"][0]["receipt"]
+        job_path = Path(receipt["job"])
+        job = json.loads(job_path.read_text())
+        job["paths"]["fact_vortex"] = str(target)
+        receipt["job_sha256"] = write_json(job_path, job)
+        write_json(manifest, payload)
+        return manifest, payload
+
+    def test_native_format_packets_prove_fixture_generation_and_actual_csv_reference(self):
+        for input_state in ("raw", "prepared"):
+            with self.subTest(input_state=input_state), tempfile.TemporaryDirectory() as directory:
+                manifest, payload = self.make_native_format_packet(Path(directory), input_state)
+                self.assertEqual(validator.validate_manifest(manifest)[0], [])
+                self.assertEqual(payload["records"][0]["comparison_input_format"], "csv")
+                self.assertEqual(payload["records"][1]["evidence"]["benchmark_input_preparation_calls"], "[]")
+
+    def test_native_format_reference_and_reuse_evidence_fail_closed(self):
+        mutations = ("missing_fixture", "missing_mapping", "wrong_mapping", "pretended_vortex_reader",
+                     "job_format", "job_source", "process_format", "missing_reuse", "duplicate_reuse",
+                     "reuse_format", "reuse_hash", "raw_reuse")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                _, payload = self.make_native_format_packet(root, "prepared")
+                comparison, native = payload["records"]
+                evidence = native["evidence"]
+                if mutation == "missing_fixture":
+                    payload["native_fixture_preparation"] = []
+                elif mutation == "missing_mapping":
+                    payload.pop("comparison_input_formats")
+                elif mutation == "wrong_mapping":
+                    payload["comparison_input_formats"]["vortex"] = "vortex"
+                elif mutation == "pretended_vortex_reader":
+                    comparison["comparison_input_format"] = "vortex"
+                elif mutation in ("job_format", "job_source"):
+                    receipt = comparison["receipt"]
+                    path = Path(receipt["job"])
+                    job = json.loads(path.read_text())
+                    if mutation == "job_format":
+                        job["format"] = "vortex"
+                    else:
+                        job["paths"]["fact_csv"] = str(root / "unfrozen.csv")
+                    receipt["job_sha256"] = write_json(path, job)
+                elif mutation == "process_format":
+                    receipt = comparison["receipt"]
+                    path = Path(receipt["stdout"])
+                    observed = json.loads(path.read_text())
+                    observed["input_format"] = "vortex"
+                    receipt["stdout_sha256"] = write_json(path, observed)
+                elif mutation == "raw_reuse":
+                    evidence["benchmark_input_state"] = "raw"
+                    payload["configuration"]["input_state"] = "raw"
+                else:
+                    reused = json.loads(evidence["benchmark_native_input_reuse"])
+                    if mutation == "missing_reuse":
+                        reused.clear()
+                    elif mutation == "duplicate_reuse":
+                        reused.append(copy.deepcopy(reused[0]))
+                    elif mutation == "reuse_format":
+                        reused[0]["input_format"] = "csv"
+                    else:
+                        reused[0]["sha256"] = "0" * 64
+                    evidence["benchmark_native_input_reuse"] = json.dumps(reused)
+                self.assertTrue(self.validate(payload, root), mutation)
+
+    def test_native_raw_reader_and_reference_order_cannot_be_relabelled(self):
+        for mutation in ("reader_format", "reference_after_candidate"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                _, payload, *_ = self.make_packet(root)
+                if mutation == "reader_format":
+                    evidence = payload["records"][1]["evidence"]
+                    calls = json.loads(evidence["benchmark_native_calls"])
+                    command = calls[0]["command"]
+                    position = command.index("--source-bindings") + 1
+                    bindings = json.loads(command[position])
+                    next(iter(bindings.values()))["input_format"] = "json"
+                    command[position] = json.dumps(bindings)
+                    evidence["benchmark_native_calls"] = json.dumps(calls)
+                else:
+                    payload["records"].reverse()
+                self.assertTrue(self.validate(payload, root), mutation)
+
+    def test_native_workload_and_bound_sources_cannot_be_relabelled(self):
+        for mutation in ("sql", "empty_bindings", "extra_binding", "different_source"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                _, payload, *_ = self.make_packet(root)
+                evidence = payload["records"][1]["evidence"]
+                calls = json.loads(evidence["benchmark_native_calls"])
+                command = calls[0]["command"]
+                position = command.index("--source-bindings") + 1
+                bindings = json.loads(command[position])
+                if mutation == "sql":
+                    query = "SELECT 3 AS row_count,7.0 AS metric_sum"
+                    command[command.index("--sql") + 1] = query
+                    evidence["benchmark_sql_declarations"] = json.dumps([query])
+                elif mutation == "empty_bindings":
+                    bindings.clear()
+                else:
+                    alternate = root / "different.csv"
+                    alternate.write_bytes(Path(next(iter(bindings))).read_bytes())
+                    payload["inputs"].append({"path": str(alternate),
+                                             "sha256": validator.file_sha256(alternate),
+                                             "bytes": alternate.stat().st_size})
+                    if mutation == "different_source":
+                        bindings.clear()
+                    bindings[str(alternate)] = {"input_format": "csv"}
+                command[position] = json.dumps(bindings)
+                evidence["benchmark_native_calls"] = json.dumps(calls)
+                self.assertTrue(self.validate(payload, root), mutation)
 
     def test_complete_public_native_packet_passes_using_retained_rows(self):
         with tempfile.TemporaryDirectory() as directory:

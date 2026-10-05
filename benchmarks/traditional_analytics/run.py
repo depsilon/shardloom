@@ -25,7 +25,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(REPO / "scripts"))
 from baseline_catalog import BASELINE_NAMES
-from benchmark_models import DatasetPaths, FORMAT_ORDER, GENERATED_DATASET_PROFILES
+from benchmark_models import DatasetPaths, FORMAT_ORDER, GENERATED_DATASET_PROFILES, comparison_input_format
 from comparison import CORRECTNESS_FLOAT_DIGITS, round_float
 from fixtures import dim_path, fact_part_paths, fact_path
 from native_public_runner import NativeConfiguration, NativeDeclarationUnsupported, NativePublicRunner
@@ -90,6 +90,7 @@ def summarize(records, expected_keys):
     for (engine, data_format, scenario), rows in groups.items():
         if all(row["status"] == "passed" for row in rows):
             timings.append({"engine": engine, "format": data_format, "scenario": scenario,
+                            "input_format": data_format if engine == "shardloom" else comparison_input_format(data_format),
                             "seconds": [row["seconds"] for row in rows],
                             "median_seconds": statistics.median(row["seconds"] for row in rows),
                             "timing_boundary": rows[0]["timing_boundary"]})
@@ -155,9 +156,11 @@ def run(args):
               "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
               "configuration": vars(args), "engines": engines, "records": [],
               "reference_engine": args.reference_engine, "independent_reference": True,
+              "comparison_input_formats": {fmt: comparison_input_format(fmt) for fmt in args.formats},
               "comparison_contract": {"floating_decimal_places": CORRECTNESS_FLOAT_DIGITS,
                                       "empty_metric_sum": 0.0,
-                                      "complete_rows_required": True},
+                                      "complete_rows_required": True,
+                                      "vortex_reference": "original CSV fixture; comparison adapters do not read Vortex"},
               "binary": {"path": str(binary), "sha256": file_sha256(binary)},
               "harness_sources": harness_source_inventory(),
               "workload_declarations": {name: asdict(WORKLOADS[name]) for name in args.scenarios},
@@ -168,6 +171,7 @@ def run(args):
                   "native_preparation": "outside query timing when input_state=prepared",
                   "output_validation": "outside query timing; included in actual run wall time",
                   "fixture_generation": "outside query timing; included in actual run wall time",
+                  "vortex_fixture_preparation": "public preparation from original CSV, before input freeze and query timing",
                   "source_hashing": "outside query timing; may warm filesystem cache",
                   "native_build": "caller supplies frozen executable; no build in harness",
                   "baseline_output": "each adapter's declared terminal result, independent comparison only",
@@ -202,18 +206,20 @@ def run(args):
                 raise ValueError(f"fixture generation failed: {fixture}")
             paths = replace(DatasetPaths.from_record(fixture["paths"]),
                             output_root=run_root / "baseline-output")
-            inventory = input_inventory(paths.root)
-            initial_generations = generations(inventory)
-            report["inputs"] = inventory
-            references = {}
             native = NativePublicRunner(
                 NativeConfiguration(binary, guard.root, args.input_state, args.output_format,
                                     args.memory_gb, args.max_parallelism, args.timeout),
                 fact_path=fact_path, dim_path=dim_path, fact_part_paths=fact_part_paths,
                 round_float=round_float, guard=guard.check,
             )
+            report["native_fixture_preparation"] = native.fixture_preparation_receipts
+            native.prepare_fixture_inputs(paths, args.formats)
+            inventory = input_inventory(paths.root)
+            initial_generations = generations(inventory)
+            report["inputs"] = inventory
+            references = {}
             prepare_error = None
-            # Reference results are frozen before the first candidate execution.
+            # Independent query results are frozen before candidate workloads.
             for engine in engines:
                 if engine == "shardloom":
                     try:
@@ -240,8 +246,10 @@ def run(args):
                                                   seconds=float(evidence["cli_process_wall_millis"]) / 1000,
                                                   timing_boundary=evidence["benchmark_timing_boundary"])
                                 else:
+                                    actual_format = comparison_input_format(fmt)
+                                    record["comparison_input_format"] = actual_format
                                     response, receipt = worker(
-                                        {"operation": "baseline", "engine": engine, "format": fmt,
+                                        {"operation": "baseline", "engine": engine, "format": actual_format,
                                          "scenario": scenario, "paths": asdict(paths)},
                                         logs / f"comparison-{len(report['records']):06d}", args, guard,
                                     )
@@ -251,6 +259,8 @@ def run(args):
                                         record.update(status=response["status"], error=response.get("error"))
                                         report["records"].append(record)
                                         continue
+                                    if response.get("input_format") != actual_format:
+                                        raise ValueError("comparison process used a different input format")
                                     value = response["result"]
                                     record["engine_version"] = response["version"]
                                 key = (fmt, scenario)
@@ -258,6 +268,7 @@ def run(args):
                                     references[key] = value
                                     write_json(logs / f"reference-{len(references):04d}.json",
                                                {"format": fmt, "scenario": scenario, "result": value,
+                                                "comparison_input_format": comparison_input_format(fmt),
                                                 "engine": engine, "record_index": len(report["records"])})
                                 record["result"] = value
                                 record["result_sha256"] = hashlib.sha256(

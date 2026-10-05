@@ -21,6 +21,13 @@ The workload catalog declares complete SQL and result shapes; names do not selec
 benchmark-only commands. Baselines are independent comparison processes and never execute residual
 ShardLoom work.
 
+The candidate accepts CSV, JSON, JSONL, Vortex, Parquet, Arrow IPC, Avro and ORC input
+parameters. Vortex fixture creation uses public native preparation before input freezing and query
+timing; prepared mode reuses those native artifacts. Independent comparison processes read the
+original CSV for Vortex cases, and their actual input format is recorded separately. Those cases
+establish complete-value correctness across equivalent logical data, not a same-format timing
+comparison. Other inputs retain their own format in the comparison process.
+
 ## Source Alignment
 
 - [`run.py`](../../benchmarks/traditional_analytics/run.py) declares the public harness options,
@@ -43,6 +50,10 @@ The harness records binary, harness-source, input, and reference hashes. It reje
 candidate executable or input data during a run. Preparation and output validation are separately
 attributed from candidate query request time; full harness wall time includes fixture creation,
 hashing, validation, and cleanup costs performed within the run.
+
+The evidence verifier reconstructs complete workload declarations and their source bindings from
+the frozen fixture and preparation receipts. Matching result hashes alone cannot admit a substituted
+query or an input-format label that differs from the actual reader request.
 
 ## Validation Boundary
 

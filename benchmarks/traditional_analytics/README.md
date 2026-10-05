@@ -30,11 +30,17 @@ python3 benchmarks/traditional_analytics/run.py --list
 ```
 
 `--list` is the source of truth for the currently accepted workload names and complete SQL
-declarations. `--formats` accepts `csv`, `jsonl`, `parquet`, `arrow-ipc`, `avro`, and `orc`.
+declarations. `--formats` accepts `csv`, `json`, `jsonl`, `vortex`, `parquet`, `arrow-ipc`,
+`avro`, and `orc`.
 `--input-state` accepts `raw` or `prepared`. With `prepared`, explicit Vortex input preparation
 occurs before query timing. With `raw`, the engine admits the original input and performs or
 validates its native preparation within the timed request; native prepared-artifact reuse remains
 visible in the execution evidence. Raw input does not imply a cold filesystem cache.
+For native Vortex format cases, public `vortex-prepare` creates the fixture from the original
+declared CSV before input hashes are frozen and before query timing. Each preparation receipt and
+committed output hash is retained. Prepared mode reuses these existing Vortex files and records
+their identities; it does not rewrite them. Other source roles, such as the CDC delta CSV, still
+receive the preparation their own format requires.
 `--output-format` accepts `collect`, `vortex`, `json`, `jsonl`, `csv`, `parquet`,
 `arrow_ipc`, `avro`, or `orc`. A non-collect output is written to the fresh run workspace and
 read back in full for result validation. JSON and JSONL are decoded directly from the committed
@@ -59,6 +65,17 @@ Comparison engines run independently in isolated worker processes. Their results
 references only: a rejected ShardLoom declaration remains unsupported and is never delegated to a
 baseline. The harness records engine versions and compares complete normalized values. Query-answer
 caching is disabled for the ShardLoom adapter.
+
+The candidate's `format` is a matrix dimension. `comparison_input_formats` and each comparison
+row's `comparison_input_format` identify what the independent process actually reads. JSON arrays
+are read through declared Arrow schemas in the comparison adapters. For candidate Vortex cases,
+comparison engines read the original CSV fixture; they do not claim a Vortex reader. The retained
+worker job, process report and source inventory must all agree on that format. The verifier also
+rebuilds the workload's complete SQL declarations and source bindings from those frozen inputs;
+substituting a different query or input is rejected. This explicitly
+compares complete query results across equivalent logical data, with different input costs; it
+cannot establish a same-format timing comparison. Expected query values never come from the native
+fixture preparation or the candidate's query output.
 
 The comparison contract rounds floating metric cells to four decimal places and treats an empty
 metric sum as zero, matching the original comparison adapters. It compares all rows and keys after

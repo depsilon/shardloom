@@ -173,12 +173,18 @@ def ensure_dataset(
     dim_avro = root / "dim.avro"
     fact_orc = root / "fact.orc"
     dim_orc = root / "dim.orc"
+    fact_json = root / "fact.json"
+    dim_json = root / "dim.json"
+    fact_vortex = root / "fact.vortex"
+    dim_vortex = root / "dim.vortex"
     fact_csv_parts_dir = root / "fact_csv_parts"
     fact_jsonl_parts_dir = root / "fact_jsonl_parts"
     fact_parquet_parts_dir = root / "fact_parquet_parts"
     fact_arrow_ipc_parts_dir = root / "fact_arrow_ipc_parts"
     fact_avro_parts_dir = root / "fact_avro_parts"
     fact_orc_parts_dir = root / "fact_orc_parts"
+    fact_json_parts_dir = root / "fact_json_parts"
+    fact_vortex_parts_dir = root / "fact_vortex_parts"
     cdc_delta_csv = root / "cdc_delta.csv"
     nested_jsonl = root / "nested_fact.jsonl"
     metadata_json = root / "dataset.json"
@@ -186,7 +192,7 @@ def ensure_dataset(
     expected_metadata = {
         "rows": rows,
         "dim_rows": dim_rows,
-        "schema_version": 7,
+        "schema_version": 8,
         "dataset_profile": dataset_profile,
         "dataset_file_shape": dataset_file_shape(dataset_profile),
         "fact_extra_columns": list(fact_extra_columns),
@@ -244,6 +250,9 @@ def ensure_dataset(
 
     if "jsonl" in requested_formats:
         write_jsonl_copies(fact_csv, dim_csv, fact_jsonl, dim_jsonl)
+    if "json" in requested_formats:
+        write_json_copy(fact_csv, fact_json, array=True)
+        write_json_copy(dim_csv, dim_json, array=True)
 
     write_profile_sidecars(
         fact_csv,
@@ -259,6 +268,10 @@ def ensure_dataset(
         cdc_delta_csv,
         nested_jsonl,
     )
+    if "json" in requested_formats and fact_csv_parts_dir.is_dir():
+        fact_json_parts_dir.mkdir(exist_ok=False)
+        for source in sorted(fact_csv_parts_dir.glob("part-*.csv")):
+            write_json_copy(source, fact_json_parts_dir / (source.stem + ".json"), array=True)
 
     if {"parquet", "arrow-ipc", "orc"} & set(requested_formats):
         write_arrow_family_copies(
@@ -304,6 +317,12 @@ def ensure_dataset(
         fact_orc_parts_dir,
         cdc_delta_csv,
         nested_jsonl,
+        fact_json=fact_json,
+        dim_json=dim_json,
+        fact_json_parts_dir=fact_json_parts_dir,
+        fact_vortex=fact_vortex,
+        dim_vortex=dim_vortex,
+        fact_vortex_parts_dir=fact_vortex_parts_dir,
     )
 
 def dataset_file_shape(dataset_profile: str) -> str:
@@ -663,17 +682,29 @@ def write_jsonl_copies(fact_csv: Path, dim_csv: Path, fact_jsonl: Path, dim_json
     write_jsonl_copy(dim_csv, dim_jsonl)
 
 def write_jsonl_copy(source_csv: Path, target_jsonl: Path) -> None:
+    write_json_copy(source_csv, target_jsonl, array=False)
+
+
+def write_json_copy(source_csv: Path, target_json: Path, *, array: bool) -> None:
+    """Stream the same declared values into a JSON array or JSONL fixture."""
     with source_csv.open("r", newline="", encoding="utf-8") as source:
         reader = csv.DictReader(source)
-        with target_jsonl.open("w", encoding="utf-8") as target:
-            for row in reader:
+        with target_json.open("x", encoding="utf-8") as target:
+            if array:
+                target.write("[")
+            for index, row in enumerate(reader):
                 typed = {}
                 for key, value in row.items():
                     if key is None or value is None:
-                        continue
+                        raise ValueError("fixture CSV row does not match its declared columns")
                     typed[key] = fixture_scalar_from_text(value, fixture_column_dtype(key))
-                target.write(json.dumps(typed, separators=(",", ":")))
-                target.write("\n")
+                if array and index:
+                    target.write(",")
+                target.write(json.dumps(typed, separators=(",", ":"), allow_nan=False))
+                if not array:
+                    target.write("\n")
+            if array:
+                target.write("]\n")
 
 def write_arrow_family_copies(
     fact_csv: Path,
@@ -764,6 +795,10 @@ def write_avro_copy(
         fastavro.writer(target, schema, records)
 
 def fact_path(paths: DatasetPaths, data_format: str) -> Path:
+    if data_format == "json" and paths.fact_json is not None:
+        return paths.fact_json
+    if data_format == "vortex" and paths.fact_vortex is not None:
+        return paths.fact_vortex
     if data_format == "csv":
         return paths.fact_csv
     if data_format == "jsonl":
@@ -779,6 +814,10 @@ def fact_path(paths: DatasetPaths, data_format: str) -> Path:
     raise BenchmarkUnsupported(f"unsupported fact storage format: {data_format}")
 
 def dim_path(paths: DatasetPaths, data_format: str) -> Path:
+    if data_format == "json" and paths.dim_json is not None:
+        return paths.dim_json
+    if data_format == "vortex" and paths.dim_vortex is not None:
+        return paths.dim_vortex
     if data_format == "csv":
         return paths.dim_csv
     if data_format == "jsonl":
@@ -794,6 +833,10 @@ def dim_path(paths: DatasetPaths, data_format: str) -> Path:
     raise BenchmarkUnsupported(f"unsupported dimension storage format: {data_format}")
 
 def fact_part_paths(paths: DatasetPaths, data_format: str) -> tuple[Path, ...]:
+    if data_format == "json" and paths.fact_json_parts_dir is not None:
+        return tuple(sorted(paths.fact_json_parts_dir.glob("part-*.json")))
+    if data_format == "vortex" and paths.fact_vortex_parts_dir is not None:
+        return tuple(sorted(paths.fact_vortex_parts_dir.glob("part-*.vortex")))
     if data_format == "csv" and paths.fact_csv_parts_dir is not None:
         return tuple(sorted(paths.fact_csv_parts_dir.glob("part-*.csv")))
     if data_format == "jsonl" and paths.fact_jsonl_parts_dir is not None:

@@ -66,6 +66,8 @@ class NativePublicRunner:
         self.call_count = 0
         self.prepared = {}
         self.preparation_receipts = []
+        self.fixture_preparation_receipts = []
+        self.reused_native_inputs = []
         self.guard = guard
 
     def _workspace(self, paths):
@@ -142,6 +144,47 @@ class NativePublicRunner:
                     raise ValueError(f"declared input is not a file: {path}")
         return sources
 
+    def _prepare_source(self, paths, source, source_format, target, role):
+        generation = _generation(source)
+        if target.exists():
+            raise ValueError(f"native preparation refuses an existing destination: {target}")
+        command = [str(self.binary), "vortex-prepare", str(source), str(target),
+                   "--input-format", source_format, "--memory-gb", str(self.configuration.memory_gb),
+                   "--max-parallelism", str(self.configuration.max_parallelism), "--format", "json"]
+        if source_format in ("csv", "json", "jsonl"):
+            command.extend(["--schema", fixture_schema_for_role(paths, role)])
+        envelope, receipt = self._run(paths, command, phase="input_preparation")
+        fields = {entry["key"]: entry["value"] for entry in envelope["fields"]}
+        if (fields.get("vortex_ingest_performed") != "true" or not target.is_file()
+                or fields.get("external_engine_invoked") != "false"):
+            raise RuntimeError(f"native input preparation lacks evidence: {receipt}")
+        if _generation(source) != generation:
+            raise RuntimeError("input changed during native preparation")
+        return receipt, generation, _generation(target)
+
+    def prepare_fixture_inputs(self, paths, formats):
+        """Create native-format fixtures before freezing inputs or timing queries.
+
+        Comparison engines use the independently generated original CSV values;
+        none of these preparation reports supply expected query results.
+        """
+        if "vortex" not in formats:
+            return
+        sources = [(paths.fact_csv, paths.fact_vortex, "fact"),
+                   (paths.dim_csv, paths.dim_vortex, "dim")]
+        parts = self.fact_part_paths(paths, "csv")
+        if parts:
+            if paths.fact_vortex_parts_dir is None:
+                raise ValueError("native fixture parts require a declared destination")
+            paths.fact_vortex_parts_dir.mkdir(exist_ok=False)
+            sources.extend((source, paths.fact_vortex_parts_dir / (source.stem + ".vortex"), "parts")
+                           for source in parts)
+        for source, target, role in sources:
+            if target is None:
+                raise ValueError("native fixture requires a declared destination")
+            receipt, _, _ = self._prepare_source(paths, source, "csv", target, role)
+            self.fixture_preparation_receipts.append(receipt)
+
     def prepare(self, paths, formats, scenarios):
         """Optional durable input preparation, recorded outside query timing."""
         if self.configuration.input_state != "prepared":
@@ -155,21 +198,15 @@ class NativePublicRunner:
                     if key in self.prepared:
                         continue
                     generation = _generation(path)
+                    if source_format == "vortex":
+                        self.prepared[key] = (path, generation, generation)
+                        self.reused_native_inputs.append({"path": str(path), "input_format": "vortex",
+                                                          "sha256": file_sha256(path), "bytes": path.stat().st_size})
+                        continue
                     token = hashlib.sha256(json.dumps(key).encode()).hexdigest()[:20]
                     target = workspace / f"input-{token}.vortex"
-                    command = [str(self.binary), "vortex-prepare", str(path), str(target),
-                               "--input-format", source_format, "--memory-gb", str(self.configuration.memory_gb),
-                               "--max-parallelism", str(self.configuration.max_parallelism), "--format", "json"]
-                    if source_format in ("csv", "jsonl"):
-                        command.extend(["--schema", fixture_schema_for_role(paths, role)])
-                    envelope, receipt = self._run(paths, command, phase="input_preparation")
-                    fields = {entry["key"]: entry["value"] for entry in envelope["fields"]}
-                    if (fields.get("vortex_ingest_performed") != "true" or not target.is_file()
-                            or fields.get("external_engine_invoked") != "false"):
-                        raise RuntimeError(f"native input preparation lacks evidence: {receipt}")
-                    if _generation(path) != generation:
-                        raise RuntimeError("input changed during native preparation")
-                    self.prepared[key] = (target, generation, _generation(target))
+                    receipt, generation, prepared_generation = self._prepare_source(paths, path, source_format, target, role)
+                    self.prepared[key] = (target, generation, prepared_generation)
                     self.preparation_receipts.append(receipt)
 
     def _bindings(self, sources, paths):
@@ -189,7 +226,7 @@ class NativePublicRunner:
                     data_format = "vortex"
                     generations[path] = prepared_generation
                 binding = {"input_format": data_format}
-                if data_format in ("csv", "jsonl"):
+                if data_format in ("csv", "json", "jsonl"):
                     binding["source_schema"] = fixture_schema_for_role(paths, role)
                 bindings[str(path)] = binding
                 references.append(_literal(path))
@@ -265,6 +302,7 @@ class NativePublicRunner:
             "benchmark_native_calls": json.dumps(receipts),
             "benchmark_output_validation_calls": json.dumps(validations),
             "benchmark_input_preparation_calls": json.dumps(self.preparation_receipts),
+            "benchmark_native_input_reuse": json.dumps(self.reused_native_inputs),
             "cli_process_wall_millis": str(1000 * sum(row["seconds"] for row in receipts)),
             "benchmark_readback_wall_millis": str(1000 * sum(row["seconds"] for row in validations)),
             "benchmark_case_wall_millis": str(1000 * (time.perf_counter() - started)),

@@ -76,7 +76,7 @@ def accounted_bytes(root: Path) -> int:
     while pending:
         path = pending.pop()
         try:
-            info = path.lstat()
+            info = path.stat(follow_symlinks=False) if isinstance(path, os.DirEntry) else path.lstat()
         except FileNotFoundError:
             continue
         identity = (info.st_dev, info.st_ino)
@@ -85,7 +85,9 @@ def accounted_bytes(root: Path) -> int:
         seen.add(identity)
         if stat.S_ISDIR(info.st_mode):
             with os.scandir(path) as entries:
-                pending.extend(Path(entry.path) for entry in entries)
+                # Keep the directory entries so repeated checks avoid rebuilding
+                # and reparsing a Path object for every retained artifact.
+                pending.extend(entries)
         else:
             total += max(info.st_size, getattr(info, "st_blocks", 0) * 512)
     return total

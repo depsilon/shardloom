@@ -18,9 +18,11 @@ for directory in (BENCHMARK_DIR, SCRIPTS_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
-from benchmark_models import DatasetPaths
+from benchmark_models import DatasetPaths, FORMAT_ORDER, COMPARISON_FORMATS, comparison_input_format
 from fixtures import (
     ensure_dataset,
+    fact_path,
+    dim_path,
     fact_part_paths,
     fixture_arrow_column_types,
     fixture_columns_for_role,
@@ -166,19 +168,15 @@ class PublicNativeBenchmarkTests(unittest.TestCase):
     def test_raw_and_prepared_inputs_forward_the_same_role_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
-            paths = ensure_dataset(root / "fixture", 8, 3, ("csv", "jsonl"), "tiny_smoke")
+            paths = ensure_dataset(root / "fixture", 8, 3, ("csv", "json", "jsonl"), "tiny_smoke")
             roles = ("fact", "dim", "parts", "delta")
             binary = root / "shardloom"
             binary.write_bytes(b"fixture executable identity")
             runner = NativeConfiguration(binary, root / "workspace")
             public_runner = NativePublicRunner.__new__(NativePublicRunner)
             public_runner.configuration = runner
-            public_runner.fact_path = lambda dataset, data_format: (
-                dataset.fact_csv if data_format == "csv" else dataset.fact_jsonl
-            )
-            public_runner.dim_path = lambda dataset, data_format: (
-                dataset.dim_csv if data_format == "csv" else dataset.dim_jsonl
-            )
+            public_runner.fact_path = fact_path
+            public_runner.dim_path = dim_path
             public_runner.fact_part_paths = lambda dataset, data_format: fact_part_paths(dataset, data_format)
             csv_sources = public_runner._source_paths(paths, "csv", roles)
             expected_csv = {
@@ -192,8 +190,14 @@ class PublicNativeBenchmarkTests(unittest.TestCase):
                 for role, members in jsonl_sources.items()
                 for source, _source_format in members
             }
-            for data_format in ("csv", "jsonl"):
-                sources = csv_sources if data_format == "csv" else jsonl_sources
+            json_sources = public_runner._source_paths(paths, "json", roles)
+            expected_json = {
+                str(source): fixture_schema_for_role(paths, role)
+                for role, members in json_sources.items()
+                for source, _source_format in members
+            }
+            for data_format in ("csv", "json", "jsonl"):
+                sources = public_runner._source_paths(paths, data_format, roles)
                 _expressions, bindings, _generations = public_runner._bindings(sources, paths)
                 expected = {
                     str(source): fixture_schema_for_role(paths, role)
@@ -230,13 +234,13 @@ class PublicNativeBenchmarkTests(unittest.TestCase):
 
             public_runner._run = fake_run
             all_scenarios = tuple(WORKLOADS)
-            public_runner.prepare(paths, ("csv", "jsonl"), all_scenarios)
+            public_runner.prepare(paths, ("csv", "json", "jsonl"), all_scenarios)
             prepared_schemas = {
                 command[2]: command[command.index("--schema") + 1]
                 for command in prepared_commands
                 if "--schema" in command
             }
-            self.assertEqual(prepared_schemas, {**expected_csv, **expected_jsonl})
+            self.assertEqual(prepared_schemas, {**expected_csv, **expected_json, **expected_jsonl})
 
             _prepared_expressions, prepared_bindings, _prepared_generations = public_runner._bindings(
                 csv_sources, paths
@@ -244,6 +248,88 @@ class PublicNativeBenchmarkTests(unittest.TestCase):
             self.assertEqual(len(prepared_bindings), len(expected_csv))
             self.assertTrue(all(binding["input_format"] == "vortex" for binding in prepared_bindings.values()))
             self.assertTrue(all("source_schema" not in binding for binding in prepared_bindings.values()))
+
+    def test_eight_native_formats_keep_actual_comparison_formats_explicit(self) -> None:
+        self.assertEqual(set(FORMAT_ORDER), {"csv", "json", "jsonl", "vortex", "parquet", "arrow-ipc", "avro", "orc"})
+        self.assertEqual(set(COMPARISON_FORMATS), set(FORMAT_ORDER) - {"vortex"})
+        for data_format in FORMAT_ORDER:
+            self.assertEqual(comparison_input_format(data_format), "csv" if data_format == "vortex" else data_format)
+        with self.assertRaisesRegex(ValueError, "unknown candidate"):
+            comparison_input_format("unknown")
+
+    def test_json_array_fixtures_preserve_every_csv_value_and_partition(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            paths = ensure_dataset(Path(tempdir) / "fixture", 9, 3, ("json",), "tiny_smoke")
+            pairs = [(paths.fact_csv, paths.fact_json), (paths.dim_csv, paths.dim_json)]
+            csv_parts = fact_part_paths(paths, "csv")
+            json_parts = fact_part_paths(paths, "json")
+            self.assertEqual(len(csv_parts), len(json_parts))
+            pairs.extend(zip(csv_parts, json_parts))
+            for source, destination in pairs:
+                with source.open(newline="", encoding="utf-8") as stream:
+                    expected = [{key: fixture_scalar_from_text(value, fixture_column_dtype(key))
+                                 for key, value in row.items()} for row in csv.DictReader(stream)]
+                self.assertEqual(read_json_output(destination, "json"), expected)
+            self.assertEqual(fact_path(paths, "json"), paths.fact_json)
+            self.assertEqual(dim_path(paths, "json"), paths.dim_json)
+
+    def test_json_comparison_reader_keeps_declared_types_and_rejects_column_drift(self) -> None:
+        if not importlib.util.find_spec("pyarrow"):
+            self.skipTest("pyarrow is an optional comparison dependency")
+        from baselines import pyarrow_table_for_format
+        import pyarrow as pa
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            paths = ensure_dataset(Path(tempdir) / "fixture", 8, 3, ("json",), "tiny_smoke")
+            for part in fact_part_paths(paths, "json"):
+                table = pyarrow_table_for_format(part, "json")
+                self.assertEqual(table.to_pylist(), read_json_output(part, "json"))
+                self.assertEqual(table.schema.field("nullable_metric_00").type, pa.float64())
+                self.assertEqual(table.schema.field("dirty_numeric").type, pa.string())
+            bad = Path(tempdir) / "extra.json"
+            bad.write_text('[{"id":1},{"id":2,"metric":3.0}]')
+            with self.assertRaisesRegex(ValueError, "column names"):
+                pyarrow_table_for_format(bad, "json")
+
+    def test_native_vortex_fixture_generation_and_prepared_reuse_are_separate(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            paths = ensure_dataset(root / "fixture", 8, 3, ("vortex",), "tiny_smoke")
+            binary = root / "shardloom"
+            binary.write_bytes(b"mock executable")
+            workspace = root / "workspace"
+            workspace.mkdir()
+            runner = NativePublicRunner(
+                NativeConfiguration(binary, workspace, input_state="prepared"),
+                fact_path=fact_path, dim_path=dim_path, fact_part_paths=fact_part_paths, round_float=round,
+            )
+            runner._workspace = lambda _paths: (root, workspace)
+            commands = []
+
+            def fake_run(_paths, command, *, phase):
+                commands.append(command)
+                self.assertEqual(phase, "input_preparation")
+                self.assertEqual(command[command.index("--input-format") + 1], "csv")
+                Path(command[3]).write_bytes(b"native fixture")
+                return {"fields": [{"key": "vortex_ingest_performed", "value": "true"},
+                                   {"key": "external_engine_invoked", "value": "false"}]}, {"command": command}
+
+            runner._run = fake_run
+            runner.prepare_fixture_inputs(paths, ("vortex",))
+            self.assertEqual(len(commands), 2 + len(fact_part_paths(paths, "csv")))
+            self.assertEqual(len(runner.fixture_preparation_receipts), len(commands))
+            self.assertEqual(runner.preparation_receipts, [])
+            runner.prepare(paths, ("vortex",), ("hash join",))
+            self.assertEqual(len(runner.reused_native_inputs), 2)
+            self.assertEqual(runner.preparation_receipts, [])
+            self.assertEqual(len(commands), len(runner.fixture_preparation_receipts))
+            sources = runner._source_paths(paths, "vortex", ("fact", "dim"))
+            _, bindings, _ = runner._bindings(sources, paths)
+            self.assertEqual(set(bindings), {str(paths.fact_vortex), str(paths.dim_vortex)})
+            self.assertTrue(all(binding == {"input_format": "vortex"} for binding in bindings.values()))
+            paths.fact_vortex.write_bytes(b"changed native fixture")
+            with self.assertRaisesRegex(RuntimeError, "artifact changed"):
+                runner._bindings(sources, paths)
 
     def test_split_arrow_inputs_preserve_types_for_disjoint_and_all_null_parts(self) -> None:
         if not importlib.util.find_spec("pyarrow"):

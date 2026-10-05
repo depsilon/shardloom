@@ -33,7 +33,8 @@ def execute(job):
             runner.prepare(paths, (data_format,))
         result = runner.scenarios[scenario](paths, data_format)
         return {"status": "passed", "engine": runner.name, "version": runner.version,
-                "result": result, "execution_role": "independent_comparison_only"}
+                "result": result, "input_format": data_format,
+                "execution_role": "independent_comparison_only"}
     finally:
         if runner.close is not None:
             runner.close()
