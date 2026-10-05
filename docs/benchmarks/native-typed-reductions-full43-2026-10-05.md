@@ -167,6 +167,14 @@ explicitly permits before publication; its blockers are retained. The downloaded
 Linux executable is not run locally. This documentation-only correction leaves
 runtime acceptance unchanged, and does not establish public release readiness.
 
+The next hosted baseline exposed a metadata assertion still requiring the old
+fixed output path. It now checks the temporary-directory construction, output
+filename and native write call. All 171 contract tests, strict contract-crate
+Clippy and workspace formatting pass. The
+[assertion repair receipt](evidence/native-typed-reductions-first-steps-metadata-repair-2026-10-05.json)
+retains that failure and test-only diff; the documented command and accepted
+engine are unchanged.
+
 ## Resource and evidence boundaries
 
 Large local work stays serial under the existing process/storage guards.
