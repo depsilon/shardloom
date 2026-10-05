@@ -37,6 +37,32 @@ The public complete-workflow total is 22,658 checks / 15,349,350 rows. It covers
 
 Full43 runs each of 43 queries three times through the public SQL path; all 129 complete results match the retained native regression reference. That reference is not an independent correctness oracle. The run is regression evidence only, not a speedup, engine-superiority or Spark-replacement claim. The modular workload UAT records were produced with a prior binary and are not recertified by this acceptance.
 
+The native process totals grouped by repeat are 83.239708, 79.577361 and
+79.284032 seconds. The sum of each query's minimum over its three runs is
+76.303357 seconds; all 129 native calls total 242.101102 seconds. These calls
+include process creation, complete public output and exit. Ingest, harness
+validation and monitoring are excluded. Each call uses a fresh process, with
+uncontrolled OS page cache and no answer cache. The 99,997,497-row input is the
+retained September 30 Vortex artifact; these observations are not a fresh
+ingest-to-query measurement or a comparison with another engine.
+
+## Release-checker integration
+
+Integration commit `04748e80` incorporates the preceding engine PR's release
+report, golden-workflow and repeatable quickstart repairs. All compiled runtime
+and Python package sources match the accepted frame build; the sole changed Rust
+file is a metadata test that checks the shared golden-workflow identities.
+The accepted executable and original acceptance packet remain unchanged.
+
+The [integration receipt](evidence/native-analytic-frames-integration-2026-10-05.json)
+retains 591 Python tests (six skipped), all 171 contract tests, formatter and
+metadata gates, the website build/check and generated-asset checks, and fresh
+golden workflows, observability and CLI/Python example replay. The isolated
+checkout initially lacked its locked website dependencies. The receipt preserves
+that failed build, installation from the unchanged lockfile and the passing
+rebuild. These additional checks establish local integration; hosted acceptance
+remains a separate gate.
+
 ## Frame contract and limits
 
 The admitted units are ROWS, GROUPS and RANGE, with explicit bounds, empty intervals and CURRENT ROW/GROUP/TIES/NO OTHERS exclusions. The omitted frame defaults to RANGE UNBOUNDED PRECEDING through CURRENT ROW. GROUPS requires ORDER BY. A bounded RANGE frame requires exactly one ordering key. ROWS and GROUPS offsets are nonnegative integer literals counting rows or peer groups and must fit an addressable row count. RANGE offsets must match the order domain: integer offsets for integer keys, finite nonnegative numeric offsets for floating keys, nonnegative scaled decimal offsets for decimal keys, whole-day durations for Date32, or fixed microseconds for TimestampMicros. Bind-time checks reject reversed bounds, invalid unbounded endpoints, unsupported offset forms and incompatible range domains. NTH_VALUE positions must be positive and no larger than the admitted input-row limit.
