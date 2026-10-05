@@ -25,14 +25,14 @@ website-src/scripts/sync-content.mjs
 -> website/compute-engine-flow.html
 ```
 
-Historical alignment review:
+Public harness alignment note:
 
 ```text
 docs/architecture/compute-engine-flow-overhaul-review.md
 ```
 
-This reference, not the overhaul review, owns current compute-flow vocabulary. The overhaul review
-is historical alignment evidence and should not be used as a second active queue.
+This reference owns current compute-flow vocabulary. The harness alignment note describes its
+public invocation and verification boundaries. The phase plan owns the active work queue.
 
 ## One-Sentence Model
 

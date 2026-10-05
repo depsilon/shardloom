@@ -76,7 +76,8 @@ claim. Such claims require separate runtime and benchmark evidence under their a
 
 ## Validation And Runtime Evidence
 
-`scripts/check_v1_source_prepared_state_scope.py` checks the current context report, these
+`ShardLoomContext.source_prepared_state_scope_report()` returns the declarative contract.
+`scripts/check_v1_source_prepared_state_scope.py` checks that context report, these
 documented boundaries, and the exact declarative fixtures. It does not read benchmark artifacts,
 infer readiness from benchmark rows, or claim that fixture contents prove runtime behavior.
 

@@ -168,8 +168,10 @@ PUBLIC_DOC_MARKERS = {
     "docs/architecture/v1-source-prepared-state-scope.md": (
         "shardloom.v1_source_prepared_state_scope.v1",
         "ShardLoomContext.source_prepared_state_scope_report()",
-        "UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
-        "workspace_manifest_local_vortex_artifacts",
+        "native_vortex_query",
+        "native_vortex_unified_plan",
+        "ResidentVortexSession",
+        "query_answer_cached=false",
         "global_hidden_cache",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -196,13 +198,14 @@ PUBLIC_DOC_MARKERS = {
 COMPUTE_FLOW_MARKERS = {
     "docs/architecture/compute-engine-flow-reference.md": (
         "canonical ShardLoom compute-flow reference",
-        "Historical alignment review",
-        "This reference, not the overhaul review, owns current compute-flow vocabulary",
+        "Public harness alignment note",
+        "This reference owns current compute-flow vocabulary",
     ),
     "docs/architecture/compute-engine-flow-overhaul-review.md": (
-        "Status: historical alignment review",
-        "This file is historical only",
-        "Historical Next Move At Completion",
+        "Status: source-aligned interface note",
+        "There is one candidate identity, `shardloom`",
+        "names do not select private",
+        "Reports remain incomplete",
     ),
     "docs/use-cases/reference-backlinks.md": (
         "docs/architecture/compute-engine-flow-reference.md",
