@@ -326,6 +326,7 @@ fn bind_unary(
 
 /// Bind the existing unary operator against a source retained by its caller.
 /// The source, operator and every output adapter share one resource owner.
+#[cfg(feature = "vortex-write")]
 pub(super) fn prepare_unary_from_source(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
