@@ -259,7 +259,7 @@ derive compact minute keys when admitted by the lean or broader source-native pr
 `source_native_embedded_derived_columns=not_available_for_current_arrow_layout` rather than paying a
 large preparation-time string scan.
 
-Common local prepared route:
+Local file preparation and execution:
 
 ```text
 local non-Vortex input
@@ -267,20 +267,20 @@ local non-Vortex input
 -> SourceState
 -> vortex-prepare
 -> VortexPreparedState
--> prepared_vortex
--> ExecutionPlan
+-> shared native source binding
+-> native_vortex_unified_plan
 -> OutputPlan
 -> SinkArtifact
 -> evidence
 -> claim gate
 ```
 
-Source-free route:
+Generated and source-free execution:
 
 ```text
-generated source
--> GeneratedSourceState or GeneratedSourceCertificate
--> optional prepared/native route
+admitted generated values or source-free declaration
+-> Vortex-native values and source evidence
+-> native_vortex_unified_plan
 -> OutputPlan
 -> SinkArtifact
 -> evidence
