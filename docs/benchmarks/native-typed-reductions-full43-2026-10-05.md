@@ -117,6 +117,41 @@ productization, CI matrix, user-surface reference and diff checks pass. The audi
 reports zero vulnerabilities, and all 171 document contract tests pass. Hosted
 review/checks remain pending and do not alter these immutable runtime observations.
 
+The first hosted package smoke produced the expected complete rows but its
+example checker required the retired preparation-ingest property. The checker
+and release transcript now verify the shared native-plan family and declared
+file/memory source-open counts. Missing or invalid evidence fails the example
+and its printed status. The accepted executable passes the corrected example,
+and all 157 release-script tests pass, including negative evidence checks.
+The [package-checker receipt](evidence/native-typed-reductions-package-checker-2026-10-05.json)
+retains the hosted failure, local checks and unchanged runtime-source hashes.
+
+A subsequent hosted source-state gate exposed missing explicit false release
+and publication declarations. Tracing its downstream consumers also found stale
+route ownership, output-route counts, quickstart fields and golden-workflow
+identities. The checkers now consume the current producer contracts and retain
+strict rejection of missing, ambiguous or unsafe evidence. Golden replay records
+its existing complete-row comparison, and each quickstart creates fresh source
+and output paths so repeated runs preserve earlier files.
+
+All 184 focused release-contract tests pass. Fresh resource-safety,
+observability, golden-workflow and example-replay checks pass against the accepted
+executable, including downstream correctness consumers. The
+[release-report repair receipt](evidence/native-typed-reductions-release-report-repair-2026-10-05.json)
+preserves the hosted failure, three failed local follow-ups, diagnostic evidence,
+successful replay and exact repair sources. All 681 runtime source hashes and the
+accepted binary hash are unchanged; this follow-up does not replace or relabel
+the original runtime acceptance. Hosted rechecks remain pending.
+
+The next hosted run found a metadata test that still required the shared golden
+identities to be literal strings in the producer script. It now verifies their
+shared definitions, producer uses and all three consumer imports. All 171
+repository contract tests and strict contract-crate Clippy pass. The
+[metadata-test receipt](evidence/native-typed-reductions-metadata-test-repair-2026-10-05.json)
+retains the failure and proof: only that test differs within the preceding
+681-file Rust/Cargo/Python source inventory; engine implementation and accepted
+binary bytes remain unchanged.
+
 ## Resource and evidence boundaries
 
 Large local work stays serial under the existing process/storage guards.

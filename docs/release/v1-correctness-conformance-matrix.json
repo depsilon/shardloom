@@ -113,9 +113,9 @@
   ],
   "front_door_expected_error_scenario_ids": [],
   "golden_workflow_ids": [
-    "generated_source_to_local_vortex_output_replay_fidelity",
     "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-    "prepared_native_vortex_count_filter_project_execution_certificates"
+    "prepared_native_vortex_count_filter_project_execution_certificates",
+    "source_free_sql_values_to_local_vortex_output_replay_fidelity"
   ],
   "required_semantic_case_ids": [
     "aggregate_having_output_rows",

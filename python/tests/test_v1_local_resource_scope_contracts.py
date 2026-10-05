@@ -81,6 +81,34 @@ def local_output_payload():
 
 
 class V1LocalResourceScopeContractTests(unittest.TestCase):
+    def test_actual_source_report_satisfies_resource_gate_contract(self) -> None:
+        from check_v1_source_prepared_state_scope import build_report
+
+        payload = build_report(REPO_ROOT)
+        self.assertEqual(payload["status"], "passed", payload["blockers"])
+        summary, blockers = _load_validator().validate_source_prepared(payload)
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(summary["status"], "passed")
+        self.assertFalse(summary["runtime_evidence_verified"])
+
+    def test_actual_source_report_requires_explicit_false_claim_and_effect_fields(self) -> None:
+        from check_v1_source_prepared_state_scope import build_report
+
+        payload = build_report(REPO_ROOT)
+        validator = _load_validator()
+        for field in fail_closed_fields():
+            for value in (None, True, 0, "false"):
+                with self.subTest(field=field, value=value):
+                    changed = dict(payload)
+                    if value is None:
+                        changed.pop(field, None)
+                    else:
+                        changed[field] = value
+                    summary, blockers = validator.validate_source_prepared(changed)
+                    self.assertEqual(summary["status"], "failed")
+                    self.assertIn(f"source_prepared_state: {field} must be false", blockers)
+
     def test_current_source_prepared_declaration_passes_without_smoke_proof(self) -> None:
         validator = _load_validator()
         summary, blockers = validator.validate_source_prepared(source_prepared_payload())

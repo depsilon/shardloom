@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
+from local_python_example_evidence import RESULT_MARKERS, UNSUPPORTED_MARKERS, marker_present
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1084,43 +1085,17 @@ def write_transcript(
     def step_stdout_contains(name: str, marker: str) -> bool:
         return marker in steps_by_name.get(name, {}).get("stdout", "")
 
+    quickstart_stdout = steps_by_name.get("example_local_python_smoke", {}).get("stdout", "")
     local_python_user_surface_quickstart_performed = step_passed(
         "example_local_python_smoke"
-    ) and step_stdout_contains(
-        "example_local_python_smoke",
-        "quickstart_user_surface_status=passed",
-    )
+    ) and marker_present(quickstart_stdout, "quickstart_user_surface_status=passed")
     local_python_result_and_evidence_printed = all(
-        step_stdout_contains("example_local_python_smoke", marker)
-        for marker in [
-            "quickstart_local_file_blocker_id=none",
-            "quickstart_local_file_route_status=passed",
-            "quickstart_local_file_runtime_execution=true",
-            "quickstart_local_file_vortex_ingest_performed=true",
-            "quickstart_local_file_fallback_attempted=false",
-            "quickstart_local_file_external_engine_invoked=false",
-            "quickstart_local_file_result_rows=",
-            "quickstart_generated_input_row_count=",
-            "quickstart_generated_result_verified=true",
-            "quickstart_generated_rows_written=",
-            "quickstart_generated_output_row_count=",
-            "quickstart_generated_output_path=",
-            "quickstart_generated_output_commit_status=committed",
-            "quickstart_generated_fallback_attempted=false",
-            "quickstart_generated_external_engine_invoked=false",
-            "quickstart_generated_claim_gate_status=",
-        ]
+        marker_present(quickstart_stdout, marker)
+        for marker in RESULT_MARKERS
     )
     local_python_unsupported_path_evidence_printed = all(
-        step_stdout_contains("example_local_python_smoke", marker)
-        for marker in [
-            "quickstart_unsupported_blocker_id=",
-            "quickstart_unsupported_runtime_execution=false",
-            "quickstart_unsupported_data_read=false",
-            "quickstart_unsupported_write_io=false",
-            "quickstart_unsupported_fallback_attempted=false",
-            "quickstart_unsupported_external_engine_invoked=false",
-        ]
+        marker_present(quickstart_stdout, marker)
+        for marker in UNSUPPORTED_MARKERS
     )
 
     transcript = {

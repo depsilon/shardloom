@@ -3893,7 +3893,7 @@ class ReleaseScriptTests(unittest.TestCase):
                     },
                     {
                         "route_id": "object_store_lakehouse_runtime",
-                        "owner": "external_environment_gate",
+                        "owner": "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog",
                         "route_runtime_status": "external_environment_gate_pending",
                         "fallback_attempted": False,
                         "external_engine_invoked": False,
@@ -7552,6 +7552,14 @@ jobs:
 
         self.assertTrue(module.workflow_replay_verified(workflow))
 
+    def test_v1_example_replay_validates_current_documentation(self) -> None:
+        module = self._load_script_module(
+            "check_v1_example_replay.py", "example_replay_current_docs_for_test"
+        )
+        summary, blockers = module.validate_doc_markers(REPO_ROOT)
+        self.assertEqual(blockers, [])
+        self.assertEqual(summary["status"], "passed")
+
     def test_v1_local_resource_safety_normalizes_downloaded_binary_permissions(
         self,
     ) -> None:
@@ -7642,8 +7650,10 @@ jobs:
                         def value(flag):
                             return args[args.index(flag) + 1]
                         if value("--request") == "collect":
-                            source = Path(__file__).resolve().parent / "target/local-python-smoke/orders.csv"
-                            assert value("--input") == str(source), args
+                            source = Path(value("--input"))
+                            assert source.parent.parent == Path(__file__).resolve().parent / "target/local-python-smoke", args
+                            assert source.parent.name.startswith("run-"), args
+                            assert source.name == "orders.csv" and source.is_file(), args
                             assert value("--input-format") == "csv", args
                             bindings = json.loads(value("--source-bindings"))
                             assert bindings == {str(source): {"input_format": "csv"}}, args
@@ -7665,14 +7675,18 @@ jobs:
                                 {"key": "result_values_json", "value": json.dumps(result_rows)},
                                 {"key": "runtime_execution", "value": "true"},
                                 {"key": "data_read", "value": "true"},
-                                {"key": "rows_projected", "value": "2"},
-                                {"key": "public_workflow_preparation_vortex_ingest_performed", "value": "true"},
-                                {"key": "public_workflow_local_source_prepared_vortex_path", "value": str(Path(__file__).resolve().parent / "target/local-python-smoke/orders.vortex")},
+                                {"key": "output_row_count", "value": "2"},
+                                {"key": "public_workflow_native_vortex_plan_route_family", "value": "native_vortex_unified_plan"},
+                                {"key": "resident_source_opens", "value": "1"},
                                 {"key": "claim_gate_status", "value": "not_claim_grade"},
                             ])
                         assert value("--request") == "write_jsonl", args
                         output_path = Path(value("--output"))
-                        assert str(output_path) == str(Path(__file__).resolve().parent / "target/local-python-smoke/generated-reference.jsonl"), args
+                        assert output_path.parent.parent == Path(__file__).resolve().parent / "target/local-python-smoke", args
+                        assert output_path.parent.name.startswith("run-"), args
+                        assert output_path.name == "generated-reference.jsonl", args
+                        assert not output_path.exists(), args
+                        assert "--allow-overwrite" not in args, args
                         bindings = json.loads(value("--source-bindings"))
                         assert len(bindings) == 1, args
                         source_uri, declaration = next(iter(bindings.items()))
@@ -7702,6 +7716,8 @@ jobs:
                             {"key": "native_vortex_result_export_format", "value": "jsonl"},
                             {"key": "native_vortex_result_export_rows_written", "value": "1"},
                             {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
+                            {"key": "public_workflow_native_vortex_plan_route_family", "value": "native_vortex_unified_plan"},
+                            {"key": "resident_source_opens", "value": "0"},
                             {"key": "output_row_count", "value": "1"},
                             {"key": "output_io_performed", "value": "true"},
                             {"key": "runtime_execution", "value": "true"},
@@ -7709,7 +7725,10 @@ jobs:
                         ])
                     if args[0] == "workflow-unsupported-plan":
                         assert args[1] == "apply", args
-                        assert args[2] == f"read_csv({Path(__file__).resolve().parent / 'target/local-python-smoke/orders.csv'}) -> select(id)", args
+                        assert args[2].startswith("read_csv(") and args[2].endswith(") -> select(id)"), args
+                        source = Path(args[2][len("read_csv("):-len(") -> select(id)")])
+                        assert source.parent.parent == Path(__file__).resolve().parent / "target/local-python-smoke", args
+                        assert source.name == "orders.csv" and source.is_file(), args
                         assert args[3] == "callable=row_udf", args
                         emit("workflow-unsupported-plan", [
                             {"key": "blocker_id", "value": "cg21.workflow.apply.python_callable_unsupported"},
@@ -7743,7 +7762,9 @@ jobs:
             self.assertIn("quickstart_local_file_blocker_id=none", output)
             self.assertIn("quickstart_local_file_route_status=passed", output)
             self.assertIn("quickstart_local_file_runtime_execution=true", output)
-            self.assertIn("quickstart_local_file_vortex_ingest_performed=true", output)
+            self.assertIn("quickstart_local_file_native_plan_family=native_vortex_unified_plan", output)
+            self.assertIn("quickstart_local_file_source_opens=1", output)
+            self.assertIn("quickstart_local_file_output_row_count=2", output)
             self.assertIn("quickstart_local_file_fallback_attempted=false", output)
             self.assertIn("quickstart_local_file_external_engine_invoked=false", output)
             self.assertIn(
@@ -7751,12 +7772,29 @@ jobs:
                 output,
             )
             self.assertIn("quickstart_generated_input_row_count=1", output)
+            self.assertIn("quickstart_generated_native_plan_family=native_vortex_unified_plan", output)
+            self.assertIn("quickstart_generated_source_opens=0", output)
             self.assertIn("quickstart_generated_result_verified=true", output)
             self.assertIn("quickstart_generated_rows_written=1", output)
-            self.assertIn(
-                f"quickstart_generated_output_path={repo_root.resolve() / 'target/local-python-smoke/generated-reference.jsonl'}",
-                output,
-            )
+            generated_path = Path(next(
+                line.split("=", 1)[1] for line in output.splitlines()
+                if line.startswith("quickstart_generated_output_path=")
+            ))
+            self.assertEqual(generated_path.parent.parent, repo_root.resolve() / "target/local-python-smoke")
+            self.assertEqual(generated_path.name, "generated-reference.jsonl")
+            prior_output = generated_path.read_bytes()
+            repeated_stdout = io.StringIO()
+            with contextlib.redirect_stdout(repeated_stdout):
+                self.assertEqual(module.main(
+                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                ), 0)
+            repeated_path = Path(next(
+                line.split("=", 1)[1] for line in repeated_stdout.getvalue().splitlines()
+                if line.startswith("quickstart_generated_output_path=")
+            ))
+            self.assertNotEqual(generated_path, repeated_path)
+            self.assertEqual(generated_path.read_bytes(), prior_output)
+            self.assertEqual(repeated_path.read_bytes(), prior_output)
             self.assertIn("quickstart_generated_output_row_count=1", output)
             self.assertIn("quickstart_generated_output_commit_status=committed", output)
             self.assertIn("quickstart_generated_fallback_attempted=false", output)
@@ -7773,19 +7811,62 @@ jobs:
             self.assertIn("quickstart_unsupported_data_read=false", output)
             self.assertIn("quickstart_unsupported_write_io=false", output)
             self.assertIn("quickstart_unsupported_fallback_attempted=false", output)
+            replay = self._load_script_module(
+                "check_v1_example_replay.py", "example_replay_actual_quickstart_for_test"
+            )
+            summary, blockers = replay.validate_quickstart(
+                {"stdout_tail": output, "returncode": returncode}
+            )
+            self.assertEqual(blockers, [])
+            self.assertTrue(summary["local_file_vortex_collect_present"])
+            self.assertTrue(summary["unsupported_fixture_present"])
+            for line in output.splitlines():
+                if not line.startswith("quickstart_"):
+                    continue
+                with self.subTest(missing_quickstart_line=line):
+                    _, blockers = replay.validate_quickstart(
+                        {"stdout_tail": output.replace(line + "\n", ""), "returncode": 0}
+                    )
+                    self.assertTrue(blockers)
+            for old, new in (
+                ("quickstart_local_file_source_opens=1", "quickstart_local_file_source_opens=10"),
+                ("quickstart_generated_source_opens=0", "quickstart_generated_source_opens=01"),
+                ("quickstart_generated_result_verified=true", "quickstart_generated_result_verified=trueish"),
+                ("quickstart_generated_claim_gate_status=fixture_smoke_only", "quickstart_generated_claim_gate_status="),
+            ):
+                with self.subTest(invalid_quickstart_line=new):
+                    _, blockers = replay.validate_quickstart(
+                        {"stdout_tail": output.replace(old, new), "returncode": 0}
+                    )
+                    self.assertTrue(blockers)
+            _, duplicate_blockers = replay.validate_quickstart(
+                {"stdout_tail": output + "quickstart_local_file_source_opens=2\n", "returncode": 0}
+            )
+            self.assertTrue(duplicate_blockers)
             self.assertFalse(
                 (repo_root / "target" / "local-python-smoke" / "orders-out.jsonl").exists()
             )
-            generated_jsonl = (
-                repo_root
-                / "target"
-                / "local-python-smoke"
-                / "generated-reference.jsonl"
-            )
             self.assertEqual(
-                [json.loads(line) for line in generated_jsonl.read_text(encoding="utf-8").splitlines()],
+                [json.loads(line) for line in generated_path.read_text(encoding="utf-8").splitlines()],
                 [{"id": 1, "label": "alpha", "batch_id": 1}],
             )
+            original_cli = fake_cli.read_text(encoding="utf-8")
+            for original, replacement in (
+                ('"public_workflow_native_vortex_plan_route_family"', '"missing_plan_family"'),
+                ('"native_vortex_unified_plan"', '"unadmitted_plan_family"'),
+                ('"resident_source_opens", "value": "1"', '"resident_source_opens", "value": "2"'),
+                ('"resident_source_opens", "value": "0"', '"resident_source_opens", "value": "1"'),
+            ):
+                with self.subTest(missing_or_invalid_evidence=original):
+                    self.assertIn(original, original_cli)
+                    fake_cli.write_text(original_cli.replace(original, replacement), encoding="utf-8")
+                    stdout = io.StringIO()
+                    with contextlib.redirect_stdout(stdout):
+                        returncode = module.main(
+                            ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                        )
+                    self.assertEqual(returncode, 1, stdout.getvalue())
+                    self.assertIn("quickstart_user_surface_status=failed", stdout.getvalue())
 
     def test_release_dry_run_transcript_records_user_surface_quickstart_markers(self) -> None:
         module = self._load_script_module(
@@ -7804,11 +7885,15 @@ jobs:
                             "quickstart_local_file_blocker_id=none",
                             "quickstart_local_file_route_status=passed",
                             "quickstart_local_file_runtime_execution=true",
-                            "quickstart_local_file_vortex_ingest_performed=true",
+                            "quickstart_local_file_native_plan_family=native_vortex_unified_plan",
+                            "quickstart_local_file_source_opens=1",
+                            "quickstart_local_file_output_row_count=2",
                             "quickstart_local_file_fallback_attempted=false",
                             "quickstart_local_file_external_engine_invoked=false",
                             "quickstart_local_file_result_rows=({'id': 2, 'label': 'beta', 'amount': 15}, {'id': 3, 'label': 'gamma', 'amount': 27})",
                             "quickstart_generated_input_row_count=1",
+                            "quickstart_generated_native_plan_family=native_vortex_unified_plan",
+                            "quickstart_generated_source_opens=0",
                             "quickstart_generated_result_verified=true",
                             "quickstart_generated_rows_written=1",
                             "quickstart_generated_output_path=target/local-python-smoke/generated-reference.jsonl",

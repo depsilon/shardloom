@@ -21,17 +21,15 @@ from typing import Any, Mapping, Sequence
 
 from release_feature_contract import RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 from release_report_utils import fail_closed_fields, load_json, read_text, resolve_path, write_json
+from local_python_example_evidence import RESULT_MARKERS, UNSUPPORTED_MARKERS, marker_present
+from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_example_replay_report.v1"
 DEFAULT_FEATURES = RELEASE_USER_SURFACE_EXAMPLE_FEATURES
 
-EXPECTED_GOLDEN_WORKFLOWS = {
-    "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-    "generated_source_to_local_vortex_output_replay_fidelity",
-    "prepared_native_vortex_count_filter_project_execution_certificates",
-}
+EXPECTED_GOLDEN_WORKFLOWS = GOLDEN_WORKFLOW_IDS
 EXPECTED_SCENARIOS = {
     "selective_filter",
     "filter_projection_limit",
@@ -55,16 +53,16 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "import shardloom as sl",
         "ctx = sl.context()",
         'ctx.read("orders.csv")',
-        "prepared = ctx.prepare_vortex(",
-        "clean/cast/filter/write",
-        "scenario_selective-filter_fallback_attempted",
+        "ctx.prepare_vortex(",
+        'orders.filter("amount >= 10").select("id", "amount").write_jsonl(',
+        "print(result.fallback_attempted, result.external_engine_invoked)",
     ),
     "python/README.md": (
         "from shardloom import context",
         "import shardloom as sl",
         'ctx.read("target/orders.csv")',
-        "print(result.prepared_vortex_path)",
-        "print(result.vortex_ingest_performed)",
+        "print(result.result_rows)",
+        "native_io_certificate_status",
         ".filter(sl.col(\"amount\") >= 10)",
         ".collect()",
         "fallback_attempted",
@@ -337,6 +335,13 @@ def workflow_replay_verified(workflow: Mapping[str, Any]) -> bool:
     for stage in stages:
         if not isinstance(stage, dict):
             continue
+        if (
+            stage.get("status") == "passed"
+            and stage.get("complete_result_rows_verified") is True
+            and type(stage.get("complete_result_row_count")) is int
+            and stage["complete_result_row_count"] >= 0
+        ):
+            return True
         fields = selected_fields(stage)
         if bool_value(fields.get("result_replay_verified")) is True:
             return True
@@ -458,24 +463,12 @@ def validate_golden_report(repo_root: Path, path: Path) -> tuple[dict[str, Any],
 def validate_quickstart(result: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     stdout = str(result.get("stdout_tail", ""))
     blockers: list[str] = []
-    for marker in [
+    for marker in (
         "quickstart_user_surface_status=passed",
-        "quickstart_local_file_blocker_id=none",
-        "quickstart_local_file_route_status=passed",
-        "quickstart_local_file_runtime_execution=true",
-        "quickstart_local_file_vortex_ingest_performed=true",
-        "quickstart_local_file_fallback_attempted=false",
-        "quickstart_local_file_external_engine_invoked=false",
-        "quickstart_generated_output_row_count=",
-        "quickstart_generated_evidence_fallback_attempted=false",
-        "quickstart_generated_evidence_external_engine_invoked=false",
-        "quickstart_unsupported_runtime_execution=false",
-        "quickstart_unsupported_data_read=false",
-        "quickstart_unsupported_write_io=false",
-        "quickstart_unsupported_fallback_attempted=false",
-        "quickstart_unsupported_external_engine_invoked=false",
-    ]:
-        if marker not in stdout:
+        *RESULT_MARKERS,
+        *UNSUPPORTED_MARKERS,
+    ):
+        if not marker_present(stdout, marker):
             blockers.append(f"quickstart: missing stdout marker {marker}")
     if "quickstart_unsupported_blocker_id=None" in stdout:
         blockers.append("quickstart: unsupported blocker id must be populated")
@@ -484,12 +477,12 @@ def validate_quickstart(result: dict[str, Any]) -> tuple[dict[str, Any], list[st
     return {
         "status": "passed" if not blockers else "failed",
         "local_file_vortex_collect_present": (
-            "quickstart_local_file_route_status=passed" in stdout
-            and "quickstart_local_file_vortex_ingest_performed=true" in stdout
+            marker_present(stdout, "quickstart_local_file_route_status=passed")
+            and marker_present(stdout, "quickstart_local_file_native_plan_family=native_vortex_unified_plan")
+            and marker_present(stdout, "quickstart_local_file_source_opens=1")
         ),
         "unsupported_fixture_present": (
-            "quickstart_unsupported_blocker_id=" in stdout
-            and "quickstart_unsupported_blocker_id=None" not in stdout
+            marker_present(stdout, "quickstart_unsupported_blocker_id=")
         ),
     }, blockers
 

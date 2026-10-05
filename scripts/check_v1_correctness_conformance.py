@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
 from release_report_utils import fail_closed_fields, load_json, resolve_path, write_json
 
 
@@ -67,11 +68,7 @@ EXPECTED_EXAMPLE_REPLAY_SCENARIOS = len(EXPECTED_EXAMPLE_SCENARIOS)
 EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS = len(EXPECTED_ERROR_SCENARIOS)
 EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES = 1
 
-EXPECTED_GOLDEN_WORKFLOWS = {
-    "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-    "generated_source_to_local_vortex_output_replay_fidelity",
-    "prepared_native_vortex_count_filter_project_execution_certificates",
-}
+EXPECTED_GOLDEN_WORKFLOWS = GOLDEN_WORKFLOW_IDS
 EXPECTED_GOLDEN_STAGE_COUNT_MIN = 9
 
 EXPECTED_EXECUTABLE_FIXTURES = 117
@@ -918,7 +915,7 @@ def _validate_vortex(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
             blockers.append("vortex_runtime: native_vortex_query owner must be shared_native_workflow")
         if native.get("route_runtime_status") != "global_runtime_supported":
             blockers.append("vortex_runtime: native_vortex_query must be globally runtime supported")
-        if external.get("owner") != "external_environment_gate":
+        if external.get("owner") != "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog":
             blockers.append("vortex_runtime: object-store route must remain externally gated")
         if external.get("route_runtime_status") != "external_environment_gate_pending":
             blockers.append("vortex_runtime: object-store route must remain externally gated")
