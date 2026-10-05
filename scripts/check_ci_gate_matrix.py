@@ -273,8 +273,8 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         lane_id="release_user_surface_evidence",
         job_id="release-user-surface",
         commands=(
-            "cargo build -q -p shardloom-cli --features \"release-user-surfaces\"",
-            "cargo build --release -q -p shardloom-cli --features \"release-user-surfaces\"",
+            "cargo build -q -p shardloom-cli --features release-user-surfaces",
+            "cargo build --release -q -p shardloom-cli --features release-user-surfaces",
             "python scripts/check_python_user_surface_completion.py",
             "python scripts/check_sql_python_dataframe_parity.py",
             "python scripts/check_v1_front_door_runtime_scope.py",
