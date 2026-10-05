@@ -14553,7 +14553,11 @@ mod tests {
             assert!(!plan.preparation_included);
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
-            assert_eq!(plan.blocker_id, "cg21.route.input_not_declared");
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+            );
+            assert!(!plan.preparation_included);
         }
     }
 
@@ -14602,7 +14606,7 @@ mod tests {
             if cfg!(all(feature = "vortex-local-primitives", unix)) {
                 "cg21.route.native_relational_not_admitted"
             } else {
-                "cg21.route.input_not_declared"
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
             }
         );
     }

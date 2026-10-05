@@ -859,8 +859,8 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     let first_ten = read_repo_file("docs/getting-started/first-10-minutes.md");
     assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
     assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
-    assert!(first_ten.contains("ctx.from_rows"));
-    assert!(first_ten.contains("ctx.range"));
+    assert!(first_ten.contains(".from_rows([{'id': 1, 'label': 'alpha'}])"));
+    assert!(first_ten.contains(".write('target/generated-reference.jsonl'"));
     assert!(first_ten.contains("--input-state raw"));
     assert!(first_ten.contains("--reference-engine pandas"));
     assert!(first_ten.contains("public package release"));

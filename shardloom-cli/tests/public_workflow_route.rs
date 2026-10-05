@@ -1821,12 +1821,25 @@ fn public_route_keeps_scalar_path_literals_out_of_source_bindings() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("route_id", "native_vortex_relational_collect")));
-    assert!(stdout.contains(&field(
-        "resolved_internal_command",
-        "native-vortex-relational"
-    )));
+    if cfg!(all(feature = "vortex-local-primitives", unix)) {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_relational_collect")));
+        assert!(stdout.contains(&field(
+            "resolved_internal_command",
+            "native-vortex-relational"
+        )));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+        )));
+        assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
+    }
+    assert!(stdout.contains(&field("declared_inputs", "none")));
+    assert!(stdout.contains(&field("primary_input", "none")));
+    assert!(stdout.contains(&field("preparation_included", "false")));
     assert!(stdout.contains(&field("source_io_performed", "false")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("plan_only", "true")));
@@ -1876,7 +1889,7 @@ fn public_route_blocks_unresolved_newline_from_source_without_declared_input() {
         if cfg!(all(feature = "vortex-local-primitives", unix)) {
             "cg21.route.native_relational_not_admitted"
         } else {
-            "cg21.route.input_not_declared"
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
         }
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
