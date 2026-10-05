@@ -8,7 +8,7 @@ import json
 
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
-from native_report_evidence import require_native_resource_admission
+from native_report_evidence import has_diagnostic_detail, require_native_resource_admission
 
 
 def literal(value):
@@ -118,8 +118,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         if (envelope.status not in ("error", "unsupported") or envelope.fallback.attempted
                 or envelope.raw.get("certificates") or envelope.raw.get("artifacts")
                 or (destination is not None and destination.exists())
-                or (reason is not None and not any(reason in item.get("reason", "")
-                                                   for item in envelope.raw.get("diagnostics", [])))):
+                or (reason is not None and not has_diagnostic_detail(envelope, reason))):
             raise ValueError(f"{name}: invalid dynamic request published output or success evidence")
         complete(name, [], [])
 

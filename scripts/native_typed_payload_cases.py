@@ -12,7 +12,7 @@ from native_typed_key_cases import run as typed_key_cases
 from native_typed_expression_cases import run as typed_expression_cases
 from native_typed_unary_cases import run as typed_unary_cases
 from native_typed_reduction_cases import run as typed_reduction_cases
-from native_report_evidence import require_native_resource_admission
+from native_report_evidence import has_diagnostic_detail, require_native_resource_admission
 from native_nested_key_state_cases import run as nested_key_state_cases
 
 
@@ -58,8 +58,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         if (envelope.status not in ("error", "unsupported") or envelope.fallback.attempted
                 or envelope.raw.get("certificates") or envelope.raw.get("artifacts")
                 or (destination is not None and destination.exists())
-                or (reason is not None and not any(reason in item.get("reason", "")
-                                                    for item in envelope.raw.get("diagnostics", [])))):
+                or (reason is not None and not has_diagnostic_detail(envelope, reason))):
             raise ValueError(f"{name}: invalid typed request published output or success evidence")
         complete(name, [], [])
 

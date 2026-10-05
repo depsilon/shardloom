@@ -2,6 +2,13 @@
 """Shared native admission evidence for public collect and direct writers."""
 
 
+def has_diagnostic_detail(envelope, detail):
+    """Both standard diagnostic constructors retain their specific explanation."""
+    return any(detail in (item.get(key) or "")
+               for item in envelope.raw.get("diagnostics", [])
+               for key in ("message", "reason"))
+
+
 def require_native_resource_admission(name, envelope):
     required = {
         "public_workflow_memory_gb": "1",

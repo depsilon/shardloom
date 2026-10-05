@@ -4,10 +4,20 @@ import unittest
 from types import SimpleNamespace
 
 from run_native_unary_uat import require_unique_report_fields
-from native_report_evidence import require_native_resource_admission
+from native_report_evidence import has_diagnostic_detail, require_native_resource_admission
 
 
 class NativeReportEvidenceTests(unittest.TestCase):
+    def test_specific_diagnostic_details_survive_either_standard_constructor(self):
+        detail = "COUNT(DISTINCT <argument>) only"
+        for key in ("message", "reason"):
+            raw = {"diagnostics": [{key: detail}]}
+            self.assertTrue(has_diagnostic_detail(SimpleNamespace(raw=raw), detail))
+        for raw in ({}, {"diagnostics": []}, {"diagnostics": [
+            {"message": "unsupported", "reason": None, "suggested_next_step": detail}
+        ]}):
+            self.assertFalse(has_diagnostic_detail(SimpleNamespace(raw=raw), detail))
+
     def test_repeated_report_fields_are_denied_even_when_values_agree(self):
         for key, values in [
             ("fallback_attempted", ["false", "false"]),

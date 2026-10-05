@@ -532,6 +532,32 @@ the ledger.
     scalar-value subqueries, nested pivot state, adapters and general state spill
     remain subsequent work under the universal queue; this is not their closure.
 
+- [ ] `REVISED-ENGINE-RELEASE-TRAIN` — the October 4 maintainer requests another
+  version bump train after core work and UAT of the complete revised engine.
+  - Source: this maintainer instruction, RFC 0024, the
+    [publication handoff](../release/maintainer-publication-handoff.md) and
+    [selected channel contract](../release/package-channel-readiness-matrix.md).
+  - V1 scope classification: `required_for_v1` release preparation.
+  - Dependency: finish the active core operator/type/adapter/resource work and
+    the revised parameterized public UAT, including full ClickBench regression.
+    Freeze the accepted source, build, complete results and no-fallback evidence
+    before selecting the release candidate. This does not interrupt core work.
+  - Execution checklist:
+    - [ ] Reconcile the then-current workspace version and published channel
+      identities; choose the next unpublished version appropriate to the change.
+    - [ ] Synchronize CLI/Python/package versions, release notes, support matrices,
+      current docs/website and the accepted UAT evidence as one coherent train.
+    - [ ] Build and verify selected artifacts, checksums, dependency/license
+      inventory, SBOM/provenance and clean-install/uninstall/smoke transcripts.
+    - [ ] Complete hosted checks and the selected GitHub, TestPyPI, PyPI and
+      Homebrew sequence under the release contract's publication authorization
+      and rollback requirements; record each exact source and artifact identity.
+  - Acceptance: every selected channel refers to the validated revised engine
+    and its own complete proofs; old release evidence cannot certify new artifacts.
+  - Technique/claim boundary: reuse existing release and evidence tooling. No
+    new runtime path, package channel, fallback engine or unmeasured performance
+    claim. Move completion and channel proofs to the completed ledger.
+
 - [ ] `HARDWARE-INFORMED-EXECUTION` — after core universal workflow completion,
   evaluate the October 4 maintainer's hardware-design transfer proposals under
   existing PERF-02/03/06/07/10/11/12 owners and CG-5/6/19. This is accepted future
