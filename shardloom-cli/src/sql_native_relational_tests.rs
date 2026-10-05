@@ -10,6 +10,8 @@ mod dynamic_tests;
 mod memory_tests;
 #[path = "sql_native_relational_unary_tests.rs"]
 mod unary_tests;
+#[path = "sql_native_relational_window_frame_tests.rs"]
+mod window_frame_tests;
 #[path = "sql_native_workload_tests.rs"]
 mod workload_tests;
 

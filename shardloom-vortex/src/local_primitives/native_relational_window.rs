@@ -1,9 +1,10 @@
-//! Whole-partition windows over retained native payload and reserved ordinals.
+//! Analytic windows over retained native payload and shared reserved ordinals.
 
 use super::{
+    SimpleAggregateFunction,
     native_capacity::ReservedVec,
     native_relational_batch::{Batch, Table, failed},
-    native_relational_order, result_batch, vortex_error,
+    native_relational_order, native_relational_window_frame as frame, result_batch, vortex_error,
 };
 use crate::{
     relational_query::{
@@ -41,6 +42,8 @@ pub(super) struct Spec {
     pub(super) keys: Vec<String>,
     pub(super) functions: Vec<Function>,
     pub(super) groups: Vec<Group>,
+    pub(super) frames: Vec<Option<frame::Spec>>,
+    pub(super) ordering_keys: usize,
 }
 
 pub(super) struct Window<'a> {
@@ -68,7 +71,7 @@ impl<'a> Window<'a> {
             }
             // Validate every key even for singleton partitions or already sorted
             // data, where a comparator might never inspect a nonfinite value.
-            batch.hash(row, true)?;
+            batch.hash_prefix(row, self.spec.ordering_keys, true)?;
         }
         self.table.push(batch)?;
         Ok(())
@@ -82,10 +85,13 @@ impl<'a> Window<'a> {
     ) -> Result<()> {
         let mut values = ReservedVec::new(context.memory())?;
         values.reserve(self.spec.functions.len())?;
-        for function in &self.spec.functions {
-            values
-                .values
-                .push(Values::new(function, self.table.rows(), context.memory())?);
+        for (index, function) in self.spec.functions.iter().enumerate() {
+            values.values.push(Values::new(
+                function,
+                self.spec.frames[index].as_ref(),
+                self.table.rows(),
+                context.memory(),
+            )?);
         }
         for group in &self.spec.groups {
             self.evaluate_group(group, &mut values.values, context)?;
@@ -209,6 +215,11 @@ impl<'a> Window<'a> {
     ) -> Result<()> {
         let mut peer_start = 0;
         let mut dense_rank = 0u64;
+        let has_frames = group
+            .functions
+            .iter()
+            .any(|&index| self.spec.frames[index].is_some());
+        let mut peers = ReservedVec::new(context.memory())?;
         while peer_start < rows.len() {
             context.check_cancelled()?;
             let mut peer_end = peer_start + 1;
@@ -223,11 +234,17 @@ impl<'a> Window<'a> {
             dense_rank = dense_rank
                 .checked_add(1)
                 .ok_or_else(|| failed("window dense rank overflow"))?;
+            if has_frames {
+                peers.push(peer_start)?;
+            }
             for position in peer_start..peer_end {
                 if position.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
                 for &function in &group.functions {
+                    if self.spec.frames[function].is_some() {
+                        continue;
+                    }
                     values[function].set(
                         &self.spec.functions[function],
                         PeerRow {
@@ -241,6 +258,54 @@ impl<'a> Window<'a> {
                 }
             }
             peer_start = peer_end;
+        }
+        if has_frames {
+            peers.push(rows.len())?;
+            for &function in &group.functions {
+                if let Some(frame) = &self.spec.frames[function] {
+                    self.evaluate_frame(
+                        frame,
+                        rows,
+                        &peers.values,
+                        &mut values[function],
+                        context,
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn evaluate_frame(
+        &self,
+        spec: &frame::Spec,
+        rows: &[usize],
+        peers: &[usize],
+        values: &mut Values,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let mut cursor = frame::Cursor::default();
+        let mut state = frame::State::new(spec, context.memory())?;
+        let mut peer = 0;
+        for position in 0..rows.len() {
+            if position.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            while peers[peer + 1] <= position {
+                peer += 1;
+            }
+            let at = frame::Position {
+                rows,
+                peers,
+                peer,
+                row: position,
+            };
+            let range = cursor.advance(&spec.frame, &at, &self.table, context)?;
+            let ranges = frame::intervals(range, &at, spec.frame.exclusion);
+            values.set_frame(
+                rows[position],
+                state.advance(ranges, spec, rows, &self.table, context)?,
+            )?;
         }
         Ok(())
     }
@@ -264,18 +329,23 @@ impl<'a> Window<'a> {
             context.check_cancelled()?;
             let dtype = &self.spec.fields[self.spec.columns.len() + index].1;
             columns.values.push(match (function, values) {
-                (
-                    Function::Lag { column, .. } | Function::Lead { column, .. },
-                    Values::Source(source),
-                ) => {
+                (_, Values::Source(source)) => {
+                    let column = match function {
+                        Function::Lag { column, .. } | Function::Lead { column, .. } => {
+                            column.as_str()
+                        }
+                        Function::Framed(_) => self.spec.frames[index]
+                            .as_ref()
+                            .and_then(|frame| frame.column.as_deref())
+                            .ok_or_else(|| failed("framed value selection has no source column"))?,
+                        _ => return Err(failed("window selection storage has no source function")),
+                    };
                     rows.values.clear();
                     rows.values
                         .extend(range.clone().map(|row| source.values[row]));
-                    self.table.gather(&rows.values, true, context)?.column(
-                        column.as_str(),
-                        dtype,
-                        context,
-                    )?
+                    self.table
+                        .gather(&rows.values, true, context)?
+                        .column(column, dtype, context)?
                 }
                 (_, Values::Integer(values)) => result_batch::build_column(
                     dtype,
@@ -294,7 +364,37 @@ impl<'a> Window<'a> {
                     &context.native_session().allocator(),
                     |row| Ok(result_batch::Value::Float(values.values[range.start + row])),
                 )?,
-                _ => return Err(failed("window value storage disagrees with bound function")),
+                (_, Values::Count(values)) => result_batch::build_column(
+                    dtype,
+                    range.len(),
+                    &context.native_session().allocator(),
+                    |row| Ok(result_batch::Value::UInt(values.values[range.start + row])),
+                )?,
+                (_, Values::NullableFraction(values)) => result_batch::build_column(
+                    dtype,
+                    range.len(),
+                    &context.native_session().allocator(),
+                    |row| {
+                        Ok(values.values[range.start + row]
+                            .map_or(result_batch::Value::Null, result_batch::Value::Float))
+                    },
+                )?,
+                (_, Values::Decimal(values)) => {
+                    let DType::Decimal(decimal, _) = dtype else {
+                        return Err(failed("window decimal output lost its metadata"));
+                    };
+                    result_batch::build_column(
+                        dtype,
+                        range.len(),
+                        &context.native_session().allocator(),
+                        |row| {
+                            Ok(values.values[range.start + row]
+                                .map_or(result_batch::Value::Null, |value| {
+                                    result_batch::Value::Decimal(value, *decimal)
+                                }))
+                        },
+                    )?
+                }
             });
         }
         let (columns, _ownership) = columns.into_parts();
@@ -317,6 +417,9 @@ enum Values {
     Integer(ReservedVec<u64>),
     Fraction(ReservedVec<f64>),
     Source(ReservedVec<Option<usize>>),
+    Count(ReservedVec<u64>),
+    NullableFraction(ReservedVec<Option<f64>>),
+    Decimal(ReservedVec<Option<i128>>),
 }
 
 #[derive(Clone, Copy)]
@@ -329,8 +432,28 @@ struct PeerRow<'a> {
 }
 
 impl Values {
-    fn new(function: &Function, rows: usize, memory: &LiveMemoryPool) -> Result<Self> {
+    fn new(
+        function: &Function,
+        frame: Option<&frame::Spec>,
+        rows: usize,
+        memory: &LiveMemoryPool,
+    ) -> Result<Self> {
         Ok(match function {
+            Function::Framed(_) => {
+                let frame = frame.ok_or_else(|| failed("framed function has no bound frame"))?;
+                match frame.function {
+                    frame::Function::Aggregate(
+                        SimpleAggregateFunction::Count | SimpleAggregateFunction::CountDistinct,
+                    ) => Self::Count(filled(rows, 0, memory)?),
+                    frame::Function::Aggregate(
+                        SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg,
+                    ) if frame.decimal.is_some() => Self::Decimal(filled(rows, None, memory)?),
+                    frame::Function::Aggregate(
+                        SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg,
+                    ) => Self::NullableFraction(filled(rows, None, memory)?),
+                    _ => Self::Source(filled(rows, None, memory)?),
+                }
+            }
             Function::Lag { .. } | Function::Lead { .. } => {
                 Self::Source(filled(rows, None, memory)?)
             }
@@ -339,6 +462,23 @@ impl Values {
             }
             _ => Self::Integer(filled(rows, 0, memory)?),
         })
+    }
+
+    fn set_frame(&mut self, row: usize, value: frame::Value) -> Result<()> {
+        match (self, value) {
+            (Self::Count(values), frame::Value::Count(value)) => values.values[row] = value,
+            (Self::NullableFraction(values), frame::Value::Float(value)) => {
+                values.values[row] = value;
+            }
+            (Self::Decimal(values), frame::Value::Decimal(value)) => values.values[row] = value,
+            (Self::Source(values), frame::Value::Source(value)) => values.values[row] = value,
+            _ => {
+                return Err(failed(
+                    "framed value disagrees with its bound output storage",
+                ));
+            }
+        }
+        Ok(())
     }
 
     #[allow(clippy::cast_precision_loss)] // SQL distribution output is an explicit F64 ratio.

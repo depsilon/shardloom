@@ -186,7 +186,7 @@ class PredicateExpression:
 
 @dataclass(frozen=True, slots=True)
 class WindowExpression:
-    """A scoped SQL window expression for ShardLoom local-source smokes."""
+    """A SQL window declaration submitted to the shared native engine."""
 
     sql: str
 
@@ -5708,7 +5708,7 @@ class LazyFrame:
         *expressions: object,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        """Return a scoped window projection workflow when admitted."""
+        """Declare native window projections, including SQL frame bounds and exclusions."""
 
         values = _normalize_window_expressions(expressions)
         target = ",".join(values)

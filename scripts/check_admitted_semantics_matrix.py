@@ -2499,6 +2499,30 @@ def window_mixed_case() -> SqlFixtureCase:
     )
 
 
+def window_analytic_frames_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="window_analytic_frames",
+        source_name="window-frames.csv",
+        source_text="id,region,priority,amount\n1,east,2,20\n2,east,1,\n3,east,1,10\n4,west,3,30\n",
+        statement_template=(
+            "SELECT id,"
+            "SUM(amount) OVER (PARTITION BY region ORDER BY priority ROWS UNBOUNDED PRECEDING) AS total,"
+            "COUNT(*) OVER (PARTITION BY region ORDER BY priority GROUPS CURRENT ROW) AS peers,"
+            "COUNT(*) OVER (PARTITION BY region ORDER BY priority RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) AS nearby,"
+            "FIRST_VALUE(amount) OVER (PARTITION BY region ORDER BY priority ROWS CURRENT ROW EXCLUDE CURRENT ROW) AS absent,"
+            "LAST_VALUE(amount) OVER (PARTITION BY region ORDER BY priority) AS last,"
+            "NTH_VALUE(amount,2) OVER (PARTITION BY region) AS second "
+            "FROM '{source}'"
+        ),
+        expected_jsonl=(
+            '{"id":1,"total":30.0,"peers":1,"nearby":3,"absent":null,"last":20,"second":null}\n'
+            '{"id":2,"total":null,"peers":2,"nearby":2,"absent":null,"last":10,"second":null}\n'
+            '{"id":3,"total":10.0,"peers":2,"nearby":2,"absent":null,"last":10,"second":null}\n'
+            '{"id":4,"total":30.0,"peers":1,"nearby":1,"absent":null,"last":30,"second":null}\n'
+        ),
+    )
+
+
 def select_distinct_window_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="select_distinct_window",
@@ -3291,6 +3315,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         select_distinct_aggregate_having_case(),
         having_hidden_aggregate_case(),
         window_mixed_case(),
+        window_analytic_frames_case(),
         select_distinct_window_case(),
         join_multi_key_case(),
         join_scalar_expression_condition_case(),

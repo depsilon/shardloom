@@ -5,6 +5,13 @@
 use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, Expression, PredicateExpr};
 use shardloom_plan::ProjectionRequest;
 
+#[path = "relational_window_frame.rs"]
+mod window_frame;
+pub use window_frame::{
+    VortexRelationalFrameBound, VortexRelationalFrameExclusion, VortexRelationalFrameFunction,
+    VortexRelationalFrameOffset, VortexRelationalFrameUnit, VortexRelationalWindowFrame,
+};
+
 /// Explicit permission for query-local relational ordering runs. The buffer
 /// threshold controls flushing; the resident query pool remains the memory grant.
 /// Construction validates configuration without inspecting the filesystem.
@@ -284,28 +291,42 @@ pub struct VortexRelationalOrderKey {
     pub nulls: Option<VortexRelationalNullOrder>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum VortexRelationalWindowFunction {
     RowNumber,
     Rank,
     DenseRank,
-    Lag { column: ColumnRef, offset: usize },
-    Lead { column: ColumnRef, offset: usize },
-    Ntile { buckets: usize },
+    Lag {
+        column: ColumnRef,
+        offset: usize,
+    },
+    Lead {
+        column: ColumnRef,
+        offset: usize,
+    },
+    Ntile {
+        buckets: usize,
+    },
     PercentRank,
     CumeDist,
+    /// Native framed reductions and positional values share partition ordering.
+    Framed(VortexRelationalFrameFunction),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VortexRelationalWindowExpression {
     pub output_column: String,
     pub function: VortexRelationalWindowFunction,
     pub partition_by: Vec<ColumnRef>,
     pub order_by: Vec<VortexRelationalOrderKey>,
+    /// Omission uses the default SQL frame for framed functions. Ranking and
+    /// navigation validate explicit frames but keep their partition semantics.
+    pub frame: Option<VortexRelationalWindowFrame>,
 }
 
 /// Window columns follow the retained source columns. Delivery keeps input order.
-/// The admitted functions use complete partitions; no frame clause is implied.
+/// Ranking and navigation use complete partitions; framed functions carry their
+/// own explicit or default SQL bounds.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexRelationalWindow {
     pub input: VortexRelationalPlan,

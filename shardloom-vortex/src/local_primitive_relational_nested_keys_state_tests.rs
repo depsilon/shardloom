@@ -451,6 +451,7 @@ fn native_nested_keys_order_rank_and_partition_identity_are_consistent() {
                     descending: false,
                     nulls: Some(NullOrder::First),
                 }],
+                frame: None,
             },
             WindowExpression {
                 output_column: "within".into(),
@@ -461,6 +462,7 @@ fn native_nested_keys_order_rank_and_partition_identity_are_consistent() {
                     descending: false,
                     nulls: None,
                 }],
+                frame: None,
             },
         ],
     }));

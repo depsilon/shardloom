@@ -486,6 +486,7 @@ fn native_relational_join_window_set_and_subquery_compose_through_every_writer()
                 descending: false,
                 nulls: Some(VortexRelationalNullOrder::Last),
             }],
+            frame: None,
         }],
     }));
     let relation = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {

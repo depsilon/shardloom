@@ -43,11 +43,11 @@ fn semantic_conformance_suite_executes_current_fixtures_without_fallback() {
         "partial_fixture_passed_planned_remaining"
     )));
     assert!(output.contains(&field("semantic_dimension_count", "27")));
-    assert!(output.contains(&field("executed_fixture_count", "23")));
-    assert!(output.contains(&field("passed_fixture_count", "23")));
+    assert!(output.contains(&field("executed_fixture_count", "24")));
+    assert!(output.contains(&field("passed_fixture_count", "24")));
     assert!(output.contains(&field("failed_fixture_count", "0")));
     assert!(output.contains(&field("planned_fixture_count", "1")));
-    assert!(output.contains(&field("blocked_fixture_count", "3")));
+    assert!(output.contains(&field("blocked_fixture_count", "2")));
     assert!(output.contains(&field("in_memory_fixture_execution", "true")));
     assert!(output.contains(&field("external_oracle_used", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
@@ -188,7 +188,11 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
     )));
     assert!(output.contains(&field(
         "semantic_row_window_frame_defaults_blocker_id",
-        "cg21.workflow.window.operator_unsupported"
+        "none"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_window_frame_defaults_current_support",
+        "native_frame_default_declaration_fixture_certified"
     )));
     assert!(output.contains(&field(
         "semantic_row_decimal_precision_scale_required_future_evidence",

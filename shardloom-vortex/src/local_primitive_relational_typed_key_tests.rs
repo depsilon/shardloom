@@ -312,6 +312,7 @@ fn native_typed_keys_window_partition_and_order_share_exact_domains() {
                         descending: true,
                         nulls: Some(VortexRelationalNullOrder::Last),
                     }],
+                    frame: None,
                 },
                 VortexRelationalWindowExpression {
                     output_column: "rn".into(),
@@ -322,6 +323,7 @@ fn native_typed_keys_window_partition_and_order_share_exact_domains() {
                         descending: false,
                         nulls: None,
                     }],
+                    frame: None,
                 },
             ],
         }));

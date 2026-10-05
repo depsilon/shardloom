@@ -405,12 +405,13 @@ fn complex_operator_semantic_rows() -> Vec<SemanticFixtureRow> {
             "cg21.workflow.join.operator_unsupported",
             "join_operator,join_null_semantics_fixture,memory_spill_declaration",
         ),
-        SemanticFixtureRow::blocked(
+        SemanticFixtureRow::executed(
             "window_frame_defaults",
             "window frame defaults",
             "window_functions",
-            "cg21.workflow.window.operator_unsupported",
-            "window_operator,frame_default_policy,sort_capability",
+            "native_frame_default_declaration_fixture_certified",
+            "native default policy is RANGE UNBOUNDED PRECEDING through CURRENT ROW with no exclusion; complete runtime values are checked by admitted semantics and analytic-frame UAT",
+            window_frame_default_fixture(),
         ),
         SemanticFixtureRow::planned(
             "duplicate_column_behavior",
@@ -650,6 +651,20 @@ fn status_count(rows: &[SemanticFixtureRow], status: &str) -> usize {
     rows.iter()
         .filter(|row| row.fixture_status == status)
         .count()
+}
+
+fn window_frame_default_fixture() -> bool {
+    use shardloom_vortex::relational_query::{
+        VortexRelationalFrameBound as Bound, VortexRelationalFrameExclusion as Exclusion,
+        VortexRelationalFrameUnit as Unit, VortexRelationalWindowFrame as Frame,
+    };
+    Frame::default()
+        == Frame {
+            unit: Unit::Range,
+            start: Bound::UnboundedPreceding,
+            end: Bound::CurrentRow,
+            exclusion: Exclusion::NoOthers,
+        }
 }
 
 fn null_comparison_fixture() -> bool {

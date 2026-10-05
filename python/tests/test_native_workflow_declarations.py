@@ -54,6 +54,13 @@ class NativeWorkflowDeclarationTests(unittest.TestCase):
     def unary_cases():
         return [
             ("projection", lambda f: f.select("id", "label"), ("SELECT id,label",)),
+            ("analytic-frame", lambda f: f.window(sl.WindowExpression(
+                "SUM(amount*2) OVER (PARTITION BY label ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW) AS total")),
+             ("SUM(amount*2)", "PARTITION BY label ORDER BY id", "ROWS BETWEEN 1 PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW")),
+            ("analytic-values", lambda f: f.window(
+                "FIRST_VALUE(label) OVER (ORDER BY id GROUPS CURRENT ROW EXCLUDE TIES) AS chosen",
+                "COUNT(DISTINCT amount) OVER () AS distinct_values"),
+             ("FIRST_VALUE(label)", "GROUPS CURRENT ROW EXCLUDE TIES", "COUNT(DISTINCT amount) OVER ()")),
             ("filter", lambda f: f.filter(sl.col("id") > 0).select("id"), ("WHERE id > 0",)),
             ("distinct", lambda f: f.select("id", "label").distinct(), ("DISTINCT",)),
             ("tail", lambda f: f.select("id", "label").tail(2), ("FROM TAIL((", ", 2)")),
