@@ -2554,9 +2554,10 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.golden_workflow_validation_report.v1",
         "RELEASE_USER_SURFACE_EXAMPLE_FEATURES",
-        "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
-        "source_free_sql_values_to_local_vortex_output_replay_fidelity",
-        "prepared_native_vortex_count_filter_project_execution_certificates",
+        "from golden_workflow_contract import",
+        "\"workflow_id\": LOCAL_FILE_WORKFLOW_ID",
+        "\"workflow_id\": SOURCE_FREE_WORKFLOW_ID",
+        "\"workflow_id\": NATIVE_PRIMITIVE_WORKFLOW_ID",
         "vortex-prepare",
         "cli_public_native_workflow",
         "source_free_sql_vortex_output",
@@ -2575,6 +2576,30 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
         assert!(
             script.contains(required),
             "missing golden workflow script marker {required}"
+        );
+    }
+
+    let contract = read_repo_file("scripts/golden_workflow_contract.py");
+    for required in [
+        "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+        "source_free_sql_values_to_local_vortex_output_replay_fidelity",
+        "prepared_native_vortex_count_filter_project_execution_certificates",
+        "GOLDEN_WORKFLOW_IDS = frozenset",
+    ] {
+        assert!(
+            contract.contains(required),
+            "missing shared golden workflow identity {required}"
+        );
+    }
+    for consumer in [
+        "scripts/check_release_readiness.py",
+        "scripts/check_v1_correctness_conformance.py",
+        "scripts/check_v1_example_replay.py",
+    ] {
+        assert!(
+            read_repo_file(consumer)
+                .contains("from golden_workflow_contract import GOLDEN_WORKFLOW_IDS"),
+            "golden workflow consumer must use the shared identity contract: {consumer}"
         );
     }
 

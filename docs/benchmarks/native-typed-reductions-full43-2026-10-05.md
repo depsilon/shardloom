@@ -143,6 +143,15 @@ successful replay and exact repair sources. All 681 runtime source hashes and th
 accepted binary hash are unchanged; this follow-up does not replace or relabel
 the original runtime acceptance. Hosted rechecks remain pending.
 
+The next hosted run found a metadata test that still required the shared golden
+identities to be literal strings in the producer script. It now verifies their
+shared definitions, producer uses and all three consumer imports. All 171
+repository contract tests and strict contract-crate Clippy pass. The
+[metadata-test receipt](evidence/native-typed-reductions-metadata-test-repair-2026-10-05.json)
+retains the failure and proof: only that test differs within the preceding
+681-file Rust/Cargo/Python source inventory; engine implementation and accepted
+binary bytes remain unchanged.
+
 ## Resource and evidence boundaries
 
 Large local work stays serial under the existing process/storage guards.
