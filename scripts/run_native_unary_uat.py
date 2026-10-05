@@ -203,9 +203,10 @@ def main() -> int:
                 envelope = accepted(name, report)
                 complete(name, list(report.result_rows), expected)
                 for field, value in {
-                    "resident_source_opens": "1", "resident_unary_handle_retained": "true",
+                    "resident_source_opens": "1", "resident_relational_handle_retained": "true",
                     "resident_completed_executions": str(execution), "result_payload_complete": "true",
-                    "resident_unary_lowering_reused": str(execution > 1).lower(),
+                    "resident_relational_lowering_reused": str(execution > 1).lower(),
+                    "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
                 }.items():
                     if envelope.field(field) != value:
                         raise ValueError(f"{name}: {field} is {envelope.field(field)!r}, expected {value!r}")

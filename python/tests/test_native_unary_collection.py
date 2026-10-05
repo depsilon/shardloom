@@ -33,7 +33,7 @@ class NativeUnaryCollectionTests(unittest.TestCase):
             "output_row_count": str(len(rows)),
             "result_payload_complete": "true",
             "resident_source_opens": "1",
-            "resident_unary_handle_retained": "true",
+            "resident_relational_handle_retained": "true",
             "fallback_attempted": "false",
             "external_engine_invoked": "false",
         }, command="run"))
