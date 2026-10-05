@@ -1,0 +1,222 @@
+{
+  "schema_version": "shardloom.release_fresh_uat_retention.v1",
+  "status": "passed",
+  "retained_packet": "docs/benchmarks/evidence/release-candidate-fresh-uat-2026-10-05.json.xz",
+  "packet_manifest": {
+    "packet": "<evidence>/release-040-fresh-uat-2026-10-05.json.xz",
+    "packet_sha256": "8a5011434abc70a9a3593f4ee8428d195e8fa68cc1ecd46a60371ec76bab7cda",
+    "packet_compressed_bytes": 2036460,
+    "packet_uncompressed_bytes": 209432141,
+    "packet_uncompressed_sha256": "1e0b37e0db7ce6f9df9e9e5c168a18e48bf7c897978d514fd471447137533453",
+    "status": "passed_local",
+    "complete_query_runs": 129,
+    "modular_records": 1408,
+    "modular_native_records": 704,
+    "modular_process_logs": 11311,
+    "ingest_native_seconds": 53.06943191692699,
+    "query_repeat_group_native_seconds": [
+      72.55256720795296,
+      69.18038883351255,
+      69.11904208140913
+    ]
+  },
+  "independent_inspection": {
+    "schema_version": "shardloom.release_uat_packet_inspection.v1",
+    "status": "passed",
+    "packet_sha256": "8a5011434abc70a9a3593f4ee8428d195e8fa68cc1ecd46a60371ec76bab7cda",
+    "manifest_sha256": "39925049791e2bf2894a8270400671866394d9ff994152cfc3c0e435d88dea97",
+    "uncompressed_bytes_verified": 209432141,
+    "uncompressed_sha256_verified": "1e0b37e0db7ce6f9df9e9e5c168a18e48bf7c897978d514fd471447137533453",
+    "parser_command": [
+      "/usr/bin/jq",
+      "--stream",
+      "-n",
+      "-f",
+      "<evidence>/inspect_release_040_uat.jq"
+    ],
+    "counters": {
+      "schema_version": "shardloom.release_candidate_fresh_uat.v1",
+      "status": "passed_local",
+      "candidate_version": "0.4.0",
+      "runtime_source_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+      "ingest_rows": 99997497,
+      "ingest_seconds": 53.06943191692699,
+      "query_records": 129,
+      "failed_query_records": 0,
+      "query_complete": true,
+      "query_complete_validation": true,
+      "query_values": 129,
+      "query_envelopes": 129,
+      "query_native_family": 129,
+      "modular_cohorts": 18,
+      "modular_records": 1408,
+      "modular_native_records": 704,
+      "failed_modular_records": 0,
+      "modular_native_family": 704,
+      "modular_process_logs": 11311,
+      "invalid_fallback": 0,
+      "invalid_claim": 0,
+      "private_paths": 0
+    },
+    "query": {
+      "sha256": "5d3e37383c0dc3a8cce4b891d2e693dafb82f0e3f0e9cab80d6710e3314da74f",
+      "source": "reduce inputs as $event (\n  {schema_version:null,status:null,candidate_version:null,runtime_source_commit:null,\n   ingest_rows:null,ingest_seconds:null,query_records:0,failed_query_records:0,\n   query_complete:false,query_complete_validation:false,query_values:0,query_envelopes:0,\n   query_native_family:0,modular_cohorts:0,modular_records:0,modular_native_records:0,\n   failed_modular_records:0,modular_native_family:0,modular_process_logs:0,\n   invalid_fallback:0,invalid_claim:0,private_paths:0,last_field:null};\n  if ($event|length) != 2 then . else\n    $event[0] as $p | $event[1] as $v |\n    if $p == [\"schema_version\"] then .schema_version=$v\n    elif $p == [\"status\"] then .status=$v\n    elif $p == [\"candidate_version\"] then .candidate_version=$v\n    elif $p == [\"runtime_source_commit\"] then .runtime_source_commit=$v\n    elif $p == [\"ingest\",\"complete_rows\"] then .ingest_rows=$v\n    elif $p == [\"ingest\",\"timing\",\"seconds\"] then .ingest_seconds=$v\n    elif $p == [\"queries\",\"summary\",\"complete\"] then .query_complete=$v\n    elif $p == [\"queries\",\"summary\",\"full_result_validation\"] then .query_complete_validation=$v\n    elif ($p|length)==5 and $p[0:3]==[\"queries\",\"summary\",\"records\"] and $p[4]==\"passed\" then\n      .query_records+=1 | if $v!=true then .failed_query_records+=1 else . end\n    elif ($p|length)==4 and $p[0:2]==[\"queries\",\"complete_values\"] and $p[3]==\"result_sha256\" then .query_values+=1\n    elif ($p|length)==5 and $p[0:2]==[\"queries\",\"logs\"] and $p[3:5]==[\"content\",\"status\"] then\n      .query_envelopes+=1 | if $v!=\"success\" then .failed_query_records+=1 else . end\n    elif ($p|length)==4 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3]==\"sha256\" then .modular_cohorts+=1\n    elif ($p|length)==7 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6]==\"engine\" then\n      .modular_records+=1 | if $v==\"shardloom\" then .modular_native_records+=1 else . end\n    elif ($p|length)==7 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6]==\"status\" then\n      if $v!=\"passed\" then .failed_modular_records+=1 else . end\n    elif ($p|length)==8 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6:8]==[\"evidence\",\"public_workflow_native_vortex_plan_route_family\"] then\n      if $v==\"native_vortex_unified_plan\" then .modular_native_family+=1 else .failed_modular_records+=1 end\n    elif ($p|length)==4 and $p[0:2]==[\"modular\",\"process_logs\"] and $p[3]==\"original_sha256\" then .modular_process_logs+=1\n    elif ($p|length)>=5 and ($p|index(\"content\"))!=null and ($p|index(\"fields\"))!=null and $p[-1]==\"key\" then .last_field=$v\n    elif ($p|length)>=5 and ($p|index(\"content\"))!=null and ($p|index(\"fields\"))!=null and $p[-1]==\"value\" then\n      .last_field as $field |\n      (if ($field|type)==\"string\" and ($field|test(\"(^|_)(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) and $v!=false and $v!=\"false\" then .invalid_fallback+=1 else . end) |\n      if ($p|length)==7 and $p[0:2]==[\"queries\",\"logs\"] and $p[3:5]==[\"content\",\"fields\"] and $field==\"public_workflow_native_vortex_plan_route_family\" and $v==\"native_vortex_unified_plan\" then .query_native_family+=1 else . end\n    elif ($p|length)>=2 and ($p[-1]|type)==\"string\" and ($p[-1]|test(\"(^|_)(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) then\n      if $v!=false and $v!=\"false\" then .invalid_fallback+=1 else . end\n    elif $p[0]==\"claim_boundaries\" and ($v|type)==\"boolean\" and $v!=false then .invalid_claim+=1\n    else . end |\n    if ((($v|type)==\"string\" and ($v|contains(\"/Users/\"))) or (($p|join(\"/\"))|contains(\"/Users/\"))) then .private_paths+=1 else . end\n  end\n) | del(.last_field)\n"
+    },
+    "inspector_sha256": "cde7d32ea2a8c9c5ff42b78451540859388162eac1551ab2fa33dfc0f3fe0049",
+    "original_reports_rerun": false,
+    "preceding_inspection": {
+      "cause": "The first inspection counted both top-level route fields and their certificate copies. Count original top-level native reports once; retain certificate checks separately.",
+      "counters": {
+        "schema_version": "shardloom.release_candidate_fresh_uat.v1",
+        "status": "passed_local",
+        "candidate_version": "0.4.0",
+        "runtime_source_commit": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+        "ingest_rows": 99997497,
+        "ingest_seconds": 53.06943191692699,
+        "query_records": 129,
+        "failed_query_records": 0,
+        "query_complete": true,
+        "query_complete_validation": true,
+        "query_values": 129,
+        "query_envelopes": 129,
+        "query_native_family": 258,
+        "modular_cohorts": 18,
+        "modular_records": 1408,
+        "modular_native_records": 704,
+        "failed_modular_records": 0,
+        "modular_native_family": 704,
+        "modular_process_logs": 11311,
+        "invalid_fallback": 0,
+        "invalid_claim": 0,
+        "private_paths": 0
+      },
+      "guard": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<evidence>/inspect_release_040_uat.py"
+        ],
+        "cwd": "<home>/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "failed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 16145645662,
+          "log_bytes": 20258816,
+          "free_bytes": 45006397440,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 24849,
+        "storage_last_observation": {
+          "workspace_bytes": 16145662046,
+          "log_bytes": 20258816,
+          "free_bytes": 44959412224,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 1,
+        "storage_final_observation": {
+          "workspace_bytes": 16145666142,
+          "log_bytes": 20258816,
+          "free_bytes": 44959412224,
+          "reserved_candidate_bytes": 134217728
+        },
+        "error": "RuntimeError: acceptance returned 1; inspect <evidence>/release-040-fresh-uat-inspect-1.log",
+        "supervised_seconds": 53.1239252500236,
+        "log_sha256": "9c547b4d14f280c403b1ad1b0fd74569f00084a686abe1e89d65e8cd6eb749d7"
+      },
+      "query_source": "reduce inputs as $event (\n  {schema_version:null,status:null,candidate_version:null,runtime_source_commit:null,\n   ingest_rows:null,ingest_seconds:null,query_records:0,failed_query_records:0,\n   query_complete:false,query_complete_validation:false,query_values:0,query_envelopes:0,\n   query_native_family:0,modular_cohorts:0,modular_records:0,modular_native_records:0,\n   failed_modular_records:0,modular_native_family:0,modular_process_logs:0,\n   invalid_fallback:0,invalid_claim:0,private_paths:0,last_field:null};\n  if ($event|length) != 2 then . else\n    $event[0] as $p | $event[1] as $v |\n    if $p == [\"schema_version\"] then .schema_version=$v\n    elif $p == [\"status\"] then .status=$v\n    elif $p == [\"candidate_version\"] then .candidate_version=$v\n    elif $p == [\"runtime_source_commit\"] then .runtime_source_commit=$v\n    elif $p == [\"ingest\",\"complete_rows\"] then .ingest_rows=$v\n    elif $p == [\"ingest\",\"timing\",\"seconds\"] then .ingest_seconds=$v\n    elif $p == [\"queries\",\"summary\",\"complete\"] then .query_complete=$v\n    elif $p == [\"queries\",\"summary\",\"full_result_validation\"] then .query_complete_validation=$v\n    elif ($p|length)==5 and $p[0:3]==[\"queries\",\"summary\",\"records\"] and $p[4]==\"passed\" then\n      .query_records+=1 | if $v!=true then .failed_query_records+=1 else . end\n    elif ($p|length)==4 and $p[0:2]==[\"queries\",\"complete_values\"] and $p[3]==\"result_sha256\" then .query_values+=1\n    elif ($p|length)==5 and $p[0:2]==[\"queries\",\"logs\"] and $p[3:5]==[\"content\",\"status\"] then\n      .query_envelopes+=1 | if $v!=\"success\" then .failed_query_records+=1 else . end\n    elif ($p|length)==4 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3]==\"sha256\" then .modular_cohorts+=1\n    elif ($p|length)==7 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6]==\"engine\" then\n      .modular_records+=1 | if $v==\"shardloom\" then .modular_native_records+=1 else . end\n    elif ($p|length)==7 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6]==\"status\" then\n      if $v!=\"passed\" then .failed_modular_records+=1 else . end\n    elif ($p|length)==8 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6:8]==[\"evidence\",\"public_workflow_native_vortex_plan_route_family\"] then\n      if $v==\"native_vortex_unified_plan\" then .modular_native_family+=1 else .failed_modular_records+=1 end\n    elif ($p|length)==4 and $p[0:2]==[\"modular\",\"process_logs\"] and $p[3]==\"original_sha256\" then .modular_process_logs+=1\n    elif ($p|length)>=5 and ($p|index(\"content\"))!=null and ($p|index(\"fields\"))!=null and $p[-1]==\"key\" then .last_field=$v\n    elif ($p|length)>=5 and ($p|index(\"content\"))!=null and ($p|index(\"fields\"))!=null and $p[-1]==\"value\" then\n      .last_field as $field |\n      (if ($field|type)==\"string\" and ($field|test(\"(^|_)(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) and $v!=false and $v!=\"false\" then .invalid_fallback+=1 else . end) |\n      if $p[0:2]==[\"queries\",\"logs\"] and $field==\"public_workflow_native_vortex_plan_route_family\" and $v==\"native_vortex_unified_plan\" then .query_native_family+=1 else . end\n    elif ($p|length)>=2 and ($p[-1]|type)==\"string\" and ($p[-1]|test(\"(^|_)(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) then\n      if $v!=false and $v!=\"false\" then .invalid_fallback+=1 else . end\n    elif $p[0]==\"claim_boundaries\" and ($v|type)==\"boolean\" and $v!=false then .invalid_claim+=1\n    else . end |\n    if ((($v|type)==\"string\" and ($v|contains(\"/Users/\"))) or (($p|join(\"/\"))|contains(\"/Users/\"))) then .private_paths+=1 else . end\n  end\n) | del(.last_field)\n",
+      "packet_unchanged": true
+    }
+  },
+  "guards": {
+    "release-040-fresh-uat-packet-2": {
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<evidence>/record_release_040_uat.py"
+        ],
+        "cwd": "<home>/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 16143495262,
+          "log_bytes": 20258816,
+          "free_bytes": 45011210240,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 24692,
+        "storage_last_observation": {
+          "workspace_bytes": 16145629278,
+          "log_bytes": 20258816,
+          "free_bytes": 45009788928,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 16145633374,
+          "log_bytes": 20258816,
+          "free_bytes": 45009739776,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 25.996954540954903,
+        "log_sha256": "39925049791e2bf2894a8270400671866394d9ff994152cfc3c0e435d88dea97"
+      },
+      "log": "{\n  \"packet\": \"<evidence>/release-040-fresh-uat-2026-10-05.json.xz\",\n  \"packet_sha256\": \"8a5011434abc70a9a3593f4ee8428d195e8fa68cc1ecd46a60371ec76bab7cda\",\n  \"packet_compressed_bytes\": 2036460,\n  \"packet_uncompressed_bytes\": 209432141,\n  \"packet_uncompressed_sha256\": \"1e0b37e0db7ce6f9df9e9e5c168a18e48bf7c897978d514fd471447137533453\",\n  \"status\": \"passed_local\",\n  \"complete_query_runs\": 129,\n  \"modular_records\": 1408,\n  \"modular_native_records\": 704,\n  \"modular_process_logs\": 11311,\n  \"ingest_native_seconds\": 53.06943191692699,\n  \"query_repeat_group_native_seconds\": [\n    72.55256720795296,\n    69.18038883351255,\n    69.11904208140913\n  ]\n}\n"
+    },
+    "release-040-fresh-uat-inspect-2": {
+      "receipt": {
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<evidence>/inspect_release_040_uat.py",
+          "--attempt",
+          "2"
+        ],
+        "cwd": "<home>/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "timeout": 900.0,
+        "build_environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "status": "passed",
+        "serial_workload_guard": true,
+        "storage_preflight": {
+          "workspace_bytes": 16145674334,
+          "log_bytes": 20258816,
+          "free_bytes": 44961951744,
+          "reserved_candidate_bytes": 134217728
+        },
+        "pid": 25037,
+        "storage_last_observation": {
+          "workspace_bytes": 16145674334,
+          "log_bytes": 20258816,
+          "free_bytes": 44958797824,
+          "reserved_candidate_bytes": 134217728
+        },
+        "returncode": 0,
+        "storage_final_observation": {
+          "workspace_bytes": 16145694814,
+          "log_bytes": 20258816,
+          "free_bytes": 44958748672,
+          "reserved_candidate_bytes": 134217728
+        },
+        "supervised_seconds": 52.797470290912315,
+        "log_sha256": "f1184ab269e34d87bf9130913c875b1dc98c205ea40ab92a77b5fe32690a2461"
+      },
+      "log": "{\n  \"schema_version\": \"shardloom.release_candidate_fresh_uat.v1\",\n  \"status\": \"passed_local\",\n  \"candidate_version\": \"0.4.0\",\n  \"runtime_source_commit\": \"22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b\",\n  \"ingest_rows\": 99997497,\n  \"ingest_seconds\": 53.06943191692699,\n  \"query_records\": 129,\n  \"failed_query_records\": 0,\n  \"query_complete\": true,\n  \"query_complete_validation\": true,\n  \"query_values\": 129,\n  \"query_envelopes\": 129,\n  \"query_native_family\": 129,\n  \"modular_cohorts\": 18,\n  \"modular_records\": 1408,\n  \"modular_native_records\": 704,\n  \"failed_modular_records\": 0,\n  \"modular_native_family\": 704,\n  \"modular_process_logs\": 11311,\n  \"invalid_fallback\": 0,\n  \"invalid_claim\": 0,\n  \"private_paths\": 0\n}\n"
+    }
+  }
+}

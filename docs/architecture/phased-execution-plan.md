@@ -313,19 +313,25 @@ the ledger.
     Retained state remains grant-bounded; window spill is a separate resource
     obligation. No performance or broad competitive-gate closure follows.
 
-- [ ] `REVISED-ENGINE-RELEASE-TRAIN` — the October 4 maintainer requests another
-  version bump train after core work and UAT of the complete revised engine.
+- [ ] `REVISED-ENGINE-RELEASE-TRAIN` — the October 5 maintainer prioritizes resuming
+  the unfinished release train with the accepted shared native engine and
+  analytic-frame candidate after its PRs and fresh UAT.
   - Source: this maintainer instruction, RFC 0024, the
     [publication handoff](../release/maintainer-publication-handoff.md) and
     [selected channel contract](../release/package-channel-readiness-matrix.md).
   - V1 scope classification: `required_for_v1` release preparation.
-  - Dependency: finish the active core operator/type/adapter/resource work and
-    the revised parameterized public UAT, including full ClickBench regression.
-    Freeze the accepted source, build, complete results and no-fallback evidence
-    before selecting the release candidate. This does not interrupt core work.
+  - Dependency: finish hosted acceptance of the shared native engine and analytic
+    frames, and freeze their source, build, complete results and no-fallback
+    evidence. Fresh UAT includes replacement ingest, full ClickBench regression
+    and the parameterized input/output workflow matrix. This finite release
+    proceeds before the remaining scalar, type, adapter and resource queue;
+    those obligations and the later hardware experiments remain open.
   - Execution checklist:
-    - [ ] Reconcile the then-current workspace version and published channel
-      identities; choose the next unpublished version appropriate to the change.
+    - [x] Reconcile source and channel versions: resume unpublished `0.4.0`.
+      The earlier attempt pushed the source bump only. Live October 5 checks
+      find no `0.4.0` release/tag or PyPI/TestPyPI package; selected published
+      channels remain `0.3.3`. Retain the
+      [channel check](../release/v0.4.0-candidate-channel-check-2026-10-05.json).
     - [ ] Synchronize CLI/Python/package versions, release notes, support matrices,
       current docs/website and the accepted UAT evidence as one coherent train.
     - [ ] Build and verify selected artifacts, checksums, dependency/license
