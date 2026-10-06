@@ -249,42 +249,6 @@ the ledger.
 
 ## Planned
 
-- [ ] `REVISED-ENGINE-RELEASE-TRAIN` — the October 5 maintainer prioritizes resuming
-  the unfinished release train with the accepted shared native engine and
-  analytic-frame candidate after its PRs and fresh UAT.
-  - Source: this maintainer instruction, RFC 0024, the
-    [publication handoff](../release/maintainer-publication-handoff.md) and
-    [selected channel contract](../release/package-channel-readiness-matrix.md).
-  - V1 scope classification: `required_for_v1` release preparation.
-  - Dependency: finish hosted acceptance of the shared native engine and analytic
-    frames, and freeze their source, build, complete results and no-fallback
-    evidence. Fresh UAT includes replacement ingest, full ClickBench regression
-    and the parameterized input/output workflow matrix. This finite release
-    proceeds before the remaining scalar, type, adapter and resource queue;
-    those obligations and the later hardware experiments remain open.
-  - Execution checklist:
-    - [x] Reconcile source and channel versions: resume unpublished `0.4.0`.
-      The earlier attempt pushed the source bump only. Live October 5 checks
-      find no `0.4.0` release/tag or PyPI/TestPyPI package; selected published
-      channels remain `0.3.3`. Retain the
-      [channel check](../release/v0.4.0-candidate-channel-check-2026-10-05.json).
-    - [x] Synchronize CLI/Python/package versions, release notes, support matrices,
-      current docs/website and the accepted UAT evidence as one coherent train.
-    - [x] Build and verify selected artifacts, checksums, dependency/license
-      inventory, SBOM/provenance and clean-install/uninstall/smoke transcripts.
-      All four [publication proofs](../release/v0.4.0-publication-verification.md)
-      pass; release source `d9ccd11d069f` passed all 35 exact-source CI jobs.
-    - [ ] Complete hosted checks and the selected GitHub, TestPyPI, PyPI and
-      Homebrew sequence under the release contract's publication authorization
-      and rollback requirements; record each exact source and artifact identity.
-      The four-channel sequence is published and verified. Final publication-PR
-      checks and production website deployment verification remain pending.
-  - Acceptance: every selected channel refers to the validated revised engine
-    and its own complete proofs; old release evidence cannot certify new artifacts.
-  - Technique/claim boundary: reuse existing release and evidence tooling. No
-    new runtime path, package channel, fallback engine or unmeasured performance
-    claim. Move completion and channel proofs to the completed ledger.
-
 - [ ] `HARDWARE-INFORMED-EXECUTION` — after core universal workflow completion,
   evaluate the October 4 maintainer's hardware-design transfer proposals under
   existing PERF-02/03/06/07/10/11/12 owners and CG-5/6/19. This is accepted future

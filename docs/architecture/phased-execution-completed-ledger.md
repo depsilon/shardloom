@@ -17,6 +17,32 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `REVISED-ENGINE-RELEASE-TRAIN` — complete the resumed 0.4.0 technical
+  preview after shared-engine, analytic-frame and fresh UAT acceptance.
+  - Source: October 5 maintainer instruction, RFC 0024 and the selected-channel
+    publication contract. V1 scope classification: `required_for_v1`.
+  - The prepublication check found no earlier 0.4.0 tag, release or registry
+    package. The train reused that unpublished version; historical 0.3.3
+    records remain unchanged.
+  - Release source `d9ccd11d069f16fd57bc84b944c54672f09351bc` passes all 35
+    exact-source CI jobs. GitHub prerelease, TestPyPI, PyPI and Homebrew each
+    have new installation, uninstall, smoke, checksum and provenance proof.
+    See [publication verification](../release/v0.4.0-publication-verification.md).
+  - [PR #1521](https://github.com/depsilon/shardloom/pull/1521) passes all 39
+    hosted checks and merges at `46de985fd5e8f9819c1eaae03262c2ea657ea273`,
+    with the exact accepted tree. The production website deployment succeeds;
+    four live pages and five public documents pass the recorded observation.
+    Local publication validation passes 25 checks and 182 focused tests.
+    No submitted external review approval is inferred from the exhausted bot.
+  - The [fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-05.md)
+    retains replacement ingest, all 129 Full43 comparisons and 1,408 complete
+    workflow records with their frozen source and executable identities.
+  - Acceptance: selected technical-preview distribution and public website
+    verification only. The scalar, type, adapter, resource, spill/recovery,
+    and hardware work remains open. CG-1 through CG-23 retain their independent
+    status and evidence obligations.
+    Vortex-native execution/output and no-fallback boundaries are preserved.
+
 - [x] `NATIVE-TYPED-REDUCTIONS` — complete computed aggregate arguments and exact
   Decimal128 reductions through existing aggregate, rolling and scalar pivot
   state under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
