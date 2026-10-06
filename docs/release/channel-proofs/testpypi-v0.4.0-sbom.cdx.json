@@ -1,0 +1,183 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "sha256:343cef04a9ded77d0fa347f3cc1b28fe98f01c27f082e5515d84c72db7451b56",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://test-files.pythonhosted.org/packages/8b/33/009589304ce7613fa4491fb594d419ecbd039247e8987e60bfd410b4dfa0/shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "343cef04a9ded77d0fa347f3cc1b28fe98f01c27f082e5515d84c72db7451b56"
+        }
+      ],
+      "name": "shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl",
+      "type": "file"
+    },
+    {
+      "bom-ref": "sha256:343cef04a9ded77d0fa347f3cc1b28fe98f01c27f082e5515d84c72db7451b56:bundled-cli",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f6df992d0741ac7b0067cf69b61e2a48fda7712168ef90560a85e0b083d7391c"
+        }
+      ],
+      "name": "shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl!/shardloom-0.4.0.data/purelib/shardloom/bin/linux-x86_64/shardloom",
+      "properties": [
+        {
+          "name": "shardloom:inventory-scope",
+          "value": "observed bundled executable bytes;not complete compiled dependencies"
+        }
+      ],
+      "type": "file"
+    },
+    {
+      "bom-ref": "sha256:58fa053ebe93a06233cf5526c5742da14cee6b13d4e5e0c9d1aec1263ce147a8",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://test-files.pythonhosted.org/packages/56/bf/03529e08dd37adf2228eeb95adb1621a5ff26f655960c352ed2c9774795f/shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "58fa053ebe93a06233cf5526c5742da14cee6b13d4e5e0c9d1aec1263ce147a8"
+        }
+      ],
+      "name": "shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl",
+      "type": "file"
+    },
+    {
+      "bom-ref": "sha256:58fa053ebe93a06233cf5526c5742da14cee6b13d4e5e0c9d1aec1263ce147a8:bundled-cli",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d90ac85967f102176e302bd90c250aa55114dcb1d292752816a24dde56b6226f"
+        }
+      ],
+      "name": "shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl!/shardloom-0.4.0.data/purelib/shardloom/bin/macos-aarch64/shardloom",
+      "properties": [
+        {
+          "name": "shardloom:inventory-scope",
+          "value": "observed bundled executable bytes;not complete compiled dependencies"
+        }
+      ],
+      "type": "file"
+    },
+    {
+      "bom-ref": "sha256:9de8060dee734de50549b8624155290c5b4033ab99cfaf2061a9aeb7dbcec0a9",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://test-files.pythonhosted.org/packages/fa/e3/b1fa8e5ff7f4907ab7fc42aee6a0682dbffed00fddf6ad81fc85ccfaec34/shardloom-0.4.0.tar.gz"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9de8060dee734de50549b8624155290c5b4033ab99cfaf2061a9aeb7dbcec0a9"
+        }
+      ],
+      "name": "shardloom-0.4.0.tar.gz",
+      "type": "file"
+    },
+    {
+      "bom-ref": "sha256:8096d7c7b8198650004a0eb0ecbba1e2839a07043e079cfdf52a2f385b7f1562",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://test-files.pythonhosted.org/packages/a8/9c/c56632138208c9b05ce255eae1a8f4ad64a253ae1bc34c13cae0e9b60b08/shardloom-0.4.0-cp313-cp313-win_amd64.whl"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8096d7c7b8198650004a0eb0ecbba1e2839a07043e079cfdf52a2f385b7f1562"
+        }
+      ],
+      "name": "shardloom-0.4.0-cp313-cp313-win_amd64.whl",
+      "type": "file"
+    },
+    {
+      "bom-ref": "sha256:8096d7c7b8198650004a0eb0ecbba1e2839a07043e079cfdf52a2f385b7f1562:bundled-cli",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b285224c54bf7ec4504a47aca8156add4e4b7f0b3c3ea3827361a4c2fe10428b"
+        }
+      ],
+      "name": "shardloom-0.4.0-cp313-cp313-win_amd64.whl!/shardloom-0.4.0.data/purelib/shardloom/bin/windows-x86_64/shardloom.exe",
+      "properties": [
+        {
+          "name": "shardloom:inventory-scope",
+          "value": "observed bundled executable bytes;not complete compiled dependencies"
+        }
+      ],
+      "type": "file"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependsOn": [
+        "sha256:343cef04a9ded77d0fa347f3cc1b28fe98f01c27f082e5515d84c72db7451b56:bundled-cli"
+      ],
+      "ref": "sha256:343cef04a9ded77d0fa347f3cc1b28fe98f01c27f082e5515d84c72db7451b56"
+    },
+    {
+      "dependsOn": [
+        "sha256:58fa053ebe93a06233cf5526c5742da14cee6b13d4e5e0c9d1aec1263ce147a8:bundled-cli"
+      ],
+      "ref": "sha256:58fa053ebe93a06233cf5526c5742da14cee6b13d4e5e0c9d1aec1263ce147a8"
+    },
+    {
+      "dependsOn": [
+        "sha256:8096d7c7b8198650004a0eb0ecbba1e2839a07043e079cfdf52a2f385b7f1562:bundled-cli"
+      ],
+      "ref": "sha256:8096d7c7b8198650004a0eb0ecbba1e2839a07043e079cfdf52a2f385b7f1562"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "name": "shardloom",
+      "purl": "pkg:pypi/shardloom@0.4.0",
+      "type": "application",
+      "version": "0.4.0"
+    },
+    "properties": [
+      {
+        "name": "shardloom:channel",
+        "value": "testpypi"
+      },
+      {
+        "name": "shardloom:inventory-scope",
+        "value": "post-publication distribution files and observed bundled CLI bytes;not a build attestation or complete compiled dependency SBOM"
+      },
+      {
+        "name": "shardloom:source-inputs",
+        "value": "[{\"path\": \"Cargo.lock\", \"sha256\": \"16319b81a9cc9ba8b99063d15bc8c139f98eafd2c063eb22fd55c49e2b40b0fa\", \"source_commit\": \"d9ccd11d069f16fd57bc84b944c54672f09351bc\"}, {\"path\": \"python/pyproject.toml\", \"sha256\": \"8cbb875fcba955c7fecacae3d80a59cd92aba3e8e4c057797cd924cb779c119b\", \"source_commit\": \"d9ccd11d069f16fd57bc84b944c54672f09351bc\"}, {\"path\": \".github/workflows/pypi-publish-draft.yml\", \"sha256\": \"c5594266bc961733a11fe45986ce658ca998c3880aaacd03fbc5689696c3b413\", \"source_commit\": \"d9ccd11d069f16fd57bc84b944c54672f09351bc\"}]"
+      }
+    ],
+    "timestamp": "2026-10-05T23:54:45.453953Z",
+    "tools": [
+      {
+        "name": "registry_release_evidence.py",
+        "vendor": "ShardLoom",
+        "version": "1"
+      }
+    ]
+  },
+  "specVersion": "1.5",
+  "version": 1
+}

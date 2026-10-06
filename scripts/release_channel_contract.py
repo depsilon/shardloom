@@ -21,12 +21,16 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
 
 # The JSON field names still include v0_1_0 for schema compatibility. The
 # selected release value itself is the current proof-backed package version.
-SELECTED_PACKAGE_RELEASE_VERSION = "0.3.3"
+SELECTED_PACKAGE_RELEASE_VERSION = "0.4.0"
 SELECTED_PACKAGE_RELEASE_TAG = f"v{SELECTED_PACKAGE_RELEASE_VERSION}"
 # Approved identities observed during the publication train. Keep these keyed
 # by release so advancing the selected version cannot reuse a prior build's
 # source/run binding. PyPI's source adds only the prerequisite proof documents.
 PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
+    "0.4.0": {'testpypi': {'source_commit': 'd9ccd11d069f16fd57bc84b944c54672f09351bc',
+                  'workflow_run_id': 37385011382},
+     'pypi': {'source_commit': '9508eacc904e60e88c4f03975162316ff4d5c527',
+              'workflow_run_id': 37387378748}},
     "0.3.3": {'testpypi': {'source_commit': 'e15f2e66faf6d359bba944e9d295fc58ce3bf7d4',
                   'workflow_run_id': 36707733970},
      'pypi': {'source_commit': '16869b635a64f4c12dba06051724118a1d8f28d4',
@@ -67,6 +71,10 @@ PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
     },
 }
 PUBLISHED_REGISTRY_DISTRIBUTIONS = {
+    "0.4.0": ('shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl',
+     'shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl',
+     'shardloom-0.4.0-cp313-cp313-win_amd64.whl',
+     'shardloom-0.4.0.tar.gz'),
     "0.3.3": ('shardloom-0.3.3-cp313-cp313-macosx_26_0_arm64.whl',
      'shardloom-0.3.3-cp313-cp313-manylinux_2_39_x86_64.whl',
      'shardloom-0.3.3-cp313-cp313-win_amd64.whl',
@@ -99,6 +107,7 @@ PUBLISHED_REGISTRY_DISTRIBUTIONS = {
 # results/no fallback, and prints the captured JSON result. A new release must
 # approve its own program; arbitrary isolated Python is not execution evidence.
 PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
+    "0.4.0": '2f3c6c821689e19bd640a04ca650bf46c74e0920b8beee5b764af5c1f9769534',
     "0.3.3": 'cee1d3fbef2f857028f3694e5ecbc314c8a1ffe497ae971e3a1f9c70a5d35acc',
     "0.3.2": '535d75bc9b620ac5dd4559c850409c2041dd239385797514d2604604dc671516',
     "0.3.1": "ee49b52a55770327d783e177dd6768b670d15b1bb3b8144ad1037f477900b146",
@@ -109,6 +118,18 @@ PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
 # command, output, recovery note and lifecycle result, including non-registry
 # channels. Updating a record requires explicit review of a new approved pin.
 PUBLISHED_CHANNEL_TRANSCRIPTS = {
+    "0.4.0": {'github_prerelease': ('github-prerelease',
+                           'shardloom.github_prerelease_channel_proof.v1',
+                           '38fdf8c22cc6ff86dd30cce5115b5adc60d78c31f8efc1440509d6222a0522d5'),
+     'testpypi': ('testpypi',
+                  'shardloom.python_registry_package_proof.v1',
+                  '6ee38150222523376c1c708422069c042e312a7efa7913c8b687bf5589819ad2'),
+     'pypi': ('pypi',
+              'shardloom.python_registry_package_proof.v1',
+              'b8b390e28eb9c9bef5b641e4f1cf1c58ee160679a45c344f2608218c1964bb03'),
+     'homebrew_tap': ('homebrew',
+                      'shardloom.homebrew_channel_proof.v1',
+                      'd3a718a70bd392c513b92d349901d45215576d1320f326bab391888d859ce6ee')},
     "0.3.3": {'github_prerelease': ('github-prerelease',
                            'shardloom.github_prerelease_channel_proof.v1',
                            'f0f3db4c3cdddd5d063aeccd097f378c8e8d93da6220afac8a14af92f24c6b77'),
@@ -168,6 +189,8 @@ PUBLISHED_CHANNEL_TRANSCRIPTS = {
 # distributions against the published wheel hashes. Their immutable records bind
 # the extracted CLI hashes/sizes, source inputs, and checksum/SBOM hashes.
 PUBLISHED_REGISTRY_PROVENANCE_SHA256 = {
+    "0.4.0": {'testpypi': 'b636290d7005337bc9894932b145f468a97563f39f5a8b00229c22141c39eb09',
+     'pypi': '80ecf90be526f606ae4729d30c7f6b10e3da2ecd79265bab83b7d638a5fd834d'},
     "0.3.3": {'testpypi': '0e8df9bc8d1498a0f98d414503f82636fac5b5b65a88a9e3a646067ea1f0a79e',
      'pypi': 'd013801ade4732cda9286897236a6b12347d2b560903b6074aaadfed16c9be1c'},
     "0.3.2": {'testpypi': 'f68b130f05b77389bf480b13533a9eb56594e8a06496bd4fe90660b280a2d2dc',

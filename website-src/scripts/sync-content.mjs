@@ -563,8 +563,16 @@ Decimal totals remain exact; inexact averages and final overflow fail explicitly
 Native ARRAY/STRUCT constructors preserve admitted logical children. File,
 typed-memory and source-free inputs reach the same Vortex-native engine, while
 Python conversions consume its typed results only at the requested output boundary.
-The revised engine passes 20,445 public checks and all 129 Full43 executions;
-see the [complete local acceptance and remaining scope](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-reductions-full43-2026-10-05.md).
+Analytic aggregates and FIRST_VALUE/LAST_VALUE/NTH_VALUE admit explicit ROWS,
+GROUPS and RANGE frames and exclusions through the same native window state.
+Bounded RANGE requires one compatible ordering key; named windows, variable
+offsets, calendar-month intervals, IGNORE NULLS and general window-state spill
+remain outside the [frame contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-analytic-frames-2026-10-05.md).
+The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
+records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
+executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
+adds complete input/output workflow comparisons. These suites overlap and do
+not establish a comparative speedup.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
@@ -717,7 +725,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 4, 2026**. See the
+Current capabilities, reviewed **October 5, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -726,7 +734,7 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations and exact decimal reductions. Scalar pivot columns bind during execution, including correlated inner scopes. | Operation/type coverage is finite. Analytic frames, scalar-value subqueries, nested pivot state and broader adapters remain subsequent work; scalar pivot keeps its 128-field, type and memory boundaries. |
+| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. | Operation/type coverage is finite. Named windows, variable frame offsets, scalar-value subqueries, nested pivot state and broader adapters remain subsequent work; scalar pivot keeps its 128-field, type and memory boundaries. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
@@ -769,6 +777,10 @@ reductions now have complete local acceptance. Inexact decimal averages and fina
 overflow remain explicit errors. ARRAY/STRUCT constructors use admitted native
 children. See the [revised engine acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-reductions-full43-2026-10-05.md)
 for the frozen scope, full public and ClickBench results, and remaining work.
+Subsequent [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
+covers framed aggregates, FIRST_VALUE/LAST_VALUE/NTH_VALUE and explicit
+exclusions. Bounded RANGE needs one compatible ordering key. Calendar-month
+intervals, IGNORE NULLS and general window-state spill remain unsupported.
 ORC rejects decimal/temporal output. General Variant/extension operations retain
 separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).

@@ -249,70 +249,6 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-TYPED-REDUCTIONS` — complete computed aggregate arguments and exact
-  Decimal128 reductions through existing aggregate, rolling and scalar pivot
-  state under PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. Follow the
-  [typed reduction contract](native-typed-reductions-2026-10-04.md).
-  - V1 scope classification: `required_for_v1`.
-  - October 4 maintainer scope clarification: file inputs in any admitted format,
-    typed memory and source-free declarations enter one Vortex-native computation
-    path before the requested result or output. SQL, Python, DataFrame and CLI
-    remain wrappers. Delete retired execution routes and benchmark-specific
-    providers; no compatibility runtime is retained for previous publications.
-    Parameterize the public UAT harness by input state, workload and output.
-  - ShardLoom technique review: preserve metadata/pruning and optimized primitive
-    routes; share native expression projection, exact state, one PulseWeave
-    admission, reserved capacity, capillary delivery and existing timing/evidence
-    owners across public declarations. Availability is not a speedup claim.
-  - Execution checklist:
-    - [x] Lower aggregate expressions and implement exact wide decimal totals,
-      fixed result types, NULL handling and checked finalization in shared owners.
-    - [x] Extend existing rolling/pivot state and margins; prove empty admission,
-      bounded ownership, constrained grants, cancellation and failed publication.
-    - [x] Freeze independent complete public/direct correctness, required local
-      checks and complete typed Full43 regression; update exact support and
-      immutable evidence. Use this consolidated engine as the control for later
-      paired optimization measurements; earlier result protocols do not authorize
-      an alternate runtime or a speedup claim.
-      The [October 5 acceptance](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
-      records 20,445 public checks, 202 direct checks, all 129 Full43 executions,
-      22 source gates and independent inspection of the immutable packet.
-    - [ ] Complete hosted runtime review and checks, then move this finite item
-      to the completed ledger.
-  - Acceptance: complete native expression/reduction workflows with exact decimal
-    values, schemas and writer readback. Existing primitive calculation order,
-    bare-column paths and pivot/rolling policies remain compatible. No frontend
-    evaluator, source replay or external-engine fallback.
-  - Dependency: merged nested keys/state. Wider analytic frames,
-    scalar-value subqueries, nested pivot state, adapters and general state spill
-    remain subsequent work under the universal queue; this is not their closure.
-
-- [ ] `NATIVE-ANALYTIC-FRAMES` — extend the shared relational window family with
-  framed aggregate and value functions under PERF-02/03/07/10/11/12 and
-  CG-3/5/19/20/21. Follow the
-  [analytic frame contract](native-analytic-frames-2026-10-05.md).
-  - V1 scope classification: `required_for_v1`.
-  - Dependency: the consolidated typed-reduction engine has complete local
-    acceptance and hosted integration is pending in PR #1518. Keep native builds,
-    tests and UAT sequential under the existing resource and storage guards.
-  - ShardLoom technique review: reuse partition/order groups, exact keys, native
-    retained arrays, one PulseWeave grant, reserved state and bounded delivery.
-    Add frame state within the existing window owner; no frontend executor.
-  - Execution checklist:
-    - [x] Bind ROWS/GROUPS/RANGE bounds, exclusions and computed arguments;
-      preserve ranking/navigation and deterministic empty-plan admission.
-    - [x] Implement moving aggregate/value state with exact decimal and reversible
-      floating totals, typed NULLs, selected payload ownership and failure cleanup.
-    - [x] Freeze independent complete workflow/writer results, resource proof,
-      required local checks and Full43 regression; align capabilities and docs.
-      The [October 5 frame acceptance](../benchmarks/native-analytic-frames-full43-2026-10-05.md)
-      records 22,658 public checks, 202 direct checks, all 129 Full43 executions,
-      22 source gates and successful independent packet inspection.
-    - [ ] Complete hosted review/checks and record finite completion in the ledger.
-  - Acceptance: one shared native window family with complete-value proof.
-    Retained state remains grant-bounded; window spill is a separate resource
-    obligation. No performance or broad competitive-gate closure follows.
-
 - [ ] `REVISED-ENGINE-RELEASE-TRAIN` — the October 5 maintainer prioritizes resuming
   the unfinished release train with the accepted shared native engine and
   analytic-frame candidate after its PRs and fresh UAT.
@@ -332,13 +268,17 @@ the ledger.
       find no `0.4.0` release/tag or PyPI/TestPyPI package; selected published
       channels remain `0.3.3`. Retain the
       [channel check](../release/v0.4.0-candidate-channel-check-2026-10-05.json).
-    - [ ] Synchronize CLI/Python/package versions, release notes, support matrices,
+    - [x] Synchronize CLI/Python/package versions, release notes, support matrices,
       current docs/website and the accepted UAT evidence as one coherent train.
-    - [ ] Build and verify selected artifacts, checksums, dependency/license
+    - [x] Build and verify selected artifacts, checksums, dependency/license
       inventory, SBOM/provenance and clean-install/uninstall/smoke transcripts.
+      All four [publication proofs](../release/v0.4.0-publication-verification.md)
+      pass; release source `d9ccd11d069f` passed all 35 exact-source CI jobs.
     - [ ] Complete hosted checks and the selected GitHub, TestPyPI, PyPI and
       Homebrew sequence under the release contract's publication authorization
       and rollback requirements; record each exact source and artifact identity.
+      The four-channel sequence is published and verified. Final publication-PR
+      checks and production website deployment verification remain pending.
   - Acceptance: every selected channel refers to the validated revised engine
     and its own complete proofs; old release evidence cannot certify new artifacts.
   - Technique/claim boundary: reuse existing release and evidence tooling. No

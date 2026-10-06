@@ -75,7 +75,7 @@
 Coverage is specific to the operation, types, source layout, enabled features, and output contract.
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.</p>
-<p>Current capabilities, reviewed <strong>October 4, 2026</strong>. See the
+<p>Current capabilities, reviewed <strong>October 5, 2026</strong>. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md">public support matrix</a>
 for the detailed evidence behind this scope.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="runtime-limits">Runtime Limits</h2><a class="sl-anchor-link" href="#runtime-limits"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Runtime Limits”</span></a></div>
@@ -95,8 +95,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Relational and DataFrame operations</td>
-<td>Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations and exact decimal reductions. Scalar pivot columns bind during execution, including correlated inner scopes.</td>
-<td>Operation/type coverage is finite. Analytic frames, scalar-value subqueries, nested pivot state and broader adapters remain subsequent work; scalar pivot keeps its 128-field, type and memory boundaries.</td>
+<td>Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes.</td>
+<td>Operation/type coverage is finite. Named windows, variable frame offsets, scalar-value subqueries, nested pivot state and broader adapters remain subsequent work; scalar pivot keeps its 128-field, type and memory boundaries.</td>
 </tr>
 <tr>
 <td>Repeated queries</td>
@@ -157,6 +157,10 @@ reductions now have complete local acceptance. Inexact decimal averages and fina
 overflow remain explicit errors. ARRAY/STRUCT constructors use admitted native
 children. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-reductions-full43-2026-10-05.md">revised engine acceptance</a>
 for the frozen scope, full public and ClickBench results, and remaining work.
+Subsequent <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md">analytic-frame acceptance</a>
+covers framed aggregates, FIRST_VALUE/LAST_VALUE/NTH_VALUE and explicit
+exclusions. Bounded RANGE needs one compatible ordering key. Calendar-month
+intervals, IGNORE NULLS and general window-state spill remain unsupported.
 ORC rejects decimal/temporal output. General Variant/extension operations retain
 separate coverage limits. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md">output contract</a>.</p>

@@ -2,7 +2,7 @@
 
 # Package User Install Status
 
-ShardLoom v0.3.3 is published as a technical preview through the selected package channels:
+ShardLoom v0.4.0 is published as a technical preview through the selected package channels:
 GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula. These package
 commands are install access only; they do not imply production readiness, performance superiority,
 Spark replacement, broad SQL/DataFrame support, object-store/lakehouse production support, Foundry
@@ -13,7 +13,7 @@ patch-release preparation window. Keep the install commands pinned to the latest
 published version until matching channel proofs are checked in.
 
 ```text
-package_channel_status=published_v0.3.3_selected_channels
+package_channel_status=published_v0.4.0_selected_channels
 selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap
 package_install_commands_visible=true
 public_package_release_claim_allowed=true
@@ -27,7 +27,7 @@ external_engine_invoked=false
 Python package:
 
 ```sh
-python -m pip install shardloom==0.3.3
+python -m pip install shardloom==0.4.0
 ```
 
 Homebrew CLI formula:
@@ -39,13 +39,13 @@ brew install depsilon/tap/shardloom
 GitHub release assets:
 
 ```sh
-gh release download v0.3.3 --repo depsilon/shardloom --pattern '*' --dir shardloom-v0.3.3
+gh release download v0.4.0 --repo depsilon/shardloom --pattern '*' --dir shardloom-v0.4.0
 ```
 
 TestPyPI rehearsal package:
 
 ```sh
-python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.3.3
+python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.4.0
 ```
 
 The PyPI package is a Python client surface over the ShardLoom CLI. Explicit
@@ -59,12 +59,12 @@ platform tags constrain installation; they do not establish runtime UAT for ever
 
 | Channel | Published wheel filename (interpreter, ABI and platform tags) |
 | --- | --- |
-| TestPyPI | `shardloom-0.3.3-cp313-cp313-macosx_26_0_arm64.whl` |
-| TestPyPI | `shardloom-0.3.3-cp313-cp313-manylinux_2_39_x86_64.whl` |
-| TestPyPI | `shardloom-0.3.3-cp313-cp313-win_amd64.whl` |
-| PyPI | `shardloom-0.3.3-cp313-cp313-macosx_26_0_arm64.whl` |
-| PyPI | `shardloom-0.3.3-cp313-cp313-manylinux_2_39_x86_64.whl` |
-| PyPI | `shardloom-0.3.3-cp313-cp313-win_amd64.whl` |
+| TestPyPI | `shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl` |
+| TestPyPI | `shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl` |
+| TestPyPI | `shardloom-0.4.0-cp313-cp313-win_amd64.whl` |
+| PyPI | `shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl` |
+| PyPI | `shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl` |
+| PyPI | `shardloom-0.4.0-cp313-cp313-win_amd64.whl` |
 
 Other supported Python/OS combinations may install the source package but need a
 compatible CLI from Homebrew, a release asset, or a source build.
@@ -114,13 +114,13 @@ PY
 ## Proof Refs
 
 - GitHub release proof:
-  [`docs/release/channel-proofs/github-prerelease-v0.3.3-transcript.json`](../release/channel-proofs/github-prerelease-v0.3.3-transcript.json)
+  [`docs/release/channel-proofs/github-prerelease-v0.4.0-transcript.json`](../release/channel-proofs/github-prerelease-v0.4.0-transcript.json)
 - TestPyPI proof:
-  [`docs/release/channel-proofs/testpypi-v0.3.3-transcript.json`](../release/channel-proofs/testpypi-v0.3.3-transcript.json)
+  [`docs/release/channel-proofs/testpypi-v0.4.0-transcript.json`](../release/channel-proofs/testpypi-v0.4.0-transcript.json)
 - PyPI proof:
-  [`docs/release/channel-proofs/pypi-v0.3.3-transcript.json`](../release/channel-proofs/pypi-v0.3.3-transcript.json)
+  [`docs/release/channel-proofs/pypi-v0.4.0-transcript.json`](../release/channel-proofs/pypi-v0.4.0-transcript.json)
 - Homebrew proof:
-  [`docs/release/channel-proofs/homebrew-v0.3.3-transcript.json`](../release/channel-proofs/homebrew-v0.3.3-transcript.json)
+  [`docs/release/channel-proofs/homebrew-v0.4.0-transcript.json`](../release/channel-proofs/homebrew-v0.4.0-transcript.json)
 - Package-channel matrix:
   [`docs/release/package-channel-readiness-matrix.md`](../release/package-channel-readiness-matrix.md)
 
@@ -130,7 +130,7 @@ Python package:
 
 ```sh
 python -m pip uninstall -y shardloom
-python -m pip install --upgrade shardloom==0.3.3
+python -m pip install --upgrade shardloom==0.4.0
 ```
 
 Homebrew formula:
@@ -148,13 +148,13 @@ no longer need it.
 Scoop, winget, conda-forge, GHCR containers, and future crates.io public API crates remain blocked
 until separate channel-specific proofs exist. Current workspace Rust crates remain unpublished.
 
-## v0.3.3 Distribution Proof
+## v0.4.0 Distribution Proof
 
-See [publication verification](../release/v0.3.3-publication-verification.md) for
+See [publication verification](../release/v0.4.0-publication-verification.md) for
 channel-specific artifact hashes, build sources and the scope of runtime checks.
 
-- TestPyPI installed and smoked `shardloom-0.3.3-cp313-cp313-macosx_26_0_arm64.whl`.
-- PyPI installed and smoked `shardloom-0.3.3-cp313-cp313-macosx_26_0_arm64.whl`.
+- TestPyPI installed and smoked `shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl`.
+- PyPI installed and smoked `shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl`.
 
 The other published wheels have build and artifact-inspection evidence. Their
 presence in a registry does not establish clean runtime installation proof.
