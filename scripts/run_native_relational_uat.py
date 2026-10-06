@@ -30,6 +30,7 @@ from native_typed_payload_cases import run as typed_payload_cases
 from native_uat_envelope_archive import archive_envelopes
 from native_memory_cases import run as memory_cases
 from native_window_frame_cases import run as window_frame_cases
+from native_scalar_subquery_cases import run as scalar_subquery_cases
 from native_workflow_outputs import write_outputs
 from native_workflow_materialization import MATERIALIZATIONS, dependencies
 
@@ -111,7 +112,7 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--build-commit", required=True)
-    parser.add_argument("--family", choices=("all", "base", "unary", "nested", "pivot", "typed", "reductions", "memory", "frames"), default="all")
+    parser.add_argument("--family", choices=("all", "base", "unary", "nested", "pivot", "typed", "reductions", "memory", "frames", "scalars"), default="all")
     parser.add_argument("--materializations", nargs="+", choices=MATERIALIZATIONS, default=["python"],
                         help="memory-family conversion matrix; requested optional packages are required")
     parser.add_argument("--nested-fixture-generator", type=Path,
@@ -171,6 +172,7 @@ def main() -> int:
         "memory_cases_sha256": code.with_name("native_memory_cases.py"),
         "window_frame_cases_sha256": code.with_name("native_window_frame_cases.py"),
         "window_frame_reference_sha256": code.with_name("native_window_frame_reference.py"),
+        "scalar_subquery_cases_sha256": code.with_name("native_scalar_subquery_cases.py"),
         "workflow_outputs_sha256": code.with_name("native_workflow_outputs.py"),
         "workflow_materialization_sha256": code.with_name("native_workflow_materialization.py"),
         "workflow_protocol_sha256": code.with_name("native_workflow_protocol.py"),
@@ -347,6 +349,9 @@ def main() -> int:
             window_frame_cases(context, root / "data" / f"frames_{stamp}", guard,
                                accepted, complete, sources, identity, materializations=args.materializations,
                                nested_fixture_generator=fixture_generator)
+        if args.family in ("all", "scalars"):
+            scalar_subquery_cases(context, root / "data" / f"scalars_{stamp}", guard,
+                                  accepted, complete, sources, identity)
         for path, digest, generation in sources:
             if generation != identity(path) or digest != file_sha256(path):
                 raise ValueError("a source changed during acceptance")

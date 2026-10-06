@@ -388,6 +388,7 @@ fn native_typed_keys_membership_quantifiers_and_correlation_keep_null_rules() {
                 kind,
                 correlation,
                 output_column: "matched".into(),
+                evaluation_guard: None,
                 negated: false,
             }));
             let actual = collect(&plan)

@@ -526,6 +526,27 @@ outer row. All eight writers accept representable scalar results above the small
 collection limit, subject to the existing 128-field and memory limits. Pivot
 state has no spill path. See the [dynamic pivot contract and acceptance](../docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
 
+Current source builds after published v0.4.0 admit scalar-value subqueries through
+SQL `(SELECT ...)` and `sl.scalar_subquery(frame_or_sql_workflow)`. The v0.4.0
+packages predate this addition. For example, using a context backed by the current
+source build:
+
+```python
+inner = ctx.sql("SELECT outer.value + 10 AS adjusted")
+result = ctx.range(1, 4).with_column("adjusted", sl.scalar_subquery(inner)).collect()
+# result.result_rows: value 1, 2, 3 paired with adjusted 11, 12, 13
+```
+
+The equivalent SQL is
+`SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjusted FROM range(1, 4)`.
+The inner query must bind exactly one static output column. Zero rows return a
+typed NULL; one row returns its value; multiple rows raise a cardinality error,
+even when their values are equal. Correlation uses explicit `outer.<column>`
+references. CASE/COALESCE execute only selected branches, while every branch
+still requires syntax, source, type and schema admission. Dynamic-pivot-dependent
+scalar schemas and lateral relations remain unsupported. Existing dtype, writer
+and resource limits apply. See the [scalar-subquery contract and acceptance](../docs/architecture/native-scalar-subqueries-2026-10-05.md).
+
 For explicit preparation, use `LazyFrame.prepare_vortex(...)` or
 `ctx.prepare_vortex(source_path, target_path, ...)` with their documented arguments. These are
 preparation APIs; ordinary query execution uses the shared workflow below.

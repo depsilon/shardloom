@@ -505,6 +505,7 @@ fn native_relational_join_window_set_and_subquery_compose_through_every_writer()
         },
         correlation: vec![],
         output_column: "member".into(),
+        evaluation_guard: None,
         negated: false,
     }));
     let prepared = prepare_relational(&plan, policy()).unwrap();

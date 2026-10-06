@@ -95,8 +95,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Relational and DataFrame operations</td>
-<td>Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes.</td>
-<td>Operation/type coverage is finite. Named windows, variable frame offsets, scalar-value subqueries, nested pivot state and broader adapters remain subsequent work; scalar pivot keeps its 128-field, type and memory boundaries.</td>
+<td>Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 also admit <a href="/field-guide/runtime-and-io#scalar-subqueries">scalar-value subqueries</a>; v0.4.0 packages predate this addition.</td>
+<td>Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested pivot state and broader adapters remain outside the admitted contracts; scalar pivot keeps its 128-field, type and memory boundaries.</td>
 </tr>
 <tr>
 <td>Repeated queries</td>

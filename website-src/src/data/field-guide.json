@@ -749,6 +749,28 @@
     "redirect": "/field-guide/limitations#external-systems"
   },
   {
+    "slug": "scalar-subqueries",
+    "title": "Scalar-value subqueries",
+    "category": "Execution Routes",
+    "status": "runtime_supported",
+    "summary": "SQL and Python scalar-value subqueries with explicit correlation and zero/one/many cardinality are available in source builds after v0.4.0. Published v0.4.0 packages predate this addition.",
+    "route": "SQL (SELECT ...) and Python sl.scalar_subquery(...) through the shared native workflow",
+    "evidence_fields": [
+      "result_schema_json",
+      "fallback_attempted=false",
+      "external_engine_invoked=false"
+    ],
+    "related_use_cases": [
+      "sql-dataframe-capability-posture"
+    ],
+    "references": [
+      "docs/architecture/native-scalar-subqueries-2026-10-05.md",
+      "docs/benchmarks/native-scalar-subqueries-full43-2026-10-05.md",
+      "python/README.md"
+    ],
+    "redirect": "/field-guide/runtime-and-io#scalar-subqueries"
+  },
+  {
     "slug": "deterministic-blockers",
     "title": "Deterministic blockers",
     "category": "Unsupported Diagnostics",

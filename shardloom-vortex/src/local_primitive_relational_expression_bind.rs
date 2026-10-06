@@ -94,35 +94,7 @@ impl Binder<'_> {
                 return self.struct_expression(children, fields, depth);
             }
             ExpressionKind::Unary { op, expr } => {
-                let child = Box::new(self.expression(expr, fields, depth + 1)?);
-                if matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull) {
-                    selected_operand(&child.dtype)?;
-                } else {
-                    scalar_operand(&child.dtype)?;
-                }
-                let dtype = match op {
-                    UnaryOp::IsNull | UnaryOp::IsNotNull => DType::Bool(Nullability::NonNullable),
-                    UnaryOp::Not => {
-                        boolean(&child.dtype)?;
-                        DType::Bool(child.dtype.nullability())
-                    }
-                    UnaryOp::Negate => {
-                        numeric(&child.dtype)?;
-                        if matches!(child.dtype, DType::Decimal(..)) {
-                            child.dtype.clone()
-                        } else {
-                            DType::Primitive(
-                                if floating(&child.dtype) {
-                                    PType::F64
-                                } else {
-                                    PType::I64
-                                },
-                                child.dtype.nullability(),
-                            )
-                        }
-                    }
-                };
-                (dtype, Kind::Unary(*op, child))
+                return self.unary_expression(*op, expr, fields, depth);
             }
             ExpressionKind::Binary { left, op, right } => {
                 let left = Box::new(self.expression(left, fields, depth + 1)?);
@@ -165,6 +137,11 @@ impl Binder<'_> {
                     },
                 )
             }
+            ExpressionKind::RelationalValue { .. } => {
+                return Err(failed(
+                    "relational value has no resolved native query binding",
+                ));
+            }
             ExpressionKind::Unsupported { .. } => {
                 return Err(failed(
                     "expression kind has no admitted native scalar kernel",
@@ -172,6 +149,47 @@ impl Binder<'_> {
             }
         };
         Ok(Expression { dtype, kind })
+    }
+
+    fn unary_expression(
+        &mut self,
+        op: UnaryOp,
+        input: &Input,
+        fields: &[(String, DType)],
+        depth: usize,
+    ) -> Result<Expression> {
+        let child = Box::new(self.expression(input, fields, depth + 1)?);
+        if matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull) {
+            selected_operand(&child.dtype)?;
+        } else {
+            scalar_operand(&child.dtype)?;
+        }
+        let dtype = match op {
+            UnaryOp::IsNull | UnaryOp::IsNotNull => DType::Bool(Nullability::NonNullable),
+            UnaryOp::Not => {
+                boolean(&child.dtype)?;
+                DType::Bool(child.dtype.nullability())
+            }
+            UnaryOp::Negate => {
+                numeric(&child.dtype)?;
+                if matches!(child.dtype, DType::Decimal(..)) {
+                    child.dtype.clone()
+                } else {
+                    DType::Primitive(
+                        if floating(&child.dtype) {
+                            PType::F64
+                        } else {
+                            PType::I64
+                        },
+                        child.dtype.nullability(),
+                    )
+                }
+            }
+        };
+        Ok(Expression {
+            dtype,
+            kind: Kind::Unary(op, child),
+        })
     }
 
     fn list_expression(

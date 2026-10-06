@@ -466,6 +466,7 @@
       "sl.all_source",
       "sl.exists_source",
       "sl.not_exists_source",
+      "sl.scalar_subquery",
       "sl.case_when",
       "sl.count_distinct",
       "sl.null_if",

@@ -189,6 +189,7 @@ class WindowExpression:
     """A SQL window declaration submitted to the shared native engine."""
 
     sql: str
+    source_bindings: tuple[WorkflowSource, ...] = ()
 
     def __str__(self) -> str:
         return self.sql
@@ -237,6 +238,7 @@ class ColumnExpression:
     """A scoped column expression for Python query-builder predicates."""
 
     sql: str
+    source_bindings: tuple[WorkflowSource, ...] = ()
 
     def __str__(self) -> str:
         return self.sql
@@ -269,7 +271,7 @@ class ColumnExpression:
             if isinstance(value, ColumnExpression)
             else _sql_literal(value)
         )
-        return PredicateExpression(f"{self.sql} {operator} {rhs}")
+        return PredicateExpression(f"{self.sql} {operator} {rhs}", _predicate_sources(self, value))
 
     def _numeric_binary(self, operator: str, value: object) -> "ColumnExpression":
         rhs = (
@@ -278,7 +280,8 @@ class ColumnExpression:
             else _sql_numeric_literal(value)
         )
         return ColumnExpression(
-            f"{_parenthesize_numeric_operand(self.sql)} {operator} {rhs}"
+            f"{_parenthesize_numeric_operand(self.sql)} {operator} {rhs}",
+            _predicate_sources(self, value),
         )
 
     def __add__(self, value: object) -> "ColumnExpression":
@@ -309,50 +312,52 @@ class ColumnExpression:
     def __neg__(self) -> "ColumnExpression":
         """Return a checked native numeric negation expression."""
 
-        return ColumnExpression(f"-({self.sql})")
+        return ColumnExpression(f"-({self.sql})", self.source_bindings)
 
     def abs(self) -> "ColumnExpression":
         """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
-        return ColumnExpression(f"ABS({self.sql})")
+        return ColumnExpression(f"ABS({self.sql})", self.source_bindings)
 
     def floor(self) -> "ColumnExpression":
         """Return a scoped `FLOOR(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"FLOOR({self.sql})")
+        return ColumnExpression(f"FLOOR({self.sql})", self.source_bindings)
 
     def ceil(self) -> "ColumnExpression":
         """Return a scoped `CEIL(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"CEIL({self.sql})")
+        return ColumnExpression(f"CEIL({self.sql})", self.source_bindings)
 
     def round(self) -> "ColumnExpression":
         """Return a scoped `ROUND(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"ROUND({self.sql})")
+        return ColumnExpression(f"ROUND({self.sql})", self.source_bindings)
 
     def is_null(self) -> PredicateExpression:
         """Return a scoped `IS NULL` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NULL")
+        return PredicateExpression(f"{self.sql} IS NULL", self.source_bindings)
 
     def is_not_null(self) -> PredicateExpression:
         """Return a scoped `IS NOT NULL` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT NULL")
+        return PredicateExpression(f"{self.sql} IS NOT NULL", self.source_bindings)
 
     def is_distinct_from(self, value: object) -> PredicateExpression:
         """Return a scoped SQL `IS DISTINCT FROM` null-safe comparison."""
 
         return PredicateExpression(
-            f"{self.sql} IS DISTINCT FROM {self._null_safe_comparison_rhs(value)}"
+            f"{self.sql} IS DISTINCT FROM {self._null_safe_comparison_rhs(value)}",
+            _predicate_sources(self, value),
         )
 
     def is_not_distinct_from(self, value: object) -> PredicateExpression:
         """Return a scoped SQL `IS NOT DISTINCT FROM` null-safe comparison."""
 
         return PredicateExpression(
-            f"{self.sql} IS NOT DISTINCT FROM {self._null_safe_comparison_rhs(value)}"
+            f"{self.sql} IS NOT DISTINCT FROM {self._null_safe_comparison_rhs(value)}",
+            _predicate_sources(self, value),
         )
 
     def _null_safe_comparison_rhs(self, value: object) -> str:
@@ -367,22 +372,22 @@ class ColumnExpression:
     def is_true(self) -> PredicateExpression:
         """Return a scoped SQL boolean truth predicate."""
 
-        return PredicateExpression(f"{self.sql} IS TRUE")
+        return PredicateExpression(f"{self.sql} IS TRUE", self.source_bindings)
 
     def is_false(self) -> PredicateExpression:
         """Return a scoped SQL boolean false predicate."""
 
-        return PredicateExpression(f"{self.sql} IS FALSE")
+        return PredicateExpression(f"{self.sql} IS FALSE", self.source_bindings)
 
     def is_not_true(self) -> PredicateExpression:
         """Return a scoped SQL `IS NOT TRUE` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT TRUE")
+        return PredicateExpression(f"{self.sql} IS NOT TRUE", self.source_bindings)
 
     def is_not_false(self) -> PredicateExpression:
         """Return a scoped SQL `IS NOT FALSE` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT FALSE")
+        return PredicateExpression(f"{self.sql} IS NOT FALSE", self.source_bindings)
 
     def like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
         """Return a scoped SQL LIKE predicate.
@@ -394,25 +399,27 @@ class ColumnExpression:
         """
 
         return PredicateExpression(
-            f"{self.sql} LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}"
+            f"{self.sql} LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}",
+            self.source_bindings,
         )
 
     def not_like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
         """Return a scoped SQL NOT LIKE predicate."""
 
         return PredicateExpression(
-            f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}"
+            f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}",
+            self.source_bindings,
         )
 
     def rlike(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex predicate lowered to SQL `RLIKE`."""
 
-        return PredicateExpression(f"{self.sql} RLIKE {_sql_string_literal(pattern)}")
+        return PredicateExpression(f"{self.sql} RLIKE {_sql_string_literal(pattern)}", self.source_bindings)
 
     def not_rlike(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex negation lowered to SQL `NOT RLIKE`."""
 
-        return PredicateExpression(f"{self.sql} NOT RLIKE {_sql_string_literal(pattern)}")
+        return PredicateExpression(f"{self.sql} NOT RLIKE {_sql_string_literal(pattern)}", self.source_bindings)
 
     def regex(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex predicate."""
@@ -473,22 +480,22 @@ class ColumnExpression:
     def lower(self) -> "ColumnExpression":
         """Return a scoped `LOWER(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"LOWER({self.sql})")
+        return ColumnExpression(f"LOWER({self.sql})", self.source_bindings)
 
     def upper(self) -> "ColumnExpression":
         """Return a scoped `UPPER(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"UPPER({self.sql})")
+        return ColumnExpression(f"UPPER({self.sql})", self.source_bindings)
 
     def trim(self) -> "ColumnExpression":
         """Return a scoped `TRIM(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"TRIM({self.sql})")
+        return ColumnExpression(f"TRIM({self.sql})", self.source_bindings)
 
     def length(self) -> "ColumnExpression":
         """Return a scoped `LENGTH(column)` UTF-8 length expression."""
 
-        return ColumnExpression(f"LENGTH({self.sql})")
+        return ColumnExpression(f"LENGTH({self.sql})", self.source_bindings)
 
     def concat(self, *parts: object) -> "ColumnExpression":
         """Return a scoped `CONCAT(column-or-string-literal, ...)` expression."""
@@ -503,7 +510,10 @@ class ColumnExpression:
         normalized_length = _normalize_substring_bound(
             "substring length", length, minimum=0
         )
-        return ColumnExpression(f"SUBSTR({column}, {normalized_start}, {normalized_length})")
+        return ColumnExpression(
+            f"SUBSTR({column}, {normalized_start}, {normalized_length})",
+            self.source_bindings,
+        )
 
     def substring(self, start: object, length: object) -> "ColumnExpression":
         """Alias for `substr(...)`."""
@@ -515,14 +525,14 @@ class ColumnExpression:
 
         column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("left count", count, minimum=0)
-        return ColumnExpression(f"LEFT({column}, {normalized_count})")
+        return ColumnExpression(f"LEFT({column}, {normalized_count})", self.source_bindings)
 
     def right(self, count: object) -> "ColumnExpression":
         """Return a scoped `RIGHT(column, count)` UTF-8 expression."""
 
         column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("right count", count, minimum=0)
-        return ColumnExpression(f"RIGHT({column}, {normalized_count})")
+        return ColumnExpression(f"RIGHT({column}, {normalized_count})", self.source_bindings)
 
     def replace(self, needle: object, replacement: object) -> "ColumnExpression":
         """Return a scoped `REPLACE(column, needle, replacement)` expression."""
@@ -535,43 +545,50 @@ class ColumnExpression:
             "replace replacement literal", replacement, allow_empty=True
         )
         return ColumnExpression(
-            f"REPLACE({column}, {needle_literal}, {replacement_literal})"
+            f"REPLACE({column}, {needle_literal}, {replacement_literal})",
+            self.source_bindings,
         )
 
     def unhex(self) -> "ColumnExpression":
         """Return a scoped `UNHEX(<utf8-expression>)` binary helper expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"UNHEX({expression})")
+        return ColumnExpression(f"UNHEX({expression})", self.source_bindings)
 
     def from_base64(self) -> "ColumnExpression":
         """Return a scoped `FROM_BASE64(<utf8-expression>)` binary helper expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"FROM_BASE64({expression})")
+        return ColumnExpression(f"FROM_BASE64({expression})", self.source_bindings)
 
     def byte_length(self) -> "ColumnExpression":
         """Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"BYTE_LENGTH({expression})")
+        return ColumnExpression(f"BYTE_LENGTH({expression})", self.source_bindings)
 
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a `COALESCE` expression with a scalar value or expression."""
 
-        return ColumnExpression(f"COALESCE({self.sql}, {_sql_case_branch(value)})")
+        return ColumnExpression(
+            f"COALESCE({self.sql}, {_sql_case_branch(value)})",
+            _predicate_sources(self, value),
+        )
 
     def null_if(self, value: object) -> "ColumnExpression":
         """Return a scoped `NULLIF(column, literal)` null-cleanup expression."""
 
-        return ColumnExpression(f"NULLIF({self.sql}, {_sql_case_branch(value)})")
+        return ColumnExpression(
+            f"NULLIF({self.sql}, {_sql_case_branch(value)})",
+            _predicate_sources(self, value),
+        )
 
     def isin(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `IN (...)` predicate."""
 
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
-        return PredicateExpression(f"{self.sql} IN ({joined})")
+        return PredicateExpression(f"{self.sql} IN ({joined})", self.source_bindings)
 
     def isin_source(
         self,
@@ -600,7 +617,7 @@ class ColumnExpression:
         )
         return PredicateExpression(
             f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})",
-            _predicate_sources(source, where, having),
+            _predicate_sources(self, source, where, having),
         )
 
     def any_source(
@@ -619,7 +636,7 @@ class ColumnExpression:
     ) -> PredicateExpression:
         """Return a scoped bounded local-source `ANY (SELECT ...)` predicate."""
 
-        return _quantified_source_predicate(
+        predicate = _quantified_source_predicate(
             self.sql,
             comparison,
             "ANY",
@@ -633,6 +650,7 @@ class ColumnExpression:
             descending=descending,
             limit=limit,
         )
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate))
 
     def all_source(
         self,
@@ -650,7 +668,7 @@ class ColumnExpression:
     ) -> PredicateExpression:
         """Return a scoped bounded local-source `ALL (SELECT ...)` predicate."""
 
-        return _quantified_source_predicate(
+        predicate = _quantified_source_predicate(
             self.sql,
             comparison,
             "ALL",
@@ -664,13 +682,14 @@ class ColumnExpression:
             descending=descending,
             limit=limit,
         )
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate))
 
     def not_in(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `NOT IN (...)` predicate."""
 
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
-        return PredicateExpression(f"{self.sql} NOT IN ({joined})")
+        return PredicateExpression(f"{self.sql} NOT IN ({joined})", self.source_bindings)
 
     def not_in_source(
         self,
@@ -699,7 +718,7 @@ class ColumnExpression:
         )
         return PredicateExpression(
             f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref}{tail})",
-            _predicate_sources(source, where, having),
+            _predicate_sources(self, source, where, having),
         )
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
@@ -710,39 +729,40 @@ class ColumnExpression:
         """
 
         return PredicateExpression(
-            f"({self.sql} >= {_sql_literal(lower)} AND {self.sql} <= {_sql_literal(upper)})"
+            f"({self.sql} >= {_sql_literal(lower)} AND {self.sql} <= {_sql_literal(upper)})",
+            _predicate_sources(self, lower, upper),
         )
 
     def cast(self, dtype: object) -> "ColumnExpression":
         """Return a scoped `CAST(column AS dtype)` expression for comparisons."""
 
         normalized_dtype = _normalize_cast_dtype(dtype)
-        return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})")
+        return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})", self.source_bindings)
 
     def try_cast(self, dtype: object) -> "ColumnExpression":
         """Return a scoped `TRY_CAST(column AS dtype)` expression for dirty values."""
 
         normalized_dtype = _normalize_cast_dtype(dtype)
-        return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})")
+        return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})", self.source_bindings)
 
     def date_add_days(self, days: object) -> "ColumnExpression":
         """Return a scoped Date32 day-add expression for date predicates."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
-        return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})")
+        return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days))
 
     def date_sub_days(self, days: object) -> "ColumnExpression":
         """Return a scoped Date32 day-subtract expression for date predicates."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
-        return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})")
+        return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days))
 
     def timestamp_add_seconds(self, seconds: object) -> "ColumnExpression":
         """Return a scoped UTC timestamp second-add expression for predicates."""
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
-            f"TIMESTAMP_ADD_SECONDS({self.sql}, {normalized_seconds})"
+            f"TIMESTAMP_ADD_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds)
         )
 
     def timestamp_sub_seconds(self, seconds: object) -> "ColumnExpression":
@@ -750,67 +770,69 @@ class ColumnExpression:
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
-            f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})"
+            f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds)
         )
 
     def date_diff_days(self, other: object) -> "ColumnExpression":
         """Return a scoped Date32 day-difference expression."""
 
         return ColumnExpression(
-            f"DATE_DIFF_DAYS({self.sql}, {_sql_temporal_difference_arg(other, 'date32')})"
+            f"DATE_DIFF_DAYS({self.sql}, {_sql_temporal_difference_arg(other, 'date32')})",
+            _predicate_sources(self, other),
         )
 
     def timestamp_diff_seconds(self, other: object) -> "ColumnExpression":
         """Return a scoped UTC timestamp second-difference expression."""
 
         return ColumnExpression(
-            f"TIMESTAMP_DIFF_SECONDS({self.sql}, {_sql_temporal_difference_arg(other, 'timestamp_micros')})"
+            f"TIMESTAMP_DIFF_SECONDS({self.sql}, {_sql_temporal_difference_arg(other, 'timestamp_micros')})",
+            _predicate_sources(self, other),
         )
 
     def date_year(self) -> "ColumnExpression":
         """Return a scoped Date32 year-extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_YEAR({self.sql})")
+        return ColumnExpression(f"DATE_YEAR({self.sql})", self.source_bindings)
 
     def date_month(self) -> "ColumnExpression":
         """Return a scoped Date32 month-extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_MONTH({self.sql})")
+        return ColumnExpression(f"DATE_MONTH({self.sql})", self.source_bindings)
 
     def date_day(self) -> "ColumnExpression":
         """Return a scoped Date32 day-of-month extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_DAY({self.sql})")
+        return ColumnExpression(f"DATE_DAY({self.sql})", self.source_bindings)
 
     def timestamp_year(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp year-extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})")
+        return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})", self.source_bindings)
 
     def timestamp_month(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp month-extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})")
+        return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})", self.source_bindings)
 
     def timestamp_day(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp day-of-month extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_DAY({self.sql})")
+        return ColumnExpression(f"TIMESTAMP_DAY({self.sql})", self.source_bindings)
 
     def timestamp_hour(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp hour extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})")
+        return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})", self.source_bindings)
 
     def timestamp_minute(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp minute extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})")
+        return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})", self.source_bindings)
 
     def timestamp_second(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp second extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})")
+        return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})", self.source_bindings)
 
 
 @dataclass(frozen=True, slots=True)
@@ -959,7 +981,9 @@ class SqlWorkflow:
 
     def select(self, *columns: object) -> "SqlWorkflow":
         """Project the complete preceding SQL result without executing it."""
-        return self._compose(WorkflowOperation("select", _normalize_columns(columns)))
+        return self._compose(WorkflowOperation(
+            "select", _normalize_columns(columns), _predicate_sources(columns),
+        ))
 
     def project(self, *columns: object) -> "SqlWorkflow":
         return self.select(*columns)
@@ -992,7 +1016,10 @@ class SqlWorkflow:
         return self.sort(*columns, descending=descending, nulls=nulls, check=check)
 
     def window(self, *expressions: object, check: bool = False) -> "SqlWorkflow":
-        return self._compose(WorkflowOperation("window", _normalize_window_expressions(expressions)))
+        return self._compose(WorkflowOperation(
+            "window", _normalize_window_expressions(expressions),
+            _predicate_sources(expressions),
+        ))
 
     def group_by(self, *columns: object) -> "GroupedLazyFrame":
         return GroupedLazyFrame(self, _normalize_columns(columns))
@@ -1002,13 +1029,17 @@ class SqlWorkflow:
 
     def _append_group_by_aggregate(
         self, columns: tuple[str, ...], expressions: tuple[str, ...],
+        *, source_bindings: tuple[WorkflowSource, ...] = (),
     ) -> "SqlWorkflow":
         return self._compose(
-            WorkflowOperation("group_by", columns), WorkflowOperation("aggregate", expressions),
+            WorkflowOperation("group_by", columns),
+            WorkflowOperation("aggregate", expressions, source_bindings),
         )
 
     def aggregate(self, *expressions: object, check: bool = False) -> "SqlWorkflow":
-        return self._compose(WorkflowOperation("aggregate", _normalize_columns(expressions)))
+        return self._compose(WorkflowOperation(
+            "aggregate", _normalize_columns(expressions), _predicate_sources(expressions),
+        ))
 
     def agg(
         self, *expressions: object, check: bool = False, **named_expressions: object,
@@ -1020,7 +1051,9 @@ class SqlWorkflow:
         )
         if not values:
             raise ValueError("aggregate expressions must not be empty")
-        return self._compose(WorkflowOperation("aggregate", tuple(values)))
+        return self._compose(WorkflowOperation(
+            "aggregate", tuple(values), _predicate_sources(expressions, named_expressions),
+        ))
 
     def having(self, predicate: object, *, check: bool = False) -> "SqlWorkflow":
         """Apply HAVING to the current aggregate scope; Rust validates the scope."""
@@ -1052,7 +1085,9 @@ class SqlWorkflow:
             expression_sql = "NULL" if literal is None else _sql_literal(literal)
         except (TypeError, ValueError):
             expression_sql = _sql_computed_projection_expression(expression)
-        return self._compose(WorkflowOperation("with_column", (column, expression_sql)))
+        return self._compose(WorkflowOperation(
+            "with_column", (column, expression_sql), _predicate_sources(expression),
+        ))
 
     def with_columns(
         self, columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
@@ -3529,7 +3564,9 @@ class LazyFrame:
     def select(self, *columns: object) -> "LazyFrame":
         """Return a lazy plan with an added projection."""
 
-        return self._append(WorkflowOperation("select", _normalize_columns(columns)))
+        return self._append(WorkflowOperation(
+            "select", _normalize_columns(columns), _predicate_sources(columns),
+        ))
 
     def project(self, *columns: object) -> "LazyFrame":
         """Alias for `select(...)` using familiar DataFrame/project naming."""
@@ -4732,6 +4769,7 @@ class LazyFrame:
         """Return a scoped computed-column workflow when admitted."""
 
         column_name = _normalize_output_column_name(name)
+        expression_sources = _predicate_sources(expression)
         try:
             literal = (
                 expression
@@ -4748,7 +4786,7 @@ class LazyFrame:
                     expression_text
                 ):
                     return self._append(
-                        WorkflowOperation("with_column", (column_name, expression_text))
+                        WorkflowOperation("with_column", (column_name, expression_text), expression_sources)
                     )
                 return self._unsupported_operation(
                     "with-column",
@@ -4760,39 +4798,55 @@ class LazyFrame:
             expression_sql,
         ):
             return self._append(
-                self._computed_projection_operation(expression_project_payload, column_name, expression_sql)
+                self._computed_projection_operation(
+                    expression_project_payload, column_name, expression_sql,
+                    source_bindings=expression_sources,
+                )
             )
         if expression_project_payload := self._string_replace_expression_project_payload(
             column_name,
             expression_sql,
         ):
             return self._append(
-                self._computed_projection_operation(expression_project_payload, column_name, expression_sql)
+                self._computed_projection_operation(
+                    expression_project_payload, column_name, expression_sql,
+                    source_bindings=expression_sources,
+                )
             )
         if (self.source.source_format == "vortex"
                 and isinstance(expression, ComplexProjectionExpression)
                 and self._can_append_projection_column(column_name, allow_vortex=True)):
-            projected = self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
+            projected = self._append(WorkflowOperation(
+                "with_column", (column_name, expression_sql), expression_sources,
+            ))
             if projected._has_structured_binary_export_shape():
                 return projected
         if self._can_append_projection_column(column_name, allow_vortex=True):
-            return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
+            return self._append(WorkflowOperation(
+                "with_column", (column_name, expression_sql), expression_sources,
+            ))
         if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
-            return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
+            return self._append(WorkflowOperation(
+                "with_column", (column_name, expression_sql), expression_sources,
+            ))
         return self._unsupported_operation(
             "with-column",
             f"{column_name}={expression_sql}",
             check=check,
         )
 
-    def _computed_projection_operation(self, payload: str, name: str, expression: str) -> WorkflowOperation:
+    def _computed_projection_operation(
+        self, payload: str, name: str, expression: str,
+        *, source_bindings: tuple[WorkflowSource, ...] = (),
+    ) -> WorkflowOperation:
         from ._relational_sql import computed_projection
 
         columns = self._expression_project_projection_columns(())
         if columns == ("*",):
-            return WorkflowOperation("with_column", (name, expression))
+            return WorkflowOperation("with_column", (name, expression), source_bindings)
         return WorkflowOperation(
             "expression_project", (payload,),
+            source_bindings=source_bindings,
             projection_sql=computed_projection(columns, name, expression) if columns is not None else None,
         )
 
@@ -5607,7 +5661,9 @@ class LazyFrame:
         values = _normalize_columns(expressions)
         target = ",".join(values)
         if self._can_append_scalar_aggregate():
-            return self._append(WorkflowOperation("aggregate", values))
+            return self._append(WorkflowOperation(
+                "aggregate", values, _predicate_sources(expressions),
+            ))
         if self.source.source_format == "vortex":
             return self._unsupported_operation("native-vortex-aggregate", target, check=check)
         return self._unsupported_operation("aggregate", target, check=check)
@@ -5633,7 +5689,10 @@ class LazyFrame:
         if not values:
             raise ValueError("aggregate expressions must not be empty")
         if self._can_append_scalar_aggregate():
-            return self._append(WorkflowOperation("aggregate", tuple(values)))
+            return self._append(WorkflowOperation(
+                "aggregate", tuple(values),
+                _predicate_sources(expressions, named_expressions),
+            ))
         if self.source.source_format == "vortex":
             return self._unsupported_operation(
                 "native-vortex-aggregate",
@@ -5713,7 +5772,9 @@ class LazyFrame:
         values = _normalize_window_expressions(expressions)
         target = ",".join(values)
         if self._can_append_window(values):
-            return self._append(WorkflowOperation("window", values))
+            return self._append(WorkflowOperation(
+                "window", values, _predicate_sources(expressions),
+            ))
         return self._unsupported_operation("window", target, check=check)
 
     def schema_contract(
@@ -7014,6 +7075,8 @@ class LazyFrame:
         self,
         columns: tuple[str, ...],
         expressions: tuple[str, ...],
+        *,
+        source_bindings: tuple[WorkflowSource, ...] = (),
     ) -> "LazyFrame":
         return LazyFrame(
             source=self.source,
@@ -7021,7 +7084,7 @@ class LazyFrame:
             operations=(
                 *self.operations,
                 WorkflowOperation("group_by", columns),
-                WorkflowOperation("aggregate", expressions),
+                WorkflowOperation("aggregate", expressions, source_bindings),
             ),
             engine_mode=self.engine_mode,
         )
@@ -7351,12 +7414,19 @@ class GroupedLazyFrame:
         if not values:
             raise ValueError("aggregate expressions must not be empty")
         target = f"group_by:{','.join(self.columns)};agg:{','.join(target_values)}"
+        source_bindings = _predicate_sources(expressions, named_expressions)
         if isinstance(self.workflow, SqlWorkflow):
-            return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
+            return self.workflow._append_group_by_aggregate(
+                self.columns, tuple(values), source_bindings=source_bindings,
+            )
         if self.workflow._can_append_group_by_aggregate(self.columns):
-            return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
+            return self.workflow._append_group_by_aggregate(
+                self.columns, tuple(values), source_bindings=source_bindings,
+            )
         if self.workflow.source.source_format == "vortex":
-            return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
+            return self.workflow._append_group_by_aggregate(
+                self.columns, tuple(values), source_bindings=source_bindings,
+            )
         envelope = self.workflow.client.workflow_unsupported_plan(
             "agg",
             self.operation_summary,
@@ -7492,7 +7562,7 @@ def typed_scalar_udf(udf_id: object, column: object) -> ColumnExpression:
         raise ValueError(
             "typed scalar UDF must be the admitted built-in sl_fixture_double_i64 fixture"
         )
-    return ColumnExpression(f"{source_column} * 2")
+    return ColumnExpression(f"{source_column} * 2", _predicate_sources(column))
 
 
 def fixture_double_i64(column: object) -> ColumnExpression:
@@ -7511,6 +7581,22 @@ def outer(column: object) -> ColumnExpression:
     """Return the reserved outer-row column expression for correlated source predicates."""
 
     return ColumnExpression(f"outer.{_normalize_output_column_name(column)}")
+
+
+def scalar_subquery(source: LazyFrame | SqlWorkflow) -> ColumnExpression:
+    """Declare a scalar query expression without executing its source.
+
+    A scalar subquery with zero rows yields NULL, one row yields its value, and
+    multiple rows produce the native engine's cardinality error. Source binding
+    and type admission are validated by the native engine.
+    """
+
+    if not isinstance(source, (LazyFrame, SqlWorkflow)):
+        raise TypeError("scalar_subquery requires a LazyFrame or SqlWorkflow")
+    statement = source._relation_statement()
+    if statement is None or not statement.strip():
+        raise ValueError("scalar_subquery source has no native relational declaration")
+    return ColumnExpression(f"({statement})", _predicate_sources(source))
 
 
 def interval_days(value: object) -> IntervalLiteral:
@@ -7804,7 +7890,8 @@ def _ranking_window_expression(
     )
     output_alias = _normalize_output_column_name(alias)
     return WindowExpression(
-        f"{function_name}() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}"
+        f"{function_name}() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}",
+        _predicate_sources(order_by, partition_by),
     )
 
 
@@ -7814,18 +7901,25 @@ def case_when(predicate: object, then_value: object, else_value: object) -> Colu
     then_branch = _sql_case_branch(then_value)
     else_branch = _sql_case_branch(else_value)
     return ColumnExpression(
-        f"CASE WHEN {_predicate_sql(predicate)} THEN {then_branch} ELSE {else_branch} END"
+        f"CASE WHEN {_predicate_sql(predicate)} THEN {then_branch} ELSE {else_branch} END",
+        _predicate_sources(predicate, then_value, else_value),
     )
 
 
-def count_distinct(column_expression: object) -> str:
-    """Return a scoped `count(DISTINCT column)` aggregate expression."""
+def count_distinct(column_expression: object) -> str | ColumnExpression:
+    """Declare COUNT DISTINCT, retaining owned query sources when present.
+
+    Plain column declarations keep their existing string return value. An
+    expression with source bindings returns a ColumnExpression carrying them.
+    """
 
     if isinstance(column_expression, ColumnExpression):
         column_sql = column_expression.sql
     else:
         column_sql = _normalize_expression_column(column_expression)
-    return f"count(DISTINCT {column_sql})"
+    sql = f"count(DISTINCT {column_sql})"
+    sources = _predicate_sources(column_expression)
+    return ColumnExpression(sql, sources) if sources else sql
 
 
 def null_if(column_expression: object, value: object) -> ColumnExpression:
@@ -7867,7 +7961,7 @@ def concat(*parts: object) -> ColumnExpression:
         has_source_column = has_source_column or is_source_column
     if not has_source_column:
         raise ValueError("concat requires at least one shardloom column expression")
-    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})")
+    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})", _predicate_sources(parts))
 
 
 def substr(column_expression: object, start: object, length: object) -> ColumnExpression:
@@ -10476,6 +10570,7 @@ def _sql_generic_expression_projection_expression(expression: object) -> str:
     if not (
         _expression_has_numeric_operator(text)
         or scalar_call
+        or _is_scalar_subquery_expression(text)
         or text.upper().startswith(("-", "+", "CASE "))
     ):
         raise ValueError(
@@ -10483,6 +10578,13 @@ def _sql_generic_expression_projection_expression(expression: object) -> str:
         )
     _validate_balanced_expression_parentheses(text)
     return text
+
+
+def _is_scalar_subquery_expression(text: str) -> bool:
+    if re.match(r"^\(\s*SELECT\b", text, re.IGNORECASE) is None or not text.endswith(")"):
+        return False
+    _validate_balanced_expression_parentheses(text)
+    return True
 
 
 def _parenthesize_numeric_operand(value: str) -> str:
@@ -10606,6 +10708,8 @@ def _sql_numeric_rounding_projection_expression(expression: object) -> str:
 
 def _sql_computed_projection_expression(expression: object) -> str:
     if isinstance(expression, ColumnExpression):
+        if expression.source_bindings:
+            return expression.sql
         try:
             return _normalize_expression_column(expression.sql)
         except (TypeError, ValueError):
@@ -11094,6 +11198,9 @@ def _normalize_string_function_text_arg_sql(raw: str) -> tuple[str, bool]:
 
 def _normalize_string_scalar_expression_sql(raw: str) -> tuple[str, bool]:
     text = _require_non_empty("string expression", raw)
+    if _is_scalar_subquery_expression(text):
+        # The native binder admits the inner query and its output dtype.
+        return text, True
     if text.startswith("'"):
         value = _parse_sql_string_literal_token(text)
         return (
@@ -11316,7 +11423,11 @@ def _predicate_sql(value: object) -> str:
 def _predicate_sources(*values: object) -> tuple[WorkflowSource, ...]:
     sources: list[WorkflowSource] = []
     for value in values:
-        if isinstance(value, PredicateExpression):
+        if isinstance(value, (tuple, list)):
+            sources.extend(_predicate_sources(*value))
+        elif isinstance(value, Mapping):
+            sources.extend(_predicate_sources(*value.values()))
+        elif isinstance(value, (PredicateExpression, ColumnExpression, WindowExpression)):
             sources.extend(value.source_bindings)
         elif isinstance(value, (LazyFrame, SqlWorkflow)):
             sources.extend(value._declared_sources())
@@ -11338,8 +11449,11 @@ def _validate_raw_sql_fragment(
     value: str,
     *,
     allowed_keywords: tuple[str, ...] = (),
+    allow_nested_queries: bool = False,
 ) -> None:
     _validate_sql_fragment_quotes(name, value)
+    if allow_nested_queries:
+        _validate_balanced_expression_parentheses(value)
     for token in _RAW_SQL_FRAGMENT_BREAKOUT_TOKENS:
         if _contains_sql_token_outside_quotes(value, token):
             raise ValueError(
@@ -11349,7 +11463,11 @@ def _validate_raw_sql_fragment(
     for keyword in _RAW_SQL_FRAGMENT_BREAKOUT_KEYWORDS:
         if keyword in allowed_keywords:
             continue
-        if _contains_sql_keyword_outside_quotes(value, keyword):
+        found = (
+            _find_top_level_sql_keyword_outside_quotes(value, keyword) is not None
+            if allow_nested_queries else _contains_sql_keyword_outside_quotes(value, keyword)
+        )
+        if found:
             raise ValueError(
                 f"{name} must stay inside a scoped expression; SQL clause keyword "
                 f"{keyword!r} is not admitted in raw fragments"
@@ -11367,6 +11485,9 @@ def _sql_fragment_admitted_for_local_source_statement(
             name,
             value,
             allowed_keywords=allowed_keywords,
+            # Scalar SELECTs are bounded expression children. Clause breakouts,
+            # separators and comments remain denied before native SQL binding.
+            allow_nested_queries=True,
         )
     except ValueError:
         return False

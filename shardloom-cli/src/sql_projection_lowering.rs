@@ -235,7 +235,7 @@ fn generic_expression_projection_expression(
     Ok(Expression::new(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
-            expr: Box::new(projection.expression.clone()),
+            expr: Box::new(projection.expression.plain()?),
             alias: projection.alias.clone(),
         },
     ))

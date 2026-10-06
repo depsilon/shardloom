@@ -174,6 +174,10 @@ impl Resolver<'_> {
             ExpressionKind::FunctionCall { name, args } => self.function(name, args, depth),
             ExpressionKind::List { .. } => Ok(LogicalDType::List),
             ExpressionKind::Struct { .. } => Ok(LogicalDType::Struct),
+            ExpressionKind::RelationalValue { .. } => Err(EvalFailure::unsupported(
+                "relational_value",
+                "relational value requires native query binding before expression evaluation",
+            )),
             ExpressionKind::Unsupported { feature, reason } => {
                 Err(EvalFailure::unsupported(feature.clone(), reason.clone()))
             }

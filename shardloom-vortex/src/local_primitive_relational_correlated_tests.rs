@@ -56,6 +56,7 @@ fn correlated(
         input,
         relation,
         kind,
+        evaluation_guard: None,
         correlation: vec![],
         output_column: output.into(),
         negated: false,

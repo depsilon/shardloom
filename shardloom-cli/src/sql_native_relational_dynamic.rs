@@ -36,6 +36,9 @@ pub(super) fn source_required(source: &ParsedRelationSource) -> bool {
 
 pub(super) fn select_required(parsed: &ParsedSqlLocalSource) -> bool {
     source_required(&parsed.source)
+        || super::scalar::surfaces(parsed)
+            .into_iter()
+            .any(super::scalar::dynamic_required)
         || parsed
             .join
             .as_ref()
@@ -48,6 +51,9 @@ pub(super) fn select_required(parsed: &ParsedSqlLocalSource) -> bool {
 
 pub(super) fn predicate_required(predicate: &ParsedPredicate) -> bool {
     let (source, filter, projected) = match predicate {
+        ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
+            return super::scalar::dynamic_required(left) || super::scalar::dynamic_required(right);
+        }
         ParsedPredicate::Logical { left, right, .. } => {
             return predicate_required(left) || predicate_required(right);
         }
@@ -205,6 +211,27 @@ impl DeclarationSize {
         for predicate in parsed.predicate_surfaces() {
             self.predicate(predicate, depth + 1)?;
         }
+        for value in super::scalar::surfaces(parsed) {
+            self.scalar(value, depth + 1)?;
+        }
+        Ok(())
+    }
+
+    fn scalar(
+        &mut self,
+        value: &super::scalar_expression::ParsedScalarExpression,
+        depth: usize,
+    ) -> NativeResult<()> {
+        for (_, binding) in &value.bindings {
+            match binding {
+                super::scalar_expression::RelationalBinding::Scalar(query) => {
+                    self.query(query, depth)?;
+                }
+                super::scalar_expression::RelationalBinding::Predicate(predicate) => {
+                    self.predicate(predicate, depth)?;
+                }
+            }
+        }
         Ok(())
     }
 
@@ -224,6 +251,11 @@ impl DeclarationSize {
             ));
         }
         let (source, filter, projected) = match predicate {
+            ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
+                self.scalar(left, depth + 1)?;
+                self.scalar(right, depth + 1)?;
+                return Ok(());
+            }
             ParsedPredicate::Logical { left, right, .. } => {
                 self.predicate(left, depth + 1)?;
                 return self.predicate(right, depth + 1);

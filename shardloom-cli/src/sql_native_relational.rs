@@ -37,6 +37,8 @@ mod predicate;
 mod projection;
 #[path = "sql_native_relational_pruning.rs"]
 mod pruning;
+#[path = "sql_native_relational_scalar.rs"]
+mod scalar;
 #[cfg(test)]
 #[path = "sql_native_relational_tests.rs"]
 mod tests;
@@ -103,6 +105,9 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
         || parsed.replace_or_add_projection
         || parsed.join.is_some()
         || !parsed.window_projections.is_empty()
+        || scalar::surfaces(&parsed)
+            .iter()
+            .any(|expression| !expression.bindings.is_empty())
         || parsed
             .predicate_surfaces()
             .into_iter()
@@ -199,6 +204,9 @@ fn declared_sources(parsed: &ParsedSqlLocalSource, paths: &mut BTreeSet<ParsedRe
     for predicate in parsed.predicate_surfaces() {
         predicate::declared_sources(predicate, paths);
     }
+    for value in scalar::surfaces(parsed) {
+        scalar::declared_sources(value, paths);
+    }
 }
 
 fn register_sql_memory_inputs(
@@ -256,7 +264,7 @@ fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> 
         .into_iter()
         .filter(|index| *index > limit)
         .collect::<Vec<_>>();
-    match offsets.as_slice() {
+    let (query, offset) = match offsets.as_slice() {
         [] => Ok((ParsedRelationQuery::parse(&statement)?, 0)),
         [index] => {
             let offset = parse_limit(statement[index + "offset".len()..].trim())?;
@@ -268,7 +276,9 @@ fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> 
         _ => Err(unsupported_sql_error(
             "native SQL admits one trailing OFFSET",
         )),
-    }
+    }?;
+    scalar::validate_query(&query)?;
+    Ok((query, offset))
 }
 
 struct Lowered {
@@ -604,12 +614,9 @@ impl Lowerer<'_, '_> {
     ) -> NativeResult<Lowered> {
         let input = self.source(parsed)?;
         let visible = input.columns.clone();
+        let uses_outer = predicate::select_direct_outer(parsed)?;
         let outer = outer
-            .or_else(|| {
-                self.outer
-                    .as_deref()
-                    .filter(|_| predicate::select_direct_outer(parsed))
-            })
+            .or_else(|| self.outer.as_deref().filter(|_| uses_outer))
             .map(<[String]>::to_vec);
         let input = Self::with_outer(input, outer.as_deref())?;
         let mut input = self.filter(input, &parsed.predicate)?;
@@ -682,6 +689,7 @@ impl Lowerer<'_, '_> {
     }
 
     fn group_aliases(
+        &mut self,
         mut input: Lowered,
         parsed: &ParsedSqlLocalSource,
     ) -> NativeResult<(Lowered, Vec<String>)> {
@@ -717,17 +725,28 @@ impl Lowerer<'_, '_> {
                     "GROUP BY cannot reference an aggregate or window alias",
                 ));
             }
-            let mut expressions = Vec::new();
-            append_ordered_projection_expression(
-                &mut expressions,
-                parsed,
-                output,
-                &input.columns,
-                "native.group",
-            )?;
-            let mut expression = expressions
-                .pop()
-                .ok_or_else(|| unsupported_sql_error("GROUP BY alias expression is absent"))?;
+            let mut expression = if let ParsedProjectionOutput::GenericExpression(alias) = output {
+                let projection = find_projection_by_alias(
+                    &parsed.generic_expression_projections,
+                    alias,
+                    "scalar group",
+                )?;
+                let (next, expression) = self.scalar(input, &projection.expression, None)?;
+                input = next;
+                expression
+            } else {
+                let mut expressions = Vec::new();
+                append_ordered_projection_expression(
+                    &mut expressions,
+                    parsed,
+                    output,
+                    &input.columns,
+                    "native.group",
+                )?;
+                expressions
+                    .pop()
+                    .ok_or_else(|| unsupported_sql_error("GROUP BY alias expression is absent"))?
+            };
             map_columns(&mut expression, &mut |column| input.resolve(column))?;
             aliases.push(name.clone());
             keys.push((name.clone(), expression));
@@ -753,7 +772,20 @@ impl Lowerer<'_, '_> {
         input: Lowered,
         parsed: &ParsedSqlLocalSource,
     ) -> NativeResult<(Lowered, Vec<String>)> {
-        let (mut input, aliases) = Self::group_aliases(input, parsed)?;
+        let (mut input, aliases) = self.group_aliases(input, parsed)?;
+        let mut aggregates = parsed
+            .aggregates
+            .iter()
+            .chain(&parsed.having_aggregates)
+            .cloned()
+            .collect::<Vec<_>>();
+        for aggregate in &mut aggregates {
+            if let ParsedAggregateArgument::Computed { expression, .. } = &mut aggregate.argument {
+                let (next, value) = self.scalar(input, expression, None)?;
+                input = next;
+                **expression = value.into();
+            }
+        }
         let group_by = parsed
             .group_by
             .iter()
@@ -770,10 +802,8 @@ impl Lowerer<'_, '_> {
         }
         let mut projection = Vec::new();
         let mut names = input.columns.clone();
-        let measures = parsed
-            .aggregates
+        let measures = aggregates
             .iter()
-            .chain(&parsed.having_aggregates)
             .map(|aggregate| {
                 if aggregate.distinct && aggregate.function != AggregateFunction::Count {
                     return Err(unsupported_sql_error(
@@ -794,7 +824,7 @@ impl Lowerer<'_, '_> {
                                 .map(|name| Ok((name.clone(), column(name)?)))
                                 .collect::<NativeResult<Vec<_>>>()?;
                         }
-                        let mut expression = (**expression).clone();
+                        let mut expression = expression.plain()?;
                         map_columns(&mut expression, &mut |name| input.resolve(name))?;
                         let name = self.fresh(&names);
                         names.push(name.clone());
@@ -976,7 +1006,9 @@ fn map_columns(
                 map_columns(field, map)?;
             }
         }
-        ExpressionKind::Literal(_) | ExpressionKind::Unsupported { .. } => {}
+        ExpressionKind::Literal(_)
+        | ExpressionKind::RelationalValue { .. }
+        | ExpressionKind::Unsupported { .. } => {}
     }
     Ok(())
 }
