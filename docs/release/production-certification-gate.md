@@ -5,6 +5,38 @@ It evaluates declared workload profiles in
 [`production-certification-workloads.json`](production-certification-workloads.json) and keeps
 production claims separate from local v1 readiness.
 
+## Local-engine preview exit criteria
+
+The current public posture is **published local engine; operational hardening in progress**.
+The `local_file_etl_v1_candidate` declaration describes that local engine. Selected v0.4.0
+package channels have [verified publication evidence](v0.4.0-publication-verification.md);
+package availability is no longer a missing production prerequisite. Passing the default gate
+means the declarations and blocked claims are consistent. It does not certify production use.
+
+A stable local-engine support promise can be narrower than the complete product roadmap.
+Before changing its maturity label or `production_claim_allowed`, accept the following for
+one explicitly declared local workload and bind the evidence to the release source and binary:
+
+| Requirement | Existing evidence | Remaining acceptance |
+| --- | --- | --- |
+| Supported workload and platforms | Published package platform contracts, local format/type admission, public SQL/Python/CLI tests and deterministic blockers. | Freeze the supported OS/architecture, workload shapes, types, formats, resource/storage conditions and unsupported edges. Specify support and upgrade obligations for that envelope. |
+| Complete and correct results | Typed/nested relational workflows, decimal reductions, analytic frames, native output/readback and complete-result regression evidence. | Run the declared envelope on the release candidate with independent expected results, empty/null/overflow cases, skew, wide rows, and complete output above small-collection limits. |
+| Resource and pressure behavior | Shared reservations, bounded result batches, specialized spill and real multi-key ordering spill with slow/failing consumers. | Account for admitted reader/codec scratch, retained operator state, queued batches and writers; prove bounded retention or deterministic denial across the whole workload. Measure RSS separately and declare unaccounted provider allocations. General aggregate/join/window spill is required only for shapes promised to run beyond resident limits; otherwise fail before unsafe growth. |
+| Failure, cancellation and recovery | Quota, corrupt/truncated/replaced runs, source mutation, cancellation, owned cleanup and failed-publication tests. | Exercise the supported workload end to end under pressure, interruption and storage failure; prove no successful partial output, credit/handle cleanup, ownership-safe recovery and repeat-call behavior. Document whether recovery means safe cleanup/restart or resumable execution. |
+| Reproducible operating evidence | Fresh local UAT and exact-source/channel receipts exist. | Accept workload-specific scale, latency and memory observations with exact provenance and timing boundaries. Production acceptance does not require a speedup or competitor ranking; broader superiority claims retain their independent CG-5/CG-6 gates. |
+| Security, API and release support | Local security gates, diagnostic/schema contracts and four verified package channels. | Review the supported envelope, compatibility policy, known issues, installation/upgrade/rollback and support instructions together; approve the release against all required evidence keys. |
+
+The [current resource contract](../architecture/native-relational-resources-2026-10-02.md)
+and [local resource gate](../architecture/v1-local-resource-safety.md) distinguish live execution
+evidence from older fixture checks. Native Vortex remains the execution and highest-fidelity
+persistence boundary. Unsupported work must keep deterministic no-fallback diagnostics.
+
+Cloud connectors, table transactions, distributed/live/hybrid operation and full SQL/DataFrame
+parity retain their own gates. They are not blanket prerequisites for a scoped stable local
+engine. This checklist defines acceptance; it does not assert that the remaining work has passed.
+
+## Gate behavior
+
 Default mode is claim-safe:
 
 ```text

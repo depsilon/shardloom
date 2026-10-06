@@ -137,7 +137,7 @@ A local .vortex artifact plus VortexPreparedState id/digest, certification-level
 
 ## Reference Files
 
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
+- `README.md` - What this proves: Published local engine, operational maturity, Vortex-first positioning, and no-fallback boundaries.
 - `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
 - `docs/getting-started/examples.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.

@@ -52,7 +52,7 @@ Status, smoke, and capabilities JSON with fallback_attempted=false and external_
 
 ## Reference Files
 
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
+- `README.md` - What this proves: Published local engine, operational maturity, Vortex-first positioning, and no-fallback boundaries.
 - `docs/getting-started/first-10-minutes.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/getting-started/examples.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `examples/local-python-smoke/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.

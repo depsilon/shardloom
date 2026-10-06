@@ -249,6 +249,29 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-SCALAR-SUBQUERIES` — continue the universal workflow queue after the
+  merged typed-reduction and analytic-frame units, under PERF-02/03/06/07/10/12 and
+  CG-5/19/20/21. Extend the existing native subquery and expression owners to
+  scalar-value use through the shared SQL/Python/CLI workflow boundary.
+  - V1 scope classification: `required_for_v1` for admitted local composition;
+    broader SQL parity remains scoped by the finite inventory.
+  - ShardLoom technique review: preserve native typed values, source-generation
+    checks, shared reservations, capillary units, PulseWeave admission and
+    timing/evidence separation. Check the pinned Vortex providers before adding
+    an abstraction; no second planner, executor or external-engine fallback.
+  - Execution checklist: freeze uncorrelated/correlated cardinality, null/type,
+    expression-evaluation, cancellation and resource semantics against current
+    source; implement through existing retained-state owners; verify independent
+    complete results, denied shapes, native output and public surface parity.
+  - Acceptance: required workspace/native/Python gates, public workflow and
+    Full43 regression evidence, exact source/binary identity and hosted integration.
+    Availability does not require a speedup or authorize a production claim.
+  - Follow-on: nested pivot state, remaining adapters and reader/codec/operator
+    resource/failure transitions retain their existing owners. Apply the
+    [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
+    when accepting a stable local support envelope; do not wait for unrelated
+    cloud or complete-SQL parity, or infer readiness from package publication.
+
 - [ ] `HARDWARE-INFORMED-EXECUTION` — after core universal workflow completion,
   evaluate the October 4 maintainer's hardware-design transfer proposals under
   existing PERF-02/03/06/07/10/11/12 owners and CG-5/6/19. This is accepted future
@@ -299,10 +322,11 @@ hosted checks passed. Their finite completions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). Nested composition
 continues on the shared per-operation allocation and native delivery contracts;
 nested payloads, dynamic pivot schemas, flat binary/decimal/temporal payloads
-and keys, scoped typed expressions, typed unary state and nested keys/state have local functional
-acceptance awaiting hosted completion. The typed-unary report retains Q9's
-inconclusive performance observation. Broader aggregate/window
-semantics, adapters and resource obligations remain open under their existing owners.
+and keys, scoped typed expressions, typed unary state and nested keys/state are
+merged, as are typed reductions and analytic frames. The typed-unary report retains
+Q9's inconclusive performance observation. Scalar-value subqueries, nested pivot
+state, broader aggregate/window semantics, adapters and resource obligations remain
+open under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
@@ -2723,9 +2747,10 @@ PR #1503: P4/P6/P8 ingestion shares the provided CPU budget, with failure, memor
 and complete query acceptance recorded in the completed ledger. The hosted merges
 record `NATIVE-NESTED-COMPOSITION`, `NATIVE-DYNAMIC-PIVOT-COMPOSITION`,
 `NATIVE-TYPED-PAYLOADS`, `NATIVE-TYPED-KEYS`, `NATIVE-TYPED-EXPRESSIONS`,
-`NATIVE-TYPED-UNARY`, and `NATIVE-NESTED-KEYS-STATE` as completed finite units.
-`NATIVE-TYPED-REDUCTIONS` is the next autonomous implementation item in the
-dependent universal workflow queue below. The other large format/text experiments
+`NATIVE-TYPED-UNARY`, `NATIVE-NESTED-KEYS-STATE`, `NATIVE-TYPED-REDUCTIONS` and
+`NATIVE-ANALYTIC-FRAMES` as completed finite units. The v0.4.0 publication train is
+also complete. `NATIVE-SCALAR-SUBQUERIES` is the next autonomous implementation
+item in the dependent universal workflow queue. The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 
 The October 1 product clarification makes

@@ -4,13 +4,36 @@
 
 Schema marker: `shardloom.v1_local_resource_safety.v1`.
 
-This document defines the v1 local resource, cancellation, and cleanup boundary for supported
-source-checkout and local package workflows. It does not authorize larger-than-memory execution,
-native spill runtime, distributed execution, object-store recovery, or public production claims.
+This document distinguishes the original bounded v1 resource gate from the current local engine.
+The gate alone does not establish general larger-than-memory execution or production reliability.
+Current native ordering spill and its failure/cleanup evidence are defined by the
+[native relational resource contract](native-relational-resources-2026-10-02.md), merged in PR
+#1502. A query memory grant is not a total-process RSS ceiling.
 
-## Supported V1 Boundary
+## Current Local Engine Boundary
 
-ShardLoom v1 local resource safety is intentionally narrow and evidence-backed:
+Public SQL, Python/DataFrame and CLI workflows carry the same declared memory and parallelism
+through native execution and local output. Admitted native batches retain their ownership and
+reservation credits through the consumer. Explicit native spill is available for selected
+COUNT/DISTINCT/numeric-sort providers and nullable multi-key relational ordering. Relational
+ordering shares the query memory pool and disk quota across nested ordering stages and merges;
+spill permission is disabled by default.
+
+The relational resource acceptance covers complete output through all eight local writers,
+slow/failing consumers, cancellation, corrupt/truncated/replaced runs, source mutation, quota
+denial and owned cleanup. It delivered 240,003 ordered rows under an 8 MiB shared reservation
+grant and a 1 MiB flush threshold. This is evidence for that declared operator and allocation
+scope, not a universal memory or recovery guarantee. See the linked contract for exact source,
+executable, test and immutable packet identities.
+
+General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
+whole-process RSS bounds remain open. Other operators must retain their own resource admission
+and deterministic denials. A supported reader, large input or successful ingest does not by
+itself establish that every query can complete under the same resource limit.
+
+## Original V1 Gate Scope
+
+The retained `shardloom.v1_local_resource_safety.v1` gate checks a narrower evidence set:
 
 - deterministic memory-budget denial before process OOM for an admitted local fixture.
 - reservation release and cleanup after the denial fixture.
@@ -25,7 +48,7 @@ ShardLoom v1 local resource safety is intentionally narrow and evidence-backed:
   boundaries.
 - no fallback execution and no external engine invocation.
 
-## Required Evidence
+## Gate Evidence
 
 The v1 resource-safety report is produced by:
 
@@ -50,7 +73,7 @@ The report validates these runtime and support surfaces:
 - `target/v1-source-prepared-state-scope-report.json`
 - `target/v1-local-output-sink-scope-report.json`
 
-## Claim Boundary
+## Gate Claim Boundary
 
 Allowed after the gate passes:
 
@@ -61,10 +84,11 @@ Allowed after the gate passes:
 - one admitted public Vortex aggregate route proves resource-envelope, memory-admission,
   reservation-release, and state-budget evidence survives the public facade boundary.
 
-Not allowed after the gate passes:
+The original gate alone makes:
 
 - no larger-than-memory claim.
-- no native spill runtime claim.
+- no native spill runtime claim; use the separate native resource contract and live execution
+  evidence for the admitted spill families above.
 - no distributed OOM/resource claim.
 - no production reliability claim.
 - no public package or release claim.
@@ -85,13 +109,18 @@ The v1 boundary uses ShardLoom-native resource controls where they are already m
 - Timing-surface and evidence-tier controls are preserved by reporting cleanup/proof fields
   separately from hot runtime claims.
 
-## Deferred Boundaries
+## Remaining Operational Acceptance
 
-The following remain unsupported until later implementation closes them with runtime evidence:
+The following need separate implementation or acceptance before broader support is promised:
 
-- native Vortex spill write/read runtime.
-- spill cleanup execution over real spill artifacts.
-- larger-than-memory local workloads.
+- general aggregate/join/window and other unadmitted operator spill transitions.
+- reader/codec/upstream scratch accounting across complete local workflows.
+- larger-than-resident-state guarantees beyond the admitted spill families.
+- workload-wide pressure, interruption and recovery acceptance for a declared production envelope.
 - object-store recovery.
 - distributed retry/cancellation/recovery.
 - allocator integration and adaptive memory pressure reaction across all operators.
+
+The [local-engine preview exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
+define how these obligations relate to a scoped stable local release. The fixture gate and the
+native spill implementation do not independently satisfy that production decision.

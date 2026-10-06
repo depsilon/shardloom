@@ -3,7 +3,9 @@
 # Native analytic frames
 
 Status: complete frozen local acceptance and independent packet inspection;
-hosted review/checks remain pending. This is the analytic-frame
+merged in PR #1519 after all 39 hosted checks passed and published in v0.4.0.
+Exact hosted identities and review limitations are in the
+[completed ledger](phased-execution-completed-ledger.md). This is the analytic-frame
 continuation already required by the universal workflow queue. The preceding
 consolidated engine has completed its independent local acceptance.
 

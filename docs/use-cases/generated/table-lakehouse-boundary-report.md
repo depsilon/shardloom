@@ -145,7 +145,7 @@ Scoped Iceberg/Delta/Hudi smoke reports with table metadata fields, current/expl
 - `docs/architecture/table-intelligence-layer.md` - What this proves: Table maintenance execution posture and lakehouse/table claim boundaries.
 - `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries.
 - `docs/architecture/universal-input-contract.md` - What this proves: Universal input contract posture and unsupported input-family diagnostics.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
+- `README.md` - What this proves: Published local engine, operational maturity, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 

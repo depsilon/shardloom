@@ -82,7 +82,7 @@ function frontmatter(fields) {
 }
 
 const REFERENCE_PROOFS = {
-  "README.md": "Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.",
+  "README.md": "Published local engine, operational maturity, Vortex-first positioning, and no-fallback boundaries.",
   "python/README.md": "Python wrapper scope, local smoke usage, and Python API claim boundaries.",
   "docs/architecture/compute-engine-flow-reference.md":
     "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
@@ -218,7 +218,7 @@ const durableDocsPages = [
   "order": 3,
   body: `ShardLoom is built toward general-purpose data processing: read data, transform or query it,
 and deliver the result. Python, SQL, DataFrame-style calls, and the CLI express work for one
-Vortex-native execution pipeline. The current technical preview has
+Vortex-native execution pipeline. The published local engine has
 [specific coverage limits](/field-guide/limitations).
 
 ## One native pipeline
@@ -395,12 +395,17 @@ Use [support and limitations](/field-guide/limitations) to check a workload, and
     slug: "start-local-proof",
     content: docsPage({
       title: "Install and run",
-      description: "Install the published technical preview and inspect native execution evidence.",
+      description: "Install the published local engine and inspect native execution evidence.",
       order: 1,
-      body: `ShardLoom ${packageVersion} is a published technical preview. Install from PyPI or Homebrew,
+      body: `ShardLoom ${packageVersion} is a published local engine. Install from PyPI or Homebrew,
 then follow the [local query walkthrough](/start). GitHub pre-release and TestPyPI artifacts are
 also available; see [package installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md)
 for supported platforms and channel verification.
+
+**Operational hardening is in progress.** Preview support refers to the remaining workload,
+resource and failure acceptance. Package availability is verified. Read the
+[local-engine exit criteria](/field-guide/limitations#release-and-readiness) before relying on a
+production support promise.
 
 ## Install
 
@@ -815,10 +820,29 @@ discovery does not execute them.
 
 ## Release and readiness
 
-The technical preview is published through GitHub pre-release, PyPI, TestPyPI, and Homebrew.
-That availability does not establish production support, broad SQL/DataFrame parity, or
-Spark displacement. Local runtime and benchmark evidence do not establish production
-distributed/live-hybrid service or performance superiority. Read the
+**Published local engine; operational hardening in progress.** GitHub pre-release, PyPI,
+TestPyPI and Homebrew package access is verified. The technical-preview designation describes
+support maturity; missing publication proof is no longer a blocker.
+
+The remaining local-engine exit criteria are concrete:
+
+- Define the supported platforms, workload shapes, formats, types and resource/storage conditions.
+- Account for reader/codec scratch, retained operator state, queued results and writers, with
+  bounded retention or safe denial. A query memory grant is not a whole-process RSS ceiling.
+- Accept complete workflows under memory pressure, cancellation, source changes and storage
+  failures, including output integrity, owned cleanup and documented recovery behavior.
+- Bind correctness, operating measurements, API compatibility and support/upgrade instructions
+  to the approved release source and binary.
+
+Ordering spill already has quota, corruption, cancellation and consumer-failure coverage.
+General aggregate/join/window spill and broader reader/codec accounting remain open. A stable
+local release need not wait for cloud integrations or every SQL feature; unsupported work must
+have an explicit boundary. The repository owns the
+[full acceptance checklist](https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
+
+Claims of production support, broad SQL/DataFrame parity and Spark displacement require their own
+evidence. Local runtime and benchmark evidence do not establish production distributed/live-hybrid
+service or performance superiority. Read the
 [benchmark evidence](/field-guide/benchmark-methodology) within its measured scope.
 
 ## Failure Behavior
@@ -837,12 +861,13 @@ function fieldGuideIndex() {
 Input and output adapters connect formats to the same engine. Python, SQL, DataFrame-style calls,
 and the CLI provide familiar ways to describe the work.
 
-ShardLoom is being built for general-purpose data processing. The technical preview supports
-specific local workflows today; the guide makes that coverage and the remaining work visible.
+ShardLoom is being built for general-purpose data processing. Its published local engine supports
+specific workflows today. Operational hardening is in progress; the guide makes the supported
+coverage and [preview exit criteria](/field-guide/limitations#release-and-readiness) visible.
 
 ## Get started
 
-- [Install and run](/field-guide/start-local-proof) — install the technical preview and verify a local query.
+- [Install and run](/field-guide/start-local-proof) — install the local engine and verify a query.
 - [Python](/field-guide/python-surface) — read, filter, inspect results, and choose an output.
 
 ## Understand the engine

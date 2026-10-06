@@ -56,7 +56,7 @@ Python can import the package and invoke explicit status/capability commands thr
 - `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
 - `docs/getting-started/first-10-minutes.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `examples/local-python-smoke/README.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
+- `README.md` - What this proves: Published local engine, operational maturity, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 
