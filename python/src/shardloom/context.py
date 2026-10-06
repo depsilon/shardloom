@@ -2837,17 +2837,17 @@ DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS: tuple[
         _PIVOT_FUTURE_CONTRACT_BLOCKERS[0],
         ("pivot",),
         "repo_feasible_contract_needed",
-        current_runtime_status="single_index_column_value_pivot_duplicate_fail_closed_sparse_wide_policy_admitted",
+        current_runtime_status="single_index_domain_value_pivot_static_nested_roles_first_unique_sparse_state_admitted",
         v1_resolution="multi-index, multi-value, and hidden-index parity variants need broader reshape contracts",
-        next_action="Keep scoped single-index pivot admitted with duplicate fail-closed and sparse/wide state evidence; add multi-axis reshape only with explicit output-shape contracts.",
+        next_action="Keep scalar and static List/FixedSizeList/Struct roles admitted with first_unique duplicate handling, dynamic schema and compact native state evidence; add multi-axis reshape only with explicit output-shape contracts.",
     ),
     _df_future_contract(
         _PIVOT_TABLE_FUTURE_CONTRACT_BLOCKERS[0],
         ("pivot_table",),
         "repo_feasible_contract_needed",
-        current_runtime_status="single_value_sum_count_mean_min_max_fill_dropna_margins_pivot_table_admitted",
+        current_runtime_status="single_value_scalar_reductions_and_nested_first_unique_count_min_max_pivot_table_admitted",
         v1_resolution="multi-index, multi-value, custom aggregate/callable, and hidden-index parity variants need broader reshape contracts",
-        next_action="Keep scoped aggregate/fill/dropna/margins pivot_table admitted; add multi-axis/custom aggregation only through explicit output-shape and UDF contracts.",
+        next_action="Keep admitted scalar reductions and static nested first_unique/count/min/max cells; nested fill is absent/NULL and nested extrema margins require UTF8 index. Add multi-axis/custom aggregation only through explicit output-shape and UDF contracts.",
     ),
     _df_future_contract(
         _MELT_FUTURE_CONTRACT_BLOCKERS[0],
@@ -3491,6 +3491,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "single_pivot_column_contract",
             "single_value_column_contract",
             "duplicate_cell_fail_closed_policy",
+            "typed_nested_pivot_roles",
+            "compact_native_pivot_state",
             "sparse_wide_jsonl_csv_export_contract",
             "explicit_decode_materialization_boundary",
             "execution_certificate",
@@ -3499,8 +3501,12 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped pivot(index=..., columns=..., values=...) lowers to the native Vortex "
             "pivot primitive for one index column, one pivot column, and one value column "
-            "with first-unique duplicate handling, duplicate-cell fail-closed diagnostics, "
-            "state-budget evidence, and scoped sparse JSONL/CSV wide export. "
+            "with first-unique duplicate handling and duplicate-cell fail-closed diagnostics. "
+            "Static List/FixedSizeList/Struct roles preserve recursive types through compact "
+            "native state. Dynamic schemas compose with native operators and bounded local "
+            "writers subject to format fidelity, 128 fields and memory admission. ORC denies "
+            "nested output; CSV translates it to JSON text. Nested roles require a source "
+            "build after published v0.4.0. Pivot state has no spill path. "
             "Multi-index/multi-value pivots, hidden-index parity, and broader pandas reshape "
             "semantics remain outside this route and fail closed."
         ),
@@ -3521,18 +3527,26 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "single_value_column_contract",
             "explicit_aggregate_kernel",
             "wide_reshape_state",
+            "typed_nested_pivot_roles",
+            "compact_native_pivot_state",
             "sparse_wide_jsonl_csv_export_contract",
             "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped pivot_table(values=..., index=..., columns=..., aggfunc=sum/count/mean/min/max) "
+            "Scoped pivot_table(values=..., index=..., columns=..., aggfunc=first/sum/count/mean/min/max) "
             "lowers to the native Vortex pivot primitive for one index column, one pivot "
-            "column, and one value column with scoped sparse JSONL/CSV wide export; a single "
+            "column, and one value column with dynamic native schema and bounded writer delivery; a single "
             "aggregate may be supplied as a scalar string, one-element sequence, or one-column "
             "mapping. `fill_value`, `dropna`, `margins`, and `margins_name` are admitted for "
-            "the scoped aggregate profile with explicit output-policy evidence. Multi-index, "
+            "the scoped aggregate profile with explicit output-policy evidence. Static "
+            "List/FixedSizeList/Struct cells admit first_unique/count/min/max; the Python "
+            "first alias means first_unique. Nested MIN/MAX skip NULL parents and preserve "
+            "complete selected values. Nested fill is absent/NULL, nested index margins "
+            "are unsupported, and nested extrema margins require UTF8 index. These nested "
+            "roles require a source build after published v0.4.0. Format fidelity, 128 fields "
+            "and memory admission still apply; pivot state has no spill path. Multi-index, "
             "multiple values, custom callables, hidden-index parity, and broader pandas reshape "
             "semantics remain outside this route and fail closed."
         ),

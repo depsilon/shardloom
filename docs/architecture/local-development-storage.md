@@ -153,6 +153,17 @@ proofs. The continuation reused passed focused checks only after verifying their
 receipts, immutable executable and all 901 frozen source hashes. Failed and
 incomplete observations remain intact.
 
+Before nested-pivot Full43 acceptance, the same log admission guard stopped
+before queries. The completed scalar-subquery cohort's 516 per-call artifacts
+were compacted into a verified raw-JSON/companion archive beside its unchanged
+summary, recovering 3,362,816 accounted bytes. Original identities, closed-handle
+checks and every member's size/hash were verified before redundant originals
+were removed. Failed/incomplete evidence and storage ceilings remain unchanged.
+The [nested-pivot acceptance packet](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md)
+retains the failed preflight, continuation proof and compaction manifest;
+finalization reopened all 516 members. The continuation reused semantic and
+golden checks only after verifying the executable and all 910 frozen source assets.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

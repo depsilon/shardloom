@@ -1,0 +1,801 @@
+{
+  "schema_version": "shardloom.native_nested_pivot_state_documentation_integration.v1",
+  "status": "passed_documentation_integration",
+  "runtime_commit": "750b3783005786851337d06364eb982c6bda5add",
+  "documentation_commit": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+  "documentation_tree": "ce70d419592ad6f1ae4087ba96a982450f9369b7",
+  "packet_sha256": "6d94bc2e072d97cd6e3f5cbdc9b296cee33960ccaf06d6f1c563f4a17bec4aa4",
+  "runtime_source_preservation": {
+    "verified_unchanged_assets": 910,
+    "canonical_source_hash_map_sha256": "f665199298925d9ae73fad8502c70348f3fe1da6ebac3cd08c2e0530cd70518e",
+    "runtime_freeze_original_sha256": "a7f14b8977baef2acd2282d9f28bd69e4c978c6b1319d3fdc9a8a364669c0961",
+    "documentation_freeze_original_sha256": "bfcedbc1c0fa4f9f416abcb619c01b43da66025f011faa121a53817b03bd8958"
+  },
+  "documentation_gate_count": 12,
+  "documentation_stages": [
+    {
+      "receipt": {
+        "name": "nested-pivot-final-contribution-governance-2.json",
+        "original_sha256": "ba27079aa499f443edd71017b492016cc3b9e510623c11b96b9bee82394dc3fa",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_contribution_governance.py",
+            "--output",
+            "${ARTIFACTS}/nested-pivot-contribution-2.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111451136,
+              "log_bytes": 0,
+              "free_bytes": 114156015616,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28715372544,
+              "log_bytes": 0,
+              "free_bytes": 114157309952,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 97464,
+          "output_bytes": 101,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.0691937500378117,
+          "log_sha256": "0f1adc0de5695ce54af71640d8ba2e0bafe3e41879d024f9434ccc480b57146c"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-contribution-governance-2.log",
+        "original_sha256": "0f1adc0de5695ce54af71640d8ba2e0bafe3e41879d024f9434ccc480b57146c",
+        "text": "${ARTIFACTS}/nested-pivot-contribution-2.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-website-audit-2.json",
+        "original_sha256": "1c01834a0aaff532a0dcb163ddaf33e09e6df77a40a2c742c21a0aa9cd38bee1",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/bin/npm",
+            "--prefix",
+            "website-src",
+            "audit",
+            "--audit-level=low",
+            "--json"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111467520,
+              "log_bytes": 0,
+              "free_bytes": 114160414720,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28708245504,
+              "log_bytes": 0,
+              "free_bytes": 114154823680,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 97478,
+          "output_bytes": 364,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.5516098330263048,
+          "log_sha256": "a0a302f25e9df615d13151c1612167d2c1b208b64a80b7fefe0e8a9cc827b03a"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-website-audit-2.log",
+        "original_sha256": "a0a302f25e9df615d13151c1612167d2c1b208b64a80b7fefe0e8a9cc827b03a",
+        "text": "{\n  \"auditReportVersion\": 2,\n  \"vulnerabilities\": {},\n  \"metadata\": {\n    \"vulnerabilities\": {\n      \"info\": 0,\n      \"low\": 0,\n      \"moderate\": 0,\n      \"high\": 0,\n      \"critical\": 0,\n      \"total\": 0\n    },\n    \"dependencies\": {\n      \"prod\": 1,\n      \"dev\": 549,\n      \"optional\": 127,\n      \"peer\": 2,\n      \"peerOptional\": 0,\n      \"total\": 549\n    }\n  }\n}\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-ci-gate-matrix-2.json",
+        "original_sha256": "acc98f0c14851f780f1222698188b02e40081834f8cd6d06dd4504b5b1cebbe7",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_ci_gate_matrix.py",
+            "--output",
+            "${ARTIFACTS}/nested-pivot-ci-gate-matrix-2.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111475712,
+              "log_bytes": 0,
+              "free_bytes": 114177253376,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114176438272,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 97491,
+          "output_bytes": 103,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.07018604199402034,
+          "log_sha256": "7d4dd7be2b0d223aa1f0ff6984316f32322d2c72560fae3344b83ecaee464804"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-ci-gate-matrix-2.log",
+        "original_sha256": "7d4dd7be2b0d223aa1f0ff6984316f32322d2c72560fae3344b83ecaee464804",
+        "text": "${ARTIFACTS}/nested-pivot-ci-gate-matrix-2.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-api-schema-2.json",
+        "original_sha256": "e71a7e32606676f4456c9ab840784d99395ae1060e7ad48dd1cea269f1e25cb2",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_api_schema_stability.py",
+            "--output",
+            "${ARTIFACTS}/nested-pivot-api-schema-2.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111512576,
+              "log_bytes": 0,
+              "free_bytes": 114174877696,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114174877696,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 97535,
+          "output_bytes": 2018,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.04690120799932629,
+          "log_sha256": "be5f8893328fe83283bfde7e1ac1dd918ad6a22b29cf57fd1d59c4fe89869e84"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-api-schema-2.log",
+        "original_sha256": "be5f8893328fe83283bfde7e1ac1dd918ad6a22b29cf57fd1d59c4fe89869e84",
+        "text": "{\n  \"blockers\": [],\n  \"compatibility_window\": \"v1_additive_compatibility\",\n  \"diagnostic_code_count\": 22,\n  \"diagnostic_code_doc_ref\": \"docs/release/diagnostic-code-stability.md\",\n  \"diagnostic_code_order\": [\n    \"SL_INVALID_INPUT\",\n    \"SL_CONFIGURATION_ERROR\",\n    \"SL_NOT_IMPLEMENTED\",\n    \"SL_UNSUPPORTED_ENCODING\",\n    \"SL_UNSUPPORTED_DTYPE\",\n    \"SL_UNSUPPORTED_SQL\",\n    \"SL_UNSUPPORTED_UDF\",\n    \"SL_UNSUPPORTED_EFFECT\",\n    \"SL_UNSUPPORTED_OUTPUT_FORMAT\",\n    \"SL_MISSING_STATISTICS\",\n    \"SL_PRUNING_INCONCLUSIVE\",\n    \"SL_METADATA_LOSS\",\n    \"SL_MATERIALIZATION_REQUIRED\",\n    \"SL_EXTERNAL_EFFECT_DISABLED\",\n    \"SL_LLM_CALL_DISABLED\",\n    \"SL_API_CALL_DISABLED\",\n    \"SL_EMBEDDING_MODEL_UNCONFIGURED\",\n    \"SL_VECTOR_INDEX_UNAVAILABLE\",\n    \"SL_OBJECT_STORE_UNSUPPORTED\",\n    \"SL_COMMIT_NOT_ATOMIC\",\n    \"SL_RESOURCE_BUDGET_EXCEEDED\",\n    \"SL_NO_FALLBACK_EXECUTION\"\n  ],\n  \"diagnostic_code_source_ref\": \"shardloom-core/src/diagnostics.rs\",\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"fixture_ref\": \"docs/release/fixtures/v1-api-schema-stability/golden-fixtures.json\",\n  \"legacy_flat_field_policy\": \"stable_aliases_for_v1_with_documented_deprecation_window\",\n  \"matrix_ref\": \"docs/release/v1-api-schema-stability-matrix.json\",\n  \"matrix_schema_version\": \"shardloom.v1_api_schema_stability_matrix.v1\",\n  \"package_publication_performed\": false,\n  \"public_package_claim_allowed\": false,\n  \"public_release_claim_allowed\": false,\n  \"publication_approval_required\": true,\n  \"runtime_execution\": false,\n  \"schema_version\": \"shardloom.v1_api_schema_stability_report.v1\",\n  \"signing_key_used\": false,\n  \"stable_surface_count\": 12,\n  \"stable_surfaces\": [\n    \"output_envelope\",\n    \"diagnostic\",\n    \"fallback_status\",\n    \"route_fields\",\n    \"evidence_summary\",\n    \"claim_summary\",\n    \"execution_certificate\",\n    \"native_io_certificate\",\n    \"capability_report\",\n    \"package_release_report\",\n    \"doctor_report\",\n    \"support_bundle\"\n  ],\n  \"status\": \"passed\",\n  \"tag_created\": false\n}\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-website-build-2.json",
+        "original_sha256": "a0553d6c64be2526681691144e87c2219a19d414ff3249959d06174acdf7d585",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/bin/npm",
+            "--prefix",
+            "website-src",
+            "run",
+            "build"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111528960,
+              "log_bytes": 0,
+              "free_bytes": 114222505984,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114222505984,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 97547,
+          "output_bytes": 2403,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 46.83200220798608,
+          "log_sha256": "aa6697fe8ef5b973c874de6fdbeccc71e50b315cab355d730339e7f28473e422"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-website-build-2.log",
+        "original_sha256": "aa6697fe8ef5b973c874de6fdbeccc71e50b315cab355d730339e7f28473e422",
+        "text": "\n> shardloom-website@0.4.0 build\n> npm run prebuild:static && npm run sync-content && astro build && node scripts/postbuild-static.mjs\n\n\n> shardloom-website@0.4.0 prebuild:static\n> node scripts/prebuild-static.mjs --reset-output\n\nprepared website output directories; reset_output=true; settle_output=false; duplicate_suffixed_removed=0; settle_passes=3; settle_delay_ms=50\n\n> shardloom-website@0.4.0 sync-content\n> node scripts/sync-content.mjs\n\nsynced 9 guide pages, 35 vocabulary redirects, and 24 repository use-case records\n04:23:05 [content] Syncing content\n04:23:05 [content] Synced content\n04:23:05 [types] Generated 186ms\n04:23:05 [build] output: \"static\"\n04:23:05 [build] mode: \"static\"\n04:23:05 [build] directory: ${REPO}/website/\n04:23:05 [build] Collecting build info...\n04:23:05 [build] ✓ Completed in 255ms.\n04:23:05 [build] Building static entrypoints...\n04:23:05 [vite] ✓ built in 248ms\n04:23:05 [vite] ✓ built in 23ms\n04:23:05 [build] Rearranging server assets...\n\n generating static routes \n04:23:05   ├─ /404.htmlEntry docs → 404 was not found.\n (+6ms) \n04:23:05   ├─ /about/index.html (+2ms) \n04:23:05   ├─ /start/index.html (+1ms) \n04:23:05   ├─ /index.html (+1ms) \n04:23:05   ├─ /field-guide/index.html (+4ms) \n04:23:05   ├─ /field-guide/benchmark-methodology/index.html (+2ms) \n04:23:05   ├─ /field-guide/compute-flow/index.html (+2ms) \n04:23:05   ├─ /field-guide/execution-model/index.html (+2ms) \n04:23:05   ├─ /field-guide/execution-routes/index.html (+2ms) \n04:23:05   ├─ /field-guide/limitations/index.html (+2ms) \n04:23:05   ├─ /field-guide/python-surface/index.html (+2ms) \n04:23:05   ├─ /field-guide/runtime-and-io/index.html (+2ms) \n04:23:05   ├─ /field-guide/start-local-proof/index.html (+2ms) \n04:23:05 ✓ Completed in 46ms.\n\n04:23:05 [build] ✓ Completed in 330ms.\n04:23:05 [starlight:pagefind] Building search index with Pagefind...\n04:23:05 [starlight:pagefind] Found 13 HTML files.\n04:23:05 [starlight:pagefind] Finished building search index in 37ms.\n04:23:05 [@astrojs/sitemap] `sitemap-index.xml` created at `../website`\n04:23:05 [build] 13 page(s) built in 627ms\n04:23:05 [build] Complete!\nwrote canonical .html compatibility pages and refreshed public assets; duplicate_suffixed_removed=0; settle_passes=90; settle_delay_ms=500\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-website-check-2.json",
+        "original_sha256": "f47a72d1b80f7d20f4354c5f696e1289f64dc2f4720ef15c3c9bc7c6f158ead0",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/bin/npm",
+            "--prefix",
+            "website-src",
+            "run",
+            "check"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111541248,
+              "log_bytes": 0,
+              "free_bytes": 114240839680,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114240839680,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 97776,
+          "output_bytes": 1039,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 47.779389542061836,
+          "log_sha256": "f5c7d546a284fb329a43202aa0519c850659a168a928985c58ee8ca8c0bdad9a"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-website-check-2.log",
+        "original_sha256": "f5c7d546a284fb329a43202aa0519c850659a168a928985c58ee8ca8c0bdad9a",
+        "text": "\n> shardloom-website@0.4.0 check\n> npm run clean:static && npm run sync-content && astro check && npm run settle:static\n\n\n> shardloom-website@0.4.0 clean:static\n> node scripts/prebuild-static.mjs\n\nprepared website output directories; reset_output=false; settle_output=false; duplicate_suffixed_removed=0; settle_passes=3; settle_delay_ms=50\n\n> shardloom-website@0.4.0 sync-content\n> node scripts/sync-content.mjs\n\nsynced 9 guide pages, 35 vocabulary redirects, and 24 repository use-case records\n04:23:52 [content] Syncing content\n04:23:52 [content] Synced content\n04:23:52 [types] Generated 183ms\n04:23:52 [check] Getting diagnostics for Astro files in ${REPO}/website-src...\nResult (18 files): \n- 0 errors\n- 0 warnings\n- 0 hints\n\n\n> shardloom-website@0.4.0 settle:static\n> node scripts/prebuild-static.mjs --settle-output\n\nprepared website output directories; reset_output=false; settle_output=true; duplicate_suffixed_removed=0; settle_passes=90; settle_delay_ms=500\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-user-surface-reference-2.json",
+        "original_sha256": "74eab107d8fa189fa1f2b0a97b2c26dd7a0aa5a2a300740dbcdf9fbaea4ae7ba",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_user_surface_reference.py"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111545344,
+              "log_bytes": 0,
+              "free_bytes": 114240954368,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114240942080,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 98099,
+          "output_bytes": 579,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.06582770892418921,
+          "log_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-user-surface-reference-2.log",
+        "original_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e",
+        "text": "{\n  \"blockers\": [],\n  \"checked_files\": [\n    \"docs/reference/shardloom-user-surface-index.md\",\n    \"docs/reference/shardloom-user-surface-index.json\",\n    \"shardloom-cli/src/command_registry.rs\",\n    \"README.md\",\n    \"python/README.md\",\n    \"docs/architecture/agent-contract-pack.md\",\n    \"docs/architecture/v1-front-door-runtime-scope.md\",\n    \"docs/skills/developer-agent-experience.md\"\n  ],\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"registered_command_count\": 203,\n  \"schema_version\": \"shardloom.user_surface_index_gate.v1\",\n  \"status\": \"passed\"\n}\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-public-status-docs-2.json",
+        "original_sha256": "6e918cdf8eeb254c4fb86322129dc562951849506b0fda5375fea4686c32f055",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_public_status_docs.py",
+            "--output",
+            "${ARTIFACTS}/nested-pivot-public-status-docs-2.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111553536,
+              "log_bytes": 0,
+              "free_bytes": 114240929792,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114240942080,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 98111,
+          "output_bytes": 107,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.28462333302013576,
+          "log_sha256": "f19fc8187c08af200a64bb0e13b1cd076a419bf92fcdcb8ad57ce5d3c200df06"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-public-status-docs-2.log",
+        "original_sha256": "f19fc8187c08af200a64bb0e13b1cd076a419bf92fcdcb8ad57ce5d3c200df06",
+        "text": "${ARTIFACTS}/nested-pivot-public-status-docs-2.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-docs-productization-2.json",
+        "original_sha256": "1a48c7df9957f7ab8c71d0c16bbca18732ba4c834d1e173a89168e6ba2abfbd1",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_docs_productization.py",
+            "--output",
+            "${ARTIFACTS}/nested-pivot-docs-productization-2.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111660032,
+              "log_bytes": 0,
+              "free_bytes": 114240831488,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114240831488,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 98124,
+          "output_bytes": 108,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.06653837498743087,
+          "log_sha256": "916cfba487e260f027b2bbb0e4209b45247c96809b4c51dd6cf6c21b6aecd97a"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-docs-productization-2.log",
+        "original_sha256": "916cfba487e260f027b2bbb0e4209b45247c96809b4c51dd6cf6c21b6aecd97a",
+        "text": "${ARTIFACTS}/nested-pivot-docs-productization-2.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-front-door-scope-2.json",
+        "original_sha256": "32d46d233607217780be933fae5693a1e7ed0398135b239235714c185110bd37",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_front_door_runtime_scope.py"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111672320,
+              "log_bytes": 0,
+              "free_bytes": 114240823296,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114240823296,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 98136,
+          "output_bytes": 124,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.1742364999372512,
+          "log_sha256": "918eeafc04b254a6c3cce95c76ff7d169fea80a7dd1378334ceff2a39d65028f"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-front-door-scope-2.log",
+        "original_sha256": "918eeafc04b254a6c3cce95c76ff7d169fea80a7dd1378334ceff2a39d65028f",
+        "text": "${REPO}/target/v1-front-door-runtime-scope-report.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-website-assets-2.json",
+        "original_sha256": "30c361be50adefd67f214a688f1d6596bcec0591afc1be5e710264968189741a",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "node",
+            "scripts/validate_static_assets.cjs"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111684608,
+              "log_bytes": 0,
+              "free_bytes": 114240811008,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114240811008,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 98149,
+          "output_bytes": 39,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.07142054196447134,
+          "log_sha256": "d943ff32ebe2c5140507f4030f665d6138a38dfaf1bc3529c3206fe3c1fcf977"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-website-assets-2.log",
+        "original_sha256": "d943ff32ebe2c5140507f4030f665d6138a38dfaf1bc3529c3206fe3c1fcf977",
+        "text": "website static asset validation passed\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "nested-pivot-final-website-readiness-2.json",
+        "original_sha256": "3c29b07d6ea327e2ef25b22eddb2f0df26ca9c4b501adf606eac66d215b0258f",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_website_readiness.py",
+            "--output",
+            "${ARTIFACTS}/nested-pivot-website-readiness-2.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "3b86cc315c524b89003b84f43a88932a6c4ea7de",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 2111692800,
+              "log_bytes": 0,
+              "free_bytes": 114240786432,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28700561408,
+              "log_bytes": 0,
+              "free_bytes": 114240786432,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 98173,
+          "output_bytes": 132,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.32540966698434204,
+          "log_sha256": "65b7ce4a0cb14e01786bdf80030fe47a42c549d35190bf458716acab76e9315e"
+        }
+      },
+      "log": {
+        "name": "nested-pivot-final-website-readiness-2.log",
+        "original_sha256": "65b7ce4a0cb14e01786bdf80030fe47a42c549d35190bf458716acab76e9315e",
+        "text": "website readiness passed: ${ARTIFACTS}/nested-pivot-website-readiness-2.json\n"
+      }
+    }
+  ],
+  "inclusion_scope": {
+    "name": "nested-pivot-documentation-scope-2.json",
+    "original_sha256": "10166eb8af810544e288cb3d38ed5066fc5ebb947f0361700810accb2970a7e0",
+    "contents": {
+      "blockers": [],
+      "claim_gate_status": "not_claim_grade",
+      "classification_counts": {
+        "documentation_only": 1,
+        "required_for_v1": 104,
+        "v1_candidate_pending_feasibility": 11
+      },
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "known_unsupported_paths": "docs/release/known-unsupported-paths.md",
+      "matrix_doc": "docs/release/v1-inclusion-scope-matrix.md",
+      "matrix_row_count": 116,
+      "matrix_schema_version": "shardloom.v1_inclusion_scope_matrix.v1",
+      "missing_phase_classification_count": 0,
+      "open_phase_item_count": 20,
+      "package_upload_attempted": false,
+      "performance_claim_allowed": false,
+      "phase_plan": "docs/architecture/phased-execution-plan.md",
+      "production_claim_allowed": false,
+      "production_unsupported_diagnostic_covered_row_count": 10,
+      "production_unsupported_diagnostic_missing_rows": [],
+      "production_unsupported_diagnostic_required_row_count": 10,
+      "production_unsupported_diagnostic_schema_version": "shardloom.production_unsupported_diagnostics.v1",
+      "public_package_claim_allowed": false,
+      "public_release_claim_allowed": false,
+      "publication_attempted": false,
+      "schema_version": "shardloom.v1_inclusion_scope_report.v1",
+      "spark_replacement_claim_allowed": false,
+      "status": "passed",
+      "tag_created": false
+    }
+  },
+  "visual_review": {
+    "status": "passed",
+    "screenshots": [
+      {
+        "path": "docs/benchmarks/evidence/native-nested-pivot-field-guide-desktop-2026-10-06.jpg",
+        "sha256": "4e9c8d30c0feba7b5157e453f1d99f31d2c6ca11538a7a31c6d61af7060a14bf",
+        "bytes": 106434,
+        "observation": "Desktop support table exposes admitted roles, acceptance evidence and remaining boundaries."
+      },
+      {
+        "path": "docs/benchmarks/evidence/native-nested-pivot-field-guide-mobile-2026-10-06.jpg",
+        "sha256": "15c7d29e3b2058e083f663cf4fe839aaba5625cdaddd19c39cf3baf93e2232f0",
+        "bytes": 40645,
+        "observation": "Mobile support text is readable, with no horizontal body overflow."
+      },
+      {
+        "path": "docs/benchmarks/evidence/native-nested-pivot-field-guide-mobile-limits-2026-10-06.jpg",
+        "sha256": "41a590eb2348080a2680ea668e0b8834b3dcb9ede79ac8ab921920da5defdcd1",
+        "bytes": 49205,
+        "observation": "The mobile table scrolls within its own container to expose remaining limitations."
+      }
+    ],
+    "desktop": {
+      "documentWidth": 1265,
+      "evidenceLinks": [
+        {
+          "href": "https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md",
+          "text": "workflow, resource and regression acceptance"
+        }
+      ],
+      "supportRow": "\nRelational and DataFrame operations\nCurrent source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit scalar-value subqueries with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles with complete local workflow, resource and regression acceptance; hosted integration remains pending.\nOperation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins, unsupported nested leaves and pivot-state spill remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot’s 128-field, type and memory boundaries remain.\n",
+      "url": "http://127.0.0.1:8917/field-guide/limitations/#runtime-limits",
+      "viewport": {
+        "height": 720,
+        "width": 1280
+      }
+    },
+    "mobile": {
+      "documentWidth": 375,
+      "supportRow": "\nRelational and DataFrame operations\nCurrent source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit scalar-value subqueries with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles with complete local workflow, resource and regression acceptance; hosted integration remains pending.\nOperation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins, unsupported nested leaves and pivot-state spill remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot’s 128-field, type and memory boundaries remain.\n",
+      "tables": [
+        {
+          "parentOverflowX": "visible",
+          "parentScrollWidth": 343,
+          "parentWidth": 343,
+          "scrollWidth": 474,
+          "width": 343
+        }
+      ],
+      "url": "http://127.0.0.1:8917/field-guide/limitations/#runtime-limits",
+      "viewport": {
+        "height": 844,
+        "width": 390
+      }
+    },
+    "mobile_table_scroll": {
+      "clientWidth": 343,
+      "overflowX": "auto",
+      "scrollLeft": 131,
+      "scrollWidth": 474
+    },
+    "console_errors_observed": [],
+    "temporary_viewport_reset": true,
+    "preview_tab_closed": true,
+    "preview_server_stopped": true
+  },
+  "hosted_integration_status": "pending",
+  "runtime_reexecuted_for_docs": false,
+  "publication_attempted": false,
+  "performance_claim_allowed": false
+}

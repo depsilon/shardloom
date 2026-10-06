@@ -252,7 +252,7 @@ objects. Common admitted methods include:
   [completed phase ledger](../architecture/phased-execution-completed-ledger.md).
   Admitted `pivot(...)` / `pivot_table(...)` over one
   index column, one pivot column, and one value column lower through the native/prepared Vortex
-  pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`
+  pivot primitive. `pivot_table` admits one aggregate from `first`, `sum`, `count`, `mean`, `min`, or `max`
   plus admitted `fill_value`, `dropna`, `margins`, and `margins_name` output policy; multi-level
   nested-field accessor explode, multi-index/multi-value pivot, custom pivot aggregates,
   hidden index-state reshape, and broad reshape parity remain deterministic blockers.
@@ -265,7 +265,21 @@ objects. Common admitted methods include:
   writers within the existing 128-field and memory limits; decimal output retains
   the explicit ORC denial. Pivot-state spill and
   cross-call answer reuse are unsupported. See the
-  [dynamic pivot ownership and acceptance contract](../architecture/native-dynamic-pivot-composition-2026-10-03.md).
+  [dynamic pivot ownership contract](../architecture/native-dynamic-pivot-composition-2026-10-03.md).
+  Source builds after published v0.4.0 also admit static List, FixedSizeList and Struct
+  index, domain and selected-value roles. Nested cells support `first`, `first_unique`,
+  `count`, `min` and `max`; `first_unique` accepts repeated equal complete values
+  and rejects conflicts. Nested extrema skip NULL parents and use the shared child-NULL
+  ordering. Python `pivot()` and `pivot_table(aggfunc="first")` retain their
+  `first_unique` alias, while SQL's explicit `first` selects the first row, including NULL.
+  Nested SUM/MEAN, nested-index margins and pivot-state spill remain unsupported;
+  nested MIN/MAX margins require a UTF-8 index. Nested cells accept absent or NULL
+  fill only. Representable nested results use Vortex, Parquet, Arrow IPC, Avro,
+  JSON and JSONL; CSV translates nested values to quoted JSON text and ORC rejects nested
+  output. The 128-field, collection and memory limits still apply. Complete local
+  workflow, resource and regression acceptance [passes](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md);
+  hosted integration remains pending. Published v0.4.0
+  packages predate this source support. See the [nested pivot state contract](../architecture/native-nested-pivot-state-2026-10-06.md).
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
   primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows
   use bounded lookahead evidence, and time/calendar windows, custom frames, callbacks, and broad pandas rolling parity remain deterministic
@@ -295,9 +309,12 @@ objects. Common admitted methods include:
   fail. Centered rolling uses bounded lookahead and stops before unused
   end-of-input frames once its limit is reached. Fully untyped NULL projections
   use a nullable boolean carrier; explicitly typed NULLs retain their type.
-  Public workflow and performance acceptance is pending. The JSON index records
+  Complete public workflow and Full43 regression acceptance is recorded in the
+  [revised engine report](../benchmarks/native-typed-reductions-full43-2026-10-05.md),
+  with hosted integration in PR #1518 and no speedup claim. The JSON index records
   this unit separately as `native_typed_reductions`; older unit flags retain their
-  original scope. Wider analytic frames and general state spill remain open.
+  original scope. [Analytic frames](../architecture/native-analytic-frames-2026-10-05.md)
+  have a separate completed scope; general state spill remains open.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the admitted ShardLoom expression surface.
 - Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar

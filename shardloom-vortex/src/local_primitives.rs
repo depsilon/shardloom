@@ -17542,7 +17542,7 @@ fn ensure_pivot_output_column_name<T: PivotValue>(
 trait PivotValue: Clone {
     fn pivot_key(&self) -> Result<String>;
     fn pivot_name(&self) -> Result<String>;
-    fn pivot_equal(&self, other: &Self) -> bool;
+    fn pivot_equal(&self, other: &Self) -> Result<bool>;
     fn pivot_numeric(&self) -> Result<f64>;
 }
 
@@ -17554,8 +17554,8 @@ impl PivotValue for StatValue {
     fn pivot_name(&self) -> Result<String> {
         Ok(pivot_output_column_name(self))
     }
-    fn pivot_equal(&self, other: &Self) -> bool {
-        stat_value_equal(self, other)
+    fn pivot_equal(&self, other: &Self) -> Result<bool> {
+        Ok(stat_value_equal(self, other))
     }
     fn pivot_numeric(&self) -> Result<f64> {
         stat_value_to_f64(self)
@@ -17613,6 +17613,7 @@ impl<T: PivotValue> PivotRowExportState<T> {
             index_values,
             pivot_values,
             value_values,
+            |value| Ok(value.clone()),
             |cells, key, value| {
                 let mut cell = cells.get(&key).copied().unwrap_or_default();
                 cell.count = cell.count.checked_add(1).ok_or_else(|| {
@@ -17657,6 +17658,7 @@ impl<T: PivotValue, C> PivotRowExportState<T, C> {
         index_values: &[T],
         pivot_values: &[T],
         value_values: &[T],
+        mut retain: impl FnMut(&T) -> Result<T>,
         mut update_cell: impl FnMut(&mut C, (String, String), &T) -> Result<()>,
     ) -> Result<()> {
         if index_values.len() != pivot_values.len() || index_values.len() != value_values.len() {
@@ -17669,9 +17671,11 @@ impl<T: PivotValue, C> PivotRowExportState<T, C> {
             let index_key = index_values[row_index].pivot_key()?;
             let pivot_key = pivot_values[row_index].pivot_key()?;
             self.index_keys.insert(index_key.clone());
-            self.index_values
-                .entry(index_key.clone())
-                .or_insert_with(|| index_values[row_index].clone());
+            if let std::collections::btree_map::Entry::Vacant(entry) =
+                self.index_values.entry(index_key.clone())
+            {
+                entry.insert(retain(&index_values[row_index])?);
+            }
             ensure_pivot_output_column_name(
                 &mut self.pivot_columns,
                 &pivot_key,
@@ -17682,7 +17686,7 @@ impl<T: PivotValue, C> PivotRowExportState<T, C> {
                 "first" | "first_unique" => {
                     if let Some(existing) = self.first_cells.get(&cell_key) {
                         if aggregate == "first_unique"
-                            && !existing.pivot_equal(&value_values[row_index])
+                            && !existing.pivot_equal(&value_values[row_index])?
                         {
                             return Err(ShardLoomError::InvalidOperation(format!(
                                 "local Vortex scoped pivot row export found multiple values for index '{}' and pivot '{}'; use pivot_table with an explicit aggregate or provide unique cells; no fallback execution was attempted",
@@ -17692,7 +17696,7 @@ impl<T: PivotValue, C> PivotRowExportState<T, C> {
                         }
                     } else {
                         self.first_cells
-                            .insert(cell_key, value_values[row_index].clone());
+                            .insert(cell_key, retain(&value_values[row_index])?);
                     }
                 }
                 "count" | "sum" | "mean" | "min" | "max" => update_cell(

@@ -1,11 +1,14 @@
-//! Typed numeric cells inside the shared sparse pivot owner. Primitive cells
-//! retain their representation; decimal cells retain wide, unrounded totals.
+//! Typed cells inside the shared sparse pivot owner. Decimal cells keep exact
+//! totals; nested extrema retain only the selected complete native payload.
 
 use std::collections::BTreeMap;
 
-use super::{PivotAggregateCell, PivotValue, Result, ScalarValue, Value, failed};
+use super::{
+    Datum, NativeExecutionContext, PivotAggregateCell, PivotValue, Result, ScalarValue, Value,
+    failed,
+};
 use crate::local_primitives::native_decimal_reduce::{self, Total};
-use vortex::array::dtype::DecimalDType;
+use vortex::array::{ArrayRef, dtype::DecimalDType};
 
 type Key = (String, String);
 
@@ -16,10 +19,10 @@ pub(super) struct DecimalCell {
     max: Option<i128>,
 }
 
-#[derive(Debug)]
 pub(super) enum Cells {
     Primitive(BTreeMap<Key, PivotAggregateCell>),
     Decimal(DecimalDType, BTreeMap<Key, DecimalCell>),
+    Nested(BTreeMap<Key, Option<Datum>>),
 }
 
 impl Default for Cells {
@@ -29,7 +32,10 @@ impl Default for Cells {
 }
 
 impl Cells {
-    pub(super) fn new(source: Option<DecimalDType>) -> Self {
+    pub(super) fn new(source: Option<DecimalDType>, nested: bool) -> Self {
+        if nested {
+            return Self::Nested(BTreeMap::new());
+        }
         source.map_or_else(Self::default, |source| {
             Self::Decimal(source, BTreeMap::new())
         })
@@ -39,6 +45,7 @@ impl Cells {
         match self {
             Self::Primitive(cells) => cells.len(),
             Self::Decimal(_, cells) => cells.len(),
+            Self::Nested(cells) => cells.len(),
         }
     }
 
@@ -46,10 +53,17 @@ impl Cells {
         match self {
             Self::Primitive(cells) => cells.contains_key(key),
             Self::Decimal(_, cells) => cells.contains_key(key),
+            Self::Nested(cells) => cells.contains_key(key),
         }
     }
 
-    pub(super) fn update(&mut self, key: Key, value: &ScalarValue, aggregate: &str) -> Result<()> {
+    pub(super) fn update(
+        &mut self,
+        key: Key,
+        value: &Datum,
+        aggregate: &str,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
         match self {
             Self::Primitive(cells) => {
                 let mut cell = cells.get(&key).copied().unwrap_or_default();
@@ -78,7 +92,7 @@ impl Cells {
                     value,
                     precision,
                     scale,
-                } = value
+                } = value.scalar()?
                 else {
                     return Err(failed(
                         "pivot numeric aggregate requires a decimal non-null value",
@@ -97,6 +111,14 @@ impl Cells {
                 cell.max = Some(cell.max.map_or(*value, |current| current.max(*value)));
                 cells.insert(key, cell);
             }
+            Self::Nested(cells) => {
+                let cell = cells.entry(key).or_default();
+                if nested_replaces(cell.as_ref(), value, aggregate)? {
+                    // Keep the old payload charged until the new compact owner
+                    // is complete, so replacement peak is admitted explicitly.
+                    *cell = Some(value.retain(context)?);
+                }
+            }
         }
         Ok(())
     }
@@ -113,6 +135,18 @@ impl Cells {
                 .map(|cell| decimal_value(cell, *source, aggregate))
                 .transpose()
                 .map(Option::flatten),
+            Self::Nested(_) => Err(failed("nested pivot extrema require native delivery")),
+        }
+    }
+
+    pub(super) fn native(&self, key: &Key) -> Result<Option<ArrayRef>> {
+        match self {
+            Self::Nested(cells) => cells
+                .get(key)
+                .and_then(Option::as_ref)
+                .map(Datum::native)
+                .transpose(),
+            _ => Err(failed("scalar pivot cell cannot supply a nested output")),
         }
     }
 }
@@ -120,6 +154,7 @@ impl Cells {
 pub(super) enum Margin {
     Primitive(Option<PivotAggregateCell>),
     Decimal(DecimalDType, Option<DecimalCell>),
+    Nested(Option<Datum>),
 }
 
 impl Margin {
@@ -127,6 +162,7 @@ impl Margin {
         match cells {
             Cells::Primitive(_) => Self::Primitive(None),
             Cells::Decimal(source, _) => Self::Decimal(*source, None),
+            Cells::Nested(_) => Self::Nested(None),
         }
     }
 
@@ -165,6 +201,14 @@ impl Margin {
                     }
                 }
             }
+            (Self::Nested(total), Cells::Nested(cells)) => {
+                if let Some(Some(value)) = cells.get(key)
+                    && nested_replaces(total.as_ref(), value, aggregate)?
+                {
+                    // Margins share already compact payloads and their credits.
+                    *total = Some(value.clone());
+                }
+            }
             _ => return Err(failed("pivot margin differs from its bound cell type")),
         }
         Ok(())
@@ -182,8 +226,34 @@ impl Margin {
                 .map(|cell| decimal_value(cell, *source, aggregate))
                 .transpose()
                 .map(Option::flatten),
+            Self::Nested(_) => Err(failed("nested pivot margin requires native delivery")),
         }
     }
+
+    pub(super) fn native(&self) -> Result<Option<ArrayRef>> {
+        match self {
+            Self::Nested(value) => value.as_ref().map(Datum::native).transpose(),
+            _ => Err(failed("scalar pivot margin cannot supply a nested output")),
+        }
+    }
+}
+
+fn nested_replaces(current: Option<&Datum>, value: &Datum, aggregate: &str) -> Result<bool> {
+    if !matches!(aggregate, "min" | "max") {
+        return Err(failed("nested pivot aggregation requires min or max"));
+    }
+    if value.is_null()? {
+        return Ok(false);
+    }
+    let Some(current) = current else {
+        return Ok(true);
+    };
+    let order = value.compare(current)?;
+    Ok(if aggregate == "min" {
+        order.is_lt()
+    } else {
+        order.is_gt()
+    })
 }
 
 fn primitive_value(cell: &PivotAggregateCell, aggregate: &str) -> Result<Option<Value<'static>>> {

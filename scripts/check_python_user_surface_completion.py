@@ -197,6 +197,8 @@ REQUIRED_RESHAPE_RUNTIME_EVIDENCE = {
         "single_pivot_column_contract",
         "single_value_column_contract",
         "duplicate_cell_fail_closed_policy",
+        "typed_nested_pivot_roles",
+        "compact_native_pivot_state",
         "explicit_decode_materialization_boundary",
     ],
     "pivot_table": [
@@ -205,6 +207,8 @@ REQUIRED_RESHAPE_RUNTIME_EVIDENCE = {
         "single_pivot_column_contract",
         "single_value_column_contract",
         "explicit_aggregate_kernel",
+        "typed_nested_pivot_roles",
+        "compact_native_pivot_state",
         "explicit_decode_materialization_boundary",
     ],
 }

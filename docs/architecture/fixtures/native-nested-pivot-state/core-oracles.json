@@ -1,0 +1,120 @@
+{
+  "status": "independent pre-implementation fixtures",
+  "runtime_baseline": "8440b04f8f786cfd0fc8444e0e7b2caa4fcb65d9",
+  "notes": [
+    "Literal expected values; no ShardLoom candidate has been invoked.",
+    "Nested list keys use raw exact-key order, placing the NULL parent after non-NULL lists.",
+    "These core fixtures seed, but do not replace, complete type/resource/composition acceptance."
+  ],
+  "list_index_and_cells": {
+    "source_columns": ["entity", "category", "amount"],
+    "source": [
+      [[2], "a", [8, null]],
+      [[1], "a", null],
+      [[2], "b", [3]],
+      [[], "a", []],
+      [null, "b", [9]],
+      [[2], "a", [4]],
+      [[1], "a", [6]],
+      [[null], "a", [null]]
+    ],
+    "output_columns": ["entity", "pivot_a", "pivot_b"],
+    "first": [
+      [[], [], null],
+      [[1], null, null],
+      [[2], [8, null], [3]],
+      [[null], [null], null],
+      [null, null, [9]]
+    ],
+    "count": [
+      [[], 1, null],
+      [[1], 2, null],
+      [[2], 2, 1],
+      [[null], 1, null],
+      [null, null, 1]
+    ],
+    "min": [
+      [[], [], null],
+      [[1], [6], null],
+      [[2], [4], [3]],
+      [[null], [null], null],
+      [null, null, [9]]
+    ],
+    "max": [
+      [[], [], null],
+      [[1], [6], null],
+      [[2], [8, null], [3]],
+      [[null], [null], null],
+      [null, null, [9]]
+    ],
+    "first_unique": "denied_conflicting_complete_values",
+    "sum": "denied_nested_numeric_aggregate",
+    "mean": "denied_nested_numeric_aggregate",
+    "margins": "denied_nested_index"
+  },
+  "list_domains": {
+    "source_columns": ["entity", "category", "amount"],
+    "source": [
+      ["a", [], 10],
+      ["a", [1], 20],
+      ["b", [null], 30],
+      ["b", null, 40],
+      ["a", [1], 5]
+    ],
+    "output_columns": ["entity", "pivot_l0", "pivot_l1_i1", "pivot_l1_n", "pivot_value"],
+    "sum": [
+      ["a", 10.0, 25.0, null, null],
+      ["b", null, null, 30.0, 40.0]
+    ],
+    "count": [
+      ["a", 1, 2, null, null],
+      ["b", null, null, 1, 1]
+    ]
+  },
+  "nested_extrema_margins": {
+    "source_columns": ["entity", "category", "amount"],
+    "source": [
+      ["a", "x", null],
+      ["a", "x", [4]],
+      ["a", "x", [1, null]],
+      ["a", "y", []],
+      ["b", "x", [3]],
+      ["b", "y", null],
+      ["c", "x", [null]],
+      ["c", "y", [2]]
+    ],
+    "output_columns": ["entity", "pivot_x", "pivot_y", "pivot_total"],
+    "min": [
+      ["a", [1, null], [], []],
+      ["b", [3], null, [3]],
+      ["c", [null], [2], [null]],
+      ["total", [null], [], []]
+    ],
+    "max": [
+      ["a", [4], [], [4]],
+      ["b", [3], null, [3]],
+      ["c", [null], [2], [2]],
+      ["total", [4], [2], [4]]
+    ],
+    "min_source_order_limit_3": [
+      ["a", [1, null], [], []],
+      ["b", [3], null, [3]],
+      ["total", [1, null], [], []]
+    ],
+    "max_source_order_limit_3": [
+      ["a", [4], [], [4]],
+      ["b", [3], null, [3]],
+      ["total", [4], [], [4]]
+    ]
+  },
+  "literal_domain_names": [
+    {"dtype": "List<I64>", "value": [], "key": "L0:", "name": "pivot_l0"},
+    {"dtype": "List<I64>", "value": [1], "key": "L1:i1;", "name": "pivot_l1_i1"},
+    {"dtype": "List<I64?>", "value": [null], "key": "L1:n;", "name": "pivot_l1_n"},
+    {"dtype": "FixedSizeList<I64,2>", "value": [1, 2], "key": "F2:i1;i2;", "name": "pivot_f2_i1_i2"},
+    {"dtype": "Struct<a:I64>", "value": {"a": 1}, "key": "S1:1:ai1;", "name": "pivot_s1_1_ai1"},
+    {"dtype": "List<I64>?", "value": null, "key": "n;", "name": "pivot_value"},
+    {"dtype": "List<UTF8>", "value": ["a-b"], "key": "L1:s3:a-b", "name": "pivot_l1_s3_a_b"},
+    {"dtype": "List<UTF8>", "value": ["a_b"], "key": "L1:s3:a_b", "name": "pivot_l1_s3_a_b_2"}
+  ]
+}

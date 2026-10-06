@@ -9,9 +9,11 @@ def has_diagnostic_detail(envelope, detail):
                for key in ("message", "reason"))
 
 
-def require_native_resource_admission(name, envelope):
+def require_native_resource_admission(name, envelope, *, memory_gb=1):
+    """Check the caller's declared grant, never a budget inferred from the report."""
+    budget = memory_gb << 30
     required = {
-        "public_workflow_memory_gb": "1",
+        "public_workflow_memory_gb": str(memory_gb),
         "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
     }
     peak_key = "resident_peak_reserved_buffer_bytes"
@@ -19,7 +21,7 @@ def require_native_resource_admission(name, envelope):
         required.update({
             "native_vortex_result_export_kind": "owned_native_array_stream",
             "native_vortex_array_sink_source_generation_validated": "true",
-            "local_primitive_resource_memory_budget_bytes": "1073741824",
+            "local_primitive_resource_memory_budget_bytes": str(budget),
         })
         peak_key = "native_vortex_array_sink_peak_reserved_bytes"
     else:
@@ -31,5 +33,5 @@ def require_native_resource_admission(name, envelope):
     # Native array writers retain that measurement in their sink evidence.
     peak = envelope.field(peak_key)
     if (not isinstance(peak, str) or not peak.isascii() or not peak.isdecimal()
-            or int(peak) > 1 << 30):
+            or int(peak) > budget):
         raise ValueError(f"{name}: shared native resource admission differs")

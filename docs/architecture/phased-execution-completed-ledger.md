@@ -17,6 +17,38 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-SCALAR-SUBQUERIES` — extend existing native subquery and expression
+  owners with typed scalar values under PERF-02/03/06/07/10/12 and CG-5/19/20/21.
+  Follow the [scalar-value contract](native-scalar-subqueries-2026-10-05.md).
+  - V1 scope classification: `required_for_v1`.
+  - Shared cardinality and static-schema admission preserve zero-row typed NULL,
+    one complete value, deterministic multirow failure, explicit outer scope and
+    selected CASE/COALESCE demand. SQL/Python/CLI share native execution, source
+    generations, reserved retained values and failure-safe writers.
+  - Frozen runtime `8440b04f` passes 23,786 public checks and 15,351,524 complete
+    row comparisons, including 1,128 scalar checks and 2,174 rows; 202 direct
+    checks; all 129 Full43 executions; 27 source gates; and all 599 Python tests
+    with optional dependencies. The [acceptance report](../benchmarks/native-scalar-subqueries-full43-2026-10-05.md)
+    retains the immutable packet, independent inspection and failed attempts.
+  - Documentation, support labels, executable examples and the Field Guide were
+    updated together. Twelve documentation/site gates, five final metadata gates
+    and browser inspection preserve all 901 frozen runtime source hashes.
+  - Hosted merge: [PR #1524](https://github.com/depsilon/shardloom/pull/1524)
+    merged at `024b872dc89fec05e4bc7ff7a499725d2d9a831e` after all 39 checks on
+    `c8cc6ab58ad827f9362d2a9b614dc14c53614a8c` passed. Its tree equals the accepted
+    head. Primary adversarial review passed; the account-limited bot supplied no
+    review approval and there were no submitted reviews or unresolved threads.
+  - The production website deployment succeeded. Preview and production browser
+    checks verified the scalar example, support label and support-table link.
+    Anonymous HTTP requests returned 403, so deployed HTML byte identity remains
+    unverified. The [hosted receipt](../benchmarks/evidence/native-scalar-subqueries-hosted-2026-10-06.json)
+    preserves the observations and exact snapshots.
+  - Acceptance: finite current-source availability after published v0.4.0.
+    No new package publication or performance/production claim. Dynamic-pivot
+    dependent scalar schemas, lateral relations and broader spill remain denied;
+    nested pivot state, adapters and resource/recovery work retain their owners.
+    CG-1 through CG-23 retain their independent obligations.
+
 - [x] `REVISED-ENGINE-RELEASE-TRAIN` — complete the resumed 0.4.0 technical
   preview after shared-engine, analytic-frame and fresh UAT acceptance.
   - Source: October 5 maintainer instruction, RFC 0024 and the selected-channel

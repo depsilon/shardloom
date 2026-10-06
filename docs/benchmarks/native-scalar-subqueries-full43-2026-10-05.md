@@ -15,6 +15,17 @@ native subquery, expression, source, resource and writer owners. The
 defines the admitted scope. Current source builds include this addition;
 published v0.4.0 packages predate it.
 
+Hosted integration completed in [PR #1524](https://github.com/depsilon/shardloom/pull/1524)
+after all 39 checks passed on `c8cc6ab58ad827f9362d2a9b614dc14c53614a8c`.
+Merge `024b872dc89fec05e4bc7ff7a499725d2d9a831e` has the same tree as that accepted
+head. Primary adversarial review passed; no independent submitted review is
+claimed, and the automated review bot reported the account review limit.
+The [hosted integration receipt](evidence/native-scalar-subqueries-hosted-2026-10-06.json)
+preserves pre/post-merge snapshots, final review state and successful production
+deployment. Ordinary browser checks passed for preview and production guidance,
+the support label and its link. Anonymous HTTP checks returned 403; complete
+deployed HTML byte identity remains unverified.
+
 ## Frozen identities
 
 | Artifact | Identity |
@@ -144,8 +155,9 @@ existing storage/process guards. The source was prehashed; OS cache and ordinary
 desktop activity were uncontrolled. There is no paired timing comparison,
 answer cache or external-engine execution.
 
-Core-local status is `passed_core_local`; hosted review and integration remain
-pending. Broader nested-pivot, adapter and resource/recovery work stays open.
+Core-local status is `passed_core_local`; hosted integration completed in PR #1524
+as recorded above. Nested pivot has its own later acceptance record; broader
+adapter and resource/recovery work stays open.
 This report does not certify a new package release, production support,
 competitive superiority or the prior modular workload harness with this binary.
 CG-1 through CG-23 retain their independent obligations; real native Vortex

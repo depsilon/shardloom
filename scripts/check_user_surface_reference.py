@@ -84,6 +84,11 @@ REQUIRED_JSON_POINTERS = (
     "native_nested_keys_state.reference",
     "native_nested_keys_state.types",
     "native_nested_keys_state.retained_unary",
+    "native_nested_keys_state.nested_pivot_reference",
+    "native_dynamic_pivot_composition.nested_reference",
+    "native_nested_pivot_state.reference",
+    "native_nested_pivot_state.roles",
+    "native_nested_pivot_state.selected_cell_aggregates",
 )
 
 REQUIRED_COMMANDS = (
@@ -158,6 +163,29 @@ def nested_get(payload: dict[str, Any], pointer: str) -> Any:
             raise KeyError(pointer)
         current = current[part]
     return current
+
+
+def validate_acceptance(repo_root: Path, name: str, contract: dict[str, Any]) -> list[str]:
+    blockers = []
+    local = contract.get("local_acceptance_complete")
+    hosted = contract.get("hosted_acceptance_complete")
+    evidence = contract.get("local_acceptance_report")
+    reference = contract.get("hosted_acceptance_reference")
+    if type(local) is not bool or type(hosted) is not bool:
+        blockers.append(f"{JSON_PATH}: {name} acceptance states must be explicit")
+    if local is True:
+        if (not isinstance(evidence, str) or not evidence.startswith("docs/benchmarks/")
+                or ".." in Path(evidence).parts or not (repo_root / evidence).is_file()):
+            blockers.append(f"{JSON_PATH}: accepted {name} requires its local report")
+    elif evidence is not None:
+        blockers.append(f"{JSON_PATH}: pending {name} cannot claim an acceptance report")
+    if hosted is True:
+        if (local is not True or not isinstance(reference, str)
+                or re.fullmatch(r"https://github\.com/depsilon/shardloom/pull/[1-9][0-9]*", reference) is None):
+            blockers.append(f"{JSON_PATH}: hosted {name} requires local acceptance and its PR reference")
+    elif reference is not None:
+        blockers.append(f"{JSON_PATH}: pending {name} cannot claim hosted acceptance")
+    return blockers
 
 
 def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
@@ -352,19 +380,11 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     ):
         if reductions.get(field) != value:
             blockers.append(f"{JSON_PATH}: native_typed_reductions.{field} differs from its contract")
-    for field in ("hosted_acceptance_complete", "state_spill", "wider_analytic_frames",
+    for field in ("state_spill", "wider_analytic_frames",
                   "total_rss_bound", "fallback_attempted", "external_engine_invoked"):
         if reductions.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_typed_reductions.{field} must be false")
-    if type(reductions.get("local_acceptance_complete")) is not bool:
-        blockers.append(f"{JSON_PATH}: typed reduction acceptance must be explicit")
-    evidence = reductions.get("local_acceptance_report")
-    if reductions.get("local_acceptance_complete") is True:
-        if (not isinstance(evidence, str) or not evidence.startswith("docs/benchmarks/")
-                or ".." in Path(evidence).parts or not (repo_root / evidence).is_file()):
-            blockers.append(f"{JSON_PATH}: accepted typed reductions require their local report")
-    elif evidence is not None:
-        blockers.append(f"{JSON_PATH}: pending typed reductions cannot claim an acceptance report")
+    blockers.extend(validate_acceptance(repo_root, "native_typed_reductions", reductions))
 
     nested_state = payload.get("native_nested_keys_state", {})
     for field, value in (
@@ -388,16 +408,24 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("shared_direct_and_relational_state", True),
         ("compact_selected_payload", True),
         ("native_sort_spill", "explicit_relational_sort_policy"),
+        ("nested_pivot_state", True),
+        ("nested_pivot_reference", "docs/architecture/native-nested-pivot-state-2026-10-06.md"),
     ):
         if nested_state.get(field) != value:
             blockers.append(f"{JSON_PATH}: native_nested_keys_state.{field} differs from its contract")
-    for field in ("nested_pivot_state", "structured_scalar_literals", "nested_arithmetic",
+    for field in ("structured_scalar_literals", "nested_arithmetic",
                   "group_join_window_spill", "general_state_spill", "total_rss_bound",
                   "fallback_attempted", "external_engine_invoked"):
         if nested_state.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_nested_keys_state.{field} must be false")
 
     pivot = payload.get("native_dynamic_pivot_composition", {})
+    for field, value in (
+        ("scope", "current_source_build_scalar_and_static_nested_pivot_admission"),
+        ("nested_reference", "docs/architecture/native-nested-pivot-state-2026-10-06.md"),
+    ):
+        if pivot.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} differs from its contract")
     for field in ("preparation_metadata_only", "inspection_side_effect_free",
                   "single_use_execution_references", "correlated_parameter_scopes",
                   "declaration_reuse", "absent_domain_column_is_error"):
@@ -415,6 +443,38 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
             blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} differs from its contract")
     if set(pivot.get("local_writers", [])) != {"vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"}:
         blockers.append(f"{JSON_PATH}: scalar dynamic pivot must retain all eight representable local writers")
+
+    nested_pivot = payload.get("native_nested_pivot_state", {})
+    for field, value in (
+        ("reference", "docs/architecture/native-nested-pivot-state-2026-10-06.md"),
+        ("scope", "post_v0_4_0_source_build_static_nested_pivot_state"),
+        ("types", ["list", "fixed_size_list", "struct"]),
+        ("roles", ["index", "domain", "value"]),
+        ("leaf_contract", "native_nested_composition"),
+        ("identity", "unary_exact_keys_finite_float_bits"),
+        ("domain_names", "sanitized_type_tagged_exact_key_with_collision_suffix"),
+        ("selected_cell_aggregates", ["first", "first_unique", "count", "min", "max"]),
+        ("python_first_alias", "first_unique"),
+        ("first_nulls", "retain_first_complete_value_including_null_parent"),
+        ("extrema_nulls", "skip_null_parents_shared_recursive_child_order"),
+        ("count_nulls", "count_rows_including_null_values"),
+        ("cell_schema", "preserve_recursive_types_widen_root_nullability_only"),
+        ("nested_cell_fill", "absent_or_null"),
+        ("nested_extrema_margins", "utf8_index_only"),
+        ("shared_direct_and_relational_state", True),
+        ("compact_selected_payload", True),
+        ("maximum_top_level_fields", 128),
+        ("nested_writers", ["vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl"]),
+        ("csv_nested_translation", "quoted_json_text_without_logical_dtype"),
+        ("denied_nested_writers", ["orc"]),
+    ):
+        if nested_pivot.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_nested_pivot_state.{field} differs from its contract")
+    for field in ("nested_index_margins", "nested_sum_mean", "pivot_state_spill", "total_rss_bound",
+                  "performance_claim", "fallback_attempted", "external_engine_invoked"):
+        if nested_pivot.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_nested_pivot_state.{field} must be false")
+    blockers.extend(validate_acceptance(repo_root, "native_nested_pivot_state", nested_pivot))
 
     for field in (
         "no_fallback_policy",

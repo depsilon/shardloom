@@ -2,7 +2,10 @@
 
 # Native scalar-value subqueries
 
-Status: complete core-local acceptance on `8440b04f`; hosted integration pending.
+Status: complete core-local acceptance on `8440b04f`; merged in
+[PR #1524](https://github.com/depsilon/shardloom/pull/1524) after all 39 hosted
+checks passed. The [completed ledger](phased-execution-completed-ledger.md)
+records exact identities and review limitations.
 The [acceptance report](../benchmarks/native-scalar-subqueries-full43-2026-10-05.md)
 records 23,786 public checks, including 1,128 scalar checks, 202 direct checks,
 all 129 Full43 runs and independent evidence-packet inspection. Current source
