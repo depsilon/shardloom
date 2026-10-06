@@ -30,10 +30,7 @@ impl HostAllocator for ReservedHostAllocator {
             .checked_add(*alignment.max(Alignment::DEFAULT_ALIGNMENT))
             .and_then(|size| u64::try_from(size).ok())
             .ok_or_else(|| vortex_err!("native host allocation size overflow"))?;
-        let lease = self
-            .memory
-            .reserve(capacity)
-            .map_err(|error| vortex_err!(External: OwnedReservationDenied(error)))?;
+        let lease = reserve(&self.memory, capacity)?;
         let buffer = DefaultHostAllocator.allocate(len, alignment)?;
         Ok(WritableHostBuffer::new(Box::new(ReservedWritableBuffer {
             buffer,
@@ -44,6 +41,12 @@ impl HostAllocator for ReservedHostAllocator {
 
 #[derive(Debug)]
 struct OwnedReservationDenied(shardloom_core::ShardLoomError);
+
+pub(crate) fn reserve(memory: &LiveMemoryPool, bytes: u64) -> VortexResult<MemoryLease> {
+    memory
+        .reserve(bytes)
+        .map_err(|error| vortex_err!(External: OwnedReservationDenied(error)))
+}
 
 impl std::fmt::Display for OwnedReservationDenied {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -105,6 +108,22 @@ struct ReservedBufferOwner<L = MemoryLease> {
 /// No payload copy is needed; clones of this buffer retain both reservations.
 #[cfg(feature = "vortex-local-primitives")]
 pub(crate) fn retain_credit(buffer: ByteBuffer, lease: MemoryLease) -> ByteBuffer {
+    let alignment = buffer.alignment();
+    ByteBuffer::from_bytes_aligned(
+        bytes::Bytes::from_owner(ReservedBufferOwner {
+            buffer,
+            _lease: lease,
+        }),
+        alignment,
+    )
+}
+
+/// Retain one admitted provider allocation across all of its native buffers.
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn retain_shared_credit(
+    buffer: ByteBuffer,
+    lease: std::sync::Arc<MemoryLease>,
+) -> ByteBuffer {
     let alignment = buffer.alignment();
     ByteBuffer::from_bytes_aligned(
         bytes::Bytes::from_owner(ReservedBufferOwner {

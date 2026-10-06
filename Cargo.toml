@@ -7,7 +7,11 @@ members = [
   "shardloom-cli",
   "shardloom-contract-tests",
 ]
+exclude = ["vendor/vortex-zstd"]
 resolver = "2"
+
+[patch.crates-io]
+vortex-zstd = { path = "vendor/vortex-zstd" }
 
 [workspace.package]
 version = "0.4.0"

@@ -3659,8 +3659,6 @@ dependencies = [
 [[package]]
 name = "vortex-zstd"
 version = "0.85.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03cae43b171152fd403b884d5e0b764e860261d38b2fd80dfd4e03678beac837"
 dependencies = [
  "itertools 0.14.0",
  "num-traits",

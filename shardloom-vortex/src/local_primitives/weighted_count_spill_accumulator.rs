@@ -24,7 +24,6 @@ use vortex::{
     array::{
         ArrayRef, ExecutionCtx, VortexSessionExecute as _,
         arrays::{Primitive, PrimitiveArray},
-        memory::MemorySessionExt as _,
     },
     io::runtime::BlockingRuntime,
     session::VortexSession,
@@ -108,9 +107,8 @@ impl Accumulator {
             )
             .ok_or_else(|| failed("owner metadata overflowed"))?;
         let metadata = operator_memory.reserve(metadata_bytes)?;
-        let run_session = session.clone().with_allocator(Arc::new(
-            crate::owned_buffers::ReservedHostAllocator::new(operator_memory.clone()),
-        ));
+        let run_session =
+            crate::native_spill_session::with_memory(session, operator_memory.clone());
         let spill = WeightedCountSpill::new(
             Policy {
                 workspace: policy.workspace.clone(),

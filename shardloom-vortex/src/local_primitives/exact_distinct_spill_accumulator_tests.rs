@@ -8,11 +8,13 @@ use std::{
 use vortex::{
     VortexSessionDefault as _,
     array::{
-        ArrayRef, IntoArray as _,
+        ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::{PrimitiveArray, StructArray},
         dtype::{DType, FieldNames, Nullability, PType},
+        memory::MemorySessionExt as _,
         validity::Validity,
     },
+    buffer::Alignment,
     io::{
         runtime::{BlockingRuntime as _, current::CurrentThreadRuntime},
         session::RuntimeSessionExt as _,
@@ -100,6 +102,73 @@ fn values(result: &OwnedSpillResult) -> Vec<(i64, u64)> {
         })
         .unwrap();
     output
+}
+
+#[test]
+fn exact_distinct_spill_keeps_source_and_each_operator_allocator_independent() {
+    let workspace = Workspace::new();
+    let policy = workspace.policy();
+    let parent = LiveMemoryPool::new(16 << 20).unwrap();
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default()
+        .with_handle(runtime.handle())
+        .with_allocator(std::sync::Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(parent.clone()),
+        ));
+    let original = session.allocator();
+    let existing_context = session.create_execution_ctx();
+    let first = accumulator(&policy, &parent, &session, 4);
+    let second = accumulator(&policy, &parent, &session, 4);
+    for source in [
+        session.allocator(),
+        existing_context.allocator(),
+        first.source_ctx.allocator(),
+        second.source_ctx.allocator(),
+    ] {
+        assert!(std::sync::Arc::ptr_eq(&original, &source));
+    }
+    assert!(!std::sync::Arc::ptr_eq(
+        &first.run_session.allocator(),
+        &second.run_session.allocator(),
+    ));
+    let first_before = first.operator_memory.snapshot().reserved_bytes;
+    let second_before = second.operator_memory.snapshot().reserved_bytes;
+    let source = existing_context
+        .allocator()
+        .allocate(4096, Alignment::none())
+        .unwrap();
+    assert_eq!(
+        parent.snapshot().reserved_bytes,
+        2 * policy.memory_bytes + 4352
+    );
+    assert_eq!(
+        first.operator_memory.snapshot().reserved_bytes,
+        first_before
+    );
+    assert_eq!(
+        second.operator_memory.snapshot().reserved_bytes,
+        second_before
+    );
+    let run = first
+        .run_session
+        .allocator()
+        .allocate(2048, Alignment::none())
+        .unwrap();
+    assert_eq!(
+        first.operator_memory.snapshot().reserved_bytes,
+        first_before + 2304
+    );
+    assert_eq!(
+        second.operator_memory.snapshot().reserved_bytes,
+        second_before
+    );
+    drop(run);
+    drop(source);
+    drop(first);
+    drop(second);
+    assert!(std::sync::Arc::ptr_eq(&original, &session.allocator()));
+    assert_eq!(parent.snapshot().reserved_bytes, 0);
+    workspace.empty();
 }
 
 #[test]

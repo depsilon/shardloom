@@ -110,6 +110,10 @@ pub mod native_artifact_comparison;
     all(feature = "vortex-write", feature = "universal-format-io")
 ))]
 mod native_payload_schema;
+#[cfg(feature = "vortex-local-primitives")]
+mod native_provider_memory;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+mod native_spill_session;
 pub mod output_payload;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 pub mod owned_array_source;

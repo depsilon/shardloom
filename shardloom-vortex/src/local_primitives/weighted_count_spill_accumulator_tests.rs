@@ -16,8 +16,10 @@ use vortex::{
         IntoArray as _,
         arrays::{DictArray, StructArray, VarBinViewArray},
         dtype::FieldNames,
+        memory::MemorySessionExt as _,
         validity::Validity,
     },
+    buffer::Alignment,
     io::{runtime::current::CurrentThreadRuntime, session::RuntimeSessionExt as _},
 };
 
@@ -94,6 +96,84 @@ fn logical(key: AggregateIntegerKeyPart) -> i128 {
     } else {
         i128::from(key.bits)
     }
+}
+
+#[test]
+fn weighted_count_spill_keeps_source_and_each_operator_allocator_independent() {
+    let workspace = Workspace::new();
+    let (runtime, session) = runtime();
+    let parent = LiveMemoryPool::new(32 << 20).unwrap();
+    let session = session.with_allocator(Arc::new(
+        crate::owned_buffers::ReservedHostAllocator::new(parent.clone()),
+    ));
+    let original = session.allocator();
+    let existing_context = session.create_execution_ctx();
+    let source = chunk(
+        PrimitiveArray::new(vec![1_u64], Validity::NonNullable).into_array(),
+        vec![0],
+        &["value"],
+    );
+    let make = || {
+        let contract = weighted_count_spill_admission::admit(
+            &request(&workspace, &["number", "tag"]),
+            source.dtype(),
+        )
+        .unwrap();
+        Accumulator::new(&workspace.policy(), contract, &parent, &session).unwrap()
+    };
+    let first = make();
+    let second = make();
+    for source in [
+        session.allocator(),
+        existing_context.allocator(),
+        first.source_ctx.allocator(),
+        second.source_ctx.allocator(),
+    ] {
+        assert!(Arc::ptr_eq(&original, &source));
+    }
+    assert!(!Arc::ptr_eq(
+        &first.run_session.allocator(),
+        &second.run_session.allocator(),
+    ));
+    let first_before = first.operator_memory.snapshot().reserved_bytes;
+    let second_before = second.operator_memory.snapshot().reserved_bytes;
+    let input = existing_context
+        .allocator()
+        .allocate(4096, Alignment::none())
+        .unwrap();
+    assert_eq!(
+        parent.snapshot().reserved_bytes,
+        2 * workspace.policy().memory_bytes + 4352
+    );
+    assert_eq!(
+        first.operator_memory.snapshot().reserved_bytes,
+        first_before
+    );
+    assert_eq!(
+        second.operator_memory.snapshot().reserved_bytes,
+        second_before
+    );
+    let run = first
+        .run_session
+        .allocator()
+        .allocate(2048, Alignment::none())
+        .unwrap();
+    assert_eq!(
+        first.operator_memory.snapshot().reserved_bytes,
+        first_before + 2304
+    );
+    assert_eq!(
+        second.operator_memory.snapshot().reserved_bytes,
+        second_before
+    );
+    drop(run);
+    drop(input);
+    drop(first);
+    drop(second);
+    assert!(Arc::ptr_eq(&original, &session.allocator()));
+    assert_eq!(parent.snapshot().reserved_bytes, 0);
+    workspace.empty();
+    drop(runtime);
 }
 
 #[test]

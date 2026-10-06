@@ -23,7 +23,6 @@ use vortex::{
         ArrayRef, ExecutionCtx, VortexSessionExecute as _,
         arrays::{Primitive, PrimitiveArray},
         dtype::{DType, Nullability},
-        memory::MemorySessionExt as _,
     },
     io::runtime::BlockingRuntime,
     session::VortexSession,
@@ -94,9 +93,8 @@ impl SpillAccumulator {
         let operator_memory = LiveMemoryPool::new(policy.memory_bytes)?;
         let metadata = operator_memory
             .reserve(u64::try_from(metadata_bytes).map_err(|_| failed("metadata exceeds u64"))?)?;
-        let run_session = session.clone().with_allocator(Arc::new(
-            crate::owned_buffers::ReservedHostAllocator::new(operator_memory.clone()),
-        ));
+        let run_session =
+            crate::native_spill_session::with_memory(session, operator_memory.clone());
         let signed =
             |dtype: &DType| matches!(dtype, DType::Primitive(ptype, _) if ptype.is_signed_int());
         let spill = ExactDistinctSpill::new(
