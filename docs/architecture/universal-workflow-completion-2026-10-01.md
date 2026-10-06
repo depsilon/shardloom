@@ -162,8 +162,13 @@ local acceptance in current source after v0.4.0: 23,786 public checks, including
 [report](../benchmarks/native-scalar-subqueries-full43-2026-10-05.md) preserves
 the frozen source and independent packet inspection. Hosted integration completed
 in PR #1524 after all 39 checks passed, with the accepted tree preserved in main.
-Published v0.4.0 packages predate this addition. Nested pivot state,
-adapters and remaining resource/spill transitions retain the obligations below.
+Published v0.4.0 packages predate this addition. The
+[nested pivot continuation](native-nested-pivot-state-2026-10-06.md) now has
+complete local acceptance: 27,373 public checks / 15,820,181 complete rows,
+202 direct checks and all 129 Full43 runs. Its
+[report](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md) records
+the frozen source, native schema and resource proofs. Hosted integration remains
+pending; adapters and remaining resource/spill transitions retain their owners.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
@@ -196,8 +201,10 @@ nested-key/state continuations are merged. The
 and [analytic-frame unit](native-analytic-frames-2026-10-05.md) are also merged and
 published in v0.4.0. The [scalar-value unit](native-scalar-subqueries-2026-10-05.md)
 has complete local and hosted acceptance in source builds after that release,
-with PR #1524 merged after all 39 checks passed. Continue the
-[nested pivot state unit](native-nested-pivot-state-2026-10-06.md).
+with PR #1524 merged after all 39 checks passed. Complete documentation and hosted
+integration for the locally accepted
+[nested pivot state unit](native-nested-pivot-state-2026-10-06.md), then continue
+the remaining shared resource, spill, failure and adapter work.
 Broader adapter and resource families continue under their ownership contracts.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,

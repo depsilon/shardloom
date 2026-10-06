@@ -2,8 +2,9 @@
 
 # Native nested pivot state
 
-Status: implemented with focused native and public checks; complete workspace,
-regression and hosted acceptance pending. Scalar-subquery hosted
+Status: complete local acceptance on `750b3783`; hosted integration pending.
+The [acceptance report](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md)
+records complete public, resource, schema and Full43 regression evidence. Scalar-subquery hosted
 integration completed in [PR #1524](https://github.com/depsilon/shardloom/pull/1524).
 This is `NATIVE-NESTED-PIVOT-STATE` in the [phase plan](phased-execution-plan.md),
 continuing the [universal workflow queue](universal-workflow-completion-2026-10-01.md) under
@@ -128,15 +129,19 @@ fields.
 The expert comparator is a columnar-engine maintainer checking dynamic schema,
 logical equality, selected native ownership and failure-safe publication.
 
-Focused development verification passes 13 native tests and 3,587 public checks.
-It covers complete SQL/DataFrame results, all five materializations, exact Vortex
+The frozen release build passes all 27,373 public checks and 15,820,181 complete
+row comparisons, including 3,587 nested-pivot checks and 468,657 rows. A separate
+202-check direct matrix and all 129 Full43 runs pass. The new coverage verifies
+complete SQL/DataFrame results, all five materializations, exact Vortex
 and Arrow IPC schemas, all representable writers, correlated discovery, typed
 empty output, deterministic denials and 65,537-row nested writer readback above
 the small collection bound. Native tests additionally cover dictionary/chunked
 inputs, signed zero, hidden NULL children, exact typed leaves, compact retention,
 replacement overlap, constrained grants, cancellation, source changes and failed
-publication. These checks used a source-tracked development build; the immutable
-release-build acceptance and full existing-family regression remain required.
+publication. The [immutable acceptance packet](../benchmarks/evidence/native-nested-pivot-state-2026-10-06.json.xz)
+retains the independent literal oracles, 910 frozen source assets, 27 source gates,
+1,892 schema proofs, 2,871 complete value/resource proofs and all failed observations.
+Hosted review and integration remain required; published v0.4.0 predates this unit.
 
 - Freeze independent complete SQL/Python result fixtures for each nested role,
   combinations of roles, all selected aggregate kinds, empty/null/duplicate

@@ -271,14 +271,18 @@ the ledger.
       complete values, empty admission, names, duplicate cells and margins.
     - [x] Prove compact retention, replacement overlap, constrained grants,
       cancellation, failed consumers/source generations and writer cleanup.
-    - [ ] Pass required workspace/native/Python/source gates, complete public
+    - [x] Pass required workspace/native/Python/source gates, complete public
       SQL/DataFrame/direct workflows, writer readback and Full43 regression;
       freeze source, binary, independent oracles and all failed attempts.
-    - [ ] Align current-source support documentation, labels and Field Guide
+    - [x] Align current-source support documentation, labels and Field Guide
       with actual acceptance, keeping published-package scope distinct.
     - [ ] Complete hosted review/integration and move the accepted unit to the ledger.
   - Acceptance: required workspace/native/Python gates, public workflow and
     Full43 regression evidence, exact source/binary identity and hosted integration.
+    Local acceptance passes on `750b3783`: 27,373 public checks / 15,820,181 rows,
+    202 direct checks and all 129 Full43 runs. The
+    [report](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md) retains
+    27 source gates, complete values/schemas, resource proofs and failed observations.
     Availability does not require a speedup or authorize a production claim.
   - Follow-on: remaining adapters and reader/codec/operator resource, spill and
     failure transitions retain their existing owners. Pivot spill is not admitted
@@ -341,8 +345,9 @@ and keys, scoped typed expressions, typed unary state and nested keys/state are
 merged, as are typed reductions and analytic frames. The typed-unary report retains
 Q9's inconclusive performance observation. Scalar-value subqueries have complete
 local and hosted acceptance in source builds after v0.4.0 through PR #1524.
-Nested pivot state, broader aggregate/window semantics, adapters and resource
-obligations remain open under their existing owners.
+Nested pivot state has complete local acceptance and awaits hosted integration.
+Broader aggregate/window semantics, adapters and resource obligations remain open
+under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one
@@ -2766,8 +2771,9 @@ record `NATIVE-NESTED-COMPOSITION`, `NATIVE-DYNAMIC-PIVOT-COMPOSITION`,
 `NATIVE-TYPED-UNARY`, `NATIVE-NESTED-KEYS-STATE`, `NATIVE-TYPED-REDUCTIONS` and
 `NATIVE-ANALYTIC-FRAMES` and `NATIVE-SCALAR-SUBQUERIES` as completed finite units.
 The v0.4.0 publication train is also complete and predates scalar-value support.
-`NATIVE-NESTED-PIVOT-STATE` is the next autonomous implementation
-item in the dependent universal workflow queue. The other large format/text experiments
+`NATIVE-NESTED-PIVOT-STATE` has complete local acceptance; finish its documentation
+and hosted integration before advancing the dependent universal workflow queue.
+The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 
 The October 1 product clarification makes

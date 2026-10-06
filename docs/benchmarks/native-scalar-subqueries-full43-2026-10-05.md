@@ -155,8 +155,9 @@ existing storage/process guards. The source was prehashed; OS cache and ordinary
 desktop activity were uncontrolled. There is no paired timing comparison,
 answer cache or external-engine execution.
 
-Core-local status is `passed_core_local`; hosted review and integration remain
-pending. Broader nested-pivot, adapter and resource/recovery work stays open.
+Core-local status is `passed_core_local`; hosted integration completed in PR #1524
+as recorded above. Nested pivot has its own later acceptance record; broader
+adapter and resource/recovery work stays open.
 This report does not certify a new package release, production support,
 competitive superiority or the prior modular workload harness with this binary.
 CG-1 through CG-23 retain their independent obligations; real native Vortex
