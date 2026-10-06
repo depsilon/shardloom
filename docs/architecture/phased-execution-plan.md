@@ -268,13 +268,17 @@ the ledger.
       find no `0.4.0` release/tag or PyPI/TestPyPI package; selected published
       channels remain `0.3.3`. Retain the
       [channel check](../release/v0.4.0-candidate-channel-check-2026-10-05.json).
-    - [ ] Synchronize CLI/Python/package versions, release notes, support matrices,
+    - [x] Synchronize CLI/Python/package versions, release notes, support matrices,
       current docs/website and the accepted UAT evidence as one coherent train.
-    - [ ] Build and verify selected artifacts, checksums, dependency/license
+    - [x] Build and verify selected artifacts, checksums, dependency/license
       inventory, SBOM/provenance and clean-install/uninstall/smoke transcripts.
+      All four [publication proofs](../release/v0.4.0-publication-verification.md)
+      pass; release source `d9ccd11d069f` passed all 35 exact-source CI jobs.
     - [ ] Complete hosted checks and the selected GitHub, TestPyPI, PyPI and
       Homebrew sequence under the release contract's publication authorization
       and rollback requirements; record each exact source and artifact identity.
+      The four-channel sequence is published and verified. Final publication-PR
+      checks and production website deployment verification remain pending.
   - Acceptance: every selected channel refers to the validated revised engine
     and its own complete proofs; old release evidence cannot certify new artifacts.
   - Technique/claim boundary: reuse existing release and evidence tooling. No

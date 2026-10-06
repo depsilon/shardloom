@@ -77,8 +77,16 @@ Decimal totals remain exact; inexact averages and final overflow fail explicitly
 Native ARRAY/STRUCT constructors preserve admitted logical children. File,
 typed-memory and source-free inputs reach the same Vortex-native engine, while
 Python conversions consume its typed results only at the requested output boundary.
-The revised engine passes 20,445 public checks and all 129 Full43 executions;
-see the [complete local acceptance and remaining scope](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-reductions-full43-2026-10-05.md).
+Analytic aggregates and FIRST_VALUE/LAST_VALUE/NTH_VALUE admit explicit ROWS,
+GROUPS and RANGE frames and exclusions through the same native window state.
+Bounded RANGE requires one compatible ordering key; named windows, variable
+offsets, calendar-month intervals, IGNORE NULLS and general window-state spill
+remain outside the [frame contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-analytic-frames-2026-10-05.md).
+The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
+records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
+executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
+adds complete input/output workflow comparisons. These suites overlap and do
+not establish a comparative speedup.
 General joins, set operations, analytic windows, and subqueries still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).

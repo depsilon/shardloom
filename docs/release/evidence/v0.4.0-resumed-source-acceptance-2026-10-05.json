@@ -1,0 +1,4876 @@
+{
+  "schema_version": "shardloom.release_source_acceptance.v1",
+  "status": "passed",
+  "recorded_at_utc": "2026-10-05T23:16:04.035946+00:00",
+  "version": "0.4.0",
+  "source_commit": "d9ccd11d069f16fd57bc84b944c54672f09351bc",
+  "source_tree": "c548cc88b3ff71947d592bafa3fee45b7461bd44",
+  "scope": "final release source CI and portable build; channel installation and performance identities remain separate",
+  "source_acceptance": {
+    "status": "passed",
+    "accepted_pr_head": "9eb9a1987ee395d6db790bf9605771d02190deeb",
+    "merge": {
+      "headRefOid": "9eb9a1987ee395d6db790bf9605771d02190deeb",
+      "mergeCommit": {
+        "oid": "d9ccd11d069f16fd57bc84b944c54672f09351bc"
+      },
+      "mergedAt": "2026-10-05T22:39:27Z",
+      "state": "MERGED",
+      "url": "https://github.com/depsilon/shardloom/pull/1520"
+    },
+    "source_commit": "d9ccd11d069f16fd57bc84b944c54672f09351bc",
+    "source_tree": "c548cc88b3ff71947d592bafa3fee45b7461bd44",
+    "reviewed_tree_unchanged": true,
+    "commit_verification": {
+      "verified": true,
+      "reason": "valid",
+      "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqxCcfCRC1aQ7uu5UhlAAAYyYQAExK6Qrm4kG/Hi2+86c4YZN6\nYf+1BDUvzbAwYfp7uXpqCz3BD5FuTSNmZXuZXf2YfUBY2Jj1xpy6HkQhA0wIICcJ\nAqnMx9h7rD2O0XmB7I3IdvBQ+kbpFBFolb7OhVOjYrlDjhA706cLdV7XHGHqfA1g\nAbjtpnYeCMOQ3mz2O7f5WJQQQFjgF42ezu+FHo5He6O3C5mHrxQ3A9jonsg4n5Ll\nd+nI8DvdA+AQsSAUE46EAzoqXYGwKlGZW2OdWqg07h3sbZwRqyMMpsZj2sduUzCd\nBpRF+mGCWn6PsG3iD0jFMnp8CjAKiDQNODTDNBvTWUWq3h3KSJauwEud1tr1JJQ9\nOZOuz7rUUPKqVWUZo5J6Bxeim3q77k2laQIbux5yo97Gc4L3FwSlJmHXjFwanz5i\nXKXoNRhnbmKjMP0AVtdJtsPM52SCl1lM1/SyALdXdroRPIw0aPwZr5UEoeOuqLtK\nMduHK+kQr8/4xYpcaIgozv90i7CeUmeFbtB2SvYl7QN50Kv9GcFT9I5kCU1ba4Hs\neE0xIvH2G9/4UNzdVD4FE1Op3tccs9lTSjAtzblUAKGyFCrK+lHkkENqaKH3V/Hd\nHz05wDU12W+HpecxwSX44T9rD5zc6yaavzNWj0D06fYAJvjb2acFsYyt2Qk3LP9O\nT+ABklf/XtWj8cyw4i2i\n=f/BR\n-----END PGP SIGNATURE-----\n",
+      "payload": "tree c548cc88b3ff71947d592bafa3fee45b7461bd44\nparent b925541a2122f06a06f55ca141a5afb6908344b7\nparent 9eb9a1987ee395d6db790bf9605771d02190deeb\nauthor Dylan Heinrich <djheinrich@pm.me> 1791239967 -0500\ncommitter GitHub <noreply@github.com> 1791239967 -0500\n\nMerge pull request #1520 from depsilon/codex/release-040-resume\n\nResume 0.4.0 release preparation with fresh full-workflow UAT",
+      "verified_at": "2026-10-05T22:39:28Z"
+    }
+  },
+  "exact_source_ci": {
+    "conclusion": "success",
+    "createdAt": "2026-10-05T22:39:30Z",
+    "event": "push",
+    "headBranch": "main",
+    "headSha": "d9ccd11d069f16fd57bc84b944c54672f09351bc",
+    "jobs": [
+      {
+        "completedAt": "2026-10-05T22:42:26Z",
+        "conclusion": "success",
+        "databaseId": 112013081132,
+        "name": "Python test shard (front_door_benchmark_publication)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:10Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:23Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:23Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:24Z",
+            "conclusion": "success",
+            "name": "Python test shard",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:25Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:25Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:25Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:25Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:25Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081132"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:45Z",
+        "conclusion": "success",
+        "databaseId": 112013081227,
+        "name": "Python test shard (release_scripts)",
+        "startedAt": "2026-10-05T22:42:12Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:14Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:36Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:36Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:40Z",
+            "conclusion": "success",
+            "name": "Python test shard",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:42Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:42Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:42Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:42Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:42Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081227"
+      },
+      {
+        "completedAt": "2026-10-05T22:44:37Z",
+        "conclusion": "success",
+        "databaseId": 112013081250,
+        "name": "Dependency and security gates",
+        "startedAt": "2026-10-05T22:42:55Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:57Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:04Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:43:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:24Z",
+            "conclusion": "success",
+            "name": "Install audit tooling",
+            "number": 6,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:35Z",
+            "conclusion": "success",
+            "name": "Dependency/license/provenance audit",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:35Z",
+            "conclusion": "success",
+            "name": "Open-source security posture",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:10Z",
+            "conclusion": "success",
+            "name": "Supply-chain provenance dry run",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:10Z",
+            "conclusion": "success",
+            "name": "Release security gate",
+            "number": 10,
+            "startedAt": "2026-10-05T22:44:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:34Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 11,
+            "startedAt": "2026-10-05T22:44:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:35Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 20,
+            "startedAt": "2026-10-05T22:44:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:35Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 21,
+            "startedAt": "2026-10-05T22:44:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:35Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 22,
+            "startedAt": "2026-10-05T22:44:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:35Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 23,
+            "startedAt": "2026-10-05T22:44:35Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081250"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:48Z",
+        "conclusion": "success",
+        "databaseId": 112013081259,
+        "name": "Python compatibility (ubuntu-latest, 3.13)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:34Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:35Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:38Z",
+            "conclusion": "success",
+            "name": "Install Python build tooling",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:39Z",
+            "conclusion": "success",
+            "name": "Python compile check",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:44Z",
+            "conclusion": "success",
+            "name": "Python package build",
+            "number": 6,
+            "startedAt": "2026-10-05T22:42:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:44Z",
+            "conclusion": "success",
+            "name": "Python compatibility lane report",
+            "number": 7,
+            "startedAt": "2026-10-05T22:42:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:45Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 8,
+            "startedAt": "2026-10-05T22:42:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:45Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 15,
+            "startedAt": "2026-10-05T22:42:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:46Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 16,
+            "startedAt": "2026-10-05T22:42:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:46Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-10-05T22:42:46Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081259"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:58Z",
+        "conclusion": "success",
+        "databaseId": 112013081305,
+        "name": "Rust baseline (clippy)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:22Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:31Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:34Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Run Rust baseline lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:57Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081305"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:40Z",
+        "conclusion": "success",
+        "databaseId": 112013081306,
+        "name": "Rust baseline (fmt)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:23Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:32Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:34Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:37Z",
+            "conclusion": "success",
+            "name": "Run Rust baseline lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:37Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:38Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:38Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:38Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081306"
+      },
+      {
+        "completedAt": "2026-10-05T22:47:01Z",
+        "conclusion": "success",
+        "databaseId": 112013081313,
+        "name": "Python and package smoke",
+        "startedAt": "2026-10-05T22:42:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:25Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:35Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:46Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:47Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:49Z",
+            "conclusion": "success",
+            "name": "Install Python build tooling",
+            "number": 6,
+            "startedAt": "2026-10-05T22:42:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:52Z",
+            "conclusion": "success",
+            "name": "Python package build",
+            "number": 7,
+            "startedAt": "2026-10-05T22:42:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:46:22Z",
+            "conclusion": "success",
+            "name": "Local package smoke",
+            "number": 8,
+            "startedAt": "2026-10-05T22:42:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:46:58Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 9,
+            "startedAt": "2026-10-05T22:46:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:46:58Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 16,
+            "startedAt": "2026-10-05T22:46:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:46:58Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 17,
+            "startedAt": "2026-10-05T22:46:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:46:58Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 18,
+            "startedAt": "2026-10-05T22:46:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:46:58Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 19,
+            "startedAt": "2026-10-05T22:46:58Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081313"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:20Z",
+        "conclusion": "success",
+        "databaseId": 112013081332,
+        "name": "Rust baseline (test)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:10Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:22Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:31Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:35Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Run Rust baseline lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081332"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:41Z",
+        "conclusion": "success",
+        "databaseId": 112013081346,
+        "name": "CI gate matrix contract",
+        "startedAt": "2026-10-05T22:42:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:35Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:36Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:37Z",
+            "conclusion": "success",
+            "name": "Validate CI gate matrix",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:38Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:38Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:39Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:39Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:39Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081346"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:08Z",
+        "conclusion": "success",
+        "databaseId": 112013081352,
+        "name": "CI work shaping plan",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:33Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:43Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:46Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:46Z",
+            "conclusion": "success",
+            "name": "Collect changed files",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:05Z",
+            "conclusion": "success",
+            "name": "Generate CI work shaping plan",
+            "number": 6,
+            "startedAt": "2026-10-05T22:42:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:06Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:06Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 13,
+            "startedAt": "2026-10-05T22:43:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:06Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 14,
+            "startedAt": "2026-10-05T22:43:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:06Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-10-05T22:43:06Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081352"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:21Z",
+        "conclusion": "success",
+        "databaseId": 112013081388,
+        "name": "Rust MSRV validation",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:23Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:23Z",
+            "conclusion": "success",
+            "name": "Derive workspace version env",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:31Z",
+            "conclusion": "success",
+            "name": "Install Rust MSRV",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:35Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:47Z",
+            "conclusion": "success",
+            "name": "Rust MSRV check",
+            "number": 6,
+            "startedAt": "2026-10-05T22:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Rust MSRV native user surfaces",
+            "number": 7,
+            "startedAt": "2026-10-05T22:42:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Rust MSRV lane report",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:19Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:19Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 17,
+            "startedAt": "2026-10-05T22:43:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:20Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 18,
+            "startedAt": "2026-10-05T22:43:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:20Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 19,
+            "startedAt": "2026-10-05T22:43:20Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081388"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:20Z",
+        "conclusion": "success",
+        "databaseId": 112013081420,
+        "name": "Python compatibility (windows-latest, 3.11)",
+        "startedAt": "2026-10-05T22:42:45Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:47Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:05Z",
+            "conclusion": "success",
+            "name": "Install Python build tooling",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:06Z",
+            "conclusion": "success",
+            "name": "Python compile check",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:14Z",
+            "conclusion": "success",
+            "name": "Python package build",
+            "number": 6,
+            "startedAt": "2026-10-05T22:43:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Python compatibility lane report",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:16Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:16Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 15,
+            "startedAt": "2026-10-05T22:43:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 16,
+            "startedAt": "2026-10-05T22:43:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081420"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:08Z",
+        "conclusion": "success",
+        "databaseId": 112013081429,
+        "name": "Python compatibility (ubuntu-latest, 3.12)",
+        "startedAt": "2026-10-05T22:42:50Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:51Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:00Z",
+            "conclusion": "success",
+            "name": "Install Python build tooling",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:01Z",
+            "conclusion": "success",
+            "name": "Python compile check",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:03Z",
+            "conclusion": "success",
+            "name": "Python package build",
+            "number": 6,
+            "startedAt": "2026-10-05T22:43:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:04Z",
+            "conclusion": "success",
+            "name": "Python compatibility lane report",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:05Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:05Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 15,
+            "startedAt": "2026-10-05T22:43:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:05Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 16,
+            "startedAt": "2026-10-05T22:43:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:05Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-10-05T22:43:05Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081429"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:43Z",
+        "conclusion": "success",
+        "databaseId": 112013081430,
+        "name": "Python test shard (core)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:24Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:24Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:40Z",
+            "conclusion": "success",
+            "name": "Python test shard",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:41Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:41Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:42Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:42Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:42Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081430"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:53Z",
+        "conclusion": "success",
+        "databaseId": 112013081438,
+        "name": "Rust feature matrix (no_default_features)",
+        "startedAt": "2026-10-05T22:42:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:26Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:37Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:39Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:50Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:50Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:51Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:50Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081438"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:07Z",
+        "conclusion": "success",
+        "databaseId": 112013081442,
+        "name": "Python compatibility (ubuntu-latest, 3.10)",
+        "startedAt": "2026-10-05T22:42:47Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:48Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Install Python build tooling",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Python compile check",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:03Z",
+            "conclusion": "success",
+            "name": "Python package build",
+            "number": 6,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:03Z",
+            "conclusion": "success",
+            "name": "Python compatibility lane report",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:04Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:04Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 15,
+            "startedAt": "2026-10-05T22:43:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:04Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 16,
+            "startedAt": "2026-10-05T22:43:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:04Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-10-05T22:43:04Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081442"
+      },
+      {
+        "completedAt": "2026-10-05T22:44:17Z",
+        "conclusion": "success",
+        "databaseId": 112013081445,
+        "name": "Release runtime core evidence",
+        "startedAt": "2026-10-05T22:42:53Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:54Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:01Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:10Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:43:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:23Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:43:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:24Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:05Z",
+            "conclusion": "success",
+            "name": "Golden workflow validator",
+            "number": 6,
+            "startedAt": "2026-10-05T22:43:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:14Z",
+            "conclusion": "success",
+            "name": "Admitted semantics matrix",
+            "number": 7,
+            "startedAt": "2026-10-05T22:44:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:14Z",
+            "conclusion": "success",
+            "name": "Architecture tracker",
+            "number": 8,
+            "startedAt": "2026-10-05T22:44:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:15Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 9,
+            "startedAt": "2026-10-05T22:44:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:16Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 16,
+            "startedAt": "2026-10-05T22:44:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:16Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 17,
+            "startedAt": "2026-10-05T22:44:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:16Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 18,
+            "startedAt": "2026-10-05T22:44:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:16Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 19,
+            "startedAt": "2026-10-05T22:44:16Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081445"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:52Z",
+        "conclusion": "success",
+        "databaseId": 112013081446,
+        "name": "Rust feature matrix (default_features)",
+        "startedAt": "2026-10-05T22:42:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:13Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:26Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:35Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:38Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:49Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:49Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:50Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:50Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081446"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:39Z",
+        "conclusion": "success",
+        "databaseId": 112013081464,
+        "name": "Website and docs validation",
+        "startedAt": "2026-10-05T22:42:50Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:52Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:00Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:10Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+            "number": 3,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:10Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 4,
+            "startedAt": "2026-10-05T22:43:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:17Z",
+            "conclusion": "success",
+            "name": "Install website dependencies",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:17Z",
+            "conclusion": "success",
+            "name": "Audit website dependencies",
+            "number": 6,
+            "startedAt": "2026-10-05T22:43:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:23Z",
+            "conclusion": "success",
+            "name": "Build website",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:32Z",
+            "conclusion": "success",
+            "name": "Check website types",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:33Z",
+            "conclusion": "success",
+            "name": "Public status docs",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:33Z",
+            "conclusion": "success",
+            "name": "Website link tests",
+            "number": 10,
+            "startedAt": "2026-10-05T22:43:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:34Z",
+            "conclusion": "success",
+            "name": "Website readiness",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:34Z",
+            "conclusion": "success",
+            "name": "Static asset validation",
+            "number": 12,
+            "startedAt": "2026-10-05T22:43:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:35Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 13,
+            "startedAt": "2026-10-05T22:43:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:36Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 24,
+            "startedAt": "2026-10-05T22:43:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:36Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+            "number": 25,
+            "startedAt": "2026-10-05T22:43:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:36Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 26,
+            "startedAt": "2026-10-05T22:43:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:36Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 27,
+            "startedAt": "2026-10-05T22:43:36Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081464"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:23Z",
+        "conclusion": "success",
+        "databaseId": 112013081503,
+        "name": "Rust feature matrix (release_user_surfaces)",
+        "startedAt": "2026-10-05T22:42:42Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:44Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:51Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:01Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:06Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:43:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:20Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:20Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:21Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:43:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:21Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:21Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081503"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:02Z",
+        "conclusion": "success",
+        "databaseId": 112013081513,
+        "name": "Rust feature matrix (vortex_local_primitives)",
+        "startedAt": "2026-10-05T22:42:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:15Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:23Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:40Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:45Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:59Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:00Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:00Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081513"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:09Z",
+        "conclusion": "success",
+        "databaseId": 112013081514,
+        "name": "Rust feature matrix (all_features)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:33Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:45Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:49Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:07Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:07Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:08Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:43:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:08Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:08Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081514"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:35Z",
+        "conclusion": "success",
+        "databaseId": 112013081517,
+        "name": "Rust feature matrix (vortex_file_io)",
+        "startedAt": "2026-10-05T22:42:59Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:43:02Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:08Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:43:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:18Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:43:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:22Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:43:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:32Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:32Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:33Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:43:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:33Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:33Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081517"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:56Z",
+        "conclusion": "success",
+        "databaseId": 112013081565,
+        "name": "Rust feature matrix (packaging_deployment)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:29Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:39Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:41Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:54Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:54Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:54Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:54Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:54Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081565"
+      },
+      {
+        "completedAt": "2026-10-05T22:48:43Z",
+        "conclusion": "success",
+        "databaseId": 112013081566,
+        "name": "Rust feature matrix (native_vortex_tests)",
+        "startedAt": "2026-10-05T22:42:59Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:43:02Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:11Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:43:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:22Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:43:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:34Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:43:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:39Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:39Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:48:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:40Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:48:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:40Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:48:40Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081566"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:05Z",
+        "conclusion": "success",
+        "databaseId": 112013081581,
+        "name": "Python compatibility (macos-latest, 3.11)",
+        "startedAt": "2026-10-05T22:42:34Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:36Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:53Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:53Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:55Z",
+            "conclusion": "success",
+            "name": "Install Python build tooling",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Python compile check",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:00Z",
+            "conclusion": "success",
+            "name": "Python package build",
+            "number": 6,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:00Z",
+            "conclusion": "success",
+            "name": "Python compatibility lane report",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:01Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:01Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 15,
+            "startedAt": "2026-10-05T22:43:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:02Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 16,
+            "startedAt": "2026-10-05T22:43:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:03Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-10-05T22:43:02Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081581"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:48Z",
+        "conclusion": "success",
+        "databaseId": 112013081598,
+        "name": "Rust feature matrix (vortex_encoded_read_spike)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:22Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:34Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:37Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:46Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:46Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:47Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:47Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:47Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081598"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:00Z",
+        "conclusion": "success",
+        "databaseId": 112013081611,
+        "name": "Python compatibility (ubuntu-latest, 3.11)",
+        "startedAt": "2026-10-05T22:42:43Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:45Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:52Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:52Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:53Z",
+            "conclusion": "success",
+            "name": "Install Python build tooling",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:54Z",
+            "conclusion": "success",
+            "name": "Python compile check",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:57Z",
+            "conclusion": "success",
+            "name": "Python package build",
+            "number": 6,
+            "startedAt": "2026-10-05T22:42:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:57Z",
+            "conclusion": "success",
+            "name": "Python compatibility lane report",
+            "number": 7,
+            "startedAt": "2026-10-05T22:42:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:58Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 8,
+            "startedAt": "2026-10-05T22:42:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:58Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 15,
+            "startedAt": "2026-10-05T22:42:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:58Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 16,
+            "startedAt": "2026-10-05T22:42:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:58Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-10-05T22:42:58Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081611"
+      },
+      {
+        "completedAt": "2026-10-05T22:42:58Z",
+        "conclusion": "success",
+        "databaseId": 112013081621,
+        "name": "Rust feature matrix (upstream_vortex)",
+        "startedAt": "2026-10-05T22:42:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:33Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:41Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:47Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:55Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:55Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:42:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:42:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:56Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:42:56Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081621"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:16Z",
+        "conclusion": "success",
+        "databaseId": 112013081661,
+        "name": "Rust feature matrix (native_release_clippy)",
+        "startedAt": "2026-10-05T22:42:09Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:23Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:33Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:36Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:16Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081661"
+      },
+      {
+        "completedAt": "2026-10-05T22:44:17Z",
+        "conclusion": "success",
+        "databaseId": 112013081723,
+        "name": "Rust feature matrix (native_public_surface_tests)",
+        "startedAt": "2026-10-05T22:42:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:42:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:42:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:33Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:42:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:42Z",
+            "conclusion": "success",
+            "name": "Run dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8",
+            "number": 3,
+            "startedAt": "2026-10-05T22:42:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:42:58Z",
+            "conclusion": "success",
+            "name": "Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 4,
+            "startedAt": "2026-10-05T22:42:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:13Z",
+            "conclusion": "success",
+            "name": "Run feature lane",
+            "number": 5,
+            "startedAt": "2026-10-05T22:42:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:14Z",
+            "conclusion": "success",
+            "name": "Post Run Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16",
+            "number": 9,
+            "startedAt": "2026-10-05T22:44:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:14Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 10,
+            "startedAt": "2026-10-05T22:44:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:44:14Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-05T22:44:14Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013081723"
+      },
+      {
+        "completedAt": "2026-10-05T22:43:18Z",
+        "conclusion": "success",
+        "databaseId": 112013292695,
+        "name": "Python tests",
+        "startedAt": "2026-10-05T22:43:00Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:43:02Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:43:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:08Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:43:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:08Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:43:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:09Z",
+            "conclusion": "success",
+            "name": "Reuse Python test shard evidence",
+            "number": 4,
+            "startedAt": "2026-10-05T22:43:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:09Z",
+            "conclusion": "success",
+            "name": "Python compile check",
+            "number": 5,
+            "startedAt": "2026-10-05T22:43:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:11Z",
+            "conclusion": "success",
+            "name": "Local UAT storage safety",
+            "number": 6,
+            "startedAt": "2026-10-05T22:43:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:14Z",
+            "conclusion": "success",
+            "name": "ClickBench result and timing harness",
+            "number": 7,
+            "startedAt": "2026-10-05T22:43:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:14Z",
+            "conclusion": "success",
+            "name": "Resident public call path harness",
+            "number": 8,
+            "startedAt": "2026-10-05T22:43:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Held-out native operator harness",
+            "number": 9,
+            "startedAt": "2026-10-05T22:43:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Native output acceptance harness",
+            "number": 10,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Native regression family coverage and supervision",
+            "number": 11,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:15Z",
+            "conclusion": "success",
+            "name": "Merge Python test shard evidence",
+            "number": 12,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:16Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 13,
+            "startedAt": "2026-10-05T22:43:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:16Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 25,
+            "startedAt": "2026-10-05T22:43:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:16Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 26,
+            "startedAt": "2026-10-05T22:43:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:43:17Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 27,
+            "startedAt": "2026-10-05T22:43:16Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112013292695"
+      },
+      {
+        "completedAt": "2026-10-05T23:01:52Z",
+        "conclusion": "success",
+        "databaseId": 112014787113,
+        "name": "Release user-surface evidence",
+        "startedAt": "2026-10-05T22:47:04Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:47:05Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:47:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:47:17Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:47:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:47:17Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:47:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:47:29Z",
+            "conclusion": "success",
+            "name": "Reuse local package smoke evidence",
+            "number": 4,
+            "startedAt": "2026-10-05T22:47:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:47:29Z",
+            "conclusion": "success",
+            "name": "Reuse runtime core evidence",
+            "number": 5,
+            "startedAt": "2026-10-05T22:47:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:47:32Z",
+            "conclusion": "success",
+            "name": "Merge local package smoke evidence",
+            "number": 6,
+            "startedAt": "2026-10-05T22:47:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:51:09Z",
+            "conclusion": "success",
+            "name": "Build debug user-surface example binary",
+            "number": 7,
+            "startedAt": "2026-10-05T22:47:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:45Z",
+            "conclusion": "success",
+            "name": "Build portable release user-surface example binary",
+            "number": 8,
+            "startedAt": "2026-10-05T22:51:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:46Z",
+            "conclusion": "success",
+            "name": "Python user-surface completion gate",
+            "number": 9,
+            "startedAt": "2026-10-05T23:01:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:46Z",
+            "conclusion": "success",
+            "name": "SQL/Python/DataFrame parity gate",
+            "number": 10,
+            "startedAt": "2026-10-05T23:01:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:46Z",
+            "conclusion": "success",
+            "name": "V1 front-door runtime scope gate",
+            "number": 11,
+            "startedAt": "2026-10-05T23:01:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:46Z",
+            "conclusion": "success",
+            "name": "V1 Vortex runtime scope gate",
+            "number": 12,
+            "startedAt": "2026-10-05T23:01:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:46Z",
+            "conclusion": "success",
+            "name": "V1 SourceState/prepared-state scope gate",
+            "number": 13,
+            "startedAt": "2026-10-05T23:01:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:47Z",
+            "conclusion": "success",
+            "name": "V1 local output/sink scope gate",
+            "number": 14,
+            "startedAt": "2026-10-05T23:01:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:47Z",
+            "conclusion": "success",
+            "name": "V1 local resource-safety gate",
+            "number": 15,
+            "startedAt": "2026-10-05T23:01:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:47Z",
+            "conclusion": "success",
+            "name": "V1 observability/supportability gate",
+            "number": 16,
+            "startedAt": "2026-10-05T23:01:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:48Z",
+            "conclusion": "success",
+            "name": "V1 example replay gate",
+            "number": 17,
+            "startedAt": "2026-10-05T23:01:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:48Z",
+            "conclusion": "success",
+            "name": "User-surface runtime gap inventory",
+            "number": 18,
+            "startedAt": "2026-10-05T23:01:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:49Z",
+            "conclusion": "success",
+            "name": "User-surface graduation matrix",
+            "number": 19,
+            "startedAt": "2026-10-05T23:01:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:49Z",
+            "conclusion": "success",
+            "name": "Runtime gap family burn-down",
+            "number": 20,
+            "startedAt": "2026-10-05T23:01:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:49Z",
+            "conclusion": "success",
+            "name": "User route capability report",
+            "number": 21,
+            "startedAt": "2026-10-05T23:01:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:50Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 22,
+            "startedAt": "2026-10-05T23:01:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 43,
+            "startedAt": "2026-10-05T23:01:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 44,
+            "startedAt": "2026-10-05T23:01:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:01:50Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 45,
+            "startedAt": "2026-10-05T23:01:50Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112014787113"
+      },
+      {
+        "completedAt": "2026-10-05T22:48:55Z",
+        "conclusion": "success",
+        "databaseId": 112014787150,
+        "name": "Release package and governance evidence",
+        "startedAt": "2026-10-05T22:47:04Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T22:47:07Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T22:47:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:47:35Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T22:47:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:47:35Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T22:47:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:12Z",
+            "conclusion": "success",
+            "name": "Reuse dependency/security evidence",
+            "number": 4,
+            "startedAt": "2026-10-05T22:47:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:44Z",
+            "conclusion": "success",
+            "name": "Reuse local package smoke evidence",
+            "number": 5,
+            "startedAt": "2026-10-05T22:48:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:48Z",
+            "conclusion": "success",
+            "name": "Merge package/governance input evidence",
+            "number": 6,
+            "startedAt": "2026-10-05T22:48:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:49Z",
+            "conclusion": "success",
+            "name": "Contribution governance",
+            "number": 7,
+            "startedAt": "2026-10-05T22:48:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:49Z",
+            "conclusion": "success",
+            "name": "Workspace version source contract",
+            "number": 8,
+            "startedAt": "2026-10-05T22:48:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:51Z",
+            "conclusion": "success",
+            "name": "Package-channel readiness",
+            "number": 9,
+            "startedAt": "2026-10-05T22:48:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:52Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 10,
+            "startedAt": "2026-10-05T22:48:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:52Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 19,
+            "startedAt": "2026-10-05T22:48:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:52Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 20,
+            "startedAt": "2026-10-05T22:48:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T22:48:53Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-10-05T22:48:52Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112014787150"
+      },
+      {
+        "completedAt": "2026-10-05T23:03:40Z",
+        "conclusion": "success",
+        "databaseId": 112019652222,
+        "name": "Release readiness reports",
+        "startedAt": "2026-10-05T23:01:54Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-05T23:01:56Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-05T23:01:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:09Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-05T23:01:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:10Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-05T23:02:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:10Z",
+            "conclusion": "success",
+            "name": "Reuse CI gate matrix evidence",
+            "number": 4,
+            "startedAt": "2026-10-05T23:02:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:10Z",
+            "conclusion": "success",
+            "name": "Reuse CI work shaping evidence",
+            "number": 5,
+            "startedAt": "2026-10-05T23:02:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:20Z",
+            "conclusion": "success",
+            "name": "Reuse dependency/security evidence",
+            "number": 6,
+            "startedAt": "2026-10-05T23:02:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:31Z",
+            "conclusion": "success",
+            "name": "Reuse local package smoke evidence",
+            "number": 7,
+            "startedAt": "2026-10-05T23:02:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:32Z",
+            "conclusion": "success",
+            "name": "Reuse Python test evidence",
+            "number": 8,
+            "startedAt": "2026-10-05T23:02:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:33Z",
+            "conclusion": "success",
+            "name": "Reuse runtime core evidence",
+            "number": 9,
+            "startedAt": "2026-10-05T23:02:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:33Z",
+            "conclusion": "success",
+            "name": "Reuse package/governance evidence",
+            "number": 10,
+            "startedAt": "2026-10-05T23:02:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:34Z",
+            "conclusion": "success",
+            "name": "Reuse user-surface evidence",
+            "number": 11,
+            "startedAt": "2026-10-05T23:02:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:34Z",
+            "conclusion": "success",
+            "name": "Reuse website/docs evidence",
+            "number": 12,
+            "startedAt": "2026-10-05T23:02:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:38Z",
+            "conclusion": "success",
+            "name": "Merge downloaded release evidence",
+            "number": 13,
+            "startedAt": "2026-10-05T23:02:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:38Z",
+            "conclusion": "success",
+            "name": "Verify downloaded release evidence",
+            "number": 14,
+            "startedAt": "2026-10-05T23:02:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:40Z",
+            "conclusion": "success",
+            "name": "Final release rehearsal",
+            "number": 15,
+            "startedAt": "2026-10-05T23:02:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:40Z",
+            "conclusion": "success",
+            "name": "Production usability gate",
+            "number": 16,
+            "startedAt": "2026-10-05T23:02:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:40Z",
+            "conclusion": "success",
+            "name": "V1 API/schema stability gate",
+            "number": 17,
+            "startedAt": "2026-10-05T23:02:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:40Z",
+            "conclusion": "success",
+            "name": "V1 correctness/conformance gate",
+            "number": 18,
+            "startedAt": "2026-10-05T23:02:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:40Z",
+            "conclusion": "success",
+            "name": "V1 security/CI hardening gate",
+            "number": 19,
+            "startedAt": "2026-10-05T23:02:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:40Z",
+            "conclusion": "success",
+            "name": "Verify v1 security/CI hardening evidence",
+            "number": 20,
+            "startedAt": "2026-10-05T23:02:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:41Z",
+            "conclusion": "success",
+            "name": "V1 release boundary firewall",
+            "number": 21,
+            "startedAt": "2026-10-05T23:02:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:41Z",
+            "conclusion": "success",
+            "name": "Production certification gate",
+            "number": 22,
+            "startedAt": "2026-10-05T23:02:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:41Z",
+            "conclusion": "success",
+            "name": "Hard release readiness gate",
+            "number": 23,
+            "startedAt": "2026-10-05T23:02:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:02:41Z",
+            "conclusion": "success",
+            "name": "Finished product readiness gate",
+            "number": 24,
+            "startedAt": "2026-10-05T23:02:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:03:39Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "number": 25,
+            "startedAt": "2026-10-05T23:02:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:03:39Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 49,
+            "startedAt": "2026-10-05T23:03:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:03:39Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 50,
+            "startedAt": "2026-10-05T23:03:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-05T23:03:39Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 51,
+            "startedAt": "2026-10-05T23:03:39Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663/job/112019652222"
+      }
+    ],
+    "status": "completed",
+    "updatedAt": "2026-10-05T23:03:41Z",
+    "url": "https://github.com/depsilon/shardloom/actions/runs/37383859663",
+    "workflowName": "CI"
+  },
+  "portable_release_build": {
+    "status": "passed",
+    "source_commit": "d9ccd11d069f16fd57bc84b944c54672f09351bc",
+    "source_tree": "c548cc88b3ff71947d592bafa3fee45b7461bd44",
+    "source_tree_clean": true,
+    "cargo_target_directory": "/Users/dylan/.cache/shardloom/cargo-target",
+    "compiler_overrides": false,
+    "build_environment": {
+      "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0"
+    },
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
+    "command": [
+      "/Users/dylan/.cargo/bin/rustup",
+      "run",
+      "1.99.0",
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "shardloom-cli",
+      "--bin",
+      "shardloom",
+      "--features",
+      "release-user-surfaces"
+    ],
+    "publication_attempted": false,
+    "version": "shardloom 0.4.0",
+    "binary_sha256": "6ee66b87ae0279cb579b556de273d7778174d9937ddf070128d2807bd3ec7ac2",
+    "binary_bytes": 73429088,
+    "binary": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/bin/shardloom-release-040-d9ccd11d069f",
+    "seconds": 1.3075918330578133
+  },
+  "pr_acceptance_snapshots": {
+    "1518": {
+      "baseRefName": "main",
+      "headRefOid": "addb6250b7a379d25d24a1054c742240007d4ee9",
+      "mergeStateStatus": "CLEAN",
+      "number": 1518,
+      "reviewDecision": "",
+      "reviews": [],
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:34:14Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324226",
+          "name": "CI work shaping plan",
+          "startedAt": "2026-10-05T17:32:56Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:40:41Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916611/job/111894507953",
+          "name": "CodeQL rust",
+          "startedAt": "2026-10-05T17:30:22Z",
+          "status": "COMPLETED",
+          "workflowName": "CodeQL Analysis"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:12Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916611/job/111894505991",
+          "name": "CodeQL python",
+          "startedAt": "2026-10-05T17:30:22Z",
+          "status": "COMPLETED",
+          "workflowName": "CodeQL Analysis"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:49Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324004",
+          "name": "Rust baseline (fmt)",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:07Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324171",
+          "name": "Rust baseline (clippy)",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:36:05Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324083",
+          "name": "Rust baseline (test)",
+          "startedAt": "2026-10-05T17:33:09Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:10Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324281",
+          "name": "Rust feature matrix (default_features)",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:34:38Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324373",
+          "name": "Rust feature matrix (all_features)",
+          "startedAt": "2026-10-05T17:33:05Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:04Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324071",
+          "name": "Rust feature matrix (no_default_features)",
+          "startedAt": "2026-10-05T17:32:20Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:55Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324132",
+          "name": "Rust feature matrix (upstream_vortex)",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:08Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324111",
+          "name": "Rust feature matrix (vortex_file_io)",
+          "startedAt": "2026-10-05T17:32:38Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:01Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324207",
+          "name": "Rust feature matrix (vortex_local_primitives)",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:34Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324427",
+          "name": "Rust feature matrix (vortex_encoded_read_spike)",
+          "startedAt": "2026-10-05T17:33:02Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:23Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324251",
+          "name": "Rust feature matrix (release_user_surfaces)",
+          "startedAt": "2026-10-05T17:32:42Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:37:58Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324163",
+          "name": "Rust feature matrix (native_vortex_tests)",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:34:44Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324203",
+          "name": "Rust feature matrix (native_public_surface_tests)",
+          "startedAt": "2026-10-05T17:32:40Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:43Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324214",
+          "name": "Rust feature matrix (native_release_clippy)",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:54Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324194",
+          "name": "Rust feature matrix (packaging_deployment)",
+          "startedAt": "2026-10-05T17:32:56Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:29Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895323802",
+          "name": "Rust MSRV validation",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:49Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324047",
+          "name": "Python test shard (core)",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:32Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324101",
+          "name": "Python test shard (front_door_benchmark_publication)",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:40Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324368",
+          "name": "Python test shard (release_scripts)",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:09Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324309",
+          "name": "Python compatibility (ubuntu-latest, 3.10)",
+          "startedAt": "2026-10-05T17:32:51Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:36Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324234",
+          "name": "Python compatibility (ubuntu-latest, 3.11)",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:40Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324113",
+          "name": "Python compatibility (ubuntu-latest, 3.12)",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:38Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895323928",
+          "name": "Python compatibility (ubuntu-latest, 3.13)",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:18Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324197",
+          "name": "Python compatibility (macos-latest, 3.11)",
+          "startedAt": "2026-10-05T17:32:40Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:16Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324191",
+          "name": "Python compatibility (windows-latest, 3.11)",
+          "startedAt": "2026-10-05T17:32:38Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:38:00Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324267",
+          "name": "Python and package smoke",
+          "startedAt": "2026-10-05T17:33:07Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:34:13Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324165",
+          "name": "Dependency and security gates",
+          "startedAt": "2026-10-05T17:32:42Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:57Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324102",
+          "name": "Release runtime core evidence",
+          "startedAt": "2026-10-05T17:32:19Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:04Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324024",
+          "name": "Website and docs validation",
+          "startedAt": "2026-10-05T17:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:35Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895324126",
+          "name": "CI gate matrix contract",
+          "startedAt": "2026-10-05T17:32:20Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:33:30Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111895556511",
+          "name": "Python tests",
+          "startedAt": "2026-10-05T17:33:09Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:38:59Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111897743732",
+          "name": "Release package and governance evidence",
+          "startedAt": "2026-10-05T17:38:03Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:53:51Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111897743574",
+          "name": "Release user-surface evidence",
+          "startedAt": "2026-10-05T17:38:03Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:55:32Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37348916682/job/111904398489",
+          "name": "Release readiness reports",
+          "startedAt": "2026-10-05T17:53:54Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:32:05Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/runs/111895217341",
+          "name": "CodeQL",
+          "startedAt": "2026-10-05T17:32:01Z",
+          "status": "COMPLETED",
+          "workflowName": ""
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-05T17:31:00Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/1f5acf2c-ed8a-4517-b1fd-f1266ae0c659",
+          "name": "Workers Builds: shardloom",
+          "startedAt": "2026-10-05T17:31:00Z",
+          "status": "COMPLETED",
+          "workflowName": ""
+        }
+      ],
+      "url": "https://github.com/depsilon/shardloom/pull/1518",
+      "checked_at_utc": "2026-10-05T17:56:59.858811+00:00"
+    },
+    "1519": {
+      "view": {
+        "baseRefName": "main",
+        "headRefOid": "21f6c1549257262a54e3fa9678064e10c264408f",
+        "isDraft": false,
+        "mergeStateStatus": "CLEAN",
+        "mergeable": "MERGEABLE",
+        "number": 1519,
+        "state": "OPEN",
+        "statusCheckRollup": [
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:12Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287213",
+            "name": "CI work shaping plan",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:22:30Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891739/job/112002285986",
+            "name": "CodeQL rust",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CodeQL Analysis"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:44Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891739/job/112002285753",
+            "name": "CodeQL python",
+            "startedAt": "2026-10-05T22:11:56Z",
+            "status": "COMPLETED",
+            "workflowName": "CodeQL Analysis"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:42Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287247",
+            "name": "Rust baseline (fmt)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:50Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287359",
+            "name": "Rust baseline (clippy)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:03Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287283",
+            "name": "Rust baseline (test)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:17Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287766",
+            "name": "Rust feature matrix (default_features)",
+            "startedAt": "2026-10-05T22:12:40Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:23Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287858",
+            "name": "Rust feature matrix (all_features)",
+            "startedAt": "2026-10-05T22:12:43Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:04Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287600",
+            "name": "Rust feature matrix (no_default_features)",
+            "startedAt": "2026-10-05T22:12:25Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:23Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287836",
+            "name": "Rust feature matrix (upstream_vortex)",
+            "startedAt": "2026-10-05T22:12:42Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:58Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287819",
+            "name": "Rust feature matrix (vortex_file_io)",
+            "startedAt": "2026-10-05T22:12:25Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:22Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287659",
+            "name": "Rust feature matrix (vortex_local_primitives)",
+            "startedAt": "2026-10-05T22:12:24Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:40Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287642",
+            "name": "Rust feature matrix (vortex_encoded_read_spike)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:00Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287801",
+            "name": "Rust feature matrix (release_user_surfaces)",
+            "startedAt": "2026-10-05T22:12:22Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:18:16Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287983",
+            "name": "Rust feature matrix (native_vortex_tests)",
+            "startedAt": "2026-10-05T22:12:53Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:52Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287737",
+            "name": "Rust feature matrix (native_public_surface_tests)",
+            "startedAt": "2026-10-05T22:12:36Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:09Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287560",
+            "name": "Rust feature matrix (native_release_clippy)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:34Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287434",
+            "name": "Rust feature matrix (packaging_deployment)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:59Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002286818",
+            "name": "Rust MSRV validation",
+            "startedAt": "2026-10-05T22:11:56Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:38Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287329",
+            "name": "Python test shard (core)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:20Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287429",
+            "name": "Python test shard (front_door_benchmark_publication)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:00Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287525",
+            "name": "Python test shard (release_scripts)",
+            "startedAt": "2026-10-05T22:12:40Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:24Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287381",
+            "name": "Python compatibility (ubuntu-latest, 3.10)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:21Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287127",
+            "name": "Python compatibility (ubuntu-latest, 3.11)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:24Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287531",
+            "name": "Python compatibility (ubuntu-latest, 3.12)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:23Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287428",
+            "name": "Python compatibility (ubuntu-latest, 3.13)",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:47Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287524",
+            "name": "Python compatibility (macos-latest, 3.11)",
+            "startedAt": "2026-10-05T22:12:22Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:02Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287506",
+            "name": "Python compatibility (windows-latest, 3.11)",
+            "startedAt": "2026-10-05T22:12:22Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:17:34Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287583",
+            "name": "Python and package smoke",
+            "startedAt": "2026-10-05T22:12:48Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:23Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287292",
+            "name": "Dependency and security gates",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:01Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287201",
+            "name": "Release runtime core evidence",
+            "startedAt": "2026-10-05T22:11:56Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:38Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287426",
+            "name": "Website and docs validation",
+            "startedAt": "2026-10-05T22:11:57Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:16Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002287235",
+            "name": "CI gate matrix contract",
+            "startedAt": "2026-10-05T22:11:58Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:48Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112002683517",
+            "name": "Python tests",
+            "startedAt": "2026-10-05T22:13:02Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:19:08Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112004403046",
+            "name": "Release package and governance evidence",
+            "startedAt": "2026-10-05T22:17:38Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:31:33Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112004402880",
+            "name": "Release user-surface evidence",
+            "startedAt": "2026-10-05T22:17:36Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:34:59Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37380891731/job/112009457923",
+            "name": "Release readiness reports",
+            "startedAt": "2026-10-05T22:31:36Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:13:37Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/runs/112002898082",
+            "name": "CodeQL",
+            "startedAt": "2026-10-05T22:13:34Z",
+            "status": "COMPLETED",
+            "workflowName": ""
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:12:43Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/b44f2a45-254d-4e4d-824c-9ee52329adb6",
+            "name": "Workers Builds: shardloom",
+            "startedAt": "2026-10-05T22:12:43Z",
+            "status": "COMPLETED",
+            "workflowName": ""
+          }
+        ]
+      },
+      "review": {
+        "data": {
+          "repository": {
+            "pullRequest": {
+              "headRefOid": "21f6c1549257262a54e3fa9678064e10c264408f",
+              "reviewDecision": null,
+              "reviews": {
+                "totalCount": 0,
+                "pageInfo": {
+                  "hasNextPage": false
+                },
+                "nodes": []
+              },
+              "reviewThreads": {
+                "totalCount": 0,
+                "pageInfo": {
+                  "hasNextPage": false
+                },
+                "nodes": []
+              },
+              "comments": {
+                "totalCount": 2,
+                "pageInfo": {
+                  "hasNextPage": false
+                },
+                "nodes": [
+                  {
+                    "author": {
+                      "login": "chatgpt-codex-connector"
+                    },
+                    "body": "You have reached your Codex usage limits for code reviews. You can see your limits in the [Codex usage dashboard](https://chatgpt.com/codex/cloud/settings/usage).\nTo continue using code reviews, add credits to your account and enable them for code reviews in your [settings](https://chatgpt.com/codex/cloud/settings/code-review).",
+                    "url": "https://github.com/depsilon/shardloom/pull/1519#issuecomment-5999017710"
+                  },
+                  {
+                    "author": {
+                      "login": "cloudflare-workers-and-pages"
+                    },
+                    "body": "## Deploying with &nbsp;<a href=\"https://workers.dev\"><img alt=\"Cloudflare Workers\" src=\"https://workers.cloudflare.com/logo.svg\" width=\"16\"></a> &nbsp;Cloudflare Workers\nThe latest updates on your project. Learn more about [integrating Git with Workers](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).\n\n| Status | Name | Latest Commit | Preview URL | Updated (UTC) |\n| -|-|-|-|-|\n| \u2705 Deployment successful! <br>[View logs](https://dash.cloudflare.com/?to=/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/b44f2a45-254d-4e4d-824c-9ee52329adb6) | shardloom | 21f6c154 | <a href='https://b833f811-shardloom.djheinrich.workers.dev'>Commit Preview URL</a><br><br><a href='https://codex-native-analytic-frames-shardloom.djheinrich.workers.dev'>Branch Preview URL</a> | Oct 05 2026, 10:12 PM |",
+                    "url": "https://github.com/depsilon/shardloom/pull/1519#issuecomment-5999050887"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "1520": {
+      "view": {
+        "baseRefName": "main",
+        "headRefOid": "9eb9a1987ee395d6db790bf9605771d02190deeb",
+        "isDraft": false,
+        "mergeStateStatus": "CLEAN",
+        "mergeable": "MERGEABLE",
+        "number": 1520,
+        "state": "OPEN",
+        "statusCheckRollup": [
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:01Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042469",
+            "name": "CI work shaping plan",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:32Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042555",
+            "name": "Rust baseline (fmt)",
+            "startedAt": "2026-10-05T22:13:59Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:09Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042768",
+            "name": "Rust baseline (clippy)",
+            "startedAt": "2026-10-05T22:14:24Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:35Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042752",
+            "name": "Rust baseline (test)",
+            "startedAt": "2026-10-05T22:14:26Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:40Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042874",
+            "name": "Rust feature matrix (default_features)",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:20Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042881",
+            "name": "Rust feature matrix (all_features)",
+            "startedAt": "2026-10-05T22:14:33Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:45Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003043085",
+            "name": "Rust feature matrix (no_default_features)",
+            "startedAt": "2026-10-05T22:15:15Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:45Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042995",
+            "name": "Rust feature matrix (upstream_vortex)",
+            "startedAt": "2026-10-05T22:14:54Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:13Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042859",
+            "name": "Rust feature matrix (vortex_file_io)",
+            "startedAt": "2026-10-05T22:14:35Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:44Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003043066",
+            "name": "Rust feature matrix (vortex_local_primitives)",
+            "startedAt": "2026-10-05T22:15:10Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:35Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003043017",
+            "name": "Rust feature matrix (vortex_encoded_read_spike)",
+            "startedAt": "2026-10-05T22:14:47Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:08Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042901",
+            "name": "Rust feature matrix (release_user_surfaces)",
+            "startedAt": "2026-10-05T22:14:33Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:19:40Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042841",
+            "name": "Rust feature matrix (native_vortex_tests)",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:16:36Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042951",
+            "name": "Rust feature matrix (native_public_surface_tests)",
+            "startedAt": "2026-10-05T22:14:32Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:14Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042890",
+            "name": "Rust feature matrix (native_release_clippy)",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:47Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042946",
+            "name": "Rust feature matrix (packaging_deployment)",
+            "startedAt": "2026-10-05T22:14:52Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:31Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042508",
+            "name": "Rust MSRV validation",
+            "startedAt": "2026-10-05T22:14:39Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:51Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042637",
+            "name": "Python test shard (core)",
+            "startedAt": "2026-10-05T22:14:01Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:31Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042636",
+            "name": "Python test shard (front_door_benchmark_publication)",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:24Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042769",
+            "name": "Python test shard (release_scripts)",
+            "startedAt": "2026-10-05T22:14:02Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:38Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042707",
+            "name": "Python compatibility (ubuntu-latest, 3.10)",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:28Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042805",
+            "name": "Python compatibility (ubuntu-latest, 3.11)",
+            "startedAt": "2026-10-05T22:15:09Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:31Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042711",
+            "name": "Python compatibility (ubuntu-latest, 3.12)",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:34Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042519",
+            "name": "Python compatibility (ubuntu-latest, 3.13)",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:45Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042573",
+            "name": "Python compatibility (macos-latest, 3.11)",
+            "startedAt": "2026-10-05T22:14:06Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:36Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042616",
+            "name": "Python compatibility (windows-latest, 3.11)",
+            "startedAt": "2026-10-05T22:14:02Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:18:46Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042644",
+            "name": "Python and package smoke",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:54Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042703",
+            "name": "Dependency and security gates",
+            "startedAt": "2026-10-05T22:14:37Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:53Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042169",
+            "name": "Release runtime core evidence",
+            "startedAt": "2026-10-05T22:14:00Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:47Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042683",
+            "name": "Website and docs validation",
+            "startedAt": "2026-10-05T22:15:03Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:51Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003042577",
+            "name": "CI gate matrix contract",
+            "startedAt": "2026-10-05T22:14:41Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:15:38Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112003379584",
+            "name": "Python tests",
+            "startedAt": "2026-10-05T22:15:16Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:20:16Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112004843187",
+            "name": "Release package and governance evidence",
+            "startedAt": "2026-10-05T22:18:49Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:35:10Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112004843242",
+            "name": "Release user-surface evidence",
+            "startedAt": "2026-10-05T22:18:49Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:36:58Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/37381110705/job/112010717252",
+            "name": "Release readiness reports",
+            "startedAt": "2026-10-05T22:35:12Z",
+            "status": "COMPLETED",
+            "workflowName": "CI"
+          },
+          {
+            "__typename": "CheckRun",
+            "completedAt": "2026-10-05T22:14:40Z",
+            "conclusion": "SUCCESS",
+            "detailsUrl": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/7745e96f-97c4-4128-849f-49cdb13f7f9b",
+            "name": "Workers Builds: shardloom",
+            "startedAt": "2026-10-05T22:14:40Z",
+            "status": "COMPLETED",
+            "workflowName": ""
+          }
+        ]
+      },
+      "review": {
+        "data": {
+          "repository": {
+            "pullRequest": {
+              "headRefOid": "9eb9a1987ee395d6db790bf9605771d02190deeb",
+              "reviewDecision": null,
+              "reviews": {
+                "totalCount": 0,
+                "pageInfo": {
+                  "hasNextPage": false
+                },
+                "nodes": []
+              },
+              "reviewThreads": {
+                "totalCount": 0,
+                "pageInfo": {
+                  "hasNextPage": false
+                },
+                "nodes": []
+              },
+              "comments": {
+                "totalCount": 2,
+                "pageInfo": {
+                  "hasNextPage": false
+                },
+                "nodes": [
+                  {
+                    "author": {
+                      "login": "chatgpt-codex-connector"
+                    },
+                    "body": "You have reached your Codex usage limits for code reviews. You can see your limits in the [Codex usage dashboard](https://chatgpt.com/codex/cloud/settings/usage).\nTo continue using code reviews, add credits to your account and enable them for code reviews in your [settings](https://chatgpt.com/codex/cloud/settings/code-review).",
+                    "url": "https://github.com/depsilon/shardloom/pull/1520#issuecomment-6004199234"
+                  },
+                  {
+                    "author": {
+                      "login": "cloudflare-workers-and-pages"
+                    },
+                    "body": "## Deploying with &nbsp;<a href=\"https://workers.dev\"><img alt=\"Cloudflare Workers\" src=\"https://workers.cloudflare.com/logo.svg\" width=\"16\"></a> &nbsp;Cloudflare Workers\nThe latest updates on your project. Learn more about [integrating Git with Workers](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/).\n\n| Status | Name | Latest Commit | Preview URL | Updated (UTC) |\n| -|-|-|-|-|\n| \u2705 Deployment successful! <br>[View logs](https://dash.cloudflare.com/?to=/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/7745e96f-97c4-4128-849f-49cdb13f7f9b) | shardloom | 9eb9a198 | <a href='https://07a46dc5-shardloom.djheinrich.workers.dev'>Commit Preview URL</a><br><br><a href='https://codex-release-040-resume-shardloom.djheinrich.workers.dev'>Branch Preview URL</a> | Oct 05 2026, 10:14 PM |",
+                    "url": "https://github.com/depsilon/shardloom/pull/1520#issuecomment-6004204524"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "uat_source_comparison": {
+    "frozen_measured_source": "22f1e6ba5a5ca7855a85862e89612fe8fbc5e06b",
+    "release_source": "d9ccd11d069f16fd57bc84b944c54672f09351bc",
+    "comparison_pathspecs": [
+      "*Cargo*",
+      "python/src/**",
+      "shardloom-*/src/**"
+    ],
+    "changed_paths_in_runtime_comparison": [],
+    "all_changed_paths": [
+      "docs/architecture/local-development-storage.md",
+      "docs/architecture/native-analytic-frames-2026-10-05.md",
+      "docs/architecture/phased-execution-plan.md",
+      "docs/architecture/universal-workflow-completion-2026-10-01.md",
+      "docs/benchmarks/evidence/native-analytic-frames-2026-10-05.json.xz",
+      "docs/benchmarks/evidence/native-analytic-frames-conformance-repair-2026-10-05.json",
+      "docs/benchmarks/evidence/native-analytic-frames-inspection-2026-10-05.json",
+      "docs/benchmarks/evidence/native-analytic-frames-integration-2026-10-05.json",
+      "docs/benchmarks/evidence/native-typed-reductions-first-steps-metadata-repair-2026-10-05.json",
+      "docs/benchmarks/evidence/native-typed-reductions-first-steps-repair-2026-10-05.json",
+      "docs/benchmarks/evidence/native-typed-reductions-metadata-test-repair-2026-10-05.json",
+      "docs/benchmarks/evidence/native-typed-reductions-package-checker-2026-10-05.json",
+      "docs/benchmarks/evidence/native-typed-reductions-release-report-repair-2026-10-05.json",
+      "docs/benchmarks/evidence/release-candidate-fresh-uat-2026-10-05.json.xz",
+      "docs/benchmarks/evidence/release-candidate-fresh-uat-inspection-2026-10-05.json",
+      "docs/benchmarks/native-analytic-frames-full43-2026-10-05.md",
+      "docs/benchmarks/native-typed-reductions-full43-2026-10-05.md",
+      "docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md",
+      "docs/getting-started/first-10-minutes.md",
+      "docs/release/evidence/v0.4.0-readiness-consumer-repair-2026-10-05.json",
+      "docs/release/hard-release-readiness-gate.md",
+      "docs/release/v0.4.0-candidate-channel-check-2026-10-05.json",
+      "docs/release/v0.4.0-release-notes.md",
+      "docs/release/v1-correctness-conformance-matrix.json",
+      "docs/release/v1-inclusion-scope-matrix.md",
+      "docs/status/admitted-semantics-matrix.md",
+      "examples/local-python-smoke/README.md",
+      "examples/local-python-smoke/run.py",
+      "python/tests/test_release_report_producer_contracts.py",
+      "python/tests/test_release_scripts.py",
+      "python/tests/test_v1_correctness_conformance.py",
+      "python/tests/test_v1_local_resource_scope_contracts.py",
+      "python/tests/test_v1_observability_support.py",
+      "scripts/check_golden_workflows.py",
+      "scripts/check_release_readiness.py",
+      "scripts/check_user_route_capability_report.py",
+      "scripts/check_v1_correctness_conformance.py",
+      "scripts/check_v1_example_replay.py",
+      "scripts/check_v1_observability_support.py",
+      "scripts/check_v1_source_prepared_state_scope.py",
+      "scripts/golden_workflow_contract.py",
+      "scripts/local_python_example_evidence.py",
+      "scripts/release_dry_run_proof.py",
+      "shardloom-contract-tests/tests/release_readiness_metadata.rs"
+    ],
+    "runtime_timing_relabelled_as_release_build": false
+  },
+  "evidence_refs": [
+    {
+      "path": "docs/benchmarks/native-typed-reductions-full43-2026-10-05.md",
+      "sha256": "0e261511755f8b296dffcbd8b7cb3cfb118fcacf8a3914d7c7e42c9d7c335c98",
+      "size_bytes": 12662
+    },
+    {
+      "path": "docs/benchmarks/native-analytic-frames-full43-2026-10-05.md",
+      "sha256": "70d6b0acb900cb32ae40292c5fa2b40df454cc7527761cbc82421183ecf04ca8",
+      "size_bytes": 10505
+    },
+    {
+      "path": "docs/benchmarks/evidence/native-analytic-frames-conformance-repair-2026-10-05.json",
+      "sha256": "d441fa7cad05117074e16930ba2e1ed0b8874dc557a84913415ce23c4bc044ce",
+      "size_bytes": 1359140
+    },
+    {
+      "path": "docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md",
+      "sha256": "70aa4eaa8586e2b046363e8da9c2f518746886c25a2f4cf03063f4e82ec0b7e9",
+      "size_bytes": 7075
+    },
+    {
+      "path": "docs/benchmarks/evidence/release-candidate-fresh-uat-2026-10-05.json.xz",
+      "sha256": "8a5011434abc70a9a3593f4ee8428d195e8fa68cc1ecd46a60371ec76bab7cda",
+      "size_bytes": 2036460
+    },
+    {
+      "path": "docs/benchmarks/evidence/release-candidate-fresh-uat-inspection-2026-10-05.json",
+      "sha256": "0206c3f08bc4052251b51dbc16efe30480b5ca5fbf8827910e86c932b0297822",
+      "size_bytes": 17407
+    }
+  ],
+  "limitations": [
+    "Hosted checks are distinct from independent review approval; no submitted PR reviews are claimed.",
+    "The frozen UAT executable is different from the portable package executable; measurements retain their own identities.",
+    "Installation proofs are maintained per channel; this source record does not certify channel publication.",
+    "The October 3 source-version validation packet remains immutable historical evidence."
+  ],
+  "channel_publication_certified_by_this_record": false,
+  "production_readiness_claimed": false,
+  "performance_superiority_claimed": false
+}
