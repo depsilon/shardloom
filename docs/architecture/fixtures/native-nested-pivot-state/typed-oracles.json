@@ -1,0 +1,54 @@
+{
+  "status": "independent literal typed fixtures; no candidate output used",
+  "struct_index_fixed_domains": {
+    "source_schema": {
+      "entity": "struct<a:int16!,b:utf8!>?",
+      "category": "fixed_size_list<int64!,2>!",
+      "amount": "struct<tag:utf8!,numbers:list<int64?>!>?"
+    },
+    "source": [
+      [{"a":2,"b":"two"},[1,2],{"tag":"東京","numbers":[9,null]}],
+      [{"a":1,"b":"one"},[1,2],null],
+      [{"a":2,"b":"two"},[2,3],{"tag":"","numbers":[]}],
+      [null,[1,2],{"tag":"edge","numbers":[-4]}],
+      [{"a":2,"b":"two"},[1,2],{"tag":"東京","numbers":[9,null]}],
+      [{"a":1,"b":"one"},[1,2],null]
+    ],
+    "output_columns": ["entity","pivot_f2_i1_i2","pivot_f2_i2_i3"],
+    "first_unique": [
+      [{"a":1,"b":"one"},null,null],
+      [{"a":2,"b":"two"},{"tag":"東京","numbers":[9,null]},{"tag":"","numbers":[]}],
+      [null,{"tag":"edge","numbers":[-4]},null]
+    ],
+    "count": [
+      [{"a":1,"b":"one"},2,null],
+      [{"a":2,"b":"two"},2,1],
+      [null,1,null]
+    ]
+  },
+  "fixed_index_struct_domains": {
+    "source_schema": {
+      "entity": "fixed_size_list<int16!,2>?",
+      "category": "struct<a:int64!>?",
+      "amount": "list<utf8?>?"
+    },
+    "source": [
+      [[1,2],{"a":1},["東京",null]],
+      [[1,2],{"a":2},["a-b"]],
+      [null,{"a":1},[]],
+      [[1,2],{"a":1},["東京",null]],
+      [[3,4],null,null]
+    ],
+    "output_columns": ["entity","pivot_s1_1_ai1","pivot_s1_1_ai2","pivot_value"],
+    "first_unique": [
+      [[1,2],["東京",null],["a-b"],null],
+      [[3,4],null,null,null],
+      [null,[],null,null]
+    ],
+    "count": [
+      [[1,2],2,1,null],
+      [[3,4],null,null,1],
+      [null,1,null,null]
+    ]
+  }
+}

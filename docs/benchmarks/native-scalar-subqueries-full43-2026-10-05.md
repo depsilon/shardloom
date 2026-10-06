@@ -15,6 +15,17 @@ native subquery, expression, source, resource and writer owners. The
 defines the admitted scope. Current source builds include this addition;
 published v0.4.0 packages predate it.
 
+Hosted integration completed in [PR #1524](https://github.com/depsilon/shardloom/pull/1524)
+after all 39 checks passed on `c8cc6ab58ad827f9362d2a9b614dc14c53614a8c`.
+Merge `024b872dc89fec05e4bc7ff7a499725d2d9a831e` has the same tree as that accepted
+head. Primary adversarial review passed; no independent submitted review is
+claimed, and the automated review bot reported the account review limit.
+The [hosted integration receipt](evidence/native-scalar-subqueries-hosted-2026-10-06.json)
+preserves pre/post-merge snapshots, final review state and successful production
+deployment. Ordinary browser checks passed for preview and production guidance,
+the support label and its link. Anonymous HTTP checks returned 403; complete
+deployed HTML byte identity remains unverified.
+
 ## Frozen identities
 
 | Artifact | Identity |

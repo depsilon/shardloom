@@ -249,38 +249,40 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-SCALAR-SUBQUERIES` — continue the universal workflow queue after the
-  merged typed-reduction and analytic-frame units, under PERF-02/03/06/07/10/12 and
-  CG-5/19/20/21. Extend the existing native subquery and expression owners to
-  scalar-value use through the shared SQL/Python/CLI workflow boundary.
+- [ ] `NATIVE-NESTED-PIVOT-STATE` — continue the universal workflow queue after
+  scalar-subquery hosted integration, under PERF-02/03/06/07/10/11/12 and
+  CG-3/5/19/20/21. Extend the existing sparse pivot owner to admitted static
+  List, FixedSizeList and Struct keys and selected cells.
   - V1 scope classification: `required_for_v1` for admitted local composition;
     broader SQL parity remains scoped by the finite inventory.
-  - ShardLoom technique review: preserve native typed values, source-generation
-    checks, shared reservations, capillary units, PulseWeave admission and
-    timing/evidence separation. Check the pinned Vortex providers before adding
-    an abstraction; no second planner, executor or external-engine fallback.
-  - Execution contract: [native scalar subqueries](native-scalar-subqueries-2026-10-05.md).
-    Freeze uncorrelated/correlated cardinality, null/type,
-    expression-evaluation, cancellation and resource semantics against current
-    source; implement through existing retained-state owners; verify independent
-    complete results, denied shapes, native output and public surface parity.
+  - ShardLoom technique review: reuse exact key/comparison owners, compact native
+    payload retention, sparse state, one PulseWeave grant, capillary delivery and
+    bounded output. Preserve source generations and timing/evidence separation;
+    no nested ScalarValue tree, second executor or external-engine fallback.
+  - Execution contract: [native nested pivot state](native-nested-pivot-state-2026-10-06.md).
+    Bind nested identity, selected first/first-unique/COUNT/MIN/MAX, null/type,
+    fill, margins and output-name semantics before execution. Preserve existing
+    primitive/decimal policy and Python aliases; nested SUM/MEAN, non-NULL fill
+    and nested-index margins remain explicit denials.
   - Execution checklist:
-    - [x] Define cardinality, static schema, selected demand, correlation and
-      resource ownership in the existing subquery/expression families.
-    - [x] Implement native lowering, typed results and Python source propagation;
-      pass focused cardinality, lazy-branch, type, resource and cleanup checks.
-    - [x] Pass 27 workspace/native/Python/source gates, all 599 Python tests with
-      optional dependencies, 23,786 public checks and 202 direct checks, plus all
-      129 Full43 runs. The [acceptance report](../benchmarks/native-scalar-subqueries-full43-2026-10-05.md)
-      records the immutable build and independent packet inspection.
-    - [x] Update support documentation, Python examples and Field Guide references;
-      distinguish current-source support from the published v0.4.0 packages.
+    - [x] Define the shared-state contract and freeze initial literal nested
+      results and domain names independently of the candidate implementation.
+    - [x] Extend the shared pivot and native retained/output owners; verify
+      complete values, empty admission, names, duplicate cells and margins.
+    - [x] Prove compact retention, replacement overlap, constrained grants,
+      cancellation, failed consumers/source generations and writer cleanup.
+    - [ ] Pass required workspace/native/Python/source gates, complete public
+      SQL/DataFrame/direct workflows, writer readback and Full43 regression;
+      freeze source, binary, independent oracles and all failed attempts.
+    - [ ] Align current-source support documentation, labels and Field Guide
+      with actual acceptance, keeping published-package scope distinct.
     - [ ] Complete hosted review/integration and move the accepted unit to the ledger.
   - Acceptance: required workspace/native/Python gates, public workflow and
     Full43 regression evidence, exact source/binary identity and hosted integration.
     Availability does not require a speedup or authorize a production claim.
-  - Follow-on: nested pivot state, remaining adapters and reader/codec/operator
-    resource/failure transitions retain their existing owners. Apply the
+  - Follow-on: remaining adapters and reader/codec/operator resource, spill and
+    failure transitions retain their existing owners. Pivot spill is not admitted
+    by existing sort-spill permission. Apply the
     [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
     when accepting a stable local support envelope; do not wait for unrelated
     cloud or complete-SQL parity, or infer readiness from package publication.
@@ -338,7 +340,7 @@ nested payloads, dynamic pivot schemas, flat binary/decimal/temporal payloads
 and keys, scoped typed expressions, typed unary state and nested keys/state are
 merged, as are typed reductions and analytic frames. The typed-unary report retains
 Q9's inconclusive performance observation. Scalar-value subqueries have complete
-core-local acceptance in source builds after v0.4.0, with hosted integration pending.
+local and hosted acceptance in source builds after v0.4.0 through PR #1524.
 Nested pivot state, broader aggregate/window semantics, adapters and resource
 obligations remain open under their existing owners.
 
@@ -2762,8 +2764,9 @@ and complete query acceptance recorded in the completed ledger. The hosted merge
 record `NATIVE-NESTED-COMPOSITION`, `NATIVE-DYNAMIC-PIVOT-COMPOSITION`,
 `NATIVE-TYPED-PAYLOADS`, `NATIVE-TYPED-KEYS`, `NATIVE-TYPED-EXPRESSIONS`,
 `NATIVE-TYPED-UNARY`, `NATIVE-NESTED-KEYS-STATE`, `NATIVE-TYPED-REDUCTIONS` and
-`NATIVE-ANALYTIC-FRAMES` as completed finite units. The v0.4.0 publication train is
-also complete. `NATIVE-SCALAR-SUBQUERIES` is the next autonomous implementation
+`NATIVE-ANALYTIC-FRAMES` and `NATIVE-SCALAR-SUBQUERIES` as completed finite units.
+The v0.4.0 publication train is also complete and predates scalar-value support.
+`NATIVE-NESTED-PIVOT-STATE` is the next autonomous implementation
 item in the dependent universal workflow queue. The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 

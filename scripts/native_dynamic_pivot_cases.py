@@ -74,8 +74,8 @@ def expected_cases():
     return expected
 
 
-def validate_dynamic_fields(name, envelope, stages=None, scans=None, reused=None):
-    require_native_resource_admission(name, envelope)
+def validate_dynamic_fields(name, envelope, stages=None, scans=None, reused=None, *, memory_gb=1):
+    require_native_resource_admission(name, envelope, memory_gb=memory_gb)
     required = {
         "resident_relational_handle_retained": "true",
         "resident_relational_lowering_reused": "false",

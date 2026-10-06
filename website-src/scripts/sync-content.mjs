@@ -500,7 +500,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 5, 2026.
+Current capabilities, reviewed October 6, 2026.
 
 ## Native Execution
 
@@ -531,6 +531,21 @@ Their observed columns bind during execution, including independent domains for
 correlated inner rows; inspection remains inert. All eight local writers accept
 representable scalar results within the existing field and state budgets. See the
 [dynamic pivot contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
+Current source builds after published v0.4.0 also admit static List,
+FixedSizeList and Struct pivot index, domain and selected-value roles. Nested
+cells support first, first_unique, count, min and max; first_unique accepts
+repeated equal complete values and rejects conflicts. Nested extrema skip NULL
+parents and use the shared child-NULL ordering. Python pivot() and
+pivot_table(aggfunc="first") retain their first_unique alias, while SQL's
+explicit first selects the first row, including NULL. Nested SUM/MEAN,
+nested-index margins and pivot-state spill remain unsupported; nested MIN/MAX
+margins require a UTF8 index. Nested cells accept absent or NULL fill only.
+Representable nested results use Vortex, Parquet,
+Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
+text, and ORC rejects nested output. Existing 128-field, collection and memory
+limits apply. Focused native and public checks pass; full regression and hosted
+acceptance remain pending. Published v0.4.0 packages predate this source support.
+See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
 flat equality, hashing and ordering are admitted through relational joins, sets,
@@ -560,8 +575,9 @@ comparisons, NULL tests and CASE/COALESCE/NULLIF selection. Exact recursive key
 schemas must match except for nullability. Retained nested values support
 DISTINCT/duplicate selection and masks, tail, sampling, parent forward fill,
 lossless same-shape melt and rolling COUNT. These finite nested/typed units are
-merged with complete local and hosted check evidence. General Variant/extensions, nested arithmetic,
-nested pivot state and wider operator state spill remain separate boundaries.
+merged with complete local and hosted check evidence. General Variant/extensions,
+nested arithmetic and wider operator state spill remain separate boundaries.
+The subsequent nested pivot scope is described above.
 Current source builds also admit computed aggregate arguments and exact decimal
 SUM/AVG/MIN/MAX through existing aggregate, rolling and scalar pivot state.
 Decimal totals remain exact; inexact averages and final overflow fail explicitly.
@@ -752,7 +768,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 5, 2026**. See the
+Current capabilities, reviewed **October 6, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -761,7 +777,7 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 also admit [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries); v0.4.0 packages predate this addition. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested pivot state and broader adapters remain outside the admitted contracts; scalar pivot keeps its 128-field, type and memory boundaries. |
+| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries) with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles; focused checks pass, while full-workflow, resource and hosted acceptance remain pending. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins, unsupported nested leaves and pivot-state spill remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot's 128-field, type and memory boundaries remain. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
@@ -795,9 +811,10 @@ tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and scoped
 pivot policies. The nested contract also admits DISTINCT/duplicate selection
 and masks, tail, sampling, parent forward fill, same-shape melt and rolling COUNT.
 Forward fill replaces a NULL parent; child NULLs do not trigger filling.
-Nested pivot state, nested arithmetic/string operations,
-temporal arithmetic rewrites, wider typed predicates
-and general state spill remain unsupported.
+Nested SUM/MEAN, non-NULL nested pivot fill, nested-index margins, nested
+arithmetic/string operations, temporal arithmetic rewrites, wider typed
+predicates and general state spill remain unsupported. Nested MIN/MAX margins
+require a UTF8 index. Nested pivot spill remains unsupported.
 See the [typed unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md).
 Computed aggregate arguments and exact decimal aggregate/rolling/scalar-pivot
 reductions now have complete local acceptance. Inexact decimal averages and final

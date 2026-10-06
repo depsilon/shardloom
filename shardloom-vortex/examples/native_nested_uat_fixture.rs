@@ -8,6 +8,9 @@ use arrow_ipc::writer::FileWriter;
 use arrow_schema::{DataType, Field, Fields, Schema};
 use std::{fs::OpenOptions, path::Path, sync::Arc};
 
+#[path = "native_nested_uat_fixture/pivot.rs"]
+mod pivot;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn numbers(builder: &mut ListBuilder<Int64Builder>, values: Option<&[Option<i64>]>) {
@@ -156,12 +159,23 @@ fn write(root: &Path, name: &str, batches: &[&RecordBatch]) -> Result<()> {
 
 fn main() -> Result<()> {
     let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
-    if arguments.len() != 1 {
-        return Err("usage: native_nested_uat_fixture <guarded-existing-output-directory>".into());
-    }
-    let root = Path::new(&arguments[0]);
+    let (root_argument, pivot_only) =
+        match arguments.as_slice() {
+            [root] => (root, false),
+            [root, flag] if flag == "--pivot" => (root, true),
+            _ => return Err(
+                "usage: native_nested_uat_fixture <guarded-existing-output-directory> [--pivot]"
+                    .into(),
+            ),
+        };
+    let root = Path::new(root_argument);
     if !root.is_dir() {
         return Err("fixture directory must already exist under the UAT storage guard".into());
+    }
+    if pivot_only {
+        pivot::write_all(root)?;
+        println!("typed Arrow IPC nested pivot fixtures written");
+        return Ok(());
     }
     let nested = small()?;
     write(root, "nested.data", &[&nested])?;

@@ -10,6 +10,7 @@ use crate::resident_session::NativeExecutionContext;
 use shardloom_core::ScalarValue;
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
+use std::sync::Arc;
 use vortex::array::{
     ArrayRef, ExecutionCtx, VortexSessionExecute as _,
     arrays::{
@@ -21,6 +22,19 @@ use vortex::array::{
 };
 
 pub(super) use super::super::result_batch::scalar_value;
+
+pub(super) type SharedKeyColumn = Arc<Budgeted<KeyColumn>>;
+
+pub(super) fn shared_key(
+    array: &ArrayRef,
+    execution: &mut ExecutionCtx,
+    memory: &LiveMemoryPool,
+    cancellation: &CancellationToken,
+) -> Result<SharedKeyColumn> {
+    let header = memory.reserve((std::mem::size_of::<KeyColumn>() + 64) as u64)?;
+    let key = KeyColumn::new(array, execution, memory, cancellation)?;
+    Ok(Arc::new(Budgeted::new(key, header)))
+}
 
 struct NativeField;
 
@@ -92,7 +106,7 @@ pub(in crate::local_primitives) struct NativeBatch {
     context: ExecutionCtx,
     memory: LiveMemoryPool,
     cancellation: CancellationToken,
-    nested_keys: Option<ReservedVec<Option<KeyColumn>>>,
+    nested_keys: Option<ReservedVec<Option<SharedKeyColumn>>>,
     _metadata: MemoryLease,
 }
 
@@ -270,9 +284,10 @@ impl NativeBatch {
                 let cancellation = self.cancellation.clone();
                 let key = self.nested_key(column)?;
                 let mut count = ByteCount::default();
-                key.write_exact_key(row, &mut count, &cancellation)?;
+                key.value()
+                    .write_exact_key(row, &mut count, &cancellation)?;
                 write!(output, "|{}:", count.0).map_err(vortex_error)?;
-                key.write_exact_key(row, output, &cancellation)?;
+                key.value().write_exact_key(row, output, &cancellation)?;
                 continue;
             }
             let value = self.value(column, row)?;
@@ -285,7 +300,7 @@ impl NativeBatch {
         Ok(())
     }
 
-    fn nested_key(&mut self, column: usize) -> Result<&KeyColumn> {
+    pub(super) fn nested_key(&mut self, column: usize) -> Result<SharedKeyColumn> {
         if self.nested_keys.is_none() {
             let mut keys = ReservedVec::new(&self.memory)?;
             keys.reserve(self.columns.len())?;
@@ -301,15 +316,14 @@ impl NativeBatch {
             .get_mut(column)
             .ok_or_else(|| failed("key column absent"))?;
         if key.is_none() {
-            *key = Some(KeyColumn::new(
+            *key = Some(shared_key(
                 &self.columns[column],
                 &mut self.context,
                 &self.memory,
                 &self.cancellation,
             )?);
         }
-        key.as_ref()
-            .ok_or_else(|| failed("nested key owner absent"))
+        key.clone().ok_or_else(|| failed("nested key owner absent"))
     }
 
     pub(super) fn is_null(&mut self, column: usize, row: usize) -> Result<bool> {
@@ -459,7 +473,7 @@ pub(super) fn retained_batch<'a>(
     native_struct(fields, rows, arrays)
 }
 
-fn native_struct(
+pub(super) fn native_struct(
     fields: &[(String, DType)],
     rows: usize,
     arrays: ReservedVec<ArrayRef>,
@@ -493,6 +507,17 @@ fn payload_capacity(value: &ScalarValue) -> Result<usize> {
 impl OwnedScalar {
     pub(super) fn value(&self) -> &ScalarValue {
         self.0.value()
+    }
+
+    pub(super) fn into_shared(self) -> Result<Arc<Self>> {
+        let (value, mut lease) = self.0.into_parts();
+        lease.resize(
+            lease
+                .bytes()
+                .checked_add(64)
+                .ok_or_else(|| failed("shared scalar reservation overflow"))?,
+        )?;
+        Ok(Arc::new(Self(Budgeted::new(value, lease))))
     }
 
     pub(super) fn from_native(
@@ -736,7 +761,7 @@ fn copy_text(value: &str, lease: &mut MemoryLease) -> Result<String> {
 }
 
 #[derive(Default)]
-struct ByteCount(usize);
+pub(super) struct ByteCount(pub(super) usize);
 
 impl std::fmt::Write for ByteCount {
     fn write_str(&mut self, value: &str) -> std::fmt::Result {

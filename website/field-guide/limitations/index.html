@@ -75,7 +75,7 @@
 Coverage is specific to the operation, types, source layout, enabled features, and output contract.
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.</p>
-<p>Current capabilities, reviewed <strong>October 5, 2026</strong>. See the
+<p>Current capabilities, reviewed <strong>October 6, 2026</strong>. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md">public support matrix</a>
 for the detailed evidence behind this scope.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="runtime-limits">Runtime Limits</h2><a class="sl-anchor-link" href="#runtime-limits"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Runtime Limits”</span></a></div>
@@ -95,8 +95,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Relational and DataFrame operations</td>
-<td>Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 also admit <a href="/field-guide/runtime-and-io#scalar-subqueries">scalar-value subqueries</a>; v0.4.0 packages predate this addition.</td>
-<td>Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested pivot state and broader adapters remain outside the admitted contracts; scalar pivot keeps its 128-field, type and memory boundaries.</td>
+<td>Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit <a href="/field-guide/runtime-and-io#scalar-subqueries">scalar-value subqueries</a> with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles; focused checks pass, while full-workflow, resource and hosted acceptance remain pending.</td>
+<td>Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins, unsupported nested leaves and pivot-state spill remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot’s 128-field, type and memory boundaries remain.</td>
 </tr>
 <tr>
 <td>Repeated queries</td>
@@ -148,9 +148,10 @@ tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and scoped
 pivot policies. The nested contract also admits DISTINCT/duplicate selection
 and masks, tail, sampling, parent forward fill, same-shape melt and rolling COUNT.
 Forward fill replaces a NULL parent; child NULLs do not trigger filling.
-Nested pivot state, nested arithmetic/string operations,
-temporal arithmetic rewrites, wider typed predicates
-and general state spill remain unsupported.
+Nested SUM/MEAN, non-NULL nested pivot fill, nested-index margins, nested
+arithmetic/string operations, temporal arithmetic rewrites, wider typed
+predicates and general state spill remain unsupported. Nested MIN/MAX margins
+require a UTF8 index. Nested pivot spill remains unsupported.
 See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md">typed unary contract</a>.
 Computed aggregate arguments and exact decimal aggregate/rolling/scalar-pivot
 reductions now have complete local acceptance. Inexact decimal averages and final

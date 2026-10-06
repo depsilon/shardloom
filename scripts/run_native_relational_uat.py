@@ -26,6 +26,7 @@ from native_aggregate_ordering_cases import run as aggregate_cases
 from native_unary_composition_cases import run as unary_cases
 from native_nested_composition_cases import run as nested_cases
 from native_dynamic_pivot_cases import run as dynamic_pivot_cases
+from native_nested_pivot_cases import run as nested_pivot_cases
 from native_typed_payload_cases import run as typed_payload_cases
 from native_uat_envelope_archive import archive_envelopes
 from native_memory_cases import run as memory_cases
@@ -116,7 +117,7 @@ def main() -> int:
     parser.add_argument("--materializations", nargs="+", choices=MATERIALIZATIONS, default=["python"],
                         help="memory-family conversion matrix; requested optional packages are required")
     parser.add_argument("--nested-fixture-generator", type=Path,
-                        help="native_nested_uat_fixture example binary, required for all/nested/frames")
+                        help="native_nested_uat_fixture example binary, required for all/nested/pivot/frames")
     parser.add_argument("--typed-fixture-generator", type=Path,
                         help="native_typed_uat_fixture example binary, required for all/typed")
     parser.add_argument("--compress-logs", action="store_true")
@@ -126,7 +127,7 @@ def main() -> int:
     if args.archive_logs and not args.compress_logs:
         parser.error("--archive-logs requires --compress-logs")
     binary = args.binary.resolve(strict=True)
-    if args.family in ("all", "nested", "frames") and args.nested_fixture_generator is None:
+    if args.family in ("all", "nested", "pivot", "frames") and args.nested_fixture_generator is None:
         parser.error("--nested-fixture-generator is required for the nested input fixtures")
     fixture_generator = (args.nested_fixture_generator.resolve(strict=True)
                          if args.nested_fixture_generator is not None else None)
@@ -161,6 +162,10 @@ def main() -> int:
         "unary_cases_sha256": code.with_name("native_unary_composition_cases.py"),
         "nested_cases_sha256": code.with_name("native_nested_composition_cases.py"),
         "dynamic_pivot_cases_sha256": code.with_name("native_dynamic_pivot_cases.py"),
+        "nested_pivot_cases_sha256": code.with_name("native_nested_pivot_cases.py"),
+        "nested_pivot_reference_sha256": code.with_name("native_nested_pivot_reference.py"),
+        "nested_pivot_core_oracle_sha256": code.parents[1] / "docs/architecture/fixtures/native-nested-pivot-state/core-oracles.json",
+        "nested_pivot_typed_oracle_sha256": code.parents[1] / "docs/architecture/fixtures/native-nested-pivot-state/typed-oracles.json",
         "typed_payload_cases_sha256": code.with_name("native_typed_payload_cases.py"),
         "typed_key_cases_sha256": code.with_name("native_typed_key_cases.py"),
         "typed_expression_cases_sha256": code.with_name("native_typed_expression_cases.py"),
@@ -335,6 +340,9 @@ def main() -> int:
         if args.family in ("all", "pivot"):
             dynamic_pivot_cases(context, root / "data" / f"pivot_{stamp}", guard,
                                 accepted, complete, sources, identity)
+            nested_pivot_cases(context, root / "data" / f"nested_pivot_{stamp}", guard,
+                               accepted, complete, sources, identity, fixture_generator,
+                               materializations=args.materializations)
         if args.family in ("all", "typed"):
             typed_payload_cases(context, root / "data" / f"typed_{stamp}", guard,
                                 accepted, complete, sources, identity, typed_generator)

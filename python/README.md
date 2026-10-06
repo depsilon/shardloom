@@ -478,7 +478,10 @@ and rolling COUNT. See the [nested key and retained-state contract](../docs/arch
 it is merged with complete local and hosted check evidence. General Variant/extension
 operations, nested arithmetic/string operations, wider analytic-window behavior,
 adapters and general state spill remain outside this
-scope. Scalar pivot type/domain restrictions remain in force. See also the
+scope. Scalar pivot retains its declared type/domain restrictions. Current
+source builds after published v0.4.0 also admit static List, FixedSizeList and
+Struct pivot roles; the finite type and policy boundaries are described below.
+See also the
 [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
@@ -524,7 +527,25 @@ schema, with the declared margins column when requested. Referencing an absent
 domain fails explicitly. Correlated inner pivots bind independently for each
 outer row. All eight writers accept representable scalar results above the small
 collection limit, subject to the existing 128-field and memory limits. Pivot
-state has no spill path. See the [dynamic pivot contract and acceptance](../docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
+state has no spill path.
+
+Source builds after published v0.4.0 also admit static List, FixedSizeList and
+Struct columns as pivot index, domain and selected-value roles. This new source
+support has focused native and public checks; full regression and hosted
+acceptance remain pending, and the published v0.4.0 packages predate it. Nested
+cells support `first`, `first_unique`, `count`, `min` and `max`; `first_unique`
+accepts repeated equal complete values and rejects conflicts. Nested extrema
+skip NULL parents and use the shared child-NULL ordering. Python `pivot()` and
+`pivot_table(aggfunc="first")` retain their alias to `first_unique`; SQL's
+explicit `first` selects the first row, including a NULL value. Nested cells
+accept absent or NULL fill only. Nested SUM/MEAN, nested-index margins and
+pivot-state spill remain unsupported. Nested MIN/MAX margins require a UTF-8
+index. Representable nested results use Vortex, Parquet,
+Arrow IPC, Avro, JSON and JSONL; CSV writes quoted JSON text without preserving
+the nested logical dtype, and ORC rejects nested output. Existing 128-field,
+collection and memory limits still apply. See the [scalar dynamic pivot
+contract](../docs/architecture/native-dynamic-pivot-composition-2026-10-03.md)
+and [nested pivot state contract](../docs/architecture/native-nested-pivot-state-2026-10-06.md).
 
 Current source builds after published v0.4.0 admit scalar-value subqueries through
 SQL `(SELECT ...)` and `sl.scalar_subquery(frame_or_sql_workflow)`. The v0.4.0

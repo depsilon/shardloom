@@ -72,6 +72,21 @@ class NativeReportEvidenceTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 require_native_resource_admission("test", SimpleNamespace(field=(fields | change).get))
 
+    def test_conversion_resource_proof_uses_its_declared_budget_not_the_reported_one(self):
+        fields = {
+            "public_workflow_memory_gb": "4",
+            "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
+            "resident_provider_crate": "vortex",
+            "resident_peak_reserved_buffer_bytes": "4294967296",
+        }
+        require_native_resource_admission("test", SimpleNamespace(field=fields.get), memory_gb=4)
+        with self.assertRaises(ValueError):
+            require_native_resource_admission("test", SimpleNamespace(field=fields.get))
+        for change in ({"public_workflow_memory_gb": "8"},
+                       {"resident_peak_reserved_buffer_bytes": "4294967297"}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                require_native_resource_admission("test", SimpleNamespace(field=(fields | change).get), memory_gb=4)
+
     def test_native_resource_peak_never_accepts_missing_malformed_or_oversized_proof(self):
         base = {"public_workflow_memory_gb": "1",
                 "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",

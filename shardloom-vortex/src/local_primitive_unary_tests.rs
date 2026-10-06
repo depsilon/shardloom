@@ -26,6 +26,8 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 mod bound_tests;
 #[path = "local_primitive_unary_explode_tests.rs"]
 mod explode_tests;
+#[path = "local_primitive_unary_nested_pivot_tests.rs"]
+mod nested_pivot_tests;
 #[path = "local_primitive_unary_pivot_tests.rs"]
 mod pivot_tests;
 #[cfg(feature = "universal-format-io")]
