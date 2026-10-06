@@ -14,6 +14,7 @@ from types import ModuleType
 from ._version import __version__
 
 _EXPORT_GROUPS: dict[str, tuple[str, ...]] = {
+    "_batches": ("ResultBatch", "ResultBatchIterator"),
     "models": (
         "Diagnostic",
         "ClaimSummary",
@@ -226,6 +227,7 @@ _EXPORT_GROUPS: dict[str, tuple[str, ...]] = {
         "from_base64",
         "from_pandas",
         "from_rows",
+        "from_batches",
         "interval_days",
         "interval_hours",
         "interval_minutes",

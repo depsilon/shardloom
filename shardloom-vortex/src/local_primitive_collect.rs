@@ -73,6 +73,14 @@ pub struct CollectedCountRows {
     pub result_schema_json: Budgeted<String>,
 }
 
+/// One explicitly materialized result batch. Both strings retain the native
+/// session's memory credits independently of the producer's lifetime.
+pub struct SerializedVortexResultBatch {
+    pub rows: usize,
+    pub values_json: Budgeted<String>,
+    pub result_schema_json: Budgeted<String>,
+}
+
 /// Serialize an already computed count without reading or decoding input rows.
 /// The ordered native schema matches the SQL binder's unaliased COUNT(*) name.
 /// # Errors
@@ -557,10 +565,6 @@ impl JsonRows {
         self,
         certificate: &mut shardloom_core::NativeIoCertificate,
     ) -> Result<(Budgeted<String>, Budgeted<String>)> {
-        use shardloom_core::{
-            NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
-            RepresentationState,
-        };
         if !certificate.is_certified() {
             return Err(collect_error(
                 "JSON collection requires certified native execution",
@@ -576,39 +580,7 @@ impl JsonRows {
             .0;
         let schema = serialize_result_schema(dtype, &self.memory)?;
         let output = self.finish()?;
-        let from_state = certificate
-            .representation_transitions
-            .last()
-            .map_or(RepresentationState::DecodedColumnar, |transition| {
-                transition.to_state
-            });
-        certificate
-            .representation_transitions
-            .push(NativeIoRepresentationTransition::new(
-                from_state,
-                RepresentationState::MaterializedRows,
-                true,
-            ));
-        certificate.sink_requirement_report = json_sink_requirements();
-        certificate.adapter_fidelity_report = json_sink_fidelity();
-        certificate.materialization_boundaries.push(NativeIoMaterializationBoundaryReport {
-            boundary_id: "resident_collect_json_sink".into(),
-            from_state,
-            to_state: RepresentationState::MaterializedRows,
-            required_by: "explicit_json_collect".into(),
-            reason: "native scalar evaluation at requested sink; decoded byte volume is not instrumented".into(),
-            bytes_decoded: 0,
-            rows_materialized: rows,
-            fidelity_loss: "physical dtype, encoding and statistics are not JSON values".into(),
-            fallback_attempted: false,
-        });
-        certificate.side_effects.data_decoded |= rows > 0;
-        certificate.side_effects.data_materialized |= rows > 0;
-        certificate.side_effects.row_read |= rows > 0;
-        certificate
-            .source_pushdown_report
-            .proof_basis
-            .push_str(";complete_native_batches_to_bounded_jsonl;no_query_replay=true");
+        certify_json_delivery(certificate, rows, false)?;
         Ok((output, schema))
     }
 
@@ -619,6 +591,80 @@ impl JsonRows {
         let text = String::from_utf8(self.output.bytes).map_err(collect_io_error)?;
         Ok(Budgeted::new(text, self.output.lease))
     }
+}
+
+pub(super) fn certify_json_delivery(
+    certificate: &mut shardloom_core::NativeIoCertificate,
+    rows: u64,
+    streamed: bool,
+) -> Result<()> {
+    use shardloom_core::{
+        NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
+        RepresentationState,
+    };
+    if !certificate.is_certified() {
+        return Err(collect_error(
+            "JSON delivery requires certified native execution",
+        ));
+    }
+    let from_state = certificate
+        .representation_transitions
+        .last()
+        .map_or(RepresentationState::DecodedColumnar, |transition| {
+            transition.to_state
+        });
+    certificate
+        .representation_transitions
+        .push(NativeIoRepresentationTransition::new(
+            from_state,
+            RepresentationState::MaterializedRows,
+            true,
+        ));
+    certificate.sink_requirement_report = json_sink_requirements();
+    if streamed {
+        certificate.sink_requirement_report.supports_streaming = true;
+        certificate.sink_requirement_report.max_chunk_size = Some(2048);
+        certificate.sink_requirement_report.backpressure_policy =
+            "synchronous_consumer_controls_next_batch".into();
+    }
+    certificate.adapter_fidelity_report = json_sink_fidelity();
+    certificate
+        .materialization_boundaries
+        .push(NativeIoMaterializationBoundaryReport {
+        boundary_id: if streamed {
+            "resident_json_batch_sink"
+        } else {
+            "resident_collect_json_sink"
+        }
+        .into(),
+        from_state,
+        to_state: RepresentationState::MaterializedRows,
+        required_by: if streamed {
+            "explicit_json_batch_consumption"
+        } else {
+            "explicit_json_collect"
+        }
+        .into(),
+        reason:
+            "native scalar evaluation at requested sink; decoded byte volume is not instrumented"
+                .into(),
+        bytes_decoded: 0,
+        rows_materialized: rows,
+        fidelity_loss: "physical dtype, encoding and statistics are not JSON values".into(),
+        fallback_attempted: false,
+    });
+    certificate.side_effects.data_decoded |= rows > 0;
+    certificate.side_effects.data_materialized |= rows > 0;
+    certificate.side_effects.row_read |= rows > 0;
+    certificate
+        .source_pushdown_report
+        .proof_basis
+        .push_str(if streamed {
+            ";complete_native_batches_to_incremental_json;no_query_replay=true"
+        } else {
+            ";complete_native_batches_to_bounded_jsonl;no_query_replay=true"
+        });
+    Ok(())
 }
 
 /// Serialize the existing native dtype at the explicit result boundary. The

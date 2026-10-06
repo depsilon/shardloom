@@ -27,6 +27,34 @@ pub(super) fn prepare_with_source(
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
+    prepare_with_input_adapter(
+        statement,
+        request,
+        source,
+        preparations,
+        |_, input, session| input.build(session),
+    )
+}
+
+// Preparation owners transfer into the plan when format preparation is enabled.
+#[cfg_attr(
+    not(all(feature = "vortex-write", feature = "universal-format-io")),
+    allow(clippy::needless_pass_by_value)
+)]
+pub(super) fn prepare_with_input_adapter(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    preparations: PublicSourcePreparations,
+    mut build: impl FnMut(
+        &str,
+        &crate::native_memory_input::MemoryInput,
+        &shardloom_vortex::resident_session::ResidentVortexSession,
+    ) -> Result<
+        shardloom_vortex::resident_memory_source::ResidentMemorySource,
+        ShardLoomError,
+    >,
+) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     let _ = preparations;
     validate_bindings(statement, request)?;
@@ -44,14 +72,14 @@ pub(super) fn prepare_with_source(
             policy,
             uri,
             source,
-            |schemas| register_memory_inputs(schemas, request),
+            |schemas| register_memory_inputs(schemas, request, &mut build),
             |path| sources.resolve(path, request),
         )?
     } else {
         native_relational::prepare_with_inputs(
             statement,
             policy,
-            |schemas| register_memory_inputs(schemas, request),
+            |schemas| register_memory_inputs(schemas, request, &mut build),
             |path| sources.resolve(path, request),
         )?
     };
@@ -79,11 +107,20 @@ pub(super) fn prepare_with_source(
 fn register_memory_inputs(
     schemas: &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
     request: &PublicWorkflowRouteRequest,
+    build: &mut impl FnMut(
+        &str,
+        &crate::native_memory_input::MemoryInput,
+        &shardloom_vortex::resident_session::ResidentVortexSession,
+    ) -> Result<
+        shardloom_vortex::resident_memory_source::ResidentMemorySource,
+        ShardLoomError,
+    >,
 ) -> Result<(), ShardLoomError> {
     for (uri, binding) in &request.source_bindings {
         if let Some(input) = &binding.memory_input {
-            schemas
-                .register_memory_source(DatasetUri::new(uri)?, |session| input.build(session))?;
+            schemas.register_memory_source(DatasetUri::new(uri)?, |session| {
+                build(uri, input, session)
+            })?;
         }
     }
     Ok(())

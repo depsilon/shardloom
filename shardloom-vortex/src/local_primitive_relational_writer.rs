@@ -24,10 +24,23 @@ impl PreparedVortexRelational {
         targets: &[(std::path::PathBuf, VortexLocalPrimitiveRowExportFormat)],
         overwrite: bool,
     ) -> Result<Vec<WrittenVortexRelational>> {
+        self.write_many_controlled(targets, overwrite, &CancellationToken::default())
+    }
+
+    /// Use one cancellation owner for fanout execution and pre-publication validation.
+    /// # Errors
+    /// Propagates cancellation and the ordinary fanout/source/adapter failures.
+    pub fn write_many_controlled(
+        &self,
+        targets: &[(std::path::PathBuf, VortexLocalPrimitiveRowExportFormat)],
+        overwrite: bool,
+        cancellation: &CancellationToken,
+    ) -> Result<Vec<WrittenVortexRelational>> {
         let mut written = super::super::output_fanout::write(
             targets,
             overwrite,
             |path| {
+                cancellation.check()?;
                 for source in &self.sources {
                     source.validate_generation()?;
                     if source.aliases_file(path)? {
@@ -41,7 +54,7 @@ impl PreparedVortexRelational {
                 }
                 Ok(())
             },
-            |path, format| self.write(path, format, false),
+            |path, format| self.write_controlled(path, format, false, cancellation),
         )?;
         for (result, (path, _)) in written.iter_mut().zip(targets) {
             result.output.output_path = path.display().to_string();

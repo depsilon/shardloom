@@ -11,7 +11,7 @@ use crate::resident_session::{
     ResidentVortexSession,
 };
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
-#[cfg(test)]
+#[cfg(all(test, feature = "vortex-write"))]
 use vortex::array::VortexSessionExecute as _;
 use vortex::array::{
     ArrayRef,

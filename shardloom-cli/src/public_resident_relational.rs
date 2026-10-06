@@ -19,8 +19,11 @@ use shardloom_vortex::local_primitives::prepared_relational::{
     ExecutedVortexRelational, PreparedVortexRelational,
 };
 
+#[path = "public_relational_batches.rs"]
+mod batches;
 #[path = "public_relational_sources.rs"]
 mod sources;
+pub(super) use batches::run as run_batches;
 
 pub(super) struct PreparedPublicRelational {
     pub(super) request: PublicWorkflowRouteRequest,
@@ -216,7 +219,23 @@ fn execute(
             "native relational writers require vortex-write".into(),
         ));
     }
-    let collected = operation.collect_jsonl(&CancellationToken::default())?;
+    execute_collect(
+        format,
+        operation,
+        fields,
+        reused,
+        &CancellationToken::default(),
+    )
+}
+
+fn execute_collect(
+    format: OutputFormat,
+    operation: &PreparedVortexRelational,
+    mut fields: Vec<(String, String)>,
+    reused: bool,
+    cancellation: &CancellationToken,
+) -> Result<(), ShardLoomError> {
+    let collected = operation.collect_jsonl(cancellation)?;
     append_execution(&mut fields, &collected.execution, reused);
     let (jsonl, _ownership) = collected.result_jsonl.into_parts();
     let (schema, _schema_ownership) = collected.result_schema_json.into_parts();
@@ -247,8 +266,27 @@ fn execute_write(
     request: &PublicWorkflowRouteRequest,
     format: OutputFormat,
     operation: &PreparedVortexRelational,
+    fields: Vec<(String, String)>,
+    reused: bool,
+) -> Result<(), ShardLoomError> {
+    execute_write_controlled(
+        request,
+        format,
+        operation,
+        fields,
+        reused,
+        &CancellationToken::default(),
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn execute_write_controlled(
+    request: &PublicWorkflowRouteRequest,
+    format: OutputFormat,
+    operation: &PreparedVortexRelational,
     mut fields: Vec<(String, String)>,
     reused: bool,
+    cancellation: &CancellationToken,
 ) -> Result<(), ShardLoomError> {
     let targets =
         native_vortex_primitive_row_export_targets(request, "run").map_err(|blocked| {
@@ -259,14 +297,20 @@ fn execute_write(
         })?;
     let mut written = if targets.len() == 1 {
         let target = &targets[0];
-        vec![operation.write(&target.path, target.format, request.allow_overwrite)?]
+        vec![operation.write_controlled(
+            &target.path,
+            target.format,
+            request.allow_overwrite,
+            cancellation,
+        )?]
     } else {
-        operation.write_many(
+        operation.write_many_controlled(
             &targets
                 .iter()
                 .map(|target| (target.path.clone(), target.format))
                 .collect::<Vec<_>>(),
             request.allow_overwrite,
+            cancellation,
         )?
     };
     let final_write = written.pop().expect("at least one target");

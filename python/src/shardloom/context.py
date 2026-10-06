@@ -57,6 +57,7 @@ from .query import (
     from_arrow_table,
     from_pandas,
     from_rows,
+    from_batches,
     literal_table as generated_literal_table,
     range as generated_range,
     read as read_source,
@@ -5150,10 +5151,10 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "global_runtime_supported",
         cli_commands=("run", "vortex-prepare"),
         context_methods=("sql", "run", "read", "read_csv", "read_json", "read_vortex",
-                         "from_rows", "literal_table", "range", "sequence", "calendar",
+                         "from_rows", "from_batches", "literal_table", "range", "sequence", "calendar",
                          "sql_values", "sql_literal_select", "dataframe_source_free_projection",
                          "dataframe_generated_with_column", "prepare_vortex", "session"),
-        client_methods=("public_workflow_run", "vortex_prepare"),
+        client_methods=("public_workflow_run", "public_workflow_batches", "vortex_prepare"),
         runtime_route="native_vortex_query",
         promotion_criteria="one native planner, source admission, resource policy and sink contract",
         evidence_refs=("native_vortex_plan_route_family", "result_schema_json",
@@ -11321,6 +11322,10 @@ class ShardLoomContext:
         """Declare native scalar rows, including typed empty and nullable inputs."""
 
         return from_rows(rows, schema=schema, client=self.client)
+
+    def from_batches(self, batches: object, *, schema: Mapping[str, object]) -> LazyFrame:
+        """Declare bounded resident input batches without consuming the iterable."""
+        return from_batches(batches, schema=schema, client=self.client)
 
     def literal_table(
         self, rows: Sequence[Mapping[str, object]], *, schema: Mapping[str, object] | None = None,

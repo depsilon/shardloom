@@ -38,6 +38,8 @@ mod optimizer_planning;
 mod packaging_deployment;
 mod prepared_source_backed_execution;
 mod public_workflow_route;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+mod python_batch_protocol;
 mod python_worker_protocol;
 mod rest_api_planning;
 mod runtime_defaults;
@@ -154,7 +156,16 @@ fn handle_version(format: OutputFormat) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn handle_python_worker() -> ExitCode {
+fn handle_python_worker(args: impl Iterator<Item = String>) -> ExitCode {
+    let args = args.collect::<Vec<_>>();
+    if !args.is_empty() {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if args == ["--batch-stream"] {
+            return python_batch_protocol::run();
+        }
+        return emit_error("python-worker", OutputFormat::Json, "unsupported worker options",
+            &ShardLoomError::InvalidOperation("batch streaming requires the native Unix runtime and --batch-stream; no fallback execution was attempted".into()));
+    }
     let stdin = io::stdin();
     let mut input = stdin.lock();
     let mut execution_session = public_workflow_route::PublicExecutionSession::default();
@@ -1032,7 +1043,7 @@ fn run_with_session(
     let mut args = args.into_iter();
 
     match args.next().as_deref() {
-        Some("python-worker") => handle_python_worker(),
+        Some("python-worker") => handle_python_worker(args),
         Some("spill-lifecycle") => operational_hardening::handle_spill_lifecycle(args, format),
         Some("spill-reservation-plan") => {
             operational_hardening::handle_spill_reservation_plan(args, format)
