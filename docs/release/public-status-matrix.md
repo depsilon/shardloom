@@ -34,9 +34,34 @@ The scoped local observability/supportability boundary is defined in
 [`docs/architecture/v1-observability-support.md`](../architecture/v1-observability-support.md);
 support bundles remain local/redacted and remote telemetry/upload surfaces remain unsupported.
 
+## Local Engine Maturity
+
+**Published local engine; operational hardening in progress.** This is the current public
+support label. The technical-preview designation describes the support promise, not whether
+the engine or packages exist. v0.4.0 is available through GitHub, TestPyPI, PyPI and Homebrew;
+the [publication verification](v0.4.0-publication-verification.md) closes the selected-channel
+proof requirement.
+
+The local engine executes admitted SQL, Python/DataFrame and CLI workflows through one native
+pipeline, including typed and nested results, exact decimal reductions, analytic frames and
+local writers. Native ordering spill, cancellation, corrupt-run and quota rejection, slow or
+failed consumers, source-generation checks and owned cleanup have executable evidence. Their
+scope is recorded in the [resource contract](../architecture/native-relational-resources-2026-10-02.md)
+and [current release acceptance](../benchmarks/release-candidate-fresh-uat-2026-10-05.md).
+
+The remaining maturity requirements are an explicit supported local workload/platform envelope,
+accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
+pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS
+ceiling; general aggregate/join/window spill remains incomplete. The
+[local-engine exit criteria](production-certification-gate.md#local-engine-preview-exit-criteria)
+define the required evidence and approval. Missing cloud integrations or complete SQL parity do
+not, by themselves, block a stable release for a narrower declared local scope.
+
 ## Claim Boundary
 
 Public claim booleans remain fail-closed unless a later release-approved gate changes them:
+the publication-attempt fields below describe this status/gate surface's side effects, not
+the history of the already published package channels.
 
 ```text
 package_publication_status=published_v0.4.0_selected_channels
@@ -61,14 +86,14 @@ external_engine_invoked=false
 
 | Surface | Current posture | What this permits | What remains blocked |
 | --- | --- | --- | --- |
-| Source checkout | Supported for local development and smoke proof. | Clone, build, run local CLI/Python smokes, inspect evidence. | Public package/release claims, production support, benchmark claims. |
-| Local first-10-minutes path | Supported through `scripts/release_dry_run_proof.py`, getting-started examples, and local smoke reports. | Local technical-preview proof over source-built artifacts. | Package publication, tags, signing, secrets, production or performance claims. |
+| Source checkout | Supported for local development and admitted native workflows. | Clone, build, run local CLI/Python workflows, inspect evidence. | Production support and performance claims beyond accepted evidence; a source build alone does not verify package channels. |
+| Local first-10-minutes path | Supported through getting-started examples, `scripts/release_dry_run_proof.py`, and local smoke reports. | Local execution proof over installed or source-built artifacts. | Production or performance claims; the proof command itself does not publish, tag, sign or use secrets. |
 | CLI and Python front doors | Scoped local CSV, JSON/JSONL/NDJSON, generated rows, local Vortex, and feature-gated flat-scalar Parquet, Arrow IPC/Feather, Avro, and ORC paths through `ctx.read(...)` or explicit helpers. | Evidence-backed local route use with no-fallback fields visible; feature-gated structured readers return deterministic blockers when unavailable. | Broad SQL/DataFrame parity, server/API production support, object-store/table readers, hidden external execution. |
 | SQL/DataFrame-style surface | Selected local-source projections, filters, joins, aggregates, bounded collects, and local writes are admitted through ShardLoom routes. | Scoped local workflow evidence and deterministic unsupported blockers. | PySpark/pandas/Polars parity, arbitrary SQL/DataFrame runtime, performance equivalence. |
 | Vortex preparation and local primitives | Feature-gated local `vortex_ingest` creates `VortexPreparedState` evidence for scoped flat local inputs. Scoped local Vortex primitives are covered by the feature-gated local Vortex runtime scope. | Explicit preparation, prepared/native route inspection, and local primitive count/filter/project route reports. | Broad writer support, object-store/table/catalog preparation, generalized Vortex Source/Sink runtime, production staging. |
 | SourceState and prepared-state reuse | The declarative source/prepared-state scope, golden fixtures, and invalidation matrix define local reuse through `ResidentVortexSession`, with source-generation and declaration validation on each execution and no query-answer cache. This scope report is declarative specification, not runtime evidence; current runtime evidence remains in live tests and harnesses. | Local SourceState normalization and explicit session or VortexPreparedState reuse, with deterministic invalidation behavior where exercised by live tests. | Global hidden cache, external cache service, object-store/table prepared-state reuse, broad non-local preparation, production cache claims. |
 | Local output/sink scope | The declarative output/sink scope records the single `native_vortex_query` route through `shared_native_workflow`, its admitted format/method/policy declarations, and no-fallback posture. The scope report is not runtime verification; complete-value readback and writer behavior must be established by live tests or harnesses. | Local output through the shared native workflow for admitted formats and shapes, with runtime sink evidence reported by live executions. | Append mode, object-store output paths, table/catalog writes, Iceberg/Delta transactions, remote URI sinks, broad nested/complex sink claims. |
-| Observability/supportability | Scoped local doctor, support-bundle, agent-contract, capability, runtime-report, schema-coverage, plan-only explain/estimate, diagnostic-code, issue-template, and benchmark-field checks are closed by the v1 observability/support boundary. | Local redacted support bundles, deterministic troubleshooting, side-effect-free support surfaces, and no-fallback/no-external-engine support evidence. | OpenTelemetry/OpenLineage export, remote support upload, live profiling collection, production observability/SRE claims, package publication, and performance claims. |
+| Observability/supportability | Scoped local doctor, support-bundle, agent-contract, capability, runtime-report, schema-coverage, plan-only explain/estimate, diagnostic-code, issue-template, and benchmark-field checks are closed by the v1 observability/support boundary. | Local redacted support bundles, deterministic troubleshooting, side-effect-free support surfaces, and no-fallback/no-external-engine support evidence. | OpenTelemetry/OpenLineage export, remote support upload, live profiling collection, production observability/SRE claims, and performance claims. |
 | Benchmarks | The parameterized local harness runs one ShardLoom candidate through the public native workflow, with declared input state and output format. It retains source, executable, command, timing, and complete-result evidence. Comparison engines provide independent references only. | Local correctness comparisons with explicit timing boundaries; published historical evidence keeps its original scope. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
@@ -88,7 +113,7 @@ external_engine_invoked=false
 | `docs/architecture/v1-observability-support.md` | Scoped local observability/supportability boundary. | Observability support report, diagnostic-code stability doc, troubleshooting guide, issue templates, route capability report, API/schema stability report, and benchmark timing-surface fields. |
 | `docs/getting-started/install.md` | Source checkout and local install path. | This matrix plus package-channel readiness docs. |
 | `docs/getting-started/source-checkout-install.md` | Source checkout build and local proof path. | This matrix plus release dry-run proof docs. |
-| `docs/getting-started/package-user-install.md` | Package-channel availability, uninstall, and upgrade boundary before publication. | Package-channel readiness matrix plus this matrix. |
+| `docs/getting-started/package-user-install.md` | Published package-channel availability, uninstall, upgrade and future-channel boundaries. | Package-channel readiness matrix plus this matrix. |
 | `docs/getting-started/first-10-minutes.md` | Local proof walkthrough. | This matrix plus release dry-run proof docs. |
 | `docs/getting-started/examples.md` | Copyable scoped examples and blockers. | This matrix plus relevant capability docs. |
 | `docs/getting-started/v1-supported-unsupported.md` | Generated current supported/unsupported surface. | Runs-today support matrix plus package-channel matrix. |

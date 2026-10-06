@@ -50,22 +50,32 @@
       "performance_claim_allowed": false,
       "fallback_attempted": false,
       "external_engine_invoked": false,
-      "environment": "single_process_local_source_checkout",
-      "data_scale": "bounded local files and generated-source fixtures; no production scale claim",
+      "environment": "single_process_local_source_or_published_package",
+      "data_scale": "complete local workflow and large-source regression evidence with declared resource limits; supported production scale envelope not yet accepted",
       "input_formats": [
         "csv",
+        "json",
         "jsonl",
         "ndjson",
         "local_vortex",
+        "parquet",
+        "arrow_ipc",
+        "avro",
+        "orc",
         "generated_rows"
       ],
       "output_formats": [
         "inline_jsonl",
         "local_csv",
+        "local_json",
         "local_jsonl",
-        "local_vortex"
+        "local_vortex",
+        "local_parquet",
+        "local_arrow_ipc",
+        "local_avro",
+        "local_orc"
       ],
-      "statefulness": "stateless_batch_with_prepared_state_cache",
+      "statefulness": "batch_with_prepared_source_reuse_and_per_execution_relational_state",
       "effect_permissions": [
         "local_file_read",
         "explicit_local_file_write",
@@ -73,7 +83,7 @@
         "no_secrets"
       ],
       "security_posture": "local_no_secrets_no_external_effects",
-      "unsupported_edge_boundary": "Object-store, lakehouse/table, distributed, live/hybrid, arbitrary plugin/effect, and real Foundry execution remain outside this workload until their own production items close.",
+      "unsupported_edge_boundary": "Formats remain feature-, type-, operation- and policy-scoped; format presence is not every-type support. Small collect limits are separate from bounded local writers. A query memory grant is not a process-RSS ceiling; spill remains operator-specific. Object-store, lakehouse/table, distributed, live/hybrid, arbitrary plugin/effect, and real Foundry execution remain outside this workload until their own production items close.",
       "technique_review": {
         "pulseweave": {
           "decision": "pending",
@@ -104,7 +114,8 @@
         "runtime_execution": {
           "status": "passed_scoped_local",
           "evidence_refs": [
-            "target/release-dry-run-proof/transcript.json",
+            "docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md",
+            "docs/release/v0.4.0-publication-verification.md",
             "target/python-user-surface-completion-gate.json",
             "target/user-route-capability-report.json"
           ]
@@ -112,7 +123,8 @@
         "correctness": {
           "status": "passed_scoped_local",
           "evidence_refs": [
-            "target/golden-workflow-report.json",
+            "docs/release/evidence/v0.4.0-published-golden-workflow-report.json",
+            "docs/benchmarks/native-analytic-frames-full43-2026-10-05.md",
             "target/admitted-semantics-matrix-report.json",
             "target/v1-correctness-conformance-report.json"
           ]
@@ -120,32 +132,37 @@
         "native_io_certificate": {
           "status": "passed_scoped_local",
           "evidence_refs": [
-            "target/v1-vortex-runtime-scope-report.json",
-            "target/v1-local-output-sink-scope-report.json"
+            "docs/benchmarks/native-typed-reductions-full43-2026-10-05.md",
+            "docs/release/evidence/v0.4.0-published-golden-workflow-report.json"
           ]
         },
         "execution_certificate": {
           "status": "passed_scoped_local",
           "evidence_refs": [
-            "target/runtime-gap-family-burn-down.json",
+            "docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md",
             "target/user-route-capability-report.json"
           ]
         },
         "fault_tolerance": {
-          "status": "blocked_missing_production_fault_injection",
+          "status": "blocked_local_workload_fault_acceptance_incomplete",
           "evidence_refs": [
-            "docs/architecture/phased-execution-completed-ledger.md#prod-ready-0a-common-production-certification-gate"
+            "docs/architecture/native-relational-resources-2026-10-02.md",
+            "docs/release/production-certification-gate.md#local-engine-preview-exit-criteria"
           ]
         },
         "memory_backpressure": {
-          "status": "blocked_missing_production_memory_pressure_proof",
+          "status": "blocked_local_workload_resource_accounting_and_pressure_acceptance_incomplete",
           "evidence_refs": [
-            "target/v1-local-resource-safety-report.json"
+            "docs/architecture/native-relational-resources-2026-10-02.md",
+            "docs/architecture/v1-local-resource-safety.md",
+            "docs/release/production-certification-gate.md#local-engine-preview-exit-criteria"
           ]
         },
         "benchmark": {
           "status": "blocked_not_claim_grade",
           "evidence_refs": [
+            "docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md",
+            "docs/release/production-certification-gate.md#local-engine-preview-exit-criteria",
             "website-src/src/pages/benchmarks.astro",
             "docs/benchmarks/static-benchmark-publishing-runbook.md"
           ]
@@ -159,8 +176,10 @@
           ]
         },
         "release_api_stability": {
-          "status": "passed_local_gate_publication_blocked",
+          "status": "passed_scoped_local_gate_and_selected_channel_publication",
           "evidence_refs": [
+            "docs/release/v0.4.0-publication-verification.md",
+            "docs/release/v1-api-schema-stability.md",
             "target/v1-api-schema-stability-report.json",
             "target/v1-release-boundary-report.json",
             "target/finished-product-readiness-report.json"
@@ -220,10 +239,10 @@
         }
       ],
       "production_blockers": [
-        "fault_tolerance=blocked_missing_production_fault_injection",
-        "memory_backpressure=blocked_missing_production_memory_pressure_proof",
+        "fault_tolerance=blocked_local_workload_fault_acceptance_incomplete",
+        "memory_backpressure=blocked_local_workload_resource_accounting_and_pressure_acceptance_incomplete",
         "benchmark=blocked_not_claim_grade",
-        "public package/release channel proof missing"
+        "supported local workload and platform envelope requires explicit operational acceptance and release approval"
       ]
     },
     {

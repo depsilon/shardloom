@@ -2,8 +2,9 @@
 
 # Native aggregate expressions and decimal reductions
 
-Status: implemented with complete local core acceptance on October 5; hosted
-integration and documentation/website refresh remain pending. The
+Status: complete local core acceptance on October 5; merged in PR #1518 after all
+39 hosted checks passed and published in v0.4.0. Exact hosted identities and review
+limitations are in the [completed ledger](phased-execution-completed-ledger.md). The
 [acceptance report](../benchmarks/native-typed-reductions-full43-2026-10-05.md)
 records 20,445 public checks, 202 retained-workflow checks, all 129 Full43
 executions and independently inspected portable evidence. This continues the

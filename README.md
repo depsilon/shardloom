@@ -25,7 +25,7 @@ ShardLoom is not an official Vortex project and is not Vortex-endorsed.
 ## What Makes ShardLoom Different
 
 ShardLoom combines encoded execution, reusable preparation, exact aggregation, and owned native
-results in one local engine. These are shipped technical-preview capabilities; each linked
+results in one published local engine. Operational hardening is in progress; each linked
 contract defines the supported operations, types, and resource limits.
 
 - **One native execution contract across Python, SQL, and CLI.** Compatibility inputs enter through
@@ -136,8 +136,8 @@ contract defines the supported operations, types, and resource limits.
   separate timing surfaces; benchmarks must also state whether startup, transport, and complete
   output are included.
 
-These are technical-preview capabilities and design contracts, not a claim of performance
-superiority or complete production support. Consult the
+The local engine retains preview support while its operational acceptance is completed.
+Performance superiority and production support require their own evidence. Consult the
 [public support matrix](docs/release/public-status-matrix.md) for release scope and the
 [canonical terminology](docs/architecture/canonical-terminology.md) for deeper definitions.
 
@@ -220,8 +220,12 @@ external_engine_invoked=false
 
 ## Current Support Posture
 
-ShardLoom is a technical-preview compute engine with a globally reusable local Vortex runtime for
-admitted operations. It does not claim broad pandas/Polars/DataFrame parity, broad ANSI SQL
+**Published local engine; operational hardening in progress.** ShardLoom has a reusable local
+Vortex runtime for admitted operations. Technical preview describes support maturity: the
+remaining work is a declared local support envelope, complete resource accounting and accepted
+workflow-wide pressure/failure/recovery evidence. See the
+[preview exit criteria](docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
+Verified package access is already available. It does not claim broad pandas/Polars/DataFrame parity, broad ANSI SQL
 compliance, production object-store or lakehouse support, production Foundry support, Spark
 replacement, or public performance superiority.
 `production_claim_allowed`: Must remain false unless a later production gate authorizes the specific workload.
@@ -264,7 +268,8 @@ python examples/local-python-benchmark-scenarios/run.py --repo-root .
 python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .
 ```
 
-The selected local/source/package v1 release track is proof-backed for package access only. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for the current technical-preview channel; that
+The selected local/source/package v1 release track is proof-backed for package access only.
+GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for v0.4.0; that
 does not authorize production, broad compatibility, or performance-superiority claims.
 
 Persisted preparation and subsequent queries use the same native engine:
@@ -351,7 +356,7 @@ independently.
 
 ## Release Notes
 
-Published technical-preview packages are proof-backed through GitHub release assets, PyPI,
+Published local-engine packages are proof-backed through GitHub release assets, PyPI,
 TestPyPI, and Homebrew channel transcripts under `docs/release/channel-proofs/`.
 
 Release channel proof records the tag ref type, target commit, and commit verification state.

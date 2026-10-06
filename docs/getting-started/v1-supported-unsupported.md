@@ -86,7 +86,7 @@ Use this page to decide what can be run locally today and what must return a det
 | object_store, lakehouse, foundry, rest_api | blocked | not_enabled | false | false | not_claim_grade | integration/platform production support remains blocked or report-only |
 | github_release, pypi, homebrew, package_install | executable | selected_v0_1_x_channels_published | false | false | package_access_only | selected GitHub release, PyPI, and Homebrew package access only; future Scoop, winget, conda, GHCR, crates.io, signing expansion, production, or performance claims remain out of scope |
 | performance_superiority, spark_replacement | blocked | not_enabled | false | false | not_claim_grade | no faster-than or replacement claim is allowed |
-| production_readiness | blocked | not_enabled | false | false | not_claim_grade | no production-readiness claim is allowed |
+| production_readiness | blocked | not_enabled | false | false | not_claim_grade | published local engine with operational hardening in progress; no production-readiness claim is allowed until scoped local workload acceptance and approval |
 
 ## Production Unsupported Diagnostics
 
@@ -111,7 +111,7 @@ production_unsupported_diagnostic_side_effects_performed=false
 | extensions_udfs_effects | extension-registry, extension-inspect, udf-runtime-plan, api_call, embedding_generation, sqlite_effects | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXTENSION_EFFECT | gar-0032-d.effectful_runtime_blocked | Use extension inspection and effect admission matrices; production effectful execution requires separate policy and certificate evidence. |
 | package_publication | TestPyPI, PyPI, Homebrew, Scoop, winget, conda-forge, GHCR, crates.io | blocked | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports and local dry-run proof until explicit maintainer approval exists. |
 | public_claims | performance_superiority, spark_replacement, engine_replacement | blocked | SL_UNSUPPORTED_PERFORMANCE_SUPERIORITY_CLAIM | cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required | Attach the selected timing surface, evidence tier, benchmark artifact, and correctness report before making a public performance claim. |
-| production_readiness | production_ready, finished_product, public_release_ready | blocked | SL_UNSUPPORTED_PRODUCTION_READINESS_CLAIM | release.production_readiness_gate_required | Use finished-product readiness and hard release-readiness reports; do not claim production support from local fixtures alone. |
+| production_readiness | production_ready, finished_product, public_release_ready | blocked | SL_UNSUPPORTED_PRODUCTION_READINESS_CLAIM | release.production_readiness_gate_required | Use docs/release/production-certification-gate.md#local-engine-preview-exit-criteria and the workload declarations; selected-channel publication proof is complete but does not certify production support. |
 
 ## Package Channels
 

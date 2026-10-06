@@ -100,10 +100,29 @@ discovery does not execute them.
 
 ## Release and readiness
 
-The technical preview is published through GitHub pre-release, PyPI, TestPyPI, and Homebrew.
-That availability does not establish production support, broad SQL/DataFrame parity, or
-Spark displacement. Local runtime and benchmark evidence do not establish production
-distributed/live-hybrid service or performance superiority. Read the
+**Published local engine; operational hardening in progress.** GitHub pre-release, PyPI,
+TestPyPI and Homebrew package access is verified. The technical-preview designation describes
+support maturity; missing publication proof is no longer a blocker.
+
+The remaining local-engine exit criteria are concrete:
+
+- Define the supported platforms, workload shapes, formats, types and resource/storage conditions.
+- Account for reader/codec scratch, retained operator state, queued results and writers, with
+  bounded retention or safe denial. A query memory grant is not a whole-process RSS ceiling.
+- Accept complete workflows under memory pressure, cancellation, source changes and storage
+  failures, including output integrity, owned cleanup and documented recovery behavior.
+- Bind correctness, operating measurements, API compatibility and support/upgrade instructions
+  to the approved release source and binary.
+
+Ordering spill already has quota, corruption, cancellation and consumer-failure coverage.
+General aggregate/join/window spill and broader reader/codec accounting remain open. A stable
+local release need not wait for cloud integrations or every SQL feature; unsupported work must
+have an explicit boundary. The repository owns the
+[full acceptance checklist](https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
+
+Claims of production support, broad SQL/DataFrame parity and Spark displacement require their own
+evidence. Local runtime and benchmark evidence do not establish production distributed/live-hybrid
+service or performance superiority. Read the
 [benchmark evidence](/field-guide/benchmark-methodology) within its measured scope.
 
 ## Failure Behavior

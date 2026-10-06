@@ -31,11 +31,13 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The source package exposes the current technical-preview source version through
-`shardloom.__version__`. Public package channels can lag the source tree until the release contract
-is advanced, so source checkouts should use editable installs and published-channel users should
-install the latest released package from the selected channel. These channels are install access
-only and do not imply production readiness, broad runtime support, or performance claims.
+The current published local-engine release is 0.4.0, with verified GitHub, TestPyPI, PyPI and
+Homebrew access. The source package reports its version through `shardloom.__version__`;
+development checkouts should use editable installs so Python and CLI revisions remain aligned.
+Operational hardening is in progress. The technical-preview designation refers to the remaining local workload,
+resource and failure acceptance in the
+[exit criteria](../docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
+Package access does not imply production readiness, broad runtime support, or performance claims.
 
 ```sh
 python -m pip install shardloom

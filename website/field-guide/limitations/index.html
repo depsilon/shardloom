@@ -186,10 +186,27 @@ separate from live provider execution.</p>
 DataFrame surface. Network, credential, API, and model effects require explicit admission;
 discovery does not execute them.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="release-and-readiness">Release and readiness</h2><a class="sl-anchor-link" href="#release-and-readiness"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Release and readiness”</span></a></div>
-<p>The technical preview is published through GitHub pre-release, PyPI, TestPyPI, and Homebrew.
-That availability does not establish production support, broad SQL/DataFrame parity, or
-Spark displacement. Local runtime and benchmark evidence do not establish production
-distributed/live-hybrid service or performance superiority. Read the
+<p><strong>Published local engine; operational hardening in progress.</strong> GitHub pre-release, PyPI,
+TestPyPI and Homebrew package access is verified. The technical-preview designation describes
+support maturity; missing publication proof is no longer a blocker.</p>
+<p>The remaining local-engine exit criteria are concrete:</p>
+<ul>
+<li>Define the supported platforms, workload shapes, formats, types and resource/storage conditions.</li>
+<li>Account for reader/codec scratch, retained operator state, queued results and writers, with
+bounded retention or safe denial. A query memory grant is not a whole-process RSS ceiling.</li>
+<li>Accept complete workflows under memory pressure, cancellation, source changes and storage
+failures, including output integrity, owned cleanup and documented recovery behavior.</li>
+<li>Bind correctness, operating measurements, API compatibility and support/upgrade instructions
+to the approved release source and binary.</li>
+</ul>
+<p>Ordering spill already has quota, corruption, cancellation and consumer-failure coverage.
+General aggregate/join/window spill and broader reader/codec accounting remain open. A stable
+local release need not wait for cloud integrations or every SQL feature; unsupported work must
+have an explicit boundary. The repository owns the
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria">full acceptance checklist</a>.</p>
+<p>Claims of production support, broad SQL/DataFrame parity and Spark displacement require their own
+evidence. Local runtime and benchmark evidence do not establish production distributed/live-hybrid
+service or performance superiority. Read the
 <a href="/field-guide/benchmark-methodology">benchmark evidence</a> within its measured scope.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="failure-behavior">Failure Behavior</h2><a class="sl-anchor-link" href="#failure-behavior"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Failure Behavior”</span></a></div>
 <p>Unsupported work must produce a deterministic blocker or report-only posture. It must not execute through Spark, DataFusion, DuckDB, Polars, pandas, Velox, Trino, a database, a warehouse, or another fallback engine.</p></div><footer class="sl-flex astro-xhxjzfa7"><div class="meta sl-flex astro-xhxjzfa7"></div><div class="pagination-links print:hidden astro-jgq3vlii" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

@@ -62,7 +62,7 @@ target/release-dry-run-proof/transcript.json records local source artifacts and 
 - `docs/release/production-usability-gate.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/release/hard-release-readiness-gate.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
 - `docs/architecture/adoption-commercial-readiness-friction-reduction.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
+- `README.md` - What this proves: Published local engine, operational maturity, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 

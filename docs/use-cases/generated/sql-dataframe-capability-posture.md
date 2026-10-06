@@ -60,7 +60,7 @@ A capability posture report showing the scoped SQL runtime ladder, the Python/Da
 - `python/README.md` - What this proves: Python wrapper scope, local smoke usage, and Python API claim boundaries.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
 - `docs/architecture/canonical-terminology.md` - What this proves: This source anchors the page claim boundary, evidence fields, and support posture.
-- `README.md` - What this proves: Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.
+- `README.md` - What this proves: Published local engine, operational maturity, Vortex-first positioning, and no-fallback boundaries.
 
 ## Related Use Cases
 
