@@ -2,7 +2,11 @@
 
 # Native scalar-value subqueries
 
-Status: implementation contract; acceptance is pending. This is
+Status: complete core-local acceptance on `8440b04f`; hosted integration pending.
+The [acceptance report](../benchmarks/native-scalar-subqueries-full43-2026-10-05.md)
+records 23,786 public checks, including 1,128 scalar checks, 202 direct checks,
+all 129 Full43 runs and independent evidence-packet inspection. Current source
+builds include this addition; the published v0.4.0 packages predate it. This is
 `NATIVE-SCALAR-SUBQUERIES` under PERF-02/03/06/07/10/12 and CG-5/19/20/21 in the
 [phase plan](phased-execution-plan.md), following the merged typed reductions and
 analytic frames. The [universal workflow plan](universal-workflow-completion-2026-10-01.md)

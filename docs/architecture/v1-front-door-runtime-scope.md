@@ -132,6 +132,16 @@ unary and relational file output uses bounded native batches
 and can exceed the collection row/byte bounds. Format-specific type and memory admission
 still applies. See the
 [local output contract](v1-local-output-sink-scope.md) for exact sink coverage.
+
+Current source builds after v0.4.0 also admit
+[scalar-value subqueries](native-scalar-subqueries-2026-10-05.md) through SQL
+expressions and Python `scalar_subquery(...)`; published v0.4.0 packages predate
+this addition. One static output column yields a typed NULL for zero rows, its
+value for one row and a cardinality error for multiple rows. Explicit
+`outer.<column>` correlation and selected CASE/COALESCE demand use the shared
+native subquery state, source declarations, resource policy and writers.
+Dynamic-pivot-dependent scalar schemas and lateral relations remain unsupported.
+
 Broad compatibility exports outside these Vortex-derived contracts remain blocked. Local
 compatibility-file residual workflows that first normalize through Vortex preparation also block
 when the remaining transformed operator, row-level materialization, or compatibility sink lacks a native

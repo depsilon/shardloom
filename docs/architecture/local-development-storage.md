@@ -141,6 +141,18 @@ do not. This recovered 7,122,944 accounted log bytes without changing the
 includes the receipt, prior manifests and new archive identities. The resident
 Parquet and new 15,713,610,545-byte Vortex output remain retained.
 
+Before scalar-subquery Full43 acceptance, preflight stopped before queries at the
+unchanged 252-MiB log-admission threshold. The latest completed release cohort's
+516 per-call artifacts were compacted into a verified archive beside its
+unchanged summary. Original identities, no-open-handle checks and every member's
+size/hash were verified before removing redundant originals. This recovered
+3,362,816 accounted log bytes without raising the 256-MiB ceiling. The
+[scalar-subquery acceptance packet](../benchmarks/native-scalar-subqueries-full43-2026-10-05.md)
+retains the failed preflight, compaction manifest and all 516 reopened members'
+proofs. The continuation reused passed focused checks only after verifying their
+receipts, immutable executable and all 901 frozen source hashes. Failed and
+incomplete observations remain intact.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

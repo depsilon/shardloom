@@ -87,9 +87,31 @@ records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
 executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
 adds complete input/output workflow comparisons. These suites overlap and do
 not establish a comparative speedup.
-General joins, set operations, analytic windows, and subqueries still have native coverage
+General joins, set operations, analytic windows and broader subquery shapes still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
+
+## Scalar subqueries
+
+Current source builds after published v0.4.0 admit scalar-value subqueries through
+SQL `(SELECT ...)` and Python `sl.scalar_subquery(...)`. The v0.4.0 packages
+predate this addition. Use them to put one query result into an expression:
+
+```sql
+SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjusted
+FROM range(1, 4)
+```
+
+This returns values 1, 2 and 3 with adjusted values 11, 12 and 13. The inner
+query must bind one static output column. Zero rows return a typed NULL, one
+row returns its value, and multiple rows raise a cardinality error even when
+their values are equal. Correlation uses explicit `outer.<column>` references.
+CASE/COALESCE execute only selected branches; every branch still requires syntax,
+source, type and schema admission. Dynamic-pivot-dependent scalar schemas and
+lateral relations remain unsupported. Existing dtype, writer and resource limits
+apply. See the [Python example](https://github.com/depsilon/shardloom/blob/main/python/README.md),
+[scalar-subquery contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-scalar-subqueries-2026-10-05.md)
+and [acceptance evidence](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-scalar-subqueries-full43-2026-10-05.md).
 
 ## Local Formats
 

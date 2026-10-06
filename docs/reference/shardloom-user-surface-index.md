@@ -212,9 +212,9 @@ objects. Common admitted methods include:
   that subsequent contract; older payload/key section flags continue to
   describe their original unit scope. The new contract has
   [local acceptance](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
-  with independently verified complete results and ownership evidence; hosted
-  acceptance remains pending. General Variant/extension operations, structured
-  literals, nested arithmetic/string operations, broader aggregate/window
+  with independently verified complete results and ownership evidence, followed
+  by hosted integration. General Variant/extension operations,
+  nested arithmetic/string operations, broader aggregate/window
   behavior, adapters and general state spill remain separate boundaries.
   Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
   microsecond timestamps are admitted payloads, including nested leaves. The
@@ -248,7 +248,8 @@ objects. Common admitted methods include:
   `typed_keys_arithmetic_and_unary_state` flag does not grant unrestricted typed
   composition. Use the separate contracts for admitted operation/type pairs.
   The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
-  records local verification; hosted acceptance remains pending.
+  records local verification; hosted integration is recorded in the
+  [completed phase ledger](../architecture/phased-execution-completed-ledger.md).
   Admitted `pivot(...)` / `pivot_table(...)` over one
   index column, one pivot column, and one value column lower through the native/prepared Vortex
   pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`
@@ -336,6 +337,14 @@ Expression helpers are admitted SQL/Python front-door builders:
 - Source subqueries: `isin_source(...)`, `not_in_source(...)`, `any_source(...)`,
   `all_source(...)`, `exists_source(...)`, `not_exists_source(...)`, `row_in(...)`,
   `row_not_in(...)`, `row_in_source(...)`, `row_not_in_source(...)`.
+- Scalar values: `sl.scalar_subquery(frame_or_sql_workflow)` preserves the inner
+  query's input declarations through expression composition. Current source
+  builds after v0.4.0 admit one static output column, typed NULL for zero rows,
+  the value for one row and a cardinality error for multiple rows. Explicit
+  `outer.<column>` correlation and selected CASE/COALESCE evaluation follow the
+  [scalar-subquery contract](../architecture/native-scalar-subqueries-2026-10-05.md).
+  Published v0.4.0 packages predate this addition; dynamic-pivot-dependent scalar
+  schemas and lateral relations remain unsupported.
 - Strings and binary helpers: `contains(...)`, `startswith(...)`, `endswith(...)`,
   `like(...)`, `rlike(...)`, `lower()`, `upper()`, `trim()`, `length()`, `concat(...)`,
   `substr(...)`, `substring(...)`, `left(...)`, `right(...)`, `replace(...)`, `unhex(...)`,
@@ -412,7 +421,12 @@ source schemas/resources. Explicit null placement is independent of direction;
 Python's `sort` forwards the requested `nulls` policy. Small JSONL collection remains
 bounded to a complete 65,536-row/8-MiB result, while larger results use streaming
 writers.
-Arbitrary operator chains, lateral/scalar-value subqueries, general window frames,
+The [analytic-frame contract](../architecture/native-analytic-frames-2026-10-05.md)
+admits explicit ROWS/GROUPS/RANGE frames. Current source builds after v0.4.0 also
+admit [scalar-value subqueries](../architecture/native-scalar-subqueries-2026-10-05.md)
+with one static output column and explicit correlation; published v0.4.0 packages
+predate that addition. Unadmitted operator/type combinations, lateral relations,
+dynamic-pivot-dependent scalar schemas, named windows, variable frame offsets,
 other relational state spill and relational fanout remain explicit boundaries.
 
 Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary

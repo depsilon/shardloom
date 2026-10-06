@@ -32,7 +32,10 @@ contract defines the supported operations, types, and resource limits.
   source adapters and Vortex preparation; native Vortex inputs stay native.
   Unsupported work must emit deterministic diagnostics with no hidden external-engine execution.
   Filters, projections, aggregates, sort/Top-K, and selected join workflows reuse the same native
-  families across front doors. General joins, set operations, windows, and subqueries still have
+  families across front doors. Current source builds after v0.4.0 also admit
+  [scalar-value subqueries](docs/architecture/native-scalar-subqueries-2026-10-05.md)
+  in SQL and Python expressions; the published v0.4.0 packages predate this addition.
+  General joins, set operations, windows, and broader subquery shapes still have
   [remaining native coverage gaps](docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
   See the [front-door contract](docs/architecture/v1-front-door-runtime-scope.md) and
   [user-surface index](docs/reference/shardloom-user-surface-index.md).

@@ -578,9 +578,31 @@ records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
 executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
 adds complete input/output workflow comparisons. These suites overlap and do
 not establish a comparative speedup.
-General joins, set operations, analytic windows, and subqueries still have native coverage
+General joins, set operations, analytic windows and broader subquery shapes still have native coverage
 gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
 and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
+
+## Scalar subqueries
+
+Current source builds after published v0.4.0 admit scalar-value subqueries through
+SQL \`(SELECT ...)\` and Python \`sl.scalar_subquery(...)\`. The v0.4.0 packages
+predate this addition. Use them to put one query result into an expression:
+
+\`\`\`sql
+SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjusted
+FROM range(1, 4)
+\`\`\`
+
+This returns values 1, 2 and 3 with adjusted values 11, 12 and 13. The inner
+query must bind one static output column. Zero rows return a typed NULL, one
+row returns its value, and multiple rows raise a cardinality error even when
+their values are equal. Correlation uses explicit \`outer.<column>\` references.
+CASE/COALESCE execute only selected branches; every branch still requires syntax,
+source, type and schema admission. Dynamic-pivot-dependent scalar schemas and
+lateral relations remain unsupported. Existing dtype, writer and resource limits
+apply. See the [Python example](https://github.com/depsilon/shardloom/blob/main/python/README.md),
+[scalar-subquery contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-scalar-subqueries-2026-10-05.md)
+and [acceptance evidence](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-scalar-subqueries-full43-2026-10-05.md).
 
 ## Local Formats
 
@@ -739,7 +761,7 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. | Operation/type coverage is finite. Named windows, variable frame offsets, scalar-value subqueries, nested pivot state and broader adapters remain subsequent work; scalar pivot keeps its 128-field, type and memory boundaries. |
+| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 also admit [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries); v0.4.0 packages predate this addition. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested pivot state and broader adapters remain outside the admitted contracts; scalar pivot keeps its 128-field, type and memory boundaries. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |

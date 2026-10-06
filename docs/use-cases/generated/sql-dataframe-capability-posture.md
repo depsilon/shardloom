@@ -70,5 +70,6 @@ A capability posture report showing the scoped SQL runtime ladder, the Python/Da
 ## Related Field Guide Terms
 
 - [No fallback](https://shardloom.io/field-guide/no-fallback) (`Start Here` / `runtime_supported`)
+- [Scalar-value subqueries](https://shardloom.io/field-guide/scalar-subqueries) (`Execution Routes` / `runtime_supported`)
 - [Deterministic blockers](https://shardloom.io/field-guide/deterministic-blockers) (`Unsupported Diagnostics` / `runtime_supported`)
 - [report_only](https://shardloom.io/field-guide/report-only) (`Unsupported Diagnostics` / `report_only`)

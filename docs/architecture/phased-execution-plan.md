@@ -269,10 +269,13 @@ the ledger.
       resource ownership in the existing subquery/expression families.
     - [x] Implement native lowering, typed results and Python source propagation;
       pass focused cardinality, lazy-branch, type, resource and cleanup checks.
-    - [ ] Pass required workspace/native/Python gates and the frozen complete
-      public workflow matrix plus Full43 regression.
-    - [ ] Update support documentation and field-guide references, complete
-      hosted review/integration and move the accepted unit to the ledger.
+    - [x] Pass 27 workspace/native/Python/source gates, all 599 Python tests with
+      optional dependencies, 23,786 public checks and 202 direct checks, plus all
+      129 Full43 runs. The [acceptance report](../benchmarks/native-scalar-subqueries-full43-2026-10-05.md)
+      records the immutable build and independent packet inspection.
+    - [x] Update support documentation, Python examples and Field Guide references;
+      distinguish current-source support from the published v0.4.0 packages.
+    - [ ] Complete hosted review/integration and move the accepted unit to the ledger.
   - Acceptance: required workspace/native/Python gates, public workflow and
     Full43 regression evidence, exact source/binary identity and hosted integration.
     Availability does not require a speedup or authorize a production claim.
@@ -334,9 +337,10 @@ continues on the shared per-operation allocation and native delivery contracts;
 nested payloads, dynamic pivot schemas, flat binary/decimal/temporal payloads
 and keys, scoped typed expressions, typed unary state and nested keys/state are
 merged, as are typed reductions and analytic frames. The typed-unary report retains
-Q9's inconclusive performance observation. Scalar-value subqueries, nested pivot
-state, broader aggregate/window semantics, adapters and resource obligations remain
-open under their existing owners.
+Q9's inconclusive performance observation. Scalar-value subqueries have complete
+core-local acceptance in source builds after v0.4.0, with hosted integration pending.
+Nested pivot state, broader aggregate/window semantics, adapters and resource
+obligations remain open under their existing owners.
 
 October 1 product clarification: the maintainer reasserted broad workload and
 volume support through one universal-I/O native pipeline. ClickBench remains one

@@ -302,7 +302,7 @@ arbitrary callbacks, recursive SQL or external-effect/platform integrations.
 | General joins | Retained duplicate-preserving equality, cross and non-equi native joins; ON before outer null extension; complete collection/writers | Wider public composition/type coverage, costed strategies and native state spill |
 | Set operations | Retained UNION ALL/DISTINCT, INTERSECT and EXCEPT with lossless schema binding, null-equal membership and complete delivery | Broader branch composition/types and state spill |
 | Analytic windows | Retained parsed ranking, navigation and distribution functions with shared partition/order state and complete delivery | Wider frames/default expressions, public chains and native state spill |
-| Scoped subqueries | Retained IN/NOT IN, row membership, ANY/ALL and EXISTS with three-valued logic and nearest outer scope; nested/grouped inner plans | Scalar-value subqueries, decorrelation, broader public composition/types and state spill |
+| Scoped subqueries | Retained IN/NOT IN, row membership, ANY/ALL and EXISTS with three-valued logic and nearest outer scope; nested/grouped inner plans. Current source builds after v0.4.0 add [scalar values](native-scalar-subqueries-2026-10-05.md) with one static output column, zero/one/many cardinality, explicit correlation and selected CASE/COALESCE demand. | Dynamic-pivot-dependent scalar schemas, lateral relations, decorrelation, broader public composition/types and state spill. Published v0.4.0 packages predate the scalar-value addition. |
 
 For each row, acceptance must cover native execution, resident reuse, CLI, SQL,
 DataFrame/Python, owned output/sinks, pressure/spill applicability, cancellation/
