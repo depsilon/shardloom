@@ -137,7 +137,7 @@ enum ParsedAggregateArgument {
     Column(String),
     Computed {
         raw: String,
-        expression: Box<Expression>,
+        expression: Box<scalar_expression::ParsedScalarExpression>,
         source_columns: Vec<String>,
     },
 }
@@ -278,7 +278,7 @@ struct ParsedNumericRoundingProjection {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedGenericExpressionProjection {
     alias: String,
-    expression: Expression,
+    expression: scalar_expression::ParsedScalarExpression,
     source_columns: Vec<String>,
     operator_families: Vec<String>,
     binary_operator_count: usize,
@@ -394,15 +394,26 @@ enum WindowFunction {
     RowNumber,
     Rank,
     DenseRank,
-    Lag { column: String, offset: usize },
-    Lead { column: String, offset: usize },
-    Ntile { bucket_count: usize },
+    Lag {
+        column: String,
+        offset: usize,
+    },
+    Lead {
+        column: String,
+        offset: usize,
+    },
+    Ntile {
+        bucket_count: usize,
+    },
     PercentRank,
     CumeDist,
     Aggregate(ParsedAggregate),
-    FirstValue(Expression),
-    LastValue(Expression),
-    NthValue { expression: Expression, index: u64 },
+    FirstValue(scalar_expression::ParsedScalarExpression),
+    LastValue(scalar_expression::ParsedScalarExpression),
+    NthValue {
+        expression: scalar_expression::ParsedScalarExpression,
+        index: u64,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -743,9 +754,9 @@ enum ParsedPredicate {
         value: ScalarValue,
     },
     GenericExpressionCompare {
-        left: Box<Expression>,
+        left: Box<scalar_expression::ParsedScalarExpression>,
         comparison: ComparisonOp,
-        right: Box<Expression>,
+        right: Box<scalar_expression::ParsedScalarExpression>,
         source_columns: Vec<String>,
         operator_families: Vec<String>,
         binary_operator_count: usize,
@@ -1435,7 +1446,9 @@ impl ParsedPredicate {
                 comparison,
                 right,
                 ..
-            } => generic_expression_compare_expression(left, *comparison, right),
+            } => {
+                generic_expression_compare_expression(&left.plain()?, *comparison, &right.plain()?)
+            }
             Self::DateArithmeticCompare {
                 column,
                 op,
@@ -4400,41 +4413,29 @@ fn parse_predicate_projection(
 }
 
 fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomError> {
-    if raw
+    // A scalar SELECT owns the predicates within its relation. Removing its
+    // enclosing parentheses must not promote an inner comparison to this SELECT.
+    let inner = trim_enclosing_scalar_expression_parentheses(raw)?;
+    if find_keyword_outside_quotes_and_parentheses(inner, "select")? == Some(0) {
+        return Ok(false);
+    }
+    if inner
         .get(..5)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("case "))
     {
         return Ok(false);
     }
-    if parse_regex_function_prefix(raw.trim()).is_some() {
+    if parse_regex_function_prefix(inner).is_some() {
         return Ok(true);
     }
-    let tokens = split_whitespace_outside_quotes(raw)?;
-    if tokens.len() > 1
-        && tokens.iter().any(|token| {
-            matches!(
-                token.to_ascii_lowercase().as_str(),
-                "=" | "!="
-                    | "<>"
-                    | "<"
-                    | "<="
-                    | ">"
-                    | ">="
-                    | "is"
-                    | "not"
-                    | "in"
-                    | "like"
-                    | "rlike"
-                    | "regexp"
-                    | "between"
-                    | "and"
-                    | "or"
-            )
-        })
-    {
-        return Ok(true);
+    for keyword in [
+        "is", "not", "in", "like", "rlike", "regexp", "between", "and", "or",
+    ] {
+        if find_keyword_outside_quotes_and_parentheses(inner, keyword)?.is_some() {
+            return Ok(true);
+        }
     }
-    Ok(find_top_level_comparison_operator(trim_enclosing_predicate_parentheses(raw)?)?.is_some())
+    Ok(find_top_level_comparison_operator(inner)?.is_some())
 }
 
 fn parse_generic_expression_projection(
@@ -4455,7 +4456,7 @@ fn parse_generic_expression_projection(
             source_columns: expression_source_columns(&expression),
             operator_families: expression_operator_families(&expression),
             binary_operator_count: 0,
-            expression,
+            expression: expression.into(),
         }));
     }
     if validate_sql_column_ref(expression_raw).is_ok() && parse_sql_literal(expression_raw).is_err()
@@ -4466,7 +4467,8 @@ fn parse_generic_expression_projection(
             expression: Expression::column(
                 ExprId::new(format!("project.alias.{alias}"))?,
                 ColumnRef::new(expression_raw)?,
-            ),
+            )
+            .into(),
             source_columns: vec![expression_raw.to_owned()],
             operator_families: Vec::new(),
             binary_operator_count: 0,
@@ -4475,7 +4477,7 @@ fn parse_generic_expression_projection(
     let contains_temporal_difference =
         expression_contains_temporal_difference_call(expression_raw)?;
     let has_numeric_operator = expression_contains_numeric_operator(expression_raw)?;
-    let composed = !has_numeric_operator && scalar_expression::composed(expression_raw)?;
+    let composed = scalar_expression::composed(expression_raw)?;
     if is_simple_numeric_arithmetic_projection_shape(expression_raw)?
         || (!has_numeric_operator && !contains_temporal_difference && !composed)
     {
@@ -4569,7 +4571,7 @@ mod scalar_expression;
 fn parse_numeric_scalar_expression(
     raw: &str,
     id_prefix: &str,
-) -> Result<Expression, ShardLoomError> {
+) -> Result<scalar_expression::ParsedScalarExpression, ShardLoomError> {
     scalar_expression::parse(raw, id_prefix)
 }
 
@@ -4717,7 +4719,9 @@ fn collect_expression_source_columns(expression: &Expression, columns: &mut BTre
                 collect_expression_source_columns(arg, columns);
             }
         }
-        ExpressionKind::Literal(_) | ExpressionKind::Unsupported { .. } => {}
+        ExpressionKind::Literal(_)
+        | ExpressionKind::RelationalValue { .. }
+        | ExpressionKind::Unsupported { .. } => {}
     }
 }
 
@@ -4746,6 +4750,7 @@ fn expression_has_temporal_difference(expression: &Expression) -> bool {
         }
         ExpressionKind::Literal(_)
         | ExpressionKind::Column(_)
+        | ExpressionKind::RelationalValue { .. }
         | ExpressionKind::Unsupported { .. } => false,
     }
 }
@@ -4762,6 +4767,9 @@ fn expression_operator_families(expression: &Expression) -> Vec<String> {
 
 fn collect_expression_operator_families(expression: &Expression, families: &mut BTreeSet<String>) {
     match &expression.kind {
+        ExpressionKind::RelationalValue { .. } => {
+            families.insert("relational_value".into());
+        }
         ExpressionKind::Cast { expr, .. } => {
             families.insert("cast".to_string());
             collect_expression_operator_families(expr, families);
@@ -4850,6 +4858,7 @@ fn expression_binary_operator_count(expression: &Expression) -> usize {
             .sum(),
         ExpressionKind::Literal(_)
         | ExpressionKind::Column(_)
+        | ExpressionKind::RelationalValue { .. }
         | ExpressionKind::Unsupported { .. } => 0,
     }
 }
@@ -5172,7 +5181,9 @@ fn string_expression_literal_count(expression: &Expression) -> usize {
             .iter()
             .map(|(_name, expression)| string_expression_literal_count(expression))
             .sum(),
-        ExpressionKind::Column(_) | ExpressionKind::Unsupported { .. } => 0,
+        ExpressionKind::Column(_)
+        | ExpressionKind::RelationalValue { .. }
+        | ExpressionKind::Unsupported { .. } => 0,
     }
 }
 
@@ -6035,8 +6046,7 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
             "aggregate expressions require one scalar argument or COUNT(*)",
         ));
     }
-    let (distinct, argument) = if let Some(argument) = strip_leading_keyword(argument, "distinct")?
-    {
+    let (distinct, argument) = if let Some(argument) = strip_leading_keyword(argument, "distinct") {
         if function != AggregateFunction::Count {
             return Err(unsupported_sql_error(
                 "DISTINCT aggregate runtime currently admits COUNT(DISTINCT <argument>) only",
@@ -6507,16 +6517,15 @@ fn parse_scalar_null_or_boolean_predicate(
         if validate_sql_column_ref(source).is_ok() && parse_sql_literal(source).is_err() {
             return Ok(None);
         }
-        Expression::new(
+        let mut expression = parse_numeric_scalar_expression(source, "where.scalar.null_arg")?;
+        expression.expression = Expression::new(
             ExprId::new("where.scalar.null_test")?,
             ExpressionKind::Unary {
                 op,
-                expr: Box::new(parse_numeric_scalar_expression(
-                    source,
-                    "where.scalar.null_arg",
-                )?),
+                expr: Box::new(expression.expression),
             },
-        )
+        );
+        expression
     } else {
         if find_top_level_comparison_operator(raw)?.is_some()
             || !(scalar_expression::composed(raw)? || parse_cast_call_expression(raw)?.is_some())
@@ -6535,7 +6544,7 @@ fn parse_scalar_null_or_boolean_predicate(
     Ok(Some(ParsedPredicate::GenericExpressionCompare {
         left: Box::new(expression),
         comparison: ComparisonOp::Eq,
-        right: Box::new(right),
+        right: Box::new(right.into()),
         source_columns,
         operator_families,
         binary_operator_count,
@@ -7956,8 +7965,8 @@ fn parse_generic_expression_predicate(
         || expression_contains_temporal_difference_call(right_raw)?;
     let numeric = expression_contains_numeric_operator(left_raw)?
         || expression_contains_numeric_operator(right_raw)?;
-    let composed = !numeric
-        && (scalar_expression::composed(left_raw)? || scalar_expression::composed(right_raw)?);
+    let composed =
+        scalar_expression::composed(left_raw)? || scalar_expression::composed(right_raw)?;
     if !numeric && !contains_temporal_difference && !composed {
         return Ok(None);
     }
@@ -10142,27 +10151,20 @@ fn split_whitespace_outside_quotes(raw: &str) -> Result<Vec<String>, ShardLoomEr
     Ok(values)
 }
 
-fn strip_leading_keyword<'a>(
-    raw: &'a str,
-    keyword: &str,
-) -> Result<Option<&'a str>, ShardLoomError> {
+fn strip_leading_keyword<'a>(raw: &'a str, keyword: &str) -> Option<&'a str> {
     let trimmed = raw.trim_start();
     if !trimmed
         .get(..keyword.len())
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
     {
-        return Ok(None);
+        return None;
     }
     if !keyword_boundary(trimmed, 0, keyword.len()) {
-        return Ok(None);
+        return None;
     }
-    let tail = &trimmed[keyword.len()..];
-    if tail.trim_start().starts_with('(') {
-        return Err(unsupported_sql_error(&format!(
-            "{keyword} must be followed by a scoped expression, not another parenthesized expression"
-        )));
-    }
-    Ok(Some(tail))
+    // The shared scalar parser owns parentheses, including a scalar query's
+    // required enclosing pair. DISTINCT only changes aggregate semantics.
+    Some(&trimmed[keyword.len()..])
 }
 
 fn parse_sql_string_literal(raw: &str) -> Result<String, ShardLoomError> {

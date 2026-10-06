@@ -1,4 +1,4 @@
-//! Bind subquery arity, exact key domains and the appended SQL boolean.
+//! Bind subquery arity, exact key domains, scalar dtype and selected evaluation.
 
 use super::super::SubqueryRelation;
 use super::{
@@ -28,6 +28,13 @@ impl Binder<'_> {
                 "parameterized correlation belongs in the inner tree before grouping and limit",
             ));
         }
+        if matches!(query.kind, VortexRelationalSubqueryKind::Scalar)
+            && (query.negated || !query.correlation.is_empty())
+        {
+            return Err(failed(
+                "scalar subqueries require unnegated values and explicit parameterized correlation",
+            ));
+        }
         let columns = match &query.kind {
             VortexRelationalSubqueryKind::In { columns } => {
                 validate_width(columns.len())?;
@@ -36,10 +43,23 @@ impl Binder<'_> {
             VortexRelationalSubqueryKind::Quantified { columns, .. } => {
                 std::slice::from_ref(columns)
             }
-            VortexRelationalSubqueryKind::Exists => &[],
+            VortexRelationalSubqueryKind::Exists | VortexRelationalSubqueryKind::Scalar => &[],
         };
         self.charge((columns.len() + query.correlation.len() + 1) * 8192)?;
         let input = Box::new(self.bind(&query.input, depth + 1)?);
+        let guard = query
+            .evaluation_guard
+            .as_ref()
+            .map(|guard| self.expression(guard, &input.fields, 0))
+            .transpose()?;
+        if guard
+            .as_ref()
+            .is_some_and(|guard| !matches!(guard.dtype, DType::Bool(_)))
+        {
+            return Err(failed(
+                "subquery evaluation guard requires a Boolean expression",
+            ));
+        }
         let relation =
             if let crate::relational_query::VortexRelationalPlan::DeferredSubquery(reference) =
                 &query.relation
@@ -74,30 +94,13 @@ impl Binder<'_> {
             left_keys.push(key.left.as_str().to_owned());
             right_keys.push(key.right.as_str().to_owned());
         }
-        let kind = match query.kind {
-            VortexRelationalSubqueryKind::In { .. } => Kind::In,
-            VortexRelationalSubqueryKind::Exists => Kind::Exists,
-            VortexRelationalSubqueryKind::Quantified {
-                comparison,
-                quantifier,
-                ..
-            } => Kind::Quantified {
-                comparison,
-                quantifier,
-            },
-        };
+        let (kind, dtype) = output_signature(&query.kind, &relation)?;
         let mut fields = input.fields.clone();
-        fields.push((
-            query.output_column.clone(),
-            DType::Bool(if matches!(kind, Kind::Exists) {
-                Nullability::NonNullable
-            } else {
-                Nullability::Nullable
-            }),
-        ));
+        fields.push((query.output_column.clone(), dtype));
         validate_unique(&fields)?;
         let spec = Spec {
             kind,
+            guard,
             fields: fields.clone(),
             left_keys,
             right_keys,
@@ -114,6 +117,46 @@ impl Binder<'_> {
             },
         })
     }
+}
+
+fn output_signature(
+    kind: &VortexRelationalSubqueryKind,
+    relation: &SubqueryRelation,
+) -> Result<(Kind, DType)> {
+    let kind = match kind {
+        VortexRelationalSubqueryKind::Scalar => {
+            let SubqueryRelation::Bound(relation) = relation else {
+                return Err(failed(
+                    "scalar subquery requires a statically bound output schema",
+                ));
+            };
+            let [(column, dtype)] = relation.fields.as_slice() else {
+                return Err(failed("scalar subquery requires exactly one output column"));
+            };
+            return Ok((
+                Kind::Scalar {
+                    column: column.clone(),
+                },
+                dtype.as_nullable(),
+            ));
+        }
+        VortexRelationalSubqueryKind::In { .. } => Kind::In,
+        VortexRelationalSubqueryKind::Exists => Kind::Exists,
+        VortexRelationalSubqueryKind::Quantified {
+            comparison,
+            quantifier,
+            ..
+        } => Kind::Quantified {
+            comparison: *comparison,
+            quantifier: *quantifier,
+        },
+    };
+    let nullable = if matches!(kind, Kind::Exists) {
+        Nullability::NonNullable
+    } else {
+        Nullability::Nullable
+    };
+    Ok((kind, DType::Bool(nullable)))
 }
 
 pub(in crate::local_primitives::prepared_relational) fn validate_relation(

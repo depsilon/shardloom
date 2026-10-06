@@ -35,6 +35,8 @@ mod join_condition_tests;
 mod memory_tests;
 #[path = "local_primitive_relational_nested_tests.rs"]
 mod nested_tests;
+#[path = "local_primitive_relational_scalar_tests.rs"]
+mod scalar_tests;
 #[path = "local_primitive_relational_spill_tests.rs"]
 mod spill_tests;
 #[path = "local_primitive_relational_subquery_tests.rs"]

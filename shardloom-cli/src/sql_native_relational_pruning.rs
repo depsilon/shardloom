@@ -221,10 +221,13 @@ impl Lowerer<'_, '_> {
         }
         let mut relation = Columns::new();
         let mut input = Columns::new();
+        if let Some(guard) = &query.evaluation_guard {
+            input.extend(expression_source_columns(guard));
+        }
         let keys = match &query.kind {
             SubqueryKind::In { columns } => columns.as_slice(),
             SubqueryKind::Quantified { columns, .. } => std::slice::from_ref(columns),
-            SubqueryKind::Exists => &[],
+            SubqueryKind::Exists | SubqueryKind::Scalar => &[],
         };
         for key in keys.iter().chain(&query.correlation) {
             input.insert(key.left.as_str().to_owned());
@@ -233,7 +236,11 @@ impl Lowerer<'_, '_> {
         let mut scoped_outer = Columns::new();
         self.prune_at(
             &mut query.relation,
-            Some(relation),
+            if matches!(query.kind, SubqueryKind::Scalar) {
+                None
+            } else {
+                Some(relation)
+            },
             &mut scoped_outer,
             depth + 1,
         )?;

@@ -7,6 +7,7 @@ fn exists(input: VortexRelationalPlan, relation: VortexRelationalPlan) -> Vortex
         input,
         relation,
         kind: VortexRelationalSubqueryKind::Exists,
+        evaluation_guard: None,
         correlation: vec![],
         output_column: "present".into(),
         negated: false,
@@ -347,6 +348,7 @@ fn native_dynamic_pivot_correlated_state_uses_each_parameter_once_and_releases_i
                     },
                     correlation: vec![],
                     output_column: "present".into(),
+                    evaluation_guard: None,
                     negated: false,
                 },
             )))

@@ -259,10 +259,20 @@ the ledger.
     checks, shared reservations, capillary units, PulseWeave admission and
     timing/evidence separation. Check the pinned Vortex providers before adding
     an abstraction; no second planner, executor or external-engine fallback.
-  - Execution checklist: freeze uncorrelated/correlated cardinality, null/type,
+  - Execution contract: [native scalar subqueries](native-scalar-subqueries-2026-10-05.md).
+    Freeze uncorrelated/correlated cardinality, null/type,
     expression-evaluation, cancellation and resource semantics against current
     source; implement through existing retained-state owners; verify independent
     complete results, denied shapes, native output and public surface parity.
+  - Execution checklist:
+    - [x] Define cardinality, static schema, selected demand, correlation and
+      resource ownership in the existing subquery/expression families.
+    - [x] Implement native lowering, typed results and Python source propagation;
+      pass focused cardinality, lazy-branch, type, resource and cleanup checks.
+    - [ ] Pass required workspace/native/Python gates and the frozen complete
+      public workflow matrix plus Full43 regression.
+    - [ ] Update support documentation and field-guide references, complete
+      hosted review/integration and move the accepted unit to the ledger.
   - Acceptance: required workspace/native/Python gates, public workflow and
     Full43 regression evidence, exact source/binary identity and hosted integration.
     Availability does not require a speedup or authorize a production claim.

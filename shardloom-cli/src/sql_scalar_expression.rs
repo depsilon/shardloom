@@ -1,30 +1,99 @@
 //! Bounded scalar declaration parsing into the shared expression IR.
 //! Type admission and all value evaluation belong to the native binder/kernels.
 
+use super::relation_sources::ParsedRelationQuery;
 use super::{
-    BinaryOp, CastMode, ColumnRef, ExprId, Expression, ExpressionKind, LogicalDType, ScalarValue,
-    ShardLoomError, expression_source_columns, find_keyword_outside_quotes_and_parentheses,
-    find_top_level_numeric_operator, matching_closing_parenthesis,
-    parse_binary_byte_length_call_expression, parse_cast_call_expression, parse_cast_target_dtype,
-    parse_date_arithmetic_column_arg, parse_date_arithmetic_days, parse_null_coalesce_column_arg,
-    parse_predicate, parse_projection_literal_value, parse_sql_literal,
-    parse_string_length_call_expression, parse_string_scalar_expression,
-    parse_timestamp_arithmetic_column_arg, parse_timestamp_arithmetic_seconds,
-    parse_timestamp_extract_column_arg, parse_top_level_projection_literal_value, split_sql_csv,
+    BinaryOp, CastMode, ColumnRef, ExprId, Expression, ExpressionKind, LogicalDType,
+    ParsedPredicate, ScalarValue, ShardLoomError, expression_source_columns,
+    find_keyword_outside_quotes_and_parentheses, find_top_level_numeric_operator,
+    matching_closing_parenthesis, parse_binary_byte_length_call_expression,
+    parse_cast_call_expression, parse_cast_target_dtype, parse_date_arithmetic_column_arg,
+    parse_date_arithmetic_days, parse_null_coalesce_column_arg, parse_predicate,
+    parse_projection_literal_value, parse_sql_literal, parse_string_length_call_expression,
+    parse_string_scalar_expression, parse_timestamp_arithmetic_column_arg,
+    parse_timestamp_arithmetic_seconds, parse_timestamp_extract_column_arg,
+    parse_top_level_projection_literal_value, split_sql_csv,
     trim_enclosing_scalar_expression_parentheses, unsupported_sql_error, validate_sql_column_ref,
 };
 
-pub(super) fn parse(raw: &str, id: &str) -> Result<Expression, ShardLoomError> {
+/// An inert scalar declaration. Relational bindings belong to the SQL frontend;
+/// the shared expression IR contains only explicit, unresolved references.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct ParsedScalarExpression {
+    pub(super) expression: Expression,
+    pub(super) bindings: Vec<(ExprId, RelationalBinding)>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) enum RelationalBinding {
+    Scalar(Box<ParsedRelationQuery>),
+    Predicate(Box<ParsedPredicate>),
+}
+
+impl From<Expression> for ParsedScalarExpression {
+    fn from(expression: Expression) -> Self {
+        Self {
+            expression,
+            bindings: Vec::new(),
+        }
+    }
+}
+
+impl std::ops::Deref for ParsedScalarExpression {
+    type Target = Expression;
+    fn deref(&self) -> &Expression {
+        &self.expression
+    }
+}
+
+impl ParsedScalarExpression {
+    pub(super) fn plain(&self) -> Result<Expression, ShardLoomError> {
+        if !self.bindings.is_empty() {
+            return Err(unsupported_sql_error(
+                "relational scalar declarations require native query lowering",
+            ));
+        }
+        Ok(self.expression.clone())
+    }
+}
+
+pub(super) fn predicate_has_bindings(predicate: &ParsedPredicate) -> bool {
+    match predicate {
+        ParsedPredicate::InSubquery { .. }
+        | ParsedPredicate::RowValueInSubquery { .. }
+        | ParsedPredicate::QuantifiedSubquery { .. }
+        | ParsedPredicate::ExistsSubquery { .. } => true,
+        ParsedPredicate::Logical { left, right, .. } => {
+            predicate_has_bindings(left) || predicate_has_bindings(right)
+        }
+        ParsedPredicate::Not { inner } => predicate_has_bindings(inner),
+        ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
+            !left.bindings.is_empty() || !right.bindings.is_empty()
+        }
+        _ => false,
+    }
+}
+
+pub(super) fn parse(raw: &str, id: &str) -> Result<ParsedScalarExpression, ShardLoomError> {
     if raw.len() > 65_536 {
         return Err(unsupported_sql_error(
             "scalar expression exceeds 65536 bytes",
         ));
     }
-    Parser { nodes: 0 }.expression(raw, id, 0)
+    let mut parser = Parser {
+        nodes: 0,
+        bindings: Vec::new(),
+    };
+    let expression = parser.expression(raw, id, 0)?;
+    Ok(ParsedScalarExpression {
+        expression,
+        bindings: parser.bindings,
+    })
 }
 
 struct Parser {
     nodes: usize,
+    bindings: Vec<(ExprId, RelationalBinding)>,
 }
 
 impl Parser {
@@ -41,6 +110,10 @@ impl Parser {
             ));
         }
         let raw = trim_enclosing_scalar_expression_parentheses(raw)?;
+        if find_keyword_outside_quotes_and_parentheses(raw, "select")? == Some(0) {
+            let query = ParsedRelationQuery::parse(raw)?;
+            return self.relational(id, RelationalBinding::Scalar(Box::new(query)));
+        }
         if let Ok(value) = parse_top_level_projection_literal_value(raw) {
             return Ok(Expression::literal(
                 ExprId::new(format!("{id}.literal"))?,
@@ -188,7 +261,15 @@ impl Parser {
                 "CASE requires a single ordered WHEN/THEN/ELSE/END expression",
             ));
         }
-        let condition = parse_predicate(raw[when + 4..then].trim())?.to_expression()?;
+        let predicate = parse_predicate(raw[when + 4..then].trim())?;
+        let condition = if predicate_has_bindings(&predicate) {
+            self.relational(
+                &format!("{id}.condition"),
+                RelationalBinding::Predicate(Box::new(predicate)),
+            )?
+        } else {
+            condition_expression(&predicate)?
+        };
         let yes = self.expression(&raw[then + 4..otherwise], &format!("{id}.then"), depth + 1)?;
         let no = self.expression(&raw[otherwise + 4..end], &format!("{id}.else"), depth + 1)?;
         Ok(Expression::new(
@@ -199,6 +280,36 @@ impl Parser {
             },
         ))
     }
+
+    fn relational(
+        &mut self,
+        id: &str,
+        value: RelationalBinding,
+    ) -> Result<Expression, ShardLoomError> {
+        let binding = ExprId::new(format!("{id}.relational.{}", self.bindings.len()))?;
+        self.bindings.push((binding.clone(), value));
+        Ok(Expression::new(
+            binding.clone(),
+            ExpressionKind::RelationalValue { binding },
+        ))
+    }
+}
+
+fn condition_expression(predicate: &ParsedPredicate) -> Result<Expression, ShardLoomError> {
+    let kind = match predicate {
+        ParsedPredicate::All => ExpressionKind::Literal(ScalarValue::Boolean(true)),
+        ParsedPredicate::Not { inner } => ExpressionKind::Unary {
+            op: shardloom_core::UnaryOp::Not,
+            expr: Box::new(condition_expression(inner)?),
+        },
+        ParsedPredicate::Logical { left, right, op } => ExpressionKind::Binary {
+            left: Box::new(condition_expression(left)?),
+            op: op.binary_op(),
+            right: Box::new(condition_expression(right)?),
+        },
+        _ => return predicate.to_expression(),
+    };
+    Ok(Expression::new(ExprId::new("scalar.condition")?, kind))
 }
 
 fn scalar_function(name: &str) -> bool {
@@ -270,6 +381,9 @@ fn scalar_function(name: &str) -> bool {
 /// same IR parser and native binder, without retrying execution through a facade.
 pub(super) fn composed(raw: &str) -> Result<bool, ShardLoomError> {
     let raw = trim_enclosing_scalar_expression_parentheses(raw)?;
+    if find_keyword_outside_quotes_and_parentheses(raw, "select")? == Some(0) {
+        return Ok(true);
+    }
     if raw
         .get(..5)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("case "))

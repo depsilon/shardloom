@@ -157,6 +157,12 @@ impl BinaryOp {
 pub enum ExpressionKind {
     Literal(ScalarValue),
     Column(ColumnRef),
+    /// A scalar value supplied by an owned relational declaration. Frontend
+    /// lowering must resolve the reference before ordinary expression binding;
+    /// it never contains SQL text or an executable external callback.
+    RelationalValue {
+        binding: ExprId,
+    },
     List {
         values: Vec<Expression>,
     },
@@ -297,6 +303,9 @@ impl Expression {
             match &self.kind {
                 ExpressionKind::Literal(v) => format!("literal({})", v.summary()),
                 ExpressionKind::Column(c) => format!("column({})", c.as_str()),
+                ExpressionKind::RelationalValue { binding } => {
+                    format!("relational_value({})", binding.as_str())
+                }
                 ExpressionKind::List { values } => format!("list({})", values.len()),
                 ExpressionKind::Struct { fields } => format!("struct({})", fields.len()),
                 ExpressionKind::Alias { alias, .. } => format!("alias({alias})"),
@@ -787,6 +796,10 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
             eval_compare(&left, *op, &right)
         }
         ExpressionKind::FunctionCall { name, args } => eval_function_call(name, args, row),
+        ExpressionKind::RelationalValue { .. } => Err(EvalFailure::unsupported(
+            "relational_value",
+            "relational value requires native query binding before expression evaluation",
+        )),
         ExpressionKind::Unsupported { feature, reason } => {
             Err(EvalFailure::unsupported(feature.clone(), reason.clone()))
         }
@@ -3480,6 +3493,7 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
     match &expression.kind {
         ExpressionKind::Literal(_) => "literal",
         ExpressionKind::Column(_) => "column",
+        ExpressionKind::RelationalValue { .. } => "relational_value",
         ExpressionKind::List { .. } => "list_construct",
         ExpressionKind::Struct { .. } => "struct_construct",
         ExpressionKind::Alias { .. } => "alias",

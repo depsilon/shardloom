@@ -123,6 +123,7 @@ fn native_nested_payload_survives_subquery_membership_and_exists() {
             correlation: vec![],
             negated: false,
             output_column: "matches".into(),
+            evaluation_guard: None,
         }));
         let expected = [json!([9, null]), json!([]), json!(null), json!([-4])]
             .into_iter()

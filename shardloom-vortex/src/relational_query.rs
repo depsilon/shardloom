@@ -341,7 +341,8 @@ pub enum VortexRelationalQuantifier {
 }
 
 /// Subquery comparisons produce nullable SQL booleans, without filtering away
-/// unknown values prematurely. EXISTS is always nonnullable.
+/// unknown values prematurely. EXISTS is always nonnullable. Scalar values
+/// preserve one bound column's dtype and widen nullability for an empty result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VortexRelationalSubqueryKind {
     In {
@@ -353,9 +354,10 @@ pub enum VortexRelationalSubqueryKind {
         quantifier: VortexRelationalQuantifier,
     },
     Exists,
+    Scalar,
 }
 
-/// Append one predicate result to every input row. Correlation keys use ordinary
+/// Append one subquery result to every input row. Correlation keys use ordinary
 /// SQL equality; null correlation keys select an empty inner relation. More
 /// complex correlation requires an explicit native parameterized plan.
 #[derive(Debug, Clone, PartialEq)]
@@ -363,6 +365,9 @@ pub struct VortexRelationalSubquery {
     pub input: VortexRelationalPlan,
     pub relation: VortexRelationalPlan,
     pub kind: VortexRelationalSubqueryKind,
+    /// Evaluate only for input rows where this bound Boolean expression is true.
+    /// Inactive rows carry an unobserved NULL (false for nonnullable EXISTS).
+    pub evaluation_guard: Option<Expression>,
     pub correlation: Vec<VortexRelationalJoinKey>,
     pub output_column: String,
     pub negated: bool,

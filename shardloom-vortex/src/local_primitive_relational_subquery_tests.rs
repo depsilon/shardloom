@@ -23,6 +23,7 @@ fn plan(
         input: left.scan(),
         relation: right.scan(),
         kind,
+        evaluation_guard: None,
         correlation,
         negated,
         output_column: "predicate".into(),

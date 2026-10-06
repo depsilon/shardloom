@@ -256,6 +256,7 @@ _EXPORT_GROUPS: dict[str, tuple[str, ...]] = {
         "row_not_in_source",
         "row_number",
         "row_transform",
+        "scalar_subquery",
         "sequence",
         "sql",
         "sql_literal_select",

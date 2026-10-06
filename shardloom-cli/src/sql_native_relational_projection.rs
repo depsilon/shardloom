@@ -19,6 +19,16 @@ impl Lowerer<'_, '_> {
         let mut expressions = Vec::new();
         for output in &parsed.projection_order {
             match output {
+                ParsedProjectionOutput::GenericExpression(alias) => {
+                    let projection = find_projection_by_alias(
+                        &parsed.generic_expression_projections,
+                        alias,
+                        "scalar",
+                    )?;
+                    let (next, expression) = self.scalar(input, &projection.expression, None)?;
+                    input = next;
+                    expressions.push((alias.clone(), expression));
+                }
                 ParsedProjectionOutput::Predicate(alias) => {
                     let projection = find_projection_by_alias(
                         &parsed.predicate_projections,
@@ -155,12 +165,14 @@ impl Lowerer<'_, '_> {
 
     pub(super) fn windows(
         &mut self,
-        mut input: Lowered,
+        input: Lowered,
         windows: &[ParsedWindowProjection],
     ) -> NativeResult<Lowered> {
         if windows.is_empty() {
             return Ok(input);
         }
+        let mut windows = windows.to_vec();
+        let mut input = self.window_scalars(input, &mut windows)?;
         let mut projection = input
             .columns
             .iter()
@@ -250,6 +262,35 @@ impl Lowerer<'_, '_> {
         input
             .columns
             .extend(windows.iter().map(|window| window.alias.clone()));
+        Ok(input)
+    }
+
+    fn window_scalars(
+        &mut self,
+        mut input: Lowered,
+        windows: &mut [ParsedWindowProjection],
+    ) -> NativeResult<Lowered> {
+        for window in windows {
+            let value = match &mut window.function {
+                WindowFunction::FirstValue(value)
+                | WindowFunction::LastValue(value)
+                | WindowFunction::NthValue {
+                    expression: value, ..
+                } => Some(value),
+                WindowFunction::Aggregate(aggregate) => match &mut aggregate.argument {
+                    ParsedAggregateArgument::Computed { expression, .. } => {
+                        Some(expression.as_mut())
+                    }
+                    _ => None,
+                },
+                _ => None,
+            };
+            if let Some(value) = value {
+                let (next, expression) = self.scalar(input, value, None)?;
+                input = next;
+                *value = expression.into();
+            }
+        }
         Ok(input)
     }
 

@@ -532,6 +532,7 @@ fn native_nested_keys_membership_quantifiers_and_correlation_preserve_sql_nulls(
             correlation,
             negated: false,
             output_column: "matches".into(),
+            evaluation_guard: None,
         }));
         let values = collect(&plan)
             .into_iter()
