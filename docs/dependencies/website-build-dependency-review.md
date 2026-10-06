@@ -94,6 +94,41 @@ public-status validation, all eight link regressions, website readiness and
 static-asset validation. Hosted checks must pass for the updated commit before
 merge; production deployment follows the existing Cloudflare integration.
 
+## 2026-10-05 Build Parser Updates
+
+PR #1523's website validation found three newly reported advisories. Update only
+the affected existing transitive packages:
+
+- `smol-toml` 1.8.0 → 1.9.0, the upstream fix for
+  [GHSA-r4xh-jqrq-34v2](https://github.com/advisories/GHSA-r4xh-jqrq-34v2).
+- `source-map-js` 1.2.1 → 1.2.2, the upstream fix for
+  [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
+- `postcss-selector-parser` 6.1.4 → 7.1.6, the upstream fix for
+  [GHSA-rj75-hqrm-r3gf](https://github.com/advisories/GHSA-rj75-hqrm-r3gf).
+
+The first two updates satisfy their callers' existing version ranges. The CSS
+parser needs an override scoped to `postcss-nested`, whose 6.2.0 release still
+requests parser 6. The latest Expressive Code core, 0.44.2, retains that parent
+range. Keep the installed Astro/Starlight family and `postcss-nested` unchanged;
+the audit's proposed Starlight downgrade does not fit this site. Remove the
+override when the parent dependency admits a patched parser itself.
+
+The parser's [upstream changelog](https://github.com/postcss/postcss-selector-parser/blob/main/CHANGELOG.md)
+identifies insertion-during-iteration behavior as the version 7 change. The
+installed parent uses parsing, cloning, node replacement, iteration and
+serialization; compatibility acceptance includes rebuilding the complete site
+and comparing the generated CSS bytes. The parser remains MIT licensed; the
+other two packages remain BSD-3-Clause licensed. No package or execution
+dependency is added. These are build-time parser advisories, not evidence of a
+vulnerable public request handler in the deployed static site.
+
+The updated lockfile passes the unchanged audit with zero reported
+vulnerabilities. Clean installation, type/content checks, the full site rebuild,
+public status/readiness/static checks and all 166 focused release/link tests pass.
+All nine generated CSS files retain identical paths and SHA-256 hashes; the
+rebuild changes no checked-in website output. Hosted checks must pass for the
+revised commit before merge.
+
 ## Runtime Boundary
 
 - Astro, Starlight, MDX, sitemap, Pagefind, TypeScript, and related packages are website-only build
