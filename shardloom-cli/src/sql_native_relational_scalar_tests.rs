@@ -15,6 +15,18 @@ fn native_scalar_subqueries_preserve_cardinality_types_and_expression_compositio
             json!([{"scalar":6},{"scalar":7}]),
         ),
         (
+            "SELECT CAST((SELECT 7) AS int64) + (SELECT 3) AS scalar",
+            json!([{"scalar":10}]),
+        ),
+        (
+            "SELECT TRY_CAST((SELECT 7) AS int64) % (SELECT 3) AS scalar",
+            json!([{"scalar":1}]),
+        ),
+        (
+            "SELECT value FROM range(1,4) WHERE CAST((SELECT 7) AS int64) - value > 4",
+            json!([{"value":1},{"value":2}]),
+        ),
+        (
             "SELECT CAST((SELECT CAST('1.20' AS decimal128(4,2))) AS utf8) AS scalar",
             json!([{"scalar":"1.20"}]),
         ),

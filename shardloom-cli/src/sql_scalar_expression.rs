@@ -393,6 +393,11 @@ pub(super) fn composed(raw: &str) -> Result<bool, ShardLoomError> {
     if raw.starts_with(['+', '-']) && parse_sql_literal(raw).is_err() {
         return Ok(true);
     }
+    // A leading function is only an operand when arithmetic follows it.
+    // Match the scalar parser's precedence before requiring a complete CAST.
+    if find_top_level_numeric_operator(raw, &['+', '-', '*', '/', '%'])?.is_some() {
+        return Ok(true);
+    }
     if let Some((_, inner)) = parse_cast_call_expression(raw)? {
         let index = find_keyword_outside_quotes_and_parentheses(inner, "as")?
             .ok_or_else(|| unsupported_sql_error("CAST requires AS dtype"))?;
@@ -611,6 +616,9 @@ mod tests {
             "TRY_CAST(CAST(amount AS utf8) AS decimal128(10,2))",
             "FLOOR(CAST(amount AS decimal128(10,2)))",
             "CAST('1.20' AS decimal128(4,2))",
+            "CAST(amount AS decimal128(10,2)) + CAST('1.25' AS decimal128(10,2))",
+            "TRY_CAST(amount AS int64) % 3",
+            "CAST((SELECT 7) AS int64) - (SELECT 3)",
             "-amount",
         ] {
             assert!(composed(raw).unwrap(), "{raw}");
