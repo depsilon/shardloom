@@ -43,6 +43,12 @@ The optional-dependency Python run passes all 599 tests with no skips.
 The 145 admitted-semantics stages and nine golden workflow stages also pass.
 Configurations and repeated checks overlap; these counts are not distinct-test totals.
 
+The final [documentation integration record](evidence/native-nested-pivot-state-integration-2026-10-06.json)
+records twelve passing documentation/website gates on `3b86cc31`, unchanged
+hashes for all 910 runtime assets, and desktop/mobile Field Guide review. The
+mobile table scrolls within its container without widening the page. Hosted
+integration remains a separate step.
+
 ## Complete public workflows
 
 | Family | Checks |
