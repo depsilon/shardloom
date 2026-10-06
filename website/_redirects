@@ -108,6 +108,8 @@
 /field-guide/table-lakehouse-boundary/ /field-guide/limitations#external-systems 301
 /field-guide/foundry-boundary /field-guide/limitations#external-systems 301
 /field-guide/foundry-boundary/ /field-guide/limitations#external-systems 301
+/field-guide/scalar-subqueries /field-guide/runtime-and-io#scalar-subqueries 301
+/field-guide/scalar-subqueries/ /field-guide/runtime-and-io#scalar-subqueries 301
 /field-guide/deterministic-blockers /field-guide/limitations#failure-behavior 301
 /field-guide/deterministic-blockers/ /field-guide/limitations#failure-behavior 301
 /field-guide/report-only /field-guide/limitations#failure-behavior 301
