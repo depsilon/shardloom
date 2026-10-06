@@ -1,0 +1,1173 @@
+{
+  "schema_version": "shardloom.native_scalar_subqueries_documentation_integration.v1",
+  "status": "passed_documentation_integration",
+  "runtime_commit": "8440b04f8f786cfd0fc8444e0e7b2caa4fcb65d9",
+  "documentation_commit": "0776f888922b378e878a0749f1e82bc95b2022d4",
+  "documentation_tree": "1d7f7f9309b7e39ec7edd6386b731343adc20ca8",
+  "packet_sha256": "2eac32d1a2bb27735d310846cbd98706b7b44c999acd9e3628b15ec9d303575c",
+  "runtime_source_preservation": {
+    "verified_unchanged_assets": 901,
+    "canonical_source_hash_map_sha256": "a11a4a835d6f9d733eb38663194e540a061b073f02d82da3123fdecbe5458193",
+    "runtime_freeze_original_sha256": "705bb03870f7ade000299db61825e0787108b61000d348a44ea3f606deafba43",
+    "documentation_freeze_original_sha256": "b50c6a968da0c1e8f43cfe202f23ecb5e59e2b28853fd01bb83d86482dc2b944"
+  },
+  "documentation_gate_count": 12,
+  "documentation_stages": [
+    {
+      "receipt": {
+        "name": "scalar-final-fmt-4.json",
+        "original_sha256": "ba21f3fc828554413a6980d26a5b0067b5ba1544c62e7ad1a1328d3598e567a4",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "${HOME}/.cargo/bin/rustup",
+            "run",
+            "1.99.0",
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939845120,
+              "log_bytes": 0,
+              "free_bytes": 116741890048,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116741890048,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79730,
+          "output_bytes": 0,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 2.4903861669590697,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "log": {
+        "name": "scalar-final-fmt-4.log",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "text": ""
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-contribution-governance-4.json",
+        "original_sha256": "de9e87b530d5759a83d9cf3dfa75a52300deafa4d3f9fd7dd6044eb5f077b30e",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_contribution_governance.py",
+            "--output",
+            "${ARTIFACTS}/scalar-contribution-4.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939853312,
+              "log_bytes": 0,
+              "free_bytes": 116742475776,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116745953280,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79751,
+          "output_bytes": 94,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.07048287498764694,
+          "log_sha256": "a66f22a614d090174de4f0a942a2490478fd647d485ae83508535dae8dfaf1fc"
+        }
+      },
+      "log": {
+        "name": "scalar-final-contribution-governance-4.log",
+        "original_sha256": "a66f22a614d090174de4f0a942a2490478fd647d485ae83508535dae8dfaf1fc",
+        "text": "${ARTIFACTS}/scalar-contribution-4.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-ci-gate-matrix-4.json",
+        "original_sha256": "aba88096175d2e19cbbf09990a0e8f29676dc95b5305765b09332a5d052525d0",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_ci_gate_matrix.py",
+            "--output",
+            "${ARTIFACTS}/scalar-ci-gate-matrix-4.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939865600,
+              "log_bytes": 0,
+              "free_bytes": 116742258688,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116739039232,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79763,
+          "output_bytes": 96,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.07186987495515496,
+          "log_sha256": "5b852319f407ea86f7f49731c1781ef7e15db71020bb660e7c1e50dd24d58e01"
+        }
+      },
+      "log": {
+        "name": "scalar-final-ci-gate-matrix-4.log",
+        "original_sha256": "5b852319f407ea86f7f49731c1781ef7e15db71020bb660e7c1e50dd24d58e01",
+        "text": "${ARTIFACTS}/scalar-ci-gate-matrix-4.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-api-schema-4.json",
+        "original_sha256": "38d6a7984c9b025043cd9add3ab6f3678e08384b46cad779572eb6db102482db",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_api_schema_stability.py",
+            "--output",
+            "${ARTIFACTS}/scalar-api-schema-4.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939902464,
+              "log_bytes": 0,
+              "free_bytes": 116738998272,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116741148672,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79777,
+          "output_bytes": 2018,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.06830791698303074,
+          "log_sha256": "be5f8893328fe83283bfde7e1ac1dd918ad6a22b29cf57fd1d59c4fe89869e84"
+        }
+      },
+      "log": {
+        "name": "scalar-final-api-schema-4.log",
+        "original_sha256": "be5f8893328fe83283bfde7e1ac1dd918ad6a22b29cf57fd1d59c4fe89869e84",
+        "text": "{\n  \"blockers\": [],\n  \"compatibility_window\": \"v1_additive_compatibility\",\n  \"diagnostic_code_count\": 22,\n  \"diagnostic_code_doc_ref\": \"docs/release/diagnostic-code-stability.md\",\n  \"diagnostic_code_order\": [\n    \"SL_INVALID_INPUT\",\n    \"SL_CONFIGURATION_ERROR\",\n    \"SL_NOT_IMPLEMENTED\",\n    \"SL_UNSUPPORTED_ENCODING\",\n    \"SL_UNSUPPORTED_DTYPE\",\n    \"SL_UNSUPPORTED_SQL\",\n    \"SL_UNSUPPORTED_UDF\",\n    \"SL_UNSUPPORTED_EFFECT\",\n    \"SL_UNSUPPORTED_OUTPUT_FORMAT\",\n    \"SL_MISSING_STATISTICS\",\n    \"SL_PRUNING_INCONCLUSIVE\",\n    \"SL_METADATA_LOSS\",\n    \"SL_MATERIALIZATION_REQUIRED\",\n    \"SL_EXTERNAL_EFFECT_DISABLED\",\n    \"SL_LLM_CALL_DISABLED\",\n    \"SL_API_CALL_DISABLED\",\n    \"SL_EMBEDDING_MODEL_UNCONFIGURED\",\n    \"SL_VECTOR_INDEX_UNAVAILABLE\",\n    \"SL_OBJECT_STORE_UNSUPPORTED\",\n    \"SL_COMMIT_NOT_ATOMIC\",\n    \"SL_RESOURCE_BUDGET_EXCEEDED\",\n    \"SL_NO_FALLBACK_EXECUTION\"\n  ],\n  \"diagnostic_code_source_ref\": \"shardloom-core/src/diagnostics.rs\",\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"fixture_ref\": \"docs/release/fixtures/v1-api-schema-stability/golden-fixtures.json\",\n  \"legacy_flat_field_policy\": \"stable_aliases_for_v1_with_documented_deprecation_window\",\n  \"matrix_ref\": \"docs/release/v1-api-schema-stability-matrix.json\",\n  \"matrix_schema_version\": \"shardloom.v1_api_schema_stability_matrix.v1\",\n  \"package_publication_performed\": false,\n  \"public_package_claim_allowed\": false,\n  \"public_release_claim_allowed\": false,\n  \"publication_approval_required\": true,\n  \"runtime_execution\": false,\n  \"schema_version\": \"shardloom.v1_api_schema_stability_report.v1\",\n  \"signing_key_used\": false,\n  \"stable_surface_count\": 12,\n  \"stable_surfaces\": [\n    \"output_envelope\",\n    \"diagnostic\",\n    \"fallback_status\",\n    \"route_fields\",\n    \"evidence_summary\",\n    \"claim_summary\",\n    \"execution_certificate\",\n    \"native_io_certificate\",\n    \"capability_report\",\n    \"package_release_report\",\n    \"doctor_report\",\n    \"support_bundle\"\n  ],\n  \"status\": \"passed\",\n  \"tag_created\": false\n}\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-website-build-4.json",
+        "original_sha256": "ea4f243c019822db56fffcc6e16fe6dbdd9b2b6e48216d30ca48883a63555cd3",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/bin/npm",
+            "--prefix",
+            "website-src",
+            "run",
+            "build"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939918848,
+              "log_bytes": 0,
+              "free_bytes": 116736516096,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116736516096,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79825,
+          "output_bytes": 2403,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 46.36594241706189,
+          "log_sha256": "5863a67e379539c78dbdbbbd9ac10fc0437cb74d676335af5bd36ee10621fe7f"
+        }
+      },
+      "log": {
+        "name": "scalar-final-website-build-4.log",
+        "original_sha256": "5863a67e379539c78dbdbbbd9ac10fc0437cb74d676335af5bd36ee10621fe7f",
+        "text": "\n> shardloom-website@0.4.0 build\n> npm run prebuild:static && npm run sync-content && astro build && node scripts/postbuild-static.mjs\n\n\n> shardloom-website@0.4.0 prebuild:static\n> node scripts/prebuild-static.mjs --reset-output\n\nprepared website output directories; reset_output=true; settle_output=false; duplicate_suffixed_removed=0; settle_passes=3; settle_delay_ms=50\n\n> shardloom-website@0.4.0 sync-content\n> node scripts/sync-content.mjs\n\nsynced 9 guide pages, 35 vocabulary redirects, and 24 repository use-case records\n23:05:17 [content] Syncing content\n23:05:17 [content] Synced content\n23:05:17 [types] Generated 181ms\n23:05:17 [build] output: \"static\"\n23:05:17 [build] mode: \"static\"\n23:05:17 [build] directory: ${REPO}/website/\n23:05:17 [build] Collecting build info...\n23:05:17 [build] ✓ Completed in 252ms.\n23:05:17 [build] Building static entrypoints...\n23:05:17 [vite] ✓ built in 181ms\n23:05:17 [vite] ✓ built in 21ms\n23:05:17 [build] Rearranging server assets...\n\n generating static routes \n23:05:17   ├─ /404.htmlEntry docs → 404 was not found.\n (+6ms) \n23:05:17   ├─ /about/index.html (+1ms) \n23:05:17   ├─ /start/index.html (+1ms) \n23:05:17   ├─ /index.html (+1ms) \n23:05:17   ├─ /field-guide/index.html (+3ms) \n23:05:17   ├─ /field-guide/benchmark-methodology/index.html (+2ms) \n23:05:17   ├─ /field-guide/compute-flow/index.html (+2ms) \n23:05:17   ├─ /field-guide/execution-model/index.html (+2ms) \n23:05:17   ├─ /field-guide/execution-routes/index.html (+5ms) \n23:05:17   ├─ /field-guide/limitations/index.html (+2ms) \n23:05:17   ├─ /field-guide/python-surface/index.html (+2ms) \n23:05:17   ├─ /field-guide/runtime-and-io/index.html (+2ms) \n23:05:17   ├─ /field-guide/start-local-proof/index.html (+2ms) \n23:05:17 ✓ Completed in 42ms.\n\n23:05:17 [build] ✓ Completed in 256ms.\n23:05:17 [starlight:pagefind] Building search index with Pagefind...\n23:05:17 [starlight:pagefind] Found 13 HTML files.\n23:05:17 [starlight:pagefind] Finished building search index in 16ms.\n23:05:17 [@astrojs/sitemap] `sitemap-index.xml` created at `../website`\n23:05:17 [build] 13 page(s) built in 529ms\n23:05:17 [build] Complete!\nwrote canonical .html compatibility pages and refreshed public assets; duplicate_suffixed_removed=0; settle_passes=90; settle_delay_ms=500\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-website-check-4.json",
+        "original_sha256": "01cf989d963408fa303bff49d9da7425866cc6e6c97a17014dfd633ee89e7b03",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/bin/npm",
+            "--prefix",
+            "website-src",
+            "run",
+            "check"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939931136,
+              "log_bytes": 0,
+              "free_bytes": 116748410880,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116748410880,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79967,
+          "output_bytes": 1039,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 47.83152741705999,
+          "log_sha256": "2355a735e757063022e3321363bedc2c8040d52276152cf6591f2e4abe98f58f"
+        }
+      },
+      "log": {
+        "name": "scalar-final-website-check-4.log",
+        "original_sha256": "2355a735e757063022e3321363bedc2c8040d52276152cf6591f2e4abe98f58f",
+        "text": "\n> shardloom-website@0.4.0 check\n> npm run clean:static && npm run sync-content && astro check && npm run settle:static\n\n\n> shardloom-website@0.4.0 clean:static\n> node scripts/prebuild-static.mjs\n\nprepared website output directories; reset_output=false; settle_output=false; duplicate_suffixed_removed=0; settle_passes=3; settle_delay_ms=50\n\n> shardloom-website@0.4.0 sync-content\n> node scripts/sync-content.mjs\n\nsynced 9 guide pages, 35 vocabulary redirects, and 24 repository use-case records\n23:06:04 [content] Syncing content\n23:06:04 [content] Synced content\n23:06:04 [types] Generated 180ms\n23:06:04 [check] Getting diagnostics for Astro files in ${REPO}/website-src...\nResult (18 files): \n- 0 errors\n- 0 warnings\n- 0 hints\n\n\n> shardloom-website@0.4.0 settle:static\n> node scripts/prebuild-static.mjs --settle-output\n\nprepared website output directories; reset_output=false; settle_output=true; duplicate_suffixed_removed=0; settle_passes=90; settle_delay_ms=500\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-user-surface-reference-4.json",
+        "original_sha256": "f5011fd62d16d8c1e10e22e281641f40a6d5a7db132d3fc687671d207c528a78",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_user_surface_reference.py"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939935232,
+              "log_bytes": 0,
+              "free_bytes": 116748386304,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116748316672,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80112,
+          "output_bytes": 579,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.0479589169844985,
+          "log_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e"
+        }
+      },
+      "log": {
+        "name": "scalar-final-user-surface-reference-4.log",
+        "original_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e",
+        "text": "{\n  \"blockers\": [],\n  \"checked_files\": [\n    \"docs/reference/shardloom-user-surface-index.md\",\n    \"docs/reference/shardloom-user-surface-index.json\",\n    \"shardloom-cli/src/command_registry.rs\",\n    \"README.md\",\n    \"python/README.md\",\n    \"docs/architecture/agent-contract-pack.md\",\n    \"docs/architecture/v1-front-door-runtime-scope.md\",\n    \"docs/skills/developer-agent-experience.md\"\n  ],\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"registered_command_count\": 203,\n  \"schema_version\": \"shardloom.user_surface_index_gate.v1\",\n  \"status\": \"passed\"\n}\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-public-status-docs-4.json",
+        "original_sha256": "b05f959230ade6b7b7be604f82702491d52345a816aa95cd33e0036aab2989a3",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_public_status_docs.py",
+            "--output",
+            "${ARTIFACTS}/scalar-public-status-docs-4.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939943424,
+              "log_bytes": 0,
+              "free_bytes": 116748279808,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116748337152,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80124,
+          "output_bytes": 100,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.21323616697918624,
+          "log_sha256": "b19be1fa1ce3978c9592373d72ed8489b1e7411e98d80aea1049f2b06d456677"
+        }
+      },
+      "log": {
+        "name": "scalar-final-public-status-docs-4.log",
+        "original_sha256": "b19be1fa1ce3978c9592373d72ed8489b1e7411e98d80aea1049f2b06d456677",
+        "text": "${ARTIFACTS}/scalar-public-status-docs-4.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-docs-productization-4.json",
+        "original_sha256": "5538235334d9faecdb009667c7f642d5e620fa5bcc5ccefe846963be093e355a",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_docs_productization.py",
+            "--output",
+            "${ARTIFACTS}/scalar-docs-productization-4.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1940049920,
+              "log_bytes": 0,
+              "free_bytes": 116748165120,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116748165120,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80137,
+          "output_bytes": 101,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.07018341694492847,
+          "log_sha256": "363afc7bbb68014047a77bd213dfa157362ce1082205f0fc85cfe019f1e1984d"
+        }
+      },
+      "log": {
+        "name": "scalar-final-docs-productization-4.log",
+        "original_sha256": "363afc7bbb68014047a77bd213dfa157362ce1082205f0fc85cfe019f1e1984d",
+        "text": "${ARTIFACTS}/scalar-docs-productization-4.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-front-door-scope-4.json",
+        "original_sha256": "a513de0a06d056551c357c967174491ef4902f3ff3e5d55fe173419bbe9d39ba",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_front_door_runtime_scope.py"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1940062208,
+              "log_bytes": 0,
+              "free_bytes": 116748099584,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116748070912,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80149,
+          "output_bytes": 124,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.17036408302374184,
+          "log_sha256": "918eeafc04b254a6c3cce95c76ff7d169fea80a7dd1378334ceff2a39d65028f"
+        }
+      },
+      "log": {
+        "name": "scalar-final-front-door-scope-4.log",
+        "original_sha256": "918eeafc04b254a6c3cce95c76ff7d169fea80a7dd1378334ceff2a39d65028f",
+        "text": "${REPO}/target/v1-front-door-runtime-scope-report.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-website-assets-4.json",
+        "original_sha256": "69ca3366f11c8ef9d7904f1ff6feb5ab4d3e369c84f3e0af0e6d8135f894cc82",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "node",
+            "scripts/validate_static_assets.cjs"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1940074496,
+              "log_bytes": 0,
+              "free_bytes": 116748066816,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116748062720,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80161,
+          "output_bytes": 39,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.06758237502072006,
+          "log_sha256": "d943ff32ebe2c5140507f4030f665d6138a38dfaf1bc3529c3206fe3c1fcf977"
+        }
+      },
+      "log": {
+        "name": "scalar-final-website-assets-4.log",
+        "original_sha256": "d943ff32ebe2c5140507f4030f665d6138a38dfaf1bc3529c3206fe3c1fcf977",
+        "text": "website static asset validation passed\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-final-website-readiness-4.json",
+        "original_sha256": "e2ff4264872b0f6cc5e36be2709e359548d7b38f53ba1623a1ceb449f7788815",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_website_readiness.py",
+            "--output",
+            "${ARTIFACTS}/scalar-website-readiness-4.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1940082688,
+              "log_bytes": 0,
+              "free_bytes": 116747939840,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116747939840,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80181,
+          "output_bytes": 125,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.28188391705043614,
+          "log_sha256": "7b8b4031a6c1a3c4fe172011133fa75018ecd428a88bbdbe50bc326c74561715"
+        }
+      },
+      "log": {
+        "name": "scalar-final-website-readiness-4.log",
+        "original_sha256": "7b8b4031a6c1a3c4fe172011133fa75018ecd428a88bbdbe50bc326c74561715",
+        "text": "website readiness passed: ${ARTIFACTS}/scalar-website-readiness-4.json\n"
+      }
+    }
+  ],
+  "additional_stages": [
+    {
+      "receipt": {
+        "name": "scalar-docs-inclusion-scope-1.json",
+        "original_sha256": "67b0782e7c4af52b458381ab88d5c7eeccb623ad5cfee6468937d2474a2b27d0",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_inclusion_scope.py",
+            "--output",
+            "${ARTIFACTS}/scalar-docs-inclusion-scope-report-1.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1940099072,
+              "log_bytes": 0,
+              "free_bytes": 116746657792,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116746657792,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 180.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80201,
+          "output_bytes": 109,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.07046016701497138,
+          "log_sha256": "d08413d914d6bfb82a46d317971cc8e965f75ea9250874708a09f9a804223ff1"
+        }
+      },
+      "log": {
+        "name": "scalar-docs-inclusion-scope-1.log",
+        "original_sha256": "d08413d914d6bfb82a46d317971cc8e965f75ea9250874708a09f9a804223ff1",
+        "text": "${ARTIFACTS}/scalar-docs-inclusion-scope-report-1.json\n"
+      }
+    },
+    {
+      "receipt": {
+        "name": "scalar-docs-architecture-tracker-1.json",
+        "original_sha256": "ed178c4490cda5b4c6cc568199e30b552b468eac36cafc5806f1b1413c3e5dcb",
+        "contents": {
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_release_architecture_tracker.py",
+            "--allow-blocked",
+            "--output",
+            "${ARTIFACTS}/scalar-docs-architecture-tracker-report-1.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "0776f888922b378e878a0749f1e82bc95b2022d4",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1940111360,
+              "log_bytes": 0,
+              "free_bytes": 116749082624,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116749074432,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 180.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 80213,
+          "output_bytes": 114,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.10663016699254513,
+          "log_sha256": "24a5310173f57a618be3482583cfc81e5cacf4f07c2e352f6f9d3b2cc114106b"
+        }
+      },
+      "log": {
+        "name": "scalar-docs-architecture-tracker-1.log",
+        "original_sha256": "24a5310173f57a618be3482583cfc81e5cacf4f07c2e352f6f9d3b2cc114106b",
+        "text": "${ARTIFACTS}/scalar-docs-architecture-tracker-report-1.json\n"
+      }
+    }
+  ],
+  "inclusion_scope": {
+    "name": "scalar-docs-inclusion-scope-report-1.json",
+    "original_sha256": "0cf7f6a9ad16fbdda2458cecd034849ade90c1349bb154906cd8882b41c8318f",
+    "contents": {
+      "blockers": [],
+      "claim_gate_status": "not_claim_grade",
+      "classification_counts": {
+        "documentation_only": 1,
+        "required_for_v1": 103,
+        "v1_candidate_pending_feasibility": 11
+      },
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "known_unsupported_paths": "docs/release/known-unsupported-paths.md",
+      "matrix_doc": "docs/release/v1-inclusion-scope-matrix.md",
+      "matrix_row_count": 115,
+      "matrix_schema_version": "shardloom.v1_inclusion_scope_matrix.v1",
+      "missing_phase_classification_count": 0,
+      "open_phase_item_count": 20,
+      "package_upload_attempted": false,
+      "performance_claim_allowed": false,
+      "phase_plan": "docs/architecture/phased-execution-plan.md",
+      "production_claim_allowed": false,
+      "production_unsupported_diagnostic_covered_row_count": 10,
+      "production_unsupported_diagnostic_missing_rows": [],
+      "production_unsupported_diagnostic_required_row_count": 10,
+      "production_unsupported_diagnostic_schema_version": "shardloom.production_unsupported_diagnostics.v1",
+      "public_package_claim_allowed": false,
+      "public_release_claim_allowed": false,
+      "publication_attempted": false,
+      "schema_version": "shardloom.v1_inclusion_scope_report.v1",
+      "spark_replacement_claim_allowed": false,
+      "status": "passed",
+      "tag_created": false
+    }
+  },
+  "architecture_tracker": {
+    "status": "blocked",
+    "blockers": [
+      "phase plan has unchecked items: 130"
+    ],
+    "missing_required_input_count": 0,
+    "original_sha256": "55e42f0901857409dc16c295af7a979880ed39f4632bc266e5450553b19c224a",
+    "interpretation": "The CI-compatible allow-blocked command succeeds while the open development queue still blocks release claims."
+  },
+  "initial_documentation_pass": {
+    "source_commit": "d86958552fc18a6e00617a8423eed730e9e1b51f",
+    "completed_gates": {
+      "name": "scalar-source-checks-3.json",
+      "original_sha256": "30cdfa2882f7f98b56082404a39cdd4c7bc209eed2944a8656b639d4cd621a77",
+      "contents": [
+        {
+          "name": "fmt",
+          "receipt": "${ARTIFACTS}/scalar-final-fmt-3.json",
+          "status": "passed",
+          "command": [
+            "${HOME}/.cargo/bin/rustup",
+            "run",
+            "1.99.0",
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "cwd": "${REPO}",
+          "head": "d86958552fc18a6e00617a8423eed730e9e1b51f",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939554304,
+              "log_bytes": 0,
+              "free_bytes": 116759138304,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116758753280,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79381,
+          "output_bytes": 0,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 2.492403124924749,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "contribution-governance",
+          "receipt": "${ARTIFACTS}/scalar-final-contribution-governance-3.json",
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_contribution_governance.py",
+            "--output",
+            "${ARTIFACTS}/scalar-contribution-3.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "d86958552fc18a6e00617a8423eed730e9e1b51f",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939562496,
+              "log_bytes": 0,
+              "free_bytes": 116758663168,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116758659072,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79429,
+          "output_bytes": 94,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.06994091696105897,
+          "log_sha256": "aaddaf377a822c9819186346a1cb97aac76839c0880088e0a2d50e989c62f7f9"
+        },
+        {
+          "name": "ci-gate-matrix",
+          "receipt": "${ARTIFACTS}/scalar-final-ci-gate-matrix-3.json",
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_ci_gate_matrix.py",
+            "--output",
+            "${ARTIFACTS}/scalar-ci-gate-matrix-3.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "d86958552fc18a6e00617a8423eed730e9e1b51f",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939574784,
+              "log_bytes": 0,
+              "free_bytes": 116757270528,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116757258240,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79442,
+          "output_bytes": 96,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.06556354195345193,
+          "log_sha256": "29d228c6fb00d469d99abb069165a90421df472727348755ce82797cf4a49d88"
+        },
+        {
+          "name": "api-schema",
+          "receipt": "${ARTIFACTS}/scalar-final-api-schema-3.json",
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+            "-B",
+            "scripts/check_v1_api_schema_stability.py",
+            "--output",
+            "${ARTIFACTS}/scalar-api-schema-3.json"
+          ],
+          "cwd": "${REPO}",
+          "head": "d86958552fc18a6e00617a8423eed730e9e1b51f",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939611648,
+              "log_bytes": 0,
+              "free_bytes": 116757250048,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116757250048,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79454,
+          "output_bytes": 2018,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 0.04762287507764995,
+          "log_sha256": "be5f8893328fe83283bfde7e1ac1dd918ad6a22b29cf57fd1d59c4fe89869e84"
+        },
+        {
+          "name": "website-build",
+          "receipt": "${ARTIFACTS}/scalar-final-website-build-3.json",
+          "status": "passed",
+          "command": [
+            "/opt/homebrew/bin/npm",
+            "--prefix",
+            "website-src",
+            "run",
+            "build"
+          ],
+          "cwd": "${REPO}",
+          "head": "d86958552fc18a6e00617a8423eed730e9e1b51f",
+          "working_tree": "",
+          "environment": {
+            "CARGO_TARGET_DIR": "${HOME}/.cache/shardloom/cargo-target",
+            "CARGO_BUILD_JOBS": "2",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+          "storage_last_observation": {
+            "output": {
+              "workspace_bytes": 1939628032,
+              "log_bytes": 0,
+              "free_bytes": 116760219648,
+              "reserved_candidate_bytes": 134217728
+            },
+            "cargo": {
+              "workspace_bytes": 28655349760,
+              "log_bytes": 0,
+              "free_bytes": 116760219648,
+              "reserved_candidate_bytes": 134217728
+            }
+          },
+          "timeout_seconds": 1800.0,
+          "cleanup_grace_seconds_per_signal": 3.0,
+          "output_limit_bytes": 8388608,
+          "timed_out": false,
+          "interrupted_signal": null,
+          "process_group_drained": true,
+          "direct_child_reaped": true,
+          "pid": 79466,
+          "output_bytes": 2403,
+          "group_absence_unproved_at_cleanup": false,
+          "returncode": 0,
+          "seconds": 47.43276812497061,
+          "log_sha256": "0a5c342682334ff14b500c86eb065b317b2938c8a1cb163a1b0295dcb07c92ea"
+        }
+      ]
+    },
+    "completion_status": "stopped_after_build_changed_tracked_generated_outputs",
+    "resolution": "Committed the generated pages and search index as 0776f888, then reran all twelve selected gates on that clean tree."
+  },
+  "visual_review": {
+    "status": "passed",
+    "screenshots": [
+      {
+        "path": "docs/benchmarks/evidence/native-scalar-field-guide-desktop-2026-10-05.jpg",
+        "sha256": "5ff4aff2a6c7758bea8317534c695e8aed0cf8c9da995bd4d4af5a56b8c59b79",
+        "bytes": 92029,
+        "viewport_css_pixels": [
+          1265,
+          712
+        ],
+        "screenshot_pixels": [
+          1265,
+          712
+        ],
+        "observation": "Runtime and I/O scalar-subquery section; desktop content and SQL example are readable."
+      },
+      {
+        "path": "docs/benchmarks/evidence/native-scalar-field-guide-mobile-2026-10-05.jpg",
+        "sha256": "ffd05f55584c35e79b9c5d3a43e0ed4c82a0c2b6a9cbf09f12085cbac3bc6250",
+        "bytes": 54681,
+        "viewport_css_pixels": [
+          390,
+          844
+        ],
+        "screenshot_pixels": [
+          375,
+          812
+        ],
+        "observation": "390-pixel mobile viewport; body has no horizontal overflow. The SQL block scrolls within its own container."
+      },
+      {
+        "path": "docs/benchmarks/evidence/native-scalar-support-table-2026-10-05.jpg",
+        "sha256": "a357c94dc01b4f2524aa0d2304ca62279d70bb4e5d4a2e81e3a6180f2c400be1",
+        "bytes": 106986,
+        "viewport_css_pixels": [
+          1265,
+          712
+        ],
+        "screenshot_pixels": [
+          1265,
+          712
+        ],
+        "observation": "Support table retains existing capabilities and links scalar support to its Field Guide section."
+      }
+    ],
+    "mobile_document_width_css_pixels": 375,
+    "mobile_viewport_width_css_pixels": 390,
+    "mobile_code_container_width_css_pixels": 341,
+    "mobile_code_content_width_css_pixels": 595,
+    "support_link_target_verified": "/field-guide/runtime-and-io/#scalar-subqueries",
+    "console_errors_observed": [],
+    "temporary_viewport_reset": true,
+    "preview_tab_closed": true,
+    "preview_server_stopped": true
+  },
+  "hosted_integration_status": "pending",
+  "runtime_reexecuted_for_docs": false,
+  "publication_attempted": false,
+  "performance_claim_allowed": false
+}

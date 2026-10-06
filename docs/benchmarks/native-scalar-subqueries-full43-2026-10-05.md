@@ -33,12 +33,25 @@ along with the exact commands, guards, fixtures and executable identities.
 An [independent streaming inspection](evidence/native-scalar-subqueries-inspection-2026-10-05.json)
 verifies the completed packet's counts, source identities, resource proofs,
 native-family reports, no-fallback fields and portable paths. Its policy-field
-reader separately passes 96 policy cases and four ordinary-field cases.
+reader separately passes 96 policy cases, four ordinary-field cases and 12
+path cases distinguishing generic search literals from concrete private paths.
 
 The first independent inspection reached its 600-second deadline while parsing
 the complete archive. Its supervisor drained the process group and retained
-the timeout receipt. The inspection receipt preserves that failed attempt and
-the subsequent longer bounded replay of the same packet and checker.
+the timeout receipt. A second inspection completed but counted its own archived
+generic user-root search literal as a private path. A full bounded scan located
+both literal occurrences in that checker source. After correcting only the
+independent checker and testing concrete-path rejection, the third inspection
+passed against the unchanged packet. Every other counter remained identical.
+The inspection receipt retains all three attempts, the diagnosis, exact checker
+changes and their fixture results.
+
+The [documentation integration record](evidence/native-scalar-subqueries-integration-2026-10-05.json)
+records twelve passing documentation and website gates on `0776f888`, an
+additional passing scope check, and desktop/mobile Field Guide inspection.
+All 901 runtime source hashes remain unchanged. The architecture tracker still
+reports 130 unchecked phase items; its CI-compatible `--allow-blocked` command
+does not certify completion of that queue.
 
 The source manifest records 27 passing gates: formatter, strict default and
 native Clippy, workspace tests, native Vortex and CLI tests, Python tests,
