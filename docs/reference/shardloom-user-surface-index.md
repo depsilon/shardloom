@@ -277,8 +277,9 @@ objects. Common admitted methods include:
   fill only. Representable nested results use Vortex, Parquet, Arrow IPC, Avro,
   JSON and JSONL; CSV translates nested values to quoted JSON text and ORC rejects nested
   output. The 128-field, collection and memory limits still apply. Complete local
-  workflow, resource and regression acceptance [passes](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md);
-  hosted integration remains pending. Published v0.4.0
+  workflow, resource and regression acceptance [passes](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md),
+  and [hosted integration](../benchmarks/evidence/native-nested-pivot-state-hosted-2026-10-06.json)
+  is complete in PR #1525. Published v0.4.0
   packages predate this source support. See the [nested pivot state contract](../architecture/native-nested-pivot-state-2026-10-06.md).
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
   primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows

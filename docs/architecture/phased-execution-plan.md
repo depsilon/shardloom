@@ -249,44 +249,34 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-NESTED-PIVOT-STATE` — continue the universal workflow queue after
-  scalar-subquery hosted integration, under PERF-02/03/06/07/10/11/12 and
-  CG-3/5/19/20/21. Extend the existing sparse pivot owner to admitted static
-  List, FixedSizeList and Struct keys and selected cells.
-  - V1 scope classification: `required_for_v1` for admitted local composition;
-    broader SQL parity remains scoped by the finite inventory.
-  - ShardLoom technique review: reuse exact key/comparison owners, compact native
-    payload retention, sparse state, one PulseWeave grant, capillary delivery and
-    bounded output. Preserve source generations and timing/evidence separation;
-    no nested ScalarValue tree, second executor or external-engine fallback.
-  - Execution contract: [native nested pivot state](native-nested-pivot-state-2026-10-06.md).
-    Bind nested identity, selected first/first-unique/COUNT/MIN/MAX, null/type,
-    fill, margins and output-name semantics before execution. Preserve existing
-    primitive/decimal policy and Python aliases; nested SUM/MEAN, non-NULL fill
-    and nested-index margins remain explicit denials.
+- [ ] `NATIVE-PROVIDER-RESOURCES` — continue shared resource admission after
+  nested-pivot hosted integration, under PERF-03/06/07/11/12 and CG-3/5/19/20/21.
+  Address native reader/decoder allocations that currently bypass the shared
+  memory allocator before extending larger-state guarantees.
+  - V1 scope classification: `required_for_v1` for a declared local resource
+    envelope; full process-RSS control remains a separate claim.
+  - ShardLoom technique review: reuse one PulseWeave grant, native buffer owners,
+    bounded capillary delivery, source generations and deterministic denial.
+    Check pinned Vortex provider surfaces before adding interception or wrappers.
+    Keep metadata-only and encoded paths available without unnecessary decode.
+  - Contract intake: [universal workflow step 2](universal-workflow-completion-2026-10-01.md#cohesive-implementation-sequence),
+    [existing resource ownership](native-relational-resources-2026-10-02.md) and
+    [local resource boundaries](v1-local-resource-safety.md). Freeze the finite
+    allocation/lifetime inventory and implementation contract before runtime edits.
   - Execution checklist:
-    - [x] Define the shared-state contract and freeze initial literal nested
-      results and domain names independently of the candidate implementation.
-    - [x] Extend the shared pivot and native retained/output owners; verify
-      complete values, empty admission, names, duplicate cells and margins.
-    - [x] Prove compact retention, replacement overlap, constrained grants,
-      cancellation, failed consumers/source generations and writer cleanup.
-    - [x] Pass required workspace/native/Python/source gates, complete public
-      SQL/DataFrame/direct workflows, writer readback and Full43 regression;
-      freeze source, binary, independent oracles and all failed attempts.
-    - [x] Align current-source support documentation, labels and Field Guide
-      with actual acceptance, keeping published-package scope distinct.
-    - [ ] Complete hosted review/integration and move the accepted unit to the ledger.
-  - Acceptance: required workspace/native/Python gates, public workflow and
-    Full43 regression evidence, exact source/binary identity and hosted integration.
-    Local acceptance passes on `750b3783`: 27,373 public checks / 15,820,181 rows,
-    202 direct checks and all 129 Full43 runs. The
-    [report](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md) retains
-    27 source gates, complete values/schemas, resource proofs and failed observations.
-    Availability does not require a speedup or authorize a production claim.
-  - Follow-on: remaining adapters and reader/codec/operator resource, spill and
-    failure transitions retain their existing owners. Pivot spill is not admitted
-    by existing sort-spill permission. Apply the
+    - [ ] Trace provider allocation sizes, scratch overlap and escaping ownership;
+      define checked pre-allocation admission and the remaining unsupported scope.
+    - [ ] Extend shared native provider/resource owners without per-frontend
+      execution or hidden full materialization.
+    - [ ] Prove constrained-grant denial, retained-credit lifetime, cancellation,
+      source changes and failed-consumer/writer cleanup against independent values.
+    - [ ] Complete required source/native/public workflow and Full43 regression
+      acceptance with frozen source/binary identities and preserved failed attempts.
+    - [ ] Align resource evidence, support labels and Field Guide; finish hosted
+      integration and move the accepted finite unit to the ledger.
+  - Follow-on: remaining adapters, operator spill and recovery transitions keep
+    their existing owners. Existing sort-spill permission does not admit aggregate,
+    join, window or pivot spill. Apply the
     [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
     when accepting a stable local support envelope; do not wait for unrelated
     cloud or complete-SQL parity, or infer readiness from package publication.
@@ -2769,10 +2759,13 @@ and complete query acceptance recorded in the completed ledger. The hosted merge
 record `NATIVE-NESTED-COMPOSITION`, `NATIVE-DYNAMIC-PIVOT-COMPOSITION`,
 `NATIVE-TYPED-PAYLOADS`, `NATIVE-TYPED-KEYS`, `NATIVE-TYPED-EXPRESSIONS`,
 `NATIVE-TYPED-UNARY`, `NATIVE-NESTED-KEYS-STATE`, `NATIVE-TYPED-REDUCTIONS` and
-`NATIVE-ANALYTIC-FRAMES` and `NATIVE-SCALAR-SUBQUERIES` as completed finite units.
+`NATIVE-ANALYTIC-FRAMES`, `NATIVE-SCALAR-SUBQUERIES` and
+`NATIVE-NESTED-PIVOT-STATE` as completed finite units.
 The v0.4.0 publication train is also complete and predates scalar-value support.
-`NATIVE-NESTED-PIVOT-STATE` has complete local acceptance; finish its documentation
-and hosted integration before advancing the dependent universal workflow queue.
+`NATIVE-NESTED-PIVOT-STATE` merged in PR #1525 after complete local acceptance and
+all 39 hosted checks. Continue the universal workflow queue with
+`NATIVE-PROVIDER-RESOURCES`; define its finite allocation/lifetime contract before
+runtime edits, then complete resource, spill, failure and adapter obligations.
 The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 

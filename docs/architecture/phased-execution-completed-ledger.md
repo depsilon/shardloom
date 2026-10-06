@@ -17,6 +17,40 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-NESTED-PIVOT-STATE` — extend the existing sparse pivot owner to
+  admitted static List, FixedSizeList and Struct keys and selected cells under
+  PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21.
+  - V1 scope classification: `required_for_v1` for admitted local composition.
+  - The [contract](native-nested-pivot-state-2026-10-06.md) preserves exact key
+    identity, logical cell comparison, compact native retention, null/type/fill
+    policy, margins and names. SQL, Python and direct callers share the same
+    reserved state and bounded writers, with no external-engine fallback.
+  - Frozen runtime `750b3783` passes 27,373 public checks and 15,820,181 complete
+    row comparisons, including 3,587 nested-pivot checks and 468,657 rows;
+    202 direct checks; all 129 Full43 runs; 27 source gates; 145 admitted stages;
+    nine golden stages; and all 599 optional-dependency Python tests. The
+    [report](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md) preserves
+    independent literal oracles, native schemas, resource/failure evidence,
+    all failed observations and the independently inspected acceptance packet.
+  - Support documentation, labels and the Field Guide align with this finite
+    current-source scope. Twelve documentation/site gates, six final metadata
+    gates and desktop/mobile review preserve all 910 frozen runtime assets.
+  - [PR #1525](https://github.com/depsilon/shardloom/pull/1525) merged at
+    `4ba9053205fa98da2183d42bb15e08543dba70cc` after all 39 checks passed on
+    `58c09499e743e1c665c8f7348a70365e27ab7841`. The merge preserves the accepted
+    tree. Primary adversarial review passed; automated hosted review was
+    account-limited and supplied no approval. No submitted reviews or unresolved
+    review threads were present.
+  - Production deployment and browser verification passed. The support row matches
+    the accepted preview and its link opens the merged acceptance report. The
+    [hosted receipt](../benchmarks/evidence/native-nested-pivot-state-hosted-2026-10-06.json)
+    preserves the exact snapshots, images and historical pending label.
+  - Published v0.4.0 predates this addition. No package publication, speedup or
+    production-support claim follows. Nested SUM/MEAN, non-NULL nested fill,
+    nested-index margins and pivot-state spill remain denied; nested MIN/MAX
+    margins require a UTF8 index. Adapters, broader reader/codec accounting,
+    state spill and recovery retain their owners; CG-1 through CG-23 remain visible.
+
 - [x] `NATIVE-SCALAR-SUBQUERIES` — extend existing native subquery and expression
   owners with typed scalar values under PERF-02/03/06/07/10/12 and CG-5/19/20/21.
   Follow the [scalar-value contract](native-scalar-subqueries-2026-10-05.md).

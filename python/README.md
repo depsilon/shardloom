@@ -532,7 +532,8 @@ state has no spill path.
 Source builds after published v0.4.0 also admit static List, FixedSizeList and
 Struct columns as pivot index, domain and selected-value roles. Complete local
 [workflow, resource and regression acceptance](../docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md)
-passes; hosted integration remains pending, and published v0.4.0 packages predate it. Nested
+passes, with hosted integration complete in PR #1525. Published v0.4.0 packages
+predate it. Nested
 cells support `first`, `first_unique`, `count`, `min` and `max`; `first_unique`
 accepts repeated equal complete values and rejects conflicts. Nested extrema
 skip NULL parents and use the shared child-NULL ordering. Python `pivot()` and

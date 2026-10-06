@@ -12,7 +12,8 @@ These are correctness and availability results, with no comparative speed claim.
 The [implementation contract](../architecture/native-nested-pivot-state-2026-10-06.md)
 defines static List, FixedSizeList and Struct index, domain and selected-value
 roles in the existing sparse pivot owner. Current source builds contain this
-addition; published v0.4.0 packages predate it. Hosted integration is pending.
+addition; published v0.4.0 packages predate it. Hosted integration completed in
+[PR #1525](https://github.com/depsilon/shardloom/pull/1525) after all 39 checks passed.
 
 ## Frozen identities
 
@@ -46,8 +47,16 @@ Configurations and repeated checks overlap; these counts are not distinct-test t
 The final [documentation integration record](evidence/native-nested-pivot-state-integration-2026-10-06.json)
 records twelve passing documentation/website gates on `3b86cc31`, unchanged
 hashes for all 910 runtime assets, and desktop/mobile Field Guide review. The
-mobile table scrolls within its container without widening the page. Hosted
-integration remains a separate step.
+mobile table scrolls within its container without widening the page.
+
+The separate [hosted integration receipt](evidence/native-nested-pivot-state-hosted-2026-10-06.json)
+binds accepted head `58c09499e743e1c665c8f7348a70365e27ab7841` to merge
+`4ba9053205fa98da2183d42bb15e08543dba70cc`. Both trees and all 910 frozen runtime
+assets match. All 39 hosted checks passed. Primary adversarial source review and
+subsequent runtime acceptance passed; the account-limited automated reviewer
+supplied no independent approval. The production deployment succeeded, its support
+row matches the accepted preview, and its evidence link opens this merged report.
+The receipt preserves the page's historical pending label before this closeout.
 
 ## Complete public workflows
 
@@ -129,8 +138,8 @@ Source prehashing, uncontrolled OS cache and ordinary desktop activity preclude
 a cold-cache claim. There is no paired timing comparison or external-engine
 execution.
 
-Core-local status is `passed_core_local`; hosted review/integration remains
-pending. Broader adapters, reader/codec accounting, state spill and recovery
+Core-local status is `passed_core_local`; hosted status is `passed_hosted_integration`.
+Broader adapters, reader/codec accounting, state spill and recovery
 remain open. This packet does not certify package publication, production
 support, competitive superiority or the prior modular workload harness with
 this binary. CG-1 through CG-23 retain their own obligations. Real Vortex
