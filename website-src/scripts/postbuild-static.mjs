@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertPagefindPolicy } from "./pagefind-policy.mjs";
 
 import {
   assertNoDuplicateSuffixedArtifacts,
@@ -12,6 +13,8 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(root, "..", "website");
 const publicRoot = path.resolve(root, "..", "website-public");
+
+assertPagefindPolicy(fs.readFileSync(path.join(publicRoot, "_headers"), "utf8"));
 
 function copyPublicPath(relativePath) {
   const source = path.join(publicRoot, relativePath);

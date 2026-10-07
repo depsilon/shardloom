@@ -10,7 +10,8 @@
     "settle:static": "node scripts/prebuild-static.mjs --settle-output",
     "prebuild:static": "node scripts/prebuild-static.mjs --reset-output",
     "dev": "npm run sync-content && astro dev --host 127.0.0.1",
-    "build": "npm run prebuild:static && npm run sync-content && astro build && node scripts/postbuild-static.mjs",
+    "build": "npm run test:search-policy && npm run prebuild:static && npm run sync-content && astro build && node scripts/postbuild-static.mjs",
+    "test:search-policy": "node --test scripts/pagefind-policy.test.mjs",
     "preview": "astro preview --host 127.0.0.1",
     "check": "npm run clean:static && npm run sync-content && astro check && npm run settle:static"
   },
