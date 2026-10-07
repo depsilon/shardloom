@@ -17,6 +17,22 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Adaptive exact decimal screen under PERF-04/10/12 — dropped after the
+  first frozen complete-operation screen. The
+  [report](../benchmarks/native-adaptive-decimal-2026-10-07.md) preserves all
+  1,200 timed complete calls, 75 component pairs, 28 passing focused tests,
+  exact references and original failed preflights.
+  - Primary score improves by 1.09%, below the 3% requirement; no primary
+    cell reaches 3%. Narrow arithmetic is cheaper in the component screen,
+    but that does not satisfy the complete-operation gate. No confirmation,
+    Full43 or broad candidate acceptance was run after the failure.
+  - The candidate and test overlays are removed. The portable packet reopens
+    all 2,152 unique payloads; restoration proves all 941 runtime source assets
+    match accepted builder runtime `53cd1582`. No active engine behavior,
+    package version, memory-saving claim or broader PERF/CG status changes.
+  - Conservative membership filtering is the next conditional-work screen;
+    completion-aware input remains the next architectural capability.
+
 - [x] `NATIVE-BUILDER-RESOURCES` — shared primitive/Boolean/decimal Chunked
   output and numeric/string builder finalization storage now retain independent
   value/validity credits under PERF-03/06/07 and CG-5/19/20/21.

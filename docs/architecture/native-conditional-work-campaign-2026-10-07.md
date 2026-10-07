@@ -1,8 +1,11 @@
 # Conditional exact work campaign
 
-Status: source-grounded intake and experiment queue for the maintainer's second
-October 7 candidate set. None of these six strategies has been implemented,
-benchmarked or retained. The reviewed runtime is `53cd1582`, whose 941 runtime
+Status: active experiment queue for the maintainer's second October 7 candidate
+set. The [adaptive decimal screen](../benchmarks/native-adaptive-decimal-2026-10-07.md)
+is **dropped**: its 1.09% primary-score improvement misses the frozen 3% gate,
+and no primary cell reaches 3%. Exact outputs pass; the candidate is removed.
+No candidate has been retained. The other five remain gated experiments, led by
+conservative membership filtering. The reviewed control runtime is `53cd1582`, whose 941 runtime
 assets match builder snapshot
 `a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f`.
 Published v0.4.0 and the broader PERF/CG status remain unchanged.
@@ -18,9 +21,10 @@ not predictions of ShardLoom performance.
 
 Builder evidence and hosted integration are complete in PR #1529, with the
 accepted runtime unchanged. Subsequent source changes use a separate snapshot.
-The first new performance screen is adaptive exact decimal accumulation under
-PERF-04/10/12, followed by conservative membership filtering under
-PERF-02/03/10/12 and CG-14's conservative-proof obligation. Source/design work for
+The adaptive exact decimal screen under PERF-04/10/12 is closed and dropped,
+with all source, failures and 1,200 timed complete calls preserved. The next
+screen is conservative membership filtering under PERF-02/03/10/12 and CG-14's
+conservative-proof obligation. Source/design work for
 completion-aware input continues as the next architectural capability under
 PERF-03/07/11/12. Run native workloads serially; independent source research does
 not explain away a control regression.
@@ -102,7 +106,11 @@ appropriate. A large component improvement is not an engine improvement unless
 that component materially affects the complete operation. Retain raw failures,
 negative controls and unexplained regressions; do not retrofit thresholds.
 
-No candidate in this intake receives a shipped status, performance claim,
+The decimal decision applies to its measured prototype and frozen workload; it
+does not disprove adaptive exact arithmetic in every workload. Do not reopen it
+by changing thresholds or relabeling component gains as complete-operation gains.
+
+No candidate in this intake receives a shipped status, retained performance claim,
 publication or broad capability promise. Keep all CG-1 through CG-23 owners
 visible, preserve native Vortex input/output and explicit no-fallback execution,
 and use the existing architecture/testing/hosted gates for any retained change.

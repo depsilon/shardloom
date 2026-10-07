@@ -279,15 +279,23 @@ or composed-COUNT prototypes, complete whole PERF/CG owners, or trigger a versio
 bump. First-use, reuse, pressure/spill and provisional-output timings stay separate.
 
 The maintainer's later October 7 [conditional exact work campaign](native-conditional-work-campaign-2026-10-07.md)
-adds six distinct performance candidates after builder integration. Begin with
-checked I128-to-I256 decimal totals (PERF-04/10/12), then conservative membership
-before eligible native inner-join probes (PERF-02/03/10/12 and CG-14). Keep input
+adds six distinct performance candidates after builder integration. Checked
+I128-to-I256 decimal totals are dropped after their frozen screen under
+PERF-04/10/12. Next, evaluate conservative membership before eligible native
+inner-join probes (PERF-02/03/10/12 and CG-14). Keep input
 completion as the next architectural capability. Learned indexes require a large
 measured ordered-access target; cache admission requires real reconstruction traces;
 changed-source preparation requires verified reusable regions. Fixed byte-credit
 result windows precede rate adaptation and do not remove resident input retention.
 All six need their own frozen complete-operation screens. Accepted Zstd workspace
 accounting and prior dropped prototypes stay closed; no version bump follows intake.
+
+The [adaptive decimal report](../benchmarks/native-adaptive-decimal-2026-10-07.md)
+preserves all 1,200 complete timed calls. Its primary score improves by 1.09%,
+below the frozen 3% requirement, and no primary cell reaches 3%. Exact checks
+pass; the candidate is removed and all 941 accepted runtime assets are restored.
+The [design](native-adaptive-decimal-2026-10-07.md) and completed ledger retain the
+experiment contract. No confirmation or broad candidate acceptance is claimed.
 
 `NATIVE-BUILDER-RESOURCES` is complete in
 [PR #1529](https://github.com/depsilon/shardloom/pull/1529), with all 39 hosted
@@ -2794,8 +2802,8 @@ Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,
 stable merge adjacency, native ownership and all unexplained negative controls.
 The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
 
-The subsequent candidate set adds exact decimal accumulation and conservative
-filters as the first new performance screens, with ordered-index, physical-cache,
+The subsequent candidate set's exact decimal screen is dropped below its frozen
+gate; conservative filters are next, with ordered-index, physical-cache,
 output-window and stable-region reuse candidates gated on their measured workloads.
 See the [conditional work contract](native-conditional-work-campaign-2026-10-07.md).
 This extends the queue while preserving the input-completion architecture work
