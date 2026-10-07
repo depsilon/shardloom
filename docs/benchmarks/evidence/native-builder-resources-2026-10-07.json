@@ -1,0 +1,329 @@
+{
+  "schema_version": "shardloom.native_builder_resource_local_acceptance.v1",
+  "status": "accepted_source_committed_locally_hosted_pending",
+  "unit": "NATIVE-BUILDER-RESOURCES",
+  "runtime_commit": "53cd1582a5975ac4e206a21e45415c919c5b6b4f",
+  "source_base_commit": "094c50b83235cd0594e1858acfcc7aa5a3f4760a",
+  "source_identity_sha256": "a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f",
+  "runtime_source_assets_verified_against_commit": 941,
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f",
+    "binary_sha256": "382453ef8ca6a439382bc852304a16aff2a4c1d5cd5087557c9d47376ca4ef8e",
+    "public_checks": 27373,
+    "public_rows": 15820181,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "raw_public_envelopes": 54733,
+    "raw_direct_envelopes": 367,
+    "source_checks": 17,
+    "batch_checks": 48,
+    "batch_success_envelopes": 38,
+    "batch_raw_envelopes": 44,
+    "format_checks": 19,
+    "format_raw_envelopes": 24,
+    "builder_cost_calls_per_variant": 420480,
+    "builder_cost_variants": 2,
+    "builder_cost_cells": 60,
+    "builder_cost_samples": 2160,
+    "builder_cost_orders": 2,
+    "final_source_ownership_tests": 14,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "compacted_archive_members_reopened": 1548,
+    "source_tree_clean": false,
+    "documentation_updates_deferred": true,
+    "packet": "docs/benchmarks/evidence/native-builder-resources-2026-10-07.json.xz",
+    "packet_sha256": "80025eb8866a04c63a5cf4f60da6c454f04a9590a7181ee0ed3fe14576b7871d",
+    "packet_compressed_bytes": 43420312,
+    "packet_uncompressed_bytes": 3336002602,
+    "packet_uncompressed_sha256": "58a3d8738ff3e5593159438b75d90637cd9b4535f03a978abe50583ed052d3ce"
+  },
+  "original_acceptance_sha256": "20f2c4f1d50eb4f0d5c41625629c646400e4378e8eb983af6d6d631913609537",
+  "portable_inspection": "docs/benchmarks/evidence/native-builder-resources-2026-10-07-inspection.json",
+  "portable_inspection_sha256": "4d98d8ef7e9703b4c3e300f5420efcafe96303dd78277254efc6bc2e74e580a4",
+  "original_inspection_sha256": "4d98d8ef7e9703b4c3e300f5420efcafe96303dd78277254efc6bc2e74e580a4",
+  "inspector_contract_tests": {
+    "status": "passed",
+    "checks": {
+      "valid_finite_contract": true,
+      "fallback_boolean": true,
+      "fallback_field": true,
+      "bad_status": true,
+      "broad_claim_denied": true,
+      "builder_reserved_bytes_after": true,
+      "builder_complete_reference_checks": true,
+      "builder_batch_nanos": true,
+      "builder_variant": true,
+      "builder_missing_reserved_bytes_after": true,
+      "builder_missing_complete_reference_checks": true,
+      "builder_missing_batch_nanos": true,
+      "builder_missing_variant": true,
+      "builder_iterations_0": true,
+      "builder_iterations_-1": true,
+      "builder_iterations_1.5": true,
+      "builder_iterations_'2'": true,
+      "builder_iterations_None": true,
+      "builder_run_count": true,
+      "builder_record_count": true,
+      "builder_status": true,
+      "builder_cost_status": true,
+      "builder_repeated_regression": true,
+      "builder_bad_repeated_regression_container_None": true,
+      "builder_bad_repeated_regression_container_{}": true,
+      "builder_bad_repeated_regression_container_False": true,
+      "builder_bad_repeated_regression_container_'empty'": true
+    },
+    "retained_contract_cases": 153,
+    "total_cases": 180,
+    "inspector_sha256": "a07e2faadf147986b3c52be35aa3feeef1fa7690a3c8ee04caed54dc63c9e82f",
+    "verifier_sha256": "9f4780f674055e648aa0a5a5b369865cc14e8c33a54cb80bc3bdc96fc8e815a0"
+  },
+  "archive_guards": {
+    "builder-finalize-1": {
+      "receipt_sha256": "ceb93c157cf8db260735e99350e7b9731f8ed88bd63a53efe3fc32fae5cbc851",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<builder-uat>/finalize_builder_acceptance.py",
+          "--attempt",
+          "1",
+          "--supervisor",
+          "builder-finalize-1"
+        ],
+        "cwd": "<repo>",
+        "head": "094c50b83235cd0594e1858acfcc7aa5a3f4760a",
+        "working_tree": " M docs/architecture/phased-execution-plan.md\n M docs/release/v1-inclusion-scope-matrix.md\n M shardloom-vortex/src/native_provider_chunked.rs\n M shardloom-vortex/src/native_provider_memory.rs\n M vendor/vortex-zstd/src/array.rs\n M vendor/vortex-zstd/upstream-provenance.json\n?? docs/architecture/native-builder-resources-2026-10-07.md\n?? shardloom-vortex/src/native_provider_builder_cost.rs\n?? shardloom-vortex/src/native_provider_builder_tests.rs\n?? shardloom-vortex/src/native_provider_fixed_width_builder.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2120187904,
+            "log_bytes": 0,
+            "free_bytes": 41204944896,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 43923496960,
+            "log_bytes": 0,
+            "free_bytes": 41204944896,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 82395,
+        "output_bytes": 1403,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 402.2852185419979,
+        "log_sha256": "74c2662d1790b911b670052e9fe1b6258392466aaafc860a9e572d85b8356ce5"
+      },
+      "log_sha256": "74c2662d1790b911b670052e9fe1b6258392466aaafc860a9e572d85b8356ce5"
+    },
+    "builder-packet-inspect-1": {
+      "receipt_sha256": "53eec395bbce96284e24ca6ba346acc257d471f77651daa09df2c26dd1d9afd8",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<builder-uat>/verify_builder_packet.py",
+          "--attempt",
+          "1"
+        ],
+        "cwd": "<repo>",
+        "head": "094c50b83235cd0594e1858acfcc7aa5a3f4760a",
+        "working_tree": " M docs/architecture/phased-execution-plan.md\n M docs/release/v1-inclusion-scope-matrix.md\n M shardloom-vortex/src/native_provider_chunked.rs\n M shardloom-vortex/src/native_provider_memory.rs\n M vendor/vortex-zstd/src/array.rs\n M vendor/vortex-zstd/upstream-provenance.json\n?? docs/architecture/native-builder-resources-2026-10-07.md\n?? shardloom-vortex/src/native_provider_builder_cost.rs\n?? shardloom-vortex/src/native_provider_builder_tests.rs\n?? shardloom-vortex/src/native_provider_fixed_width_builder.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2120220672,
+            "log_bytes": 0,
+            "free_bytes": 42001162240,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 43923496960,
+            "log_bytes": 0,
+            "free_bytes": 42001162240,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 82886,
+        "output_bytes": 1605,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 782.8494644589955,
+        "log_sha256": "bd9185ae796942552c65894e6c5415a8c32f89babfe20ad776ac7f7273006ef2"
+      },
+      "log_sha256": "bd9185ae796942552c65894e6c5415a8c32f89babfe20ad776ac7f7273006ef2"
+    }
+  },
+  "cost_screen": {
+    "decision_sha256": "e48f152d93ee7bf98ce39f0081f975db733395e313dd43ded76d54517cd8c517",
+    "original_status": "retained_for_resource_correctness_pending_wider_acceptance",
+    "test_binary_sha256": "209ac12638a780bf0803c00d3610e64bf381161ee8a553657ad2e2a00dc71079",
+    "relative_repeat_threshold": 1.1,
+    "absolute_revision_threshold_ns": 5000,
+    "repeated_material_regressions": [],
+    "relative_flags_by_order": {
+      "forward": [
+        {
+          "shape": "i64_nullable",
+          "rows": 32,
+          "chunks": 2,
+          "median_ratio": 1.1327377693051301,
+          "median_added_ns": 76.701171875,
+          "material_regression": false
+        },
+        {
+          "shape": "f64_nullable",
+          "rows": 32,
+          "chunks": 2,
+          "median_ratio": 1.1201681148029614,
+          "median_added_ns": 70.474609375,
+          "material_regression": false
+        },
+        {
+          "shape": "f64_nullable",
+          "rows": 4096,
+          "chunks": 2,
+          "median_ratio": 1.117920148560817,
+          "median_added_ns": 124.0234375,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 32,
+          "chunks": 2,
+          "median_ratio": 1.429099607158446,
+          "median_added_ns": 600.0166015625,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 32,
+          "chunks": 16,
+          "median_ratio": 1.542984304079925,
+          "median_added_ns": 2613.9736328125,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 4096,
+          "chunks": 2,
+          "median_ratio": 1.22435272662307,
+          "median_added_ns": 990.890625,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 4096,
+          "chunks": 16,
+          "median_ratio": 1.4985637267739556,
+          "median_added_ns": 4744.46875,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 65536,
+          "chunks": 16,
+          "median_ratio": 1.1342304408826887,
+          "median_added_ns": 10721.3125,
+          "material_regression": true
+        }
+      ],
+      "reverse": [
+        {
+          "shape": "utf8_nullable",
+          "rows": 32,
+          "chunks": 2,
+          "median_ratio": 1.3788130369116056,
+          "median_added_ns": 438.6806640625,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 32,
+          "chunks": 16,
+          "median_ratio": 1.5240369096623418,
+          "median_added_ns": 2100.66796875,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 4096,
+          "chunks": 2,
+          "median_ratio": 1.205418682283008,
+          "median_added_ns": 727.859375,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 4096,
+          "chunks": 16,
+          "median_ratio": 1.4727422146734714,
+          "median_added_ns": 3635.7421875,
+          "material_regression": false
+        },
+        {
+          "shape": "utf8_nullable",
+          "rows": 65536,
+          "chunks": 16,
+          "median_ratio": 1.1325815197750275,
+          "median_added_ns": 4929.6875,
+          "material_regression": false
+        }
+      ]
+    },
+    "boundary": "Same frozen test executable with and without installed ProviderMemory; both sessions include the primitive-Zstd append repair. Installed admission includes existing child-codec/string owners. This is not marginal attribution of the new builder reservation and not a speedup claim."
+  },
+  "full43_observation": {
+    "summary_sha256": "d6c6d0d8a1111898e06ffcad0ea66e0c61a4d663c0df9ed800d38bf96c7e5e6c",
+    "source_bytes": 15682956489,
+    "memory_policy_gb": 24,
+    "maximum_parallelism": 12,
+    "sum_query_minima_seconds": 66.32967503801774,
+    "sum_query_medians_seconds": 67.96534891800547,
+    "sum_all_calls_seconds": 204.88171441203303,
+    "maximum_native_process_rss_bytes": 5690572800,
+    "boundary": "Complete new native processes against retained input; prehash warms the file cache. No fresh ingest, paired whole-engine speedup or enforced process RSS claim."
+  },
+  "documentation_updates_complete": true,
+  "hosted_acceptance_complete": false,
+  "package_publication_performed": false,
+  "performance_claim_allowed": false,
+  "broader_resource_spill_recovery_complete": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "staging_driver_sha256": "a4e9f729882c26f9e8198f98bddcf3344e8891ea1145e3df532cd63afd27c030",
+  "documentation_acceptance": "docs/benchmarks/evidence/native-builder-documentation-2026-10-07.json",
+  "documentation_acceptance_sha256": "61f9f4249e52a5ac2fceea20b3f28cb42658a2cf2a897a2e5256c7a30d404ea5"
+}

@@ -36,12 +36,23 @@ native plan. Input remains resident; output batching does not make general state
 spillable. Both units merged in PR #1526 after complete local acceptance and
 all 39 hosted checks. Published v0.4.0 predates these additions.
 
-The subsequent locally accepted [Zstd workspace unit](native-zstd-workspaces-2026-10-07.md)
+The subsequent [Zstd workspace unit](native-zstd-workspaces-2026-10-07.md)
 also admits the actual one-shot C decoder and by-reference prepared-dictionary
 workspaces through that same allocator. Temporary credits release before
 returning retained output, including denial and corruption paths. Its
 [acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md) keeps
-the local source proof distinct from hosted integration and publication.
+the local source proof distinct from hosted integration and publication. It
+merged in PR #1528 after all 39 hosted checks passed, preserving the accepted
+runtime source. Published v0.4.0 remains unchanged.
+
+The [builder resource unit](native-builder-resources-2026-10-07.md) adds
+primitive/Boolean/decimal Chunked output, possible nullable bitmaps and the empty
+replacement buffer used during numeric and string builder finalization. Credits
+survive independent value/validity references, clones and slices. Native child
+append strategies remain intact, including the repaired primitive Zstd append.
+Its [local acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
+passes complete ownership and regression checks; hosted integration is pending.
+The cost screen retains measured UTF-8 overhead and makes no speedup claim.
 
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
 whole-process RSS bounds remain open. Other operators must retain their own resource admission
@@ -132,8 +143,9 @@ The following need separate implementation or acceptance before broader support 
 
 - general aggregate/join/window and other unadmitted operator spill transitions.
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
-  buffers and Zstd decoder/prepared-dictionary workspaces, including compression
-  contexts, dictionary training and other unreviewed builders.
+  buffers, Zstd decoder/prepared-dictionary workspaces and Chunked value/validity/
+  finalization buffers, including child decoder scratch, structural metadata,
+  compression contexts, dictionary training and other unreviewed builders.
 - larger-than-resident-state guarantees beyond the admitted spill families.
 - workload-wide pressure, interruption and recovery acceptance for a declared production envelope.
 - object-store recovery.

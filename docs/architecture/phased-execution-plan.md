@@ -249,32 +249,79 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-CODEC-WORKSPACES` — admit pinned Zstd one-shot decoder and
-  prepared-dictionary workspaces through existing Vortex memory owners under
-  PERF-03/06 and CG-5/19/20/21. Follow the
-  [contract](native-zstd-workspaces-2026-10-07.md) and RFC 0044's scoped provider
-  safety decision. Local implementation is accepted at `ab96cd7e`; the
-  [report](../benchmarks/native-codec-workspaces-2026-10-07.md) binds the source,
-  measured executables, original failures and complete regression evidence.
+- [ ] `NATIVE-BUILDER-RESOURCES` — admit shared native fixed-width concatenation
+  output and builder finalization storage under PERF-03/06/07 and CG-5/19/20/21.
+  Follow the [contract](native-builder-resources-2026-10-07.md) and RFC 0044.
   - V1 scope classification: `required_for_v1` for the declared local resource
-    envelope. Preserve upstream concrete encoding and native persistence.
-  - Reuse review: `use_vortex_native_provider`; one PulseWeave grant and the
-    current `HostAllocator` own actual C workspaces. Safe upstream wrappers lack
-    static-context initialization; keep the private binding in the vendored
-    dependency and retain workspace `unsafe_code = "forbid"`.
+    envelope. This is one builder-ownership unit; general decoder scratch,
+    selective execution and state spill retain their separate review boundaries.
+  - Reuse review: `use_vortex_native_provider`; extend the existing session
+    provider and retained-buffer owners. Preserve the pinned native builder and
+    per-encoding append strategies below all public front doors.
   - Execution checklist:
-    - [x] Audit pinned one-shot/static-context/dictionary APIs and allocation
-      paths; define lifetime, alignment, version and legacy-format boundaries.
-    - [x] Reproduce unaccounted context storage, then implement actual reserved
-      workspaces with typed denial and unconditional owner cleanup.
-    - [x] Prove dictionary/overlap pressure, malformed/legacy input, exact values,
-      native identity and all direct entrypoints; inspect every unsafe call.
-    - [x] Complete the frozen native cost screen and required source/public/
-      Full43 acceptance with failed attempts and excluded allocations preserved.
-    - [ ] Integrate the accepted finite result and evidence through hosted checks.
-  - Compression/training state, other codecs, general aggregate/join/window/pivot
-    spill and recovery keep their existing owners. Do not reopen paused format/
-    text sweeps or infer a process-RSS guarantee from this allocation scope.
+    - [x] Reproduce fixed-width admission bypass and string finish overlap.
+    - [x] Own data, nullable bitmap and temporary finalization capacity with
+      checked admission, typed failures and independent retained lifetimes.
+    - [x] Prove exact numeric/Bool/decimal, encoded, nested-chunk and failure
+      behavior; complete the frozen lifecycle cost screen.
+    - [x] Complete source, public/native and Full43 acceptance. Runtime
+      `53cd1582` passes 14 new ownership tests, 17 source gates, 27,373 public
+      cases, 202 direct cases and all 129 Full43 calls. The independently
+      inspected [packet](../benchmarks/native-builder-resources-2026-10-07.md)
+      retains all 840,960 lifecycle calls, repeated UTF-8 overhead and failures.
+    - [ ] Complete documentation and hosted integration, then move the finite
+      unit to the completed ledger. Package publication remains separate.
+  - ShardLoom technique review: PulseWeave controls observed overlapping owners;
+    preserve metadata/encoded append work avoidance. No new capillary topology
+    or adaptive strategy. Separate provider and query timing, and do not infer
+    an RSS, whole-provider, broader PERF/CG or publication claim.
+
+- [ ] `NATIVE-INPUT-COMPLETION` — completion-aware native input delivery under
+  PERF-03/07/11/12 and CG-5/19/20/21, following builder integration.
+  - V1 scope classification: `required_for_v1` for the declared local streaming
+    workflow; do not infer general operator spill or unrestricted input sizes.
+  - Follow the October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md).
+    Bind declared schema and classify the whole plan before consuming a one-shot
+    producer. Reuse native arrays, shared filter/project execution and local sinks.
+  - Start with a single-use pure row-local filter/project/write chain, releasing
+    each admitted input when its consumers finish. Prove complete input larger
+    than the grant, bounded retained input, cancellation and late-failure safety.
+    End-of-input is the first completion proof; emitted results remain provisional
+    until final acknowledgement/validation, and files publish only after success.
+  - Preserve explicit retained/spooled/unsupported behavior for repeated sources
+    and blocking operators. Reserve sink metadata separately; bounded input alone
+    does not establish a total-memory or RSS ceiling. No external fallback.
+  - Measure retained derived owners for selective rematerialization alongside this
+    work. Current predicate truth words are transient, not a retained mask cache.
+    Prototype only after identifying reclaimable bytes, pinned dependencies and
+    sufficient reconstruction headroom; preserve ample-memory controls.
+
+The same campaign separately admits a constraint-guided inner-equijoin experiment
+under PERF-02/03/10/12, nested identities only after measured repetition, and actual
+run-size replay for stable byte-aware merging with the next PERF-06 spill family.
+Freeze mechanism counters, complete-output oracles and retention thresholds before
+timing. Source analysis may proceed independently; native workloads stay serial.
+These distinct mechanisms do not restart the three dropped hardware prototypes
+or composed-COUNT prototypes, complete whole PERF/CG owners, or trigger a version
+bump. First-use, reuse, pressure/spill and provisional-output timings stay separate.
+
+The maintainer's later October 7 [conditional exact work campaign](native-conditional-work-campaign-2026-10-07.md)
+adds six distinct performance candidates after builder integration. Begin with
+checked I128-to-I256 decimal totals (PERF-04/10/12), then conservative membership
+before eligible native inner-join probes (PERF-02/03/10/12 and CG-14). Keep input
+completion as the next architectural capability. Learned indexes require a large
+measured ordered-access target; cache admission requires real reconstruction traces;
+changed-source preparation requires verified reusable regions. Fixed byte-credit
+result windows precede rate adaptation and do not remove resident input retention.
+All six need their own frozen complete-operation screens. Accepted Zstd workspace
+accounting and prior dropped prototypes stay closed; no version bump follows intake.
+
+`NATIVE-CODEC-WORKSPACES` is complete in
+[PR #1528](https://github.com/depsilon/shardloom/pull/1528), with all 39 hosted
+checks and unchanged accepted runtime source. The
+[completed ledger](phased-execution-completed-ledger.md) records the exact merge,
+review and production evidence. Compression/training state, other provider
+allocations and general operator spill/recovery retain their existing owners.
 
 `NATIVE-PROVIDER-RESOURCES`, public bounded batch adapters and all five
 `HARDWARE-INFORMED-EXECUTION` decisions are complete in
@@ -2737,6 +2784,10 @@ tested tree and accepted production source; the integration correction changes
 only a CPU-cap test fixture and the website dependency lock. Broader resource,
 spill, failure and adapter obligations retain their owners. Do not restart the
 completed experiments.
+`NATIVE-CODEC-WORKSPACES` subsequently merged in PR #1528 at `9c2a7a71`, after
+all 39 hosted checks on `2402a208` passed. Its actual Zstd decoder/dictionary
+workspaces now share the query owner; all 938 accepted runtime source assets
+and the tested tree are unchanged by integration. Production checks passed.
 The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 
@@ -2749,6 +2800,22 @@ under PERF-03/06 before reopening broad format/text performance experiments.
 Batch smaller capabilities and optimization wins into a substantial, validated
 expansion of supported workflows. Do not start a bump merely because one finite
 experiment campaign closes; preserve the normal release and publication gates.
+
+October 7 direction adds the [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
+without reopening prior drops. Finish the accepted builder unit, then prioritize
+completion-aware input streaming and a measured retained-intermediate target for
+selective rematerialization. Prepare constraint-guided joins independently; gate
+nested identities on repetition and merge scheduling on real spill-run evidence.
+Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,
+stable merge adjacency, native ownership and all unexplained negative controls.
+The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
+
+The subsequent candidate set adds exact decimal accumulation and conservative
+filters as the first new performance screens, with ordered-index, physical-cache,
+output-window and stable-region reuse candidates gated on their measured workloads.
+See the [conditional work contract](native-conditional-work-campaign-2026-10-07.md).
+This extends the queue while preserving the input-completion architecture work
+and substantial-milestone version policy.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)

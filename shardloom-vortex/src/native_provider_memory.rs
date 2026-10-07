@@ -1,10 +1,11 @@
-//! Admission for the pinned native FSST canonicalization provider.
+//! Admission for selected pinned native canonicalization byte buffers.
 //!
 //! The session kernel wraps the existing decoder, retaining its native buffers
 //! without copying bytes. This covers direct FSST execution and the finite
 //! integer metadata providers below, plus concatenation of FSST, Zstd and
-//! canonical string views. Other builder paths, unrelated providers, allocator bookkeeping
-//! and process RSS are separate resource boundaries.
+//! canonical string views, and primitive/Bool/decimal Chunked output builders.
+//! Child decoder scratch, other builders, structural metadata, allocator
+//! bookkeeping and process RSS are separate resource boundaries.
 
 use std::{any::Any, sync::Arc};
 
@@ -580,3 +581,7 @@ fn aligned_capacity(bytes: u64, alignment: usize) -> VortexResult<u64> {
 #[cfg(test)]
 #[path = "native_provider_memory_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "native_provider_builder_tests.rs"]
+mod builder_tests;

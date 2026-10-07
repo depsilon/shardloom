@@ -1,8 +1,27 @@
 # Vortex Upstream Dependency Review
 
+## October 7, 2026 native builder review
+
+`NATIVE-BUILDER-RESOURCES` retains Vortex 0.85.0 and extends the existing session
+provider around primitive, Boolean and decimal Chunked output builders. It keeps
+upstream append strategies and native buffer ownership; the allocator argument
+alone is insufficient because this pinned builder factory ignores it. The
+existing Apache-2.0 `vortex-zstd` patch also routes primitive append through its
+already-admitted native decoder, then native primitive append. The
+[provenance manifest](../../vendor/vortex-zstd/upstream-provenance.json) records
+that additional method-level change. No dependency, feature, codec implementation
+or unsafe code is added.
+
+The [contract](../architecture/native-builder-resources-2026-10-07.md) and
+[acceptance](../benchmarks/native-builder-resources-2026-10-07.md) record the
+capacity/lifetime boundary, 13 pinned upstream source checks, 14 new ownership
+tests, the complete cost screen and source/public/Full43 regression proof.
+Local packet inspection passes; hosted integration is pending. Child decoder
+scratch and structural metadata remain outside the new byte-buffer claim.
+
 ## October 7, 2026 pinned decoder workspace review
 
-The locally accepted `NATIVE-CODEC-WORKSPACES` unit retains Vortex 0.85.0 and the same
+The merged `NATIVE-CODEC-WORKSPACES` unit retains Vortex 0.85.0 and the same
 native encoding patch. It adds an exact direct `zstd-sys` 2.0.16 dependency only
 inside that excluded provider crate, using its experimental static-API bindings.
 The lockfile already contains `zstd-sys` 2.0.16+zstd.1.5.7 through `zstd` 0.13.3
@@ -17,7 +36,8 @@ RFC 0044 permits this scoped binding inside `vendor/vortex-zstd`; workspace
 crates retain `unsafe_code = "forbid"`. The
 [acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md) records
 24 ownership tests, 17 source gates and complete public/Full43 regression proof.
-Hosted integration and package publication remain separate. Dependency
+PR #1528 merged after all 39 hosted checks passed with the accepted runtime
+source unchanged. Package publication remains separate. Dependency
 availability alone does not expand support.
 
 ## October 6, 2026 retained allocator patch

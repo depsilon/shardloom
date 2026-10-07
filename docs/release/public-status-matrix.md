@@ -59,9 +59,18 @@ predates these additions. Target-cohort gains are not a broad engine performance
 The subsequent [Zstd workspace acceptance](../benchmarks/native-codec-workspaces-2026-10-07.md)
 adds actual decoder and by-reference prepared-dictionary admission to the same
 native memory owner. Local ownership and complete regression checks pass;
-hosted integration is tracked separately. Compression/training state and other
+PR #1528 merged after all 39 hosted checks passed with the accepted runtime
+source unchanged. Compression/training state and other
 unreviewed allocations remain outside that finite resource proof. This does
 not change the published version or public support label.
+
+The [builder acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
+further covers native primitive/Boolean/decimal Chunked output and builder
+finalization buffers, preserving independent value/validity ownership. Complete
+local source/public/Full43 checks and packet inspection pass; hosted integration
+is pending. Child decoder scratch, structural metadata and general operator
+spill remain separate. Its measured cost screen is a resource-correction check,
+not a speedup or process-RSS guarantee.
 
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide

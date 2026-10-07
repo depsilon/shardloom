@@ -533,7 +533,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 6, 2026.
+Current capabilities, reviewed October 7, 2026.
 
 ## Native Execution
 
@@ -709,9 +709,14 @@ published v0.4.0 predates them. Source implementation also admits the actual
 one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
 allocation, releasing them after each decode. See the
 [workspace acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md)
-for its separate local and hosted evidence. Compression contexts, dictionary
-training and other unreviewed allocations remain outside this finite accounting
-scope. A query grant still does not bound total process RSS.
+for its separate local and hosted evidence. The
+[builder resource acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-builder-resources-2026-10-07.md)
+also covers native primitive/Boolean/decimal Chunked output, nullable bitmaps and
+numeric/string builder finalization buffers. Local source and complete workflow
+checks pass; hosted integration is pending. Child decoder scratch, structural
+metadata, compression contexts, dictionary training and other unreviewed
+allocations remain outside this finite scope. These resource corrections make
+no speedup claim, and a query grant still does not bound total process RSS.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -814,7 +819,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 6, 2026**. See the
+Current capabilities, reviewed **October 7, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -836,6 +841,10 @@ predates these additions.
 The subsequent [Zstd workspace unit](/field-guide/runtime-and-io#resources-and-recovery)
 also admits the actual decoder and by-reference prepared dictionary. Its
 resource proof remains limited to the reviewed allocations.
+The [builder resource unit](/field-guide/runtime-and-io#resources-and-recovery)
+covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
+numeric/string finalization buffers, with local acceptance complete and hosted
+integration pending. Child decoder scratch and structural metadata remain separate.
 Input batches remain resident under the query grant. Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
