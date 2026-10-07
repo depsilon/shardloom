@@ -1,7 +1,8 @@
-//! Own the pinned native string builder's views and validity allocations.
+//! Own value/view and validity byte buffers of pinned native Chunked builders.
 //!
 //! Chunked execution uses `AppendChild`, which bypasses execute-parent kernels.
-//! Decode admitted leaves first, then use the native builder with compaction
+//! Fixed-width builders retain native child append strategies. For strings,
+//! decode admitted leaves first, then use the native builder with compaction
 //! disabled. It keeps their data buffers and only copies views and validity.
 
 use super::*;
@@ -11,15 +12,28 @@ use vortex::array::{
 };
 use vortex::encodings::zstd::Zstd;
 
+#[path = "native_provider_fixed_width_builder.rs"]
+mod fixed_width;
+
 pub(super) fn execute(
     _child: &ArrayRef,
     parent: &ArrayRef,
     _child_idx: usize,
     ctx: &mut ExecutionCtx,
 ) -> VortexResult<Option<ArrayRef>> {
-    if !parent.is::<Chunked>()
-        || !matches!(parent.dtype(), DType::Utf8(_) | DType::Binary(_))
-        || !admitted_tree(parent, 0)?
+    if !parent.is::<Chunked>() {
+        return Ok(None);
+    }
+    if parent.as_::<Chunked>().nchunks() == 0 {
+        return Ok(None);
+    }
+    let fixed_width = matches!(
+        parent.dtype(),
+        DType::Primitive(..) | DType::Bool(_) | DType::Decimal(..)
+    );
+    if !fixed_width
+        && (!matches!(parent.dtype(), DType::Utf8(_) | DType::Binary(_))
+            || !admitted_tree(parent, 0)?)
     {
         return Ok(None);
     }
@@ -30,7 +44,11 @@ pub(super) fn execute(
     else {
         return Ok(None);
     };
-    decode(parent, ctx, &memory).map(Some)
+    if fixed_width {
+        fixed_width::decode(parent, ctx, &memory).map(Some)
+    } else {
+        decode(parent, ctx, &memory).map(Some)
+    }
 }
 
 fn admitted_tree(array: &ArrayRef, depth: usize) -> VortexResult<bool> {
@@ -70,13 +88,22 @@ fn decode(
     } else {
         0
     };
-    let mut views_credit = crate::owned_buffers::reserve(memory, add(views, validity)?)?;
+    // finish uses mem::take on its views BufferMut. The empty replacement
+    // requests preferred alignment capacity until the builder is dropped.
+    let finish_bytes = capacity(0)?;
+    let mut views_credit =
+        crate::owned_buffers::reserve(memory, add(add(views, validity)?, finish_bytes)?)?;
     let validity_credit = views_credit
         .split(validity)
+        .map_err(|error| vortex_err!("{error}"))?;
+    let finish_credit = views_credit
+        .split(finish_bytes)
         .map_err(|error| vortex_err!("{error}"))?;
     let mut builder = VarBinViewBuilder::with_capacity(array.dtype().clone(), array.len());
     append_leaves(array, &mut builder, ctx, memory)?;
     let output = builder.finish_into_varbinview();
+    drop(builder);
+    drop(finish_credit);
     let bitmap = match output.validity()? {
         Validity::Array(bitmap) => {
             let native = bitmap.as_::<Bool>();

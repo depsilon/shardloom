@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-06: use the session's fallible allocator for
 // decoded payload, binary views and nullable output. See upstream-provenance.json.
+// Modified by ShardLoom on 2026-10-07: append primitive arrays through the same
+// allocator-aware native decoder used by canonical execution.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -283,6 +285,14 @@ impl VTable for Zstd {
         builder: &mut dyn ArrayBuilder,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<()> {
+        if matches!(array.dtype(), DType::Primitive(..)) {
+            return array
+                .into_owned()
+                .into_array()
+                .execute::<PrimitiveArray>(ctx)?
+                .into_array()
+                .append_to_builder(builder, ctx);
+        }
         if let Some(result) =
             match_each_varbin_builder!(builder, |builder| append_to_varbin(array, builder, ctx))
         {

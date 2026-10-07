@@ -249,6 +249,28 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-BUILDER-RESOURCES` — admit shared native fixed-width concatenation
+  output and builder finalization storage under PERF-03/06/07 and CG-5/19/20/21.
+  Follow the [contract](native-builder-resources-2026-10-07.md) and RFC 0044.
+  - V1 scope classification: `required_for_v1` for the declared local resource
+    envelope. This is one builder-ownership unit; general decoder scratch,
+    selective execution and state spill retain their separate review boundaries.
+  - Reuse review: `use_vortex_native_provider`; extend the existing session
+    provider and retained-buffer owners. Preserve the pinned native builder and
+    per-encoding append strategies below all public front doors.
+  - Execution checklist:
+    - [ ] Reproduce fixed-width admission bypass and string finish overlap.
+    - [ ] Own data, nullable bitmap and temporary finalization capacity with
+      checked admission, typed failures and independent retained lifetimes.
+    - [ ] Prove exact numeric/Bool/decimal, encoded, nested-chunk and failure
+      behavior; complete the frozen lifecycle cost screen.
+    - [ ] Complete source, public/native and Full43 acceptance; integrate the
+      finite evidence through hosted checks and update the completed ledger.
+  - ShardLoom technique review: PulseWeave controls observed overlapping owners;
+    preserve metadata/encoded append work avoidance. No new capillary topology
+    or adaptive strategy. Separate provider and query timing, and do not infer
+    an RSS, whole-provider, broader PERF/CG or publication claim.
+
 `NATIVE-CODEC-WORKSPACES` is complete in
 [PR #1528](https://github.com/depsilon/shardloom/pull/1528), with all 39 hosted
 checks and unchanged accepted runtime source. The
