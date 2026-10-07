@@ -89,15 +89,65 @@ are bounded explicitly. No enqueue acknowledgment is reported as a completed que
 - ShardLoom supplies admission, lifetime-bound credits, exact aggregate semantics,
   cancellation, and source-generation validation not supplied by those APIs.
 - Avoid cloning upstream CurrentThreadWorkerPool owners: its Drop stops shared workers.
-- Retain `unsafe_code = "forbid"`; any binding uses audited safe provider APIs.
+- Retain workspace `unsafe_code = "forbid"` and prefer audited safe provider APIs.
+  The isolated pinned Zstd workspace exception below applies only inside the
+  existing excluded `vendor/vortex-zstd` dependency patch.
 - Use Vortex 0.85 `HostAllocator`/`HostBufferMut` for native buffer admission.
   `bytes` 1.11.1 (MIT, already locked transitively through Vortex) is made an
   optional direct dependency to use its safe `Bytes::from_owner` lifetime hook.
-  No FFI or custom allocation implementation is introduced. The pinned provider
+  This buffer ownership hook introduces no FFI or custom allocation implementation. The pinned provider
   requests logical length plus preferred-alignment capacity; reservations cover
   those bytes and survive immutable buffer clones/slices. Allocator metadata and
   upstream allocations bypassing this hook are not covered by that counter.
 - No Vortex query-engine integrations or new external execution dependencies.
+
+## Pinned Zstd Decoder Workspace Decision
+
+`NATIVE-CODEC-WORKSPACES` extends the finite provider allocation scope under
+PERF-03/06. The existing Vortex `Zstd` decoder may initialize its one-shot C
+decoder context and optional prepared dictionary in buffers allocated through
+the session `HostAllocator`. These are the actual codec workspaces, not dummy
+reservations beside separately allocated C state. Preserve the Vortex encoding,
+VTable, native frames, selection, validity and serialization identities.
+
+The checked provider is `vortex-zstd` 0.85.0, `zstd` 0.13.3, `zstd-safe` 7.2.4
+and locked `zstd-sys` 2.0.16 with Zstandard 1.5.7. The safe Rust wrappers do not
+expose static decoder/dictionary initialization. The vendored Vortex patch may
+therefore use a private borrowed wrapper over `ZSTD_estimateDCtxSize`,
+`ZSTD_initStaticDCtx`, `ZSTD_estimateDDictSize`, `ZSTD_initStaticDDict` and
+`ZSTD_decompress_usingDDict`, with these mandatory safety constraints:
+
+- Pin the existing `zstd-sys` version and enable only its experimental bindings;
+  do not enable experimental `zstd`/`zstd-safe` behavior. Verify linked Zstandard
+  version 1.5.7 before using the audited static APIs. A different linked version
+  fails explicitly until its contract is reviewed.
+- Allocate, initialize and check the real workspace lengths and eight-byte
+  pointer alignment before passing them to C. Reservations precede allocation
+  through the existing allocator; allocation errors retain their typed source.
+- Tie decoder/dictionary pointers to exclusive workspace borrows and the
+  immutable source-dictionary borrow. Keep every backing owner alive and fixed
+  until the final C call. Do not expose raw pointers or implement `Send`/`Sync`.
+- Use one-shot decoding only, with exact input/output slice bounds and checked
+  returned lengths. Prepare dictionaries by reference. Do not create an internal
+  dictionary, use streaming decode, enable multiple dictionaries, install custom
+  allocation callbacks or invoke C free functions on static state.
+- Validate selected compressed frame boundaries without allocating another
+  payload. Modern frames and skippable members retain their existing semantics;
+  legacy Zstandard v0.1–v0.7 frames fail explicitly, including trailing legacy
+  members. No legacy decoder or unaccounted dynamic-context retry is allowed.
+- Empty selections do not construct codec workspaces. Temporary workspaces drop
+  before returning decoded storage, including on malformed input, dictionary
+  errors or denied allocation. Escaping payload credits retain their existing
+  owner lifetimes.
+
+This is a narrow unsafe-provider exception with local safety comments and a
+[source-linked contract](../architecture/native-zstd-workspaces-2026-10-07.md).
+It does not permit unsafe code in workspace crates, a custom allocator, streaming
+codec state, compression/dictionary-training scratch, the inactive experimental
+`ZstdBuffers` encoding, other codecs, general spill/recovery or a process-RSS
+guarantee. Acceptance requires negative workspace/legacy/dictionary tests,
+complete value and ownership checks, a frozen native cost screen and the existing
+whole-engine regression gates. No speed or support claim follows from the design.
 
 ## Verification
 

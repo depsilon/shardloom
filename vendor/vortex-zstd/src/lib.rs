@@ -31,6 +31,7 @@ pub use zstd_buffers::*;
 
 mod array;
 mod compute;
+mod decoder_workspace;
 mod rules;
 mod slice;
 #[cfg(feature = "unstable_encodings")]
@@ -45,6 +46,7 @@ pub(crate) fn validate_frame_content_size(
     metadata_size: u64,
     index: usize,
 ) -> VortexResult<()> {
+    decoder_workspace::reject_legacy_header(frame)?;
     let frame_content_size = zstd::zstd_safe::get_frame_content_size(frame)
         .map_err(|error| vortex_err!("Invalid zstd frame {index}: {error}"))?
         .ok_or_else(|| vortex_err!("Zstd frame {index} does not declare a content size"))?;

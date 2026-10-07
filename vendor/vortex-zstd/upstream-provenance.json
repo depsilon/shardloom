@@ -22,5 +22,5 @@
   },
   "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
   "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-  "local_changes": "Prototype routing decode payload allocations through the existing fallible Vortex HostAllocator. Source buffers, original VTable, native slices and native file encoding are preserved. This does not route to another query engine."
+  "local_changes": "Route decode payload, static decoder and by-reference prepared-dictionary workspaces through the existing fallible Vortex HostAllocator. The private workspace wrapper uses the locked zstd-sys 2.0.16 / Zstandard 1.5.7 static APIs under RFC 0044; legacy members are explicitly unsupported. Source buffers, original VTable, native slices and native file encoding are preserved. No C implementation is copied and no other query engine is invoked."
 }

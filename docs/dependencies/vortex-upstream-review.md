@@ -1,5 +1,22 @@
 # Vortex Upstream Dependency Review
 
+## October 7, 2026 pinned decoder workspace review
+
+The planned `NATIVE-CODEC-WORKSPACES` unit retains Vortex 0.85.0 and the same
+native encoding patch. It adds an exact direct `zstd-sys` 2.0.16 dependency only
+inside that excluded provider crate, using its experimental static-API bindings.
+The lockfile already contains `zstd-sys` 2.0.16+zstd.1.5.7 through `zstd` 0.13.3
+and `zstd-safe` 7.2.4. No provider upgrade or external query engine is involved.
+The binding crate declares MIT/Apache-2.0; Zstandard 1.5.7 is used under its
+BSD-3-Clause license option. Existing license/provenance records remain intact.
+
+The [workspace contract](../architecture/native-zstd-workspaces-2026-10-07.md)
+records exact source surfaces, feature isolation, linked-version rejection,
+private unsafe lifetime/alignment requirements and the legacy-format boundary.
+RFC 0044 permits this scoped binding inside `vendor/vortex-zstd`; workspace
+crates retain `unsafe_code = "forbid"`. Implementation and runtime acceptance
+are pending; this review does not expand support by dependency availability.
+
 ## October 6, 2026 retained allocator patch
 
 The accepted local provider resource unit retains Vortex 0.85.0 and an

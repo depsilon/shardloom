@@ -249,6 +249,31 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-CODEC-WORKSPACES` — admit pinned Zstd one-shot decoder and
+  prepared-dictionary workspaces through existing Vortex memory owners under
+  PERF-03/06 and CG-5/19/20/21. Follow the
+  [contract](native-zstd-workspaces-2026-10-07.md) and RFC 0044's scoped provider
+  safety decision before adding binding code.
+  - V1 scope classification: `required_for_v1` for the declared local resource
+    envelope. Preserve upstream concrete encoding and native persistence.
+  - Reuse review: `use_vortex_native_provider`; one PulseWeave grant and the
+    current `HostAllocator` own actual C workspaces. Safe upstream wrappers lack
+    static-context initialization; keep the private binding in the vendored
+    dependency and retain workspace `unsafe_code = "forbid"`.
+  - Execution checklist:
+    - [x] Audit pinned one-shot/static-context/dictionary APIs and allocation
+      paths; define lifetime, alignment, version and legacy-format boundaries.
+    - [ ] Reproduce unaccounted context storage, then implement actual reserved
+      workspaces with typed denial and unconditional owner cleanup.
+    - [ ] Prove dictionary/overlap pressure, malformed/legacy input, exact values,
+      native identity and all direct entrypoints; inspect every unsafe call.
+    - [ ] Complete the frozen native cost screen and required source/public/
+      Full43 acceptance with failed attempts and excluded allocations preserved.
+    - [ ] Integrate the accepted finite result and evidence through hosted checks.
+  - Compression/training state, other codecs, general aggregate/join/window/pivot
+    spill and recovery keep their existing owners. Do not reopen paused format/
+    text sweeps or infer a process-RSS guarantee from this allocation scope.
+
 `NATIVE-PROVIDER-RESOURCES`, public bounded batch adapters and all five
 `HARDWARE-INFORMED-EXECUTION` decisions are complete in
 [PR #1526](https://github.com/depsilon/shardloom/pull/1526). The
