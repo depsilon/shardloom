@@ -53,7 +53,18 @@ Conversions consume the delivered values; they do not execute another query.
 | Transport envelope | A separate 16 MiB wire-frame ceiling includes framing and metadata |
 | Small complete collection | Existing 65,536-row, 128-field and 8 MiB limits remain explicit |
 
-Batch intake is demand-driven, but it does not provide input spill or guarantee
+This October 6 table records resident input. A subsequent opt-in
+`from_batches(..., streaming=True)` mode has its own
+[contract](native-input-completion-2026-10-07.md) and
+[local acceptance](../benchmarks/native-input-completion-2026-10-07.md).
+It preserves the finite field, row/frame and total batch-count bounds while
+retaining at most one native input batch. That mode permits one source used once
+through pure Scan/Filter/Project, with incremental results, bounded small
+collection or one native Vortex destination. Cumulative input may exceed the
+grant; input spill, general state spill and RSS bounds remain unsupported.
+Resident mode stays the default, and published v0.4.0 is unchanged.
+
+Resident batch intake is demand-driven, but it does not provide input spill or guarantee
 that arbitrary total input fits in memory. Result delivery supports the
 already-admitted typed and static nested schemas; that wider result contract
 does not widen the four-domain input schema above. General Variant/extension

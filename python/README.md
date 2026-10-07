@@ -469,12 +469,47 @@ with workflow.iter_batches(batch_rows=1024) as batches:
 Pass a factory returning fresh batches for repeated execution, or an iterable
 for one execution. Declaration does not call the producer. Nullable Int64,
 finite Float64, Boolean and UTF8 are admitted; each batch has at most 2,048 rows,
-128 fields and an 8 MiB frame, with at most 4,096 batches per source. Accumulated
-native input must fit the shared memory grant. Output supports the existing
+128 fields and an 8 MiB frame, with at most 4,096 batches per source. In the
+default resident mode (`streaming=False`), accumulated native input must fit the
+shared memory grant. Output supports the existing
 admitted typed/nested schemas, with the same 2,048-row / 8-MiB payload ceiling.
 Prepare compatibility file input explicitly to Vortex before batch consumption.
 See the [complete batch contract and example](../docs/architecture/native-bounded-adapters-2026-10-06.md)
 for backpressure, conversions, timeout scope and final-validation semantics.
+
+Current source builds also accept `streaming=True` for one finite source used
+once through pure scan/filter/project operations. This can process cumulative
+input larger than the native grant by retaining at most one native input batch.
+For example:
+
+```python
+def incoming_rows():
+    yield [{"id": 1, "label": "kept"}]
+    yield [{"id": 2, "label": None}]
+
+frame = sl.from_batches(
+    incoming_rows, schema={"id": "int64", "label": "utf8"}, streaming=True,
+).filter(sl.col("id") == 1)
+with frame.iter_batches() as batches:
+    for batch in batches:
+        print(batch.result_rows)
+    assert batches.report is not None
+```
+
+The complete output is `[{"id": 1, "label": "kept"}]`. Streaming admits
+incremental results, bounded small collection, or one native Vortex destination.
+Joins, repeated sources, sets, sorting, explicit limits/offsets, aggregates,
+windows, stateful/correlated operators and data-dependent schemas reject before
+producer consumption. The producer must reach its explicit end event before
+results are final; earlier batches remain provisional.
+
+The finite schema, row, frame and batch-count limits above still apply, with a
+separate 16 MiB wire-frame ceiling and 32 MiB native logical-intake limit per
+batch. Typed intake and output compaction are charged copies; output reservations
+and native sink metadata remain separate. This adds no input spill or process-RSS
+ceiling. See the [streaming contract](../docs/architecture/native-input-completion-2026-10-07.md)
+and [acceptance evidence](../docs/benchmarks/native-input-completion-2026-10-07.md).
+Published v0.4.0 predates both batch modes.
 
 Current source builds compose flat-scalar DISTINCT, `drop_duplicates`, `duplicated`,
 tail, sample, scalar rewrites, melt and rolling with admitted filters, projections,

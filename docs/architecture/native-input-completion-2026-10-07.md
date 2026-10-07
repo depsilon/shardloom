@@ -1,13 +1,21 @@
 # Completion-aware native batch input
 
-Status: implementation design, not an accepted capability. This is the
+Status: local engine acceptance and independent packet inspection passed for
+runtime `f14460ef262b076842d375fa05d33507c4a97027`. Documentation, executable
+examples and browser checks pass; hosted integration is pending. This is the
 `NATIVE-INPUT-COMPLETION` unit under PERF-03/07/11/12 and CG-5/19/20/21.
 It follows the accepted builder runtime `53cd1582` and the two dropped
 conditional-work experiments recorded at `0117ab9f`. Published v0.4.0 is unchanged.
 
+The [acceptance report](../benchmarks/native-input-completion-2026-10-07.md)
+records complete output from 4.5 GiB of UTF8 input under a 1 GiB native grant,
+all 40 new public cases, ten native ownership tests, five pressure/control cases,
+the existing complete regression portfolio and all 129 Full43 results. This
+removes a finite resident-input barrier; it is not a speedup or process-RSS claim.
+
 ## Decision
 
-Add explicit streaming input to the existing native relational execution and
+Explicit streaming input uses the existing native relational execution and
 batch transport. Python `from_batches(..., streaming=True)` requests it;
 `streaming=False` preserves the documented resident mode. The first admitted
 plan is one declared source used once, with only pure row-local scans, filters
@@ -28,6 +36,10 @@ binder; there is no Python query loop, second query invocation or external engin
 
 ## Source-grounded boundaries
 
+These are the pre-implementation boundaries that motivated the design. The
+accepted implementation preserves resident intake and adds the separately
+admitted single-batch path described below.
+
 - `resident_memory_batches.rs` currently accumulates `ArrayRef` values until
   `finish`. Preserve that implementation for resident input.
 - `python_batch_protocol.rs::Transport::build_source` currently pulls the whole
@@ -35,7 +47,7 @@ binder; there is no Python query loop, second query invocation or external engin
   an empty typed schema owner and make no transport demand.
 - `local_primitive_relational_bind.rs::Binder` already owns schema, metadata and
   exact bound expressions. Register a distinct schema-only batch source there;
-classify the complete lowered plan before binding any data-dependent operator.
+  classify the complete lowered plan before binding any data-dependent operator.
 - `local_primitive_relational_scan.rs` and `run_transform` already pass native
   batches synchronously through the same filter/project implementations. Supply
   one current batch to that scan inside the existing admitted execution.
@@ -175,6 +187,10 @@ must never open the Python producer or send an input demand.
 
 ## Acceptance and remaining work
 
+The following local acceptance requirements now pass, with raw values, failure
+traces, resource reports and separate packet inspection linked from the report.
+Documentation and browser checks also pass; hosted integration remains open.
+
 Focused tests must cover complete exact values/types/order, empty and all-filtered
 inputs, empty batches, NULLs, Unicode, signed limits, native output reopening,
 retained output clones, private-input release, foreign/shared input refusal,
@@ -190,10 +206,10 @@ output. Keep matched resident and ample-memory controls, report time to first
 provisional result separately from complete delivery, and retain every failure.
 This is a capability/resource acceptance gate, not a speedup experiment.
 
-Then run focused Rust/Python checks, the repository's required workspace gates,
-the existing public/native/format regression families and Full43 correctness
-observations. Adversarial ownership/publication review and hosted integration
-remain required before acceptance. Research selective rematerialization only
+Focused Rust/Python checks, the repository's required workspace gates, the
+existing public/native/format regression families, Full43 correctness and
+adversarial ownership/publication review pass. Hosted integration remains
+required before closing this unit. Research selective rematerialization only
 after finding a genuinely retained derived owner; current predicate truth words
 remain transient. Other state/structure and conditional-work candidates retain
 their independent evidence prerequisites and all CG owners remain visible.

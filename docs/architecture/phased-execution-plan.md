@@ -251,6 +251,14 @@ the ledger.
 
 - [ ] `NATIVE-INPUT-COMPLETION` — completion-aware native input delivery under
   PERF-03/07/11/12 and CG-5/19/20/21, following completed builder integration.
+  - [x] Implement and freeze runtime `f14460ef`; complete local source/public/
+    pressure/Full43 acceptance and independent packet inspection. See the
+    [acceptance report](../benchmarks/native-input-completion-2026-10-07.md).
+    The 4.5-GiB UTF8 case completes under a 1-GiB grant with one retained input
+    batch; resident denial, ample controls and late failures remain recorded.
+  - [x] Complete seven documentation/site checks, three actual native examples
+    and desktop/mobile/search verification without changing runtime source.
+  - [ ] Complete hosted integration. Published v0.4.0 remains unchanged.
   - V1 scope classification: `required_for_v1` for the declared local streaming
     workflow; do not infer general operator spill or unrestricted input sizes.
   - Follow the October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md).
@@ -2805,7 +2813,9 @@ experiment campaign closes; preserve the normal release and publication gates.
 
 October 7 direction adds the [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
 without reopening prior drops. The builder unit is complete; prioritize
-completion-aware input streaming and a measured retained-intermediate target for
+the completion-aware input unit's hosted integration: local engine/pressure/
+regression, documentation/browser proof and independent packet inspection pass on
+`f14460ef`. Next measure a retained derived owner and its dependency costs before
 selective rematerialization. Prepare constraint-guided joins independently; gate
 nested identities on repetition and merge scheduling on real spill-run evidence.
 Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,
@@ -2814,7 +2824,8 @@ The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen
 gate, and conservative membership is dropped for high-match control regressions.
-Input completion is next, with ordered-index, physical-cache,
+Input completion has passed local and documentation acceptance and awaits hosted
+closure, with ordered-index, physical-cache,
 output-window and stable-region reuse candidates gated on their measured workloads.
 See the [conditional work contract](native-conditional-work-campaign-2026-10-07.md).
 This extends the queue while preserving the input-completion architecture work

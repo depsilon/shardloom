@@ -285,6 +285,16 @@ identifies the current retained reference and superseded-file disposition.
 
 ## Storage guard verification
 
+The [October 7 input-completion acceptance](../benchmarks/native-input-completion-2026-10-07.md)
+retains a later storage-admission refusal before any Full43 query ran. Two
+completed historical Full43 cohorts were compacted only after every original
+member was copied, hashed and reopened in its archive and open handles were
+checked. This recovered 6,725,632 accounted log bytes; summaries and all 1,032
+members remain represented in the immutable packet. The existing ceiling was
+unchanged, and the fresh 129-query observation then passed admission. Failures,
+resident source data and unrelated files were preserved. This is a recorded
+completed-run compaction, not permission for blanket cleanup or guard bypass.
+
 ```sh
 python3 -B -m unittest discover -s scripts -p test_local_uat_storage.py -v
 bash -n scripts/run_clickbench_ingest_uat.sh

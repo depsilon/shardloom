@@ -488,7 +488,10 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 Current source builds add \`iter_batches()\` for admitted results and
 \`from_batches()\` for explicitly typed resident input. These additions merged
 in PR #1526 after complete local and hosted checks; published v0.4.0 packages
-predate them.
+predate them. Source builds now also admit opt-in \`streaming=True\` for one
+finite source used once through pure scan/filter/project operations, as below.
+Its [local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-completion-2026-10-07.md)
+and independent packet inspection pass; hosted integration remains pending.
 
 \`\`\`python
 def orders():
@@ -497,6 +500,7 @@ def orders():
 
 frame = sl.from_batches(
     orders, schema={"order_id": "int64", "amount": "float64"},
+    streaming=True,
 )
 with frame.iter_batches(batch_rows=1024) as batches:
     for batch in batches:
@@ -506,9 +510,21 @@ with frame.iter_batches(batch_rows=1024) as batches:
 
 Input admits nullable Int64, finite Float64, booleans and UTF8 strings with an
 explicit schema. Each input batch contains at most 2,048 row mappings and an
-8 MiB frame, with up to 128 fields and 4,096 batches per source. Total native
-input must fit the query memory grant. A factory, as above, supplies fresh
-input for repeated calls; an iterable can be consumed once.
+8 MiB frame, with up to 128 fields and 4,096 batches per source. In the default
+resident mode (\`streaming=False\`), total native input must fit the query memory
+grant. A factory, as above, supplies fresh input for repeated calls; an iterable
+can be consumed once.
+
+Streaming retains at most one native input batch, so cumulative input may exceed
+the query grant within those finite limits. It supports incremental results,
+bounded small collection or one native Vortex destination. Joins, repeated
+sources, sets, sorting, explicit limits/offsets, aggregates, windows and dynamic
+schemas reject before producer consumption. The producer must reach its explicit
+end event before results are final. Typed intake and output compaction are
+charged copies; output and sink reservations remain separate. No input spill or
+process-RSS ceiling is added. See the
+[complete streaming contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-completion-2026-10-07.md)
+for native intake, wire-frame, ownership and failure bounds.
 
 Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional
@@ -719,6 +735,15 @@ metadata, compression contexts, dictionary training and other unreviewed
 allocations remain outside this finite scope. These resource corrections make
 no speedup claim, and a query grant still does not bound total process RSS.
 
+Opt-in \`from_batches(..., streaming=True)\` now has separate
+[local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-completion-2026-10-07.md),
+including complete 4.5-GiB UTF8 input under a 1-GiB native grant. It retains at
+most one native input batch and admits only one finite source through pure
+scan/filter/project operations. Output compaction prevents retained results from
+pinning input; native sink metadata and retained output still consume credits.
+Late failure prevents successful completion and incomplete file publication.
+Hosted integration is pending; published v0.4.0 is unchanged.
+
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
@@ -844,9 +869,15 @@ also admits the actual decoder and by-reference prepared dictionary. Its
 resource proof remains limited to the reviewed allocations.
 The [builder resource unit](/field-guide/runtime-and-io#resources-and-recovery)
 covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
-numeric/string finalization buffers, with local acceptance complete and hosted
-integration pending. Child decoder scratch and structural metadata remain separate.
-Input batches remain resident under the query grant. Output backpressure does
+numeric/string finalization buffers, with local and hosted acceptance complete
+in PR #1529. Child decoder scratch and structural metadata remain separate.
+Default input remains resident under the query grant. Opt-in
+[streaming input](/field-guide/python-surface#consume-results-in-batches) admits
+one finite source used once through pure scan/filter/project, with one retained
+native input batch and observed end-of-input required for success. Its local
+acceptance and packet inspection pass; hosted integration remains pending.
+Blocking/repeated-source plans and streamed compatibility writes remain denied.
+Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
 

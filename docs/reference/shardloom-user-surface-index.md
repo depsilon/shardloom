@@ -93,14 +93,25 @@ ownership, source-change behavior, and examples. This is a bounded native Rust a
 CLI-backed transport surface; it does not add a native Python binding or establish
 performance claims.
 
-Accepted local source also exposes `shardloom.from_batches` and
+Current source also exposes `shardloom.from_batches` and
 `ShardLoomContext.from_batches` for explicitly typed resident input, plus
 `LazyFrame.iter_batches` and `SqlWorkflow.iter_batches` for acknowledged
-incremental results. Hosted integration and released-package availability are
-separate. The [batch API contract](../architecture/native-bounded-adapters-2026-10-06.md)
+incremental results. Those adapters merged in PR #1526 after local and hosted
+checks; published v0.4.0 predates them. The [batch API contract](../architecture/native-bounded-adapters-2026-10-06.md)
 records row/frame/schema limits, one-shot versus factory inputs, final-report
-completion and early-close cleanup. Input must fit the shared native grant;
+completion and early-close cleanup. Default resident input must fit the shared native grant;
 batch-shaped output does not make all operator state spillable.
+
+The separate [completion-aware input contract](../architecture/native-input-completion-2026-10-07.md)
+admits `streaming=True` for one finite source used once through pure
+Scan/Filter/Project, with incremental results, bounded small collection or one
+native Vortex destination. It retains at most one native input batch, permitting
+cumulative input above the shared grant within the existing finite intake limits.
+Typed intake and output compaction remain charged; result and sink reservations
+remain separate. Unsupported plans reject before producer consumption, and success
+requires observed end-of-input. [Local acceptance](../benchmarks/native-input-completion-2026-10-07.md)
+and independent packet inspection pass; hosted integration remains pending.
+Resident input remains the default; no input spill or process-RSS bound is added.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:

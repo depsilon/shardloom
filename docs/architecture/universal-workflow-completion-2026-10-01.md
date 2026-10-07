@@ -223,10 +223,14 @@ workspace admission in PR #1528. Builder output/finalization ownership has
 complete local and hosted acceptance in PR #1529. Continue step 2 with
 the remaining reader/codec scratch and operator spill/recovery obligations.
 The October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
-prioritizes completion-aware single-use input through the shared native
-filter/project/write path, plus a measured retained-intermediate target for
-selective regeneration. Existing input batches remain resident until that
-capability's implementation and acceptance complete. Distinct multiway-join,
+now has [local acceptance](../benchmarks/native-input-completion-2026-10-07.md)
+for completion-aware single-use input through the shared native filter/project
+path and incremental results, bounded collection or one Vortex destination.
+Independent packet inspection passes; hosted integration remains pending.
+Explicit `streaming=True` retains at most one finite native input batch while
+default input remains resident. Next measure a genuinely retained derived owner
+and its full dependency/reconstruction cost before selective regeneration.
+Distinct multiway-join,
 nested-identity and stable spill-merge experiments retain their own gates;
 completed hardware and composed-COUNT drops are not reopened.
 Broader adapter and resource families continue under their ownership contracts.

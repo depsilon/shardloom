@@ -7,7 +7,10 @@ and no primary cell reaches 3%. Exact outputs pass; the candidate is removed.
 The [conservative membership screen](../benchmarks/native-join-membership-2026-10-07.md)
 is also **dropped**: its 6.88% mostly-absent gain cannot override 4.17% and 3.28%
 high-match control regressions. No candidate has been retained. Four other tracks
-remain gated; completion-aware input is the next architectural capability.
+remain gated. The separate completion-aware input unit now has
+[local engine, packet and documentation acceptance](../benchmarks/native-input-completion-2026-10-07.md);
+hosted integration remains pending. It makes no retained performance claim for
+the six candidates in this intake.
 The reviewed control runtime is `53cd1582`, whose 941 runtime
 assets match builder snapshot
 `a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f`.
@@ -28,15 +31,17 @@ The adaptive exact decimal screen under PERF-04/10/12 is closed and dropped,
 with all source, failures and 1,200 timed complete calls preserved. Conservative
 membership under PERF-02/03/10/12 and CG-14's conservative-proof obligation is
 also closed and dropped, preserving 1,050 timed calls, complete exact outputs
-and both control regressions. Source/design work for
-completion-aware input continues as the next architectural capability under
-PERF-03/07/11/12. Run native workloads serially; independent source research does
+and both control regressions. Complete hosted integration for
+completion-aware input under PERF-03/07/11/12, then measure genuinely retained
+derived owners for the separate rematerialization track. Run native workloads
+serially; independent source research does
 not explain away a control regression.
 
 Learned indexing needs an established large ordered-access target. Cache admission
 needs a reconstruction/reuse trace. Stable-region preparation needs measured
 changed-source preparation cost. Credit-window output needs a separately frozen
-delivery experiment; it does not remove the resident-input barrier. These are
+delivery experiment; input lifetime is handled by the separate completion-aware
+input unit. These are
 prerequisites, not implicit ship decisions. Batch any retained work into a
 substantial validated milestone before considering another version bump.
 
@@ -51,7 +56,8 @@ substantial validated milestone before considering another version bump.
 | **Byte-credit result window.** `shardloom-cli/src/python_batch_protocol.rs:221` writes and flushes native JSON output, then waits for that batch's exact acknowledgement. Its input builder at line 171 still finishes resident collection first. | Begin with a fixed small reserved byte window, comparing complete delivery with current stop-and-wait; consider measured-rate adaptation only after a useful fixed window is established. | Outstanding serialized/native owners, wire limits, per-batch sequence, cancellation and the final acknowledgement all remain explicit. Test fast, slow, bursty and failing consumers, time to first provisional result, complete delivery and peak retention. Do not pull side-effectful producers beyond the API's demand promise. Input completion is a separate capability. |
 | **Stable-region preparation.** `prepared_source_binding.rs:63` binds the sorted source-generation inventory; that hash is not file-content authenticity. `vortex_ingest.rs:3179` already has a distinct append-only CSV/JSONL refinement decision with verified prefix, line boundary, static configuration and prepared-artifact checks. | Where repeated changed-source preparation is costly, first reuse already aligned logical regions with verified identities/recipes, then investigate row-aware stable boundaries if insertions cause measured reuse loss. | The existing append-only decision is not proof of general stable-region execution. Preserve all-column row alignment, schema, dictionary/codec dependencies, statistics and derived fields. Boundary hashes are not equality proof. Charge full source reads where change metadata is unavailable, and copying into a self-contained Vortex artifact. Include insertion/deletion, schema/policy changes, collisions, cancellation and complete reopened artifact fidelity. No faster first-ingestion or sublinear-read claim. |
 
-The source observations above are finite inspections. They do not establish an
+The source observations above are finite inspections of the recorded builder
+control, before the new opt-in input mode. They do not establish an
 LRU bottleneck, a large learned-index opportunity or a benefit from additional
 buffering. Vortex-first provider review and a concrete owner/lifetime contract
 remain prerequisites before adding an abstraction or dependency.

@@ -52,7 +52,10 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 Current source builds add `iter_batches()` for admitted results and
 `from_batches()` for explicitly typed resident input. These additions merged
 in PR #1526 after complete local and hosted checks; published v0.4.0 packages
-predate them.
+predate them. Source builds now also admit opt-in `streaming=True` for one
+finite source used once through pure scan/filter/project operations, as below.
+Its [local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-completion-2026-10-07.md)
+and independent packet inspection pass; hosted integration remains pending.
 
 ```python
 def orders():
@@ -61,6 +64,7 @@ def orders():
 
 frame = sl.from_batches(
     orders, schema={"order_id": "int64", "amount": "float64"},
+    streaming=True,
 )
 with frame.iter_batches(batch_rows=1024) as batches:
     for batch in batches:
@@ -70,9 +74,21 @@ with frame.iter_batches(batch_rows=1024) as batches:
 
 Input admits nullable Int64, finite Float64, booleans and UTF8 strings with an
 explicit schema. Each input batch contains at most 2,048 row mappings and an
-8 MiB frame, with up to 128 fields and 4,096 batches per source. Total native
-input must fit the query memory grant. A factory, as above, supplies fresh
-input for repeated calls; an iterable can be consumed once.
+8 MiB frame, with up to 128 fields and 4,096 batches per source. In the default
+resident mode (`streaming=False`), total native input must fit the query memory
+grant. A factory, as above, supplies fresh input for repeated calls; an iterable
+can be consumed once.
+
+Streaming retains at most one native input batch, so cumulative input may exceed
+the query grant within those finite limits. It supports incremental results,
+bounded small collection or one native Vortex destination. Joins, repeated
+sources, sets, sorting, explicit limits/offsets, aggregates, windows and dynamic
+schemas reject before producer consumption. The producer must reach its explicit
+end event before results are final. Typed intake and output compaction are
+charged copies; output and sink reservations remain separate. No input spill or
+process-RSS ceiling is added. See the
+[complete streaming contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-completion-2026-10-07.md)
+for native intake, wire-frame, ownership and failure bounds.
 
 Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional
