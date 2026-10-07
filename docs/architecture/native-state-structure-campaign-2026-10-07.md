@@ -9,8 +9,8 @@ their drops stay dropped. Published v0.4.0 and broader PERF/CG status are unchan
 
 The later October 7 [conditional exact work intake](native-conditional-work-campaign-2026-10-07.md)
 adds six distinct ship/drop candidates. Exact decimal accumulation and conservative
-membership filtering lead that performance queue; completion-aware input remains
-the next architectural capability. The additional candidates do not replace the
+membership filtering were subsequently dropped after their frozen screens;
+completion-aware input remains the next architectural capability. The additional candidates do not replace the
 five tracks here or grant a speedup claim from research in another system.
 
 The inspected HEAD is `094c50b83235cd0594e1858acfcc7aa5a3f4760a`. The builder

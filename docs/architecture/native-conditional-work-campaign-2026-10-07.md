@@ -4,8 +4,11 @@ Status: active experiment queue for the maintainer's second October 7 candidate
 set. The [adaptive decimal screen](../benchmarks/native-adaptive-decimal-2026-10-07.md)
 is **dropped**: its 1.09% primary-score improvement misses the frozen 3% gate,
 and no primary cell reaches 3%. Exact outputs pass; the candidate is removed.
-No candidate has been retained. The other five remain gated experiments, led by
-conservative membership filtering. The reviewed control runtime is `53cd1582`, whose 941 runtime
+The [conservative membership screen](../benchmarks/native-join-membership-2026-10-07.md)
+is also **dropped**: its 6.88% mostly-absent gain cannot override 4.17% and 3.28%
+high-match control regressions. No candidate has been retained. Four other tracks
+remain gated; completion-aware input is the next architectural capability.
+The reviewed control runtime is `53cd1582`, whose 941 runtime
 assets match builder snapshot
 `a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f`.
 Published v0.4.0 and the broader PERF/CG status remain unchanged.
@@ -22,9 +25,10 @@ not predictions of ShardLoom performance.
 Builder evidence and hosted integration are complete in PR #1529, with the
 accepted runtime unchanged. Subsequent source changes use a separate snapshot.
 The adaptive exact decimal screen under PERF-04/10/12 is closed and dropped,
-with all source, failures and 1,200 timed complete calls preserved. The next
-screen is conservative membership filtering under PERF-02/03/10/12 and CG-14's
-conservative-proof obligation. Source/design work for
+with all source, failures and 1,200 timed complete calls preserved. Conservative
+membership under PERF-02/03/10/12 and CG-14's conservative-proof obligation is
+also closed and dropped, preserving 1,050 timed calls, complete exact outputs
+and both control regressions. Source/design work for
 completion-aware input continues as the next architectural capability under
 PERF-03/07/11/12. Run native workloads serially; independent source research does
 not explain away a control regression.
@@ -109,6 +113,10 @@ negative controls and unexplained regressions; do not retrofit thresholds.
 The decimal decision applies to its measured prototype and frozen workload; it
 does not disprove adaptive exact arithmetic in every workload. Do not reopen it
 by changing thresholds or relabeling component gains as complete-operation gains.
+Likewise, membership's approximately 98.6% avoidance of exact lookups on mostly
+absent probes does not override its complete-operation control failures. Its
+source snapshot, original failures and every sample remain portable; a future
+different placement needs its own admission proof and frozen experiment.
 
 No candidate in this intake receives a shipped status, retained performance claim,
 publication or broad capability promise. Keep all CG-1 through CG-23 owners

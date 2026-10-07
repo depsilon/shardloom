@@ -13,7 +13,7 @@ retain the experiment and prove all 941 active runtime assets match accepted
 builder runtime `53cd1582`. The [design](../architecture/native-adaptive-decimal-2026-10-07.md)
 describes the removed candidate; the
 [conditional work campaign](../architecture/native-conditional-work-campaign-2026-10-07.md)
-continues with conservative membership filtering.
+records the subsequent conservative membership drop and remaining gated tracks.
 
 ## Candidate and exactness
 

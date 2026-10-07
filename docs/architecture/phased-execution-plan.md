@@ -281,8 +281,8 @@ bump. First-use, reuse, pressure/spill and provisional-output timings stay separ
 The maintainer's later October 7 [conditional exact work campaign](native-conditional-work-campaign-2026-10-07.md)
 adds six distinct performance candidates after builder integration. Checked
 I128-to-I256 decimal totals are dropped after their frozen screen under
-PERF-04/10/12. Next, evaluate conservative membership before eligible native
-inner-join probes (PERF-02/03/10/12 and CG-14). Keep input
+PERF-04/10/12. Conservative membership before eligible native inner-join probes
+is also dropped under PERF-02/03/10/12 and CG-14. Keep input
 completion as the next architectural capability. Learned indexes require a large
 measured ordered-access target; cache admission requires real reconstruction traces;
 changed-source preparation requires verified reusable regions. Fixed byte-credit
@@ -296,6 +296,13 @@ below the frozen 3% requirement, and no primary cell reaches 3%. Exact checks
 pass; the candidate is removed and all 941 accepted runtime assets are restored.
 The [design](native-adaptive-decimal-2026-10-07.md) and completed ledger retain the
 experiment contract. No confirmation or broad candidate acceptance is claimed.
+
+The [membership report](../benchmarks/native-join-membership-2026-10-07.md)
+preserves all 1,050 timed complete calls. Its mostly-absent primary score improves
+by 6.88%, but 50% and 90% match controls regress by 4.17% and 3.28%, failing
+the frozen gate. Complete exact output and mechanism checks pass. The test-only
+candidate is removed; all 941 accepted runtime assets are restored. No reversed
+confirmation, production behavior or broad candidate acceptance is claimed.
 
 `NATIVE-BUILDER-RESOURCES` is complete in
 [PR #1529](https://github.com/depsilon/shardloom/pull/1529), with all 39 hosted
@@ -2803,7 +2810,8 @@ stable merge adjacency, native ownership and all unexplained negative controls.
 The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen
-gate; conservative filters are next, with ordered-index, physical-cache,
+gate, and conservative membership is dropped for high-match control regressions.
+Input completion is next, with ordered-index, physical-cache,
 output-window and stable-region reuse candidates gated on their measured workloads.
 See the [conditional work contract](native-conditional-work-campaign-2026-10-07.md).
 This extends the queue while preserving the input-completion architecture work

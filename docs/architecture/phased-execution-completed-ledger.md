@@ -17,6 +17,24 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Conservative native join membership under PERF-02/03/10/12 — dropped
+  after the first frozen same-binary complete-operation screen. The
+  [report](../benchmarks/native-join-membership-2026-10-07.md) preserves all
+  1,050 timed calls, 105 pairs, complete independent output checks, 31 focused
+  test executions, 18 helper tests and original failed preflights.
+  - Four mostly-absent cells improve by a primary geometric score of 6.88%,
+    with approximately 98.6% fewer exact lookups. The 50% and 90% match controls
+    regress by 4.17% and 3.28%, both above the frozen percentage and absolute
+    regression limits. The gate remains unchanged; no confirmation or production
+    retention is attempted after failure.
+  - The test-only candidate is removed. Every one of 1,104 unique portable
+    payloads is reopened; all 943 candidate assets and raw timed results are
+    checked, all seven complete oracles are regenerated, and all 941 accepted
+    runtime assets match builder runtime `53cd1582` after restoration.
+  - Completion-aware input remains the next architectural capability. Other
+    conditional-work tracks retain their evidence prerequisites. No version,
+    ClickBench claim, broader PERF/CG status or public capability changes.
+
 - [x] Adaptive exact decimal screen under PERF-04/10/12 — dropped after the
   first frozen complete-operation screen. The
   [report](../benchmarks/native-adaptive-decimal-2026-10-07.md) preserves all
@@ -30,7 +48,7 @@ phase plan first.
     all 2,152 unique payloads; restoration proves all 941 runtime source assets
     match accepted builder runtime `53cd1582`. No active engine behavior,
     package version, memory-saving claim or broader PERF/CG status changes.
-  - Conservative membership filtering is the next conditional-work screen;
+  - Conservative membership was subsequently screened and dropped above;
     completion-aware input remains the next architectural capability.
 
 - [x] `NATIVE-BUILDER-RESOURCES` — shared primitive/Boolean/decimal Chunked
