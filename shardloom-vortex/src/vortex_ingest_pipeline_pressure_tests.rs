@@ -495,8 +495,12 @@ fn streaming_owned_ipc_lookahead_recovers_capacity_aliasing_without_changing_val
         assert!(reported * 4 > memory_bytes / 4);
         assert!(copied * 4 <= memory_bytes / 4);
         drop((first, reader));
-        for grant in [1, 4, 8] {
-            let mut legacy = crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant, grant).unwrap();
+        let available = thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+        // Exercise CPU clamping even on hosts that can satisfy the fixed requests.
+        for grant in [1, 4, 8, available.saturating_add(1)] {
+            let applied = grant.min(available);
+            let mut legacy =
+                crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant, applied).unwrap();
             legacy.admit_conversion_memory(memory_bytes / 4, reported, None);
             assert_eq!(legacy.prefetch_slots(), 0);
             let source =
@@ -513,15 +517,15 @@ fn streaming_owned_ipc_lookahead_recovers_capacity_aliasing_without_changing_val
             .unwrap();
             assert_eq!(report.row_count, 8209);
             assert_eq!(report.writer_runtime_requested_parallelism, grant);
-            assert_eq!(report.writer_runtime_applied_parallelism, grant);
-            assert_eq!(report.writer_runtime_background_workers, grant - 1);
+            assert_eq!(report.writer_runtime_applied_parallelism, applied);
+            assert_eq!(report.writer_runtime_background_workers, applied - 1);
             assert_eq!(
                 report.writer_physical_design.array_build_prefetch_window,
-                usize::from(grant > 1)
+                usize::from(applied > 1)
             );
             assert_eq!(
                 report.writer_physical_design.array_build_worker_count,
-                usize::from(grant > 1)
+                usize::from(applied > 1)
             );
             let memory = report.shared_native_memory.as_ref().unwrap();
             assert_eq!(memory.limit_bytes, memory_bytes);

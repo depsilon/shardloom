@@ -1,6 +1,6 @@
 {
   "schema_version": "shardloom.native_engine_local_acceptance.v1",
-  "status": "accepted_local_source_not_hosted_or_published",
+  "status": "accepted_local_source_hosted_integration_pending",
   "runtime_commit": "99e0a4b304c506a2b24f605eb5156859b356486a",
   "source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
   "runtime_source_assets_verified": 935,
@@ -483,13 +483,26 @@
     "path": "docs/benchmarks/evidence/native-documentation-acceptance-2026-10-06.json",
     "sha256": "c7673e6d812da6bbb660d05f00a7c2f6f3b4c4ec991308dbf49fe9b73890c245"
   },
-  "hosted_integration": "pending",
+  "integration_adjustments": {
+    "path": "docs/benchmarks/evidence/native-engine-integration-fixes-2026-10-07.json",
+    "sha256": "6e6697179b2f36e6903fa9b5b7459e43900dfbc98f46f5477b21c83b5a512072",
+    "integration_source_identity_sha256": "96e8ce44a67615aac0982410065b6d3df076f65725a3bd1aec7a67ea6849529b",
+    "changed_source_assets": [
+      "shardloom-vortex/src/vortex_ingest_pipeline_pressure_tests.rs"
+    ],
+    "production_source_assets_unchanged": true,
+    "website_dependency": "Sharp 0.35.4 to 0.35.5 and matching platform packages; generated site bytes unchanged"
+  },
+  "hosted_integration": "pending_updated_head_of_pr_1526",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1526",
   "package_publication": "not_part_of_this_finite_packet",
   "hash_boundary": "Packet copies retain the exact accepted compressed bytes. Original receipt hashes describe original local files; portable inspection and this index replace local paths and have distinct bytes.",
   "fallback_attempted": false,
   "external_engine_invoked": false,
   "broad_engine_speedup_claim": false,
   "production_support_claim": false,
-  "pushed_or_published": false,
+  "pushed_or_published": true,
+  "git_branch_pushed": true,
+  "package_published": false,
   "staging_driver_sha256": "c695d6f12a3b83a1f26a29775e8cc2d3c401a9e318ede1e4cd9627fac200007e"
 }

@@ -17,7 +17,7 @@ The retained source has no external execution fallback.
 
 Contracts: [provider resources](../architecture/native-provider-resources-2026-10-06.md)
 and [batch APIs](../architecture/native-bounded-adapters-2026-10-06.md).
-The final combined source identity is
+The accepted combined source identity before hosted integration is
 `7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584`
 over 935 runtime source assets. The accepted release executable SHA-256 is
 `cf34826654b473eabd1a5f7773a52a5141e3fbcf20dc68b473a3d71d4b19deaf`.
@@ -128,8 +128,35 @@ and a working `from_batches` search result. The
 links final source/page identities, screenshots, logs and the original verifier
 failures. Those failures were in verification setup, not the engine: one used
 the wrong report attribute, and one omitted the import declared earlier on the
-guide page. Corrected executions passed. All 935 runtime source assets remain
-identical to the accepted engine snapshot.
+guide page. Corrected executions passed. At documentation acceptance, all 935
+runtime source assets matched the accepted engine snapshot.
+
+## Hosted integration corrections
+
+The first run of [PR #1526](https://github.com/depsilon/shardloom/pull/1526)
+exposed a test assumption: it expected all eight requested CPU lanes on a
+four-CPU runner, where the runtime correctly admitted four. The test now checks
+the available CPU cap and includes an over-capacity request on every host.
+The original assertion was reproduced locally with an 11-lane request on a
+ten-CPU host; all 11 pipeline pressure tests pass after the correction.
+
+The website audit also detected
+[GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)
+in its locked Sharp dependency. Updating Sharp from 0.35.4 to 0.35.5 and its
+matching platform packages clears the audit. Website checks and the build pass,
+with identical generated page bytes and no package-version change.
+
+Formatting, default workspace Clippy/tests and native-feature Clippy pass after
+these fixes. The source identity is now
+`96e8ce44a67615aac0982410065b6d3df076f65725a3bd1aec7a67ea6849529b`:
+934 of the 935 inventoried assets are unchanged, and the only changed source
+asset is the test module behind `cfg(test)`. Production code and the measured
+executable remain unchanged. The complete runtime and Full43 cohorts above
+were therefore not repeated for these fixes. The
+[integration receipt](evidence/native-engine-integration-fixes-2026-10-07.json)
+retains both hosted failures, the local failing/passing evidence, complete
+source hashes, patch and check logs. Hosted acceptance of the updated PR head
+remains pending.
 
 ## Separate COUNT-reuse investigation
 

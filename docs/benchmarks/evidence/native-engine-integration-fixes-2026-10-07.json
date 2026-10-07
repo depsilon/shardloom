@@ -1,0 +1,104 @@
+{
+  "schema_version": "shardloom.native_engine_integration_adjustments.v1",
+  "status": "passed_local_repairs_pending_hosted_checks",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1526",
+  "original_pr_head": "678a6ffe0f4498ea54adbb364e1b89f7d89b93e1",
+  "accepted_runtime_commit": "99e0a4b304c506a2b24f605eb5156859b356486a",
+  "accepted_source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
+  "integration_source_identity_sha256": "96e8ce44a67615aac0982410065b6d3df076f65725a3bd1aec7a67ea6849529b",
+  "source_assets": 935,
+  "unchanged_source_assets": 934,
+  "changed_source_assets": [
+    "shardloom-vortex/src/vortex_ingest_pipeline_pressure_tests.rs"
+  ],
+  "production_source_assets_unchanged": true,
+  "cpu_test_correction": {
+    "original_hosted_failure": "https://github.com/depsilon/shardloom/actions/runs/37564148025/job/112607915036",
+    "cause": "Test expected requested parallelism 8 on a four-CPU runner; the native runtime correctly admitted only 4.",
+    "local_reproduction": "The existing assertion failed for requested 11 on a ten-CPU host.",
+    "correction": "Retain the requested count, assert the applied CPU cap and derived worker/lookahead counts, and always include a request above available capacity.",
+    "pressure_tests_passed": 11,
+    "test_module_gate": "cfg(all(test, feature = vortex-write, feature = universal-format-io))",
+    "row_schema_memory_release_cleanup_assertions_preserved": true
+  },
+  "website_dependency_correction": {
+    "original_hosted_failure": "https://github.com/depsilon/shardloom/actions/runs/37564148025/job/112607915203",
+    "advisory": "https://github.com/advisories/GHSA-wq5f-xc86-pv6w",
+    "official_release": "https://github.com/lovell/sharp/releases/tag/v0.35.5",
+    "sharp_before": "0.35.4",
+    "sharp_after": "0.35.5",
+    "changed_lock_packages": [
+      "node_modules/@img/sharp-darwin-arm64",
+      "node_modules/@img/sharp-darwin-x64",
+      "node_modules/@img/sharp-freebsd-wasm32",
+      "node_modules/@img/sharp-libvips-darwin-arm64",
+      "node_modules/@img/sharp-libvips-darwin-x64",
+      "node_modules/@img/sharp-libvips-linux-arm",
+      "node_modules/@img/sharp-libvips-linux-arm64",
+      "node_modules/@img/sharp-libvips-linux-ppc64",
+      "node_modules/@img/sharp-libvips-linux-riscv64",
+      "node_modules/@img/sharp-libvips-linux-s390x",
+      "node_modules/@img/sharp-libvips-linux-x64",
+      "node_modules/@img/sharp-libvips-linuxmusl-arm64",
+      "node_modules/@img/sharp-libvips-linuxmusl-x64",
+      "node_modules/@img/sharp-linux-arm",
+      "node_modules/@img/sharp-linux-arm64",
+      "node_modules/@img/sharp-linux-ppc64",
+      "node_modules/@img/sharp-linux-riscv64",
+      "node_modules/@img/sharp-linux-s390x",
+      "node_modules/@img/sharp-linux-x64",
+      "node_modules/@img/sharp-linuxmusl-arm64",
+      "node_modules/@img/sharp-linuxmusl-x64",
+      "node_modules/@img/sharp-wasm32",
+      "node_modules/@img/sharp-webcontainers-wasm32",
+      "node_modules/@img/sharp-win32-arm64",
+      "node_modules/@img/sharp-win32-ia32",
+      "node_modules/@img/sharp-win32-x64",
+      "node_modules/sharp"
+    ],
+    "new_package_keys_or_licenses": false,
+    "audit_vulnerabilities_after": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "package_version_unchanged": true,
+    "generated_website_bytes_unchanged": true
+  },
+  "local_checks": [
+    "fmt",
+    "default-clippy",
+    "default-tests",
+    "native-clippy",
+    "diff-whitespace"
+  ],
+  "website_checks": [
+    "lock-update",
+    "install",
+    "audit-after",
+    "website-check",
+    "website-build",
+    "website-readiness",
+    "diff-whitespace"
+  ],
+  "preserved_counterevidence": [
+    "two hosted failures",
+    "local CPU-cap reproduction",
+    "initial website audit",
+    "initial formatting failure"
+  ],
+  "prior_acceptance_boundary": "The complete public/direct/format/batch/Full43 results and measured release binary remain acceptance for identical production code. They were not rerun for a test-only correction and a static-site lockfile patch.",
+  "hosted_complete_checks": "pending_updated_head",
+  "archive": {
+    "path": "docs/benchmarks/evidence/native-engine-integration-fixes-2026-10-07.tar.xz",
+    "bytes": 325904,
+    "sha256": "1b79a70c595b3f2d525b63bc296231fa2ad86e635ca1951d7f4765755e77fcaf",
+    "members": 51,
+    "manifest_sha256": "85deaa5b2c198eb12a1802420949302cda896c809bbdb02bc29f0d638c165948",
+    "all_members_reopened_and_hash_checked": true
+  },
+  "driver_sha256": "42c00f21cd3792877ba6269a8ec4ef90681d0c37a31f3841b5a0132d8ef67550"
+}
