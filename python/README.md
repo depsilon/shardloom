@@ -452,9 +452,9 @@ subject to each format's dtype contract and the operation's state budget. Native
 Vortex and text output admit supported mixed scalar melt/pivot results; mixed Variant
 columns are not general binary compatibility output support.
 
-The accepted local source branch also supports incremental Python consumption
-through `iter_batches`; hosted integration and released-package availability are
-separate. Use a context manager so stopping early cancels and drains the owned
+Current source builds also support incremental Python consumption through
+`iter_batches`, merged in PR #1526 after complete local and hosted checks.
+Published v0.4.0 predates this addition. Use a context manager so stopping early cancels and drains the owned
 operation. Batches remain provisional until full exhaustion and a final report:
 
 ```python

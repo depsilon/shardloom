@@ -33,7 +33,8 @@ buffers. Clones and slices retain their credits. The
 [batch adapter unit](native-bounded-adapters-2026-10-06.md) adds demand-driven
 resident input and acknowledged incremental result delivery under the same
 native plan. Input remains resident; output batching does not make general state
-spillable. Both units have complete local acceptance and await hosted integration.
+spillable. Both units merged in PR #1526 after complete local acceptance and
+all 39 hosted checks. Published v0.4.0 predates these additions.
 
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
 whole-process RSS bounds remain open. Other operators must retain their own resource admission

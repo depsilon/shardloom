@@ -4,8 +4,9 @@
 
 Status: accepted local source at `ae4e3398e07d58c059780d218c17b7eea7fa31ef`,
 with regression acceptance repeated on combined commit
-`99e0a4b304c506a2b24f605eb5156859b356486a`. Hosted integration and package
-publication are separate. This closes the finite `NATIVE-PROVIDER-RESOURCES`
+`99e0a4b304c506a2b24f605eb5156859b356486a`. Hosted integration completed in
+[PR #1526](https://github.com/depsilon/shardloom/pull/1526) after all 39 checks
+passed; published v0.4.0 predates this addition. This closes the finite `NATIVE-PROVIDER-RESOURCES`
 implementation unit under PERF-03/06/07/11/12 and CG-3/5/19/20/21, not those
 owners' broader obligations.
 

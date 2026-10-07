@@ -120,9 +120,10 @@ for the detailed evidence behind this scope.</p>
 </tr>
 </tbody>
 </table>
-<p>The accepted local source branch adds reviewed FSST/Zstd buffer accounting and
+<p>Current source builds add reviewed FSST/Zstd buffer accounting and
 <a href="/field-guide/python-surface#consume-results-in-batches">Python batch input/incremental results</a>.
-Hosted integration is pending and published v0.4.0 predates these additions.
+PR #1526 merged after complete local and hosted checks. Published v0.4.0
+predates these additions.
 Input batches remain resident under the query grant. Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.</p>

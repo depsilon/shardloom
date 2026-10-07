@@ -176,11 +176,11 @@ row or serialized-byte limit fails without returning a successful prefix.
 
 ## Resources And Recovery
 
-The accepted local source branch accounts for reviewed FSST/Zstd payload,
+Current source builds account for reviewed FSST/Zstd payload,
 view and validity buffers through the shared native memory owner. Retained
 clones and slices keep their allocation credits. It also adds
 [Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
-These additions have complete local acceptance and await hosted integration;
+These additions merged in PR #1526 after complete local and hosted checks;
 published v0.4.0 predates them. C decoder contexts, dictionary preparation
 scratch and other unreviewed allocations remain outside this finite accounting
 scope. A query grant still does not bound total process RSS.

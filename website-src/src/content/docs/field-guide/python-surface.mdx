@@ -49,9 +49,10 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 
 ## Consume results in batches
 
-The accepted local source branch adds `iter_batches()` for admitted results
-and `from_batches()` for explicitly typed resident input. Hosted integration
-is pending; published v0.4.0 packages predate these additions.
+Current source builds add `iter_batches()` for admitted results and
+`from_batches()` for explicitly typed resident input. These additions merged
+in PR #1526 after complete local and hosted checks; published v0.4.0 packages
+predate them.
 
 ```python
 def orders():
