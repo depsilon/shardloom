@@ -485,9 +485,10 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 
 ## Consume results in batches
 
-The accepted local source branch adds \`iter_batches()\` for admitted results
-and \`from_batches()\` for explicitly typed resident input. Hosted integration
-is pending; published v0.4.0 packages predate these additions.
+Current source builds add \`iter_batches()\` for admitted results and
+\`from_batches()\` for explicitly typed resident input. These additions merged
+in PR #1526 after complete local and hosted checks; published v0.4.0 packages
+predate them.
 
 \`\`\`python
 def orders():
@@ -699,13 +700,17 @@ row or serialized-byte limit fails without returning a successful prefix.
 
 ## Resources And Recovery
 
-The accepted local source branch accounts for reviewed FSST/Zstd payload,
+Current source builds account for reviewed FSST/Zstd payload,
 view and validity buffers through the shared native memory owner. Retained
 clones and slices keep their allocation credits. It also adds
 [Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
-These additions have complete local acceptance and await hosted integration;
-published v0.4.0 predates them. C decoder contexts, dictionary preparation
-scratch and other unreviewed allocations remain outside this finite accounting
+These additions merged in PR #1526 after complete local and hosted checks;
+published v0.4.0 predates them. Source implementation also admits the actual
+one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
+allocation, releasing them after each decode. See the
+[workspace acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md)
+for its separate local and hosted evidence. Compression contexts, dictionary
+training and other unreviewed allocations remain outside this finite accounting
 scope. A query grant still does not bound total process RSS.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
@@ -824,9 +829,13 @@ for the detailed evidence behind this scope.
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
-The accepted local source branch adds reviewed FSST/Zstd buffer accounting and
+Current source builds add reviewed FSST/Zstd buffer accounting and
 [Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).
-Hosted integration is pending and published v0.4.0 predates these additions.
+PR #1526 merged after complete local and hosted checks. Published v0.4.0
+predates these additions.
+The subsequent [Zstd workspace unit](/field-guide/runtime-and-io#resources-and-recovery)
+also admits the actual decoder and by-reference prepared dictionary. Its
+resource proof remains limited to the reviewed allocations.
 Input batches remain resident under the query grant. Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.

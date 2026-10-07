@@ -174,8 +174,8 @@ accounts for reviewed FSST/Zstd buffers through retained native owners. The
 [batch adapter unit](native-bounded-adapters-2026-10-06.md) adds public
 `from_batches` and `iter_batches`, with demand-driven resident intake and
 acknowledged result delivery. Both have complete local acceptance at combined
-commit `99e0a4b3`; hosted integration is pending. Remaining adapters and
-resource/spill transitions retain their owners.
+commit `99e0a4b3` and merged in PR #1526 after all 39 hosted checks passed.
+Remaining adapters and resource/spill transitions retain their owners.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |

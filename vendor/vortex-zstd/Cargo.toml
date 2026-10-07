@@ -87,6 +87,12 @@ version = "0.13.3"
 features = ["zdict_builder"]
 default-features = false
 
+# The audited static decoder APIs use the already locked Zstandard 1.5.7.
+[dependencies.zstd-sys]
+version = "=2.0.16"
+features = ["experimental"]
+default-features = false
+
 [dev-dependencies.rstest]
 version = "0.26.1"
 

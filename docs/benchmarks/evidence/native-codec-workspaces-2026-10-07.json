@@ -1,0 +1,212 @@
+{
+  "schema_version": "shardloom.native_codec_workspace_local_acceptance.v1",
+  "status": "accepted_source_committed_locally_hosted_pending",
+  "unit": "NATIVE-CODEC-WORKSPACES",
+  "runtime_commit": "ab96cd7e5d0698d90c33ea2835896a68cb5f3543",
+  "source_base_commit": "83d26a0e4acedab3e51bb8fc67437a867a13f28b",
+  "source_identity_sha256": "50762def78574a0dab48f61e38a6400f5177123fd925df3c1f682a1e62404f47",
+  "runtime_source_assets_verified_against_commit": 938,
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "50762def78574a0dab48f61e38a6400f5177123fd925df3c1f682a1e62404f47",
+    "binary_sha256": "29e86226fc70ed53e24c175036e4b2c7021a143387a46029ffa54e946870cb27",
+    "public_checks": 27373,
+    "public_rows": 15820181,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "raw_public_envelopes": 54733,
+    "raw_direct_envelopes": 367,
+    "source_checks": 17,
+    "batch_checks": 48,
+    "batch_success_envelopes": 38,
+    "batch_raw_envelopes": 44,
+    "format_checks": 19,
+    "format_raw_envelopes": 24,
+    "codec_cost_calls_per_variant": 10800,
+    "codec_cost_variants": 2,
+    "codec_cost_cells": 36,
+    "final_source_ownership_tests": 24,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "compacted_archive_members_reopened": 1032,
+    "source_tree_clean": false,
+    "documentation_updates_deferred": true,
+    "packet": "docs/benchmarks/evidence/native-codec-workspaces-2026-10-07.json.xz",
+    "packet_sha256": "64e2cd63e1b4118cb028a92a21d41eb5db3dbd6125403eda0b1e890b44fc4c1d",
+    "packet_compressed_bytes": 43758896,
+    "packet_uncompressed_bytes": 3365107173,
+    "packet_uncompressed_sha256": "02dbefcbe08db4cf793c35516a7a86ec12e39bd88a2de70e4ec1da8e8d0380d6"
+  },
+  "original_acceptance_sha256": "509e79cbda1ec5af8a7f80bda548535bc18cef6f878e4ad7a43e03a32f00128c",
+  "portable_inspection": "docs/benchmarks/evidence/native-codec-workspaces-2026-10-07-inspection.json",
+  "portable_inspection_sha256": "61bfe620c9c0779fc2cf476342d966e497e8c5e323d8b40badf676cda24d5bad",
+  "original_inspection_sha256": "61bfe620c9c0779fc2cf476342d966e497e8c5e323d8b40badf676cda24d5bad",
+  "inspector_contract_tests": {
+    "status": "passed",
+    "checks": {
+      "valid_finite_contract": true,
+      "fallback_boolean": true,
+      "fallback_field": true,
+      "bad_status": true,
+      "broad_claim_denied": true,
+      "codec_owned_bytes_after_drop": true,
+      "codec_owned_denials": true,
+      "codec_complete_values_verified": true,
+      "codec_independent_readback_matches_stream_digest": true,
+      "codec_full_values": true,
+      "codec_fallback_execution_allowed_True": true,
+      "codec_fallback_execution_allowed_false": true,
+      "codec_fallback_execution_allowed_None": true,
+      "codec_external_effects_executed_True": true,
+      "codec_external_effects_executed_false": true,
+      "codec_external_effects_executed_None": true
+    },
+    "retained_contract_cases": 153,
+    "total_cases": 169,
+    "inspector_sha256": "10ec3c81c735ca335b9b48f9439ffac002db6a12ec1bb2d3ac6e8894f274f0b4",
+    "verifier_sha256": "fc944176293a775500879ca13314d0a31713eca3ea4aecce33639c00ac8ec308"
+  },
+  "archive_guards": {
+    "codec-finalize-1": {
+      "receipt_sha256": "1573a165277e4540d5bcfd39ac8649370ead84fcf203f3abd2e8cdb6da2072c5",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<codec-uat>/finalize_codec_acceptance.py",
+          "--attempt",
+          "1",
+          "--supervisor",
+          "codec-finalize-1"
+        ],
+        "cwd": "<repo>",
+        "head": "83d26a0e4acedab3e51bb8fc67437a867a13f28b",
+        "working_tree": " M Cargo.lock\n M docs/architecture/phased-execution-plan.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/rfcs/0044-resident-runtime-resource-ownership.md\n M shardloom-vortex/src/native_provider_zstd_tests.rs\n M vendor/vortex-zstd/Cargo.toml\n M vendor/vortex-zstd/src/array.rs\n M vendor/vortex-zstd/src/lib.rs\n M vendor/vortex-zstd/upstream-provenance.json\n?? docs/architecture/native-zstd-workspaces-2026-10-07.md\n?? shardloom-vortex/src/native_provider_zstd_workspace_allocator_tests.rs\n?? shardloom-vortex/src/native_provider_zstd_workspace_tests.rs\n?? vendor/vortex-zstd/src/decoder_workspace.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2180792320,
+            "log_bytes": 0,
+            "free_bytes": 49044664320,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 42851471360,
+            "log_bytes": 0,
+            "free_bytes": 49044652032,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 67499,
+        "output_bytes": 1338,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 405.9952294169998,
+        "log_sha256": "475417d87d4210a937cfb316ffbc8367f710fe6dec71b8b102d194bbfacfb751"
+      },
+      "log_sha256": "475417d87d4210a937cfb316ffbc8367f710fe6dec71b8b102d194bbfacfb751"
+    },
+    "codec-packet-inspect-1": {
+      "receipt_sha256": "f7db0738bfb3ec2d53d54aca69a513dca4c71360f1206e51647295c50beca4c3",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3.13",
+          "-B",
+          "<codec-uat>/verify_codec_packet.py",
+          "--attempt",
+          "1"
+        ],
+        "cwd": "<repo>",
+        "head": "83d26a0e4acedab3e51bb8fc67437a867a13f28b",
+        "working_tree": " M Cargo.lock\n M docs/architecture/phased-execution-plan.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/rfcs/0044-resident-runtime-resource-ownership.md\n M shardloom-vortex/src/native_provider_zstd_tests.rs\n M vendor/vortex-zstd/Cargo.toml\n M vendor/vortex-zstd/src/array.rs\n M vendor/vortex-zstd/src/lib.rs\n M vendor/vortex-zstd/upstream-provenance.json\n?? docs/architecture/native-zstd-workspaces-2026-10-07.md\n?? shardloom-vortex/src/native_provider_zstd_workspace_allocator_tests.rs\n?? shardloom-vortex/src/native_provider_zstd_workspace_tests.rs\n?? vendor/vortex-zstd/src/decoder_workspace.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2180816896,
+            "log_bytes": 0,
+            "free_bytes": 49053503488,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 42851471360,
+            "log_bytes": 0,
+            "free_bytes": 49053503488,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 67893,
+        "output_bytes": 1362,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 767.4088920419999,
+        "log_sha256": "84e0a8deb833b2b53659a731d4a3fb633001063751091df80725bd42df79af42"
+      },
+      "log_sha256": "84e0a8deb833b2b53659a731d4a3fb633001063751091df80725bd42df79af42"
+    }
+  },
+  "measured_source_bridge": {
+    "status": "verified_exact_whitespace_only_correction",
+    "measured_source_manifest_sha256": "9cb3d3b4c92dd75c750a681f3c3f696fb14902c736b7ba37953386f4e0ef85de",
+    "measured_source_identity_sha256": "e40c57acd623847a5ae6aef3b8625406f860e8e6e121edd7835fd09919d50239",
+    "accepted_source_manifest_sha256": "537f83a9ff97fc7a69605c4fe28734b0665892ba7af014ec03f55123ebc99859",
+    "accepted_source_identity_sha256": "50762def78574a0dab48f61e38a6400f5177123fd925df3c1f682a1e62404f47",
+    "changed_path": "vendor/vortex-zstd/src/array.rs",
+    "before_sha256": "9699e10f4f61504eb827c121137cce3b33bfaedb9f43255e3481d220578f8df9",
+    "after_sha256": "7519030806d4959c24c08fe7af266dc6e4429019d268edc874f664a84a7418de",
+    "unchanged_source_assets": 937,
+    "original_source_files_manifest_sha256": "9d2a7be80586a545345c3d8fc43be6b7c7c25a958974fff92c5575b1363c9a6b",
+    "failed_format_receipt_sha256": "565956846539f2b5ff4698b04a1ffda2eca65f5335f8fd9fa7a617a3ef6fe410",
+    "correction": "Expand exactly one self.dictionary.as_ref().map(...) chain across three lines; no token, literal, comment, dependency, feature or test changes.",
+    "test_reuse": "The measured candidate and the final source differ only by this exact formatting transformation. Keep every original cost observation and binary identity. Full final-source engine and public checks still required."
+  },
+  "full43_observation": {
+    "summary_sha256": "c39d6c0ed5770989afc2057d767fa605a164dbea1d2c2bd240fe322e63c9b659",
+    "source_bytes": 15682956489,
+    "memory_policy_gb": 24,
+    "maximum_parallelism": 12,
+    "sum_query_minima_seconds": 64.8499666280004,
+    "sum_query_medians_seconds": 65.7678908780108,
+    "sum_all_calls_seconds": 198.00490488200376,
+    "maximum_native_process_rss_bytes": 5339889664,
+    "boundary": "Complete new native processes against retained input; prehash warms the file cache. No fresh ingest, paired whole-engine speedup or enforced process RSS claim."
+  },
+  "documentation_updates_complete": true,
+  "hosted_acceptance_complete": false,
+  "package_publication_performed": false,
+  "performance_claim_allowed": false,
+  "broader_resource_spill_recovery_complete": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "staging_driver_sha256": "f8c8cf63685034c041bbe3c709afd2bfbbe94362bf0d9b2a9d9074b57346433a",
+  "documentation_acceptance": "docs/benchmarks/evidence/native-codec-documentation-2026-10-07.json",
+  "documentation_acceptance_sha256": "baca080ed73535094ad420ba5f29d3ce2fde9d55d74e596cf583677787a30484"
+}

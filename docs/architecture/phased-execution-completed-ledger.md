@@ -18,8 +18,8 @@ phase plan first.
 ### Recent Completed Session Ledger
 
 - [x] `NATIVE-PROVIDER-RESOURCES` and `HARDWARE-INFORMED-EXECUTION` — finite
-  engine implementation and local acceptance complete; hosted integration remains
-  in the phase plan. This entry does not claim a merge or publication.
+  implementation, local acceptance and hosted integration complete under
+  PERF-02/03/06/07/10/11/12 and CG-3/5/6/19/20/21.
   - Local commits `ae4e3398`, `3ec56331` and `99e0a4b3` retain reviewed
     FSST/Zstd allocation ownership, public bounded batch intake/incremental
     results, admitted ingest lookahead and pure Int64 predicate blocks.
@@ -37,9 +37,22 @@ phase plan first.
     not a paired whole-engine speed claim. Retained target-cohort gains and
     accepted finite lookahead memory costs remain separately scoped.
   - Contracts, Python/reference docs, resource boundaries and local Field Guide
-    distinguish current branch availability from published v0.4.0. Broader
+    distinguish merged source availability from published v0.4.0. Broader
     reader/codec scratch, operator spill/recovery, other-platform runtime parity,
     production support and CG-1 through CG-23 retain their obligations.
+  - [PR #1526](https://github.com/depsilon/shardloom/pull/1526) merged at
+    `281056ca95daa86cc1376d4eb2c4d0b8714ae8ae` after all 39 checks on
+    `8873e261588ff29001253f4e73afb977e44c30cc` passed. The tested and merged
+    trees match. Hosted failures exposed a CPU-cap assumption in a test and
+    a Sharp dependency advisory; both are corrected with preserved failing
+    evidence. Production source and the measured binary remain unchanged.
+  - Primary adversarial review passed. The account-limited hosted bot supplied
+    no approval; no submitted reviews or unresolved threads were present.
+    Production deployment and browser checks passed, including complete batch
+    page text and linked resource-contract agreement with the accepted preview.
+    The [hosted receipt](../benchmarks/evidence/native-engine-hosted-2026-10-07.json)
+    preserves exact source/check snapshots and historical page observations.
+    No package publication or broader roadmap completion is claimed.
 
 - [x] `NATIVE-NESTED-PIVOT-STATE` — extend the existing sparse pivot owner to
   admitted static List, FixedSizeList and Struct keys and selected cells under

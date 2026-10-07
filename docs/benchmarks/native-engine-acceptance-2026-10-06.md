@@ -155,8 +155,19 @@ executable remain unchanged. The complete runtime and Full43 cohorts above
 were therefore not repeated for these fixes. The
 [integration receipt](evidence/native-engine-integration-fixes-2026-10-07.json)
 retains both hosted failures, the local failing/passing evidence, complete
-source hashes, patch and check logs. Hosted acceptance of the updated PR head
-remains pending.
+source hashes, patch and check logs.
+
+All 39 hosted checks passed on `8873e261588ff29001253f4e73afb977e44c30cc`.
+PR #1526 merged at `281056ca95daa86cc1376d4eb2c4d0b8714ae8ae`, whose tree
+equals the tested head. Primary adversarial review passed; the hosted review
+bot was account-limited and supplied no approval. No submitted reviews or
+unresolved review threads were present. Production deployment succeeded, and
+ordinary-browser checks verified the complete batch page text and linked
+resource contract match the accepted preview. The
+[hosted receipt](evidence/native-engine-hosted-2026-10-07.json) retains the
+source/check snapshots and historical page observations. This completes the
+finite packet's integration, without a new package release or broader roadmap
+completion.
 
 ## Separate COUNT-reuse investigation
 

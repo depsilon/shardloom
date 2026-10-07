@@ -4,8 +4,9 @@
 
 Status: accepted local source at `ae4e3398e07d58c059780d218c17b7eea7fa31ef`,
 with regression acceptance repeated on combined commit
-`99e0a4b304c506a2b24f605eb5156859b356486a`. Hosted integration and package
-publication are separate. This closes the finite `NATIVE-PROVIDER-RESOURCES`
+`99e0a4b304c506a2b24f605eb5156859b356486a`. Hosted integration completed in
+[PR #1526](https://github.com/depsilon/shardloom/pull/1526) after all 39 checks
+passed; published v0.4.0 predates this addition. This closes the finite `NATIVE-PROVIDER-RESOURCES`
 implementation unit under PERF-03/06/07/11/12 and CG-3/5/19/20/21, not those
 owners' broader obligations.
 
@@ -29,9 +30,12 @@ The finite inventory includes:
 | Retained results and consumers | Buffers, clones and slices retain reservations across session/consumer handoffs; denial and failure release owned allocations |
 
 The shared pool governs these allocations; it does not impose a process RSS
-ceiling. Zstd C decoder contexts and dictionary preparation scratch, other
-unreviewed codecs/builders, metadata headers and allocator bookkeeping remain
-outside this finite accounting scope. Existing aggregate/join/window/pivot
+ceiling. This October 6 unit excludes Zstd C decoder contexts and dictionary
+preparation scratch, other unreviewed codecs/builders, metadata headers and
+allocator bookkeeping. The subsequent
+[October 7 workspace unit](native-zstd-workspaces-2026-10-07.md) admits the
+one-shot decoder and by-reference prepared dictionary; its separate acceptance
+does not alter this historical packet. Existing aggregate/join/window/pivot
 state limits and admitted spill families are unchanged.
 
 ## Pinned provider and provenance

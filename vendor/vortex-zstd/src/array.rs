@@ -1402,19 +1402,14 @@ impl ZstdData {
             .allocator()
             .allocate(uncompressed_size_to_decompress, Alignment::new(byte_width))?;
         decompressed.as_mut_slice().fill(0);
-        let mut decompressor = if let Some(dictionary) = &self.dictionary {
-            zstd::bulk::Decompressor::with_dictionary(dictionary)?
-        } else {
-            zstd::bulk::Decompressor::new()?
-        };
-        let mut uncompressed_start = 0;
-        for frame in frames_to_decompress {
-            // Each frame is restricted to the remaining admitted extent.
-            let destination = &mut decompressed.as_mut_slice()
-                [uncompressed_start..uncompressed_size_to_decompress];
-            uncompressed_start +=
-                decompressor.decompress_to_buffer(frame.as_slice(), destination)?;
-        }
+        let uncompressed_start = crate::decoder_workspace::decompress_frames(
+            &frames_to_decompress,
+            self.dictionary
+                .as_ref()
+                .map(|dictionary| dictionary.as_slice()),
+            decompressed.as_mut_slice(),
+            ctx.allocator().as_ref(),
+        )?;
         if uncompressed_start != uncompressed_size_to_decompress {
             vortex_bail!(
                 "Zstd metadata or frames were corrupt; expected {} bytes but decompressed {}",

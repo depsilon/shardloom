@@ -1,6 +1,6 @@
 {
   "schema_version": "shardloom.native_engine_local_acceptance.v1",
-  "status": "accepted_local_source_hosted_integration_pending",
+  "status": "accepted_source_merged_with_hosted_integration",
   "runtime_commit": "99e0a4b304c506a2b24f605eb5156859b356486a",
   "source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
   "runtime_source_assets_verified": 935,
@@ -493,7 +493,14 @@
     "production_source_assets_unchanged": true,
     "website_dependency": "Sharp 0.35.4 to 0.35.5 and matching platform packages; generated site bytes unchanged"
   },
-  "hosted_integration": "pending_updated_head_of_pr_1526",
+  "hosted_integration": "passed_pr_1526_merged_after_39_successful_checks",
+  "hosted_receipt": {
+    "path": "docs/benchmarks/evidence/native-engine-hosted-2026-10-07.json",
+    "sha256": "e1f7d1d11160bfea335f6599f9d939b351e739be37d18cdbcac36e4861a21995",
+    "tested_head": "8873e261588ff29001253f4e73afb977e44c30cc",
+    "merge_commit": "281056ca95daa86cc1376d4eb2c4d0b8714ae8ae",
+    "tested_and_merged_trees_match": true
+  },
   "pull_request": "https://github.com/depsilon/shardloom/pull/1526",
   "package_publication": "not_part_of_this_finite_packet",
   "hash_boundary": "Packet copies retain the exact accepted compressed bytes. Original receipt hashes describe original local files; portable inspection and this index replace local paths and have distinct bytes.",

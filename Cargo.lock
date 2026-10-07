@@ -3669,6 +3669,7 @@ dependencies = [
  "vortex-mask",
  "vortex-session",
  "zstd",
+ "zstd-sys",
 ]
 
 [[package]]

@@ -4,8 +4,9 @@
 
 Status: accepted local source at `3ec56331241f32c11046d575e967e5a874f5226f`,
 with regression acceptance repeated on combined commit
-`99e0a4b304c506a2b24f605eb5156859b356486a`. These APIs are available in this
-source branch; hosted integration and released-package availability are separate.
+`99e0a4b304c506a2b24f605eb5156859b356486a`. These APIs merged in
+[PR #1526](https://github.com/depsilon/shardloom/pull/1526) after all 39 checks
+passed. Published v0.4.0 packages predate these additions.
 They extend universal workflow step 2 under the existing PERF and CG-20/21
 owners through one native Vortex plan.
 
