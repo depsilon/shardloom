@@ -23,6 +23,8 @@ use vortex::{
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 #[path = "local_primitive_relational_aggregate_tests.rs"]
 mod aggregate_tests;
+#[path = "local_primitive_relational_batch_input_tests.rs"]
+mod batch_input_tests;
 #[path = "local_primitive_relational_correlated_tests.rs"]
 mod correlated_tests;
 #[path = "local_primitive_relational_dynamic_tests.rs"]

@@ -1,6 +1,6 @@
 {
   "schema_version": "shardloom.native_builder_resource_local_acceptance.v1",
-  "status": "accepted_source_committed_locally_hosted_pending",
+  "status": "accepted_source_merged_hosted_complete",
   "unit": "NATIVE-BUILDER-RESOURCES",
   "runtime_commit": "53cd1582a5975ac4e206a21e45415c919c5b6b4f",
   "source_base_commit": "094c50b83235cd0594e1858acfcc7aa5a3f4760a",
@@ -317,7 +317,10 @@
     "boundary": "Complete new native processes against retained input; prehash warms the file cache. No fresh ingest, paired whole-engine speedup or enforced process RSS claim."
   },
   "documentation_updates_complete": true,
-  "hosted_acceptance_complete": false,
+  "hosted_acceptance_complete": true,
+  "hosted_acceptance": "docs/benchmarks/evidence/native-builder-hosted-2026-10-07.json",
+  "hosted_acceptance_sha256": "8552b0648409f208b5bc6243772fcc103182b1937589e3d28c73f68d3aa5b580",
+  "merge_commit": "0f7609daf7c4d062a0b939870803636d0c9b4ef8",
   "package_publication_performed": false,
   "performance_claim_allowed": false,
   "broader_resource_spill_recovery_complete": false,

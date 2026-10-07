@@ -19,9 +19,9 @@ use vortex::{
     buffer::Buffer,
 };
 
-const MAX_BATCHES: usize = 4096;
-const MAX_COLUMNS: usize = 128;
-const MAX_BATCH_ROWS: usize = 2048;
+pub(crate) const MAX_BATCHES: usize = 4096;
+pub(crate) const MAX_COLUMNS: usize = 128;
+pub(crate) const MAX_BATCH_ROWS: usize = 2048;
 
 /// Incremental typed intake under one native memory owner. Input remains
 /// resident; batch delivery does not promise source or operator-state spill.
@@ -185,6 +185,7 @@ impl MemoryBatchSourceBuilder {
             },
             input_logical_bytes: self.bytes,
             intake_payload_bytes_copied: self.copied,
+            batch_metadata: None,
         })))
     }
 }

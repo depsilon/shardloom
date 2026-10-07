@@ -67,10 +67,23 @@ not change the published version or public support label.
 The [builder acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
 further covers native primitive/Boolean/decimal Chunked output and builder
 finalization buffers, preserving independent value/validity ownership. Complete
-local source/public/Full43 checks and packet inspection pass; hosted integration
-is pending. Child decoder scratch, structural metadata and general operator
+local source/public/Full43 checks and packet inspection pass. PR #1529 merged
+after all 39 hosted checks passed with the accepted runtime unchanged; production
+verification passes. Child decoder scratch, structural metadata and general operator
 spill remain separate. Its measured cost screen is a resource-correction check,
 not a speedup or process-RSS guarantee.
+
+The [completion-aware input unit](../architecture/native-input-completion-2026-10-07.md)
+adds opt-in `from_batches(..., streaming=True)` for one finite source used once
+through pure Scan/Filter/Project, with incremental results, bounded small
+collection or one native Vortex destination. Its
+[corrected local acceptance and packet inspection](../benchmarks/native-fsst-admission-2026-10-07.md)
+pass, including complete input above the native grant and late-failure safety;
+final integration is tracked in [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+The corrected runtime also rejects malformed FSST row lengths before native
+decoder allocation. At most one native input batch is retained.
+Resident input remains the default; no general spill, RSS bound, public support
+label or published v0.4.0 contents change follows from this finite addition.
 
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide

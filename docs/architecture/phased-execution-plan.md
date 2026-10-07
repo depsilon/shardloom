@@ -249,38 +249,25 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-BUILDER-RESOURCES` — admit shared native fixed-width concatenation
-  output and builder finalization storage under PERF-03/06/07 and CG-5/19/20/21.
-  Follow the [contract](native-builder-resources-2026-10-07.md) and RFC 0044.
-  - V1 scope classification: `required_for_v1` for the declared local resource
-    envelope. This is one builder-ownership unit; general decoder scratch,
-    selective execution and state spill retain their separate review boundaries.
-  - Reuse review: `use_vortex_native_provider`; extend the existing session
-    provider and retained-buffer owners. Preserve the pinned native builder and
-    per-encoding append strategies below all public front doors.
-  - Execution checklist:
-    - [x] Reproduce fixed-width admission bypass and string finish overlap.
-    - [x] Own data, nullable bitmap and temporary finalization capacity with
-      checked admission, typed failures and independent retained lifetimes.
-    - [x] Prove exact numeric/Bool/decimal, encoded, nested-chunk and failure
-      behavior; complete the frozen lifecycle cost screen.
-    - [x] Complete source, public/native and Full43 acceptance. Runtime
-      `53cd1582` passes 14 new ownership tests, 17 source gates, 27,373 public
-      cases, 202 direct cases and all 129 Full43 calls. The independently
-      inspected [packet](../benchmarks/native-builder-resources-2026-10-07.md)
-      retains all 840,960 lifecycle calls, repeated UTF-8 overhead and failures.
-    - [ ] Complete documentation and hosted integration, then move the finite
-      unit to the completed ledger. Package publication remains separate.
-  - ShardLoom technique review: PulseWeave controls observed overlapping owners;
-    preserve metadata/encoded append work avoidance. No new capillary topology
-    or adaptive strategy. Separate provider and query timing, and do not infer
-    an RSS, whole-provider, broader PERF/CG or publication claim.
-
 - [ ] `NATIVE-INPUT-COMPLETION` — completion-aware native input delivery under
-  PERF-03/07/11/12 and CG-5/19/20/21, following builder integration.
+  PERF-03/07/11/12 and CG-5/19/20/21, following completed builder integration.
+  - [x] Implement and freeze corrected runtime `b7de216f`; complete local source/public/
+    pressure/Full43 acceptance and independent packet inspection. See the
+    [corrected acceptance report](../benchmarks/native-fsst-admission-2026-10-07.md).
+    The 4.5-GiB UTF8 case completes under a 1-GiB grant with one retained input
+    batch; resident denial, ample controls and late failures remain recorded.
+    The original hosted FSST failure and deterministic reproduction remain
+    recorded; the fix changes two of 947 assets and preserves the historical
+    `f14460ef` packet. The corrected source passes all 39 hosted engine checks.
+  - [x] Refresh seven documentation/site checks, three actual native examples
+    and desktop/mobile/search verification against the corrected runtime.
+  - [ ] Complete hosted integration. Published v0.4.0 remains unchanged.
   - V1 scope classification: `required_for_v1` for the declared local streaming
     workflow; do not infer general operator spill or unrestricted input sizes.
   - Follow the October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md).
+    The [concrete input design](native-input-completion-2026-10-07.md) adds
+    explicit streaming mode, a private native batch owner, complete-plan admission
+    and detached output before proving release and demanding the next batch.
     Bind declared schema and classify the whole plan before consuming a one-shot
     producer. Reuse native arrays, shared filter/project execution and local sinks.
   - Start with a single-use pure row-local filter/project/write chain, releasing
@@ -306,15 +293,37 @@ or composed-COUNT prototypes, complete whole PERF/CG owners, or trigger a versio
 bump. First-use, reuse, pressure/spill and provisional-output timings stay separate.
 
 The maintainer's later October 7 [conditional exact work campaign](native-conditional-work-campaign-2026-10-07.md)
-adds six distinct performance candidates after builder integration. Begin with
-checked I128-to-I256 decimal totals (PERF-04/10/12), then conservative membership
-before eligible native inner-join probes (PERF-02/03/10/12 and CG-14). Keep input
+adds six distinct performance candidates after builder integration. Checked
+I128-to-I256 decimal totals are dropped after their frozen screen under
+PERF-04/10/12. Conservative membership before eligible native inner-join probes
+is also dropped under PERF-02/03/10/12 and CG-14. Keep input
 completion as the next architectural capability. Learned indexes require a large
 measured ordered-access target; cache admission requires real reconstruction traces;
 changed-source preparation requires verified reusable regions. Fixed byte-credit
 result windows precede rate adaptation and do not remove resident input retention.
 All six need their own frozen complete-operation screens. Accepted Zstd workspace
 accounting and prior dropped prototypes stay closed; no version bump follows intake.
+
+The [adaptive decimal report](../benchmarks/native-adaptive-decimal-2026-10-07.md)
+preserves all 1,200 complete timed calls. Its primary score improves by 1.09%,
+below the frozen 3% requirement, and no primary cell reaches 3%. Exact checks
+pass; the candidate is removed and all 941 accepted runtime assets are restored.
+The [design](native-adaptive-decimal-2026-10-07.md) and completed ledger retain the
+experiment contract. No confirmation or broad candidate acceptance is claimed.
+
+The [membership report](../benchmarks/native-join-membership-2026-10-07.md)
+preserves all 1,050 timed complete calls. Its mostly-absent primary score improves
+by 6.88%, but 50% and 90% match controls regress by 4.17% and 3.28%, failing
+the frozen gate. Complete exact output and mechanism checks pass. The test-only
+candidate is removed; all 941 accepted runtime assets are restored. No reversed
+confirmation, production behavior or broad candidate acceptance is claimed.
+
+`NATIVE-BUILDER-RESOURCES` is complete in
+[PR #1529](https://github.com/depsilon/shardloom/pull/1529), with all 39 hosted
+checks, identical accepted runtime source and successful production verification.
+The [completed ledger](phased-execution-completed-ledger.md) retains the finite
+ownership contract, measured costs and exact integration evidence. General child
+scratch, structural metadata, state spill and recovery remain separate.
 
 `NATIVE-CODEC-WORKSPACES` is complete in
 [PR #1528](https://github.com/depsilon/shardloom/pull/1528), with all 39 hosted
@@ -2788,6 +2797,10 @@ completed experiments.
 all 39 hosted checks on `2402a208` passed. Its actual Zstd decoder/dictionary
 workspaces now share the query owner; all 938 accepted runtime source assets
 and the tested tree are unchanged by integration. Production checks passed.
+`NATIVE-BUILDER-RESOURCES` then merged in PR #1529 at `0f7609da` after all 39
+hosted checks on `3ec085ae` passed. All 941 runtime assets, the accepted tree,
+exact values and documented allocation boundaries are preserved; production
+deployment/browser verification passed.
 The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 
@@ -2802,16 +2815,21 @@ expansion of supported workflows. Do not start a bump merely because one finite
 experiment campaign closes; preserve the normal release and publication gates.
 
 October 7 direction adds the [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
-without reopening prior drops. Finish the accepted builder unit, then prioritize
-completion-aware input streaming and a measured retained-intermediate target for
+without reopening prior drops. The builder unit is complete; prioritize
+the completion-aware input unit's hosted integration: local engine/pressure/
+regression and independent packet inspection pass on corrected runtime `b7de216f`.
+Refreshed documentation, native examples and browser proof pass after the FSST
+correction; finish hosted integration. Next measure a retained derived owner and its dependency costs before
 selective rematerialization. Prepare constraint-guided joins independently; gate
 nested identities on repetition and merge scheduling on real spill-run evidence.
 Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,
 stable merge adjacency, native ownership and all unexplained negative controls.
 The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
 
-The subsequent candidate set adds exact decimal accumulation and conservative
-filters as the first new performance screens, with ordered-index, physical-cache,
+The subsequent candidate set's exact decimal screen is dropped below its frozen
+gate, and conservative membership is dropped for high-match control regressions.
+Input completion has passed corrected local engine and documentation acceptance
+and awaits hosted closure, with ordered-index, physical-cache,
 output-window and stable-region reuse candidates gated on their measured workloads.
 See the [conditional work contract](native-conditional-work-campaign-2026-10-07.md).
 This extends the queue while preserving the input-completion architecture work

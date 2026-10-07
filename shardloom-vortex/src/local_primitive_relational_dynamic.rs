@@ -59,6 +59,7 @@ pub fn prepare_relational_with_dynamic_inputs(
         binding: bind::Binder::new(&session)?,
     };
     inputs(&mut preparation)?;
+    preparation.binding.reject_dynamic_batch_input()?;
     preparation.binding.charge(declaration_bytes)?;
     for source in sources {
         preparation.binding.source_columns(source)?;
@@ -67,12 +68,14 @@ pub fn prepare_relational_with_dynamic_inputs(
         sources,
         source_paths,
         memory_sources,
+        batch_source,
         metadata,
     } = preparation.binding.finish()?;
     Ok(PreparedVortexRelational {
         session,
         sources,
         memory_sources,
+        batch_source,
         source_paths,
         root: PreparedRoot::Dynamic(Box::new(lower)),
         policy,

@@ -1,19 +1,26 @@
 # Native state and structure campaign
 
 Status: source-grounded implementation and experiment queue for the maintainer's
-October 7 direction. No strategy in this campaign has been implemented or timed.
-Builder resource acceptance and packet inspection have passed; finish its hosted
-integration before changing runtime source for the next unit. This campaign
+October 7 direction. Completion-aware input now has
+[local engine acceptance and independent packet inspection](../benchmarks/native-fsst-admission-2026-10-07.md)
+on corrected runtime `b7de216f`. The original hosted FSST failure, deterministic
+reproducer and complete corrected-build regression remain recorded. Refreshed
+documentation, native examples and browser checks pass; final hosted integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530). The other
+four tracks have not yet produced measured prototypes.
+Builder resource acceptance, packet inspection and hosted integration have passed
+in PR #1529, preserving all 941 accepted runtime source assets. This campaign
 follows the completed five hardware decisions and composed-COUNT decisions;
 their drops stay dropped. Published v0.4.0 and broader PERF/CG status are unchanged.
 
 The later October 7 [conditional exact work intake](native-conditional-work-campaign-2026-10-07.md)
 adds six distinct ship/drop candidates. Exact decimal accumulation and conservative
-membership filtering lead that performance queue; completion-aware input remains
-the next architectural capability. The additional candidates do not replace the
+membership filtering were subsequently dropped after their frozen screens;
+completion-aware input is completing hosted integration. The
+additional candidates do not replace the
 five tracks here or grant a speedup claim from research in another system.
 
-The inspected HEAD is `094c50b83235cd0594e1858acfcc7aa5a3f4760a`. The builder
+The original intake's inspected HEAD is `094c50b83235cd0594e1858acfcc7aa5a3f4760a`. The builder
 candidate is identified separately by its complete 941-file snapshot
 `a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f`, not by
 HEAD alone. All 941 assets subsequently match accepted implementation commit
@@ -23,11 +30,13 @@ the builder's historical packet or claim a new measured implementation.
 
 ## Decisions and order
 
-1. Completion-aware input streaming is the next capability unit under
-   PERF-03/07/11/12 and CG-5/19/20/21. Start with a single-use input feeding the
-   existing pure filter/project and local output path. Demonstrate a complete
-   input larger than the native grant, bounded retained input, and safe failure.
-2. Investigate selective rematerialization alongside that source-lifetime work
+1. Close completion-aware input under PERF-03/07/11/12 and CG-5/19/20/21.
+   Local proof now covers one finite input feeding the existing pure
+   filter/project and admitted local output paths, complete input larger than
+   its grant, one retained input batch and late-failure safety. Refreshed
+   documentation/site checks, native examples and browser review pass for the
+   FSST correction. Finish hosted integration while preserving that source.
+2. Investigate selective rematerialization after that source-lifetime work
    under PERF-03/06/07/12. First measure genuinely retained intermediates. The
    newly added predicate blocks are not currently a retained mask cache.
 3. Prepare an independent constraint-guided inner-equijoin experiment under
@@ -47,7 +56,7 @@ retained experiment.
 ## What source inspection establishes
 
 All paths below are repository-relative. Source references were checked in the
-current worktree, with the builder candidate frozen. No workload measurements
+original intake worktree, with the builder candidate frozen. No workload measurements
 were inferred from these reads.
 
 | Boundary | Evidence | Consequence for the campaign |
@@ -86,12 +95,18 @@ an upstream query-engine integration is not.
 
 Bind the declared schema before requesting payload. Classify the complete native
 plan before consuming a one-shot source. The first admitted chain has one source
-consumer and row-local pure filter/project operations. Source data is copied only
-at the existing compatibility intake boundary, then stays native through execution
-and output. Batch limits and byte credits remain explicit.
+consumer and row-local pure filter/project operations. Source data is copied at
+the existing compatibility intake boundary, then stays native through execution.
+The accepted implementation also compacts output into separately credited native
+storage before delivery so a lazy take or retained output cannot pin input.
+Both copy boundaries, batch limits and byte credits remain explicit. The
+[concrete contract](native-input-completion-2026-10-07.md) supersedes this intake's
+open design choices: one current input batch, explicit limits rejected, and
+one native Vortex destination or incremental/bounded results.
 
-Each input batch must survive until every current consumer and any queued sink
-owner releases it. Request the next batch only when that overlap is admitted.
+Each input batch must survive until its current native consumers finish.
+Detach output ownership and prove that the input's shared lease has expired
+before requesting the next batch; queued sink/result owners retain output credits.
 Record actual maximum retained input batches/bytes, cumulative intake bytes,
 output queue bytes, and first provisional delivery. A source that ends without
 rows still has an exact declared empty schema.
@@ -175,9 +190,9 @@ campaign. A changed strategy needs its own distinct mechanism and evidence.
 - The canonical phase queue now carries `NATIVE-INPUT-COMPLETION` under existing
   PERF owners. Preserve the inspected Git/snapshot identities above and distinguish
   them from later implementation revisions.
-- Write the streaming design against the shared binder/source/consumer interfaces,
-  including release-build schema validation, source-use classification, completion
-  states, sink metadata limits and failure evidence.
+- Finish hosted integration for the implemented
+  [streaming design](native-input-completion-2026-10-07.md), preserving its
+  complete [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md).
 - Select and instrument actual retained intermediates for the rematerialization
   screen; do not start from ephemeral predicate words.
 - Define the independent cyclic-join fixture/oracle and exact ordering contract,

@@ -17,6 +17,71 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] Conservative native join membership under PERF-02/03/10/12 — dropped
+  after the first frozen same-binary complete-operation screen. The
+  [report](../benchmarks/native-join-membership-2026-10-07.md) preserves all
+  1,050 timed calls, 105 pairs, complete independent output checks, 31 focused
+  test executions, 18 helper tests and original failed preflights.
+  - Four mostly-absent cells improve by a primary geometric score of 6.88%,
+    with approximately 98.6% fewer exact lookups. The 50% and 90% match controls
+    regress by 4.17% and 3.28%, both above the frozen percentage and absolute
+    regression limits. The gate remains unchanged; no confirmation or production
+    retention is attempted after failure.
+  - The test-only candidate is removed. Every one of 1,104 unique portable
+    payloads is reopened; all 943 candidate assets and raw timed results are
+    checked, all seven complete oracles are regenerated, and all 941 accepted
+    runtime assets match builder runtime `53cd1582` after restoration.
+  - Completion-aware input remains the next architectural capability. Other
+    conditional-work tracks retain their evidence prerequisites. No version,
+    ClickBench claim, broader PERF/CG status or public capability changes.
+
+- [x] Adaptive exact decimal screen under PERF-04/10/12 — dropped after the
+  first frozen complete-operation screen. The
+  [report](../benchmarks/native-adaptive-decimal-2026-10-07.md) preserves all
+  1,200 timed complete calls, 75 component pairs, 28 passing focused tests,
+  exact references and original failed preflights.
+  - Primary score improves by 1.09%, below the 3% requirement; no primary
+    cell reaches 3%. Narrow arithmetic is cheaper in the component screen,
+    but that does not satisfy the complete-operation gate. No confirmation,
+    Full43 or broad candidate acceptance was run after the failure.
+  - The candidate and test overlays are removed. The portable packet reopens
+    all 2,152 unique payloads; restoration proves all 941 runtime source assets
+    match accepted builder runtime `53cd1582`. No active engine behavior,
+    package version, memory-saving claim or broader PERF/CG status changes.
+  - Conservative membership was subsequently screened and dropped above;
+    completion-aware input remains the next architectural capability.
+
+- [x] `NATIVE-BUILDER-RESOURCES` — shared primitive/Boolean/decimal Chunked
+  output and numeric/string builder finalization storage now retain independent
+  value/validity credits under PERF-03/06/07 and CG-5/19/20/21.
+  - The [contract](native-builder-resources-2026-10-07.md) preserves pinned
+    Vortex 0.85.0 builders and native per-encoding append, typed denial before
+    child execution, clone/slice ownership, failure cleanup and the repaired
+    primitive Zstd append. PulseWeave owns actual overlapping buffers; no new
+    allocator, dependency, unsafe code or fallback executor is introduced.
+  - Runtime `53cd1582` passes 14 new ownership tests, 17 source gates, 27,373
+    public cases, 202 direct cases, 48 batch checks, 19 format checks and all
+    129 Full43 calls. The independently inspected
+    [packet](../benchmarks/native-builder-resources-2026-10-07.md) preserves
+    all 840,960 lifecycle calls, repeated UTF-8 overhead, a near-threshold
+    confirmation and original failures. This resource correction makes no
+    speedup or total-process RSS claim.
+  - [PR #1529](https://github.com/depsilon/shardloom/pull/1529) merged at
+    `0f7609daf7c4d062a0b939870803636d0c9b4ef8` after all 39 hosted checks on
+    `3ec085ae9d47b081d676b4cc29c1d152cc571042` passed. The trees match and
+    all 941 accepted runtime source assets remain unchanged. Primary review
+    passed; hosted automated review completed without posted findings. No
+    submitted approval or unresolved review thread was present.
+  - Production deployment and browser verification passed. Complete rendered
+    resource-page text matches the accepted preview, its evidence link opens
+    the merged report, and exact report bytes match the accepted document.
+    The [hosted receipt](../benchmarks/evidence/native-builder-hosted-2026-10-07.json)
+    retains those historical pending-label observations and screenshots.
+  - General decoder/mask scratch, structural metadata, source storage,
+    compression/training state, operator spill and resumable recovery retain
+    their existing owners. Published v0.4.0 is unchanged. No broader PERF/CG
+    completion or package publication is claimed.
+
 - [x] `NATIVE-CODEC-WORKSPACES` — actual pinned Zstd one-shot decoder and
   by-reference prepared-dictionary workspaces are admitted through the existing
   native allocator under PERF-03/06 and CG-5/19/20/21.

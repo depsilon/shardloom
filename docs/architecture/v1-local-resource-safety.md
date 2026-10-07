@@ -32,7 +32,7 @@ concatenation and fallible allocation of the reviewed Zstd payload/view/scatter
 buffers. Clones and slices retain their credits. The
 [batch adapter unit](native-bounded-adapters-2026-10-06.md) adds demand-driven
 resident input and acknowledged incremental result delivery under the same
-native plan. Input remains resident; output batching does not make general state
+native plan. That mode remains resident; output batching does not make general state
 spillable. Both units merged in PR #1526 after complete local acceptance and
 all 39 hosted checks. Published v0.4.0 predates these additions.
 
@@ -51,8 +51,27 @@ replacement buffer used during numeric and string builder finalization. Credits
 survive independent value/validity references, clones and slices. Native child
 append strategies remain intact, including the repaired primitive Zstd append.
 Its [local acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
-passes complete ownership and regression checks; hosted integration is pending.
+passes complete ownership and regression checks. PR #1529 merged after all 39
+hosted checks passed with the accepted runtime unchanged; production checks pass.
 The cost screen retains measured UTF-8 overhead and makes no speedup claim.
+
+The subsequent [completion-aware input unit](native-input-completion-2026-10-07.md)
+adds explicit streaming for one finite source used once through pure
+Scan/Filter/Project. Its [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
+and independent packet inspection pass; final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+It completes 4.5 GiB of UTF8 payload under a 1 GiB native grant with at most one
+retained native input batch. Separately credited output compaction prevents
+consumer aliases from pinning that input; retained output and native sink
+metadata still consume their own credits. Late failure prevents successful
+completion and incomplete file publication. The finite intake limits remain;
+this is neither input spill nor a bound on total process RSS.
+
+The FSST integration correction validates each selected row's encoded symbol
+expansion and escape boundaries before requesting the existing native decoder's
+payload. Malformed lengths and unpopulated symbols fail explicitly; the focused
+and complete native suites verify released reservations. It adds no decoder,
+upstream dependency or broader allocation-accounting claim.
 
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
 whole-process RSS bounds remain open. Other operators must retain their own resource admission

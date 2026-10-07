@@ -1,0 +1,1091 @@
+{
+  "schema_version": "shardloom.join_membership_decision.v1",
+  "status": "dropped_high_match_control_regressions",
+  "retained": false,
+  "source_commit": "0025f437b67c08ff538677feeb351dd7fc612528",
+  "accepted_runtime": "53cd1582",
+  "accepted_source_assets": 941,
+  "accepted_source_identity_sha256": "2885db05dc02012c70a32361901488c325956fcbed3ab1d2fb3e74356be01247",
+  "accepted_identity_serialization": "Python json.dumps(source_hashes, sort_keys=True, separators=(comma, colon))",
+  "candidate_source_assets": 943,
+  "candidate_source_identity_sha256": "eeb82ab47a1b4c9cc258154c0ea7bfdae9af1a9c81703cafc4f5755fc6866038",
+  "source_restoration_proof": "docs/benchmarks/evidence/native-join-membership-restoration-2026-10-07.json",
+  "binary_sha256": "baa2e49f58b4ee0d2be27c2bc96ab0cb8fc9d4ce57d7752bb7c7d64fc08301ae",
+  "freeze_sha256": "1b1ec4a6d149b2add00a22e56f0bf2820841e09cdef56cbd32ee966c7a6f9139",
+  "summary_sha256": "5f6163c253b961a80080068b9bf47b4694e90415dd54c61666c24a3f37b372cf",
+  "analysis_sha256": "6d3737d57c35c3db93003cc10904b0f1c5bb7eae9fe87979cb8308584b42fc36",
+  "native_processes": 7,
+  "timed_complete_calls": 1050,
+  "pairs": 105,
+  "full_independent_screen_calls": 28,
+  "fixture_preflight_processes": 14,
+  "correctness_test_executions": 31,
+  "distinct_correctness_tests": 29,
+  "helper_tests": 18,
+  "score": {
+    "cell_ratios": {
+      "u64_absent": 0.9125151307894365,
+      "utf8_absent": 0.9677426598093251,
+      "tuple_absent": 0.9459004856620421,
+      "duplicate_absent": 0.9001728902565199,
+      "u64_half": 1.0417009633395058,
+      "u64_high": 1.0328003250431728,
+      "small_absent": 0.9971503370847365
+    },
+    "per_call_delta_ns": {
+      "u64_absent": -6360666.6,
+      "utf8_absent": -6117291.4,
+      "tuple_absent": -3844649.6,
+      "duplicate_absent": -4537383.4,
+      "u64_half": 12934358.6,
+      "u64_high": 13106300.4,
+      "small_absent": -6924.8
+    },
+    "primary_cells": [
+      "u64_absent",
+      "utf8_absent",
+      "tuple_absent",
+      "duplicate_absent"
+    ],
+    "primary_geometric_mean_ratio": 0.9311997154124171,
+    "bootstrap": {
+      "replicates": 10000,
+      "seed": 20261007,
+      "interval_method": "linear interpolation at sorted index (n-1)*q",
+      "confidence_level": 0.95,
+      "lower": 0.9248958643027675,
+      "upper": 0.9340471409418553
+    },
+    "primary_winner_count": 4,
+    "regressions": [
+      {
+        "cell": "u64_half",
+        "ratio": 1.0417009633395058,
+        "per_call_delta_ns": 12934358.6
+      },
+      {
+        "cell": "u64_high",
+        "ratio": 1.0328003250431728,
+        "per_call_delta_ns": 13106300.4
+      }
+    ],
+    "complete_operation_gate_passes": false,
+    "retained": false,
+    "retention_reason": "Confirmation, mechanism, and production verification remain separate primary-owned gates."
+  },
+  "mechanism": {
+    "u64_absent": {
+      "pre": [
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 70002416,
+          "native_io_certified": true,
+          "output_rows": 10375,
+          "output_sha256_le_u64_pairs": "6d3942433b3eae99cfdf01b1c263cefc80184e9d58eebbb413124da0596cbce6",
+          "peak_reserved_bytes": 21578820,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 262144,
+              "exact_lookups": 1048576,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 1048576,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 65817416,
+          "native_io_certified": true,
+          "output_rows": 10375,
+          "output_sha256_le_u64_pairs": "6d3942433b3eae99cfdf01b1c263cefc80184e9d58eebbb413124da0596cbce6",
+          "peak_reserved_bytes": 37256072,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 15966792,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 262144,
+              "enabled": true,
+              "exact_entries": 262144,
+              "exact_lookups": 14463,
+              "fingerprint_bytes": 303104,
+              "non_null_probes": 1048576,
+              "published": true,
+              "rejections": 1034113
+            }
+          ]
+        }
+      ],
+      "post": [
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 68187708,
+          "native_io_certified": true,
+          "output_rows": 10375,
+          "output_sha256_le_u64_pairs": "6d3942433b3eae99cfdf01b1c263cefc80184e9d58eebbb413124da0596cbce6",
+          "peak_reserved_bytes": 37256072,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 15966792,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 262144,
+              "enabled": true,
+              "exact_entries": 262144,
+              "exact_lookups": 14463,
+              "fingerprint_bytes": 303104,
+              "non_null_probes": 1048576,
+              "published": true,
+              "rejections": 1034113
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 71575042,
+          "native_io_certified": true,
+          "output_rows": 10375,
+          "output_sha256_le_u64_pairs": "6d3942433b3eae99cfdf01b1c263cefc80184e9d58eebbb413124da0596cbce6",
+          "peak_reserved_bytes": 21578820,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 262144,
+              "exact_lookups": 1048576,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 1048576,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ]
+    },
+    "utf8_absent": {
+      "pre": [
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 195742500,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 222899356,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 131072,
+              "exact_lookups": 524288,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 524288,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 184815958,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 223055004,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 8085800,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 131072,
+              "enabled": true,
+              "exact_entries": 131072,
+              "exact_lookups": 7348,
+              "fingerprint_bytes": 155648,
+              "non_null_probes": 524288,
+              "published": true,
+              "rejections": 516940
+            }
+          ]
+        }
+      ],
+      "post": [
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 183598708,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 223055004,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 8085800,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 131072,
+              "enabled": true,
+              "exact_entries": 131072,
+              "exact_lookups": 7348,
+              "fingerprint_bytes": 155648,
+              "non_null_probes": 524288,
+              "published": true,
+              "rejections": 516940
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 187900792,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 222899356,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 131072,
+              "exact_lookups": 524288,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 524288,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ]
+    },
+    "tuple_absent": {
+      "pre": [
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 70337917,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 48395388,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 131072,
+              "exact_lookups": 524288,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 524288,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 66547084,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 49229512,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 8085800,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 131072,
+              "enabled": true,
+              "exact_entries": 131072,
+              "exact_lookups": 7410,
+              "fingerprint_bytes": 155648,
+              "non_null_probes": 524288,
+              "published": true,
+              "rejections": 516878
+            }
+          ]
+        }
+      ],
+      "post": [
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 67472416,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 49229512,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 8085800,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 131072,
+              "enabled": true,
+              "exact_entries": 131072,
+              "exact_lookups": 7410,
+              "fingerprint_bytes": 155648,
+              "non_null_probes": 524288,
+              "published": true,
+              "rejections": 516878
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 70923458,
+          "native_io_certified": true,
+          "output_rows": 5309,
+          "output_sha256_le_u64_pairs": "f2d38d99489ea423e0f9b3f58d000db231f8f2cc3c2f9f8a7ce0573bb1d1e037",
+          "peak_reserved_bytes": 48395388,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 131072,
+              "exact_lookups": 524288,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 524288,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ]
+    },
+    "duplicate_absent": {
+      "pre": [
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 45735916,
+          "native_io_certified": true,
+          "output_rows": 21236,
+          "output_sha256_le_u64_pairs": "65efb933e6b14b13274b8d43384febb5364a723795a0cedd7db8418adf637c59",
+          "peak_reserved_bytes": 13717484,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 65536,
+              "exact_lookups": 524288,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 524288,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 41179667,
+          "native_io_certified": true,
+          "output_rows": 21236,
+          "output_sha256_le_u64_pairs": "65efb933e6b14b13274b8d43384febb5364a723795a0cedd7db8418adf637c59",
+          "peak_reserved_bytes": 17468104,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 4043048,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 65536,
+              "enabled": true,
+              "exact_entries": 65536,
+              "exact_lookups": 7336,
+              "fingerprint_bytes": 77824,
+              "non_null_probes": 524288,
+              "published": true,
+              "rejections": 516952
+            }
+          ]
+        }
+      ],
+      "post": [
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 41350000,
+          "native_io_certified": true,
+          "output_rows": 21236,
+          "output_sha256_le_u64_pairs": "65efb933e6b14b13274b8d43384febb5364a723795a0cedd7db8418adf637c59",
+          "peak_reserved_bytes": 17468104,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 4043048,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 65536,
+              "enabled": true,
+              "exact_entries": 65536,
+              "exact_lookups": 7336,
+              "fingerprint_bytes": 77824,
+              "non_null_probes": 524288,
+              "published": true,
+              "rejections": 516952
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 45224458,
+          "native_io_certified": true,
+          "output_rows": 21236,
+          "output_sha256_le_u64_pairs": "65efb933e6b14b13274b8d43384febb5364a723795a0cedd7db8418adf637c59",
+          "peak_reserved_bytes": 13717484,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 65536,
+              "exact_lookups": 524288,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 524288,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ]
+    },
+    "u64_half": {
+      "pre": [
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 307364208,
+          "native_io_certified": true,
+          "output_rows": 524240,
+          "output_sha256_le_u64_pairs": "853c6402235ffa14bbe927d443bcadcfadf22fa8c7de32a02fa6213827c5a2e2",
+          "peak_reserved_bytes": 21622212,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 262144,
+              "exact_lookups": 1048576,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 1048576,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 341448667,
+          "native_io_certified": true,
+          "output_rows": 524240,
+          "output_sha256_le_u64_pairs": "853c6402235ffa14bbe927d443bcadcfadf22fa8c7de32a02fa6213827c5a2e2",
+          "peak_reserved_bytes": 37256040,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 15966792,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 262144,
+              "enabled": true,
+              "exact_entries": 262144,
+              "exact_lookups": 526319,
+              "fingerprint_bytes": 303104,
+              "non_null_probes": 1048576,
+              "published": true,
+              "rejections": 522257
+            }
+          ]
+        }
+      ],
+      "post": [
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 332635459,
+          "native_io_certified": true,
+          "output_rows": 524240,
+          "output_sha256_le_u64_pairs": "853c6402235ffa14bbe927d443bcadcfadf22fa8c7de32a02fa6213827c5a2e2",
+          "peak_reserved_bytes": 37256040,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 15966792,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 262144,
+              "enabled": true,
+              "exact_entries": 262144,
+              "exact_lookups": 526319,
+              "fingerprint_bytes": 303104,
+              "non_null_probes": 1048576,
+              "published": true,
+              "rejections": 522257
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 319040833,
+          "native_io_certified": true,
+          "output_rows": 524240,
+          "output_sha256_le_u64_pairs": "853c6402235ffa14bbe927d443bcadcfadf22fa8c7de32a02fa6213827c5a2e2",
+          "peak_reserved_bytes": 21622212,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 262144,
+              "exact_lookups": 1048576,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 1048576,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ]
+    },
+    "u64_high": {
+      "pre": [
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 401248375,
+          "native_io_certified": true,
+          "output_rows": 943953,
+          "output_sha256_le_u64_pairs": "8662deea9c1559dd3b5915776e0618cc4f354b14eea84d90931d6a1743e7bdc6",
+          "peak_reserved_bytes": 21654132,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 262144,
+              "exact_lookups": 1048576,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 1048576,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 409846000,
+          "native_io_certified": true,
+          "output_rows": 943953,
+          "output_sha256_le_u64_pairs": "8662deea9c1559dd3b5915776e0618cc4f354b14eea84d90931d6a1743e7bdc6",
+          "peak_reserved_bytes": 37256040,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 15966792,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 262144,
+              "enabled": true,
+              "exact_entries": 262144,
+              "exact_lookups": 944359,
+              "fingerprint_bytes": 303104,
+              "non_null_probes": 1048576,
+              "published": true,
+              "rejections": 104217
+            }
+          ]
+        }
+      ],
+      "post": [
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 405952167,
+          "native_io_certified": true,
+          "output_rows": 943953,
+          "output_sha256_le_u64_pairs": "8662deea9c1559dd3b5915776e0618cc4f354b14eea84d90931d6a1743e7bdc6",
+          "peak_reserved_bytes": 37256040,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 1,
+              "conservative_construction_bytes": 15966792,
+              "disposition": "verified_sealed_filter",
+              "distinct_hashes": 262144,
+              "enabled": true,
+              "exact_entries": 262144,
+              "exact_lookups": 944359,
+              "fingerprint_bytes": 303104,
+              "non_null_probes": 1048576,
+              "published": true,
+              "rejections": 104217
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 414740541,
+          "native_io_certified": true,
+          "output_rows": 943953,
+          "output_sha256_le_u64_pairs": "8662deea9c1559dd3b5915776e0618cc4f354b14eea84d90931d6a1743e7bdc6",
+          "peak_reserved_bytes": 21654132,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 262144,
+              "exact_lookups": 1048576,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 1048576,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ]
+    },
+    "small_absent": {
+      "pre": [
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 2470375,
+          "native_io_certified": true,
+          "output_rows": 685,
+          "output_sha256_le_u64_pairs": "68ce78a0b6d09619f1d4a35aea8c671e31a721fd4129d5eb94a0275a7dd912c3",
+          "peak_reserved_bytes": 757400,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 4096,
+              "exact_lookups": 65536,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 65536,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 2473541,
+          "native_io_certified": true,
+          "output_rows": 685,
+          "output_sha256_le_u64_pairs": "68ce78a0b6d09619f1d4a35aea8c671e31a721fd4129d5eb94a0275a7dd912c3",
+          "peak_reserved_bytes": 757400,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "ineligible_join_or_build_size",
+              "distinct_hashes": 0,
+              "enabled": true,
+              "exact_entries": 4096,
+              "exact_lookups": 65536,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 65536,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ],
+      "post": [
+        {
+          "denied_reservations": 0,
+          "enabled": true,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 2459291,
+          "native_io_certified": true,
+          "output_rows": 685,
+          "output_sha256_le_u64_pairs": "68ce78a0b6d09619f1d4a35aea8c671e31a721fd4129d5eb94a0275a7dd912c3",
+          "peak_reserved_bytes": 757400,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "ineligible_join_or_build_size",
+              "distinct_hashes": 0,
+              "enabled": true,
+              "exact_entries": 4096,
+              "exact_lookups": 65536,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 65536,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        },
+        {
+          "denied_reservations": 0,
+          "enabled": false,
+          "external_engine_evidence": "not_exposed_by_native_io_certificate; source audit remains separate",
+          "external_engine_invoked": null,
+          "fallback_attempted": false,
+          "full_independent_pair_comparison": true,
+          "memory_limit_bytes": 536870912,
+          "nanoseconds": 2442834,
+          "native_io_certified": true,
+          "output_rows": 685,
+          "output_sha256_le_u64_pairs": "68ce78a0b6d09619f1d4a35aea8c671e31a721fd4129d5eb94a0275a7dd912c3",
+          "peak_reserved_bytes": 757400,
+          "reserved_after_drop": 0,
+          "statistics": [
+            {
+              "attempts": 0,
+              "conservative_construction_bytes": 0,
+              "disposition": "disabled_control",
+              "distinct_hashes": 0,
+              "enabled": false,
+              "exact_entries": 4096,
+              "exact_lookups": 65536,
+              "fingerprint_bytes": 0,
+              "non_null_probes": 65536,
+              "published": false,
+              "rejections": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "host": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "cpu_model": "Apple M5",
+    "python_version": "3.13.13",
+    "physical_ram_bytes": 17179869184,
+    "load_before": [
+      1.65234375,
+      1.59814453125,
+      1.5673828125
+    ]
+  },
+  "process_metrics": {
+    "u64_absent": {
+      "returncode": 0,
+      "seconds": 11.251575916998263,
+      "guard_failures": [],
+      "supervised_wall_seconds": 11.290642874999321,
+      "native_peak_rss_bytes": 441171968,
+      "user_cpu_seconds": 10.802041,
+      "system_cpu_seconds": 0.529613,
+      "minor_page_faults": 95390,
+      "major_page_faults": 2,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "utf8_absent": {
+      "returncode": 0,
+      "seconds": 30.24537699999928,
+      "guard_failures": [],
+      "supervised_wall_seconds": 30.283788375003496,
+      "native_peak_rss_bytes": 271106048,
+      "user_cpu_seconds": 7.31676,
+      "system_cpu_seconds": 22.939405,
+      "minor_page_faults": 17424,
+      "major_page_faults": 1,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "tuple_absent": {
+      "returncode": 0,
+      "seconds": 11.02462658299919,
+      "guard_failures": [],
+      "supervised_wall_seconds": 11.066281040999456,
+      "native_peak_rss_bytes": 84967424,
+      "user_cpu_seconds": 7.892102,
+      "system_cpu_seconds": 3.175082,
+      "minor_page_faults": 6203,
+      "major_page_faults": 14,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "duplicate_absent": {
+      "returncode": 0,
+      "seconds": 6.924720165996405,
+      "guard_failures": [],
+      "supervised_wall_seconds": 6.96374712499528,
+      "native_peak_rss_bytes": 42254336,
+      "user_cpu_seconds": 6.668293,
+      "system_cpu_seconds": 0.306614,
+      "minor_page_faults": 3456,
+      "major_page_faults": 1,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "u64_half": {
+      "returncode": 0,
+      "seconds": 50.53125704100239,
+      "guard_failures": [],
+      "supervised_wall_seconds": 50.57030649999797,
+      "native_peak_rss_bytes": 441171968,
+      "user_cpu_seconds": 49.858729,
+      "system_cpu_seconds": 0.7550509999999999,
+      "minor_page_faults": 83322,
+      "major_page_faults": 1,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "u64_high": {
+      "returncode": 0,
+      "seconds": 64.64127274999919,
+      "guard_failures": [],
+      "supervised_wall_seconds": 64.68308799999795,
+      "native_peak_rss_bytes": 403456000,
+      "user_cpu_seconds": 63.912324,
+      "system_cpu_seconds": 0.808299,
+      "minor_page_faults": 79521,
+      "major_page_faults": 2,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    },
+    "small_absent": {
+      "returncode": 0,
+      "seconds": 0.4067275420020451,
+      "guard_failures": [],
+      "supervised_wall_seconds": 0.44684587500523776,
+      "native_peak_rss_bytes": 20283392,
+      "user_cpu_seconds": 0.37664,
+      "system_cpu_seconds": 0.035682,
+      "minor_page_faults": 2114,
+      "major_page_faults": 1,
+      "input_block_operations": 0,
+      "output_block_operations": 0,
+      "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies"
+    }
+  },
+  "supervised_workflow_seconds": 181.83937666699785,
+  "confirmation_run": false,
+  "confirmation_reason": "Both high-match controls cross the frozen >3% and >100 microsecond per-call regression gate.",
+  "unrun_checks": "No reversed-order confirmation, production implementation, complete candidate workspace/public/golden or Full43 acceptance after the failed gate.",
+  "claim_boundary": "A dropped same-binary test candidate: the 6.88% mostly-absent score and avoided exact lookups are scoped observations, not a retained or general engine improvement. Construction and all input/output work are charged. OS CPU/RSS combine both strategies and cannot establish per-strategy CPU/RSS savings.",
+  "native_io_boundary": "Native I/O certification and fallback_attempted=false pass; this certificate does not expose external_engine_invoked, recorded as null. The inspected candidate adds no external engine or dependency.",
+  "guard_boundary": "The source, protocol, all scoring/native supervision helpers and external workload/process guards were frozen before scored timing. Finalization and restoration helpers are post-measurement evidence tooling.",
+  "failed_preflights_preserved": true,
+  "archive": "docs/benchmarks/evidence/native-join-membership-2026-10-07.tar.xz",
+  "archive_bytes": 8570048,
+  "archive_sha256": "981973b93210f0e736d2e6f59acb2d206b7a1cc4b1e8982f07d6b4b75958000b",
+  "manifest_sha256": "bc9dd0bcd3e6828f3614a3f8fadf7be2db9804a26415915fea47c0a013af8147",
+  "source_path_count": 1134,
+  "unique_payload_count": 1104,
+  "unique_payload_bytes": 61327496,
+  "archive_reopen": "all_members_sha256_verified_without_extraction",
+  "packet_driver_sha256": "0804eb6fceabb981452a22ceb00f6b283f4590b082b7006da809cc52d4a1b1cb",
+  "finalized_utc": "2026-10-07T14:43:08.488531+00:00"
+}

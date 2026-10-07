@@ -40,8 +40,11 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[path = "local_primitive_relational_batch_input.rs"]
+mod batch_input;
 #[path = "local_primitive_relational_bind.rs"]
 mod bind;
+pub use batch_input::{ExecutedVortexBatchInput, VortexRelationalBatchInput};
 pub(super) use bind::{
     arithmetic_dtype as scalar_arithmetic_dtype, literal_dtype as scalar_literal_dtype,
 };
@@ -85,6 +88,8 @@ pub struct ExecutedVortexRelational {
     pub native_io_certificate: NativeIoCertificate,
     pub runtime: ResidentSessionSnapshot,
     pub spill: Option<crate::relational_query::VortexRelationalSpillReport>,
+    /// Present only after a streaming source's explicit end-of-input was observed.
+    pub input: Option<ExecutedVortexBatchInput>,
     _metadata: MemoryLease,
 }
 
@@ -105,6 +110,7 @@ pub struct PreparedVortexRelational {
     session: ResidentVortexSession,
     sources: Vec<PreparedVortexSource>,
     memory_sources: Vec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    batch_source: Option<(shardloom_core::DatasetUri, ResidentMemorySource)>,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     source_paths: Vec<PathBuf>,
     root: PreparedRoot,
@@ -150,6 +156,10 @@ impl Node {
             NodeKind::Scan { source, .. } => Some(match source {
                 ScanSource::File(index) => sources[*index].file().row_count(),
                 ScanSource::Memory(projection) => projection.source_rows() as u64,
+                ScanSource::Batch(_) => {
+                    (crate::resident_memory_source::MAX_BATCHES
+                        * crate::resident_memory_source::MAX_BATCH_ROWS) as u64
+                }
             }),
             NodeKind::Project { input, .. }
             | NodeKind::Filter { input, .. }
@@ -209,6 +219,7 @@ impl Node {
 enum ScanSource {
     File(usize),
     Memory(Box<PreparedMemoryProjection>),
+    Batch(Box<PreparedMemoryProjection>),
 }
 
 enum NodeKind {
@@ -315,6 +326,19 @@ impl VortexRelationalPreparation<'_> {
         self.binding.register_memory_source(uri, build)
     }
 
+    /// Declare a single streaming source without opening its producer. Build a
+    /// typed empty owner with `ResidentMemorySource::from_batch_columns`.
+    /// The complete lowered plan must contain only Scan/Filter/Project.
+    /// # Errors
+    /// Rejects duplicate/extra sources, nonempty schemas and foreign ownership.
+    pub fn register_batch_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        build_schema: impl FnOnce(&ResidentVortexSession) -> Result<ResidentMemorySource>,
+    ) -> Result<()> {
+        self.binding.register_batch_source(uri, build_schema)
+    }
+
     /// Resolve authoritative column names from the retained native source schema.
     /// # Errors
     /// Rejects unavailable sources, nonstruct schemas and denied metadata capacity.
@@ -372,17 +396,20 @@ fn prepare_relational_with_owner(
         preparation.binding.seed_source(&uri, source)?;
     }
     let plan = lower(&mut preparation)?;
+    preparation.binding.validate_batch_plan(&plan)?;
     let root = preparation.binding.bind(&plan, 0)?;
     let bind::BoundSources {
         sources,
         source_paths,
         memory_sources,
+        batch_source,
         metadata,
     } = preparation.binding.finish()?;
     Ok(PreparedVortexRelational {
         session,
         sources,
         memory_sources,
+        batch_source,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
         policy,
@@ -419,12 +446,14 @@ pub fn prepare_relational_in_session(
         sources,
         source_paths,
         memory_sources,
+        batch_source,
         metadata,
     } = binding.finish()?;
     Ok(PreparedVortexRelational {
         session: session.clone(),
         sources,
         memory_sources,
+        batch_source,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
         policy,
@@ -454,6 +483,7 @@ struct Metrics {
     unary_state_items: Cell<u64>,
     unary_population_retention: Cell<u64>,
     schema_discovery_stages: Cell<u64>,
+    current_input: RefCell<Option<ResidentMemorySource>>,
 }
 
 impl Metrics {
@@ -572,19 +602,21 @@ impl PreparedVortexRelational {
         cancellation: &CancellationToken,
         consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
-        self.for_each_batch_with_rows(cancellation, BATCH_ROWS, consume)
+        self.for_each_batch_with_input(cancellation, BATCH_ROWS, None, consume)
     }
 
-    fn for_each_batch_with_rows(
+    fn for_each_batch_with_input(
         &self,
         cancellation: &CancellationToken,
         batch_rows: usize,
+        input: Option<&mut batch_input::Provider<'_>>,
         mut consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
+        self.validate_batch_provider(input.is_some())?;
         let mut execution =
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
-                    self.consume_in_context(context, batch_rows, &mut |array| {
+                    self.consume_in_context(context, batch_rows, input, &mut |array| {
                         consume(array, context)
                     })
                 })?;
@@ -603,6 +635,23 @@ impl PreparedVortexRelational {
         cancellation: &CancellationToken,
         batch_rows: usize,
         max_batch_bytes: usize,
+        consume: impl FnMut(super::collect::SerializedVortexResultBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        self.for_each_json_batch_with_input(
+            cancellation,
+            batch_rows,
+            max_batch_bytes,
+            None,
+            consume,
+        )
+    }
+
+    fn for_each_json_batch_with_input(
+        &self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        max_batch_bytes: usize,
+        input: Option<&mut batch_input::Provider<'_>>,
         mut consume: impl FnMut(super::collect::SerializedVortexResultBatch) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         if batch_rows == 0
@@ -613,7 +662,7 @@ impl PreparedVortexRelational {
             return Err(failed("JSON batches require 1..=2,048 rows and 1..=8 MiB"));
         }
         let mut execution =
-            self.for_each_batch_with_rows(cancellation, batch_rows, |array, context| {
+            self.for_each_batch_with_input(cancellation, batch_rows, input, |array, context| {
                 let mut sink =
                     super::collect::JsonRows::new(context.memory(), max_batch_bytes, false)?;
                 sink.append_native(&array, context)?;
@@ -642,19 +691,22 @@ impl PreparedVortexRelational {
         &self,
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
+        input: Option<&mut batch_input::Provider<'_>>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         self.with_bound_root(context, |root, metrics| {
-            self.consume_bound(root, context, metrics, batch_rows, consume)
+            self.consume_bound(root, context, metrics, batch_rows, input, consume)
         })
     }
 
+    #[allow(clippy::too_many_arguments)] // Input and consumers share one completed native operation.
     fn consume_bound(
         &self,
         root: &Node,
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics,
         batch_rows: usize,
+        input: Option<&mut batch_input::Provider<'_>>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -685,7 +737,7 @@ impl PreparedVortexRelational {
             if array.dtype() != &dtype || array.len() > batch_rows {
                 return Err(failed("producer changed its bound schema or batch size"));
             }
-            let array = if nested {
+            let array = if nested || self.batch_source.is_some() {
                 let indices = index_array(array.len(), false, context, |row| Ok(Some(row)))?;
                 super::native_payload::take(&array, &indices, &dtype, context)?
             } else {
@@ -705,7 +757,7 @@ impl PreparedVortexRelational {
             consume(array)?;
             context.check_cancelled()
         };
-        self.run(root, context, metrics, batch_rows, None, &mut emit)?;
+        let input = self.run_with_input(root, context, metrics, batch_rows, input, &mut emit)?;
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {
             let array = super::native_payload::defaults(&dtype, 0, context)?;
@@ -727,6 +779,7 @@ impl PreparedVortexRelational {
             batch_rows,
             self.sources.len(),
             self.memory_sources.len(),
+            input.as_ref(),
             spill.as_ref(),
         )?;
         Ok(ExecutedVortexRelational {
@@ -736,7 +789,9 @@ impl PreparedVortexRelational {
             output_buffer_bytes: bytes,
             scan_rows_delivered: metrics.scan_rows.get(),
             scan_batches: metrics.scan_batches.get(),
-            prepared_sources: self.sources.len() + self.memory_sources.len(),
+            prepared_sources: self.sources.len()
+                + self.memory_sources.len()
+                + usize::from(input.is_some()),
             schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
             dynamic_schema_stages: metrics.schema_discovery_stages.get(),
             output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
@@ -744,6 +799,7 @@ impl PreparedVortexRelational {
             native_io_certificate: certificate,
             runtime: self.snapshot(),
             spill,
+            input,
             _metadata: metadata,
         })
     }
@@ -962,10 +1018,19 @@ impl PreparedVortexRelational {
         &self,
         cancellation: &CancellationToken,
     ) -> Result<CollectedVortexRelational> {
+        self.collect_jsonl_with_input(cancellation, None)
+    }
+
+    fn collect_jsonl_with_input(
+        &self,
+        cancellation: &CancellationToken,
+        input: Option<&mut batch_input::Provider<'_>>,
+    ) -> Result<CollectedVortexRelational> {
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
-        let mut execution = self.for_each_batch(cancellation, |array, context| {
-            sink.append_native(&array, context)
-        })?;
+        let mut execution =
+            self.for_each_batch_with_input(cancellation, BATCH_ROWS, input, |array, context| {
+                sink.append_native(&array, context)
+            })?;
         let (result_jsonl, result_schema_json) =
             sink.finish_certified(&mut execution.native_io_certificate)?;
         execution.runtime = self.snapshot();

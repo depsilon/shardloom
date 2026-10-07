@@ -1,6 +1,6 @@
 //! Report the native providers, explicit materialization and observation limits.
 
-use super::{Metrics, Result};
+use super::{ExecutedVortexBatchInput, Metrics, Result};
 use shardloom_core::{
     NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoMaterializationBoundaryReport,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
@@ -14,10 +14,12 @@ pub(super) fn certificate(
     batch_rows: usize,
     sources: usize,
     memory_sources: usize,
+    input: Option<&ExecutedVortexBatchInput>,
     spill: Option<&crate::relational_query::VortexRelationalSpillReport>,
 ) -> Result<NativeIoCertificate> {
     let file_sources = sources;
-    let sources = file_sources + memory_sources;
+    let batch_sources = usize::from(input.is_some());
+    let sources = file_sources + memory_sources + batch_sources;
     let data_work = metrics.data_scans.get() > 0;
     let spilled = spill.is_some_and(|report| report.runs_written > 0);
     NativeIoCertificate::new(
@@ -34,9 +36,15 @@ pub(super) fn certificate(
                     metrics.schema_discovery_stages.get()
                 )
             },
-            statistics_availability: format!(
-                "held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
-            ),
+            statistics_availability: if batch_sources > 0 {
+                format!(
+                    "completion_aware_native_batch_sources={batch_sources};global_input_statistics_unavailable"
+                )
+            } else {
+                format!(
+                    "held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
+                )
+            },
             pushdown_capabilities: "bound_projection_and_native_predicates".into(),
             encoded_representation_preserved: true,
             range_read_capability: file_sources > 0,
@@ -47,7 +55,11 @@ pub(super) fn certificate(
         NativeIoSourcePushdownReport {
             accepted_operations: vec!["native_bound_scan".into()],
             rejected_operations: vec![],
-            guarantee: "bound_types_and_generation_checked_before_and_after_final_consumer".into(),
+            guarantee: if input.is_some() {
+                "declared_types_checked_each_batch;single_use_source_end_observed;all_input_buffer_owners_released_before_next_demand;output_ownership_detached".into()
+            } else {
+                "bound_types_and_generation_checked_before_and_after_final_consumer".into()
+            },
             proof_basis: format!(
                 "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={}",
                 metrics.scans_started.get(),

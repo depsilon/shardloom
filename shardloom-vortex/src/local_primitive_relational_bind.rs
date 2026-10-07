@@ -33,6 +33,7 @@ pub(super) struct Binder<'a> {
     sources: ReservedVec<PreparedVortexSource>,
     paths: ReservedVec<PathBuf>,
     memory_sources: ReservedVec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    batch_source: Option<(shardloom_core::DatasetUri, ResidentMemorySource)>,
     metadata: MemoryLease,
     nodes: usize,
     expression_nodes: usize,
@@ -48,6 +49,7 @@ pub(super) struct BoundSources {
     pub(super) sources: Vec<PreparedVortexSource>,
     pub(super) source_paths: Vec<PathBuf>,
     pub(super) memory_sources: Vec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    pub(super) batch_source: Option<(shardloom_core::DatasetUri, ResidentMemorySource)>,
     pub(super) metadata: MemoryLease,
 }
 
@@ -55,6 +57,7 @@ pub(super) struct BoundSources {
 enum SourceIndex {
     File(usize),
     Memory(usize),
+    Batch,
 }
 
 impl<'a> Binder<'a> {
@@ -64,6 +67,7 @@ impl<'a> Binder<'a> {
             sources: ReservedVec::new(session.memory())?,
             paths: ReservedVec::new(session.memory())?,
             memory_sources: ReservedVec::new(session.memory())?,
+            batch_source: None,
             metadata: session.memory().reserve(4096)?,
             nodes: 0,
             expression_nodes: 0,
@@ -96,6 +100,7 @@ impl<'a> Binder<'a> {
             sources,
             source_paths: paths,
             memory_sources,
+            batch_source: self.batch_source,
             metadata: self.metadata,
         })
     }
@@ -106,6 +111,7 @@ impl<'a> Binder<'a> {
         build: impl FnOnce(&ResidentVortexSession) -> Result<ResidentMemorySource>,
     ) -> Result<()> {
         if self.execution.is_some()
+            || self.batch_source.is_some()
             || !uri.as_str().starts_with("memory://")
             || uri.as_str().len() <= "memory://".len()
             || uri.as_str().len() > 16_384
@@ -130,7 +136,63 @@ impl<'a> Binder<'a> {
         Ok(())
     }
 
+    pub(super) fn register_batch_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        build_schema: impl FnOnce(&ResidentVortexSession) -> Result<ResidentMemorySource>,
+    ) -> Result<()> {
+        if self.execution.is_some()
+            || self.batch_source.is_some()
+            || !self.sources.values.is_empty()
+            || !self.memory_sources.values.is_empty()
+            || !uri.as_str().starts_with("memory://")
+            || uri.as_str().len() <= "memory://".len()
+            || uri.as_str().len() > 16_384
+        {
+            return Err(super::batch_input::failed(
+                "streaming input requires exactly one declared memory source before execution",
+            ));
+        }
+        self.charge(uri.as_str().len() * 8 + 4096)?;
+        let schema = build_schema(self.session)?;
+        if !schema.belongs_to_session(self.session)
+            || !schema.is_batch_source()
+            || schema.row_count() != 0
+        {
+            return Err(super::batch_input::failed(
+                "streaming schema requires an empty from_batch_columns source from this session",
+            ));
+        }
+        self.batch_source = Some((uri, schema));
+        Ok(())
+    }
+
+    pub(super) fn validate_batch_plan(&self, plan: &VortexRelationalPlan) -> Result<()> {
+        if let Some((uri, _)) = &self.batch_source {
+            super::batch_input::classify(plan, uri, 0)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn reject_dynamic_batch_input(&self) -> Result<()> {
+        if self.batch_source.is_some() {
+            return Err(super::batch_input::failed(
+                "dynamic schemas cannot consume streaming input; choose explicit resident mode",
+            ));
+        }
+        Ok(())
+    }
+
     fn input(&mut self, uri: &shardloom_core::DatasetUri) -> Result<SourceIndex> {
+        if let Some((declared, _)) = &self.batch_source {
+            return if declared == uri {
+                Ok(SourceIndex::Batch)
+            } else {
+                Err(super::batch_input::failed(
+                    "streaming input cannot share an execution with another source; choose explicit resident mode",
+                ))
+            };
+        }
         if let Some(index) = self
             .memory_sources
             .values
@@ -146,6 +208,12 @@ impl<'a> Binder<'a> {
         match source {
             SourceIndex::File(index) => self.sources.values[index].dtype(),
             SourceIndex::Memory(index) => self.memory_sources.values[index].1.dtype(),
+            SourceIndex::Batch => self
+                .batch_source
+                .as_ref()
+                .expect("registered batch source")
+                .1
+                .dtype(),
         }
     }
 
@@ -254,6 +322,11 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn source(&mut self, uri: &shardloom_core::DatasetUri) -> Result<usize> {
+        if self.batch_source.is_some() {
+            return Err(super::batch_input::failed(
+                "streaming input cannot add another file source",
+            ));
+        }
         if uri.as_str().len() > 16_384 {
             return Err(failed("source URI exceeds 16384 bytes"));
         }
@@ -376,6 +449,17 @@ impl<'a> Binder<'a> {
                     plan.filter.clone(),
                     None,
                 )?,
+            )),
+            SourceIndex::Batch => ScanSource::Batch(Box::new(
+                self.batch_source
+                    .as_ref()
+                    .expect("registered batch source")
+                    .1
+                    .prepare_projection(
+                        &columns.iter().map(String::as_str).collect::<Vec<_>>(),
+                        plan.filter.clone(),
+                        None,
+                    )?,
             )),
         };
         for (_, dtype) in &fields {

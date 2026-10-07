@@ -1,5 +1,17 @@
 # Vortex Upstream Dependency Review
 
+## October 7, 2026 FSST admission correction
+
+The input-completion integration retains Vortex 0.85.0 and `fsst-rs` 0.6.0.
+ShardLoom validates each selected row's encoded symbol expansion, populated
+symbol references and row-local escape boundaries before requesting decoded
+payload from the existing provider. This closes the hosted malformed-length
+assertion without adding a decoder, dependency, unsafe code or public feature.
+The [correction report](../benchmarks/native-fsst-admission-2026-10-07.md)
+preserves the original hosted failure, deterministic local reproduction, all
+13 passing FSST tests and complete corrected-runtime acceptance. The original
+input packet remains unchanged. Broader decoder scratch remains separate.
+
 ## October 7, 2026 native builder review
 
 `NATIVE-BUILDER-RESOURCES` retains Vortex 0.85.0 and extends the existing session
@@ -16,7 +28,8 @@ The [contract](../architecture/native-builder-resources-2026-10-07.md) and
 [acceptance](../benchmarks/native-builder-resources-2026-10-07.md) record the
 capacity/lifetime boundary, 13 pinned upstream source checks, 14 new ownership
 tests, the complete cost screen and source/public/Full43 regression proof.
-Local packet inspection passes; hosted integration is pending. Child decoder
+Local packet inspection and all 39 hosted checks passed; PR #1529 merged with
+the accepted runtime unchanged. Child decoder
 scratch and structural metadata remain outside the new byte-buffer claim.
 
 ## October 7, 2026 pinned decoder workspace review

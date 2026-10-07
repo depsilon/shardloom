@@ -226,7 +226,7 @@ fn register_sql_memory_inputs(
     Ok(())
 }
 
-fn admitted_statement(raw: &str) -> NativeResult<String> {
+fn admitted_statement(raw: &str) -> NativeResult<(String, bool)> {
     if raw.len() > 256 * 1024 {
         return Err(unsupported_sql_error("native SQL exceeds 256 KiB"));
     }
@@ -248,14 +248,15 @@ fn admitted_statement(raw: &str) -> NativeResult<String> {
         }
     }
     let mut statement = cte::expand(normalize_sql_statement(raw)?)?;
-    if top_level_keyword_indexes(&statement, "limit")?.is_empty() {
+    let synthetic_limit = top_level_keyword_indexes(&statement, "limit")?.is_empty();
+    if synthetic_limit {
         write!(&mut statement, " LIMIT {}", usize::MAX).expect("String writes cannot fail");
     }
-    Ok(statement)
+    Ok((statement, synthetic_limit))
 }
 
 fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> {
-    let statement = admitted_statement(raw)?;
+    let (statement, synthetic_limit) = admitted_statement(raw)?;
     let limit = top_level_keyword_indexes(&statement, "limit")?
         .last()
         .copied()
@@ -264,7 +265,7 @@ fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> 
         .into_iter()
         .filter(|index| *index > limit)
         .collect::<Vec<_>>();
-    let (query, offset) = match offsets.as_slice() {
+    let (mut query, offset) = match offsets.as_slice() {
         [] => Ok((ParsedRelationQuery::parse(&statement)?, 0)),
         [index] => {
             let offset = parse_limit(statement[index + "offset".len()..].trim())?;
@@ -277,6 +278,12 @@ fn parsed_native_query(raw: &str) -> NativeResult<(ParsedRelationQuery, usize)> 
             "native SQL admits one trailing OFFSET",
         )),
     }?;
+    // The legacy parser requires a limit token. Preserve its origin so a
+    // completion-aware source is not mistaken for a prefix-limited query.
+    // An explicitly written LIMIT (even usize::MAX) keeps its own semantics.
+    if synthetic_limit && let ParsedRelationQuery::Select(select) = &mut query {
+        select.limit_is_synthetic = true;
+    }
     scalar::validate_query(&query)?;
     Ok((query, offset))
 }

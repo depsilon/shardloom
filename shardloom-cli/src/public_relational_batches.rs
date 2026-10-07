@@ -54,6 +54,23 @@ fn execute(
         PublicSourcePreparations::default(),
         |uri, input, session| transport.build_source(uri, input, session),
     )?;
+    if let Some((uri, input)) = request.source_bindings.iter().find_map(|(uri, binding)| {
+        binding
+            .memory_input
+            .as_ref()
+            .filter(|input| {
+                matches!(
+                    input,
+                    crate::native_memory_input::MemoryInput::Batches {
+                        streaming: true,
+                        ..
+                    }
+                )
+            })
+            .map(|input| (uri.as_str(), input))
+    }) {
+        return execute_streaming(request, plan, &operation, normalized, transport, uri, input);
+    }
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.extend(adapter_fields(transport, normalized));
     let cancellation = transport.cancellation.clone();
@@ -80,7 +97,88 @@ fn execute(
         operation.for_each_json_batch(&cancellation, transport.batch_rows, 8 << 20, |batch| {
             transport.consume(&batch)
         })?;
-    append_execution(&mut fields, &result, false);
+    emit_batches(fields, &result, transport);
+    Ok(())
+}
+
+fn execute_streaming(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    operation: &super::PreparedVortexRelational,
+    normalized: usize,
+    transport: &mut Transport,
+    uri: &str,
+    declaration: &crate::native_memory_input::MemoryInput,
+) -> Result<(), ShardLoomError> {
+    let cancellation = transport.cancellation.clone();
+    cancellation.check()?;
+    let batch_rows = transport.batch_rows;
+    let stream_results = transport.stream_results;
+    let transport = std::cell::RefCell::new(transport);
+    let mut input = |session: &shardloom_vortex::resident_session::ResidentVortexSession| {
+        transport
+            .borrow_mut()
+            .next_source_batch(uri, declaration, session)
+    };
+    let execution = operation.with_batch_input(&mut input)?;
+    let completed_fields = || {
+        let mut fields = execution_attachment_fields("run", request, plan);
+        fields.extend(adapter_fields(&transport.borrow(), normalized));
+        fields
+    };
+    if is_write_request(request) {
+        #[cfg(feature = "vortex-write")]
+        {
+            let targets = super::native_vortex_primitive_row_export_targets(request, "run")
+                .map_err(|blocked| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{}: {:?}",
+                        blocked.blocker_reason, blocked.diagnostics,
+                    ))
+                })?;
+            if targets.len() != 1 {
+                return Err(ShardLoomError::InvalidOperation(
+                    "SL-NATIVE-BATCH: streaming input requires one native Vortex destination; choose explicit resident mode for fanout; no fallback execution was attempted".into(),
+                ));
+            }
+            let result = execution.write_controlled(
+                &targets[0].path,
+                targets[0].format,
+                request.allow_overwrite,
+                &cancellation,
+            )?;
+            super::emit_written(
+                OutputFormat::Json,
+                &targets,
+                vec![result],
+                completed_fields(),
+                false,
+            );
+            return Ok(());
+        }
+        #[cfg(not(feature = "vortex-write"))]
+        return Err(ShardLoomError::InvalidOperation(
+            "native writers require vortex-write".into(),
+        ));
+    }
+    if !stream_results {
+        let result = execution.collect_jsonl(&cancellation)?;
+        super::emit_collected(OutputFormat::Json, result, completed_fields(), false);
+        return Ok(());
+    }
+    let result = execution.for_each_json_batch(&cancellation, batch_rows, 8 << 20, |batch| {
+        transport.borrow_mut().consume(&batch)
+    })?;
+    emit_batches(completed_fields(), &result, &transport.borrow());
+    Ok(())
+}
+
+fn emit_batches(
+    mut fields: Vec<(String, String)>,
+    result: &super::ExecutedVortexRelational,
+    transport: &Transport,
+) {
+    append_execution(&mut fields, result, false);
     fields.extend([
         ("result_payload_complete".into(), "true".into()),
         (
@@ -102,7 +200,6 @@ fn execute(
         vec![],
         fields,
     );
-    Ok(())
 }
 
 fn adapter_fields(transport: &Transport, normalized: usize) -> [(String, String); 10] {

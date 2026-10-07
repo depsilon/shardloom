@@ -9,6 +9,7 @@
 use std::sync::Arc;
 
 use shardloom_core::{Result, ShardLoomError};
+use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
@@ -34,6 +35,7 @@ pub use owned_intake::OwnedMemoryColumn;
 #[path = "resident_memory_batches.rs"]
 mod batches;
 pub use batches::MemoryBatchSourceBuilder;
+pub(crate) use batches::{MAX_BATCH_ROWS, MAX_BATCHES, MAX_COLUMNS};
 
 /// Explicit flat-scalar input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
@@ -80,6 +82,9 @@ struct MemorySourceOwner {
     bounds: MemorySourceBounds,
     input_logical_bytes: usize,
     intake_payload_bytes_copied: u64,
+    // Present only for a private, finite streaming intake batch. Every payload
+    // buffer also holds this credit, including cloned/sliced child buffers.
+    batch_metadata: Option<Arc<MemoryLease>>,
 }
 
 /// Validated immutable native memory, visible without durable publication.
@@ -138,6 +143,7 @@ impl ResidentMemorySource {
             },
             input_logical_bytes: rows * 8 + name.len(),
             intake_payload_bytes_copied: 0,
+            batch_metadata: None,
         })))
     }
 
@@ -213,6 +219,7 @@ impl ResidentMemorySource {
             bounds,
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
+            batch_metadata: None,
         })))
     }
 
@@ -238,10 +245,65 @@ impl ResidentMemorySource {
     ) -> Result<Self> {
         let (rows, input_logical_bytes) = validate_columns(columns, bounds, max_columns)?;
         let allocator = session.native_allocator();
+        Self::build_columns(
+            session,
+            columns,
+            bounds,
+            rows,
+            input_logical_bytes,
+            &allocator,
+            None,
+        )
+    }
+
+    /// Copy one private, finite batch for completion-aware native input. The
+    /// structural reservation follows every buffer alias until it is released.
+    /// A typed empty batch may declare the schema before opening a producer.
+    /// # Errors
+    /// Rejects more than 128 fields, 2,048 rows or 32 MiB of logical input,
+    /// invalid scalar values and shared-memory admission failures.
+    pub fn from_batch_columns(
+        session: &ResidentVortexSession,
+        columns: &[MemoryColumn<'_>],
+    ) -> Result<Self> {
+        let bounds = MemorySourceBounds {
+            max_input_rows: MAX_BATCH_ROWS,
+            ..MemorySourceBounds::default()
+        };
+        let (rows, bytes) = validate_columns(columns, bounds, MAX_COLUMNS)?;
+        let metadata = Arc::new(
+            session
+                .memory()
+                .reserve((columns.len() as u64 + 1) * 1024)?,
+        );
+        let allocator = crate::owned_buffers::with_shared_credit(
+            session.native_allocator(),
+            Arc::clone(&metadata),
+        );
+        Self::build_columns(
+            session,
+            columns,
+            bounds,
+            rows,
+            bytes,
+            &allocator,
+            Some(metadata),
+        )
+    }
+
+    fn build_columns(
+        session: &ResidentVortexSession,
+        columns: &[MemoryColumn<'_>],
+        bounds: MemorySourceBounds,
+        rows: usize,
+        input_logical_bytes: usize,
+        allocator: &HostAllocatorRef,
+        batch_metadata: Option<Arc<MemoryLease>>,
+    ) -> Result<Self> {
         let mut intake_payload_bytes_copied = 0;
         let fields = columns
             .iter()
-            .map(|column| build_column(column.values, &allocator, &mut intake_payload_bytes_copied))
+            .map(|column| build_column(column.values, allocator, &mut intake_payload_bytes_copied))
             .collect::<Result<Vec<_>>>()?;
         let names = FieldNames::from(columns.iter().map(|column| column.name).collect::<Vec<_>>());
         let array = StructArray::try_new(names, fields, rows, Validity::NonNullable)
@@ -253,7 +315,29 @@ impl ResidentMemorySource {
             bounds,
             input_logical_bytes,
             intake_payload_bytes_copied,
+            batch_metadata,
         })))
+    }
+
+    pub(crate) fn is_batch_source(&self) -> bool {
+        self.0.batch_metadata.is_some()
+    }
+
+    pub(crate) fn batch_release_witness(&self) -> Result<std::sync::Weak<MemoryLease>> {
+        if Arc::strong_count(&self.0) != 1 {
+            return Err(memory_error(
+                "SL-NATIVE-BATCH: input batch must transfer private ownership",
+            ));
+        }
+        self.0
+            .batch_metadata
+            .as_ref()
+            .map(Arc::downgrade)
+            .ok_or_else(|| {
+                memory_error(
+                    "SL-NATIVE-BATCH: streaming input requires from_batch_columns ownership",
+                )
+            })
     }
 
     #[must_use]
@@ -400,6 +484,25 @@ impl PreparedMemoryProjection {
         self.source.0.session.validate_execution_context(context)?;
         let array = self.source.0.array.slice(range).map_err(native_error)?;
         let result = self.execute_array(array, context.native_session())?;
+        context.check_cancelled()?;
+        Ok(result)
+    }
+
+    /// Reuse the schema-bound projection against the current input batch.
+    pub(crate) fn execute_batch(
+        &self,
+        source: &ResidentMemorySource,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        self.source.0.session.validate_execution_context(context)?;
+        if !source.belongs_to_session(&self.source.0.session)
+            || source.dtype() != self.source.dtype()
+        {
+            return Err(memory_error(
+                "SL-NATIVE-BATCH: input changed its declared schema or resource owner",
+            ));
+        }
+        let result = self.execute_array(source.0.array.clone(), context.native_session())?;
         context.check_cancelled()?;
         Ok(result)
     }

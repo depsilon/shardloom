@@ -174,9 +174,12 @@ impl Transport {
         input: &MemoryInput,
         session: &ResidentVortexSession,
     ) -> Result<ResidentMemorySource> {
-        let MemoryInput::Batches { schema } = input else {
+        let MemoryInput::Batches { schema, streaming } = input else {
             return input.build(session);
         };
+        if *streaming {
+            return crate::native_memory_rows::build_batch(schema, &[], session);
+        }
         let mut builder = MemoryBatchSourceBuilder::new(session, self.cancellation.clone())?;
         self.input_sources += 1;
         let mut index = 0;
@@ -214,6 +217,56 @@ impl Transport {
             }
         }
         builder.finish()
+    }
+
+    /// Demand one batch only after the engine released its previous input. The
+    /// native executor owns cumulative bounds and end-of-input certification.
+    pub(crate) fn next_source_batch(
+        &mut self,
+        uri: &str,
+        input: &MemoryInput,
+        session: &ResidentVortexSession,
+    ) -> Result<Option<ResidentMemorySource>> {
+        let MemoryInput::Batches {
+            schema,
+            streaming: true,
+        } = input
+        else {
+            return Err(failed(
+                "streaming demand requires an explicit streaming declaration",
+            ));
+        };
+        self.cancellation.check()?;
+        let _scratch = session.reserve_input_scratch(INTAKE_SCRATCH)?;
+        self.input_scratch_peak_bytes = INTAKE_SCRATCH;
+        let index = self.input_batches;
+        send(
+            &serde_json::json!({"kind":"input", "uri":uri, "index":index, "max_rows":2048, "max_bytes":MAX_FRAME}),
+        )?;
+        self.input_sources = 1;
+        match self.incoming()? {
+            Incoming::Rows {
+                uri: actual,
+                index: sequence,
+                rows,
+            } if actual == uri && sequence == index => {
+                if index == 4096 {
+                    return Err(failed("streaming source exceeds 4,096 payload batches"));
+                }
+                let source = crate::native_memory_rows::build_batch(schema, &rows, session)?;
+                self.cancellation.check()?;
+                self.input_batches += 1;
+                self.input_rows += rows.len() as u64;
+                Ok(Some(source))
+            }
+            Incoming::End {
+                uri: actual,
+                index: sequence,
+            } if actual == uri && sequence == index => Ok(None),
+            _ => Err(failed(
+                "input batch kind, source or sequence does not match native demand",
+            )),
+        }
     }
 
     pub(crate) fn consume(&mut self, batch: &SerializedVortexResultBatch) -> Result<()> {

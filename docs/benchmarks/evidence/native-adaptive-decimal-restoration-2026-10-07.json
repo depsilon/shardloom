@@ -1,0 +1,123 @@
+{
+  "schema_version": "shardloom.adaptive_decimal_restoration.v1",
+  "status": "verified",
+  "restored_source_assets": 941,
+  "restored_source_identity_sha256": "a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f",
+  "accepted_identity_serialization": "Python json.dumps(source_hashes, sort_keys=True), default separators",
+  "compact_source_identity_sha256": "2885db05dc02012c70a32361901488c325956fcbed3ab1d2fb3e74356be01247",
+  "accepted_runtime": "53cd1582a5975ac4e206a21e45415c919c5b6b4f",
+  "source_commit": "5940fb8acb8f7be9bdc06ac3f38bc3edd379a7b3",
+  "existing_files_restored": {
+    "shardloom-vortex/src/local_primitives/native_decimal_reduce.rs": "2d1682f7b7bf116807683a3d6c3c900d3ad70a296725c96e38845c76d2e2914e",
+    "shardloom-vortex/src/local_primitive_relational_tests.rs": "259b15e7930a1dd10c92370be6092e05c3caefb0f2adaf802114508d12de4685"
+  },
+  "candidate_only_files_removed": [
+    "shardloom-vortex/src/local_primitive_relational_decimal_screen_tests.rs",
+    "shardloom-vortex/src/local_primitives/native_decimal_reduce_cost.rs"
+  ],
+  "decision_index_sha256": "fafd6d98c3235a7d439900c389140840ec1d50fa315dd9578f4f0acf1db86774",
+  "archive_sha256": "b59fe7cd1e9b3d63adae842e6471d54873b4eebee816708d32c017f17d3a8c4c",
+  "portable_unique_payloads_reopened": 2152,
+  "portable_paths_verified": 3389,
+  "complete_operation_processes_verified": 240,
+  "timed_complete_calls_verified": 1200,
+  "candidate_snapshots_verified": 2,
+  "candidate_snapshot_assets_each": 943,
+  "original_failures_retained": true,
+  "native_jobs_run_for_restoration": false,
+  "verifier_sha256": "4cbe2c32d7e8bc373621dc1600f059b9024074119d97a668e9a69bbd1918b298",
+  "verifier_source": "\"\"\"Reopen portable evidence and prove the active runtime was restored exactly.\"\"\"\nimport hashlib\nimport json\nfrom pathlib import Path\nimport statistics\nimport tarfile\nimport decimal_common as c\n\nindex_path = c.ROOT/'docs/benchmarks/evidence/native-adaptive-decimal-2026-10-07.json'\nindex = c.read(index_path)\narchive = c.ROOT/index['archive']\nassert c.sha(archive) == index['archive_sha256'] and archive.stat().st_size == index['archive_bytes']\npayloads = {}\nwith tarfile.open(archive,'r:xz') as tar:\n    for member in tar:\n        assert member.isfile() and not member.name.startswith('/') and '..' not in Path(member.name).parts\n        raw = tar.extractfile(member).read()\n        if member.name == 'manifest.json':\n            assert hashlib.sha256(raw).hexdigest() == index['manifest_sha256']\n            manifest = json.loads(raw)\n        else:\n            digest = member.name.removeprefix('files/')\n            assert member.name == 'files/'+digest and hashlib.sha256(raw).hexdigest() == digest\n            assert digest not in payloads\n            payloads[digest] = raw\nassert len(payloads) == index['unique_payload_count']\nassert len(manifest['paths']) == index['source_path_count']\nassert set(payloads) == {item['sha256'] for item in manifest['paths'].values()}\nfor item in manifest['paths'].values():\n    assert item['member'] == 'files/'+item['sha256']\n    assert len(payloads[item['sha256']]) == item['bytes']\n\n\ndef data(name):\n    return payloads[manifest['paths']['$EXPERIMENT/'+name]['sha256']]\n\n\ndef value(name):\n    return json.loads(data(name))\n\n\nfreeze = value('decimal-screen-freeze-1.json')\nsummary = value('screen-1/summary.json')\ndecision = value('decimal-screen-analysis-1.json')\nassert hashlib.sha256(data('decimal-screen-freeze-1.json')).hexdigest() == index['freeze_sha256']\nassert hashlib.sha256(data('screen-1/summary.json')).hexdigest() == index['summary_sha256']\nassert hashlib.sha256(data('decimal-screen-analysis-1.json')).hexdigest() == index['analysis_sha256']\nassert hashlib.sha256(data('finalize_decimal_drop.py')).hexdigest() == index['packet_driver_sha256']\nassert len(summary['records']) == 240 and decision['timed_complete_calls'] == 1200\nby_key = {(r['cell'],r['round'],r['role']):r for r in summary['records']}\nassert len(by_key) == 240\nfor cell,cell_result in decision['cells'].items():\n    ratios = []\n    for round_number in range(1,16):\n        control = by_key[(cell,round_number,'control')]\n        candidate = by_key[(cell,round_number,'candidate')]\n        for record in (control,candidate):\n            assert not record['failed'] and not record['postcheck_errors']\n            native = record['native']\n            assert len(native['complete_calls_nanos']) == 5\n            assert native['per_call_sha256'] == [freeze['fixtures'][cell]['result_sha256']]*5\n            for artifact in list(record['artifacts'].values())+[record['receipt_artifact']]:\n                relative = str(Path(artifact['path']).relative_to(c.OUT))\n                assert hashlib.sha256(data(relative)).hexdigest() == artifact['sha256']\n        ratios.append(sum(candidate['native']['complete_calls_nanos'])/sum(control['native']['complete_calls_nanos']))\n    assert statistics.median(ratios) == cell_result['median_paired_ratio'] == index['cells'][cell]['median_paired_ratio']\nassert index['status'] == 'dropped_below_frozen_complete_operation_gate'\nassert not index['retained'] and not index['confirmation_run']\nassert not index['gates']['primary_score_at_most_0_97']\nassert not index['gates']['at_least_two_primary_cells_improve_three_percent']\ninitial = value('decimal-control-freeze-1.json')\nfor attempt in (1,2):\n    snapshot = value(f'decimal-source-{attempt}.json')\n    assert len(snapshot['candidate_source_hashes']) == 943\n    for name,digest in snapshot['candidate_source_hashes'].items():\n        assert hashlib.sha256(data(f'decimal-source-files-{attempt}/{name}')).hexdigest() == digest\nfor cell,fixture in freeze['fixtures'].items():\n    relative = str(Path(fixture['oracle']).relative_to(c.OUT))\n    assert hashlib.sha256(data(relative)).hexdigest() == fixture['oracle_sha256']\n    assert len(json.loads(data(relative))) == fixture['result_rows']\nassert len(value('components-1/summary.json')['records']) == 5\nassert len(value('fixture-validation-2/summary.json')['records']) == 24\n\ncurrent = c.source_hashes()\nassert current == initial['source_hashes'] and len(current) == 941\naccepted_identity = c.digest(json.dumps(current,sort_keys=True).encode())\nassert accepted_identity == index['accepted_source_identity_sha256']\nassert not (c.ROOT/c.HARNESS).exists() and not (c.ROOT/c.COST).exists()\nfor name in (c.MODULE,c.PARENT):\n    assert c.sha(c.ROOT/name) == initial['source_hashes'][name]\nguard = c.read(c.OUT/'decimal-finalize-drop-guard-1.json')\nassert guard['status'] == 'passed' and guard['process_group_drained'] and guard['direct_child_reaped']\nassert c.sha(c.OUT/'decimal-finalize-drop-guard-1.log') == guard['log_sha256']\nproof = {'schema_version':'shardloom.adaptive_decimal_restoration.v1','status':'verified',\n    'restored_source_assets':len(current),'restored_source_identity_sha256':accepted_identity,\n    'accepted_identity_serialization':'Python json.dumps(source_hashes, sort_keys=True), default separators',\n    'compact_source_identity_sha256':c.identity(current),\n    'accepted_runtime':initial['accepted_runtime'],'source_commit':c.git('rev-parse','HEAD'),\n    'existing_files_restored':{name:current[name] for name in (c.MODULE,c.PARENT)},\n    'candidate_only_files_removed':[c.HARNESS,c.COST],\n    'decision_index_sha256':c.sha(index_path),'archive_sha256':c.sha(archive),\n    'portable_unique_payloads_reopened':len(payloads),'portable_paths_verified':len(manifest['paths']),\n    'complete_operation_processes_verified':240,'timed_complete_calls_verified':1200,\n    'candidate_snapshots_verified':2,'candidate_snapshot_assets_each':943,\n    'original_failures_retained':True,'native_jobs_run_for_restoration':False,\n    'verifier_sha256':c.sha(Path(__file__)),\n    'verifier_source':Path(__file__).read_text(),\n    'prior_verification_failure':{'receipt':c.read(c.OUT/'decimal-restoration-check-guard-1.json'),\n        'log':(c.OUT/'decimal-restoration-check-guard-1.log').read_text(),\n        'correction':'All 941 per-file hashes already matched. Compare the historical aggregate digest using its original default JSON separators; the newer experiment helper uses compact separators. No engine source or measurements changed.'},\n    'finalizer_guard_sha256':c.sha(c.OUT/'decimal-finalize-drop-guard-1.json'),\n    'finalizer_guard':guard}\nc.write(c.ROOT/index['source_restoration_proof'],proof)\nc.write(c.OUT/'decimal-restoration-1.json',proof)\nprint(json.dumps({key:proof[key] for key in ('status','restored_source_assets','restored_source_identity_sha256',\n    'portable_unique_payloads_reopened','portable_paths_verified','timed_complete_calls_verified')}),flush=True)\n",
+  "prior_verification_failure": {
+    "receipt": {
+      "status": "failed",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/native-conditional-work-20261007/verify_decimal_drop_packet.py"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "head": "5940fb8acb8f7be9bdc06ac3f38bc3edd379a7b3",
+      "working_tree": " M docs/architecture/native-conditional-work-campaign-2026-10-07.md\n M docs/architecture/phased-execution-plan.md\n?? docs/architecture/native-adaptive-decimal-2026-10-07.md\n?? docs/benchmarks/evidence/native-adaptive-decimal-2026-10-07.json\n?? docs/benchmarks/evidence/native-adaptive-decimal-2026-10-07.tar.xz\n",
+      "environment": {
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0"
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 492371968,
+          "log_bytes": 0,
+          "free_bytes": 39906480128,
+          "reserved_candidate_bytes": 134217728
+        },
+        "cargo": {
+          "workspace_bytes": 43903279104,
+          "log_bytes": 0,
+          "free_bytes": 39906537472,
+          "reserved_candidate_bytes": 134217728
+        }
+      },
+      "timeout_seconds": 600.0,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 95350,
+      "output_bytes": 327,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 1,
+      "seconds": 0.3665420000033919,
+      "log_sha256": "20ca949e8ef54ee05ba3334c456fd9d0c53bd653ee36c4b03657a244adb8ee0a"
+    },
+    "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-conditional-work-20261007/verify_decimal_drop_packet.py\", line 86, in <module>\n    assert c.identity(current) == index['accepted_source_identity_sha256']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "correction": "All 941 per-file hashes already matched. Compare the historical aggregate digest using its original default JSON separators; the newer experiment helper uses compact separators. No engine source or measurements changed."
+  },
+  "finalizer_guard_sha256": "6bf7bab2e994fdfda8c9232bc6bdd108a572c4d57af049ef3b3f7251aa836e14",
+  "finalizer_guard": {
+    "status": "passed",
+    "command": [
+      "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+      "-B",
+      "/Users/dylan/LocalData/shardloom/native-conditional-work-20261007/finalize_decimal_drop.py"
+    ],
+    "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+    "head": "5940fb8acb8f7be9bdc06ac3f38bc3edd379a7b3",
+    "working_tree": " M docs/architecture/native-conditional-work-campaign-2026-10-07.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitive_relational_tests.rs\n M shardloom-vortex/src/local_primitives/native_decimal_reduce.rs\n?? docs/architecture/native-adaptive-decimal-2026-10-07.md\n?? shardloom-vortex/src/local_primitive_relational_decimal_screen_tests.rs\n?? shardloom-vortex/src/local_primitives/native_decimal_reduce_cost.rs\n",
+    "environment": {
+      "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0"
+    },
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "storage_last_observation": {
+      "output": {
+        "workspace_bytes": 492343296,
+        "log_bytes": 0,
+        "free_bytes": 39907581952,
+        "reserved_candidate_bytes": 134217728
+      },
+      "cargo": {
+        "workspace_bytes": 43903279104,
+        "log_bytes": 0,
+        "free_bytes": 39903490048,
+        "reserved_candidate_bytes": 134217728
+      }
+    },
+    "timeout_seconds": 1800.0,
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "output_limit_bytes": 8388608,
+    "timed_out": false,
+    "interrupted_signal": null,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "pid": 95236,
+    "output_bytes": 228,
+    "group_absence_unproved_at_cleanup": false,
+    "returncode": 0,
+    "seconds": 111.8505300830002,
+    "log_sha256": "a683c344bbcc17bb330ffd6961568b455f40926a233e73ca829e9b4f17b0ea46"
+  }
+}

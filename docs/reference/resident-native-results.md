@@ -44,17 +44,28 @@ worker attempts do not cancel the parent.
 
 ## Python Batch Input and Results
 
-Accepted local source adds `shardloom.from_batches` / `ShardLoomContext.from_batches`
-and `LazyFrame.iter_batches` / `SqlWorkflow.iter_batches`. Hosted integration
-and released-package availability are separate. The
+Current source exposes `shardloom.from_batches` / `ShardLoomContext.from_batches`
+and `LazyFrame.iter_batches` / `SqlWorkflow.iter_batches`, merged in PR #1526
+after local and hosted checks. Published v0.4.0 predates those adapters. The
 [batch API contract and example](../architecture/native-bounded-adapters-2026-10-06.md)
 define exact types, resource bounds and failure behavior.
 
 Input batches contain up to 2,048 row mappings with an explicit schema of up to
 128 nullable Int64, finite Float64, Boolean or UTF8 fields. An iterable is used
 once; a factory supplies fresh input on repeated execution. Each frame is at
-most 8 MiB, with at most 4,096 batches per source. Total native input must fit
-the shared resident grant; batching does not admit input spill.
+most 8 MiB, with at most 4,096 batches per source. In the default resident mode
+(`streaming=False`), total native input must fit the shared grant.
+
+Opt-in `streaming=True` has separate [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
+under the [completion-aware input contract](../architecture/native-input-completion-2026-10-07.md).
+One finite source is consumed once through pure Scan/Filter/Project, retaining
+at most one native input batch. It supports incremental results, bounded small
+collection or one native Vortex destination. Cumulative input may exceed the
+query grant within the finite batch/frame limits; typed intake, output compaction
+and result/sink reservations remain charged. Unsupported plans reject before
+producer consumption. Observed end-of-input is required for success. Neither
+mode adds input spill or an RSS bound. Final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 
 `iter_batches(batch_rows=2048, memory_gb=..., max_parallelism=..., spill=...)`
 delivers admitted typed/nested results with acknowledged backpressure. Consume

@@ -189,10 +189,22 @@ for its separate local and hosted evidence. The
 [builder resource acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-builder-resources-2026-10-07.md)
 also covers native primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string builder finalization buffers. Local source and complete workflow
-checks pass; hosted integration is pending. Child decoder scratch, structural
+checks pass; PR #1529 merged after all 39 hosted checks passed, with the accepted
+runtime unchanged. Child decoder scratch, structural
 metadata, compression contexts, dictionary training and other unreviewed
 allocations remain outside this finite scope. These resource corrections make
 no speedup claim, and a query grant still does not bound total process RSS.
+
+Opt-in `from_batches(..., streaming=True)` now has separate
+[local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-fsst-admission-2026-10-07.md),
+including complete 4.5-GiB UTF8 input under a 1-GiB native grant. It retains at
+most one native input batch and admits only one finite source through pure
+scan/filter/project operations. Output compaction prevents retained results from
+pinning input; native sink metadata and retained output still consume credits.
+Late failure prevents successful completion and incomplete file publication.
+The accepted runtime also rejects malformed FSST row lengths before native
+decoder allocation. Final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530); published v0.4.0 is unchanged.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an

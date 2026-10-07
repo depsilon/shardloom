@@ -1,0 +1,224 @@
+{
+  "schema_version": "shardloom.adaptive_decimal_decision.v1",
+  "status": "dropped_below_frozen_complete_operation_gate",
+  "retained": false,
+  "source_commit": "5940fb8acb8f7be9bdc06ac3f38bc3edd379a7b3",
+  "accepted_runtime": "53cd1582a5975ac4e206a21e45415c919c5b6b4f",
+  "accepted_source_assets": 941,
+  "accepted_source_identity_sha256": "a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f",
+  "candidate_source_assets": 943,
+  "candidate_source_identity_sha256": "5cbb7a6a69b1e38aa4f46b5e8cac652ee42df4aeb3aa9fbe18a18471981bf346",
+  "source_restoration_proof": "docs/benchmarks/evidence/native-adaptive-decimal-restoration-2026-10-07.json",
+  "freeze_sha256": "92fb43bfe95a30337d71201a3bf8df29fd6cb6afa89bb34295da69dbdba89c04",
+  "summary_sha256": "110a11be960a3b3caaa73feaf4778560ad3d842d97a713414d7341ef18971bbd",
+  "analysis_sha256": "5148a1d494063abc884948d75c697066c98a7203203b87ff51d2c5e1d531d1c4",
+  "complete_operation_processes": 240,
+  "timed_complete_calls": 1200,
+  "exact_validation_processes": 24,
+  "candidate_correctness_tests": 28,
+  "ignored_component_test": 1,
+  "primary_score": 0.9890974051127258,
+  "paired_bootstrap_95_interval": [
+    0.9871760411916376,
+    0.9934840434729503
+  ],
+  "gates": {
+    "primary_score_at_most_0_97": false,
+    "bootstrap_upper_below_one": true,
+    "at_least_two_primary_cells_improve_three_percent": false,
+    "no_material_primary_or_control_regression": true
+  },
+  "cells": {
+    "dense_sum": {
+      "role": "primary",
+      "median_paired_ratio": 0.9783156293751402,
+      "median_paired_difference_per_call_microseconds": -344.0332,
+      "control_median_call_milliseconds": 16.0067748,
+      "candidate_median_call_milliseconds": 15.6858916,
+      "material_regression": false
+    },
+    "dense_avg": {
+      "role": "primary",
+      "median_paired_ratio": 0.9824767842544943,
+      "median_paired_difference_per_call_microseconds": -281.3418,
+      "control_median_call_milliseconds": 15.9807752,
+      "candidate_median_call_milliseconds": 15.6653918,
+      "material_regression": false
+    },
+    "many_groups": {
+      "role": "primary",
+      "median_paired_ratio": 0.9798697279177957,
+      "median_paired_difference_per_call_microseconds": -864.025,
+      "control_median_call_milliseconds": 43.1409998,
+      "candidate_median_call_milliseconds": 42.3659,
+      "material_regression": false
+    },
+    "rolling_sum": {
+      "role": "primary",
+      "median_paired_ratio": 1.0029656425753395,
+      "median_paired_difference_per_call_microseconds": 99.47439999999999,
+      "control_median_call_milliseconds": 33.5840334,
+      "candidate_median_call_milliseconds": 33.9782414,
+      "material_regression": false
+    },
+    "rolling_mean": {
+      "role": "primary",
+      "median_paired_ratio": 1.0021659130767315,
+      "median_paired_difference_per_call_microseconds": 75.1748,
+      "control_median_call_milliseconds": 34.6161168,
+      "candidate_median_call_milliseconds": 34.7265918,
+      "material_regression": false
+    },
+    "wide_avg": {
+      "role": "control",
+      "median_paired_ratio": 1.0027852556218722,
+      "median_paired_difference_per_call_microseconds": 131.63320000000002,
+      "control_median_call_milliseconds": 47.3641836,
+      "candidate_median_call_milliseconds": 47.4475586,
+      "material_regression": false
+    },
+    "promoted_groups": {
+      "role": "control",
+      "median_paired_ratio": 1.0027168365804127,
+      "median_paired_difference_per_call_microseconds": 268.81640000000004,
+      "control_median_call_milliseconds": 98.3557748,
+      "candidate_median_call_milliseconds": 98.9078498,
+      "material_regression": false
+    },
+    "integer_sum": {
+      "role": "control",
+      "median_paired_ratio": 0.9968984238453097,
+      "median_paired_difference_per_call_microseconds": -45.083400000000005,
+      "control_median_call_milliseconds": 14.5221084,
+      "candidate_median_call_milliseconds": 14.4367748,
+      "material_regression": false
+    }
+  },
+  "component_results": [
+    {
+      "cell": "narrow_add_merge",
+      "total_bytes": 64,
+      "median_narrow_to_wide_ratio": 0.7853650118734058,
+      "narrow_work": {
+        "finalizations": 8192,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 532480,
+        "overflow_promotions": 0,
+        "updates": 532480,
+        "wide_operand_updates": 0
+      },
+      "wide_work": {
+        "finalizations": 8192,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 0,
+        "overflow_promotions": 0,
+        "updates": 532480,
+        "wide_operand_updates": 532480
+      }
+    },
+    {
+      "cell": "wide_add_merge",
+      "total_bytes": 64,
+      "median_narrow_to_wide_ratio": 0.9995818382049255,
+      "narrow_work": {
+        "finalizations": 8192,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 16384,
+        "overflow_promotions": 16384,
+        "updates": 532480,
+        "wide_operand_updates": 499712
+      },
+      "wide_work": {
+        "finalizations": 8192,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 0,
+        "overflow_promotions": 0,
+        "updates": 532480,
+        "wide_operand_updates": 532480
+      }
+    },
+    {
+      "cell": "cancellation_groups",
+      "total_bytes": 64,
+      "median_narrow_to_wide_ratio": 0.9978812997587236,
+      "narrow_work": {
+        "finalizations": 8192,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 16384,
+        "overflow_promotions": 16384,
+        "updates": 73728,
+        "wide_operand_updates": 40960
+      },
+      "wide_work": {
+        "finalizations": 8192,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 0,
+        "overflow_promotions": 0,
+        "updates": 73728,
+        "wide_operand_updates": 73728
+      }
+    },
+    {
+      "cell": "rolling_narrow",
+      "total_bytes": 64,
+      "median_narrow_to_wide_ratio": 0.965164041473307,
+      "narrow_work": {
+        "finalizations": 262081,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 524224,
+        "overflow_promotions": 0,
+        "updates": 524224,
+        "wide_operand_updates": 0
+      },
+      "wide_work": {
+        "finalizations": 262081,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 0,
+        "overflow_promotions": 0,
+        "updates": 524224,
+        "wide_operand_updates": 524224
+      }
+    },
+    {
+      "cell": "rolling_promoted",
+      "total_bytes": 64,
+      "median_narrow_to_wide_ratio": 1.0000489977029352,
+      "narrow_work": {
+        "finalizations": 262141,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 1,
+        "overflow_promotions": 1,
+        "updates": 524284,
+        "wide_operand_updates": 524282
+      },
+      "wide_work": {
+        "finalizations": 262141,
+        "inherited_wide_merges": 0,
+        "narrow_successes": 0,
+        "overflow_promotions": 0,
+        "updates": 524284,
+        "wide_operand_updates": 524284
+      }
+    }
+  ],
+  "component_pairs": 75,
+  "component_summary_sha256": "c227629fb6cbeb75c0dfdffac0dbf1504b3a9c85a1d35e49ae6258485f04569d",
+  "confirmation_run": false,
+  "confirmation_reason": "The first screen fails its frozen 3% primary and two-winner gates.",
+  "unrun_checks": "No independent confirmation, full candidate workspace/public/golden or Full43 acceptance was run after the failed retention gate. No candidate is shipped.",
+  "claim_boundary": "This is a dropped experiment. Component savings and a 1.09% scoped operation score are not a retained runtime or general engine improvement. No state-size reduction.",
+  "native_io_boundary": "All measured native I/O certificates are certified with fallback_attempted=false; this certificate schema does not expose external_engine_invoked, which remains null rather than an invented Boolean.",
+  "guard_boundary": "The reused WorkloadGuard helper is preserved at finalization; its external module hash was not individually frozen before timing. The bounded process supervisor and in-repository timing/storage helpers were pinned.",
+  "failed_preflights_preserved": true,
+  "all_raw_samples_preserved": true,
+  "archive": "docs/benchmarks/evidence/native-adaptive-decimal-2026-10-07.tar.xz",
+  "archive_bytes": 4039412,
+  "archive_sha256": "b59fe7cd1e9b3d63adae842e6471d54873b4eebee816708d32c017f17d3a8c4c",
+  "manifest_sha256": "bb463bd524007756fae0496661c5534987b0c0098c4c877c3c6ee864168d1979",
+  "source_path_count": 3389,
+  "unique_payload_count": 2152,
+  "unique_payload_bytes": 50750658,
+  "archive_reopen": "all_members_sha256_verified_without_extraction",
+  "packet_driver_sha256": "3bc1a1cbe54cd039c85eb34a26dbdc6f8ad6a610c26c9a9fd4eb8fd43c2e0c0f",
+  "finalized_utc": "2026-10-07T13:32:01.224317+00:00"
+}

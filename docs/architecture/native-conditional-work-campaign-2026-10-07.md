@@ -1,8 +1,19 @@
 # Conditional exact work campaign
 
-Status: source-grounded intake and experiment queue for the maintainer's second
-October 7 candidate set. None of these six strategies has been implemented,
-benchmarked or retained. The reviewed runtime is `53cd1582`, whose 941 runtime
+Status: active experiment queue for the maintainer's second October 7 candidate
+set. The [adaptive decimal screen](../benchmarks/native-adaptive-decimal-2026-10-07.md)
+is **dropped**: its 1.09% primary-score improvement misses the frozen 3% gate,
+and no primary cell reaches 3%. Exact outputs pass; the candidate is removed.
+The [conservative membership screen](../benchmarks/native-join-membership-2026-10-07.md)
+is also **dropped**: its 6.88% mostly-absent gain cannot override 4.17% and 3.28%
+high-match control regressions. No candidate has been retained. Four other tracks
+remain gated. The separate completion-aware input unit now has
+[corrected local engine and packet acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
+after an FSST integration fix. Refreshed documentation and hosted integration are
+tracked in [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+It makes no retained performance claim for
+the six candidates in this intake.
+The reviewed control runtime is `53cd1582`, whose 941 runtime
 assets match builder snapshot
 `a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f`.
 Published v0.4.0 and the broader PERF/CG status remain unchanged.
@@ -16,18 +27,23 @@ not predictions of ShardLoom performance.
 
 ## Order and ownership
 
-Finish builder evidence and hosted integration before changing runtime source.
-The first new performance screen is adaptive exact decimal accumulation under
-PERF-04/10/12, followed by conservative membership filtering under
-PERF-02/03/10/12 and CG-14's conservative-proof obligation. Source/design work for
-completion-aware input continues as the next architectural capability under
-PERF-03/07/11/12. Run native workloads serially; independent source research does
+Builder evidence and hosted integration are complete in PR #1529, with the
+accepted runtime unchanged. Subsequent source changes use a separate snapshot.
+The adaptive exact decimal screen under PERF-04/10/12 is closed and dropped,
+with all source, failures and 1,200 timed complete calls preserved. Conservative
+membership under PERF-02/03/10/12 and CG-14's conservative-proof obligation is
+also closed and dropped, preserving 1,050 timed calls, complete exact outputs
+and both control regressions. Complete hosted integration for
+completion-aware input under PERF-03/07/11/12, then measure genuinely retained
+derived owners for the separate rematerialization track. Run native workloads
+serially; independent source research does
 not explain away a control regression.
 
 Learned indexing needs an established large ordered-access target. Cache admission
 needs a reconstruction/reuse trace. Stable-region preparation needs measured
 changed-source preparation cost. Credit-window output needs a separately frozen
-delivery experiment; it does not remove the resident-input barrier. These are
+delivery experiment; input lifetime is handled by the separate completion-aware
+input unit. These are
 prerequisites, not implicit ship decisions. Batch any retained work into a
 substantial validated milestone before considering another version bump.
 
@@ -42,7 +58,8 @@ substantial validated milestone before considering another version bump.
 | **Byte-credit result window.** `shardloom-cli/src/python_batch_protocol.rs:221` writes and flushes native JSON output, then waits for that batch's exact acknowledgement. Its input builder at line 171 still finishes resident collection first. | Begin with a fixed small reserved byte window, comparing complete delivery with current stop-and-wait; consider measured-rate adaptation only after a useful fixed window is established. | Outstanding serialized/native owners, wire limits, per-batch sequence, cancellation and the final acknowledgement all remain explicit. Test fast, slow, bursty and failing consumers, time to first provisional result, complete delivery and peak retention. Do not pull side-effectful producers beyond the API's demand promise. Input completion is a separate capability. |
 | **Stable-region preparation.** `prepared_source_binding.rs:63` binds the sorted source-generation inventory; that hash is not file-content authenticity. `vortex_ingest.rs:3179` already has a distinct append-only CSV/JSONL refinement decision with verified prefix, line boundary, static configuration and prepared-artifact checks. | Where repeated changed-source preparation is costly, first reuse already aligned logical regions with verified identities/recipes, then investigate row-aware stable boundaries if insertions cause measured reuse loss. | The existing append-only decision is not proof of general stable-region execution. Preserve all-column row alignment, schema, dictionary/codec dependencies, statistics and derived fields. Boundary hashes are not equality proof. Charge full source reads where change metadata is unavailable, and copying into a self-contained Vortex artifact. Include insertion/deletion, schema/policy changes, collisions, cancellation and complete reopened artifact fidelity. No faster first-ingestion or sublinear-read claim. |
 
-The source observations above are finite inspections. They do not establish an
+The source observations above are finite inspections of the recorded builder
+control, before the new opt-in input mode. They do not establish an
 LRU bottleneck, a large learned-index opportunity or a benefit from additional
 buffering. Vortex-first provider review and a concrete owner/lifetime contract
 remain prerequisites before adding an abstraction or dependency.
@@ -101,7 +118,15 @@ appropriate. A large component improvement is not an engine improvement unless
 that component materially affects the complete operation. Retain raw failures,
 negative controls and unexplained regressions; do not retrofit thresholds.
 
-No candidate in this intake receives a shipped status, performance claim,
+The decimal decision applies to its measured prototype and frozen workload; it
+does not disprove adaptive exact arithmetic in every workload. Do not reopen it
+by changing thresholds or relabeling component gains as complete-operation gains.
+Likewise, membership's approximately 98.6% avoidance of exact lookups on mostly
+absent probes does not override its complete-operation control failures. Its
+source snapshot, original failures and every sample remain portable; a future
+different placement needs its own admission proof and frozen experiment.
+
+No candidate in this intake receives a shipped status, retained performance claim,
 publication or broad capability promise. Keep all CG-1 through CG-23 owners
 visible, preserve native Vortex input/output and explicit no-fallback execution,
 and use the existing architecture/testing/hosted gates for any retained change.

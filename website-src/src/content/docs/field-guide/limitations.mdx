@@ -34,9 +34,16 @@ also admits the actual decoder and by-reference prepared dictionary. Its
 resource proof remains limited to the reviewed allocations.
 The [builder resource unit](/field-guide/runtime-and-io#resources-and-recovery)
 covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
-numeric/string finalization buffers, with local acceptance complete and hosted
-integration pending. Child decoder scratch and structural metadata remain separate.
-Input batches remain resident under the query grant. Output backpressure does
+numeric/string finalization buffers, with local and hosted acceptance complete
+in PR #1529. Child decoder scratch and structural metadata remain separate.
+Default input remains resident under the query grant. Opt-in
+[streaming input](/field-guide/python-surface#consume-results-in-batches) admits
+one finite source used once through pure scan/filter/project, with one retained
+native input batch and observed end-of-input required for success. Its local
+acceptance and packet inspection pass; final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+Blocking/repeated-source plans and streamed compatibility writes remain denied.
+Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
 

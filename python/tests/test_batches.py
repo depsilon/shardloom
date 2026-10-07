@@ -10,7 +10,7 @@ import tempfile
 import textwrap
 import unittest
 
-from shardloom import ResultBatch, ResultBatchIterator, ShardLoomClient, from_batches
+from shardloom import ResultBatch, ResultBatchIterator, ShardLoomClient, ShardLoomContext, from_batches
 from shardloom._batches import BatchInput
 from shardloom.errors import ShardLoomProtocolError
 
@@ -116,6 +116,7 @@ request = read()
             return iter([[{"n": 1}]])
         frame = from_batches(factory, schema={"n": "int64"}, binary="unused")
         self.assertEqual(opened, [])
+        self.assertIs(dict(frame.source.memory_input)["streaming"], False)
         source = frame.source.batch_input
         self.assertEqual(list(source.open()), [[{"n": 1}]])
         self.assertEqual(list(source.open()), [[{"n": 1}]])
@@ -124,6 +125,58 @@ request = read()
         list(one_shot.open())
         with self.assertRaisesRegex(ValueError, "already been consumed"):
             one_shot.open()
+
+    def test_explicit_streaming_declaration_is_inert_and_boolean(self):
+        opened = []
+        def factory():
+            opened.append(True)
+            return iter([])
+        client = ShardLoomClient(binary="unused")
+        self.addCleanup(client.close)
+        frame = ShardLoomContext(client).from_batches(factory, schema={"n": "int64"}, streaming=True)
+        self.assertIs(dict(frame.source.memory_input)["streaming"], True)
+        self.assertEqual(opened, [])
+        for invalid in [None, 0, 1, "true"]:
+            with self.subTest(streaming=invalid), self.assertRaisesRegex(TypeError, "must be a bool"):
+                from_batches(factory, schema={"n": "int64"}, streaming=invalid, client=client)
+        self.assertEqual(opened, [])
+
+    def test_streaming_input_and_provisional_output_interleave_under_acknowledgement(self):
+        client, trace = self.peer("""
+            args = request['args']
+            binding = json.loads(args[args.index('--source-bindings') + 1])
+            uri = next(iter(binding))
+            assert binding[uri]['memory_input']['streaming'] is True
+            for index in range(3):
+                send({'kind':'input','uri':uri,'index':index,'max_rows':2048,'max_bytes':8388608})
+                response = read()
+                assert response['uri'] == uri and response['index'] == index
+                if index == 2:
+                    assert response['kind'] == 'end'
+                else:
+                    assert response['rows'] == [[str(index)]]
+                    batch(index, [{'n': index}])
+                    assert read() == {'kind':'ack','index':index}
+            finish(2, 2)
+        """)
+        consumed = []
+        def producer():
+            for n in range(2):
+                consumed.append(n)
+                yield [{"n": n}]
+        iterator = from_batches(producer(), schema={"n": "int64"}, streaming=True, client=client).iter_batches()
+        self.addCleanup(iterator.close)
+        self.assertEqual(consumed, [])
+        self.assertEqual(next(iterator).result_rows, ({"n": 0},))
+        self.assertEqual(consumed, [0])
+        self.assertIsNone(iterator.report)
+        self.assertEqual(next(iterator).result_rows, ({"n": 1},))
+        self.assertEqual(consumed, [0, 1])
+        with self.assertRaises(StopIteration):
+            next(iterator)
+        self.assertIsNotNone(iterator.report)
+        messages = [json.loads(line) for line in trace.read_text().splitlines()[1:]]
+        self.assertEqual([message['kind'] for message in messages], ['rows', 'ack', 'rows', 'ack', 'end'])
 
     def test_public_batch_input_is_pulled_on_native_demand(self):
         client, trace = self.peer("""
