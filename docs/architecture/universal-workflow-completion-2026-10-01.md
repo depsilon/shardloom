@@ -227,14 +227,21 @@ now has [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10
 for completion-aware single-use input through the shared native filter/project
 path and incremental results, bounded collection or one Vortex destination.
 Independent packet inspection passes after the FSST admission correction;
-final hosted integration is tracked in [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+hosted integration passes in [PR #1530](https://github.com/depsilon/shardloom/pull/1530),
+merged at `c16f8da7` with unchanged accepted runtime assets.
 Explicit `streaming=True` retains at most one finite native input batch while
-default input remains resident. Next measure a genuinely retained derived owner
-and its full dependency/reconstruction cost before selective regeneration.
+default input remains resident. The initial
+[retained-owner screen](../benchmarks/native-rematerialization-owners-2026-10-07.md)
+now measures actual derived payload and pinned controls. Complete workflow and
+reconstruction-headroom proof still precede selective regeneration policy.
 Distinct multiway-join,
 nested-identity and stable spill-merge experiments retain their own gates;
 completed hardware and composed-COUNT drops are not reopened.
 Broader adapter and resource families continue under their ownership contracts.
+The October 7 [remaining-scope contract](native-local-completion-scope-2026-10-07.md)
+preserves all six work areas and eight investigations, prioritizing coherent
+aggregation/join pressure work and broader streaming adapters. An ordering-only
+connection or owner screen does not close the whole stateful obligation.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,
 and cloud/complete-SQL parity is not a blanket prerequisite for that local promise.

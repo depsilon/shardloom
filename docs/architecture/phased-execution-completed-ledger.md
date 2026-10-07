@@ -17,6 +17,47 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-INPUT-COMPLETION` — finite completion-aware input under
+  PERF-03/07/11/12 and CG-5/19/20/21. One private native batch flows through pure
+  scan/filter/project into incremental results, bounded collect or one native
+  Vortex destination. Exact schema admission precedes demand; every input owner
+  is released before the next demand; end-of-input and final consumers precede
+  success/publication. The [design](native-input-completion-2026-10-07.md) and
+  [corrected report](../benchmarks/native-fsst-admission-2026-10-07.md) retain
+  finite limits and unsupported shapes.
+  - Corrected runtime `b7de216f` completes 4.5 GiB of UTF8 input under a 1-GiB
+    grant with one retained native input batch. All 40 new public cases, ten
+    native ownership tests, five pressure/control cases, the existing complete
+    regression portfolio and 129 Full43 results pass. The original FSST failure,
+    correction of two of 947 assets and historical `f14460ef` packet remain
+    recorded. No speedup or total-process RSS claim is made.
+  - Seven documentation/site checks, three actual native examples and browser
+    checks pass. Hosted search initially exposed the Pagefind WebAssembly CSP
+    restriction; the exact policy correction and failed observations are retained.
+  - [PR #1530](https://github.com/depsilon/shardloom/pull/1530) merged at
+    `c16f8da71581c1b1b874aaa18aefa95a8264d0ad` after all 39 hosted checks on
+    `24bd2e5bd7e2eae67a5b39d90777e46bcd71f9d0` passed. The tested and merged
+    trees match; all 947 runtime assets remain unchanged. Primary review passed;
+    automated review completed without posted findings, with no submitted
+    approval inferred. The [hosted receipt](../benchmarks/evidence/native-fsst-hosted-2026-10-07.json)
+    records actual preview/production search, matching guide content and the
+    merged report link. A separate HTTP 403 probe is preserved without claiming
+    deployed-header byte identity. Published v0.4.0 remains unchanged.
+
+- [x] Initial retained native derived-owner screen — all 25 cases and
+  12,263,424 original plus 12,263,424 regenerated values pass. The
+  [report](../benchmarks/native-rematerialization-owners-2026-10-07.md) records
+  six reclaimable derived cases, eighteen zero-reclaim controls and a final-owner
+  clone/slice control. The largest case releases 17,072,128 actual credited bytes
+  while retaining 797,376 bytes of dependencies/keys/metadata. All final credits
+  are zero, and all 31 portable archive members are independently verified.
+  - The temporary observer is removed and all 947 accepted runtime assets are
+    restored exactly. Development-profile timings and sampled reconstruction
+    headroom do not establish a production speed or peak-memory result.
+  - Selective rematerialization remains an open complete-workflow investigation;
+    no production policy, spill replacement, one-shot source replay or version
+    bump follows from this initial ownership observation.
+
 - [x] Conservative native join membership under PERF-02/03/10/12 — dropped
   after the first frozen same-binary complete-operation screen. The
   [report](../benchmarks/native-join-membership-2026-10-07.md) preserves all

@@ -4,8 +4,10 @@ Status: local engine acceptance and independent packet inspection pass for
 corrected runtime `b7de216fe421012d3f9b632ad19e95f19b88dbe5`.
 The FSST integration correction preserves the input contract and passes all 39
 hosted engine checks. Refreshed documentation, native examples and browser checks
-pass; final integration is tracked in
-[PR #1530](https://github.com/depsilon/shardloom/pull/1530). This is the
+pass. [PR #1530](https://github.com/depsilon/shardloom/pull/1530) merged at
+`c16f8da7` after all 39 checks passed; the
+[hosted receipt](../benchmarks/evidence/native-fsst-hosted-2026-10-07.json) records
+preview/production verification and unchanged accepted runtime assets. This is the
 `NATIVE-INPUT-COMPLETION` unit under PERF-03/07/11/12 and CG-5/19/20/21.
 It follows the accepted builder runtime `53cd1582` and the two dropped
 conditional-work experiments recorded at `0117ab9f`. Published v0.4.0 is unchanged.
@@ -194,7 +196,9 @@ must never open the Python producer or send an input demand.
 
 The following local acceptance requirements now pass, with raw values, failure
 traces, resource reports and separate packet inspection linked from the report.
-Documentation and browser checks also pass; hosted integration remains open.
+Documentation, browser checks and hosted integration also pass. The
+[remaining-scope contract](native-local-completion-scope-2026-10-07.md) preserves
+the separate stateful, streaming-adapter and operational obligations.
 
 Focused tests must cover complete exact values/types/order, empty and all-filtered
 inputs, empty batches, NULLs, Unicode, signed limits, native output reopening,

@@ -249,39 +249,63 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-INPUT-COMPLETION` — completion-aware native input delivery under
-  PERF-03/07/11/12 and CG-5/19/20/21, following completed builder integration.
-  - [x] Implement and freeze corrected runtime `b7de216f`; complete local source/public/
-    pressure/Full43 acceptance and independent packet inspection. See the
-    [corrected acceptance report](../benchmarks/native-fsst-admission-2026-10-07.md).
-    The 4.5-GiB UTF8 case completes under a 1-GiB grant with one retained input
-    batch; resident denial, ample controls and late failures remain recorded.
-    The original hosted FSST failure and deterministic reproduction remain
-    recorded; the fix changes two of 947 assets and preserves the historical
-    `f14460ef` packet. The corrected source passes all 39 hosted engine checks.
-  - [x] Refresh seven documentation/site checks, three actual native examples
-    and desktop/mobile/search verification against the corrected runtime.
-  - [ ] Complete hosted integration. Published v0.4.0 remains unchanged.
-  - V1 scope classification: `required_for_v1` for the declared local streaming
-    workflow; do not infer general operator spill or unrestricted input sizes.
-  - Follow the October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md).
-    The [concrete input design](native-input-completion-2026-10-07.md) adds
-    explicit streaming mode, a private native batch owner, complete-plan admission
-    and detached output before proving release and demanding the next batch.
-    Bind declared schema and classify the whole plan before consuming a one-shot
-    producer. Reuse native arrays, shared filter/project execution and local sinks.
-  - Start with a single-use pure row-local filter/project/write chain, releasing
-    each admitted input when its consumers finish. Prove complete input larger
-    than the grant, bounded retained input, cancellation and late-failure safety.
-    End-of-input is the first completion proof; emitted results remain provisional
-    until final acknowledgement/validation, and files publish only after success.
-  - Preserve explicit retained/spooled/unsupported behavior for repeated sources
-    and blocking operators. Reserve sink metadata separately; bounded input alone
-    does not establish a total-memory or RSS ceiling. No external fallback.
-  - Measure retained derived owners for selective rematerialization alongside this
-    work. Current predicate truth words are transient, not a retained mask cache.
-    Prototype only after identifying reclaimable bytes, pinned dependencies and
-    sufficient reconstruction headroom; preserve ample-memory controls.
+- [ ] `NATIVE-STREAMED-ORDERING` — connect completion-aware input to global
+  native ordering and draining limits as a dependency for the stateful milestone.
+  - Source: [design](native-streamed-ordering-2026-10-07.md), RFC 0044 and the
+    maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
+  - V1 scope classification: `required_for_v1` for this declared finite workflow;
+    broader aggregation/join pressure remains the next substantial family owner.
+  - Current state: native file/resident ordering and spill already exist; the
+    batch adapter currently restarts the whole tree per input and rejects Sort/Limit.
+  - Execution checklist:
+    - [ ] Move single-use input demand into the existing native scan and run the
+      bound tree once, with exact schema, cancellation and owner-release checks.
+    - [ ] Admit global Sort and draining Limit/Offset; detach retained ordering
+      input, report copies and preserve the existing native run store and quota.
+    - [ ] Prove exact cross-batch/stable/null ordering, full drain including zero
+      limits, constrained spill completion, native write/reopen and all failures.
+    - [ ] Complete public and broad regression evidence, adversarial review,
+      support/docs alignment and hosted integration; move exact scope to the ledger.
+  - Reuse/user surface: Python/SQL/CLI lower into the same relational scan,
+    filter/project/order/limit and result/writer components. No new query route.
+  - ShardLoom technique review: PulseWeave keeps input/state/merge/output credits;
+    bounded capillary-style batch demand prevents speculative input retention.
+    Missing global input statistics cannot justify pruning completion. Separate
+    first-output, full workflow and spill clocks; keep certificates/no-fallback
+    evidence. Merge scheduling remains its own measured candidate.
+  - Acceptance/verification: use the design's frozen complete-output, larger-than-
+    grant and failure matrix plus required workspace/public/Full43 checks under
+    existing serial storage/process guards. `fallback_attempted=false` and
+    `external_engine_invoked=false` remain mandatory.
+  - Non-goals/claim boundary: no general aggregate/join/window/pivot spill,
+    repeated-source spool, execution resume, compatibility streaming writer/fanout,
+    new types, transport-limit increase, process-RSS claim or standalone version bump.
+
+The maintainer reaffirmed the full remaining body of work on October 7. The
+[remaining-scope contract](native-local-completion-scope-2026-10-07.md) maps all
+six areas and eight conditional investigations to existing owners without
+duplicating the queue. Stateful aggregation/join pressure, remaining allocation
+coverage, broader streaming/adapters, and a defined local support/release promise
+remain required work. A finite streamed ordering connection does not close
+general aggregate, join, window or pivot spill/recovery. Keep each family visible
+until it has complete-workflow acceptance or an explicit supported resident-only
+bound with deterministic denial.
+
+`NATIVE-INPUT-COMPLETION` is complete in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530), merged at `c16f8da7`
+after all 39 hosted checks passed. The
+[integration receipt](../benchmarks/evidence/native-fsst-hosted-2026-10-07.json)
+records actual preview/production verification and preservation of all 947
+accepted runtime assets. Details move to the completed ledger; published v0.4.0
+is unchanged. Its existing finite source, ownership and publication contracts
+remain the basis for the next admitted expansion.
+
+The [retained-owner screen](../benchmarks/native-rematerialization-owners-2026-10-07.md)
+also passes: six derived-payload cases reclaim credits, eighteen alias/constant/
+key controls do not, and a clone/slice retains credits until the final owner
+drops. This is an initial measurement, not a production rematerialization
+policy or completed public-workflow experiment. Preserve that distinction when
+advancing the separate state/structure campaign.
 
 The same campaign separately admits a constraint-guided inner-equijoin experiment
 under PERF-02/03/10/12, nested identities only after measured repetition, and actual
@@ -2815,21 +2839,25 @@ expansion of supported workflows. Do not start a bump merely because one finite
 experiment campaign closes; preserve the normal release and publication gates.
 
 October 7 direction adds the [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
-without reopening prior drops. The builder unit is complete; prioritize
-the completion-aware input unit's hosted integration: local engine/pressure/
-regression and independent packet inspection pass on corrected runtime `b7de216f`.
-Refreshed documentation, native examples and browser proof pass after the FSST
-correction; finish hosted integration. Next measure a retained derived owner and its dependency costs before
-selective rematerialization. Prepare constraint-guided joins independently; gate
-nested identities on repetition and merge scheduling on real spill-run evidence.
+without reopening prior drops. Builder and completion-aware input integration are
+complete, including PR #1530's corrected source, all 39 hosted checks and actual
+production search verification. The first retained-derived-owner screen passes,
+while complete-workflow rematerialization remains open. The maintainer's later
+[remaining-work reminder](native-local-completion-scope-2026-10-07.md) preserves
+the whole optimization/breadth task: prioritize coherent stateful pressure and
+recovery, particularly general aggregation/join work, then broader streaming
+adapters and operational acceptance of the supported local envelope. The existing
+ordering connection is a bounded enabling unit, not the whole stateful milestone.
+Prepare constraint-guided joins independently; gate nested identities on
+repetition and merge scheduling on real spill-run evidence.
 Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,
 stable merge adjacency, native ownership and all unexplained negative controls.
 The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen
 gate, and conservative membership is dropped for high-match control regressions.
-Input completion has passed corrected local engine and documentation acceptance
-and awaits hosted closure, with ordered-index, physical-cache,
+Input completion has passed corrected local engine, documentation and hosted
+acceptance, with ordered-index, physical-cache,
 output-window and stable-region reuse candidates gated on their measured workloads.
 See the [conditional work contract](native-conditional-work-campaign-2026-10-07.md).
 This extends the queue while preserving the input-completion architecture work

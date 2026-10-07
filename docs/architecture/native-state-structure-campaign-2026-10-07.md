@@ -5,9 +5,11 @@ October 7 direction. Completion-aware input now has
 [local engine acceptance and independent packet inspection](../benchmarks/native-fsst-admission-2026-10-07.md)
 on corrected runtime `b7de216f`. The original hosted FSST failure, deterministic
 reproducer and complete corrected-build regression remain recorded. Refreshed
-documentation, native examples and browser checks pass; final hosted integration is tracked in
-[PR #1530](https://github.com/depsilon/shardloom/pull/1530). The other
-four tracks have not yet produced measured prototypes.
+documentation, native examples, browser checks and hosted integration pass in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530), merged at `c16f8da7`.
+The [initial retained-owner screen](../benchmarks/native-rematerialization-owners-2026-10-07.md)
+now measures actual reclaim and dependency retention; a complete rematerialization
+workflow remains open. The other three non-streaming tracks remain unmeasured.
 Builder resource acceptance, packet inspection and hosted integration have passed
 in PR #1529, preserving all 941 accepted runtime source assets. This campaign
 follows the completed five hardware decisions and composed-COUNT decisions;
@@ -16,7 +18,7 @@ their drops stay dropped. Published v0.4.0 and broader PERF/CG status are unchan
 The later October 7 [conditional exact work intake](native-conditional-work-campaign-2026-10-07.md)
 adds six distinct ship/drop candidates. Exact decimal accumulation and conservative
 membership filtering were subsequently dropped after their frozen screens;
-completion-aware input is completing hosted integration. The
+completion-aware input has completed hosted integration. The
 additional candidates do not replace the
 five tracks here or grant a speedup claim from research in another system.
 
@@ -35,7 +37,7 @@ the builder's historical packet or claim a new measured implementation.
    filter/project and admitted local output paths, complete input larger than
    its grant, one retained input batch and late-failure safety. Refreshed
    documentation/site checks, native examples and browser review pass for the
-   FSST correction. Finish hosted integration while preserving that source.
+   FSST correction. Hosted integration also passes with that source preserved.
 2. Investigate selective rematerialization after that source-lifetime work
    under PERF-03/06/07/12. First measure genuinely retained intermediates. The
    newly added predicate blocks are not currently a retained mask cache.
@@ -190,14 +192,19 @@ campaign. A changed strategy needs its own distinct mechanism and evidence.
 - The canonical phase queue now carries `NATIVE-INPUT-COMPLETION` under existing
   PERF owners. Preserve the inspected Git/snapshot identities above and distinguish
   them from later implementation revisions.
-- Finish hosted integration for the implemented
-  [streaming design](native-input-completion-2026-10-07.md), preserving its
-  complete [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md).
-- Select and instrument actual retained intermediates for the rematerialization
-  screen; do not start from ephemeral predicate words.
+- Preserve completed integration of the
+  [streaming design](native-input-completion-2026-10-07.md) and its
+  [corrected acceptance](../benchmarks/native-fsst-admission-2026-10-07.md).
+- Use the [real-owner observation](../benchmarks/native-rematerialization-owners-2026-10-07.md)
+  to design a complete rematerialization workflow, including dependencies and
+  reconstruction headroom; zero-reclaim controls remain ineligible.
 - Define the independent cyclic-join fixture/oracle and exact ordering contract,
   followed by native strategy preparation. Record nested repetition and actual
   relational run-size distributions when their coherent units are reached.
+
+The maintainer's [remaining-work reminder](native-local-completion-scope-2026-10-07.md)
+keeps these investigations attached to broader stateful pressure/recovery,
+streaming adapters and local operational acceptance. No screen closes that scope.
 
 These artifacts authorize no external engine execution, new dependency, new
 remote effect, broad spill family or package publication. Any retained code still
