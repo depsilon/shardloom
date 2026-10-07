@@ -84,6 +84,7 @@ class WorkflowSource:
     uri: str
     schema: tuple[tuple[str, str], ...] = ()
     memory_input: tuple[tuple[str, object], ...] = ()
+    batch_input: object | None = None
 
     @property
     def schema_map(self) -> dict[str, str]:
@@ -1258,9 +1259,31 @@ class SqlWorkflow:
             input_kwargs=self._declared_or_embedded_vortex_input_kwargs(),
             check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
             spill=spill,
+            input_batches=_workflow_batch_inputs(self._declared_sources()),
         )
         return VortexWorkflowExecutionReport(
             workflow=self._report_workflow(), operation="collect", envelope=envelope,
+        )
+
+    def iter_batches(
+        self, *, batch_rows: int = 2048,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
+    ):
+        """Consume bounded batches; the final iterator report proves completion.
+
+        Use a with block when stopping early. Earlier batches are provisional
+        until all source checks and the final report have succeeded.
+        Prepare compatibility file inputs to Vortex before batch consumption.
+        """
+        return self.client.public_workflow_batches(
+            "sql", batch_rows=batch_rows, sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            input_batches=_workflow_batch_inputs(self._declared_sources()),
+            evidence_level="production_admitted_local_workflow",
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **self._declared_or_embedded_vortex_input_kwargs(),
         )
 
     def limit(self, count: int) -> "SqlWorkflow":
@@ -1906,6 +1929,7 @@ class SqlWorkflow:
         # and avoids rebuilding compatibility inputs in Python for each sink.
         execution = self.client.public_workflow_run(
             "sql",
+            input_batches=_workflow_batch_inputs(self._declared_sources()),
             sql_statement=self.statement,
             plan_summary=self.operation_summary,
             requested_output=requested_output,
@@ -5077,8 +5101,33 @@ class LazyFrame:
                           "input_format": _public_workflow_input_format(self.source),
                           "source_bindings": _workflow_source_bindings(self._declared_sources())},
             check=check, memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill,
+            input_batches=_workflow_batch_inputs(self._declared_sources()),
         )
         return VortexWorkflowExecutionReport(self, "collect", envelope)
+
+    def iter_batches(
+        self, *, batch_rows: int = 2048,
+        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        spill: Mapping[str, object] | str | None = None,
+    ):
+        """Consume native batches incrementally; use a with block for early close.
+
+        The final iterator report establishes completion. Retaining yielded
+        Python batches uses caller memory outside the native operation grant.
+        Prepare compatibility file inputs to Vortex before batch consumption.
+        """
+        statement = self._relation_statement()
+        if statement is None:
+            raise ValueError("batch consumption requires an admitted native SQL declaration")
+        return self.client.public_workflow_batches(
+            "dataframe", batch_rows=batch_rows, sql_statement=statement,
+            input_uri=self.source.uri, input_format=_public_workflow_input_format(self.source),
+            source_bindings=_workflow_source_bindings(self._declared_sources()),
+            input_batches=_workflow_batch_inputs(self._declared_sources()),
+            plan_summary=self.operation_summary, evidence_level="production_admitted_local_workflow",
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+        )
 
     def count(
         self,
@@ -5526,6 +5575,7 @@ class LazyFrame:
             )
         execution = self.client.public_workflow_run(
             "dataframe",
+            input_batches=_workflow_batch_inputs(self._declared_sources()),
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
             source_schema=_prepare_vortex_schema_hints(self.source),
@@ -8286,6 +8336,38 @@ def read_orc(
         client=client,
         engine_mode=engine_mode,
         **client_config,
+    )
+
+
+def from_batches(
+    batches: object, *, schema: Mapping[str, object],
+    client: ShardLoomClient | None = None, **client_config: object,
+) -> LazyFrame:
+    """Declare resident input in batches of up to 2,048 rows and 128 fields.
+
+    Each batch is a sequence of row mappings. Schema is explicit and admits
+    nullable int64, finite float64, bool and utf8. Input is pulled at execution;
+    pass a factory for repeated calls, or an iterable for one execution. Total
+    native input must fit the query memory grant and at most 4,096 batches.
+    """
+    from ._batches import BatchInput
+    from uuid import uuid4
+
+    declared = _normalize_schema(schema)
+    aliases = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
+               "boolean": "bool", "str": "utf8", "string": "utf8"}
+    declared = tuple((name, aliases.get(str(dtype).lower(), str(dtype).lower())) for name, dtype in declared)
+    if not 1 <= len(declared) <= 128 or len({name for name, _ in declared}) != len(declared):
+        raise ValueError("batch schema requires 1..=128 distinct fields")
+    if any(not name or len(name.encode("utf-8")) > 256 for name, _ in declared):
+        raise ValueError("batch field names require 1..=256 UTF8 bytes")
+    if any(kind not in {"int64", "float64", "bool", "utf8"} for _, kind in declared):
+        raise ValueError("batch input schema admits int64, float64, bool and utf8")
+    source = BatchInput(batches, declared)
+    return LazyFrame(
+        source=WorkflowSource("memory", "memory://batches/" + uuid4().hex, declared,
+                              (("kind", "batches"), ("schema", declared)), source),
+        client=_client_from_config(client, client_config),
     )
 
 
@@ -12231,6 +12313,16 @@ def _workflow_source_bindings(sources: Sequence[WorkflowSource]) -> dict[str, di
     return bindings
 
 
+def _workflow_batch_inputs(sources: Sequence[WorkflowSource]) -> dict[str, object]:
+    inputs = {}
+    for source in sources:
+        if source.batch_input is not None:
+            prior = inputs.setdefault(source.uri, source.batch_input)
+            if prior is not source.batch_input:
+                raise ValueError("conflicting batch providers for the same source")
+    return inputs
+
+
 def _prepare_vortex_schema_hints(source: WorkflowSource) -> Mapping[str, object] | None:
     """Return CLI schema hints only for text adapters that accept them."""
 
@@ -12330,6 +12422,7 @@ def _collect_native_relational(
     plan_summary: str, input_kwargs: Mapping[str, Any], check: bool,
     memory_gb: int, max_parallelism: int,
     spill: Mapping[str, object] | str | None = None,
+    input_batches: Mapping[str, object] | None = None,
 ) -> OutputEnvelope:
     return client.public_workflow_run(
         surface, sql_statement=statement, plan_summary=plan_summary,
@@ -12338,6 +12431,7 @@ def _collect_native_relational(
         bounded=True,
         **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
         check=check, **input_kwargs,
+        input_batches=input_batches,
     ).envelope
 
 

@@ -1,5 +1,20 @@
 # Vortex Upstream Dependency Review
 
+## October 6, 2026 retained allocator patch
+
+The accepted local provider resource unit retains Vortex 0.85.0 and an
+Apache-2.0 patch of the published `vortex-zstd` crate. Reviewed payload, view
+and nullable scatter allocations use the existing fallible session allocator;
+concrete encoding, VTable and serialization identities remain unchanged.
+The [resource contract](../architecture/native-provider-resources-2026-10-06.md)
+defines the finite scope and remaining C decoder/dictionary scratch exclusions.
+The [provenance manifest](../../vendor/vortex-zstd/upstream-provenance.json)
+records the authoritative registry-archive hash, original file hashes and
+license. Its dirty upstream VCS marker means a Git revision alone is not the
+source archive identity. Local and combined regression acceptance passed;
+hosted integration and publication remain separate. Earlier “no vendored code”
+statements below describe their historical intake scope.
+
 ## October 3, 2026 release review
 
 Released, non-yanked Vortex 0.87.0 is the latest provider inspected. The workspace

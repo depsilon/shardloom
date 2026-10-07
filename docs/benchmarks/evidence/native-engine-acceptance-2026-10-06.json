@@ -1,0 +1,508 @@
+{
+  "schema_version": "shardloom.native_engine_local_acceptance.v1",
+  "status": "accepted_local_source_hosted_integration_pending",
+  "runtime_commit": "99e0a4b304c506a2b24f605eb5156859b356486a",
+  "source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
+  "runtime_source_assets_verified": 935,
+  "units": {
+    "provider": {
+      "commit": {
+        "status": "accepted_bytes_committed_locally",
+        "commit": "ae4e3398e07d58c059780d218c17b7eea7fa31ef",
+        "parent": "5ece6807671b2524335b300d39f0ebc56adb56ed",
+        "source_identity_sha256": "076e3c0486f7e8738e16f0e8ba43bcfae3ff73215820c760723a28700837b577",
+        "source_files_verified": 927,
+        "decision_sha256": "8faa77c6db4869927a3ccfb689effe31036d660dbf5d98b5da062d05b1c8cc9f",
+        "source_tree_clean_after_commit": true,
+        "pushed": false,
+        "documentation_updates_deferred": true
+      },
+      "acceptance": {
+        "status": "passed_local_engine",
+        "source_identity_sha256": "076e3c0486f7e8738e16f0e8ba43bcfae3ff73215820c760723a28700837b577",
+        "binary_sha256": "4f1b0cd9744759c7fdf017b91a60f06995111c2d4da95fe2b8e243035f96682a",
+        "public_checks": 27373,
+        "public_rows": 15820181,
+        "direct_checks": 202,
+        "direct_rows": 131734,
+        "full43_runs": 129,
+        "raw_public_envelopes": 54733,
+        "raw_direct_envelopes": 367,
+        "source_checks": 14,
+        "admitted_semantic_stages": 145,
+        "golden_workflow_stages": 9,
+        "compacted_archive_members_reopened": 516,
+        "source_tree_clean": false,
+        "documentation_updates_deferred": true,
+        "packet": "docs/benchmarks/evidence/native-provider-resources-2026-10-06.json.xz",
+        "packet_sha256": "9fc20b73f552a29d588062134e7a4db0aa63c8226b229abab4e16090d1aa36e6",
+        "packet_compressed_bytes": 43390448,
+        "packet_uncompressed_bytes": 3340259112,
+        "packet_uncompressed_sha256": "2712ceb513f4c1988128df732c46aa8aeb6d5f6f2d6855d7b57031f1905deb0d"
+      },
+      "retention": {
+        "status": "retained_local_resource_component",
+        "source_identity_sha256": "076e3c0486f7e8738e16f0e8ba43bcfae3ff73215820c760723a28700837b577",
+        "source_head_at_acceptance": "5ece6807671b2524335b300d39f0ebc56adb56ed",
+        "source_tree_clean_at_acceptance": false,
+        "binary_sha256": "4f1b0cd9744759c7fdf017b91a60f06995111c2d4da95fe2b8e243035f96682a",
+        "acceptance": {
+          "path": "<local-evidence>/native-provider-resources-20261006/provider-final-acceptance-3.json",
+          "sha256": "b36cf32c8fafede6af50d91075de5c3863da9abc7acc4b86da1fac61cf13e4ae"
+        },
+        "packet": {
+          "path": "<local-evidence>/native-provider-resources-20261006/native-provider-resources-2026-10-06-attempt-3.json.xz",
+          "sha256": "9fc20b73f552a29d588062134e7a4db0aa63c8226b229abab4e16090d1aa36e6"
+        },
+        "independent_inspection": {
+          "path": "<local-evidence>/native-provider-resources-20261006/provider-independent-packet-inspection-2.json",
+          "sha256": "7671ffb0e7c93c8e47f27293b0e950f2014bc535998fc5fc16fbdba531864165"
+        },
+        "engine_checks": {
+          "path": "<local-evidence>/native-provider-resources-20261006/native-provider-engine-checks-3.json",
+          "sha256": "8c0b9b76abb2a1bf022ffe00ef447d6e0e6ef3e0eb5f41b3a5e64043f24f1eae"
+        },
+        "retained_contract": [
+          "FSST canonical payload/view allocation admission with the finite checked integer metadata providers, including masked validity and nullability-only casts.",
+          "Native concatenation of admitted FSST, Zstd and canonical string views with retained allocation credits.",
+          "Pinned Zstd native payload, view and nullable scatter buffers use the fallible session HostAllocator without changing concrete encoding or serialization identity.",
+          "Selected native spill sessions retain the registry and replace only their memory owner; clones and slices keep credits until the final buffer owner drops.",
+          "Constrained grants, independent values, cancellation, source changes and failed consumers preserve explicit failure and owned cleanup."
+        ],
+        "separate_unclaimed_boundaries": [
+          "Zstd C decoder context and dictionary preparation scratch.",
+          "Other unreviewed codecs/builders, metadata headers, allocator bookkeeping and total process RSS.",
+          "General aggregate, join, window and pivot spill beyond the existing specifically admitted strategies.",
+          "Resumable execution, other-platform runtime parity, a stable production support promise and package publication."
+        ],
+        "zstd_cost_screen": {
+          "comparison": {
+            "path": "<local-evidence>/native-provider-resources-20261006/provider-lifecycle-comparison-1.json",
+            "sha256": "dd7b398d734ddc70d462ba0f6a526565e1b27917a7dfc81dae935667381f6ed5"
+          },
+          "source": {
+            "path": "<local-evidence>/native-provider-resources-20261006/provider-experiment-source-1.json",
+            "sha256": "2c964ceb2cb89f8decd9bc6e24cc87857a258fa05e6d3393bdf4a7b4260f6439"
+          },
+          "basis": "Initial source snapshot only; vendor bytes are unchanged in the corrected accepted source. This is not a current whole-engine timing comparison.",
+          "decision": "Retain the allocation-safety correction. No cell crossed the predeclared 10 percent repeat trigger.",
+          "min_candidate_over_stock": 0.9945260744893359,
+          "max_candidate_over_stock": 1.0417089980201029,
+          "performance_claim": false
+        },
+        "current_full43_observation": {
+          "summary": {
+            "path": "<local-evidence>/clickbench-100m-uat/logs/full43_20261006T144717961496Z/summary.json",
+            "sha256": "0b5db904281740e2674718712db655440ce216a407ea2acce2f2b6f3a6e71dfc"
+          },
+          "sum_query_minima_seconds": 65.10257799958345,
+          "sum_all_129_calls_seconds": 198.43695045495406,
+          "maximum_native_process_peak_rss_bytes": 5200117760,
+          "source_bytes": 15682956489,
+          "memory_policy_gb": 24,
+          "max_parallelism": 12,
+          "boundary": "Retained input, complete native processes including startup/output/exit; no fresh ingest or paired speed claim. Query minima are not an observed end-to-end duration; peak RSS is observed, not enforced."
+        },
+        "prior_failures_preserved": true,
+        "documentation_updates_deferred": true,
+        "public_support_labels_changed": false,
+        "performance_claim_allowed": false,
+        "production_claim_allowed": false,
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "driver_sha256": "152e5f892cdd38fc6dd6b4e27de35344fe9a13e9734f18e306f8174cae156285"
+      },
+      "original_acceptance_sha256": "b36cf32c8fafede6af50d91075de5c3863da9abc7acc4b86da1fac61cf13e4ae",
+      "original_inspection_sha256": "7671ffb0e7c93c8e47f27293b0e950f2014bc535998fc5fc16fbdba531864165",
+      "portable_inspection": "docs/benchmarks/evidence/native-provider-resources-2026-10-06-inspection.json",
+      "portable_inspection_sha256": "2c7db3c4e57cbd3eb6f0df760bebba198d7869c7e1311d31bc9c8fec905033d2"
+    },
+    "batches": {
+      "commit": {
+        "status": "accepted_bytes_committed_locally",
+        "commit": "3ec56331241f32c11046d575e967e5a874f5226f",
+        "parent": "ae4e3398e07d58c059780d218c17b7eea7fa31ef",
+        "source_identity_sha256": "1ad441a7be0c84a6c8a79c1cc6d26ff1b1669114bc47ba7b1eb1bca8180c9740",
+        "source_files_verified": 933,
+        "decision_sha256": "b70e6c1170e40a688a48fb70b83dea4206a207b1e82e7187a2061d4ff3360931",
+        "source_tree_clean_after_commit": true,
+        "pushed": false,
+        "documentation_updates_deferred": true,
+        "driver_sha256": "46ccad04ff00790921f92bc1296cd3a7a99764ba57269279355e585765c67e57"
+      },
+      "acceptance": {
+        "status": "passed_local_engine",
+        "source_identity_sha256": "1ad441a7be0c84a6c8a79c1cc6d26ff1b1669114bc47ba7b1eb1bca8180c9740",
+        "binary_sha256": "bcb6f28355ccfb6ece8ff94f9d78ba1af9386111714b9687539ac68103a1c350",
+        "public_checks": 27373,
+        "public_rows": 15820181,
+        "direct_checks": 202,
+        "direct_rows": 131734,
+        "full43_runs": 129,
+        "raw_public_envelopes": 54733,
+        "raw_direct_envelopes": 367,
+        "source_checks": 12,
+        "batch_checks": 48,
+        "batch_success_envelopes": 38,
+        "batch_raw_envelopes": 44,
+        "format_checks": 19,
+        "format_raw_envelopes": 24,
+        "regression_complete_calls": 324,
+        "admitted_semantic_stages": 145,
+        "golden_workflow_stages": 9,
+        "compacted_archive_members_reopened": 516,
+        "source_tree_clean": false,
+        "documentation_updates_deferred": true,
+        "packet": "docs/benchmarks/evidence/native-bounded-adapters-2026-10-06.json.xz",
+        "packet_sha256": "65efc2b5b080f3b27e2acd3fb62e120c32d9e341306d6cdaf546c0f617d4bb91",
+        "packet_compressed_bytes": 43227004,
+        "packet_uncompressed_bytes": 3358480069,
+        "packet_uncompressed_sha256": "69f84240a3b907fbf337c36adef213e3b3877100b22d41e523880de06f1bae8a"
+      },
+      "retention": {
+        "status": "retained_local_native_batch_adapters",
+        "source_identity_sha256": "1ad441a7be0c84a6c8a79c1cc6d26ff1b1669114bc47ba7b1eb1bca8180c9740",
+        "source_head_at_acceptance": "ae4e3398e07d58c059780d218c17b7eea7fa31ef",
+        "source_tree_clean_at_acceptance": false,
+        "binary_sha256": "bcb6f28355ccfb6ece8ff94f9d78ba1af9386111714b9687539ac68103a1c350",
+        "acceptance": {
+          "path": "<local-evidence>/native-composed-strategies-20261006/bounded-final-acceptance-1.json",
+          "sha256": "6eb811ff56f228bf5e81a1bd0dd574603cb581ffa341e88bee8300c2c3e774a4"
+        },
+        "packet": {
+          "path": "<local-evidence>/native-composed-strategies-20261006/native-bounded-adapters-2026-10-06-attempt-1.json.xz",
+          "sha256": "65efc2b5b080f3b27e2acd3fb62e120c32d9e341306d6cdaf546c0f617d4bb91"
+        },
+        "independent_inspection": {
+          "path": "<local-evidence>/native-composed-strategies-20261006/bounded-independent-packet-inspection-2.json",
+          "sha256": "54145c2e68a4b32d2793c17fd1def0082daa498980e6254015f95927b8a177ac"
+        },
+        "prior_inspection": {
+          "receipt": {
+            "path": "<local-evidence>/native-composed-strategies-20261006/bounded-independent-inspection-1.json",
+            "sha256": "c058f30f89fb9b78ed67a91e12aa49fd52eded6b2b6948e69ce5c4de0a968de9"
+          },
+          "reason": "The first read-only parse was deliberately stopped after finding that the prior comparable packet required 603 seconds, exceeding the selected 600-second deadline. Its process group drained; the identical packet and inspector were restarted with a 1200-second verifier deadline. No engine test, benchmark or storage limit changed."
+        },
+        "engine_checks": {
+          "path": "<local-evidence>/native-composed-strategies-20261006/bounded-engine-checks-2.json",
+          "sha256": "8ba45c8a6f9527adb05c19878409bde7e16f553900385081bb3afcfa8e7da1ac"
+        },
+        "retained_contract": [
+          "Public Python from_batches accepts explicitly declared nullable bool, int64, float64 and UTF8 under the shared native resident grant; at most 128 fields, 2048 rows per input batch, 8 MiB per input frame and 4096 input batches.",
+          "Public iter_batches incrementally consumes admitted native typed and nested result schemas, with at most 2048 rows and 8 MiB per result frame, acknowledged backpressure, explicit final validation and deterministic close/failure cleanup.",
+          "Input, operator state, source generations, output, cancellation and writers remain in the existing unified native Vortex plan; ordinary small collection limits remain explicit.",
+          "Complete batch-source writes pass all eight local writers; the separate primitive-width fidelity matrix independently reopens compatible Parquet, IPC, ORC, Avro and text outputs.",
+          "Preexisting public/native semantics, complete results, retained provider resource ownership and no-fallback evidence pass the frozen regression corpus."
+        ],
+        "separate_unclaimed_boundaries": [
+          "Batch intake does not admit all logical input types; general stateful operators remain resident unless their existing specific spill strategy is explicitly supported.",
+          "Batch-shaped output does not guarantee bounded total process RSS or bound all provider/codec scratch and allocator bookkeeping.",
+          "Compatibility file input requires explicit preparation before this batch transaction because preparation does not share its external cancellation owner.",
+          "The Python wait deadline applies per iterator operation; arbitrary synchronous user producer code and time spent by consumers are not an enforced whole-operation deadline.",
+          "Streamed batch payload frames were compared during the original frozen run but were not retained. Finalization reconstructs their expected digests and reopens final reports. Vortex readback uses ShardLoom, not an independent Vortex reader.",
+          "Other-platform runtime parity, broad SQL/format parity, resumable execution, stable production certification and package publication are not claimed."
+        ],
+        "paired_regression_screen": {
+          "comparison": {
+            "path": "<local-evidence>/native-composed-strategies-20261006/bounded-regression-1/summary.json",
+            "sha256": "83712edbc0346d5f2b22b8ee04cd6d48bfcb1cc7436a2e9ead40f0bd8a02f55e"
+          },
+          "complete_calls": 324,
+          "cells": 54,
+          "decision": "Retain the availability and lifecycle improvement; no predeclared time or RSS investigation threshold crossed.",
+          "performance_claim": false
+        },
+        "current_full43_observation": {
+          "summary": {
+            "path": "<local-evidence>/clickbench-100m-uat/logs/full43_20261006T201300439224Z/summary.json",
+            "sha256": "5a61e0ba5c13b223a614bcbfa9edcae89786fc3f5c25528470c6c7740313e7c4"
+          },
+          "sum_query_minima_seconds": 73.97990616201423,
+          "sum_all_129_calls_seconds": 227.79712157405447,
+          "maximum_native_process_peak_rss_bytes": 5073141760,
+          "source_bytes": 15682956489,
+          "memory_policy_gb": 24,
+          "max_parallelism": 12,
+          "boundary": "Retained input and complete native processes including startup/output/exit; no fresh ingest or paired speed claim. Query minima are not an observed end-to-end duration. Peak RSS is observed, not enforced."
+        },
+        "prior_failures_preserved": true,
+        "documentation_updates_deferred": true,
+        "performance_claim_allowed": false,
+        "production_claim_allowed": false,
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "driver_sha256": "4501b89a72c81a7dd0bfe44b62629a55229a328689d97007bbc08eac6e10350e"
+      },
+      "original_acceptance_sha256": "6eb811ff56f228bf5e81a1bd0dd574603cb581ffa341e88bee8300c2c3e774a4",
+      "original_inspection_sha256": "54145c2e68a4b32d2793c17fd1def0082daa498980e6254015f95927b8a177ac",
+      "portable_inspection": "docs/benchmarks/evidence/native-bounded-adapters-2026-10-06-inspection.json",
+      "portable_inspection_sha256": "54145c2e68a4b32d2793c17fd1def0082daa498980e6254015f95927b8a177ac"
+    },
+    "hardware": {
+      "commit": {
+        "status": "accepted_bytes_committed_locally",
+        "commit": "99e0a4b304c506a2b24f605eb5156859b356486a",
+        "parent": "3ec56331241f32c11046d575e967e5a874f5226f",
+        "source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
+        "source_files_verified": 935,
+        "decision_sha256": "bcd3d06ca933f822601c557477b24fab304ab6de9eca760b4d6b488b58409082",
+        "source_tree_clean_after_commit": true,
+        "pushed": false,
+        "engine_work_and_ship_drop_testing_complete": true,
+        "deferred_documentation_work_ready": true,
+        "driver_sha256": "688f6a911a568cb57ac89317ec120619242bdc1433a84a3eb54b5dc2ac7a134b"
+      },
+      "acceptance": {
+        "status": "passed_local_engine",
+        "source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
+        "binary_sha256": "cf34826654b473eabd1a5f7773a52a5141e3fbcf20dc68b473a3d71d4b19deaf",
+        "public_checks": 27373,
+        "public_rows": 15820181,
+        "direct_checks": 202,
+        "direct_rows": 131734,
+        "full43_runs": 129,
+        "raw_public_envelopes": 54733,
+        "raw_direct_envelopes": 367,
+        "source_checks": 13,
+        "batch_checks": 48,
+        "batch_success_envelopes": 38,
+        "batch_raw_envelopes": 44,
+        "format_checks": 19,
+        "format_raw_envelopes": 24,
+        "pipeline_paired_complete_calls": 308,
+        "expression_complete_calls": 238,
+        "hardware_tracks_retained": 2,
+        "hardware_tracks_dropped": 3,
+        "admitted_semantic_stages": 145,
+        "golden_workflow_stages": 9,
+        "compacted_archive_members_reopened": 516,
+        "source_tree_clean": false,
+        "documentation_updates_deferred": true,
+        "packet": "docs/benchmarks/evidence/native-hardware-campaign-2026-10-06.json.xz",
+        "packet_sha256": "509787e4848c569cbec948de16e8bca678f6d1723c5a2a9cd4616f53410e0ec5",
+        "packet_compressed_bytes": 45001948,
+        "packet_uncompressed_bytes": 3500901974,
+        "packet_uncompressed_sha256": "8eb3abb63bff8c457fcbf6b3cfc6f197e4eb56ba8de072d54bb125dd12702f69"
+      },
+      "retention": {
+        "status": "retained_local_hardware_campaign",
+        "source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
+        "source_head_at_acceptance": "3ec56331241f32c11046d575e967e5a874f5226f",
+        "source_tree_clean_at_acceptance": false,
+        "binary_sha256": "cf34826654b473eabd1a5f7773a52a5141e3fbcf20dc68b473a3d71d4b19deaf",
+        "build": {
+          "path": "<local-evidence>/native-hardware-campaign-20261006/combined-build-1.json",
+          "sha256": "e44693c7fdb2012c6d8ec3262941d4d0c29c90904b35e8a575d1d5351d959fc2"
+        },
+        "acceptance": {
+          "path": "<local-evidence>/native-hardware-campaign-20261006/combined-final-acceptance-1.json",
+          "sha256": "7e4b943373d716d0f21529aaac2b0757c6575afe5231f6835a6d43ce364fa15e"
+        },
+        "packet": {
+          "path": "<local-evidence>/native-hardware-campaign-20261006/native-hardware-campaign-2026-10-06-attempt-1.json.xz",
+          "sha256": "509787e4848c569cbec948de16e8bca678f6d1723c5a2a9cd4616f53410e0ec5"
+        },
+        "independent_inspection": {
+          "path": "<local-evidence>/native-hardware-campaign-20261006/combined-packet-verified-1.json",
+          "sha256": "f4d54aa346ce99b55079ba985340b3a8c619f4c18e124af5787deecfaddb1aa6"
+        },
+        "engine_checks": {
+          "path": "<local-evidence>/native-hardware-campaign-20261006/combined-engine-checks-1.json",
+          "sha256": "69d621c2cf90d204499d441026e119aef01faf9fb0aaf7688676804ccae25221"
+        },
+        "acceptance_inputs": {
+          "path": "<local-evidence>/native-hardware-campaign-20261006/combined-acceptance-inputs-1.json",
+          "sha256": "b12a52606ec20aa88c1b677ff3cc5541c02d6868e6f17810b34fac35e0d6e651"
+        },
+        "final_verifier_guards": {
+          "combined-finalize-1": {
+            "path": "<local-evidence>/native-hardware-campaign-20261006/combined-finalize-1.json",
+            "sha256": "6921efe7badaba9f628d66b4d2ea18ad6fb7e73b19818e5d18dad0819924d9c3"
+          },
+          "combined-independent-inspection-1": {
+            "path": "<local-evidence>/native-hardware-campaign-20261006/combined-independent-inspection-1.json",
+            "sha256": "f48088db9896ba7a72b3defdadcf9f1c51d8d0cff57431856e0c1305370a8463"
+          }
+        },
+        "tracks": {
+          "pipeline": {
+            "disposition": "retained",
+            "decision": {
+              "path": "<local-evidence>/native-hardware-campaign-20261006/pipeline-retain-decision-1.json",
+              "sha256": "40b6aa93124a452a0a86a8221f668ac60ff838e0dcfe2b4455116b84d112edc1"
+            },
+            "comparisons": {
+              "screen": {
+                "summary": {
+                  "path": "<local-evidence>/native-hardware-campaign-20261006/pipeline-screen-1/summary.json",
+                  "sha256": "fc5eb58836cd41471ae878c2b18a2bbb66a0dcf67bd9e90a0a0c9d091f46284f"
+                },
+                "target_median_sums": {
+                  "baseline": 1.3616806249997353,
+                  "candidate": 1.2941534999990836
+                },
+                "target_time_reduction_percent": 4.959101551486411,
+                "paired_target_wins": 7,
+                "complete_calls": 112,
+                "resource_review": {
+                  "path": "<local-evidence>/native-hardware-campaign-20261006/pipeline-rss-resolution-screen-1.json",
+                  "sha256": "2d1f77134a89bacd8b7ccd273f1bbfcf18bdff02ebd4a4699869fbb1f00c7f07"
+                }
+              },
+              "confirmation": {
+                "summary": {
+                  "path": "<local-evidence>/native-hardware-campaign-20261006/pipeline-confirmation-1/summary.json",
+                  "sha256": "f46e1e25a8837d8144896ff5e5570fb706d471d77de13827b311bffcc6f8cc58"
+                },
+                "target_median_sums": {
+                  "baseline": 3.4101077519999308,
+                  "candidate": 3.1941306259996054
+                },
+                "target_time_reduction_percent": 6.3334399293881845,
+                "paired_target_wins": 7,
+                "complete_calls": 196,
+                "resource_review": {
+                  "path": "<local-evidence>/native-hardware-campaign-20261006/pipeline-rss-resolution-confirmation-1.json",
+                  "sha256": "7fa3a9c5343979378f37a86b17322c1dec962c620fa4310793d1794fa27890f2"
+                }
+              }
+            }
+          },
+          "expression": {
+            "disposition": "retained",
+            "decision": {
+              "path": "<local-evidence>/native-hardware-campaign-20261006/expression-retain-decision-1.json",
+              "sha256": "6d07136cb3cc2d9a549071d645c776ba0da6e09024358c0f6b88b4f6e2b3fd30"
+            },
+            "comparisons": {
+              "screen": {
+                "summary": {
+                  "path": "<local-evidence>/native-hardware-campaign-20261006/expression-screen-1-summary.json",
+                  "sha256": "e3a73354df5816565a7da2453f9dd3cfa6f3743b7fb67407f6047b9c89238710"
+                },
+                "target_median_sums": {
+                  "baseline": 0.8755897080000068,
+                  "candidate": 0.1950854580009036
+                },
+                "target_time_reduction_percent": 77.71953504952549,
+                "paired_target_wins": 7,
+                "complete_calls": 98,
+                "resource_review": null
+              },
+              "confirmation": {
+                "summary": {
+                  "path": "<local-evidence>/native-hardware-campaign-20261006/expression-confirmation-1-summary.json",
+                  "sha256": "2f8a21f40989df0819ddce8dfaf84a59bdaa67894acb7f64b8b63c3b2babedef"
+                },
+                "target_median_sums": {
+                  "baseline": 1.3851629170003434,
+                  "candidate": 0.29994587500095804
+                },
+                "target_time_reduction_percent": 78.34580529700365,
+                "paired_target_wins": 7,
+                "complete_calls": 126,
+                "resource_review": null
+              }
+            }
+          },
+          "reservation": {
+            "disposition": "dropped",
+            "decision": {
+              "path": "<local-evidence>/native-hardware-campaign-20261006/reservation-drop.json",
+              "sha256": "ad73ccd431ff4a7dac3e021c78123400a2963fe0cbe6142f08c6e9c65ad901b3"
+            },
+            "reason": "The predeclared seven-pair screen improved the sum of complete-operation target medians by only 0.9645 percent, below the required 2 percent. Five of seven paired target sums won, with no control/RSS crossings; those facts do not override the failed materiality threshold."
+          },
+          "grouped": {
+            "disposition": "dropped",
+            "decision": {
+              "path": "<local-evidence>/native-hardware-campaign-20261006/grouped-drop.json",
+              "sha256": "4e53ed464903ca03c9d1cd1f5ab8c65a9fe8da777a62ca44f79b112ba972f4c4"
+            },
+            "reason": "Target median sum improves only 0.05328 percent and three of seven paired target sums win; both gates fail. No control/RSS threshold crossings. All originally frozen targets, including admitted alternative strategies, remain in the score."
+          },
+          "locality": {
+            "disposition": "dropped",
+            "decision": {
+              "path": "<local-evidence>/native-hardware-campaign-20261006/locality-drop-decision-1.json",
+              "sha256": "821047136fb31e000b7c72e5e5072901f4d9cad8ddd9775e2cc693a66239079c"
+            },
+            "reason": "Target sum of medians is 2.7577 percent slower and candidate wins zero of seven paired target sums. No control or RSS threshold crossing. Complete-operation retention criterion failed."
+          }
+        },
+        "engine_work_and_ship_drop_testing_complete": true,
+        "retained_contract": [
+          "An absent ingest lookahead can recover one slot from exact native copy bytes within the unchanged memory and CPU grants; existing positive windows and synchronous P1 behavior stay unchanged.",
+          "Pure I64 column/literal predicate compositions use finite Boolean blocks with exact nullable truth tables, shared native owners and reuse of identical ordered nodes.",
+          "Arithmetic, casts, functions and lazy or fallible branches retain their existing evaluators; unsupported plans remain explicit and no external execution fallback is added.",
+          "The three experiments that missed complete-operation materiality were removed, with all measured calls, failures, diagnostic sources and candidate identities retained."
+        ],
+        "claim_boundaries": [
+          "The retained percentages describe the predeclared complete-operation target cohorts on this host and are separate comparisons, not a combined engine speedup.",
+          "The pipeline retains a finite additional native input copy when admitted; observed RSS increases were source-reviewed and the resource grant remains unchanged.",
+          "CPU/RSS, operation counts and static instruction inspection do not measure cache-coherence traffic or hardware instruction counts; xctrace was unavailable.",
+          "Reader/codec scratch exclusions, total process RSS limits, general operator spill/recovery and other-platform runtime parity are not expanded by these changes.",
+          "Public query reports do not expose full-query final-live or denied-reservation counts; source-bound ownership/denial tests and available native peak reports remain distinct evidence."
+        ],
+        "current_full43_observation": {
+          "summary": {
+            "path": "<local-evidence>/clickbench-100m-uat/logs/full43_20261007T011455063690Z/summary.json",
+            "sha256": "3e5fdc21a65557d6fe50b505d7017bcefd322ed89a6874e94e6e2ab37637d4a1"
+          },
+          "sum_query_minima_seconds": 63.616546626000854,
+          "sum_all_129_calls_seconds": 194.00678237600732,
+          "maximum_native_process_peak_rss_bytes": 5488852992,
+          "source_bytes": 15682956489,
+          "memory_policy_gb": 24,
+          "max_parallelism": 12,
+          "boundary": "Retained native input; no fresh ingest and no controlled whole-engine speed comparison. Query minima are not an observed end-to-end workflow duration."
+        },
+        "documentation_updates_deferred_until_this_acceptance": true,
+        "broad_performance_or_production_claim": false,
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "published_or_pushed": false,
+        "driver_sha256": "a8c4199e19a5de7630c6c79664b2701f35d645ad94f5aad2a9fc364bfaa3ec73"
+      },
+      "original_acceptance_sha256": "7e4b943373d716d0f21529aaac2b0757c6575afe5231f6835a6d43ce364fa15e",
+      "original_inspection_sha256": "f4d54aa346ce99b55079ba985340b3a8c619f4c18e124af5787deecfaddb1aa6",
+      "portable_inspection": "docs/benchmarks/evidence/native-hardware-campaign-2026-10-06-inspection.json",
+      "portable_inspection_sha256": "f4d54aa346ce99b55079ba985340b3a8c619f4c18e124af5787deecfaddb1aa6"
+    }
+  },
+  "engine_work_and_ship_drop_testing_complete": true,
+  "completed_scope": [
+    "finite native provider buffer ownership",
+    "bounded public batch input and incremental results",
+    "five-track hardware campaign and separate composed COUNT-reuse decisions"
+  ],
+  "broader_roadmap_complete": false,
+  "documentation_integration": "passed_local_documentation_and_browser_acceptance",
+  "documentation_receipt": {
+    "path": "docs/benchmarks/evidence/native-documentation-acceptance-2026-10-06.json",
+    "sha256": "c7673e6d812da6bbb660d05f00a7c2f6f3b4c4ec991308dbf49fe9b73890c245"
+  },
+  "integration_adjustments": {
+    "path": "docs/benchmarks/evidence/native-engine-integration-fixes-2026-10-07.json",
+    "sha256": "6e6697179b2f36e6903fa9b5b7459e43900dfbc98f46f5477b21c83b5a512072",
+    "integration_source_identity_sha256": "96e8ce44a67615aac0982410065b6d3df076f65725a3bd1aec7a67ea6849529b",
+    "changed_source_assets": [
+      "shardloom-vortex/src/vortex_ingest_pipeline_pressure_tests.rs"
+    ],
+    "production_source_assets_unchanged": true,
+    "website_dependency": "Sharp 0.35.4 to 0.35.5 and matching platform packages; generated site bytes unchanged"
+  },
+  "hosted_integration": "pending_updated_head_of_pr_1526",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1526",
+  "package_publication": "not_part_of_this_finite_packet",
+  "hash_boundary": "Packet copies retain the exact accepted compressed bytes. Original receipt hashes describe original local files; portable inspection and this index replace local paths and have distinct bytes.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "broad_engine_speedup_claim": false,
+  "production_support_claim": false,
+  "pushed_or_published": true,
+  "git_branch_pushed": true,
+  "package_published": false,
+  "staging_driver_sha256": "c695d6f12a3b83a1f26a29775e8cc2d3c401a9e318ede1e4cd9627fac200007e"
+}

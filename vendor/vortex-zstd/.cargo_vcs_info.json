@@ -1,0 +1,7 @@
+{
+  "git": {
+    "sha1": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
+    "dirty": true
+  },
+  "path_in_vcs": "encodings/zstd"
+}

@@ -21,6 +21,9 @@ use vortex::array::{
 #[path = "native_relational_scalar.rs"]
 pub(super) mod scalar;
 
+#[path = "native_relational_predicate_block.rs"]
+mod predicate_block;
+
 pub(super) struct Expression {
     pub(super) dtype: DType,
     pub(super) kind: Kind,
@@ -81,6 +84,10 @@ impl Expression {
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         context.check_cancelled()?;
+        if let Some(recipe) = predicate_block::Recipe::compile(self) {
+            let result = recipe.evaluate(self, input, context)?;
+            return self.checked_result(result, input.len(), context);
+        }
         let result = match &self.kind {
             Kind::Column(name) => super::logical_field_from_native_array(input, name)?,
             Kind::Literal(scalar) => {
@@ -171,8 +178,17 @@ impl Expression {
                 })?
             }
         };
+        self.checked_result(result, input.len(), context)
+    }
+
+    fn checked_result(
+        &self,
+        result: ArrayRef,
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
         context.check_cancelled()?;
-        if result.dtype() != &self.dtype || result.len() != input.len() {
+        if result.dtype() != &self.dtype || result.len() != rows {
             return Err(failed(
                 "scalar expression changed its bound schema or row count",
             ));

@@ -296,6 +296,7 @@ fn write_observed(
         .admit_conversion_memory(
             options.memory_bytes / 4,
             u64::try_from(first_batch.get_array_memory_size()).unwrap(),
+            Some(arrow_ownership::batch_copy_allocation_bytes(&first_batch).unwrap()),
         );
     let advisor = options.codec.then(|| {
         let mut advice = super::tests::layout_advisor_input(true, "none");
@@ -468,6 +469,107 @@ fn assert_files(directory: &Path, expected: &[&Path]) {
         actual, expected,
         "owned staging must not survive completion"
     );
+}
+
+#[test]
+fn streaming_owned_ipc_lookahead_recovers_capacity_aliasing_without_changing_values() {
+    bounded_completion(|| {
+        let directory = FixtureDirectory::new("owned-lookahead");
+        let batches = vec![
+            batch(0, 4096, 512),
+            batch(4096, 4096, 512),
+            batch(8192, 17, 512),
+        ];
+        let input = directory.0.join("input.arrow");
+        write_ipc(&input, &batches);
+        let mut reader =
+            arrow_ipc::reader::FileReader::try_new(fs::File::open(&input).unwrap(), None).unwrap();
+        let first = reader.next().unwrap().unwrap();
+        let reported = u64::try_from(first.get_array_memory_size()).unwrap();
+        let copied = arrow_ownership::batch_copy_allocation_bytes(&first).unwrap();
+        let memory_bytes = 64 << 20;
+        assert!(
+            reported > copied * 4,
+            "IPC buffers must alias a shared allocation"
+        );
+        assert!(reported * 4 > memory_bytes / 4);
+        assert!(copied * 4 <= memory_bytes / 4);
+        drop((first, reader));
+        let available = thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+        // Exercise CPU clamping even on hosts that can satisfy the fixed requests.
+        for grant in [1, 4, 8, available.saturating_add(1)] {
+            let applied = grant.min(available);
+            let mut legacy =
+                crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant, applied).unwrap();
+            legacy.admit_conversion_memory(memory_bytes / 4, reported, None);
+            assert_eq!(legacy.prefetch_slots(), 0);
+            let source =
+                crate::universal_format_io::stream_flat_arrow_ipc_columnar_source(&input, 8209)
+                    .unwrap();
+            let source = crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(
+                source, grant,
+            );
+            let output = directory.0.join(format!("lookahead-{grant}.vortex"));
+            let report = write_flat_columnar_vortex_prepared_state_streaming(
+                VortexPreparedStateColumnarStreamWriteRequest::new(&output, source)
+                    .shared_native_memory_budget_bytes(memory_bytes),
+            )
+            .unwrap();
+            assert_eq!(report.row_count, 8209);
+            assert_eq!(report.writer_runtime_requested_parallelism, grant);
+            assert_eq!(report.writer_runtime_applied_parallelism, applied);
+            assert_eq!(report.writer_runtime_background_workers, applied - 1);
+            assert_eq!(
+                report.writer_physical_design.array_build_prefetch_window,
+                usize::from(applied > 1)
+            );
+            assert_eq!(
+                report.writer_physical_design.array_build_worker_count,
+                usize::from(applied > 1)
+            );
+            let memory = report.shared_native_memory.as_ref().unwrap();
+            assert_eq!(memory.limit_bytes, memory_bytes);
+            assert!(memory.peak_reserved_bytes <= memory_bytes);
+            assert_eq!(memory.final_reserved_bytes, 0);
+            assert_eq!(memory.denied_reservations, 0);
+            assert!(!report.writer_physical_design.fallback_attempted);
+            assert!(!report.writer_physical_design.external_engine_invoked);
+            assert_complete_values(&output, &batches);
+            fs::remove_file(output).unwrap();
+            assert_files(&directory.0, &[&input]);
+        }
+    });
+}
+
+#[test]
+fn streaming_recovered_lookahead_still_denies_late_oversize_and_releases_credits() {
+    bounded_completion(|| {
+        let directory = FixtureDirectory::new("owned-lookahead-denial");
+        let input = directory.0.join("input.arrow");
+        write_ipc(&input, &[batch(0, 4096, 512), batch(4096, 8, 2 << 20)]);
+        for grant in [4, 8] {
+            let source =
+                crate::universal_format_io::stream_flat_arrow_ipc_columnar_source(&input, 4104)
+                    .unwrap();
+            let output = directory.0.join(format!("denied-{grant}.vortex"));
+            let options = WriteOptions::new(grant, 4104);
+            let observed = write_observed(source, &output, &options);
+            assert!(observed.lookahead_enabled);
+            assert!(
+                observed
+                    .result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("conversion headroom")
+            );
+            assert_eq!(observed.batch_bytes.len(), 2);
+            assert!(observed.batch_bytes[1] > observed.batch_bytes[0]);
+            assert_eq!(observed.memory.reserved_bytes, 0);
+            assert!(observed.memory.peak_reserved_bytes <= options.memory_bytes);
+            assert!(!output.exists());
+            assert_files(&directory.0, &[&input]);
+        }
+    });
 }
 
 #[test]

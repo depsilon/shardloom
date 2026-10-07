@@ -52,8 +52,8 @@ margins require a UTF8 index. Nested cells accept absent or NULL fill only.
 Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
 text, and ORC rejects nested output. Existing 128-field, collection and memory
-limits apply. Focused native and public checks pass; full regression and hosted
-acceptance remain pending. Published v0.4.0 packages predate this source support.
+limits apply. Complete local workflow/regression acceptance and all 39 hosted
+checks passed before PR #1525 merged. Published v0.4.0 packages predate this source support.
 See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
@@ -175,6 +175,15 @@ JSON collection reports the final materialization boundary and metadata loss; ex
 row or serialized-byte limit fails without returning a successful prefix.
 
 ## Resources And Recovery
+
+The accepted local source branch accounts for reviewed FSST/Zstd payload,
+view and validity buffers through the shared native memory owner. Retained
+clones and slices keep their allocation credits. It also adds
+[Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
+These additions have complete local acceptance and await hosted integration;
+published v0.4.0 predates them. C decoder contexts, dictionary preparation
+scratch and other unreviewed allocations remain outside this finite accounting
+scope. A query grant still does not bound total process RSS.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an

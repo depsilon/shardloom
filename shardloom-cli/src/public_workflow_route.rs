@@ -369,6 +369,39 @@ pub(crate) fn handle_public_workflow_run(
     }
 }
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn handle_batch_workflow(
+    args: impl Iterator<Item = String>,
+    transport: &mut crate::python_batch_protocol::Transport,
+) -> ExitCode {
+    let request = match PublicWorkflowRouteRequest::parse(args) {
+        Ok(request) => effective_public_workflow_request(&request),
+        Err(error) => {
+            return emit_error(
+                "run",
+                OutputFormat::Json,
+                "batch declaration rejected",
+                &error,
+            );
+        }
+    };
+    let Some(plan) = resident_relational::route_admitted_statement(&request) else {
+        return emit_error(
+            "run",
+            OutputFormat::Json,
+            "batch declaration rejected",
+            &ShardLoomError::InvalidOperation(
+                "batch consumption requires a complete SQL declaration".into(),
+            ),
+        );
+    };
+    let plan = spill::validate_route(&request, plan);
+    if plan.status != CommandStatus::Success {
+        return emit_blocked_facade("run", OutputFormat::Json, &request, &plan);
+    }
+    resident_relational::run_batches(&request, &plan, transport)
+}
+
 fn execute_native_vortex_profile_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,

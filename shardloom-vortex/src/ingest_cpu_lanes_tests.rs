@@ -15,7 +15,7 @@ fn shared_conversion_admission_scales_with_cpu_and_memory_without_fixed_tiers() 
                 let mut previous = 0;
                 for memory_bytes in [0, 1, 1 << 20, 1 << 30, u64::MAX] {
                     let mut admitted = lanes;
-                    admitted.admit_conversion_memory(memory_bytes, batch_bytes);
+                    admitted.admit_conversion_memory(memory_bytes, batch_bytes, None);
                     let slots = admitted.conversion_task_limit();
                     assert!(
                         slots >= previous,
@@ -32,14 +32,51 @@ fn shared_conversion_admission_scales_with_cpu_and_memory_without_fixed_tiers() 
         }
     }
     let mut large = IngestCpuLanes::shared(128, 96).unwrap();
-    large.admit_conversion_memory(1 << 30, 1 << 20);
+    large.admit_conversion_memory(1 << 30, 1 << 20, None);
     assert_eq!(large.conversion_task_limit(), 96);
     let mut constrained = IngestCpuLanes::shared(128, 96).unwrap();
-    constrained.admit_conversion_memory(12 << 20, 1 << 20);
+    constrained.admit_conversion_memory(12 << 20, 1 << 20, None);
     assert_eq!(constrained.conversion_task_limit(), 3);
     assert!(IngestCpuLanes::shared(0, 0).is_err());
     assert!(IngestCpuLanes::shared(4, 0).is_err());
     assert!(IngestCpuLanes::shared(4, 5).is_err());
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn owned_copy_admission_recovers_only_one_missing_slot_with_unchanged_grants() {
+    for applied in [1, 2, 4, 8, 64, usize::MAX] {
+        let lanes = IngestCpuLanes::shared(applied, applied).unwrap();
+        for reported in [0, 1, 1024, 1 << 20, u64::MAX / 4, u64::MAX] {
+            for budget in [0, 1, 3, 4, (4 << 20) - 1, 4 << 20, 16 << 20, u64::MAX] {
+                let mut legacy = lanes;
+                legacy.admit_conversion_memory(budget, reported, None);
+                for copied in [0, 1, budget / 4, budget / 4 + 1, 1 << 20, u64::MAX] {
+                    let mut owned = lanes;
+                    owned.admit_conversion_memory(budget, reported, Some(copied));
+                    assert_eq!(owned.configured_cpu_lanes(), lanes.configured_cpu_lanes());
+                    assert_eq!(owned.provider_drivers(), lanes.provider_drivers());
+                    assert_eq!(owned.requested(), lanes.requested());
+                    if legacy.prefetch_slots() > 0 {
+                        assert_eq!(owned.prefetch_slots(), legacy.prefetch_slots());
+                    } else if owned.prefetch_slots() > 0 {
+                        assert_eq!(owned.prefetch_slots(), 1);
+                        assert!(applied > 1 && budget > 0);
+                        assert!(u128::from(copied) * 4 <= u128::from(budget));
+                    } else if applied > 1
+                        && budget > 0
+                        && u128::from(copied) * 4 <= u128::from(budget)
+                    {
+                        panic!("an admitted native copy must retain one progress slot");
+                    }
+                }
+            }
+        }
+    }
+    let dedicated = IngestCpuLanes::pipeline(8, 1);
+    let mut unchanged = dedicated;
+    unchanged.admit_conversion_memory(0, u64::MAX, Some(0));
+    assert_eq!(unchanged, dedicated);
 }
 
 fn demand() -> IngestCpuDemand {

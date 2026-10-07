@@ -31,6 +31,10 @@ use crate::resident_session::{OwnedVortexResultBatch, ResidentVortexSession};
 mod owned_intake;
 pub use owned_intake::OwnedMemoryColumn;
 
+#[path = "resident_memory_batches.rs"]
+mod batches;
+pub use batches::MemoryBatchSourceBuilder;
+
 /// Explicit flat-scalar input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
 #[derive(Clone, Copy)]
@@ -223,7 +227,16 @@ impl ResidentMemorySource {
         columns: &[MemoryColumn<'_>],
         bounds: MemorySourceBounds,
     ) -> Result<Self> {
-        let (rows, input_logical_bytes) = validate_columns(columns, bounds)?;
+        Self::from_columns_with_width(session, columns, bounds, 64)
+    }
+
+    fn from_columns_with_width(
+        session: &ResidentVortexSession,
+        columns: &[MemoryColumn<'_>],
+        bounds: MemorySourceBounds,
+        max_columns: usize,
+    ) -> Result<Self> {
+        let (rows, input_logical_bytes) = validate_columns(columns, bounds, max_columns)?;
         let allocator = session.native_allocator();
         let mut intake_payload_bytes_copied = 0;
         let fields = columns
@@ -324,8 +337,8 @@ impl ResidentMemorySource {
         filter: Option<Expression>,
         limit: Option<usize>,
     ) -> Result<PreparedMemoryProjection> {
-        if columns.is_empty() || columns.len() > 64 {
-            return Err(memory_error("projection requires 1..=64 fields"));
+        if columns.is_empty() || columns.len() > 128 {
+            return Err(memory_error("projection requires 1..=128 fields"));
         }
         for (index, name) in columns.iter().enumerate() {
             if columns[..index].contains(name) {
@@ -520,9 +533,10 @@ impl MemoryColumnValues<'_> {
 fn validate_columns(
     columns: &[MemoryColumn<'_>],
     bounds: MemorySourceBounds,
+    max_columns: usize,
 ) -> Result<(usize, usize)> {
     if columns.is_empty()
-        || columns.len() > 64
+        || columns.len() > max_columns
         || bounds.max_input_rows > 65_536
         || bounds.max_output_rows > 65_536
         || bounds.max_input_rows == 0
@@ -530,9 +544,9 @@ fn validate_columns(
         || bounds.max_input_bytes == 0
         || bounds.max_output_bytes == 0
     {
-        return Err(memory_error(
-            "memory intake requires 1..=64 columns and positive bounds up to 65,536 rows",
-        ));
+        return Err(memory_error(&format!(
+            "memory intake requires 1..={max_columns} columns and positive bounds up to 65,536 rows",
+        )));
     }
     let rows = columns[0].values.len();
     if rows > bounds.max_input_rows {

@@ -135,16 +135,26 @@ impl IngestCpuLanes {
     /// Each slot allows the existing two-input conversion headroom plus a 2x
     /// batch-size margin. Later skew still passes the per-batch admission check;
     /// this estimate does not authorize unbounded growth or silently retry work.
+    /// When shared Arrow backing capacity suppresses all prefetch, exact sizing
+    /// of admitted native copies can recover one lookahead slot. Already-positive
+    /// windows stay unchanged; original source owners remain outside that scope.
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    pub(crate) fn admit_conversion_memory(&mut self, budget_bytes: u64, batch_bytes: u64) {
+    pub(crate) fn admit_conversion_memory(
+        &mut self,
+        budget_bytes: u64,
+        batch_bytes: u64,
+        owned_copy_bytes: Option<u64>,
+    ) {
         if self.shared_runtime {
-            let Some(slot_bytes) = batch_bytes.checked_mul(4) else {
-                self.prefetch_slots = 0;
-                return;
-            };
-            let slot_bytes = slot_bytes.max(1);
-            let admitted = usize::try_from(budget_bytes / slot_bytes).unwrap_or(usize::MAX);
-            self.prefetch_slots = self.prefetch_slots.min(admitted);
+            let admitted = batch_bytes.checked_mul(4).map_or(0, |slot_bytes| {
+                usize::try_from(budget_bytes / slot_bytes.max(1)).unwrap_or(usize::MAX)
+            });
+            let owned_lookahead = usize::from(
+                owned_copy_bytes
+                    .and_then(|bytes| bytes.checked_mul(4))
+                    .is_some_and(|bytes| bytes.max(1) <= budget_bytes),
+            );
+            self.prefetch_slots = self.prefetch_slots.min(admitted.max(owned_lookahead));
         }
     }
 

@@ -462,6 +462,7 @@ impl ResidentVortexSession {
         let session = VortexSession::default()
             .with_handle(runtime.handle())
             .with_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
+        crate::native_provider_memory::install(&session, memory.clone());
         Ok(Self(Arc::new(RuntimeOwner {
             session,
             runtime,

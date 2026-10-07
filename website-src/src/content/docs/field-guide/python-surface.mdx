@@ -47,6 +47,38 @@ shared native result and sink contracts. Feature gates, supported types, and res
 See [runtime and I/O](/field-guide/runtime-and-io) and the
 [user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
 
+## Consume results in batches
+
+The accepted local source branch adds `iter_batches()` for admitted results
+and `from_batches()` for explicitly typed resident input. Hosted integration
+is pending; published v0.4.0 packages predate these additions.
+
+```python
+def orders():
+    yield [{"order_id": 1, "amount": 12.5}]
+    yield [{"order_id": 2, "amount": None}]
+
+frame = sl.from_batches(
+    orders, schema={"order_id": "int64", "amount": "float64"},
+)
+with frame.iter_batches(batch_rows=1024) as batches:
+    for batch in batches:
+        print(batch.result_rows)
+    assert batches.report is not None
+```
+
+Input admits nullable Int64, finite Float64, booleans and UTF8 strings with an
+explicit schema. Each input batch contains at most 2,048 row mappings and an
+8 MiB frame, with up to 128 fields and 4,096 batches per source. Total native
+input must fit the query memory grant. A factory, as above, supplies fresh
+input for repeated calls; an iterable can be consumed once.
+
+Requesting the next result batch acknowledges the preceding one. Use the
+context manager when stopping early, and treat delivered batches as provisional
+until the final report is present after full exhaustion. Prepare compatibility
+file inputs explicitly to Vortex before batch consumption. See
+[resource boundaries](/field-guide/runtime-and-io#resources-and-recovery).
+
 ## Next steps
 
 See [the examples](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md)

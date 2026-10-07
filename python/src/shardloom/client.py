@@ -6720,6 +6720,7 @@ class ShardLoomClient:
         input_format: str | None = None,
         source_schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None = None,
         source_bindings: Mapping[str, Mapping[str, object]] | None = None,
+        input_batches: Mapping[str, object] | None = None,
         sql_statement: str | None = None,
         plan_summary: str | None = None,
         requested_output: str = "collect",
@@ -6794,7 +6795,29 @@ class ShardLoomClient:
             max_parallelism=max_parallelism,
             spill=spill,
         )
+        if input_batches:
+            from ._batches import ResultBatchIterator, validate_inputs
+            validate_inputs(source_bindings, input_batches)
+            with ResultBatchIterator(self, args, inputs=input_batches, stream_results=False, check=check) as batches:
+                for _ in batches:
+                    raise ShardLoomProtocolError("non-streaming transaction emitted a result batch")
+                if batches._terminal_envelope is None:
+                    raise ShardLoomProtocolError("native batch transaction omitted its final report")
+                return PublicWorkflowExecution(batches._terminal_envelope)
         return PublicWorkflowExecution(self.run(args, check=check))
+
+    def public_workflow_batches(
+        self, surface: str, *, batch_rows: int = 2048,
+        input_batches: Mapping[str, object] | None = None, **kwargs: Any,
+    ):
+        """Iterate native result batches; use a context manager for early close."""
+        from ._batches import ResultBatchIterator, validate_inputs
+        validate_inputs(kwargs.get("source_bindings"), input_batches)
+        if kwargs.get("requested_output", "collect") != "collect":
+            raise ValueError("incremental result consumption requires collect output")
+        kwargs.setdefault("bounded", True)
+        args = self._public_workflow_facade_args("run", surface, **kwargs)
+        return ResultBatchIterator(self, args, inputs=input_batches, batch_rows=batch_rows)
 
     def public_workflow_prepare(
         self,

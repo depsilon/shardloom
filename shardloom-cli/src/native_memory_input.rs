@@ -15,15 +15,15 @@ pub(crate) enum MemoryValueType {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[serde(transparent)]
-pub(crate) struct MemoryRow(pub(crate) Vec<Option<String>>);
+pub(crate) struct MemoryRow<const MAX: usize = 64>(pub(crate) Vec<Option<String>>);
 
-impl<'de> serde::Deserialize<'de> for MemoryRow {
+impl<'de, const MAX: usize> serde::Deserialize<'de> for MemoryRow<MAX> {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        bounded_vec::<_, _, 64>(deserializer).map(Self)
+        bounded_vec::<_, _, MAX>(deserializer).map(Self)
     }
 }
 
-fn bounded_vec<'de, D, T, const MAX: usize>(deserializer: D) -> Result<Vec<T>, D::Error>
+pub(crate) fn bounded_vec<'de, D, T, const MAX: usize>(deserializer: D) -> Result<Vec<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: serde::Deserialize<'de>,
@@ -69,6 +69,10 @@ pub(crate) enum MemoryInput {
         #[serde(deserialize_with = "bounded_vec::<_, _, 65_536>")]
         rows: Vec<MemoryRow>,
     },
+    Batches {
+        #[serde(deserialize_with = "bounded_vec::<_, _, 128>")]
+        schema: Vec<(String, MemoryValueType)>,
+    },
     Range {
         start: i64,
         end: i64,
@@ -85,6 +89,7 @@ impl MemoryInput {
             #[cfg(any(test, all(feature = "vortex-local-primitives", unix)))]
             Self::Unit => Ok(()),
             Self::Rows { schema, rows } => validate_rows(schema, rows),
+            Self::Batches { schema } => validate_batch_rows(schema, &[]),
             Self::Range {
                 start,
                 end,
@@ -118,6 +123,7 @@ impl MemoryInput {
                 )
             }
             Self::Rows { schema, rows } => crate::native_memory_rows::build(schema, rows, session),
+            Self::Batches { .. } => Err(failed("batch input requires the bounded batch transport")),
             Self::Range {
                 start,
                 end,
@@ -139,8 +145,25 @@ pub(crate) fn validate_rows(
     schema: &[(String, MemoryValueType)],
     rows: &[MemoryRow],
 ) -> Result<(), ShardLoomError> {
-    if schema.is_empty() || schema.len() > 64 || rows.len() > 65_536 {
-        return Err(failed("rows require 1..=64 fields and at most 65,536 rows"));
+    validate_rows_with_limits(schema, rows, 65_536)
+}
+
+pub(crate) fn validate_batch_rows(
+    schema: &[(String, MemoryValueType)],
+    rows: &[MemoryRow<128>],
+) -> Result<(), ShardLoomError> {
+    validate_rows_with_limits(schema, rows, 2048)
+}
+
+fn validate_rows_with_limits<const WIDTH: usize>(
+    schema: &[(String, MemoryValueType)],
+    rows: &[MemoryRow<WIDTH>],
+    max_rows: usize,
+) -> Result<(), ShardLoomError> {
+    if schema.is_empty() || schema.len() > WIDTH || rows.len() > max_rows {
+        return Err(failed(&format!(
+            "rows require 1..={WIDTH} fields and at most {max_rows} rows"
+        )));
     }
     let mut bytes = 0usize;
     for (index, (name, _)) in schema.iter().enumerate() {

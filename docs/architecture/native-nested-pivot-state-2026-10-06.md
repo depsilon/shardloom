@@ -2,7 +2,8 @@
 
 # Native nested pivot state
 
-Status: complete local acceptance on `750b3783`; hosted integration pending.
+Status: complete local acceptance on `750b3783`; hosted integration completed in
+[PR #1525](https://github.com/depsilon/shardloom/pull/1525) after all 39 checks passed.
 The [acceptance report](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md)
 records complete public, resource, schema and Full43 regression evidence. Scalar-subquery hosted
 integration completed in [PR #1524](https://github.com/depsilon/shardloom/pull/1524).
@@ -141,7 +142,11 @@ replacement overlap, constrained grants, cancellation, source changes and failed
 publication. The [immutable acceptance packet](../benchmarks/evidence/native-nested-pivot-state-2026-10-06.json.xz)
 retains the independent literal oracles, 910 frozen source assets, 27 source gates,
 1,892 schema proofs, 2,871 complete value/resource proofs and all failed observations.
-Hosted review and integration remain required; published v0.4.0 predates this unit.
+The accepted head `58c09499` merged at `4ba90532` with the same tree and all 910
+runtime source hashes preserved. The [hosted receipt](../benchmarks/evidence/native-nested-pivot-state-hosted-2026-10-06.json)
+records the exact checks, primary review and live website verification. Automated
+hosted review was account-limited and supplied no approval. Published v0.4.0
+predates this unit.
 
 - Freeze independent complete SQL/Python result fixtures for each nested role,
   combinations of roles, all selected aggregate kinds, empty/null/duplicate

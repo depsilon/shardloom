@@ -1,6 +1,6 @@
 //! Prepared native relational trees sharing one resource and source admission.
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vortex-write"))]
 use super::result_batch;
 use super::{
     LocalVortexScanPlan, MaterializedPredicateEvaluator, VortexLocalPrimitiveExecutionPolicy,
@@ -31,7 +31,7 @@ use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
 };
-#[cfg(test)]
+#[cfg(all(test, feature = "vortex-write"))]
 use vortex::array::VortexSessionExecute as _;
 use vortex::array::{
     ArrayRef,
@@ -570,15 +570,70 @@ impl PreparedVortexRelational {
     pub fn for_each_batch(
         &self,
         cancellation: &CancellationToken,
+        consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        self.for_each_batch_with_rows(cancellation, BATCH_ROWS, consume)
+    }
+
+    fn for_each_batch_with_rows(
+        &self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
         mut consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         let mut execution =
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
-                    self.consume_in_context(context, BATCH_ROWS, &mut |array| {
+                    self.consume_in_context(context, batch_rows, &mut |array| {
                         consume(array, context)
                     })
                 })?;
+        execution.runtime = self.snapshot();
+        Ok(execution)
+    }
+
+    /// Materialize one bounded JSON batch at a time through the existing native
+    /// consumer. No query replay or complete-result collection occurs. Delivered
+    /// batches are provisional until this call's final source validation succeeds.
+    /// # Errors
+    /// Rejects invalid batch bounds, a batch above its byte bound, cancellation,
+    /// consumer failures and source changes. Retained batches keep their credits.
+    pub fn for_each_json_batch(
+        &self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        max_batch_bytes: usize,
+        mut consume: impl FnMut(super::collect::SerializedVortexResultBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        if batch_rows == 0
+            || batch_rows > BATCH_ROWS
+            || max_batch_bytes == 0
+            || max_batch_bytes > 8 * 1024 * 1024
+        {
+            return Err(failed("JSON batches require 1..=2,048 rows and 1..=8 MiB"));
+        }
+        let mut execution =
+            self.for_each_batch_with_rows(cancellation, batch_rows, |array, context| {
+                let mut sink =
+                    super::collect::JsonRows::new(context.memory(), max_batch_bytes, false)?;
+                sink.append_native(&array, context)?;
+                let result_schema_json =
+                    super::collect::serialize_result_schema(array.dtype(), context.memory())?;
+                consume(super::collect::SerializedVortexResultBatch {
+                    rows: array.len(),
+                    values_json: sink.finish()?,
+                    result_schema_json,
+                })
+            })?;
+        super::collect::certify_json_delivery(
+            &mut execution.native_io_certificate,
+            execution.output_rows,
+            true,
+        )?;
+        execution
+            .native_io_certificate
+            .sink_requirement_report
+            .max_chunk_size = Some(batch_rows as u64);
         execution.runtime = self.snapshot();
         Ok(execution)
     }

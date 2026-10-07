@@ -98,6 +98,9 @@ impl NativeNumericOwner {
     pub(super) fn i64_values(&self) -> Option<&[i64]> {
         (self.all_valid() && self.ptype() == PType::I64).then(|| self.primitive.as_slice::<i64>())
     }
+    pub(super) fn i64_values_with_validity(&self) -> Option<(&[i64], &Mask)> {
+        (self.ptype() == PType::I64).then(|| (self.primitive.as_slice::<i64>(), &self.valid))
+    }
     pub(super) fn f64_values(&self) -> Option<&[f64]> {
         (self.all_valid() && self.ptype() == PType::F64).then(|| self.primitive.as_slice::<f64>())
     }

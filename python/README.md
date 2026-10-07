@@ -452,6 +452,30 @@ subject to each format's dtype contract and the operation's state budget. Native
 Vortex and text output admit supported mixed scalar melt/pivot results; mixed Variant
 columns are not general binary compatibility output support.
 
+The accepted local source branch also supports incremental Python consumption
+through `iter_batches`; hosted integration and released-package availability are
+separate. Use a context manager so stopping early cancels and drains the owned
+operation. Batches remain provisional until full exhaustion and a final report:
+
+```python
+with workflow.iter_batches(batch_rows=1024) as batches:
+    for batch in batches:
+        print(batch.result_rows)
+    assert batches.report is not None
+```
+
+`sl.from_batches(producer, schema={"id": "int64", "label": "utf8"})` and
+`ctx.from_batches(...)` declare resident input from sequences of row mappings.
+Pass a factory returning fresh batches for repeated execution, or an iterable
+for one execution. Declaration does not call the producer. Nullable Int64,
+finite Float64, Boolean and UTF8 are admitted; each batch has at most 2,048 rows,
+128 fields and an 8 MiB frame, with at most 4,096 batches per source. Accumulated
+native input must fit the shared memory grant. Output supports the existing
+admitted typed/nested schemas, with the same 2,048-row / 8-MiB payload ceiling.
+Prepare compatibility file input explicitly to Vortex before batch consumption.
+See the [complete batch contract and example](../docs/architecture/native-bounded-adapters-2026-10-06.md)
+for backpressure, conversions, timeout scope and final-validation semantics.
+
 Current source builds compose flat-scalar DISTINCT, `drop_duplicates`, `duplicated`,
 tail, sample, scalar rewrites, melt and rolling with admitted filters, projections,
 ordering, aggregates, joins and sets. Each operation consumes the preceding stage's
@@ -532,7 +556,8 @@ state has no spill path.
 Source builds after published v0.4.0 also admit static List, FixedSizeList and
 Struct columns as pivot index, domain and selected-value roles. Complete local
 [workflow, resource and regression acceptance](../docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md)
-passes; hosted integration remains pending, and published v0.4.0 packages predate it. Nested
+passes, with hosted integration complete in PR #1525. Published v0.4.0 packages
+predate it. Nested
 cells support `first`, `first_unique`, `count`, `min` and `max`; `first_unique`
 accepts repeated equal complete values and rejects conflicts. Nested extrema
 skip NULL parents and use the shared child-NULL ordering. Python `pivot()` and

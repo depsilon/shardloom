@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Typed input conversion only; execution and output use the shared native engine.
 
-use crate::native_memory_input::{MemoryRow, MemoryValueType, validate_rows};
+use crate::native_memory_input::{MemoryRow, MemoryValueType, validate_batch_rows, validate_rows};
 use shardloom_core::ShardLoomError;
 use shardloom_vortex::{
     resident_memory_source::{
-        MemoryColumn, MemoryColumnValues, MemorySourceBounds, ResidentMemorySource,
+        MemoryBatchSourceBuilder, MemoryColumn, MemoryColumnValues, MemorySourceBounds,
+        ResidentMemorySource,
     },
     resident_session::ResidentVortexSession,
 };
@@ -32,6 +33,28 @@ pub(crate) fn build(
     ResidentMemorySource::from_columns(session, &columns, MemorySourceBounds::default())
 }
 
+pub(crate) fn append_batch(
+    schema: &[(String, MemoryValueType)],
+    rows: &[MemoryRow<128>],
+    builder: &mut MemoryBatchSourceBuilder,
+) -> Result<(), ShardLoomError> {
+    validate_batch_rows(schema, rows)?;
+    let typed = schema
+        .iter()
+        .enumerate()
+        .map(|(index, (_, kind))| TypedColumn::from_rows(*kind, index, rows))
+        .collect::<Result<Vec<_>, _>>()?;
+    let columns = schema
+        .iter()
+        .zip(&typed)
+        .map(|((name, _), values)| MemoryColumn {
+            name,
+            values: values.borrowed(),
+        })
+        .collect::<Vec<_>>();
+    builder.push_columns(&columns)
+}
+
 enum TypedColumn<'a> {
     Int64(Vec<Option<i64>>),
     Float64(Vec<Option<f64>>),
@@ -40,10 +63,10 @@ enum TypedColumn<'a> {
 }
 
 impl<'a> TypedColumn<'a> {
-    fn from_rows(
+    fn from_rows<const WIDTH: usize>(
         kind: MemoryValueType,
         index: usize,
-        rows: &'a [MemoryRow],
+        rows: &'a [MemoryRow<WIDTH>],
     ) -> Result<Self, ShardLoomError> {
         let values = || rows.iter().map(|row| row.0[index].as_deref());
         match kind {

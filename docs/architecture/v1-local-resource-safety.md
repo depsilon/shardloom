@@ -26,6 +26,15 @@ grant and a 1 MiB flush threshold. This is evidence for that declared operator a
 scope, not a universal memory or recovery guarantee. See the linked contract for exact source,
 executable, test and immutable packet identities.
 
+The accepted local [provider resource unit](native-provider-resources-2026-10-06.md)
+adds checked FSST canonical payload/view/validity admission, retained native
+concatenation and fallible allocation of the reviewed Zstd payload/view/scatter
+buffers. Clones and slices retain their credits. The
+[batch adapter unit](native-bounded-adapters-2026-10-06.md) adds demand-driven
+resident input and acknowledged incremental result delivery under the same
+native plan. Input remains resident; output batching does not make general state
+spillable. Both units have complete local acceptance and await hosted integration.
+
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
 whole-process RSS bounds remain open. Other operators must retain their own resource admission
 and deterministic denials. A supported reader, large input or successful ingest does not by
@@ -114,7 +123,8 @@ The v1 boundary uses ShardLoom-native resource controls where they are already m
 The following need separate implementation or acceptance before broader support is promised:
 
 - general aggregate/join/window and other unadmitted operator spill transitions.
-- reader/codec/upstream scratch accounting across complete local workflows.
+- reader/codec/upstream scratch accounting beyond the finite accepted provider
+  buffers, including Zstd C decoder contexts and dictionary preparation scratch.
 - larger-than-resident-state guarantees beyond the admitted spill families.
 - workload-wide pressure, interruption and recovery acceptance for a declared production envelope.
 - object-store recovery.
