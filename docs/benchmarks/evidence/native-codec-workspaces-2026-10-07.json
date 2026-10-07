@@ -1,6 +1,6 @@
 {
   "schema_version": "shardloom.native_codec_workspace_local_acceptance.v1",
-  "status": "accepted_source_committed_locally_hosted_pending",
+  "status": "accepted_source_and_hosted_integration_complete",
   "unit": "NATIVE-CODEC-WORKSPACES",
   "runtime_commit": "ab96cd7e5d0698d90c33ea2835896a68cb5f3543",
   "source_base_commit": "83d26a0e4acedab3e51bb8fc67437a867a13f28b",
@@ -200,7 +200,7 @@
     "boundary": "Complete new native processes against retained input; prehash warms the file cache. No fresh ingest, paired whole-engine speedup or enforced process RSS claim."
   },
   "documentation_updates_complete": true,
-  "hosted_acceptance_complete": false,
+  "hosted_acceptance_complete": true,
   "package_publication_performed": false,
   "performance_claim_allowed": false,
   "broader_resource_spill_recovery_complete": false,
@@ -208,5 +208,12 @@
   "external_engine_invoked": false,
   "staging_driver_sha256": "f8c8cf63685034c041bbe3c709afd2bfbbe94362bf0d9b2a9d9074b57346433a",
   "documentation_acceptance": "docs/benchmarks/evidence/native-codec-documentation-2026-10-07.json",
-  "documentation_acceptance_sha256": "baca080ed73535094ad420ba5f29d3ce2fde9d55d74e596cf583677787a30484"
+  "documentation_acceptance_sha256": "baca080ed73535094ad420ba5f29d3ce2fde9d55d74e596cf583677787a30484",
+  "hosted_acceptance": "docs/benchmarks/evidence/native-codec-hosted-2026-10-07.json",
+  "hosted_acceptance_sha256": "80f894986bb5956f8bdc47e9f05ca66b0ab006cf890afa1226e8ce55bfcc90d9",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1528",
+  "accepted_head": "2402a2089180c3d2f8d2dd70b88462255ba6744b",
+  "merge_commit": "9c2a7a7100bbec1e8993aedc04db404c07d29897",
+  "successful_hosted_checks": 39,
+  "integration_note": "The merge preserves the tested tree and all 938 accepted runtime source assets. Documentation receipts retain their original pre-merge snapshots; current status documentation records the completed integration. No package publication or broader resource/spill/recovery completion is implied."
 }

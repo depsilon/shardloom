@@ -249,32 +249,12 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-CODEC-WORKSPACES` — admit pinned Zstd one-shot decoder and
-  prepared-dictionary workspaces through existing Vortex memory owners under
-  PERF-03/06 and CG-5/19/20/21. Follow the
-  [contract](native-zstd-workspaces-2026-10-07.md) and RFC 0044's scoped provider
-  safety decision. Local implementation is accepted at `ab96cd7e`; the
-  [report](../benchmarks/native-codec-workspaces-2026-10-07.md) binds the source,
-  measured executables, original failures and complete regression evidence.
-  - V1 scope classification: `required_for_v1` for the declared local resource
-    envelope. Preserve upstream concrete encoding and native persistence.
-  - Reuse review: `use_vortex_native_provider`; one PulseWeave grant and the
-    current `HostAllocator` own actual C workspaces. Safe upstream wrappers lack
-    static-context initialization; keep the private binding in the vendored
-    dependency and retain workspace `unsafe_code = "forbid"`.
-  - Execution checklist:
-    - [x] Audit pinned one-shot/static-context/dictionary APIs and allocation
-      paths; define lifetime, alignment, version and legacy-format boundaries.
-    - [x] Reproduce unaccounted context storage, then implement actual reserved
-      workspaces with typed denial and unconditional owner cleanup.
-    - [x] Prove dictionary/overlap pressure, malformed/legacy input, exact values,
-      native identity and all direct entrypoints; inspect every unsafe call.
-    - [x] Complete the frozen native cost screen and required source/public/
-      Full43 acceptance with failed attempts and excluded allocations preserved.
-    - [ ] Integrate the accepted finite result and evidence through hosted checks.
-  - Compression/training state, other codecs, general aggregate/join/window/pivot
-    spill and recovery keep their existing owners. Do not reopen paused format/
-    text sweeps or infer a process-RSS guarantee from this allocation scope.
+`NATIVE-CODEC-WORKSPACES` is complete in
+[PR #1528](https://github.com/depsilon/shardloom/pull/1528), with all 39 hosted
+checks and unchanged accepted runtime source. The
+[completed ledger](phased-execution-completed-ledger.md) records the exact merge,
+review and production evidence. Compression/training state, other provider
+allocations and general operator spill/recovery retain their existing owners.
 
 `NATIVE-PROVIDER-RESOURCES`, public bounded batch adapters and all five
 `HARDWARE-INFORMED-EXECUTION` decisions are complete in
@@ -2737,6 +2717,10 @@ tested tree and accepted production source; the integration correction changes
 only a CPU-cap test fixture and the website dependency lock. Broader resource,
 spill, failure and adapter obligations retain their owners. Do not restart the
 completed experiments.
+`NATIVE-CODEC-WORKSPACES` subsequently merged in PR #1528 at `9c2a7a71`, after
+all 39 hosted checks on `2402a208` passed. Its actual Zstd decoder/dictionary
+workspaces now share the query owner; all 938 accepted runtime source assets
+and the tested tree are unchanged by integration. Production checks passed.
 The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
 

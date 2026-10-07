@@ -2,7 +2,7 @@
 
 ## October 7, 2026 pinned decoder workspace review
 
-The locally accepted `NATIVE-CODEC-WORKSPACES` unit retains Vortex 0.85.0 and the same
+The merged `NATIVE-CODEC-WORKSPACES` unit retains Vortex 0.85.0 and the same
 native encoding patch. It adds an exact direct `zstd-sys` 2.0.16 dependency only
 inside that excluded provider crate, using its experimental static-API bindings.
 The lockfile already contains `zstd-sys` 2.0.16+zstd.1.5.7 through `zstd` 0.13.3
@@ -17,7 +17,8 @@ RFC 0044 permits this scoped binding inside `vendor/vortex-zstd`; workspace
 crates retain `unsafe_code = "forbid"`. The
 [acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md) records
 24 ownership tests, 17 source gates and complete public/Full43 regression proof.
-Hosted integration and package publication remain separate. Dependency
+PR #1528 merged after all 39 hosted checks passed with the accepted runtime
+source unchanged. Package publication remains separate. Dependency
 availability alone does not expand support.
 
 ## October 6, 2026 retained allocator patch

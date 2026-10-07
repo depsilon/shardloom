@@ -36,12 +36,14 @@ native plan. Input remains resident; output batching does not make general state
 spillable. Both units merged in PR #1526 after complete local acceptance and
 all 39 hosted checks. Published v0.4.0 predates these additions.
 
-The subsequent locally accepted [Zstd workspace unit](native-zstd-workspaces-2026-10-07.md)
+The subsequent [Zstd workspace unit](native-zstd-workspaces-2026-10-07.md)
 also admits the actual one-shot C decoder and by-reference prepared-dictionary
 workspaces through that same allocator. Temporary credits release before
 returning retained output, including denial and corruption paths. Its
 [acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md) keeps
-the local source proof distinct from hosted integration and publication.
+the local source proof distinct from hosted integration and publication. It
+merged in PR #1528 after all 39 hosted checks passed, preserving the accepted
+runtime source. Published v0.4.0 remains unchanged.
 
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
 whole-process RSS bounds remain open. Other operators must retain their own resource admission

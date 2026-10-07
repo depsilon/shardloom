@@ -17,6 +17,38 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-CODEC-WORKSPACES` — actual pinned Zstd one-shot decoder and
+  by-reference prepared-dictionary workspaces are admitted through the existing
+  native allocator under PERF-03/06 and CG-5/19/20/21.
+  - The [contract](native-zstd-workspaces-2026-10-07.md) preserves concrete
+    Vortex encoding and selection, checked lengths/alignment, exclusive Rust
+    workspace borrows, typed denial and cleanup. Legacy members fail explicitly;
+    no dynamic-context retry or external execution is introduced.
+  - Runtime `ab96cd7e` passes all 24 ownership tests and 17 source gates,
+    27,373 public cases / 15,820,181 rows, 202 direct cases, 48 batch checks,
+    19 format checks, 145 semantic stages, nine golden stages and 129 Full43
+    calls. The 21,600-call native cost screen crosses no Zstd repeat threshold.
+    This is a resource correction, not a speedup or process-RSS guarantee.
+  - The [acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md)
+    preserves frozen source/executable identities, original failures, measured
+    scope and the independently inspected immutable packet. No unchanged
+    expensive engine checks were repeated for integration.
+  - [PR #1528](https://github.com/depsilon/shardloom/pull/1528) merged at
+    `9c2a7a7100bbec1e8993aedc04db404c07d29897` after all 39 hosted checks on
+    `2402a2089180c3d2f8d2dd70b88462255ba6744b` passed. Merge and tested trees
+    match; all 938 accepted runtime assets remain unchanged. Primary review
+    passed and hosted automated review completed without posted findings.
+    No submitted approval or unresolved review thread was present.
+  - Production deployment and browser verification passed. The complete rendered
+    resource page matches the accepted preview; its link opens the merged report,
+    whose bytes also match the accepted document. The
+    [hosted receipt](../benchmarks/evidence/native-codec-hosted-2026-10-07.json)
+    retains snapshots, screenshots and the corrected verification invocation.
+  - Compression/training contexts, other provider allocations, general state
+    spill and resumable recovery remain under their existing owners. Published
+    v0.4.0 is unchanged. No package publication, production-support expansion
+    or broader PERF/CG completion is claimed.
+
 - [x] `NATIVE-PROVIDER-RESOURCES` and `HARDWARE-INFORMED-EXECUTION` — finite
   implementation, local acceptance and hosted integration complete under
   PERF-02/03/06/07/10/11/12 and CG-3/5/6/19/20/21.

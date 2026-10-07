@@ -2,10 +2,11 @@
 
 # Native Zstd Workspace Acceptance
 
-Status: locally accepted source at `ab96cd7e5d0698d90c33ea2835896a68cb5f3543`.
-Hosted integration and package publication are separate. This closes the local
-implementation and acceptance portion of `NATIVE-CODEC-WORKSPACES`, under
-PERF-03/06 and CG-5/19/20/21; it does not close those broader gates.
+Status: accepted source at `ab96cd7e5d0698d90c33ea2835896a68cb5f3543`, merged in
+[PR #1528](https://github.com/depsilon/shardloom/pull/1528) at
+`9c2a7a7100bbec1e8993aedc04db404c07d29897` after all 39 hosted checks passed.
+This closes `NATIVE-CODEC-WORKSPACES`, under PERF-03/06 and CG-5/19/20/21;
+it does not close those broader gates or publish a new package.
 
 ## Accepted behavior
 
@@ -174,5 +175,11 @@ binds all seven local documentation checks and the generated pages to this
 source. Desktop and mobile review covers the resource text, contained table
 scrolling, navigation and the two Pagefind results for `workspaces`. No examples
 changed. The original missing phase-classification row and a verification-driver
-filename collision are retained with the successful correction. Hosted checks
-remain separate.
+filename collision are retained with the successful correction.
+
+The [hosted receipt](evidence/native-codec-hosted-2026-10-07.json) records the
+39 successful checks, completed automated review without posted findings,
+unchanged tested tree/runtime source and successful production deployment.
+Browser checks confirm the resource page matches the preview and its report
+link works. Historical document snapshots retain their pre-merge status wording;
+this status update does not alter the engine or its immutable acceptance packet.

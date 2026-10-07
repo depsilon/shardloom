@@ -2,12 +2,14 @@
 
 # Native Zstd Decoder Workspaces — October 7, 2026
 
-Status: locally accepted at `ab96cd7e5d0698d90c33ea2835896a68cb5f3543` for
+Status: accepted runtime `ab96cd7e5d0698d90c33ea2835896a68cb5f3543`, merged in
+[PR #1528](https://github.com/depsilon/shardloom/pull/1528) for
 `NATIVE-CODEC-WORKSPACES`, under PERF-03/06 and CG-5/19/20/21. This extends
 [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md#pinned-zstd-decoder-workspace-decision).
 The [acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md)
-records the finite resource and regression proof. Hosted integration remains
-separate; published v0.4.0 is unchanged.
+records the finite resource and regression proof. All 39 hosted checks passed;
+the merge preserves the tested tree and all 938 accepted runtime assets.
+Published v0.4.0 is unchanged.
 
 ## Decision and provider check
 

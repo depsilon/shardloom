@@ -59,7 +59,8 @@ predates these additions. Target-cohort gains are not a broad engine performance
 The subsequent [Zstd workspace acceptance](../benchmarks/native-codec-workspaces-2026-10-07.md)
 adds actual decoder and by-reference prepared-dictionary admission to the same
 native memory owner. Local ownership and complete regression checks pass;
-hosted integration is tracked separately. Compression/training state and other
+PR #1528 merged after all 39 hosted checks passed with the accepted runtime
+source unchanged. Compression/training state and other
 unreviewed allocations remain outside that finite resource proof. This does
 not change the published version or public support label.
 
