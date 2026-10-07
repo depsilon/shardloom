@@ -136,6 +136,10 @@ fn decode_fsst(
         total <= code_len.checked_mul(8).ok_or_else(size_overflow)?,
         "native FSST decoded lengths exceed the symbol expansion bound"
     );
+    // The pinned decoder trusts the declared allocation size and may panic on
+    // an understated length. Validate each encoded row without decoding payload:
+    // a matching total alone also permits incorrect boundaries between rows.
+    checked_code_lengths(array, &lengths, &offsets)?;
     // Pinned canonical.rs requests total + 7 bytes and one 16-byte view per
     // row. Both BufferMut allocations request the preferred alignment slack.
     let view_bytes = capacity(mul(array.len(), 16)?)?;
@@ -549,6 +553,67 @@ fn checked_offsets(offsets: &PrimitiveArray, code_bytes: usize) -> VortexResult<
         let first = first.ok_or_else(|| vortex_err!("native FSST offsets are empty"))?;
         Ok(previous - first)
     })
+}
+
+fn checked_code_lengths(
+    array: &FSSTArray,
+    lengths: &PrimitiveArray,
+    offsets: &PrimitiveArray,
+) -> VortexResult<()> {
+    vortex_ensure!(
+        lengths.len().checked_add(1) == Some(offsets.len()),
+        "native FSST row lengths and offsets have inconsistent counts"
+    );
+    let codes = array.codes_bytes_handle().as_host().as_slice();
+    let symbols = array.symbol_lengths();
+    match_each_integer_ptype!(offsets.ptype(), |O| {
+        match_each_integer_ptype!(lengths.ptype(), |L| {
+            for (row, (range, expected)) in offsets
+                .as_slice::<O>()
+                .windows(2)
+                .zip(lengths.as_slice::<L>())
+                .enumerate()
+            {
+                let start = usize::try_from(nonnegative(range[0], "offset")?)
+                    .map_err(|_| size_overflow())?;
+                let end = usize::try_from(nonnegative(range[1], "offset")?)
+                    .map_err(|_| size_overflow())?;
+                let codes = codes
+                    .get(start..end)
+                    .ok_or_else(|| vortex_err!("native FSST row offsets exceed the code buffer"))?;
+                checked_code_row(codes, symbols, nonnegative(*expected, "length")?, row)?;
+            }
+            Ok(())
+        })
+    })
+}
+
+fn checked_code_row(codes: &[u8], symbols: &[u8], expected: u64, row: usize) -> VortexResult<()> {
+    let mut codes = codes.iter();
+    let mut actual = 0u64;
+    while let Some(&code) = codes.next() {
+        let bytes = if code == u8::MAX {
+            vortex_ensure!(
+                codes.next().is_some(),
+                "native FSST row {row} ends with a truncated escape"
+            );
+            1
+        } else {
+            u64::from(*symbols.get(usize::from(code)).ok_or_else(|| {
+                vortex_err!("native FSST code {code} has no populated symbol at row {row}")
+            })?)
+        };
+        actual = add(actual, bytes)?;
+        vortex_ensure!(
+            actual <= expected,
+            "native FSST row length disagrees with encoded payload at row {row}"
+        );
+    }
+    vortex_ensure!(
+        actual == expected,
+        "native FSST row length disagrees with encoded payload at row {row}"
+    );
+    Ok(())
 }
 
 fn size_overflow() -> vortex::error::VortexError {

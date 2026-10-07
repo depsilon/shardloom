@@ -106,6 +106,172 @@ fn native_fsst_denial_and_invalid_metadata_release_all_credit() {
 }
 
 #[test]
+fn native_fsst_corrupt_row_lengths_are_rejected_before_provider_decode() {
+    use vortex::buffer::Buffer;
+
+    // Fixed literal codes avoid depending on training or allocation rounding.
+    // The true payload is far larger than the deliberately understated length.
+    let codes = [u8::MAX, b'a'].repeat(4096);
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let session = session(&memory);
+    let mut ctx = session.create_execution_ctx();
+    let encoded = FSST::try_new(
+        DType::Binary(Nullability::NonNullable),
+        Buffer::empty(),
+        Buffer::empty(),
+        VarBinArray::from_iter(
+            [Some(codes.as_slice())],
+            DType::Binary(Nullability::NonNullable),
+        ),
+        PrimitiveArray::from_iter([1u64]).into_array(),
+        &mut ctx,
+    )
+    .unwrap();
+    let error = encoded
+        .into_array()
+        .execute::<VarBinViewArray>(&mut ctx)
+        .unwrap_err();
+    assert!(error.to_string().contains("native FSST row length"));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_fsst_code_boundaries_reject_malformed_rows_without_panics() {
+    use vortex::buffer::Buffer;
+
+    for (codes, lengths, diagnostic) in [
+        (
+            vec![vec![u8::MAX, b'a'], vec![u8::MAX, b'b']],
+            vec![0u32, 2],
+            "row length",
+        ),
+        (
+            vec![vec![u8::MAX, b'a'], vec![u8::MAX, b'b']],
+            vec![2, 0],
+            "row length",
+        ),
+        // Bulk decoding can consume the next row as the escaped byte. Row
+        // validation must reject it even though the combined length matches.
+        (
+            vec![vec![u8::MAX], vec![b'a']],
+            vec![1, 0],
+            "truncated escape",
+        ),
+        (vec![vec![u8::MAX]], vec![0], "truncated escape"),
+        (vec![vec![0]], vec![0], "no populated symbol"),
+        (vec![vec![u8::MAX, b'a']], vec![2], "row length"),
+        (
+            vec![vec![u8::MAX, b'a', u8::MAX, b'b']],
+            vec![1],
+            "row length",
+        ),
+    ] {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let session = session(&memory);
+        let mut ctx = session.create_execution_ctx();
+        let encoded = FSST::try_new(
+            DType::Binary(Nullability::NonNullable),
+            Buffer::empty(),
+            Buffer::empty(),
+            VarBinArray::from_iter(
+                codes.iter().map(|codes| Some(codes.as_slice())),
+                DType::Binary(Nullability::NonNullable),
+            ),
+            PrimitiveArray::from_iter(lengths).into_array(),
+            &mut ctx,
+        )
+        .unwrap();
+        let error = encoded
+            .into_array()
+            .execute::<VarBinViewArray>(&mut ctx)
+            .unwrap_err();
+        assert!(error.to_string().contains(diagnostic), "{error}");
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn native_fsst_code_lengths_preserve_integer_widths_and_sliced_ranges() {
+    use vortex::{array::dtype::PType, buffer::Buffer};
+
+    fn integers(values: &[u64], ptype: PType) -> ArrayRef {
+        match_each_integer_ptype!(ptype, |P| {
+            PrimitiveArray::from_iter(values.iter().map(|value| P::try_from(*value).unwrap()))
+                .into_array()
+        })
+    }
+
+    let ptypes = [
+        PType::I8,
+        PType::I16,
+        PType::I32,
+        PType::I64,
+        PType::U8,
+        PType::U16,
+        PType::U32,
+        PType::U64,
+    ];
+    for length_type in ptypes {
+        for offset_type in ptypes {
+            let memory = LiveMemoryPool::new(1 << 20).unwrap();
+            let session = session(&memory);
+            let mut ctx = session.create_execution_ctx();
+            // The invalid prefix/suffix are outside the selected native range.
+            // Validation must use row offsets rather than all retained bytes.
+            let base = FSST::try_new(
+                DType::Utf8(Nullability::Nullable),
+                Buffer::empty(),
+                Buffer::empty(),
+                VarBinArray::from_iter(
+                    [
+                        Some(&[0u8][..]),
+                        Some(&[u8::MAX, 0xce, u8::MAX, 0xbb][..]),
+                        None,
+                        Some(&[][..]),
+                        Some(&[u8::MAX][..]),
+                    ],
+                    DType::Binary(Nullability::Nullable),
+                ),
+                integers(&[0, 2, 0, 0, 0], length_type),
+                &mut ctx,
+            )
+            .unwrap()
+            .into_array()
+            .slice(1..4)
+            .unwrap();
+            let base = base.as_::<FSST>();
+            let slots = FSSTSlots {
+                uncompressed_lengths: integers(&[2, 0, 0], length_type),
+                codes_offsets: integers(&[1, 5, 5, 5], offset_type),
+                codes_validity: base.codes_validity().cloned(),
+            };
+            let array = Array::<FSST>::try_from_parts(
+                ArrayParts::new(FSST, base.dtype().clone(), 3, base.data().clone())
+                    .with_slots(slots.into_slots()),
+            )
+            .unwrap();
+            let output = array
+                .into_array()
+                .execute::<VarBinViewArray>(&mut ctx)
+                .unwrap();
+            let valid = output
+                .validity()
+                .unwrap()
+                .execute_mask(3, &mut ctx)
+                .unwrap();
+            assert!(valid.value(0));
+            assert!(!valid.value(1));
+            assert!(valid.value(2));
+            assert_eq!(output.bytes_at(0).as_slice(), "λ".as_bytes());
+            assert!(output.bytes_at(2).is_empty());
+            assert!(memory.snapshot().reserved_bytes > 0);
+            drop(output);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn native_fsst_inline_null_empty_and_sliced_values_preserve_ownership() {
     for values in [
         vec![Some(""), Some("a"), Some("λ"), None],
