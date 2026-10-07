@@ -135,7 +135,8 @@ Default input remains resident under the query grant. Opt-in
 <a href="/field-guide/python-surface#consume-results-in-batches">streaming input</a> admits
 one finite source used once through pure scan/filter/project, with one retained
 native input batch and observed end-of-input required for success. Its local
-acceptance and packet inspection pass; hosted integration remains pending.
+acceptance and packet inspection pass; final integration is tracked in
+<a href="https://github.com/depsilon/shardloom/pull/1530">PR #1530</a>.
 Blocking/repeated-source plans and streamed compatibility writes remain denied.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound

@@ -54,8 +54,9 @@ Current source builds add `iter_batches()` for admitted results and
 in PR #1526 after complete local and hosted checks; published v0.4.0 packages
 predate them. Source builds now also admit opt-in `streaming=True` for one
 finite source used once through pure scan/filter/project operations, as below.
-Its [local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-completion-2026-10-07.md)
-and independent packet inspection pass; hosted integration remains pending.
+Its [corrected local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-fsst-admission-2026-10-07.md)
+and independent packet inspection pass. Final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 
 ```python
 def orders():

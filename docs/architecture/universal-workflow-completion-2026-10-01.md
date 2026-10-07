@@ -223,10 +223,11 @@ workspace admission in PR #1528. Builder output/finalization ownership has
 complete local and hosted acceptance in PR #1529. Continue step 2 with
 the remaining reader/codec scratch and operator spill/recovery obligations.
 The October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
-now has [local acceptance](../benchmarks/native-input-completion-2026-10-07.md)
+now has [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
 for completion-aware single-use input through the shared native filter/project
 path and incremental results, bounded collection or one Vortex destination.
-Independent packet inspection passes; hosted integration remains pending.
+Independent packet inspection passes after the FSST admission correction;
+final hosted integration is tracked in [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 Explicit `streaming=True` retains at most one finite native input batch while
 default input remains resident. Next measure a genuinely retained derived owner
 and its full dependency/reconstruction cost before selective regeneration.

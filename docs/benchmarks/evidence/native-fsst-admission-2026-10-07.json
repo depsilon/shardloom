@@ -1,0 +1,491 @@
+{
+  "schema_version": "shardloom.native_input_completion_local_acceptance.v1",
+  "status": "accepted_source_committed_locally_hosted_pending",
+  "unit": "NATIVE-INPUT-COMPLETION-FSST-INTEGRATION",
+  "runtime_commit": "b7de216fe421012d3f9b632ad19e95f19b88dbe5",
+  "source_identity_sha256": "7f2100d0cda932636b024d1ec2f79f6fd3025c783a18da75b7c07d243781bff9",
+  "runtime_source_assets_verified_against_commit": 947,
+  "integration_correction": {
+    "status": "passed_correction_scope_and_regression_verification",
+    "baseline_commit": "344b540ca7801639365ad720c67362616332ad21",
+    "corrected_commit": "b7de216fe421012d3f9b632ad19e95f19b88dbe5",
+    "original_source_identity_sha256": "dd8643bb76f7cf247363279372635d643939410f77191d15195a360aaeff102c",
+    "source_identity_sha256": "7f2100d0cda932636b024d1ec2f79f6fd3025c783a18da75b7c07d243781bff9",
+    "source_assets_verified_against_both_commits": 947,
+    "changed_assets": {
+      "shardloom-vortex/src/native_provider_memory.rs": {
+        "before": "171e5f3357e88b7bfb0a487f60aada3b698ebcf84fff9454c54beea68244eec2",
+        "after": "0c5315eb65024494294252421e8df68a85fa25dc38367b2d5f1a73ba43978f95"
+      },
+      "shardloom-vortex/src/native_provider_memory_tests.rs": {
+        "before": "04045ac2d1fe214b63e4043a6674413f6d99c4ab678ef434b688f1bb4f7e2de3",
+        "after": "fbe7024dffa43986fd103be7729f389bfa3aac11dfdca50cc2695461234fa285"
+      }
+    },
+    "unchanged_assets": 945,
+    "original_packet": "<repo>/docs/benchmarks/evidence/native-input-completion-2026-10-07.json.xz",
+    "original_packet_sha256": "bc6560f39385f72a8f58688e136983b9243bf22b6d724ef5d31e82af763873d2",
+    "original_packet_preserved": true,
+    "hosted_failure": {
+      "job": "https://github.com/depsilon/shardloom/actions/runs/37675738786/job/112978638267",
+      "path": "<fsst-uat>/fsst-original-hosted-failure-1.log",
+      "sha256": "17494dfde7b942ab741f78fcb06d11d369d62da432f39b0b447c132e645d2c45",
+      "bytes": 386072,
+      "failing_test": "native_provider_memory::tests::native_fsst_denial_and_invalid_metadata_release_all_credit",
+      "assertion": "decoded is smaller than lower-bound decompressed size"
+    },
+    "deterministic_old_code_failure": {
+      "path": "<fsst-uat>/fsst-fixed-reproducer-before-1.json",
+      "sha256": "cf8490692fd2b9979ecaa31af5a8b2e92a49057750d17c400f926bddd30688b1",
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "<home>/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "release-user-surfaces",
+          "native_provider_memory::tests::native_fsst_corrupt_row_lengths_are_rejected_before_provider_decode",
+          "--",
+          "--exact",
+          "--test-threads=1"
+        ],
+        "cwd": "<repo>",
+        "head": "344b540ca7801639365ad720c67362616332ad21",
+        "working_tree": " M shardloom-vortex/src/native_provider_memory_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 135168,
+            "log_bytes": 0,
+            "free_bytes": 34642657280,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44072304640,
+            "log_bytes": 0,
+            "free_bytes": 34642657280,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 13467,
+        "output_bytes": 1522,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 101,
+        "seconds": 31.963890540995635,
+        "log_sha256": "a846fec5b3ebed264efb6ae1ed2f20668213f26a71261813c1f93a88f5e5f17c"
+      }
+    },
+    "focused_after_fix": {
+      "path": "<fsst-uat>/fsst-focused-after-1.json",
+      "sha256": "b991f6f37d385243113968608c5b6ed67be98e876bccc25a30d3490aa48d0093",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "<home>/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "release-user-surfaces",
+          "native_provider_memory::tests::native_fsst",
+          "--",
+          "--test-threads=2"
+        ],
+        "cwd": "<repo>",
+        "head": "344b540ca7801639365ad720c67362616332ad21",
+        "working_tree": " M shardloom-vortex/src/native_provider_memory.rs\n M shardloom-vortex/src/native_provider_memory_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 143360,
+            "log_bytes": 0,
+            "free_bytes": 34638934016,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44076351488,
+            "log_bytes": 0,
+            "free_bytes": 34639073280,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 13541,
+        "output_bytes": 2160,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 30.840622584000812,
+        "log_sha256": "9e47ab96d9c6300cc53c090e8308725a24b68fa1d765270fd0a2999ea2788b4e"
+      }
+    },
+    "corrected_native_test_receipt_sha256": "bf51bbaa7db04a71c9abd46d47302d574293375b7d59130acfde34a68eec9f78",
+    "corrected_native_test_log_sha256": "e0f6b5f1a72bead967021a18de0423083a683107df4673c827eb266b8100b277",
+    "corrected_fsst_test_names": [
+      "native_provider_memory::tests::native_fsst_admits_each_reviewed_integer_metadata_provider_before_decode",
+      "native_provider_memory::tests::native_fsst_checked_sizes_reject_overflow_and_invalid_offsets",
+      "native_provider_memory::tests::native_fsst_code_boundaries_reject_malformed_rows_without_panics",
+      "native_provider_memory::tests::native_fsst_code_lengths_preserve_integer_widths_and_sliced_ranges",
+      "native_provider_memory::tests::native_fsst_corrupt_row_lengths_are_rejected_before_provider_decode",
+      "native_provider_memory::tests::native_fsst_denial_and_invalid_metadata_release_all_credit",
+      "native_provider_memory::tests::native_fsst_encoded_like_does_not_admit_or_materialize_string_payloads",
+      "native_provider_memory::tests::native_fsst_filtered_metadata_does_not_leave_unowned_mask_caches",
+      "native_provider_memory::tests::native_fsst_inline_null_empty_and_sliced_values_preserve_ownership",
+      "native_provider_memory::tests::native_fsst_metadata_nullability_casts_preserve_checked_errors",
+      "native_provider_memory::tests::native_fsst_nullable_gathers_admit_nested_indices_and_release_scratch",
+      "native_provider_memory::tests::native_fsst_reserves_before_decode_and_keeps_credit_with_escaped_buffers",
+      "native_provider_memory::tests::native_fsst_spill_sessions_charge_their_own_provider_pool"
+    ],
+    "old_bug_reproduced": true,
+    "correction_patch": "diff --git a/shardloom-vortex/src/native_provider_memory.rs b/shardloom-vortex/src/native_provider_memory.rs\nindex e7e20134..ef0bcc0a 100644\n--- a/shardloom-vortex/src/native_provider_memory.rs\n+++ b/shardloom-vortex/src/native_provider_memory.rs\n@@ -136,6 +136,10 @@ fn decode_fsst(\n         total <= code_len.checked_mul(8).ok_or_else(size_overflow)?,\n         \"native FSST decoded lengths exceed the symbol expansion bound\"\n     );\n+    // The pinned decoder trusts the declared allocation size and may panic on\n+    // an understated length. Validate each encoded row without decoding payload:\n+    // a matching total alone also permits incorrect boundaries between rows.\n+    checked_code_lengths(array, &lengths, &offsets)?;\n     // Pinned canonical.rs requests total + 7 bytes and one 16-byte view per\n     // row. Both BufferMut allocations request the preferred alignment slack.\n     let view_bytes = capacity(mul(array.len(), 16)?)?;\n@@ -551,6 +555,67 @@ fn checked_offsets(offsets: &PrimitiveArray, code_bytes: usize) -> VortexResult<\n     })\n }\n \n+fn checked_code_lengths(\n+    array: &FSSTArray,\n+    lengths: &PrimitiveArray,\n+    offsets: &PrimitiveArray,\n+) -> VortexResult<()> {\n+    vortex_ensure!(\n+        lengths.len().checked_add(1) == Some(offsets.len()),\n+        \"native FSST row lengths and offsets have inconsistent counts\"\n+    );\n+    let codes = array.codes_bytes_handle().as_host().as_slice();\n+    let symbols = array.symbol_lengths();\n+    match_each_integer_ptype!(offsets.ptype(), |O| {\n+        match_each_integer_ptype!(lengths.ptype(), |L| {\n+            for (row, (range, expected)) in offsets\n+                .as_slice::<O>()\n+                .windows(2)\n+                .zip(lengths.as_slice::<L>())\n+                .enumerate()\n+            {\n+                let start = usize::try_from(nonnegative(range[0], \"offset\")?)\n+                    .map_err(|_| size_overflow())?;\n+                let end = usize::try_from(nonnegative(range[1], \"offset\")?)\n+                    .map_err(|_| size_overflow())?;\n+                let codes = codes\n+                    .get(start..end)\n+                    .ok_or_else(|| vortex_err!(\"native FSST row offsets exceed the code buffer\"))?;\n+                checked_code_row(codes, symbols, nonnegative(*expected, \"length\")?, row)?;\n+            }\n+            Ok(())\n+        })\n+    })\n+}\n+\n+fn checked_code_row(codes: &[u8], symbols: &[u8], expected: u64, row: usize) -> VortexResult<()> {\n+    let mut codes = codes.iter();\n+    let mut actual = 0u64;\n+    while let Some(&code) = codes.next() {\n+        let bytes = if code == u8::MAX {\n+            vortex_ensure!(\n+                codes.next().is_some(),\n+                \"native FSST row {row} ends with a truncated escape\"\n+            );\n+            1\n+        } else {\n+            u64::from(*symbols.get(usize::from(code)).ok_or_else(|| {\n+                vortex_err!(\"native FSST code {code} has no populated symbol at row {row}\")\n+            })?)\n+        };\n+        actual = add(actual, bytes)?;\n+        vortex_ensure!(\n+            actual <= expected,\n+            \"native FSST row length disagrees with encoded payload at row {row}\"\n+        );\n+    }\n+    vortex_ensure!(\n+        actual == expected,\n+        \"native FSST row length disagrees with encoded payload at row {row}\"\n+    );\n+    Ok(())\n+}\n+\n fn size_overflow() -> vortex::error::VortexError {\n     vortex_err!(\"native decoder allocation size overflow\")\n }\ndiff --git a/shardloom-vortex/src/native_provider_memory_tests.rs b/shardloom-vortex/src/native_provider_memory_tests.rs\nindex 75117f78..2528c62d 100644\n--- a/shardloom-vortex/src/native_provider_memory_tests.rs\n+++ b/shardloom-vortex/src/native_provider_memory_tests.rs\n@@ -105,6 +105,172 @@ fn native_fsst_denial_and_invalid_metadata_release_all_credit() {\n     }\n }\n \n+#[test]\n+fn native_fsst_corrupt_row_lengths_are_rejected_before_provider_decode() {\n+    use vortex::buffer::Buffer;\n+\n+    // Fixed literal codes avoid depending on training or allocation rounding.\n+    // The true payload is far larger than the deliberately understated length.\n+    let codes = [u8::MAX, b'a'].repeat(4096);\n+    let memory = LiveMemoryPool::new(1 << 20).unwrap();\n+    let session = session(&memory);\n+    let mut ctx = session.create_execution_ctx();\n+    let encoded = FSST::try_new(\n+        DType::Binary(Nullability::NonNullable),\n+        Buffer::empty(),\n+        Buffer::empty(),\n+        VarBinArray::from_iter(\n+            [Some(codes.as_slice())],\n+            DType::Binary(Nullability::NonNullable),\n+        ),\n+        PrimitiveArray::from_iter([1u64]).into_array(),\n+        &mut ctx,\n+    )\n+    .unwrap();\n+    let error = encoded\n+        .into_array()\n+        .execute::<VarBinViewArray>(&mut ctx)\n+        .unwrap_err();\n+    assert!(error.to_string().contains(\"native FSST row length\"));\n+    assert_eq!(memory.snapshot().reserved_bytes, 0);\n+}\n+\n+#[test]\n+fn native_fsst_code_boundaries_reject_malformed_rows_without_panics() {\n+    use vortex::buffer::Buffer;\n+\n+    for (codes, lengths, diagnostic) in [\n+        (\n+            vec![vec![u8::MAX, b'a'], vec![u8::MAX, b'b']],\n+            vec![0u32, 2],\n+            \"row length\",\n+        ),\n+        (\n+            vec![vec![u8::MAX, b'a'], vec![u8::MAX, b'b']],\n+            vec![2, 0],\n+            \"row length\",\n+        ),\n+        // Bulk decoding can consume the next row as the escaped byte. Row\n+        // validation must reject it even though the combined length matches.\n+        (\n+            vec![vec![u8::MAX], vec![b'a']],\n+            vec![1, 0],\n+            \"truncated escape\",\n+        ),\n+        (vec![vec![u8::MAX]], vec![0], \"truncated escape\"),\n+        (vec![vec![0]], vec![0], \"no populated symbol\"),\n+        (vec![vec![u8::MAX, b'a']], vec![2], \"row length\"),\n+        (\n+            vec![vec![u8::MAX, b'a', u8::MAX, b'b']],\n+            vec![1],\n+            \"row length\",\n+        ),\n+    ] {\n+        let memory = LiveMemoryPool::new(1 << 20).unwrap();\n+        let session = session(&memory);\n+        let mut ctx = session.create_execution_ctx();\n+        let encoded = FSST::try_new(\n+            DType::Binary(Nullability::NonNullable),\n+            Buffer::empty(),\n+            Buffer::empty(),\n+            VarBinArray::from_iter(\n+                codes.iter().map(|codes| Some(codes.as_slice())),\n+                DType::Binary(Nullability::NonNullable),\n+            ),\n+            PrimitiveArray::from_iter(lengths).into_array(),\n+            &mut ctx,\n+        )\n+        .unwrap();\n+        let error = encoded\n+            .into_array()\n+            .execute::<VarBinViewArray>(&mut ctx)\n+            .unwrap_err();\n+        assert!(error.to_string().contains(diagnostic), \"{error}\");\n+        assert_eq!(memory.snapshot().reserved_bytes, 0);\n+    }\n+}\n+\n+#[test]\n+fn native_fsst_code_lengths_preserve_integer_widths_and_sliced_ranges() {\n+    use vortex::{array::dtype::PType, buffer::Buffer};\n+\n+    fn integers(values: &[u64], ptype: PType) -> ArrayRef {\n+        match_each_integer_ptype!(ptype, |P| {\n+            PrimitiveArray::from_iter(values.iter().map(|value| P::try_from(*value).unwrap()))\n+                .into_array()\n+        })\n+    }\n+\n+    let ptypes = [\n+        PType::I8,\n+        PType::I16,\n+        PType::I32,\n+        PType::I64,\n+        PType::U8,\n+        PType::U16,\n+        PType::U32,\n+        PType::U64,\n+    ];\n+    for length_type in ptypes {\n+        for offset_type in ptypes {\n+            let memory = LiveMemoryPool::new(1 << 20).unwrap();\n+            let session = session(&memory);\n+            let mut ctx = session.create_execution_ctx();\n+            // The invalid prefix/suffix are outside the selected native range.\n+            // Validation must use row offsets rather than all retained bytes.\n+            let base = FSST::try_new(\n+                DType::Utf8(Nullability::Nullable),\n+                Buffer::empty(),\n+                Buffer::empty(),\n+                VarBinArray::from_iter(\n+                    [\n+                        Some(&[0u8][..]),\n+                        Some(&[u8::MAX, 0xce, u8::MAX, 0xbb][..]),\n+                        None,\n+                        Some(&[][..]),\n+                        Some(&[u8::MAX][..]),\n+                    ],\n+                    DType::Binary(Nullability::Nullable),\n+                ),\n+                integers(&[0, 2, 0, 0, 0], length_type),\n+                &mut ctx,\n+            )\n+            .unwrap()\n+            .into_array()\n+            .slice(1..4)\n+            .unwrap();\n+            let base = base.as_::<FSST>();\n+            let slots = FSSTSlots {\n+                uncompressed_lengths: integers(&[2, 0, 0], length_type),\n+                codes_offsets: integers(&[1, 5, 5, 5], offset_type),\n+                codes_validity: base.codes_validity().cloned(),\n+            };\n+            let array = Array::<FSST>::try_from_parts(\n+                ArrayParts::new(FSST, base.dtype().clone(), 3, base.data().clone())\n+                    .with_slots(slots.into_slots()),\n+            )\n+            .unwrap();\n+            let output = array\n+                .into_array()\n+                .execute::<VarBinViewArray>(&mut ctx)\n+                .unwrap();\n+            let valid = output\n+                .validity()\n+                .unwrap()\n+                .execute_mask(3, &mut ctx)\n+                .unwrap();\n+            assert!(valid.value(0));\n+            assert!(!valid.value(1));\n+            assert!(valid.value(2));\n+            assert_eq!(output.bytes_at(0).as_slice(), \"\u03bb\".as_bytes());\n+            assert!(output.bytes_at(2).is_empty());\n+            assert!(memory.snapshot().reserved_bytes > 0);\n+            drop(output);\n+            assert_eq!(memory.snapshot().reserved_bytes, 0);\n+        }\n+    }\n+}\n+\n #[test]\n fn native_fsst_inline_null_empty_and_sliced_values_preserve_ownership() {\n     for values in [\n",
+    "driver_sha256": "8cd00470dc0832804166cd2d6aed838951560f3434245f7d656138b99abf5bf1",
+    "boundary": "Validation scans encoded codes and declared row offsets without producing decoded payload or changing the pinned FSST provider. Fresh complete engine acceptance is recorded separately; original passing local evidence and the failed hosted job remain historical."
+  },
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "7f2100d0cda932636b024d1ec2f79f6fd3025c783a18da75b7c07d243781bff9",
+    "binary_sha256": "a0c1ae72701b09ece50db5df45a4ce666b5c9f3ece10a49a9e9eab9f91fa3323",
+    "public_checks": 27373,
+    "public_rows": 15820181,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "raw_public_envelopes": 54733,
+    "raw_direct_envelopes": 367,
+    "source_checks": 15,
+    "batch_checks": 48,
+    "batch_success_envelopes": 38,
+    "batch_raw_envelopes": 44,
+    "format_checks": 19,
+    "format_raw_envelopes": 24,
+    "streaming_public_checks": 40,
+    "pressure_scenarios": 5,
+    "native_input_lifetime_tests": 10,
+    "streaming_raw_envelopes": 36,
+    "malformed_protocol_traces": 10,
+    "source_assets": 947,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "compacted_archive_members_reopened": 1548,
+    "source_tree_clean": true,
+    "documentation_updates_deferred": true,
+    "packet": "docs/benchmarks/evidence/native-fsst-admission-2026-10-07.json.xz",
+    "packet_sha256": "2e66feb14889c3e6a777d4bca44db668c8883cadf1eef7add5e05e6f41ac8a17",
+    "packet_compressed_bytes": 44377572,
+    "packet_uncompressed_bytes": 3432817204,
+    "packet_uncompressed_sha256": "6dd11954f583f1c72ae87767100930b66b6e7f882352569bafea6c19a1eb096f"
+  },
+  "original_acceptance_sha256": "9a1f21dd5df39d8d184e6b4f78119818d346e6038209b99d0e9c63f5411d8a59",
+  "portable_inspection": "docs/benchmarks/evidence/native-fsst-admission-2026-10-07-inspection.json",
+  "portable_inspection_sha256": "c5bcf3fb3a26437d3a884c8ad12a63f502accb1c5185da6ce0c75ecfdd50388b",
+  "original_inspection_sha256": "c5bcf3fb3a26437d3a884c8ad12a63f502accb1c5185da6ce0c75ecfdd50388b",
+  "inspector_contract_tests": {
+    "status": "passed",
+    "checks": {
+      "valid_input_completion_contract": true,
+      "streaming_fallback_bool": true,
+      "streaming_fallback_field": true,
+      "streaming_invalid_status": true,
+      "pressure_fallback_bool": true,
+      "pressure_fallback_field": true,
+      "pressure_invalid_status": true,
+      "invalid_end": true,
+      "missing_end": true,
+      "invalid_retained": true,
+      "missing_retained": true,
+      "failed_conformance_case": true,
+      "failed_pressure_case": true,
+      "invalid_expected_denial": true,
+      "unsupported_speedup_claim": true
+    },
+    "retained_contract_cases": 153,
+    "total_cases": 168,
+    "inspector_sha256": "23b838a11cbfe6f07a23ffb57654dfd10793eb0a5bd7774b107f05700eec5462",
+    "verifier_sha256": "041506bc61ecee9d068280f7324324071e243b9dcf3a455c3ca4f57806fc757d"
+  },
+  "archive_guards": {
+    "fsst-finalize-1": {
+      "receipt_sha256": "f7fa7aa05a1e4ce55d452e577ae879977cce052f2fd422439d012ca83124dd8b",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<fsst-uat>/finalize_fsst_acceptance.py",
+          "--attempt",
+          "1",
+          "--supervisor",
+          "fsst-finalize-1"
+        ],
+        "cwd": "<repo>",
+        "head": "b7de216fe421012d3f9b632ad19e95f19b88dbe5",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2102304768,
+            "log_bytes": 0,
+            "free_bytes": 34872418304,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44087513088,
+            "log_bytes": 0,
+            "free_bytes": 34872475648,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 22650,
+        "output_bytes": 1385,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 414.74500708399864,
+        "log_sha256": "44df7a164950f228d290bb2e3fa571618fab09b5e568bb90e968432e07157d72"
+      },
+      "log_sha256": "44df7a164950f228d290bb2e3fa571618fab09b5e568bb90e968432e07157d72"
+    },
+    "fsst-packet-inspect-1": {
+      "receipt_sha256": "54e7449939320e857b928aa439da103fdeb5b8522fcdc4c88241391308a24c3d",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<fsst-uat>/verify_fsst_packet.py",
+          "--attempt",
+          "1"
+        ],
+        "cwd": "<repo>",
+        "head": "b7de216fe421012d3f9b632ad19e95f19b88dbe5",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2102312960,
+            "log_bytes": 0,
+            "free_bytes": 34862788608,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44087513088,
+            "log_bytes": 0,
+            "free_bytes": 34862866432,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 23316,
+        "output_bytes": 1393,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 783.983216917004,
+        "log_sha256": "294a7bc30665675341904871471ac9333093db8e72c16f8d4979306114856743"
+      },
+      "log_sha256": "294a7bc30665675341904871471ac9333093db8e72c16f8d4979306114856743"
+    }
+  },
+  "input_pressure": {
+    "result_sha256": "227d7b508287937079c1822da489fbe4ee7f738356af3326bc664e9889923f30",
+    "cases": [
+      {
+        "name": "streaming-delivery-pressure",
+        "status": "passed",
+        "protocol_sha256": "2dab8266562f28108a31aee36d5abc2035f5f39cdc4e0b20a0be63f2ae9d858c",
+        "complete_operation_seconds": 12.982264500002202,
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 71534488,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": 0.5627008750016103,
+        "total_check_seconds": 13.03110229199956,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "input_mode": "streaming",
+        "output_mode": "batches",
+        "memory_grant_bytes": 1073741824,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "batches": 1152
+      },
+      {
+        "name": "resident-delivery-pressure",
+        "status": "passed",
+        "protocol_sha256": "e46866d3d9d90aeae9aed284b1d44a0cca2e827907ae0280bfd3cc3796197e0e",
+        "complete_operation_seconds": 2.7210653750007623,
+        "expected_memory_denial": true,
+        "generated_input_batches": 239,
+        "producer_ended": false,
+        "producer_closed": true,
+        "first_provisional_seconds": null,
+        "total_check_seconds": 2.746731457998976,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "input_mode": "resident",
+        "output_mode": "batches",
+        "memory_grant_bytes": 1073741824,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "batches": 1152
+      },
+      {
+        "name": "streaming-delivery-ample",
+        "status": "passed",
+        "protocol_sha256": "e3b5468f35f94b2cf28768a6bd98ed5781ee35e694ac9e11cd795a0d6efc3f51",
+        "complete_operation_seconds": 12.222187917002884,
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 71534488,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": 0.017980791999434587,
+        "total_check_seconds": 12.268547917003161,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "input_mode": "streaming",
+        "output_mode": "batches",
+        "memory_grant_bytes": 6442450944,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "batches": 1152
+      },
+      {
+        "name": "resident-delivery-ample",
+        "status": "passed",
+        "protocol_sha256": "e04e6200f4b7e9161c050ff41cd0ad11132770e1241ef8d09d91d33ff4d8f25f",
+        "complete_operation_seconds": 12.045921375000034,
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 4922459784,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": 11.772429999997257,
+        "total_check_seconds": 12.094751208998787,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "input_mode": "resident",
+        "output_mode": "batches",
+        "memory_grant_bytes": 6442450944,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "batches": 1152
+      },
+      {
+        "name": "streaming-write-pressure",
+        "status": "passed",
+        "protocol_sha256": "05377508dcdb67b615ffb1f73b622de5b0821890f9f83a18b687395a4c6acbe9",
+        "complete_operation_seconds": 12.194011250001495,
+        "output_artifact": {
+          "path": "outputs/complete.vortex",
+          "bytes": 5249964,
+          "sha256": "c8dc8d744b1f93c67dd037a703025b653c03b2c665e4ca95539d6790e487c8a7"
+        },
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 81103316,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": null,
+        "total_check_seconds": 12.70366712500254,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "input_mode": "streaming",
+        "output_mode": "vortex",
+        "memory_grant_bytes": 1073741824,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "batches": 1152
+      }
+    ],
+    "boundary": "Five single observations with identical finite 4.5-GiB UTF8 payload and complete independent selected output. Producer generation, typed intake, native execution, delivery and child exit are timed; oracle generation and Vortex readback are excluded. Native tracked reservations and logical input are separate from RSS. No speedup claim."
+  },
+  "full43_observation": {
+    "summary_sha256": "0be32614e6cfb35f23d16c0bac562d8a6ec6a748320bef1343d741af4e6a7691",
+    "source_bytes": 15682956489,
+    "memory_policy_gb": 24,
+    "maximum_parallelism": 12,
+    "sum_query_minima_seconds": 69.22121037099714,
+    "sum_query_medians_seconds": 70.29943066701526,
+    "sum_all_calls_seconds": 211.33154449799622,
+    "maximum_native_process_rss_bytes": 5449662464,
+    "boundary": "Complete new native processes against retained input; prehash warms the file cache. No fresh ingest, paired whole-engine speedup or enforced process RSS claim."
+  },
+  "documentation_updates_complete": true,
+  "hosted_acceptance_complete": false,
+  "package_publication_performed": false,
+  "performance_claim_allowed": false,
+  "broader_resource_spill_recovery_complete": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "staging_driver_sha256": "b5f7114fb73222707949c29b9e90448a880981cfa9b1ea8f239a9bf44a0f550a",
+  "documentation_acceptance": "docs/benchmarks/evidence/native-fsst-documentation-2026-10-07.json",
+  "documentation_acceptance_sha256": "4623fbdedd8366e7c1111ee6b64d8d0077922add9a0f7cb7c77d961e97a79a2a"
+}

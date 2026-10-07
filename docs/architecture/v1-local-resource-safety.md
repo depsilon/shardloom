@@ -57,14 +57,21 @@ The cost screen retains measured UTF-8 overhead and makes no speedup claim.
 
 The subsequent [completion-aware input unit](native-input-completion-2026-10-07.md)
 adds explicit streaming for one finite source used once through pure
-Scan/Filter/Project. Its [local acceptance](../benchmarks/native-input-completion-2026-10-07.md)
-and independent packet inspection pass; hosted integration remains pending.
+Scan/Filter/Project. Its [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
+and independent packet inspection pass; final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 It completes 4.5 GiB of UTF8 payload under a 1 GiB native grant with at most one
 retained native input batch. Separately credited output compaction prevents
 consumer aliases from pinning that input; retained output and native sink
 metadata still consume their own credits. Late failure prevents successful
 completion and incomplete file publication. The finite intake limits remain;
 this is neither input spill nor a bound on total process RSS.
+
+The FSST integration correction validates each selected row's encoded symbol
+expansion and escape boundaries before requesting the existing native decoder's
+payload. Malformed lengths and unpopulated symbols fail explicitly; the focused
+and complete native suites verify released reservations. It adds no decoder,
+upstream dependency or broader allocation-accounting claim.
 
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
 whole-process RSS bounds remain open. Other operators must retain their own resource admission

@@ -56,7 +56,7 @@ once; a factory supplies fresh input on repeated execution. Each frame is at
 most 8 MiB, with at most 4,096 batches per source. In the default resident mode
 (`streaming=False`), total native input must fit the shared grant.
 
-Opt-in `streaming=True` has separate [local acceptance](../benchmarks/native-input-completion-2026-10-07.md)
+Opt-in `streaming=True` has separate [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
 under the [completion-aware input contract](../architecture/native-input-completion-2026-10-07.md).
 One finite source is consumed once through pure Scan/Filter/Project, retaining
 at most one native input batch. It supports incremental results, bounded small
@@ -64,7 +64,8 @@ collection or one native Vortex destination. Cumulative input may exceed the
 query grant within the finite batch/frame limits; typed intake, output compaction
 and result/sink reservations remain charged. Unsupported plans reject before
 producer consumption. Observed end-of-input is required for success. Neither
-mode adds input spill or an RSS bound; hosted integration for the new mode is pending.
+mode adds input spill or an RSS bound. Final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 
 `iter_batches(batch_rows=2048, memory_gb=..., max_parallelism=..., spill=...)`
 delivers admitted typed/nested results with acknowledged backpressure. Consume

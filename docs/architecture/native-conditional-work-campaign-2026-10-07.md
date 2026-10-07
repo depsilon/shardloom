@@ -8,8 +8,10 @@ The [conservative membership screen](../benchmarks/native-join-membership-2026-1
 is also **dropped**: its 6.88% mostly-absent gain cannot override 4.17% and 3.28%
 high-match control regressions. No candidate has been retained. Four other tracks
 remain gated. The separate completion-aware input unit now has
-[local engine, packet and documentation acceptance](../benchmarks/native-input-completion-2026-10-07.md);
-hosted integration remains pending. It makes no retained performance claim for
+[corrected local engine and packet acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
+after an FSST integration fix. Refreshed documentation and hosted integration are
+tracked in [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+It makes no retained performance claim for
 the six candidates in this intake.
 The reviewed control runtime is `53cd1582`, whose 941 runtime
 assets match builder snapshot

@@ -2,9 +2,12 @@
 
 # Completion-aware Native Input Acceptance
 
-Status: local engine acceptance and independent packet inspection passed for
-runtime `f14460ef262b076842d375fa05d33507c4a97027`. Documentation, actual native
-examples and browser checks pass; hosted integration remains pending. This is the finite
+Status: historical local engine, documentation and independent packet acceptance
+for runtime `f14460ef262b076842d375fa05d33507c4a97027`. Hosted integration
+subsequently exposed malformed FSST metadata reaching a decoder assertion.
+The [correction and fresh acceptance](native-fsst-admission-2026-10-07.md) identify
+the current corrected runtime, its two changed source assets and complete rerun.
+The original measurements and immutable packet below remain intact. This is the finite
 `NATIVE-INPUT-COMPLETION` unit under PERF-03/07/11/12 and CG-5/19/20/21.
 Published v0.4.0 and broader PERF/CG status are unchanged.
 
@@ -119,7 +122,7 @@ objects, provider exclusions, allocator bookkeeping or process RSS.
 
 All 43 queries run three times in new native processes against the unchanged
 15,682,956,489-byte Vortex input with 99,997,497 rows. All 129 complete results
-match the retained independent reference. The three footer-only COUNT calls
+match the retained native regression reference. The three footer-only COUNT calls
 retain native no-read/no-decode/no-row-materialization certificates.
 
 | Observation | Value |

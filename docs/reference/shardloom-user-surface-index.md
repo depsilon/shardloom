@@ -109,8 +109,9 @@ native Vortex destination. It retains at most one native input batch, permitting
 cumulative input above the shared grant within the existing finite intake limits.
 Typed intake and output compaction remain charged; result and sink reservations
 remain separate. Unsupported plans reject before producer consumption, and success
-requires observed end-of-input. [Local acceptance](../benchmarks/native-input-completion-2026-10-07.md)
-and independent packet inspection pass; hosted integration remains pending.
+requires observed end-of-input. [Corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
+and independent packet inspection pass. Final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 Resident input remains the default; no input spill or process-RSS bound is added.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`

@@ -77,9 +77,11 @@ The [completion-aware input unit](../architecture/native-input-completion-2026-1
 adds opt-in `from_batches(..., streaming=True)` for one finite source used once
 through pure Scan/Filter/Project, with incremental results, bounded small
 collection or one native Vortex destination. Its
-[local acceptance and packet inspection](../benchmarks/native-input-completion-2026-10-07.md)
+[corrected local acceptance and packet inspection](../benchmarks/native-fsst-admission-2026-10-07.md)
 pass, including complete input above the native grant and late-failure safety;
-hosted integration is pending. At most one native input batch is retained.
+final integration is tracked in [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+The corrected runtime also rejects malformed FSST row lengths before native
+decoder allocation. At most one native input batch is retained.
 Resident input remains the default; no general spill, RSS bound, public support
 label or published v0.4.0 contents change follows from this finite addition.
 

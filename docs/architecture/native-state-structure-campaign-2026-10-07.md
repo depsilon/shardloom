@@ -2,9 +2,11 @@
 
 Status: source-grounded implementation and experiment queue for the maintainer's
 October 7 direction. Completion-aware input now has
-[local engine acceptance and independent packet inspection](../benchmarks/native-input-completion-2026-10-07.md)
-on `f14460ef`; documentation and browser checks also pass. Hosted integration
-remains pending. The other
+[local engine acceptance and independent packet inspection](../benchmarks/native-fsst-admission-2026-10-07.md)
+on corrected runtime `b7de216f`. The original hosted FSST failure, deterministic
+reproducer and complete corrected-build regression remain recorded. Refreshed
+documentation, native examples and browser checks pass; final hosted integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530). The other
 four tracks have not yet produced measured prototypes.
 Builder resource acceptance, packet inspection and hosted integration have passed
 in PR #1529, preserving all 941 accepted runtime source assets. This campaign
@@ -31,8 +33,9 @@ the builder's historical packet or claim a new measured implementation.
 1. Close completion-aware input under PERF-03/07/11/12 and CG-5/19/20/21.
    Local proof now covers one finite input feeding the existing pure
    filter/project and admitted local output paths, complete input larger than
-   its grant, one retained input batch and late-failure safety. Documentation/site
-   checks pass; finish hosted integration while preserving the accepted source.
+   its grant, one retained input batch and late-failure safety. Refreshed
+   documentation/site checks, native examples and browser review pass for the
+   FSST correction. Finish hosted integration while preserving that source.
 2. Investigate selective rematerialization after that source-lifetime work
    under PERF-03/06/07/12. First measure genuinely retained intermediates. The
    newly added predicate blocks are not currently a retained mask cache.
@@ -189,7 +192,7 @@ campaign. A changed strategy needs its own distinct mechanism and evidence.
   them from later implementation revisions.
 - Finish hosted integration for the implemented
   [streaming design](native-input-completion-2026-10-07.md), preserving its
-  complete [local acceptance](../benchmarks/native-input-completion-2026-10-07.md).
+  complete [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md).
 - Select and instrument actual retained intermediates for the rematerialization
   screen; do not start from ephemeral predicate words.
 - Define the independent cyclic-join fixture/oracle and exact ordering contract,

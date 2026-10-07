@@ -91,7 +91,9 @@
     "input_grant_fit_scope": "resident_mode_only",
     "streaming_input": {
       "reference": "docs/architecture/native-input-completion-2026-10-07.md",
-      "acceptance_reference": "docs/benchmarks/native-input-completion-2026-10-07.md",
+      "acceptance_reference": "docs/benchmarks/native-fsst-admission-2026-10-07.md",
+      "historical_acceptance_reference": "docs/benchmarks/native-input-completion-2026-10-07.md",
+      "accepted_runtime_commit": "b7de216fe421012d3f9b632ad19e95f19b88dbe5",
       "availability": "accepted_local_source_hosted_integration_pending",
       "default": false,
       "supported_plan": ["Scan", "Filter", "Project"],

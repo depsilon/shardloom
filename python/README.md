@@ -508,7 +508,7 @@ separate 16 MiB wire-frame ceiling and 32 MiB native logical-intake limit per
 batch. Typed intake and output compaction are charged copies; output reservations
 and native sink metadata remain separate. This adds no input spill or process-RSS
 ceiling. See the [streaming contract](../docs/architecture/native-input-completion-2026-10-07.md)
-and [acceptance evidence](../docs/benchmarks/native-input-completion-2026-10-07.md).
+and [corrected acceptance evidence](../docs/benchmarks/native-fsst-admission-2026-10-07.md).
 Published v0.4.0 predates both batch modes.
 
 Current source builds compose flat-scalar DISTINCT, `drop_duplicates`, `duplicated`,

@@ -1,17 +1,22 @@
 # Completion-aware native batch input
 
-Status: local engine acceptance and independent packet inspection passed for
-runtime `f14460ef262b076842d375fa05d33507c4a97027`. Documentation, executable
-examples and browser checks pass; hosted integration is pending. This is the
+Status: local engine acceptance and independent packet inspection pass for
+corrected runtime `b7de216fe421012d3f9b632ad19e95f19b88dbe5`.
+The FSST integration correction preserves the input contract and passes all 39
+hosted engine checks. Refreshed documentation, native examples and browser checks
+pass; final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530). This is the
 `NATIVE-INPUT-COMPLETION` unit under PERF-03/07/11/12 and CG-5/19/20/21.
 It follows the accepted builder runtime `53cd1582` and the two dropped
 conditional-work experiments recorded at `0117ab9f`. Published v0.4.0 is unchanged.
 
-The [acceptance report](../benchmarks/native-input-completion-2026-10-07.md)
+The [corrected acceptance report](../benchmarks/native-fsst-admission-2026-10-07.md)
 records complete output from 4.5 GiB of UTF8 input under a 1 GiB native grant,
 all 40 new public cases, ten native ownership tests, five pressure/control cases,
 the existing complete regression portfolio and all 129 Full43 results. This
 removes a finite resident-input barrier; it is not a speedup or process-RSS claim.
+The [original report](../benchmarks/native-input-completion-2026-10-07.md) remains
+historical evidence for `f14460ef`; its packet is not rewritten by the correction.
 
 ## Decision
 

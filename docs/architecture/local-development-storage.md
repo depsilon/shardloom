@@ -295,6 +295,16 @@ unchanged, and the fresh 129-query observation then passed admission. Failures,
 resident source data and unrelated files were preserved. This is a recorded
 completed-run compaction, not permission for blanket cleanup or guard bypass.
 
+The [FSST integration correction](../benchmarks/native-fsst-admission-2026-10-07.md)
+preserves two further preflight refusals under the same 252-MiB threshold.
+Two verified compactions of three completed historical cohorts recover
+5,582,848 accounted bytes and retain all 1,548 original JSON/companion members
+with unchanged summaries. The intervening incomplete 91-call cohort is preserved
+in full after its outer supervisor disappeared; its orphaned runner and children
+were stopped and its lock removed. It receives no acceptance credit. A fresh
+fully supervised pass validates all 129 results. No failed/incomplete evidence,
+resident inputs or unrelated files are deleted, and no limit is raised.
+
 ```sh
 python3 -B -m unittest discover -s scripts -p test_local_uat_storage.py -v
 bash -n scripts/run_clickbench_ingest_uat.sh

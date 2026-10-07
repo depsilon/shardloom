@@ -306,6 +306,8 @@
     "maximum_native_process_rss_bytes": 4938645504,
     "boundary": "Complete new native processes against retained input; prehash warms the file cache. No fresh ingest, paired whole-engine speedup or enforced process RSS claim."
   },
+  "historical_acceptance_only": true,
+  "superseded_by_corrected_runtime_acceptance": "docs/benchmarks/evidence/native-fsst-admission-2026-10-07.json",
   "documentation_updates_complete": true,
   "hosted_acceptance_complete": false,
   "package_publication_performed": false,

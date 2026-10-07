@@ -490,8 +490,9 @@ Current source builds add \`iter_batches()\` for admitted results and
 in PR #1526 after complete local and hosted checks; published v0.4.0 packages
 predate them. Source builds now also admit opt-in \`streaming=True\` for one
 finite source used once through pure scan/filter/project operations, as below.
-Its [local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-completion-2026-10-07.md)
-and independent packet inspection pass; hosted integration remains pending.
+Its [corrected local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-fsst-admission-2026-10-07.md)
+and independent packet inspection pass. Final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 
 \`\`\`python
 def orders():
@@ -736,13 +737,15 @@ allocations remain outside this finite scope. These resource corrections make
 no speedup claim, and a query grant still does not bound total process RSS.
 
 Opt-in \`from_batches(..., streaming=True)\` now has separate
-[local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-completion-2026-10-07.md),
+[local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-fsst-admission-2026-10-07.md),
 including complete 4.5-GiB UTF8 input under a 1-GiB native grant. It retains at
 most one native input batch and admits only one finite source through pure
 scan/filter/project operations. Output compaction prevents retained results from
 pinning input; native sink metadata and retained output still consume credits.
 Late failure prevents successful completion and incomplete file publication.
-Hosted integration is pending; published v0.4.0 is unchanged.
+The accepted runtime also rejects malformed FSST row lengths before native
+decoder allocation. Final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530); published v0.4.0 is unchanged.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -875,7 +878,8 @@ Default input remains resident under the query grant. Opt-in
 [streaming input](/field-guide/python-surface#consume-results-in-batches) admits
 one finite source used once through pure scan/filter/project, with one retained
 native input batch and observed end-of-input required for success. Its local
-acceptance and packet inspection pass; hosted integration remains pending.
+acceptance and packet inspection pass; final integration is tracked in
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 Blocking/repeated-source plans and streamed compatibility writes remain denied.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
